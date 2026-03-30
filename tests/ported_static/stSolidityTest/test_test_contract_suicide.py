@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_test_contract_suicide(
     pre: Alloc,
 ) -> None:
     """Test_test_contract_suicide."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xA2333EEF5630066B928DEA5FD85A239F511B5B067D1441EE7AC290D0122B917B
     )
@@ -42,7 +42,6 @@ def test_test_contract_suicide(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
@@ -185,17 +184,16 @@ def test_test_contract_suicide(
         + Op.JUMP,
         balance=0x186A0,
         nonce=0,
-        address=Address("0xfe34831df57f026afbfffd7e7b51b4adbfe135e1"),  # noqa: E501
+        address=Address(0xFE34831DF57F026AFBFFFD7E7B51B4ADBFE135E1),  # noqa: E501
     )
     pre[sender] = Account(balance=0x5F5E100)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=bytes.fromhex("c0406226"),
+        data=Bytes("c0406226"),
         gas_limit=350000,
         value=1,
-        gas_price=10,
     )
 
     post = {target: Account(storage={0: 1}, nonce=1)}

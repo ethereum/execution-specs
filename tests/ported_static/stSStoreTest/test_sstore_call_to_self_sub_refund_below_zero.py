@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_sstore_call_to_self_sub_refund_below_zero(
     pre: Alloc,
 ) -> None:
     """Test where accnt has slot 1 value of '2', is cleared, then calls..."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xAF50993BA9FD52F2A61FCD1DC6D59A44E7AF39F4289201CC19EA7D30E8E27E83
     )
@@ -42,7 +42,6 @@ def test_sstore_call_to_self_sub_refund_below_zero(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=68719476736,
     )
@@ -67,15 +66,15 @@ def test_sstore_call_to_self_sub_refund_below_zero(
         + Op.STOP,
         storage={1: 2},
         nonce=0,
-        address=Address("0xb48023055b6c3d565a6f5488459d64efab79b6c7"),  # noqa: E501
+        address=Address(0xB48023055B6C3D565A6F5488459D64EFAB79B6C7),  # noqa: E501
     )
     pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFF)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=2367154,
-        gas_price=10,
     )
 
     post = {

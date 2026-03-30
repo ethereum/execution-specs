@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,7 +34,7 @@ def test_delegate_call_on_eip_with_mem_expanding_calls(
     pre: Alloc,
 ) -> None:
     """Test_delegate_call_on_eip_with_mem_expanding_calls."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x8D19F2B0D2F5689C1771FBCA70476CA6E877A81EE15C3733DE87FAE38E5ABCEF
     )
@@ -44,7 +44,6 @@ def test_delegate_call_on_eip_with_mem_expanding_calls(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -66,27 +65,27 @@ def test_delegate_call_on_eip_with_mem_expanding_calls(
             ),
         ),
         nonce=0,
-        address=Address("0x3fc906a124d4054023be5dd8666ce29aa3712ccb"),  # noqa: E501
+        address=Address(0x3FC906A124D4054023BE5DD8666CE29AA3712CCB),  # noqa: E501
     )
     # Source: hex
     # 0x6012600055
-    addr_0x1000000000000000000000000000000000000105 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=0x12),
         nonce=0,
-        address=Address("0xa1f6e75a455896613053d45331763a07f4718969"),  # noqa: E501
+        address=Address(0xA1F6E75A455896613053D45331763A07F4718969),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=600000,
-        gas_price=10,
     )
 
     post = {
         sender: Account(nonce=1),
         target: Account(storage={0: 18, 8: 0x8D5B6, 9: 1}),
-        addr_0x1000000000000000000000000000000000000105: Account(storage={}),
+        addr: Account(storage={}),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

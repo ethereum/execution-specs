@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -21,20 +22,7 @@ from execution_testing.specs.static_state.expect_section import (
 )
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "600a80600c6000396000f200600160008035811a8100",
-    "600160015560026001556003600155600460015560056001556006600155",
-]
-TX_GAS = [56000, 150000]
-TX_VALUE = [1]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -80,7 +68,7 @@ def test_out_of_gas_contract_creation(
     v: int,
 ) -> None:
     """Test_out_of_gas_contract_creation."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -90,7 +78,6 @@ def test_out_of_gas_contract_creation(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000000000,
     )
@@ -134,13 +121,19 @@ def test_out_of_gas_contract_creation(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes("600a80600c6000396000f200600160008035811a8100"),
+        Bytes("600160015560026001556003600155600460015560056001556006600155"),
+    ]
+    tx_gas = [56000, 150000]
+    tx_value = [1]
+
     tx = Transaction(
         sender=sender,
         to=None,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
         error=_exc,
     )
 

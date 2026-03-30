@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -22,27 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "693c61390000000000000000000000000000000000000000000000000000000000000000",
-    "693c61390000000000000000000000000000000000000000000000000000000000000001",
-    "693c61390000000000000000000000000000000000000000000000000000000000000002",
-    "693c61390000000000000000000000000000000000000000000000000000000000000003",
-    "693c61390000000000000000000000000000000000000000000000000000000000000004",
-    "693c61390000000000000000000000000000000000000000000000000000000000000005",
-    "693c61390000000000000000000000000000000000000000000000000000000000000006",
-    "693c61390000000000000000000000000000000000000000000000000000000000000007",
-    "693c61390000000000000000000000000000000000000000000000000000000000000008",
-]
-TX_GAS = [16777216]
-TX_VALUE = [1]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -118,17 +99,17 @@ def test_mul(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    contract_0 = Address("0x0000000000000000000000000000000000001000")
-    contract_1 = Address("0x0000000000000000000000000000000000001001")
-    contract_2 = Address("0x0000000000000000000000000000000000001002")
-    contract_3 = Address("0x0000000000000000000000000000000000001003")
-    contract_4 = Address("0x0000000000000000000000000000000000001004")
-    contract_5 = Address("0x0000000000000000000000000000000000001005")
-    contract_6 = Address("0x0000000000000000000000000000000000001006")
-    contract_7 = Address("0x0000000000000000000000000000000000001007")
-    contract_8 = Address("0x0000000000000000000000000000000000001008")
-    contract_9 = Address("0xcccccccccccccccccccccccccccccccccccccccc")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0x0000000000000000000000000000000000001000)
+    contract_1 = Address(0x0000000000000000000000000000000000001001)
+    contract_2 = Address(0x0000000000000000000000000000000000001002)
+    contract_3 = Address(0x0000000000000000000000000000000000001003)
+    contract_4 = Address(0x0000000000000000000000000000000000001004)
+    contract_5 = Address(0x0000000000000000000000000000000000001005)
+    contract_6 = Address(0x0000000000000000000000000000000000001006)
+    contract_7 = Address(0x0000000000000000000000000000000000001007)
+    contract_8 = Address(0x0000000000000000000000000000000000001008)
+    contract_9 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -138,7 +119,6 @@ def test_mul(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
@@ -151,7 +131,7 @@ def test_mul(
         code=Op.SSTORE(key=0x0, value=Op.MUL(0x2, 0x3)) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address("0x0000000000000000000000000000000000001000"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000001000),  # noqa: E501
     )
     # Source: lll
     # {
@@ -173,7 +153,7 @@ def test_mul(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address("0x0000000000000000000000000000000000001001"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000001001),  # noqa: E501
     )
     # Source: lll
     # {
@@ -183,7 +163,7 @@ def test_mul(
         code=Op.SSTORE(key=0x0, value=Op.MUL(0x0, 0x17)) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address("0x0000000000000000000000000000000000001002"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000001002),  # noqa: E501
     )
     # Source: lll
     # {
@@ -193,7 +173,7 @@ def test_mul(
         code=Op.SSTORE(key=0x0, value=Op.MUL(0x17, 0x1)) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address("0x0000000000000000000000000000000000001003"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000001003),  # noqa: E501
     )
     # Source: lll
     # {
@@ -215,7 +195,7 @@ def test_mul(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address("0x0000000000000000000000000000000000001004"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000001004),  # noqa: E501
     )
     # Source: lll
     # {
@@ -238,7 +218,7 @@ def test_mul(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address("0x0000000000000000000000000000000000001005"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000001005),  # noqa: E501
     )
     # Source: lll
     # {
@@ -261,7 +241,7 @@ def test_mul(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address("0x0000000000000000000000000000000000001006"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000001006),  # noqa: E501
     )
     # Source: lll
     # {
@@ -286,7 +266,7 @@ def test_mul(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address("0x0000000000000000000000000000000000001007"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000001007),  # noqa: E501
     )
     # Source: raw
     # 0x600160005560010200
@@ -294,7 +274,7 @@ def test_mul(
         code=Op.SSTORE(key=0x0, value=0x1) + Op.PUSH1[0x1] + Op.MUL + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address("0x0000000000000000000000000000000000001008"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000001008),  # noqa: E501
     )
     # Source: lll
     # {
@@ -313,7 +293,7 @@ def test_mul(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),  # noqa: E501
+        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
     pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
@@ -373,13 +353,44 @@ def test_mul(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes(
+            "693c61390000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+        ),
+        Bytes(
+            "693c61390000000000000000000000000000000000000000000000000000000000000001"  # noqa: E501
+        ),
+        Bytes(
+            "693c61390000000000000000000000000000000000000000000000000000000000000002"  # noqa: E501
+        ),
+        Bytes(
+            "693c61390000000000000000000000000000000000000000000000000000000000000003"  # noqa: E501
+        ),
+        Bytes(
+            "693c61390000000000000000000000000000000000000000000000000000000000000004"  # noqa: E501
+        ),
+        Bytes(
+            "693c61390000000000000000000000000000000000000000000000000000000000000005"  # noqa: E501
+        ),
+        Bytes(
+            "693c61390000000000000000000000000000000000000000000000000000000000000006"  # noqa: E501
+        ),
+        Bytes(
+            "693c61390000000000000000000000000000000000000000000000000000000000000007"  # noqa: E501
+        ),
+        Bytes(
+            "693c61390000000000000000000000000000000000000000000000000000000000000008"  # noqa: E501
+        ),
+    ]
+    tx_gas = [16777216]
+    tx_value = [1]
+
     tx = Transaction(
         sender=sender,
         to=contract_9,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
         error=_exc,
     )
 

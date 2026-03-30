@@ -11,18 +11,17 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Storage,
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+REFERENCE_SPEC_VERSION = "N/A"
 
 
 def _storage_with_any(base: dict, any_keys: list) -> Storage:
@@ -31,129 +30,6 @@ def _storage_with_any(base: dict, any_keys: list) -> Storage:
     for k in any_keys:
         s.set_expect_any(k)
     return s
-
-
-REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "000000",
-    "010003",
-    "020005",
-    "030003",
-    "040005",
-    "050005",
-    "060005",
-    "070005",
-    "080008",
-    "090008",
-    "0b0005",
-    "100003",
-    "110003",
-    "120003",
-    "130003",
-    "140003",
-    "150003",
-    "160003",
-    "170003",
-    "180003",
-    "190003",
-    "1a0003",
-    "300002",
-    "310a28",
-    "320002",
-    "330002",
-    "340002",
-    "350003",
-    "360002",
-    "380002",
-    "3a0002",
-    "3b0a28",
-    "400014",
-    "410002",
-    "420002",
-    "430002",
-    "440002",
-    "450002",
-    "500002",
-    "540834",
-    "555654",
-    "580002",
-    "590002",
-    "5a0002",
-    "5b0001",
-    "ff1db0",
-    "600003",
-    "610003",
-    "620003",
-    "630003",
-    "640003",
-    "650003",
-    "660003",
-    "670003",
-    "680003",
-    "690003",
-    "6a0003",
-    "6b0003",
-    "6c0003",
-    "6d0003",
-    "6e0003",
-    "6f0003",
-    "700003",
-    "710003",
-    "720003",
-    "730003",
-    "740003",
-    "750003",
-    "760003",
-    "770003",
-    "780003",
-    "790003",
-    "7a0003",
-    "7b0003",
-    "7c0003",
-    "7d0003",
-    "7e0003",
-    "7f0003",
-    "800003",
-    "810003",
-    "820003",
-    "830003",
-    "840003",
-    "850003",
-    "860003",
-    "870003",
-    "880003",
-    "890003",
-    "8a0003",
-    "8b0003",
-    "8c0003",
-    "8d0003",
-    "8e0003",
-    "8f0003",
-    "900003",
-    "910003",
-    "920003",
-    "930003",
-    "940003",
-    "950003",
-    "960003",
-    "970003",
-    "980003",
-    "990003",
-    "9a0003",
-    "9b0003",
-    "9c0003",
-    "9d0003",
-    "9e0003",
-    "9f0003",
-]
-TX_GAS = [16777216]
-TX_VALUE = [1]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -835,7 +711,7 @@ def test_gas_cost_berlin(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x40AC0FC28C27E961EE46EC43355A094DE205856EDBD4654CF2577C2608D4EC1E
     )
@@ -845,7 +721,6 @@ def test_gas_cost_berlin(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
@@ -882,7 +757,7 @@ def test_gas_cost_berlin(
     #
     #   ; Understand the input
     # ... (55 more lines)
-    addr_0x095e7baea6a6c7c4c2dfeb977efac326af552d87 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(
             offset=0x200,
             value=Op.DIV(Op.CALLDATALOAD(offset=0x0), Op.EXP(0x2, 0xF8)),
@@ -971,32 +846,133 @@ def test_gas_cost_berlin(
         storage={0: 24743},
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"),  # noqa: E501
+        address=Address(0x2F170B2347023BB6BF3EEC84B53259B96E0268C3),  # noqa: E501
     )
     pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                addr_0x095e7baea6a6c7c4c2dfeb977efac326af552d87: Account(
-                    storage=_storage_with_any({0: 0}, [1])
-                ),
-            },
-        },
+    tx_data = [
+        Bytes("000000"),
+        Bytes("010003"),
+        Bytes("020005"),
+        Bytes("030003"),
+        Bytes("040005"),
+        Bytes("050005"),
+        Bytes("060005"),
+        Bytes("070005"),
+        Bytes("080008"),
+        Bytes("090008"),
+        Bytes("0b0005"),
+        Bytes("100003"),
+        Bytes("110003"),
+        Bytes("120003"),
+        Bytes("130003"),
+        Bytes("140003"),
+        Bytes("150003"),
+        Bytes("160003"),
+        Bytes("170003"),
+        Bytes("180003"),
+        Bytes("190003"),
+        Bytes("1a0003"),
+        Bytes("300002"),
+        Bytes("310a28"),
+        Bytes("320002"),
+        Bytes("330002"),
+        Bytes("340002"),
+        Bytes("350003"),
+        Bytes("360002"),
+        Bytes("380002"),
+        Bytes("3a0002"),
+        Bytes("3b0a28"),
+        Bytes("400014"),
+        Bytes("410002"),
+        Bytes("420002"),
+        Bytes("430002"),
+        Bytes("440002"),
+        Bytes("450002"),
+        Bytes("500002"),
+        Bytes("540834"),
+        Bytes("555654"),
+        Bytes("580002"),
+        Bytes("590002"),
+        Bytes("5a0002"),
+        Bytes("5b0001"),
+        Bytes("ff1db0"),
+        Bytes("600003"),
+        Bytes("610003"),
+        Bytes("620003"),
+        Bytes("630003"),
+        Bytes("640003"),
+        Bytes("650003"),
+        Bytes("660003"),
+        Bytes("670003"),
+        Bytes("680003"),
+        Bytes("690003"),
+        Bytes("6a0003"),
+        Bytes("6b0003"),
+        Bytes("6c0003"),
+        Bytes("6d0003"),
+        Bytes("6e0003"),
+        Bytes("6f0003"),
+        Bytes("700003"),
+        Bytes("710003"),
+        Bytes("720003"),
+        Bytes("730003"),
+        Bytes("740003"),
+        Bytes("750003"),
+        Bytes("760003"),
+        Bytes("770003"),
+        Bytes("780003"),
+        Bytes("790003"),
+        Bytes("7a0003"),
+        Bytes("7b0003"),
+        Bytes("7c0003"),
+        Bytes("7d0003"),
+        Bytes("7e0003"),
+        Bytes("7f0003"),
+        Bytes("800003"),
+        Bytes("810003"),
+        Bytes("820003"),
+        Bytes("830003"),
+        Bytes("840003"),
+        Bytes("850003"),
+        Bytes("860003"),
+        Bytes("870003"),
+        Bytes("880003"),
+        Bytes("890003"),
+        Bytes("8a0003"),
+        Bytes("8b0003"),
+        Bytes("8c0003"),
+        Bytes("8d0003"),
+        Bytes("8e0003"),
+        Bytes("8f0003"),
+        Bytes("900003"),
+        Bytes("910003"),
+        Bytes("920003"),
+        Bytes("930003"),
+        Bytes("940003"),
+        Bytes("950003"),
+        Bytes("960003"),
+        Bytes("970003"),
+        Bytes("980003"),
+        Bytes("990003"),
+        Bytes("9a0003"),
+        Bytes("9b0003"),
+        Bytes("9c0003"),
+        Bytes("9d0003"),
+        Bytes("9e0003"),
+        Bytes("9f0003"),
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    tx_gas = [16777216]
+    tx_value = [1]
 
     tx = Transaction(
         sender=sender,
-        to=addr_0x095e7baea6a6c7c4c2dfeb977efac326af552d87,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
-        error=_exc,
+        to=addr,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
     )
+
+    post = {addr: Account(storage=_storage_with_any({0: 0}, [1]))}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

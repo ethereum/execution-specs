@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -23,30 +24,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "00",
-    "01",
-]
-TX_GAS = [400000]
-TX_VALUE = [100000]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
-
-
-TX_ACCESS_LISTS: dict[int, list] = {
-    1: [],
-}
-
-
-def _tx_access_list(d: int) -> list | None:
-    """Get access list for data index d. None means no access list (legacy tx)."""  # noqa: E501
-    return TX_ACCESS_LISTS.get(d)
 
 
 @pytest.mark.ported_from(
@@ -82,7 +60,7 @@ def test_low_gas_price_old_types(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xDE0C95357363DA5C1C5A73BD7C2781CA5C9FECC1014103B5E1D1E990AE8208EC
     )
@@ -92,7 +70,6 @@ def test_low_gas_price_old_types(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=1000,
         gas_limit=71794957647893862,
     )
@@ -105,7 +82,7 @@ def test_low_gas_price_old_types(
         code=Op.SSTORE(key=0x0, value=0x2) + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0xd71b14c239fc39327f25764dd784c85ef0285fda"),  # noqa: E501
+        address=Address(0xD71B14C239FC39327F25764DD784C85EF0285FDA),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
 
@@ -122,16 +99,27 @@ def test_low_gas_price_old_types(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes("00"),
+        Bytes("01"),
+    ]
+    tx_gas = [400000]
+    tx_value = [100000]
+
+    tx_access_lists: dict[int, list] = {
+        1: [],
+    }
+
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
         nonce=1,
         gas_price=999,
-        access_list=_tx_access_list(d),
-        error=_exc,
+        access_list=tx_access_lists.get(d),
+        error=TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS,
     )
 
     state_test(env=env, pre=pre, post=post, tx=tx)

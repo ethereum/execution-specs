@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -35,7 +35,7 @@ def test_call_recursive_bomb_pre_call(
     pre: Alloc,
 ) -> None:
     """Test_call_recursive_bomb_pre_call."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x77F65B71F1F16A75476F469F7106D1B60BFEC266AE25B8DA16A9091D223AA24A
     )
@@ -45,7 +45,6 @@ def test_call_recursive_bomb_pre_call(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=9223372036854775807,
     )
@@ -75,11 +74,11 @@ def test_call_recursive_bomb_pre_call(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
         nonce=0,
-        address=Address("0x7a11b1b8911ecccfccb030a17f9cebde63a92190"),  # noqa: E501
+        address=Address(0x7A11B1B8911ECCCFCCB030A17F9CEBDE63A92190),  # noqa: E501
     )
     # Source: lll
     # { [[ 0 ]] (+ (SLOAD 0) 1) [[ 1 ]] (CALL (- (GAS) 224000) <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 0 0 0 0 0) }  # noqa: E501
-    addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.ADD(Op.SLOAD(key=0x0), 0x1))
         + Op.SSTORE(
             key=0x1,
@@ -96,22 +95,20 @@ def test_call_recursive_bomb_pre_call(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x3046257c307a51f1a8ae73f6f6360937dd21138e"),  # noqa: E501
+        address=Address(0x3046257C307A51F1A8AE73F6F6360937DD21138E),  # noqa: E501
     )
     pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=9214364837600034817,
-        gas_price=10,
     )
 
     post = {
         target: Account(storage={0: 1, 1: 1}),
-        addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5: Account(
-            storage={0: 1023, 1: 1}
-        ),
+        addr: Account(storage={0: 1023, 1: 1}),
         sender: Account(nonce=1),
     }
 

@@ -12,6 +12,7 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -22,21 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "0000000000000000000000000000000000000000000000000000000000000001",
-    "0000000000000000000000000000000000000000000000000000000000000002",
-    "0000000000000000000000000000000000000000000000000000000000000003",
-]
-TX_GAS = [1000000]
-TX_VALUE = [0]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -76,7 +63,7 @@ def test_self_balance_call_types(
     v: int,
 ) -> None:
     """SELFBALANCE tests inside CALL, DELEGATECALL, and CALLCODE."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x897B12D02D588D8A4FE16FF831CBD4459C6F62F8C845B0CCDD31CAF068C84A26
     )
@@ -86,14 +73,13 @@ def test_self_balance_call_types(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000000,
     )
 
     # Source: lll
     # { [[ 0x11 ]] (EQ (SELFBALANCE) (BALANCE (ADDRESS))) }
-    addr_0x1100000000000000000000000000000000000000 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(
             key=0x11,
             value=Op.EQ(Op.SELFBALANCE, Op.BALANCE(address=Op.ADDRESS)),
@@ -101,19 +87,19 @@ def test_self_balance_call_types(
         + Op.STOP,
         balance=4096,
         nonce=0,
-        address=Address("0xa590bbf1b07b00fed987724e1db1bf206c2bc37c"),  # noqa: E501
+        address=Address(0xA590BBF1B07B00FED987724E1DB1BF206C2BC37C),  # noqa: E501
     )
     # Source: lll
     # { [[ 0x21 ]] (SELFBALANCE) }
-    addr_0x1200000000000000000000000000000000000000 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x21, value=Op.SELFBALANCE) + Op.STOP,
         balance=4352,
         nonce=0,
-        address=Address("0x76bac61ee2056f42f6cc29f5400adae3e5705237"),  # noqa: E501
+        address=Address(0x76BAC61EE2056F42F6CC29F5400ADAE3E5705237),  # noqa: E501
     )
     # Source: lll
     # (asm GAS SELFBALANCE GAS SWAP1 POP SWAP1 SUB 2 SWAP1 SUB 0x31 SSTORE)
-    addr_0x1300000000000000000000000000000000000000 = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(  # noqa: F841
         code=Op.GAS
         + Op.SELFBALANCE
         + Op.GAS
@@ -127,11 +113,11 @@ def test_self_balance_call_types(
         + Op.STOP,
         balance=4608,
         nonce=0,
-        address=Address("0x8537ce29429ea557e3903c255ee6554dd8d21d26"),  # noqa: E501
+        address=Address(0x8537CE29429EA557E3903C255EE6554DD8D21D26),  # noqa: E501
     )
     # Source: lll
     # (asm SELFBALANCE DUP1 0x41 SSTORE 0 0 0 0 1 0 0 CALL POP SELFBALANCE DUP1 0x42 SSTORE SWAP1 SUB 0x43 SSTORE)  # noqa: E501
-    addr_0x1400000000000000000000000000000000000000 = pre.deploy_contract(  # noqa: F841
+    addr_4 = pre.deploy_contract(  # noqa: F841
         code=Op.SELFBALANCE
         + Op.SSTORE(key=0x41, value=Op.DUP1)
         + Op.POP(
@@ -152,7 +138,7 @@ def test_self_balance_call_types(
         + Op.STOP,
         balance=4864,
         nonce=0,
-        address=Address("0xe1ce93b3251fb38ae74d41af9f865978c572cf63"),  # noqa: E501
+        address=Address(0xE1CE93B3251FB38AE74D41AF9F865978C572CF63),  # noqa: E501
     )
     # Source: lll
     # {(set 'i 0) (while @@ @i {(when (eq 0x01 $0x0) (call allgas @@ @i 0 0 0 0 0)) (when (eq 0x02 $0x0) (delegatecall allgas @@ @i 0 0 0 0)) (when (eq 0x03 $0x0) (callcode allgas @@ @i 0 0 0 0 0)) [i]:(+ @i 1)})}  # noqa: E501
@@ -221,7 +207,7 @@ def test_self_balance_call_types(
         },
         balance=8192,
         nonce=0,
-        address=Address("0x84bf87fbef135afea15330fdf5847eb504cff901"),  # noqa: E501
+        address=Address(0x84BF87FBEF135AFEA15330FDF5847EB504CFF901),  # noqa: E501
     )
     pre[sender] = Account(balance=0x3635C9ADC5DEA00000)
 
@@ -230,18 +216,10 @@ def test_self_balance_call_types(
             "indexes": {"data": [0], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                addr_0x1100000000000000000000000000000000000000: Account(
-                    storage={17: 1}
-                ),
-                addr_0x1200000000000000000000000000000000000000: Account(
-                    storage={33: 4352}
-                ),
-                addr_0x1300000000000000000000000000000000000000: Account(
-                    storage={49: 5}
-                ),
-                addr_0x1400000000000000000000000000000000000000: Account(
-                    storage={65: 4864, 66: 4863, 67: 1}
-                ),
+                addr: Account(storage={17: 1}),
+                addr_2: Account(storage={33: 4352}),
+                addr_3: Account(storage={49: 5}),
+                addr_4: Account(storage={65: 4864, 66: 4863, 67: 1}),
             },
         },
         {
@@ -268,12 +246,19 @@ def test_self_balance_call_types(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Hash(0x1),
+        Hash(0x2),
+        Hash(0x3),
+    ]
+    tx_gas = [1000000]
+    tx_value = [0]
+
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
         error=_exc,
     )
 

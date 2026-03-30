@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,7 +34,7 @@ def test_call_ask_more_gas_on_depth2_then_transaction_has_with_mem_expanding_cal
     pre: Alloc,
 ) -> None:
     """Test_call_ask_more_gas_on_depth2_then_transaction_has_with_mem_expa..."""  # noqa: E501
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x8D19F2B0D2F5689C1771FBCA70476CA6E877A81EE15C3733DE87FAE38E5ABCEF
     )
@@ -44,7 +44,6 @@ def test_call_ask_more_gas_on_depth2_then_transaction_has_with_mem_expanding_cal
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -67,18 +66,18 @@ def test_call_ask_more_gas_on_depth2_then_transaction_has_with_mem_expanding_cal
             ),
         ),
         nonce=0,
-        address=Address("0x97442da68a5f2b1be1728c655c0f395cffb999cf"),  # noqa: E501
+        address=Address(0x97442DA68A5F2B1BE1728C655C0F395CFFB999CF),  # noqa: E501
     )
     # Source: hex
     # 0x5a600855
-    addr_0x1000000000000000000000000000000000000108 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x8, value=Op.GAS),
         nonce=0,
-        address=Address("0x9edefdfb5a11a6b30dba1bff8726f94f9d9e1232"),  # noqa: E501
+        address=Address(0x9EDEFDFB5A11A6B30DBA1BFF8726F94F9D9E1232),  # noqa: E501
     )
     # Source: hex
     # 0x5a60085560ff60ff60ff60ff600073<contract:0x1000000000000000000000000000000000000108>620927c0f1600955  # noqa: E501
-    addr_0x1000000000000000000000000000000000000107 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x8, value=Op.GAS)
         + Op.SSTORE(
             key=0x9,
@@ -93,25 +92,21 @@ def test_call_ask_more_gas_on_depth2_then_transaction_has_with_mem_expanding_cal
             ),
         ),
         nonce=0,
-        address=Address("0xa229d9efd075227ed1e0ea0427045b5ee24dc40a"),  # noqa: E501
+        address=Address(0xA229D9EFD075227ED1E0EA0427045B5EE24DC40A),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=600000,
-        gas_price=10,
     )
 
     post = {
         sender: Account(nonce=1),
         target: Account(storage={8: 0x8D5B6, 9: 1}),
-        addr_0x1000000000000000000000000000000000000108: Account(
-            storage={8: 0x2A1C7}
-        ),
-        addr_0x1000000000000000000000000000000000000107: Account(
-            storage={8: 0x30D3E, 9: 1}
-        ),
+        addr: Account(storage={8: 0x2A1C7}),
+        addr_2: Account(storage={8: 0x30D3E, 9: 1}),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

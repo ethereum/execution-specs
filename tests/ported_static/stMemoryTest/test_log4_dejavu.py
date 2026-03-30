@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_log4_dejavu(
     pre: Alloc,
 ) -> None:
     """Test_log4_dejavu."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x7DD1D0EC78FE936B0E88F8C21226F51F048579915C7BAFF1C5D7FD84B2139BF1
     )
@@ -42,7 +42,6 @@ def test_log4_dejavu(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=52949672960,
     )
@@ -53,16 +52,16 @@ def test_log4_dejavu(
         code=Op.LOG2(offset=0xFFFFFFF, size=0xFF, topic_1=0xFF, topic_2=0xFF),
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0xd1d57042b5af54c18e8ad98b2756c1c30c08d5c1"),  # noqa: E501
+        address=Address(0xD1D57042B5AF54C18E8AD98B2756C1C30C08D5C1),  # noqa: E501
     )
     pre[sender] = Account(balance=0x271000000000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=100000,
         value=10,
-        gas_price=10,
     )
 
     post = {

@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,7 +34,7 @@ def test_call_outsize_then_create_successful_then_returndatasize(
     pre: Alloc,
 ) -> None:
     """Test_call_outsize_then_create_successful_then_returndatasize."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
     )
@@ -44,14 +44,13 @@ def test_call_outsize_then_create_successful_then_returndatasize(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=111669149696,
     )
 
     # Source: lll
     # { (seq (MSTORE 0 0x0000111122223333444455556666777788889999aaaabbbbccccddddeeeeffff) (RETURN 0 32) (STOP) ) }  # noqa: E501
-    addr_0x0aabbccdd5c57f15886f9b263e2f6d2d6c7b5ec6 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(
             offset=0x0,
             value=0x111122223333444455556666777788889999AAAABBBBCCCCDDDDEEEEFFFF,  # noqa: E501
@@ -59,7 +58,7 @@ def test_call_outsize_then_create_successful_then_returndatasize(
         + Op.RETURN(offset=0x0, size=0x20)
         + Op.STOP * 2,
         nonce=0,
-        address=Address("0x24b406508240d6f2783499d1fd65fedd0feeef37"),  # noqa: E501
+        address=Address(0x24B406508240D6F2783499D1FD65FEDD0FEEEF37),  # noqa: E501
     )
     # Source: lll
     # { (seq (CALL 0x0900000000 <contract:0x0aabbccdd5c57f15886f9b263e2f6d2d6c7b5ec6> 0 0 0 0 0x20) (CREATE 0 0 (lll (seq (mstore 0 0x112233) (RETURN 0 32)  (STOP) ) 0)) (SSTORE 0 (RETURNDATASIZE)) (STOP) )}  # noqa: E501
@@ -87,15 +86,15 @@ def test_call_outsize_then_create_successful_then_returndatasize(
         + Op.STOP * 2,
         storage={0: 1},
         nonce=0,
-        address=Address("0x3875f9536b829cb75f84cdcb2f72b000b5a41855"),  # noqa: E501
+        address=Address(0x3875F9536B829CB75F84CDCB2F72B000B5A41855),  # noqa: E501
     )
     pre[sender] = Account(balance=0x6400000000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=100000,
-        gas_price=10,
     )
 
     post = {target: Account(storage={0: 0})}

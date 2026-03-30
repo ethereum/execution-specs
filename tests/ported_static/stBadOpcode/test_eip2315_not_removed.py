@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_eip2315_not_removed(
     pre: Alloc,
 ) -> None:
     """Test_eip2315_not_removed."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x31B5AF02B012484AE954B3A43943242EDE546A2E76FC0A6ACC17435107C385EB
     )
@@ -42,7 +42,6 @@ def test_eip2315_not_removed(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=9223372036854775807,
     )
@@ -58,15 +57,15 @@ def test_eip2315_not_removed(
         + Op.TSTORE,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x147943601b1281618e4d824d11073025cd2ac623"),  # noqa: E501
+        address=Address(0x147943601B1281618E4D824D11073025CD2AC623),  # noqa: E501
     )
     pre[sender] = Account(balance=0x7FFFFFFFFFFFFFFF)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=400000,
-        gas_price=10,
     )
 
     post = {target: Account(storage={})}

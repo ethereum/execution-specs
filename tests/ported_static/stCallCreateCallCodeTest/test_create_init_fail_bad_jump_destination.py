@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,7 +34,7 @@ def test_create_init_fail_bad_jump_destination(
     pre: Alloc,
 ) -> None:
     """Create fails because init code has bad jump dest (underflow)."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
@@ -44,7 +44,6 @@ def test_create_init_fail_bad_jump_destination(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=1000000000,
     )
@@ -57,16 +56,16 @@ def test_create_init_fail_bad_jump_destination(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x866b704865d7d80842e1d7c2c1c8bf682a3a437c"),  # noqa: E501
+        address=Address(0x866B704865D7D80842E1D7C2C1C8BF682A3A437C),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=2200000,
         value=0x186A0,
-        gas_price=10,
     )
 
     post = {

@@ -12,6 +12,7 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -22,20 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "000000000000000000000000000000000000000000000000000000000000c000",
-    "000000000000000000000000000000000000000000000000000000000000c001",
-]
-TX_GAS = [15000000]
-TX_VALUE = [0]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -71,9 +59,9 @@ def test_create2_init_code_size_limit(
     v: int,
 ) -> None:
     """Test_create2_init_code_size_limit."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    contract_0 = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
-    contract_1 = Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
+    contract_1 = Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -83,7 +71,6 @@ def test_create2_init_code_size_limit(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=20000000,
     )
@@ -114,7 +101,7 @@ def test_create2_init_code_size_limit(
         + Op.SSTORE(key=Op.DUP1, value=0x1)
         + Op.STOP,
         nonce=0,
-        address=Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
+        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -149,7 +136,7 @@ def test_create2_init_code_size_limit(
         + Op.SSTORE
         + Op.STOP,
         nonce=0,
-        address=Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
+        address=Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -189,12 +176,18 @@ def test_create2_init_code_size_limit(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Hash(0xC000),
+        Hash(0xC001),
+    ]
+    tx_gas = [15000000]
+    tx_value = [0]
+
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
         error=_exc,
     )
 

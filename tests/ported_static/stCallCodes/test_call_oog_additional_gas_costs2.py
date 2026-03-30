@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_call_oog_additional_gas_costs2(
     pre: Alloc,
 ) -> None:
     """Call(oog during init) ->  code ."""
-    coinbase = Address("0xeb201d2887816e041f6e807e804f64f3a7a226fe")
+    coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
     sender = EOA(
         key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
@@ -42,7 +42,6 @@ def test_call_oog_additional_gas_costs2(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=3000000000,
     )
@@ -67,26 +66,26 @@ def test_call_oog_additional_gas_costs2(
         storage={0: 2},
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0xc1f36f15e971b13f8178b8c0c5c4f5e6b1b2b2c3"),  # noqa: E501
+        address=Address(0xC1F36F15E971B13F8178B8C0C5C4F5E6B1B2B2C3),  # noqa: E501
     )
     # Source: raw
     # 0x6000
-    addr_0x1000000000000000000000000000000000000001 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.PUSH1[0x0],
         nonce=0,
-        address=Address("0x89cd1cb7ad11c6949bec0c8c7533dc073960c54f"),  # noqa: E501
+        address=Address(0x89CD1CB7AD11C6949BEC0C8C7533DC073960C54F),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=30000,
-        gas_price=10,
     )
 
     post = {
-        addr_0x1000000000000000000000000000000000000001: Account(balance=0),
+        addr: Account(balance=0),
         target: Account(storage={0: 2}),
     }
 

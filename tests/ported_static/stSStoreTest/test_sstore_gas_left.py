@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -22,27 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "6000600060006000600073b0409d84ab61455cb8bec14b94f635146ab55613610901f115604b5760006000600060006000734092b3905cfea2485ea53222f41eb26e67587802617530f1505b00",  # noqa: E501
-    "6000600060006000600073b0409d84ab61455cb8bec14b94f635146ab55613610902f115604b5760006000600060006000734092b3905cfea2485ea53222f41eb26e67587802617530f1505b00",  # noqa: E501
-    "6000600060006000600073b0409d84ab61455cb8bec14b94f635146ab55613610903f115604b5760006000600060006000734092b3905cfea2485ea53222f41eb26e67587802617530f1505b00",  # noqa: E501
-    "60016001556000600060006000600073b0409d84ab61455cb8bec14b94f635146ab55613610901f21560505760006000600060006000734092b3905cfea2485ea53222f41eb26e67587802617530f1505b00",  # noqa: E501
-    "60016001556000600060006000600073b0409d84ab61455cb8bec14b94f635146ab55613610902f21560505760006000600060006000734092b3905cfea2485ea53222f41eb26e67587802617530f1505b00",  # noqa: E501
-    "60016001556000600060006000600073b0409d84ab61455cb8bec14b94f635146ab55613610903f21560505760006000600060006000734092b3905cfea2485ea53222f41eb26e67587802617530f1505b00",  # noqa: E501
-    "6001600155600060006000600073b0409d84ab61455cb8bec14b94f635146ab55613610901f415604e5760006000600060006000734092b3905cfea2485ea53222f41eb26e67587802617530f1505b00",  # noqa: E501
-    "6001600155600060006000600073b0409d84ab61455cb8bec14b94f635146ab55613610902f415604e5760006000600060006000734092b3905cfea2485ea53222f41eb26e67587802617530f1505b00",  # noqa: E501
-    "6001600155600060006000600073b0409d84ab61455cb8bec14b94f635146ab55613610903f415604e5760006000600060006000734092b3905cfea2485ea53222f41eb26e67587802617530f1505b00",  # noqa: E501
-]
-TX_GAS = [200000]
-TX_VALUE = [1]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -118,7 +99,7 @@ def test_sstore_gas_left(
     v: int,
 ) -> None:
     """Checks EIP-1706/EIP-2200 out of gas requirement for non-mutating..."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
@@ -128,7 +109,6 @@ def test_sstore_gas_left(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -136,50 +116,73 @@ def test_sstore_gas_left(
     pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # { [[1]] 1 }
-    addr_0xb000000000000000000000000000000000000000 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x1, value=0x1) + Op.STOP,
         storage={1: 1},
         nonce=0,
-        address=Address("0xb0409d84ab61455cb8bec14b94f635146ab55613"),  # noqa: E501
+        address=Address(0xB0409D84AB61455CB8BEC14B94F635146AB55613),  # noqa: E501
     )
     # Source: lll
     # { [[1]] 1 }
-    addr_0xc000000000000000000000000000000000000000 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x1, value=0x1) + Op.STOP,
         nonce=0,
-        address=Address("0x4092b3905cfea2485ea53222f41eb26e67587802"),  # noqa: E501
+        address=Address(0x4092B3905CFEA2485EA53222F41EB26E67587802),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
         {
             "indexes": {"data": [0, 1, 3, 4, 6, 7], "gas": 0, "value": -1},
             "network": [">=Cancun"],
-            "result": {
-                addr_0xc000000000000000000000000000000000000000: Account(
-                    storage={1: 0}
-                ),
-            },
+            "result": {addr_2: Account(storage={1: 0})},
         },
         {
             "indexes": {"data": [8, 2, 5], "gas": 0, "value": -1},
             "network": [">=Cancun"],
-            "result": {
-                addr_0xc000000000000000000000000000000000000000: Account(
-                    storage={1: 1}
-                ),
-            },
+            "result": {addr_2: Account(storage={1: 1})},
         },
     ]
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes(
+            "6000600060006000600073b0409d84ab61455cb8bec14b94f635146ab55613610901f115604b5760006000600060006000734092b3905cfea2485ea53222f41eb26e67587802617530f1505b00"  # noqa: E501
+        ),
+        Bytes(
+            "6000600060006000600073b0409d84ab61455cb8bec14b94f635146ab55613610902f115604b5760006000600060006000734092b3905cfea2485ea53222f41eb26e67587802617530f1505b00"  # noqa: E501
+        ),
+        Bytes(
+            "6000600060006000600073b0409d84ab61455cb8bec14b94f635146ab55613610903f115604b5760006000600060006000734092b3905cfea2485ea53222f41eb26e67587802617530f1505b00"  # noqa: E501
+        ),
+        Bytes(
+            "60016001556000600060006000600073b0409d84ab61455cb8bec14b94f635146ab55613610901f21560505760006000600060006000734092b3905cfea2485ea53222f41eb26e67587802617530f1505b00"  # noqa: E501
+        ),
+        Bytes(
+            "60016001556000600060006000600073b0409d84ab61455cb8bec14b94f635146ab55613610902f21560505760006000600060006000734092b3905cfea2485ea53222f41eb26e67587802617530f1505b00"  # noqa: E501
+        ),
+        Bytes(
+            "60016001556000600060006000600073b0409d84ab61455cb8bec14b94f635146ab55613610903f21560505760006000600060006000734092b3905cfea2485ea53222f41eb26e67587802617530f1505b00"  # noqa: E501
+        ),
+        Bytes(
+            "6001600155600060006000600073b0409d84ab61455cb8bec14b94f635146ab55613610901f415604e5760006000600060006000734092b3905cfea2485ea53222f41eb26e67587802617530f1505b00"  # noqa: E501
+        ),
+        Bytes(
+            "6001600155600060006000600073b0409d84ab61455cb8bec14b94f635146ab55613610902f415604e5760006000600060006000734092b3905cfea2485ea53222f41eb26e67587802617530f1505b00"  # noqa: E501
+        ),
+        Bytes(
+            "6001600155600060006000600073b0409d84ab61455cb8bec14b94f635146ab55613610903f415604e5760006000600060006000734092b3905cfea2485ea53222f41eb26e67587802617530f1505b00"  # noqa: E501
+        ),
+    ]
+    tx_gas = [200000]
+    tx_value = [1]
+
     tx = Transaction(
         sender=sender,
         to=None,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
         error=_exc,
     )
 

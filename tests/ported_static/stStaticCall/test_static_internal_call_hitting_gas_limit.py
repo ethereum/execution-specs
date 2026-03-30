@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -26,13 +26,14 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stStaticCall/static_InternalCallHittingGasLimitFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.slow
 @pytest.mark.pre_alloc_mutable
 def test_static_internal_call_hitting_gas_limit(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_static_internal_call_hitting_gas_limit."""
-    coinbase = Address("0x2adf5374fce5edbc8e2a8697c15331677e6ebf0b")
+    coinbase = Address(0x2ADF5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = EOA(
         key=0x7C857D62C76CE09F2E8EC3FA9277578C67B69C6547364568FDDB841071E5BD7
     )
@@ -42,7 +43,6 @@ def test_static_internal_call_hitting_gas_limit(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000,
     )
@@ -62,11 +62,11 @@ def test_static_internal_call_hitting_gas_limit(
         + Op.STOP,
         balance=0xF4240,
         nonce=0,
-        address=Address("0x5a755ead8f1201283f750b2f77af7d03399d5feb"),  # noqa: E501
+        address=Address(0x5A755EAD8F1201283F750B2F77AF7D03399D5FEB),  # noqa: E501
     )
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (EXTCODESIZE 1)) }
-    addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.JUMPDEST
         + Op.JUMPI(
             pc=0x1C, condition=Op.ISZERO(Op.LT(Op.MLOAD(offset=0x80), 0xC350))
@@ -77,15 +77,15 @@ def test_static_internal_call_hitting_gas_limit(
         + Op.JUMPDEST
         + Op.STOP,
         nonce=0,
-        address=Address("0x285bb5c8a71646ab9a5796d4a718cc4826af8d06"),  # noqa: E501
+        address=Address(0x285BB5C8A71646AB9A5796D4A718CC4826AF8D06),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=21100,
         value=10,
-        gas_price=10,
     )
 
     post = {sender: Account(nonce=1)}

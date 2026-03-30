@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_random_statetest347(
     pre: Alloc,
 ) -> None:
     """Test_random_statetest347."""
-    coinbase = Address("0xa7f7c8ef9bbbcfb0f7e81c1fd46bb732fba60592")
+    coinbase = Address(0xA7F7C8EF9BBBCFB0F7E81C1FD46BB732FBA60592)
     sender = EOA(
         key=0x1F2F6944F70460E655546D414267BD3491A2DD9DAFB2280605404C858990D053
     )
@@ -42,7 +42,6 @@ def test_random_statetest347(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=188473852,
     )
@@ -160,22 +159,22 @@ def test_random_statetest347(
         + Op.SWAP6,
         balance=0x33498455,
         nonce=233,
-        address=Address("0x97bc67b6ee773e59e516d02edb13b971c3cbd856"),  # noqa: E501
+        address=Address(0x97BC67B6EE773E59E516D02EDB13B971C3CBD856),  # noqa: E501
     )
     # Source: raw
     # 0x36
-    addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.CALLDATASIZE,
         balance=0x4EA91708,
         nonce=89,
-        address=Address("0x79d9fbe6ac70917cb2e16ec4cd32968ce19c724d"),  # noqa: E501
+        address=Address(0x79D9FBE6AC70917CB2E16EC4CD32968CE19C724D),  # noqa: E501
     )
     pre[sender] = Account(balance=0x1024D289465FA51769)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=bytes.fromhex(
+        data=Bytes(
             "73151af76abac2a99afe60eff5cfd8f68daf1b35e0608a690494ef4b1d043bf90e00916acf5f0332c3ef3aa972eba960aa557dc165d1a3c726953fc637fe643a60543de4159f3bc09673cd054235ddb44769fa2d6edb61b6e71feff2662043418ac9d2337bce1df4b842fbf8f07395b44bb506e8955d22a12176e2fb8e25bc546d77a6f5049a09f3126c915f14979d8c7c0cf88425567c6b8a6865b78e6d76208a641cb0d0651a758d9afdd5e36b2dcf740a8a1e2b19ebb0bc8ad6ac032577f3b5d483e40d0c9a40aaf32cebc478c0962e1ac5f6c648f47665f0850054ab4caab6eca1a24242087387c96452ad72e76a42a175db6c69a2d8cbcd70759249b040a797894765385557e947875851cfe9734edc8b613cbb6bf40b41b762fa3bcbc6b59ecc66971fef9e8ed16d691702b224f0e2f8ad12577a943401f57334d3207b884a40ed472960f03e4cab61c98268b5a73b6372ab45a7a4"  # noqa: E501
         ),
         gas_limit=8653299,
@@ -185,9 +184,7 @@ def test_random_statetest347(
 
     post = {
         target: Account(storage={}, nonce=233),
-        addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5: Account(
-            storage={}, code=bytes.fromhex("36"), nonce=89
-        ),
+        addr: Account(storage={}, code=bytes.fromhex("36"), nonce=89),
         sender: Account(storage={}, code=b"", nonce=1),
     }
 

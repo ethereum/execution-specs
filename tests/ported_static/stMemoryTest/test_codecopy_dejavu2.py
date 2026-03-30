@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_codecopy_dejavu2(
     pre: Alloc,
 ) -> None:
     """Test_codecopy_dejavu2."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x7DD1D0EC78FE936B0E88F8C21226F51F048579915C7BAFF1C5D7FD84B2139BF1
     )
@@ -42,7 +42,6 @@ def test_codecopy_dejavu2(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=52949672960,
     )
@@ -53,19 +52,22 @@ def test_codecopy_dejavu2(
         code=Op.CODECOPY(
             dest_offset=0x1F, offset=0x10000000000000001, size=0xA
         )
+        + Op.JUMPI(pc=0x17, condition=Op.ISZERO(Op.MLOAD(offset=0x0)))
+        + Op.STOP
+        + Op.JUMPDEST
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0xc165257d26f9435cbd00d8e2825ff173393d3b31"),  # noqa: E501
+        address=Address(0xC165257D26F9435CBD00D8E2825FF173393D3B31),  # noqa: E501
     )
     pre[sender] = Account(balance=0x271000000000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=100000,
         value=10,
-        gas_price=10,
     )
 
     post = {

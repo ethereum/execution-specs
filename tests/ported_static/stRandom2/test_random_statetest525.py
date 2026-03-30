@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_random_statetest525(
     pre: Alloc,
 ) -> None:
     """Test_random_statetest525."""
-    coinbase = Address("0x4f3f701464972e74606d6ea82d4d3080599a0e79")
+    coinbase = Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79)
     sender = EOA(
         key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
     )
@@ -42,7 +42,6 @@ def test_random_statetest525(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=9223372036854775807,
     )
@@ -54,7 +53,7 @@ def test_random_statetest525(
             "7f00000000000000000000000100000000000000000000000000000000000000007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000000000000000000000000000000000000000c3507f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff097ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe02207160005155"  # noqa: E501
         ),
         nonce=0,
-        address=Address("0x2a83e67b69429cfb983b8ed79b7e8a53e6824092"),  # noqa: E501
+        address=Address(0x2A83E67B69429CFB983B8ED79B7E8A53E6824092),  # noqa: E501
     )
     # Source: raw
     # 0x6000355415600957005b60203560003555
@@ -70,19 +69,18 @@ def test_random_statetest525(
         ),
         balance=46,
         nonce=0,
-        address=Address("0x4f3f701464972e74606d6ea82d4d3080599a0e79"),  # noqa: E501
+        address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=bytes.fromhex(
+        data=Bytes(
             "7f00000000000000000000000100000000000000000000000000000000000000007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000000000000000000000000000000000000000c3507f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff097ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe022071"  # noqa: E501
         ),
         gas_limit=100000,
         value=0xA9A88D4,
-        gas_price=10,
     )
 
     post = {

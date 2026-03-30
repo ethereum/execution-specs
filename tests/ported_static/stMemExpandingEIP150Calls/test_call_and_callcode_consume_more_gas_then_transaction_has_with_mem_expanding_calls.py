@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,7 +34,7 @@ def test_call_and_callcode_consume_more_gas_then_transaction_has_with_mem_expand
     pre: Alloc,
 ) -> None:
     """Test_call_and_callcode_consume_more_gas_then_transaction_has_with_m..."""  # noqa: E501
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x8D19F2B0D2F5689C1771FBCA70476CA6E877A81EE15C3733DE87FAE38E5ABCEF
     )
@@ -44,7 +44,6 @@ def test_call_and_callcode_consume_more_gas_then_transaction_has_with_mem_expand
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -52,10 +51,10 @@ def test_call_and_callcode_consume_more_gas_then_transaction_has_with_mem_expand
     pre[sender] = Account(balance=0xE8D4A51000)
     # Source: hex
     # 0x6012600055
-    addr_0x1000000000000000000000000000000000000103 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=0x12),
         nonce=0,
-        address=Address("0xa1f6e75a455896613053d45331763a07f4718969"),  # noqa: E501
+        address=Address(0xA1F6E75A455896613053D45331763A07F4718969),  # noqa: E501
     )
     # Source: hex
     # 0x5a60085560ff60ff60ff60ff600073<contract:0x1000000000000000000000000000000000000103>620927c0f160095560ff60ff60ff60ff600073<contract:0x1000000000000000000000000000000000000103>620927c0f2600a55  # noqa: E501
@@ -86,22 +85,20 @@ def test_call_and_callcode_consume_more_gas_then_transaction_has_with_mem_expand
             ),
         ),
         nonce=0,
-        address=Address("0x346e4c3e54a808e0cad66173de0d81ff4d06babf"),  # noqa: E501
+        address=Address(0x346E4C3E54A808E0CAD66173DE0D81FF4D06BABF),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=600000,
-        gas_price=10,
     )
 
     post = {
         sender: Account(nonce=1),
         target: Account(storage={0: 18, 8: 0x8D5B6, 9: 1, 10: 1}),
-        addr_0x1000000000000000000000000000000000000103: Account(
-            storage={0: 18}
-        ),
+        addr: Account(storage={0: 18}),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

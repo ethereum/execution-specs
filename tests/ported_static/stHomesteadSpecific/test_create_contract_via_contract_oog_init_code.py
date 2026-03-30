@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,8 +34,8 @@ def test_create_contract_via_contract_oog_init_code(
     pre: Alloc,
 ) -> None:
     """Test_create_contract_via_contract_oog_init_code."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    contract_0 = Address("0x1000000000000000000000000000000000000001")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0x1000000000000000000000000000000000000001)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -45,7 +45,6 @@ def test_create_contract_via_contract_oog_init_code(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
@@ -58,14 +57,14 @@ def test_create_contract_via_contract_oog_init_code(
         + Op.CREATE(value=0x0, offset=0x14, size=0xC)
         + Op.STOP,
         nonce=0,
-        address=Address("0x1000000000000000000000000000000000000001"),  # noqa: E501
+        address=Address(0x1000000000000000000000000000000000000001),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=contract_0,
+        data=Bytes(""),
         gas_limit=105044,
-        gas_price=10,
     )
 
     post = {

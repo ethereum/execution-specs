@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -22,29 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "693c613900000000000000000000000000000000000000000000000000000000000000f0",
-    "693c613900000000000000000000000000000000000000000000000000000000000000f5",
-    "693c613900000000000000000000000000000000000000000000000000000000000000f1",
-    "693c613900000000000000000000000000000000000000000000000000000000000000f2",
-    "693c613900000000000000000000000000000000000000000000000000000000000000f4",
-    "693c613900000000000000000000000000000000000000000000000000000000000000fa",
-    "693c61390000000000000000000000000000000000000000000000000000000000000051",
-    "693c61390000000000000000000000000000000000000000000000000000000000000052",
-    "693c61390000000000000000000000000000000000000000000000000000000000000053",
-    "693c61390000000000000000000000000000000000000000000000000000000000000020",
-    "693c6139000000000000000000000000000000000000000000000000000000000000003b",
-]
-TX_GAS = [16777216]
-TX_VALUE = [0]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -132,20 +111,20 @@ def test_measure_gas(
     v: int,
 ) -> None:
     """Ori Pomerantz   qbzzt1@gmail."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    contract_0 = Address("0x0000000000000000000000000000000000c0def0")
-    contract_1 = Address("0x0000000000000000000000000000000000c0def5")
-    contract_2 = Address("0x000000000000000000000000000000000000ca11")
-    contract_3 = Address("0x0000000000000000000000000000000000c0def1")
-    contract_4 = Address("0x0000000000000000000000000000000000c0def2")
-    contract_5 = Address("0x0000000000000000000000000000000000c0def4")
-    contract_6 = Address("0x0000000000000000000000000000000000c0defa")
-    contract_7 = Address("0x0000000000000000000000000000000000c0de51")
-    contract_8 = Address("0x0000000000000000000000000000000000c0de52")
-    contract_9 = Address("0x0000000000000000000000000000000000c0de53")
-    contract_10 = Address("0x0000000000000000000000000000000000c0de20")
-    contract_11 = Address("0x0000000000000000000000000000000000c0de3b")
-    contract_12 = Address("0xcccccccccccccccccccccccccccccccccccccccc")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0x0000000000000000000000000000000000C0DEF0)
+    contract_1 = Address(0x0000000000000000000000000000000000C0DEF5)
+    contract_2 = Address(0x000000000000000000000000000000000000CA11)
+    contract_3 = Address(0x0000000000000000000000000000000000C0DEF1)
+    contract_4 = Address(0x0000000000000000000000000000000000C0DEF2)
+    contract_5 = Address(0x0000000000000000000000000000000000C0DEF4)
+    contract_6 = Address(0x0000000000000000000000000000000000C0DEFA)
+    contract_7 = Address(0x0000000000000000000000000000000000C0DE51)
+    contract_8 = Address(0x0000000000000000000000000000000000C0DE52)
+    contract_9 = Address(0x0000000000000000000000000000000000C0DE53)
+    contract_10 = Address(0x0000000000000000000000000000000000C0DE20)
+    contract_11 = Address(0x0000000000000000000000000000000000C0DE3B)
+    contract_12 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -155,7 +134,6 @@ def test_measure_gas(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
@@ -168,7 +146,7 @@ def test_measure_gas(
         code=Op.CREATE(value=Op.DUP1, offset=0x0, size=0x200) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address("0x0000000000000000000000000000000000c0def0"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000C0DEF0),  # noqa: E501
     )
     # Source: yul
     # berlin {
@@ -182,7 +160,7 @@ def test_measure_gas(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address("0x0000000000000000000000000000000000c0def5"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000C0DEF5),  # noqa: E501
     )
     # Source: yul
     # berlin {
@@ -192,7 +170,7 @@ def test_measure_gas(
         code=Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address("0x000000000000000000000000000000000000ca11"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000CA11),  # noqa: E501
     )
     # Source: yul
     # berlin {
@@ -211,7 +189,7 @@ def test_measure_gas(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address("0x0000000000000000000000000000000000c0def1"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000C0DEF1),  # noqa: E501
     )
     # Source: yul
     # berlin {
@@ -230,7 +208,7 @@ def test_measure_gas(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address("0x0000000000000000000000000000000000c0def2"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000C0DEF2),  # noqa: E501
     )
     # Source: yul
     # berlin {
@@ -248,7 +226,7 @@ def test_measure_gas(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address("0x0000000000000000000000000000000000c0def4"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000C0DEF4),  # noqa: E501
     )
     # Source: yul
     # berlin {
@@ -266,7 +244,7 @@ def test_measure_gas(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address("0x0000000000000000000000000000000000c0defa"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000C0DEFA),  # noqa: E501
     )
     # Source: yul
     # berlin {
@@ -276,7 +254,7 @@ def test_measure_gas(
         code=Op.MLOAD(offset=0xB000) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address("0x0000000000000000000000000000000000c0de51"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000C0DE51),  # noqa: E501
     )
     # Source: yul
     # berlin {
@@ -286,7 +264,7 @@ def test_measure_gas(
         code=Op.MSTORE(offset=0xB000, value=0xFF) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address("0x0000000000000000000000000000000000c0de52"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000C0DE52),  # noqa: E501
     )
     # Source: yul
     # berlin {
@@ -296,7 +274,7 @@ def test_measure_gas(
         code=Op.MSTORE8(offset=0xB000, value=0xFF) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address("0x0000000000000000000000000000000000c0de53"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000C0DE53),  # noqa: E501
     )
     # Source: yul
     # berlin {
@@ -306,7 +284,7 @@ def test_measure_gas(
         code=Op.SHA3(offset=0x0, size=0xBEEF) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address("0x0000000000000000000000000000000000c0de20"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000C0DE20),  # noqa: E501
     )
     # Source: yul
     # berlin {
@@ -323,7 +301,7 @@ def test_measure_gas(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address("0x0000000000000000000000000000000000c0de3b"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000C0DE3B),  # noqa: E501
     )
     # Source: yul
     # berlin {
@@ -380,7 +358,7 @@ def test_measure_gas(
         + Op.JUMP(pc=0x31),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),  # noqa: E501
+        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
     pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
 
@@ -429,13 +407,50 @@ def test_measure_gas(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes(
+            "693c613900000000000000000000000000000000000000000000000000000000000000f0"  # noqa: E501
+        ),
+        Bytes(
+            "693c613900000000000000000000000000000000000000000000000000000000000000f5"  # noqa: E501
+        ),
+        Bytes(
+            "693c613900000000000000000000000000000000000000000000000000000000000000f1"  # noqa: E501
+        ),
+        Bytes(
+            "693c613900000000000000000000000000000000000000000000000000000000000000f2"  # noqa: E501
+        ),
+        Bytes(
+            "693c613900000000000000000000000000000000000000000000000000000000000000f4"  # noqa: E501
+        ),
+        Bytes(
+            "693c613900000000000000000000000000000000000000000000000000000000000000fa"  # noqa: E501
+        ),
+        Bytes(
+            "693c61390000000000000000000000000000000000000000000000000000000000000051"  # noqa: E501
+        ),
+        Bytes(
+            "693c61390000000000000000000000000000000000000000000000000000000000000052"  # noqa: E501
+        ),
+        Bytes(
+            "693c61390000000000000000000000000000000000000000000000000000000000000053"  # noqa: E501
+        ),
+        Bytes(
+            "693c61390000000000000000000000000000000000000000000000000000000000000020"  # noqa: E501
+        ),
+        Bytes(
+            "693c6139000000000000000000000000000000000000000000000000000000000000003b"  # noqa: E501
+        ),
+    ]
+    tx_gas = [16777216]
+    tx_value = [0]
+
     tx = Transaction(
         sender=sender,
         to=contract_12,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
         nonce=1,
-        gas_price=10,
         error=_exc,
     )
 

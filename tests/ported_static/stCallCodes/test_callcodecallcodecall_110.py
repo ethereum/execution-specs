@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_callcodecallcodecall_110(
     pre: Alloc,
 ) -> None:
     """CALLCODE -> CALLCODE -> CALL -> code, check parameters."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
@@ -42,7 +42,6 @@ def test_callcodecallcodecall_110(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=30000000,
     )
@@ -65,11 +64,11 @@ def test_callcodecallcodecall_110(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0xdb43306b16c521b9cc3667fbe7d1b697bb1f9605"),  # noqa: E501
+        address=Address(0xDB43306B16C521B9CC3667FBE7D1B697BB1F9605),  # noqa: E501
     )
     # Source: lll
     # {  [[ 1 ]] (CALLCODE 300000 <contract:0x1000000000000000000000000000000000000002> 2 0 64 0 64 ) }  # noqa: E501
-    addr_0x1000000000000000000000000000000000000001 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(
             key=0x1,
             value=Op.CALLCODE(
@@ -85,11 +84,11 @@ def test_callcodecallcodecall_110(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x4c0de71b93de6b7055a3686e4bf93add02b39ed8"),  # noqa: E501
+        address=Address(0x4C0DE71B93DE6B7055A3686E4BF93ADD02B39ED8),  # noqa: E501
     )
     # Source: lll
     # {  [[ 2 ]] (CALL 250000 <contract:0x1000000000000000000000000000000000000003> 3 0 64 0 64 ) }  # noqa: E501
-    addr_0x1000000000000000000000000000000000000002 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(
             key=0x2,
             value=Op.CALL(
@@ -105,11 +104,11 @@ def test_callcodecallcodecall_110(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x62441cbe78aa4a4244e084d4f86098e31dced749"),  # noqa: E501
+        address=Address(0x62441CBE78AA4A4244E084D4F86098E31DCED749),  # noqa: E501
     )
     # Source: lll
     # {  (SSTORE 3 1) (SSTORE 4 (CALLER)) (SSTORE 7 (CALLVALUE)) (SSTORE 330 (ADDRESS)) (SSTORE 332 (ORIGIN)) (SSTORE 336 (CALLDATASIZE)) (SSTORE 338 (CODESIZE)) (SSTORE 340 (GASPRICE))}  # noqa: E501
-    addr_0x1000000000000000000000000000000000000003 = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x3, value=0x1)
         + Op.SSTORE(key=0x4, value=Op.CALLER)
         + Op.SSTORE(key=0x7, value=Op.CALLVALUE)
@@ -120,20 +119,20 @@ def test_callcodecallcodecall_110(
         + Op.SSTORE(key=0x154, value=Op.GASPRICE)
         + Op.STOP,
         nonce=0,
-        address=Address("0x181b4ed322e192361633cc3c0a418f259ab0cf4b"),  # noqa: E501
+        address=Address(0x181B4ED322E192361633CC3C0A418F259AB0CF4B),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=3000000,
-        gas_price=10,
     )
 
     post = {
         target: Account(storage={0: 1, 1: 1, 2: 1}),
-        addr_0x1000000000000000000000000000000000000003: Account(
+        addr_3: Account(
             storage={
                 3: 1,
                 4: 0xDB43306B16C521B9CC3667FBE7D1B697BB1F9605,

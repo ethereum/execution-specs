@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -22,20 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "83c7d7580000000000000000000000000000000000000000000000000000000000000001",
-    "83c7d7580000000000000000000000000000000000000000000000000000000000000002",
-]
-TX_GAS = [9437184]
-TX_VALUE = [0]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -69,9 +57,9 @@ def test_code_in_constructor(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address("0xba5e0000ba5e0000ba5e0000ba5e0000ba5e0000")
-    contract_0 = Address("0x000000000000000000000000000000000000da7a")
-    contract_1 = Address("0xcccccccccccccccccccccccccccccccccccccccc")
+    coinbase = Address(0xBA5E0000BA5E0000BA5E0000BA5E0000BA5E0000)
+    contract_0 = Address(0x000000000000000000000000000000000000DA7A)
+    contract_1 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -81,7 +69,6 @@ def test_code_in_constructor(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=4294967296,
     )
@@ -102,7 +89,7 @@ def test_code_in_constructor(
         storage={0: 1},
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address("0x000000000000000000000000000000000000da7a"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000DA7A),  # noqa: E501
     )
     # Source: lll
     # {
@@ -257,7 +244,7 @@ def test_code_in_constructor(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),  # noqa: E501
+        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
     pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
@@ -302,12 +289,22 @@ def test_code_in_constructor(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes(
+            "83c7d7580000000000000000000000000000000000000000000000000000000000000001"  # noqa: E501
+        ),
+        Bytes(
+            "83c7d7580000000000000000000000000000000000000000000000000000000000000002"  # noqa: E501
+        ),
+    ]
+    tx_gas = [9437184]
+    tx_value = [0]
+
     tx = Transaction(
         sender=sender,
         to=contract_1,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
         error=_exc,
     )
 

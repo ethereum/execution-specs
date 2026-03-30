@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,10 +32,8 @@ def test_call_lose_gas_oog(
     pre: Alloc,
 ) -> None:
     """Recursive call."""
-    coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
-    addr_0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b = Address(
-        "0xd9b97c712ebce43f3c19179bbef44b550f9e8bc0"
-    )
+    coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
+    addr = Address(0xD9B97C712EBCE43F3C19179BBEF44B550F9E8BC0)
     sender = EOA(
         key=0xE7C72B378297589ACEE4E0BA3272841BCFC5E220F86DE253F890274CFEE9E474
     )
@@ -45,15 +43,12 @@ def test_call_lose_gas_oog(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=9223372036854775807,
     )
 
     pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-    pre[addr_0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b] = Account(
-        balance=7000
-    )
+    pre[addr] = Account(balance=7000)
     # Source: lll
     # { [[ 0 ]] (ADD @@0 1) [[ 1 ]] (CALL (ADD 1(MUL @@0 100000)) <contract:target:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[ 2 ]] (ADD 1(MUL @@0 1000)) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -76,15 +71,15 @@ def test_call_lose_gas_oog(
         + Op.STOP,
         balance=1024,
         nonce=0,
-        address=Address("0x180f2d7e0c9a56b7bb287e2f50101660110b641f"),  # noqa: E501
+        address=Address(0x180F2D7E0C9A56B7BB287E2F50101660110B641F),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=200000,
         value=10,
-        gas_price=10,
     )
 
     post = {target: Account(storage={0: 1, 2: 1001})}

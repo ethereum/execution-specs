@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_create_message_reverted(
     pre: Alloc,
 ) -> None:
     """Test_create_message_reverted."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x2B75D0C814EB07C075FCCBDD9A036FAF651D9C46D7477D6C4F30772CFCA90D38
     )
@@ -42,7 +42,6 @@ def test_create_message_reverted(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=1000000000000,
     )
@@ -55,15 +54,15 @@ def test_create_message_reverted(
         + Op.CREATE(value=0x0, offset=0x1B, size=0x5)
         + Op.STOP,
         nonce=0,
-        address=Address("0xc9b0ca064c8b73a1d845547cd28d4e97fe4ec8a0"),  # noqa: E501
+        address=Address(0xC9B0CA064C8B73A1D845547CD28D4E97FE4EC8A0),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=21882,
         value=100,
-        gas_price=10,
     )
 
     post = {

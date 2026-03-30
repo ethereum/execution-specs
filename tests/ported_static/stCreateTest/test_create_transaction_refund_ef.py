@@ -12,6 +12,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -19,7 +20,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -33,7 +33,7 @@ def test_create_transaction_refund_ef(
     pre: Alloc,
 ) -> None:
     """Test combination of gas refund and EF-prefixed create transaction..."""
-    contract_0 = Address("0x00000000000000000000000000000000005ef94d")
+    contract_0 = Address(0x00000000000000000000000000000000005EF94D)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -43,7 +43,6 @@ def test_create_transaction_refund_ef(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=1,
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
@@ -57,17 +56,14 @@ def test_create_transaction_refund_ef(
         code=Op.SSTORE(key=Op.DUP1, value=0x0) + Op.STOP,
         storage={0: 1},
         nonce=0,
-        address=Address("0x00000000000000000000000000000000005ef94d"),  # noqa: E501
+        address=Address(0x00000000000000000000000000000000005EF94D),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=None,
-        data=bytes.fromhex(
-            "600080808080625ef94d61c350f15060ef60005360016000f3"
-        ),
+        data=Bytes("600080808080625ef94d61c350f15060ef60005360016000f3"),
         gas_limit=100000,
-        gas_price=10,
     )
 
     post = {

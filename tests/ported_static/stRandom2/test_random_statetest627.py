@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_random_statetest627(
     pre: Alloc,
 ) -> None:
     """Test_random_statetest627."""
-    coinbase = Address("0x4f3f701464972e74606d6ea82d4d3080599a0e79")
+    coinbase = Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79)
     sender = EOA(
         key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
     )
@@ -42,7 +42,6 @@ def test_random_statetest627(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=9223372036854775807,
     )
@@ -65,7 +64,7 @@ def test_random_statetest627(
         ),
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0xade7de10d61d1ac88700ada2a18cb4d070d34f9e"),  # noqa: E501
+        address=Address(0xADE7DE10D61D1AC88700ADA2A18CB4D070D34F9E),  # noqa: E501
     )
     # Source: raw
     # 0x6000355415600957005b60203560003555
@@ -81,17 +80,16 @@ def test_random_statetest627(
         ),
         balance=46,
         nonce=0,
-        address=Address("0x4f3f701464972e74606d6ea82d4d3080599a0e79"),  # noqa: E501
+        address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=bytes.fromhex("42"),
+        data=Bytes("42"),
         gas_limit=400000,
         value=0x186A0,
-        gas_price=10,
     )
 
     post = {

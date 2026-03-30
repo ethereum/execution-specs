@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,7 +34,7 @@ def test_call_to_return1_for_dynamic_jump1(
     pre: Alloc,
 ) -> None:
     """Test_call_to_return1_for_dynamic_jump1."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
@@ -44,7 +44,6 @@ def test_call_to_return1_for_dynamic_jump1(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -69,26 +68,26 @@ def test_call_to_return1_for_dynamic_jump1(
         + Op.SSTORE(key=0x23, value=0x23),
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x7bc307ec814ce37f4553993ac5612b763f18165d"),  # noqa: E501
+        address=Address(0x7BC307EC814CE37F4553993AC5612B763F18165D),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155602b601f536001601ff3
-    addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x1, value=0x1)
         + Op.MSTORE8(offset=0x1F, value=0x2B)
         + Op.RETURN(offset=0x1F, size=0x1),
         balance=23,
         nonce=0,
-        address=Address("0xd43411a40a68e9cba15440e3c34a74a4dc5f79dd"),  # noqa: E501
+        address=Address(0xD43411A40A68E9CBA15440E3C34A74A4DC5F79DD),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=300000,
         value=0x186A0,
-        gas_price=10,
     )
 
     post = {target: Account(storage={}, nonce=0)}

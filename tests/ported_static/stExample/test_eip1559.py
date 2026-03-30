@@ -12,6 +12,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     Hash,
     StateTestFiller,
@@ -20,7 +21,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,7 +34,7 @@ def test_eip1559(
     pre: Alloc,
 ) -> None:
     """Ori Pomerantz   qbzzt1@gmail."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xDE0C95357363DA5C1C5A73BD7C2781CA5C9FECC1014103B5E1D1E990AE8208EC
     )
@@ -44,7 +44,6 @@ def test_eip1559(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=1000,
         gas_limit=16777216,
     )
@@ -60,21 +59,21 @@ def test_eip1559(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=1,
-        address=Address("0x38dc047054d46298a5bb7ed3a0bad84bf69090d4"),  # noqa: E501
+        address=Address(0x38DC047054D46298A5BB7ED3A0BAD84BF69090D4),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=bytes.fromhex("00"),
+        data=Bytes("00"),
         gas_limit=4000000,
         max_fee_per_gas=2000,
         max_priority_fee_per_gas=10,
         nonce=1,
         access_list=[
             AccessList(
-                address=Address("0x38dc047054d46298a5bb7ed3a0bad84bf69090d4"),
+                address=Address(0x38DC047054D46298A5BB7ED3A0BAD84BF69090D4),
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501

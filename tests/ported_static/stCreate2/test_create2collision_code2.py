@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -22,20 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "6b620102036000526003601df36000526000600c60146000f500",
-    "6b620102036000526003601df36000526000600c60146001f500",
-]
-TX_GAS = [400000]
-TX_VALUE = [1]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -69,8 +57,8 @@ def test_create2collision_code2(
     v: int,
 ) -> None:
     """Collision with the contract that already has the same init code..."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    contract_0 = Address("0xfce41d047b4a1d4450382dcc29ec7e5fedc5f9a3")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0xFCE41D047B4A1D4450382DCC29EC7E5FEDC5F9A3)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -80,7 +68,6 @@ def test_create2collision_code2(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
@@ -91,7 +78,7 @@ def test_create2collision_code2(
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.SUB(Op.MUL, Op.ADD),
         nonce=1,
-        address=Address("0xfce41d047b4a1d4450382dcc29ec7e5fedc5f9a3"),  # noqa: E501
+        address=Address(0xFCE41D047B4A1D4450382DCC29EC7E5FEDC5F9A3),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -125,13 +112,19 @@ def test_create2collision_code2(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes("6b620102036000526003601df36000526000600c60146000f500"),
+        Bytes("6b620102036000526003601df36000526000600c60146001f500"),
+    ]
+    tx_gas = [400000]
+    tx_value = [1]
+
     tx = Transaction(
         sender=sender,
         to=None,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
         error=_exc,
     )
 

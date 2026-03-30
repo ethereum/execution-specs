@@ -12,30 +12,15 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "00000000000000000000000000000000000000000000000000000000000001f4",
-    "0000000000000000000000000000000000000000000000000000000000010000",
-]
-TX_GAS = [10000000]
-TX_VALUE = [10]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -44,6 +29,7 @@ def _tx_data(d: int) -> bytes:
     ],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "d, g, v",
     [
@@ -71,7 +57,7 @@ def test_static_refund_call_to_suicide_no_storage(
     v: int,
 ) -> None:
     """Test_static_refund_call_to_suicide_no_storage."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x6F0117D3E9C684C7D6E1E6B79DC3880DA2BEBE77C765B171C062FDFFD38A673F
     )
@@ -81,7 +67,6 @@ def test_static_refund_call_to_suicide_no_storage(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=1000000000,
     )
@@ -105,44 +90,41 @@ def test_static_refund_call_to_suicide_no_storage(
         storage={1: 1},
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0xa2a10d67c0f0864b703d90d9c36296ad8a547ae6"),  # noqa: E501
+        address=Address(0xA2A10D67C0F0864B703D90D9C36296AD8A547AE6),  # noqa: E501
     )
     pre[sender] = Account(balance=0x2540BE400)
     # Source: lll
     # { (SELFDESTRUCT <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>) }  # noqa: E501
-    addr_0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SELFDESTRUCT(
             address=0xA2A10D67C0F0864B703D90D9C36296AD8A547AE6
         )
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x4ff65047ce9c85f968689e4369c10003026a41a9"),  # noqa: E501
+        address=Address(0x4FF65047CE9C85F968689E4369C10003026A41A9),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(
-                    storage={0: 0, 1: 1, 2: 1},
-                    balance=0xDE0B6B3A764000A,
-                ),
-            },
-        },
+    tx_data = [
+        Hash(0x1F4),
+        Hash(0x10000),
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    tx_gas = [10000000]
+    tx_value = [10]
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
-        error=_exc,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
     )
+
+    post = {
+        target: Account(
+            storage={0: 0, 1: 1, 2: 1},
+            balance=0xDE0B6B3A764000A,
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

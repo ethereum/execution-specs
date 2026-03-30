@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,7 +34,7 @@ def test_returndatacopy_following_too_big_transfer(
     pre: Alloc,
 ) -> None:
     """Test: tis test tries RETURNDATACOPY with a non-zero size after a CALL..."""  # noqa: E501
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
     )
@@ -44,14 +44,13 @@ def test_returndatacopy_following_too_big_transfer(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=111669149696,
     )
 
     # Source: lll
     # { (seq (MSTORE 0 0x0000111122223333444455556666777788889999aaaabbbbccccddddeeeeffff) (RETURN 0 32)) }  # noqa: E501
-    addr_0x0aabbccdd5c57f15886f9b263e2f6d2d6c7b5ec6 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(
             offset=0x0,
             value=0x111122223333444455556666777788889999AAAABBBBCCCCDDDDEEEEFFFF,  # noqa: E501
@@ -59,7 +58,7 @@ def test_returndatacopy_following_too_big_transfer(
         + Op.RETURN(offset=0x0, size=0x20)
         + Op.STOP,
         nonce=0,
-        address=Address("0x9898dd5e5c526b55ec49b1047e298705c13279f1"),  # noqa: E501
+        address=Address(0x9898DD5E5C526B55EC49B1047E298705C13279F1),  # noqa: E501
     )
     # Source: lll
     # { (seq (CALL 0x0900000000 <contract:0x0aabbccdd5c57f15886f9b263e2f6d2d6c7b5ec6> 10000000 0 0 0 0) (RETURNDATACOPY 0 0 32) (SSTORE 0 200) )}  # noqa: E501
@@ -80,15 +79,15 @@ def test_returndatacopy_following_too_big_transfer(
         + Op.STOP,
         storage={0: 1},
         nonce=0,
-        address=Address("0x386e9fc96c1e60f449c2df320f37545cca30f58d"),  # noqa: E501
+        address=Address(0x386E9FC96C1E60F449C2DF320F37545CCA30F58D),  # noqa: E501
     )
     pre[sender] = Account(balance=0x6400000000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=100000,
-        gas_price=10,
     )
 
     post = {target: Account(storage={0: 1})}

@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,7 +34,7 @@ def test_call_and_callcode_consume_more_gas_then_transaction_has(
     pre: Alloc,
 ) -> None:
     """Test_call_and_callcode_consume_more_gas_then_transaction_has."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
@@ -44,7 +44,6 @@ def test_call_and_callcode_consume_more_gas_then_transaction_has(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -80,21 +79,21 @@ def test_call_and_callcode_consume_more_gas_then_transaction_has(
         )
         + Op.STOP,
         nonce=0,
-        address=Address("0x9bdb308c9b567e1dbc906d9d592a8464a05ffd44"),  # noqa: E501
+        address=Address(0x9BDB308C9B567E1DBC906D9D592A8464A05FFD44),  # noqa: E501
     )
     # Source: lll
     # { (SSTORE 0 0x12) }
-    addr_0x1000000000000000000000000000000000000103 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=0x12) + Op.STOP,
         nonce=0,
-        address=Address("0xfd59abae521384b5731ac657616680219fbc423d"),  # noqa: E501
+        address=Address(0xFD59ABAE521384B5731AC657616680219FBC423D),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=600000,
-        gas_price=10,
     )
 
     post = {target: Account(storage={0: 18, 8: 0x8D5B6, 9: 1, 10: 1})}

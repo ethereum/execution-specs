@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -26,13 +26,14 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stStaticCall/static_callcallcall_000_OOGMAfterFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.slow
 @pytest.mark.pre_alloc_mutable
 def test_static_callcallcall_000_oogm_after(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_static_callcallcall_000_oogm_after."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
@@ -42,7 +43,6 @@ def test_static_callcallcall_000_oogm_after(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -65,11 +65,11 @@ def test_static_callcallcall_000_oogm_after(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x03681c634a188409b5f9b8ca2382c1a1499d8a0d"),  # noqa: E501
+        address=Address(0x03681C634A188409B5F9B8CA2382C1A1499D8A0D),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 3 1) (STATICCALL 400080 <contract:0x1000000000000000000000000000000000000002> 0 64 0 64 ) (SSTORE 3 1)}  # noqa: E501
-    addr_0x1000000000000000000000000000000000000001 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x3, value=0x1)
         + Op.POP(
             Op.STATICCALL(
@@ -84,11 +84,11 @@ def test_static_callcallcall_000_oogm_after(
         + Op.SSTORE(key=0x3, value=0x1)
         + Op.STOP,
         nonce=0,
-        address=Address("0x8ff16542095de9f85f7c395d6d543d19b30d97d7"),  # noqa: E501
+        address=Address(0x8FF16542095DE9F85F7C395D6D543D19B30D97D7),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 3 1) (STATICCALL 120020 <contract:0x1000000000000000000000000000000000000003> 0 64 0 64 ) (MSTORE 32 1) }  # noqa: E501
-    addr_0x1000000000000000000000000000000000000002 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x3, value=0x1)
         + Op.POP(
             Op.STATICCALL(
@@ -103,35 +103,29 @@ def test_static_callcallcall_000_oogm_after(
         + Op.MSTORE(offset=0x20, value=0x1)
         + Op.STOP,
         nonce=0,
-        address=Address("0xc2234f6b4a777db8df1447c9c2d0c8cee376de76"),  # noqa: E501
+        address=Address(0xC2234F6B4A777DB8DF1447C9C2D0C8CEE376DE76),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 3 1) }
-    addr_0x1000000000000000000000000000000000000003 = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x3, value=0x1) + Op.STOP,
         nonce=0,
-        address=Address("0x335c5531b84765a7626e6e76688f18b81be5259c"),  # noqa: E501
+        address=Address(0x335C5531B84765A7626E6E76688F18B81BE5259C),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=1720000,
-        gas_price=10,
     )
 
     post = {
         target: Account(storage={0: 0, 1: 0, 2: 0, 3: 0, 111: 1}),
-        addr_0x1000000000000000000000000000000000000001: Account(
-            storage={1: 0, 2: 0, 3: 0}
-        ),
-        addr_0x1000000000000000000000000000000000000002: Account(
-            storage={2: 0, 3: 0}
-        ),
-        addr_0x1000000000000000000000000000000000000003: Account(
-            storage={3: 0}
-        ),
+        addr: Account(storage={1: 0, 2: 0, 3: 0}),
+        addr_2: Account(storage={2: 0, 3: 0}),
+        addr_3: Account(storage={3: 0}),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -12,6 +12,7 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -22,26 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "0000000000000000000000001000000000000000000000000000000000000000",
-    "0000000000000000000000002000000000000000000000000000000000000000",
-    "0000000000000000000000003000000000000000000000000000000000000000",
-    "0000000000000000000000004000000000000000000000000000000000000000",
-    "0000000000000000000000001100000000000000000000000000000000000000",
-    "0000000000000000000000002200000000000000000000000000000000000000",
-    "0000000000000000000000003300000000000000000000000000000000000000",
-    "0000000000000000000000004400000000000000000000000000000000000000",
-]
-TX_GAS = [600000]
-TX_VALUE = [0]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -111,18 +93,18 @@ def test_create2check_fields_in_initcode(
     v: int,
 ) -> None:
     """Check opcode values in create2 init code."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    contract_0 = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
-    contract_1 = Address("0x1000000000000000000000000000000000000000")
-    contract_2 = Address("0x1100000000000000000000000000000000000000")
-    contract_3 = Address("0x2000000000000000000000000000000000000000")
-    contract_4 = Address("0x2200000000000000000000000000000000000000")
-    contract_5 = Address("0x3000000000000000000000000000000000000000")
-    contract_6 = Address("0x3300000000000000000000000000000000000000")
-    contract_7 = Address("0x4000000000000000000000000000000000000000")
-    contract_8 = Address("0x4400000000000000000000000000000000000000")
-    contract_9 = Address("0xf000000000000000000000000000000000000000")
-    contract_10 = Address("0xf200000000000000000000000000000000000000")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
+    contract_1 = Address(0x1000000000000000000000000000000000000000)
+    contract_2 = Address(0x1100000000000000000000000000000000000000)
+    contract_3 = Address(0x2000000000000000000000000000000000000000)
+    contract_4 = Address(0x2200000000000000000000000000000000000000)
+    contract_5 = Address(0x3000000000000000000000000000000000000000)
+    contract_6 = Address(0x3300000000000000000000000000000000000000)
+    contract_7 = Address(0x4000000000000000000000000000000000000000)
+    contract_8 = Address(0x4400000000000000000000000000000000000000)
+    contract_9 = Address(0xF000000000000000000000000000000000000000)
+    contract_10 = Address(0xF200000000000000000000000000000000000000)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -132,7 +114,6 @@ def test_create2check_fields_in_initcode(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
@@ -152,7 +133,7 @@ def test_create2check_fields_in_initcode(
         )
         + Op.STOP,
         nonce=0,
-        address=Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
+        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
     # Source: lll
     # { (CALL (GAS) 0xf000000000000000000000000000000000000000 0 0 0 0 0) }
@@ -168,7 +149,7 @@ def test_create2check_fields_in_initcode(
         )
         + Op.STOP,
         nonce=0,
-        address=Address("0x1000000000000000000000000000000000000000"),  # noqa: E501
+        address=Address(0x1000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # { (CREATE2 0 0 (lll (seq (CALL (GAS) 0xf000000000000000000000000000000000000000 0 0 0 0 0) (STOP) ) 0) 0) (STOP) }  # noqa: E501
@@ -193,7 +174,7 @@ def test_create2check_fields_in_initcode(
         )
         + Op.STOP * 2,
         nonce=0,
-        address=Address("0x1100000000000000000000000000000000000000"),  # noqa: E501
+        address=Address(0x1100000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # { (CALLCODE (GAS) 0xf000000000000000000000000000000000000000 0 0 0 0 0) }
@@ -209,7 +190,7 @@ def test_create2check_fields_in_initcode(
         )
         + Op.STOP,
         nonce=0,
-        address=Address("0x2000000000000000000000000000000000000000"),  # noqa: E501
+        address=Address(0x2000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # { (CREATE2 0 0 (lll (seq (CALLCODE (GAS) 0xf000000000000000000000000000000000000000 0 0 0 0 0) (STOP) ) 0) 0)  (STOP) }  # noqa: E501
@@ -234,7 +215,7 @@ def test_create2check_fields_in_initcode(
         )
         + Op.STOP * 2,
         nonce=0,
-        address=Address("0x2200000000000000000000000000000000000000"),  # noqa: E501
+        address=Address(0x2200000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # { (DELEGATECALL (GAS) 0xf000000000000000000000000000000000000000 0 0 0 0) (STOP) }  # noqa: E501
@@ -251,7 +232,7 @@ def test_create2check_fields_in_initcode(
         )
         + Op.STOP * 2,
         nonce=0,
-        address=Address("0x3000000000000000000000000000000000000000"),  # noqa: E501
+        address=Address(0x3000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # { (CREATE2 0 0 (lll (seq (DELEGATECALL (GAS) 0xf000000000000000000000000000000000000000 0 0 0 0) (STOP) ) 0) 0) (STOP) }  # noqa: E501
@@ -275,7 +256,7 @@ def test_create2check_fields_in_initcode(
         )
         + Op.STOP * 2,
         nonce=0,
-        address=Address("0x3300000000000000000000000000000000000000"),  # noqa: E501
+        address=Address(0x3300000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # { (STATICCALL (GAS) 0xf200000000000000000000000000000000000000 0 0 0 256) [[10]] (MLOAD 0) }  # noqa: E501
@@ -293,7 +274,7 @@ def test_create2check_fields_in_initcode(
         + Op.SSTORE(key=0xA, value=Op.MLOAD(offset=0x0))
         + Op.STOP,
         nonce=0,
-        address=Address("0x4000000000000000000000000000000000000000"),  # noqa: E501
+        address=Address(0x4000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # { (CREATE2 0 0 (lll (seq (STATICCALL (GAS) 0xf200000000000000000000000000000000000000 0 0 0 256) [[10]] (MLOAD 0)  (STOP) ) 0) 0 ) }  # noqa: E501
@@ -318,7 +299,7 @@ def test_create2check_fields_in_initcode(
         + Op.SSTORE(key=0xA, value=Op.MLOAD(offset=0x0))
         + Op.STOP * 2,
         nonce=0,
-        address=Address("0x4400000000000000000000000000000000000000"),  # noqa: E501
+        address=Address(0x4400000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # { (CREATE2 0 0 (lll (seq   [[0]] (ADDRESS) [[1]] (BALANCE (ADDRESS)) [[2]] (ORIGIN) [[3]] (CALLER) [[4]] (CALLVALUE) [[5]] (CALLDATASIZE) [[6]] (CODESIZE) [[7]] (GASPRICE) (STOP)   ) 0) 0) (STOP) }  # noqa: E501
@@ -340,7 +321,7 @@ def test_create2check_fields_in_initcode(
         + Op.SSTORE(key=0x7, value=Op.GASPRICE)
         + Op.STOP * 2,
         nonce=0,
-        address=Address("0xf000000000000000000000000000000000000000"),  # noqa: E501
+        address=Address(0xF000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # { (CREATE2 0 0 (lll (seq   [0] (ADDRESS) [32] (BALANCE (ADDRESS)) [64] (ORIGIN) [96] (CALLER) [128] (CALLVALUE) [160] (CALLDATASIZE) [192] (CODESIZE) [224] (GASPRICE) (RETURN 0 256)  (STOP)   ) 0) 0)  }  # noqa: E501
@@ -363,7 +344,7 @@ def test_create2check_fields_in_initcode(
         + Op.RETURN(offset=0x0, size=0x100)
         + Op.STOP * 2,
         nonce=0,
-        address=Address("0xf200000000000000000000000000000000000000"),  # noqa: E501
+        address=Address(0xF200000000000000000000000000000000000000),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -481,12 +462,24 @@ def test_create2check_fields_in_initcode(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Hash(contract_1, left_padding=True),
+        Hash(contract_3, left_padding=True),
+        Hash(contract_5, left_padding=True),
+        Hash(contract_7, left_padding=True),
+        Hash(contract_2, left_padding=True),
+        Hash(contract_4, left_padding=True),
+        Hash(contract_6, left_padding=True),
+        Hash(contract_8, left_padding=True),
+    ]
+    tx_gas = [600000]
+    tx_value = [0]
+
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
         error=_exc,
     )
 

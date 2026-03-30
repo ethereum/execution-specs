@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -26,13 +26,14 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stStaticCall/static_callcallcallcode_001_OOGEFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.slow
 @pytest.mark.pre_alloc_mutable
 def test_static_callcallcallcode_001_ooge(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_static_callcallcallcode_001_ooge."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
@@ -42,7 +43,6 @@ def test_static_callcallcallcode_001_ooge(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=30000000,
     )
@@ -65,11 +65,11 @@ def test_static_callcallcallcode_001_ooge(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x563f06d1277f7cb092689ac2168d6eecd1acb499"),  # noqa: E501
+        address=Address(0x563F06D1277F7CB092689AC2168D6EECD1ACB499),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 3 1) (STATICCALL 300000 <contract:0x1000000000000000000000000000000000000002> 0 64 0 64 ) (MSTORE 3 1)}  # noqa: E501
-    addr_0x1000000000000000000000000000000000000001 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x3, value=0x1)
         + Op.POP(
             Op.STATICCALL(
@@ -84,11 +84,11 @@ def test_static_callcallcallcode_001_ooge(
         + Op.MSTORE(offset=0x3, value=0x1)
         + Op.STOP,
         nonce=0,
-        address=Address("0x6f80b859ba9392b2c26e5930c330d4a7247fba4f"),  # noqa: E501
+        address=Address(0x6F80B859BA9392B2C26E5930C330D4A7247FBA4F),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 3 1) (DELEGATECALL 120020 <contract:0x1000000000000000000000000000000000000003> 0 64 0 64 ) (MSTORE 3 1)}  # noqa: E501
-    addr_0x1000000000000000000000000000000000000002 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x3, value=0x1)
         + Op.POP(
             Op.DELEGATECALL(
@@ -103,11 +103,11 @@ def test_static_callcallcallcode_001_ooge(
         + Op.MSTORE(offset=0x3, value=0x1)
         + Op.STOP,
         nonce=0,
-        address=Address("0xa3e14608664e4a0229f96c49500f83f0fdbf3dcb"),  # noqa: E501
+        address=Address(0xA3E14608664E4A0229F96C49500F83F0FDBF3DCB),  # noqa: E501
     )
     # Source: lll
     # {  (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (EXTCODESIZE 1)  )}
-    addr_0x1000000000000000000000000000000000000003 = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(  # noqa: F841
         code=Op.JUMPDEST
         + Op.JUMPI(
             pc=0x1C, condition=Op.ISZERO(Op.LT(Op.MLOAD(offset=0x80), 0xC350))
@@ -118,28 +118,22 @@ def test_static_callcallcallcode_001_ooge(
         + Op.JUMPDEST
         + Op.STOP,
         nonce=0,
-        address=Address("0xe574f7ec5305be91332b5b8b12deb8966e05f42d"),  # noqa: E501
+        address=Address(0xE574F7EC5305BE91332B5B8B12DEB8966E05F42D),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=1720000,
-        gas_price=10,
     )
 
     post = {
         target: Account(storage={0: 1, 2: 0, 3: 0}),
-        addr_0x1000000000000000000000000000000000000001: Account(
-            storage={1: 0, 2: 0, 3: 0}
-        ),
-        addr_0x1000000000000000000000000000000000000002: Account(
-            storage={2: 0, 3: 0}
-        ),
-        addr_0x1000000000000000000000000000000000000003: Account(
-            storage={3: 0}
-        ),
+        addr: Account(storage={1: 0, 2: 0, 3: 0}),
+        addr_2: Account(storage={2: 0, 3: 0}),
+        addr_3: Account(storage={3: 0}),
         sender: Account(storage={1: 0}),
     }
 

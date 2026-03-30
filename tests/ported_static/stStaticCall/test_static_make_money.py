@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -26,13 +26,14 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stStaticCall/static_makeMoneyFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.slow
 @pytest.mark.pre_alloc_mutable
 def test_static_make_money(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_static_make_money."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xA2333EEF5630066B928DEA5FD85A239F511B5B067D1441EE7AC290D0122B917B
     )
@@ -42,7 +43,6 @@ def test_static_make_money(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
@@ -65,33 +65,31 @@ def test_static_make_money(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x52ba5aa5c6b8214da66b53c9774f587f3ee4dbd0"),  # noqa: E501
+        address=Address(0x52BA5AA5C6B8214DA66B53C9774F587F3EE4DBD0),  # noqa: E501
     )
     pre[sender] = Account(balance=0x5F5E100)
     # Source: raw
     # 0x600160015532600255
-    addr_0xaaaaaaaaace5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x1, value=0x1)
         + Op.SSTORE(key=0x2, value=Op.ORIGIN),
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x802edccf6cde9162a05fd89cdfcd8dc4a230b978"),  # noqa: E501
+        address=Address(0x802EDCCF6CDE9162A05FD89CDFCD8DC4A230B978),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=228500,
         value=10,
-        gas_price=10,
     )
 
     post = {
         target: Account(balance=0xDE0B6B3A764000A),
         sender: Account(balance=0x5D38038),
-        addr_0xaaaaaaaaace5edbc8e2a8697c15331677e6ebf0b: Account(
-            balance=0xDE0B6B3A7640000
-        ),
+        addr: Account(balance=0xDE0B6B3A7640000),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

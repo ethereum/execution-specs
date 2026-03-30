@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -23,20 +24,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "693c61390000000000000000000000000000000000000000000000000000000000000000",
-    "693c61390000000000000000000000000000000000000000000000000000000000000001",
-]
-TX_GAS = [10000000, 9999999]
-TX_VALUE = [0, 100]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -108,13 +96,13 @@ def test_eoa_empty_paris(
     v: int,
 ) -> None:
     """Test_eoa_empty_paris."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    contract_0 = Address("0x000000000000000000000000000000000000bad1")
-    contract_1 = Address("0x000000000000000000000000000000000000bad2")
-    contract_2 = Address("0x000000000000000000000000000000000000bad3")
-    contract_3 = Address("0x000000000000000000000000000000000000bad4")
-    contract_4 = Address("0x000000000000000000000000000000000000dead")
-    contract_5 = Address("0x000000000000000000000000000000000000c0de")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0x000000000000000000000000000000000000BAD1)
+    contract_1 = Address(0x000000000000000000000000000000000000BAD2)
+    contract_2 = Address(0x000000000000000000000000000000000000BAD3)
+    contract_3 = Address(0x000000000000000000000000000000000000BAD4)
+    contract_4 = Address(0x000000000000000000000000000000000000DEAD)
+    contract_5 = Address(0x000000000000000000000000000000000000C0DE)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -124,7 +112,6 @@ def test_eoa_empty_paris(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=89128960,
     )
@@ -136,14 +123,14 @@ def test_eoa_empty_paris(
         code="",
         balance=1,
         nonce=0,
-        address=Address("0x000000000000000000000000000000000000bad1"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000BAD1),  # noqa: E501
     )
     # Source: hex
     # 0x
     contract_1 = pre.deploy_contract(  # noqa: F841
         code="",
         nonce=1,
-        address=Address("0x000000000000000000000000000000000000bad2"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000BAD2),  # noqa: E501
     )
     # Source: hex
     # 0x
@@ -151,7 +138,7 @@ def test_eoa_empty_paris(
         code="",
         balance=1,
         nonce=1,
-        address=Address("0x000000000000000000000000000000000000bad3"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000BAD3),  # noqa: E501
     )
     # Source: hex
     # 0x
@@ -160,7 +147,7 @@ def test_eoa_empty_paris(
         storage={57005: 48879},
         balance=10,
         nonce=0,
-        address=Address("0x000000000000000000000000000000000000bad4"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000BAD4),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -171,7 +158,7 @@ def test_eoa_empty_paris(
         code=Op.SELFDESTRUCT(address=Op.ORIGIN),
         balance=10000,
         nonce=1,
-        address=Address("0x000000000000000000000000000000000000dead"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000DEAD),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -240,7 +227,7 @@ def test_eoa_empty_paris(
         + Op.SSTORE(key=0xFF, value=Op.SUB)
         + Op.STOP,
         nonce=1,
-        address=Address("0x000000000000000000000000000000000000c0de"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000C0DE),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -388,12 +375,23 @@ def test_eoa_empty_paris(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes(
+            "693c61390000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+        ),
+        Bytes(
+            "693c61390000000000000000000000000000000000000000000000000000000000000001"  # noqa: E501
+        ),
+    ]
+    tx_gas = [10000000, 9999999]
+    tx_value = [0, 100]
+
     tx = Transaction(
         sender=sender,
         to=contract_5,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
         gas_price=100,
         error=_exc,
     )

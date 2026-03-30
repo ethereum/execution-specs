@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_internal_call_hitting_gas_limit(
     pre: Alloc,
 ) -> None:
     """Test_internal_call_hitting_gas_limit."""
-    coinbase = Address("0x2adf5374fce5edbc8e2a8697c15331677e6ebf0b")
+    coinbase = Address(0x2ADF5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = EOA(
         key=0xF79127A3004ABDE26A4CBD80C428CB10F829FA11B54D36E7B326F4F4A5927ACF
     )
@@ -42,7 +42,6 @@ def test_internal_call_hitting_gas_limit(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000,
     )
@@ -63,28 +62,24 @@ def test_internal_call_hitting_gas_limit(
         + Op.STOP,
         balance=0xF4240,
         nonce=0,
-        address=Address("0xb208128346fe6a0c4efa386c0c411a56e4557e2a"),  # noqa: E501
+        address=Address(0xB208128346FE6A0C4EFA386C0C411A56E4557E2A),  # noqa: E501
     )
     # Source: lll
     # {[[1]]55}
-    addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x1, value=0x37) + Op.STOP,
         nonce=0,
-        address=Address("0x9f499a40cbc961c5230197401ce369d5c53ed896"),  # noqa: E501
+        address=Address(0x9F499A40CBC961C5230197401CE369D5C53ED896),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=21100,
         value=10,
-        gas_price=10,
     )
 
-    post = {
-        addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-            storage={}, balance=0
-        ),
-    }
+    post = {addr: Account(storage={}, balance=0)}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

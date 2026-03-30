@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,7 +34,7 @@ def test_random_statetest_default_minus_tue_07_58_41_minus_15153_minus_575192(
     pre: Alloc,
 ) -> None:
     """Test: tis is a canon example of a test found by fuzzing with EVMlab,..."""  # noqa: E501
-    coinbase = Address("0xdf5277352f687058bec2d433f2e2d1b7f0c970ae")
+    coinbase = Address(0xDF5277352F687058BEC2D433F2E2D1B7F0C970AE)
     sender = EOA(
         key=0xEDDB5B1A0109F06919449A6279E9DE92A892086BDD851894EB8FFA6C8FF4E563
     )
@@ -44,17 +44,16 @@ def test_random_statetest_default_minus_tue_07_58_41_minus_15153_minus_575192(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=20000000,
     )
 
     # Source: raw
     # 0x62abcdefff
-    addr_0x000000000000000000000000000000000000dead = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SELFDESTRUCT(address=0xABCDEF),
         nonce=28,
-        address=Address("0x589d1b72331c25effee38732d79f48f729681853"),  # noqa: E501
+        address=Address(0x589D1B72331C25EFFEE38732D79F48F729681853),  # noqa: E501
     )
     # Source: raw
     # 0x61dead6000600060006000600061dead5af162abcdef3f600155
@@ -71,13 +70,14 @@ def test_random_statetest_default_minus_tue_07_58_41_minus_15153_minus_575192(
         )
         + Op.SSTORE(key=0x1, value=Op.EXTCODEHASH(address=0xABCDEF)),
         nonce=28,
-        address=Address("0xdf5277352f687058bec2d433f2e2d1b7f0c970ae"),  # noqa: E501
+        address=Address(0xDF5277352F687058BEC2D433F2E2D1B7F0C970AE),  # noqa: E501
     )
     pre[sender] = Account(balance=0x5D8FDD3FF54298B4, nonce=28)
 
     tx = Transaction(
         sender=sender,
         to=coinbase,
+        data=Bytes(""),
         gas_limit=6282759,
         nonce=28,
         gas_price=11,

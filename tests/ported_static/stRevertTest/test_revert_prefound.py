@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,9 +32,9 @@ def test_revert_prefound(
     pre: Alloc,
 ) -> None:
     """Test_revert_prefound."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    contract_0 = Address("0x7db299e0885c85039f56fa504a13dd8ce8a56aa7")
-    contract_1 = Address("0xa000000000000000000000000000000000000000")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0x7DB299E0885C85039F56FA504A13DD8CE8A56AA7)
+    contract_1 = Address(0xA000000000000000000000000000000000000000)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -44,7 +44,6 @@ def test_revert_prefound(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -61,14 +60,14 @@ def test_revert_prefound(
         + Op.STOP,
         balance=1,
         nonce=0,
-        address=Address("0xa000000000000000000000000000000000000000"),  # noqa: E501
+        address=Address(0xA000000000000000000000000000000000000000),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=contract_1,
+        data=Bytes(""),
         gas_limit=1040000,
-        gas_price=10,
     )
 
     post = {contract_0: Account(storage={}, code=b"", balance=1, nonce=1)}

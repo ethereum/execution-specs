@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -19,7 +20,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -36,7 +36,7 @@ def test_transaction_colliding_with_non_empty_account_calls_itself(
     pre: Alloc,
 ) -> None:
     """Account with non-empty code attempts to send tx to call itself."""
-    coinbase = Address("0xeb201d2887816e041f6e807e804f64f3a7a226fe")
+    coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
     sender = EOA(
         key=0x402790500EA083A617EC567407D9EC3BBB3A5C8B812547D9F66E8D7878B8A75D
     )
@@ -46,7 +46,6 @@ def test_transaction_colliding_with_non_empty_account_calls_itself(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=71794957647893862,
     )
@@ -59,9 +58,9 @@ def test_transaction_colliding_with_non_empty_account_calls_itself(
     tx = Transaction(
         sender=sender,
         to=sender,
+        data=Bytes(""),
         gas_limit=400000,
         value=0x186A0,
-        gas_price=10,
         error=TransactionException.SENDER_NOT_EOA,
     )
 

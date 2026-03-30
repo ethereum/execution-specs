@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,10 +32,8 @@ def test_failed_tx_xcf416c53_paris(
     pre: Alloc,
 ) -> None:
     """Test_failed_tx_xcf416c53_paris."""
-    coinbase = Address("0x68795c4aa09d6f4ed3e5deddf8c2ad3049a601da")
-    addr_0x0000000000000000000000000000000000000003 = Address(
-        "0x76fae819612a29489a1a43208613d8f8557b8898"
-    )
+    coinbase = Address(0x68795C4AA09D6F4ED3E5DEDDF8C2AD3049A601DA)
+    addr = Address(0x76FAE819612A29489A1A43208613D8F8557B8898)
     sender = EOA(
         key=0xFF8D58222F34F6890DDAA468C023B77D6691ED7D3C4DCDDAE38336212FAF54B
     )
@@ -45,7 +43,6 @@ def test_failed_tx_xcf416c53_paris(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=200000000,
     )
@@ -88,25 +85,24 @@ def test_failed_tx_xcf416c53_paris(
         + Op.JUMPDEST
         + Op.POP,
         nonce=0,
-        address=Address("0x7e6e9b4ca1b88937abeaec23bc4b6986caf05188"),  # noqa: E501
+        address=Address(0x7E6E9B4CA1B88937ABEAEC23BC4B6986CAF05188),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
-    pre[addr_0x0000000000000000000000000000000000000003] = Account(balance=10)
+    pre[addr] = Account(balance=10)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=bytes.fromhex(
+        data=Bytes(
             "97dd3054000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002bc"  # noqa: E501
         ),
         gas_limit=16300000,
         nonce=1,
-        gas_price=10,
     )
 
     post = {
         sender: Account(nonce=2),
-        addr_0x0000000000000000000000000000000000000003: Account(balance=10),
+        addr: Account(balance=10),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -11,13 +11,13 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
 )
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -31,7 +31,7 @@ def test_overflow_gas_make_money(
     pre: Alloc,
 ) -> None:
     """Apparently this test was testing theoretical issue occur when tr..."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x4C30106C229CD77A61E9EAB5FCEE11CC912BF94F785EE56F406817744BB6A074
     )
@@ -41,7 +41,6 @@ def test_overflow_gas_make_money(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=9223372036854775807,
     )
@@ -51,9 +50,9 @@ def test_overflow_gas_make_money(
     tx = Transaction(
         sender=sender,
         to=Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"),
+        data=Bytes(""),
         gas_limit=100000,
         value=501,
-        gas_price=10,
     )
 
     post = {sender: Account(nonce=1)}

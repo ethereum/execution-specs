@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_random_statetest650(
     pre: Alloc,
 ) -> None:
     """Consensus issue test produced by fuzz testing team..."""
-    coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+    coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = EOA(
         key=0x61EC5E5029A151E121E39AE4D7546D549EA4B130F645F6F650CEEC0416FE27F4
     )
@@ -42,7 +42,6 @@ def test_random_statetest650(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10944489199640098,
     )
@@ -3303,19 +3302,18 @@ def test_random_statetest650(
             ret_size=0x20,
         ),
         nonce=0,
-        address=Address("0x9d258197de5279a844b4be3d23547ca4233a70bc"),  # noqa: E501
+        address=Address(0x9D258197DE5279A844B4BE3D23547CA4233A70BC),  # noqa: E501
     )
     pre[sender] = Account(balance=0x3FFFFFFFFFFFFFFF)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=bytes.fromhex(
+        data=Bytes(
             "000000d514029599b459ce6d7f5a430010f6730aefbfbdefbfbdefbfbdefbfbd03000000d514029599b459ce6d7f5a430010f6730aefbfbdefbfbdefbfbdefbfbd03000000d514029599b459ce6d7f5a430010f6730aefbfbdefbfbdefbfbdefbfbd0300"  # noqa: E501
         ),
         gas_limit=1200000,
         value=0xEFBFBD03,
-        gas_price=10,
     )
 
     post = {sender: Account(nonce=1)}

@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_random_statetest131(
     pre: Alloc,
 ) -> None:
     """Test_random_statetest131."""
-    coinbase = Address("0x4f3f701464972e74606d6ea82d4d3080599a0e79")
+    coinbase = Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79)
     sender = EOA(
         key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
     )
@@ -42,7 +42,6 @@ def test_random_statetest131(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=9223372036854775807,
     )
@@ -64,7 +63,7 @@ def test_random_statetest131(
             key=Op.MLOAD(offset=0x0), value=0x36FF85758270710168547A9777886096
         ),
         nonce=0,
-        address=Address("0x938a9916f93afd04f1e2a70e00dc813c8df3ddb8"),  # noqa: E501
+        address=Address(0x938A9916F93AFD04F1E2A70E00DC813C8DF3DDB8),  # noqa: E501
     )
     # Source: raw
     # 0x6000355415600957005b60203560003555
@@ -80,19 +79,18 @@ def test_random_statetest131(
         ),
         balance=46,
         nonce=0,
-        address=Address("0x4f3f701464972e74606d6ea82d4d3080599a0e79"),  # noqa: E501
+        address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=bytes.fromhex(
+        data=Bytes(
             "7f00000000000000000000000100000000000000000000000000000000000000007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000000000000000000000000000000000000000c3507f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7f000000000000000000000001000000000000000000000000000000000000000014416f36ff85758270710168547a9777886096"  # noqa: E501
         ),
         gas_limit=100000,
         value=0x1C479F90,
-        gas_price=10,
     )
 
     post = {

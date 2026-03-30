@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,10 +34,8 @@ def test_returndatacopy_after_failing_staticcall(
     pre: Alloc,
 ) -> None:
     """Test_returndatacopy_after_failing_staticcall."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    addr_0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6 = Address(
-        "0x905c744acaf4d8f5436c9c5e91e0626d44add821"
-    )
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    addr = Address(0x905C744ACAF4D8F5436C9C5E91E0626D44ADD821)
     sender = EOA(
         key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
     )
@@ -47,14 +45,11 @@ def test_returndatacopy_after_failing_staticcall(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=111669149696,
     )
 
-    pre[addr_0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6] = Account(
-        balance=0x100000
-    )
+    pre[addr] = Account(balance=0x100000)
     # Source: lll
     # { (STATICCALL 0 <contract:0x1000000000000000000000000000000000000002> 0 0 0 0) (RETURNDATACOPY 0x0 0x0 32) ( SSTORE 0 (MLOAD 0))}  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -75,25 +70,25 @@ def test_returndatacopy_after_failing_staticcall(
             0: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
         },
         nonce=0,
-        address=Address("0x7acae812141b61313bea3d8b33b2f9c69f4e6720"),  # noqa: E501
+        address=Address(0x7ACAE812141B61313BEA3D8B33B2F9C69F4E6720),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 0x0 (CALLER)) (RETURN 0 32) }
-    addr_0x1000000000000000000000000000000000000002 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=Op.CALLER)
         + Op.RETURN(offset=0x0, size=0x20)
         + Op.STOP,
         balance=0x6400000000,
         nonce=0,
-        address=Address("0x52fd0cbc013ee33577eec035031dbc4489a1e0bd"),  # noqa: E501
+        address=Address(0x52FD0CBC013EE33577EEC035031DBC4489A1E0BD),  # noqa: E501
     )
     pre[sender] = Account(balance=0x6400000000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=100000,
-        gas_price=10,
     )
 
     post = {

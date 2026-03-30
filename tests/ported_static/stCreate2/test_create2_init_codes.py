@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -21,27 +22,7 @@ from execution_testing.specs.static_state.expect_section import (
 )
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "60006000536000600160006000f560005500",
-    "60566000536000600160006000f560005500",
-    "60016000536000600160006000f560005500",
-    "60f46000536000600160006000f560005500",
-    "6a60016001556001546002556000526000600b60156000f560005500",
-    "626001ff60005260006003601d6000f560005500",
-    "626001ff60005260006003601d6001f560005500",
-    "60006003601d6000f560005500",
-    "6160a960005260006002601e6001f560005500",
-]
-TX_GAS = [800000]
-TX_VALUE = [1]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -117,7 +98,7 @@ def test_create2_init_codes(
     v: int,
 ) -> None:
     """Testing different byte opcodes inside create2 init code."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -127,7 +108,6 @@ def test_create2_init_codes(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
@@ -227,13 +207,26 @@ def test_create2_init_codes(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes("60006000536000600160006000f560005500"),
+        Bytes("60566000536000600160006000f560005500"),
+        Bytes("60016000536000600160006000f560005500"),
+        Bytes("60f46000536000600160006000f560005500"),
+        Bytes("6a60016001556001546002556000526000600b60156000f560005500"),
+        Address(0x626001FF60005260006003601D6000F560005500),
+        Address(0x626001FF60005260006003601D6001F560005500),
+        Bytes("60006003601d6000f560005500"),
+        Bytes("6160a960005260006002601e6001f560005500"),
+    ]
+    tx_gas = [800000]
+    tx_value = [1]
+
     tx = Transaction(
         sender=sender,
         to=None,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
         error=_exc,
     )
 

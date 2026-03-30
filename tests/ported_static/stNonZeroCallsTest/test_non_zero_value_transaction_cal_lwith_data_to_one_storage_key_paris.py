@@ -17,7 +17,6 @@ from execution_testing import (
 )
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -33,10 +32,8 @@ def test_non_zero_value_transaction_cal_lwith_data_to_one_storage_key_paris(
     pre: Alloc,
 ) -> None:
     """Test_non_zero_value_transaction_cal_lwith_data_to_one_storage_key_p..."""  # noqa: E501
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    addr_0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b = Address(
-        "0x4757608f18b70777ae788dd4056eeed52f7aa68f"
-    )
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    addr = Address(0x4757608F18B70777AE788DD4056EEED52F7AA68F)
     sender = EOA(
         key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
@@ -46,29 +43,21 @@ def test_non_zero_value_transaction_cal_lwith_data_to_one_storage_key_paris(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
 
     pre[sender] = Account(balance=0xE8D4A51000)
-    pre[addr_0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b] = Account(
-        balance=10, storage={0: 1}
-    )
+    pre[addr] = Account(balance=10, storage={0: 1})
 
     tx = Transaction(
         sender=sender,
-        to=addr_0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b,
-        data=bytes.fromhex("1122334455667788991011121314151617181920"),
+        to=addr,
+        data=Address(0x1122334455667788991011121314151617181920),
         gas_limit=600000,
         value=1,
-        gas_price=10,
     )
 
-    post = {
-        addr_0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-            storage={0: 1}, balance=11
-        ),
-    }
+    post = {addr: Account(storage={0: 1}, balance=11)}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

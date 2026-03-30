@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -22,28 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "1a8451e600000000000000000000000000000000000000000000000000000000000000f00000000000000000000000000000000000000000000000000000000000000006",  # noqa: E501
-    "1a8451e600000000000000000000000000000000000000000000000000000000000000f50000000000000000000000000000000000000000000000000000000000000006",  # noqa: E501
-    "1a8451e600000000000000000000000000000000000000000000000000000000000000f0000000000000000000000000000000000000000000000000000000000000600d",  # noqa: E501
-    "1a8451e600000000000000000000000000000000000000000000000000000000000000f5000000000000000000000000000000000000000000000000000000000000600d",  # noqa: E501
-    "1a8451e600000000000000000000000000000000000000000000000000000000000000f00000000000000000000000000000000000000000000000000000000000000bad",  # noqa: E501
-    "1a8451e600000000000000000000000000000000000000000000000000000000000000f50000000000000000000000000000000000000000000000000000000000000bad",  # noqa: E501
-    "1a8451e600000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000000000000000000000000000600d",  # noqa: E501
-    "1a8451e600000000000000000000000000000000000000000000000000000000000000ff0000000000000000000000000000000000000000000000000000000000000bad",  # noqa: E501
-    "1a8451e600000000000000000000000000000000000000000000000000000000000000ee000000000000000000000000000000000000000000000000000000000000600d",  # noqa: E501
-    "1a8451e600000000000000000000000000000000000000000000000000000000000000ee0000000000000000000000000000000000000000000000000000000000000bad",  # noqa: E501
-]
-TX_GAS = [16777216]
-TX_VALUE = [0]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -125,18 +105,18 @@ def test_create_fail_result(
     v: int,
 ) -> None:
     """Ori Pomerantz   qbzzt1@gmail."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    contract_0 = Address("0x000000000000000000000000000000000000da7a")
-    contract_1 = Address("0x0000000000000000000000000000000000000bad")
-    contract_2 = Address("0x000000000000000000000000000000000000600d")
-    contract_3 = Address("0x0000000000000000000000000000000000c0def0")
-    contract_4 = Address("0x0000000000000000000000000000000000c0def5")
-    contract_5 = Address("0x0000000000000000000000000000000000c0deff")
-    contract_6 = Address("0xbb0237ab04970e3cf3e813c02064662adc89336b")
-    contract_7 = Address("0x13c950f8740ffaea1869a88d70b029e8b0c9a8da")
-    contract_8 = Address("0x0000000000000000000000000000000000c0deee")
-    contract_9 = Address("0xf9d1ea8eab6963659ee85b3e0b4d8a57e7edba2b")
-    contract_10 = Address("0xcccccccccccccccccccccccccccccccccccccccc")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0x000000000000000000000000000000000000DA7A)
+    contract_1 = Address(0x0000000000000000000000000000000000000BAD)
+    contract_2 = Address(0x000000000000000000000000000000000000600D)
+    contract_3 = Address(0x0000000000000000000000000000000000C0DEF0)
+    contract_4 = Address(0x0000000000000000000000000000000000C0DEF5)
+    contract_5 = Address(0x0000000000000000000000000000000000C0DEFF)
+    contract_6 = Address(0xBB0237AB04970E3CF3E813C02064662ADC89336B)
+    contract_7 = Address(0x13C950F8740FFAEA1869A88D70B029E8B0C9A8DA)
+    contract_8 = Address(0x0000000000000000000000000000000000C0DEEE)
+    contract_9 = Address(0xF9D1EA8EAB6963659EE85B3E0B4D8A57E7EDBA2B)
+    contract_10 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -146,7 +126,6 @@ def test_create_fail_result(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
@@ -166,7 +145,7 @@ def test_create_fail_result(
         + Op.RETURN(offset=0x0, size=0x40),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address("0x000000000000000000000000000000000000da7a"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000DA7A),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -179,7 +158,7 @@ def test_create_fail_result(
         + Op.REVERT(offset=0x0, size=0x20),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address("0x0000000000000000000000000000000000000bad"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000000BAD),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -192,7 +171,7 @@ def test_create_fail_result(
         + Op.RETURN(offset=0x0, size=0x20),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address("0x000000000000000000000000000000000000600d"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000600D),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -255,7 +234,7 @@ def test_create_fail_result(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address("0x0000000000000000000000000000000000c0def0"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000C0DEF0),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -318,7 +297,7 @@ def test_create_fail_result(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address("0x0000000000000000000000000000000000c0def5"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000C0DEF5),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -381,7 +360,7 @@ def test_create_fail_result(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address("0x0000000000000000000000000000000000c0deff"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000C0DEFF),  # noqa: E501
     )
     # Source: raw
     # 0x600100
@@ -389,7 +368,7 @@ def test_create_fail_result(
         code=Op.PUSH1[0x1] + Op.STOP,
         balance=24589,
         nonce=1,
-        address=Address("0xbb0237ab04970e3cf3e813c02064662adc89336b"),  # noqa: E501
+        address=Address(0xBB0237AB04970E3CF3E813C02064662ADC89336B),  # noqa: E501
     )
     # Source: raw
     # 0x600100
@@ -397,7 +376,7 @@ def test_create_fail_result(
         code=Op.PUSH1[0x1] + Op.STOP,
         balance=24589,
         nonce=1,
-        address=Address("0x13c950f8740ffaea1869a88d70b029e8b0c9a8da"),  # noqa: E501
+        address=Address(0x13C950F8740FFAEA1869A88D70B029E8B0C9A8DA),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -459,7 +438,7 @@ def test_create_fail_result(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address("0x0000000000000000000000000000000000c0deee"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000C0DEEE),  # noqa: E501
     )
     # Source: raw
     # 0x600100
@@ -467,7 +446,7 @@ def test_create_fail_result(
         code=Op.PUSH1[0x1] + Op.STOP,
         balance=24589,
         nonce=1,
-        address=Address("0xf9d1ea8eab6963659ee85b3e0b4d8a57e7edba2b"),  # noqa: E501
+        address=Address(0xF9D1EA8EAB6963659EE85B3E0B4D8A57E7EDBA2B),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -541,7 +520,7 @@ def test_create_fail_result(
         + Op.JUMP(pc=0x3F),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),  # noqa: E501
+        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
     pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
 
@@ -701,13 +680,47 @@ def test_create_fail_result(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes(
+            "1a8451e600000000000000000000000000000000000000000000000000000000000000f00000000000000000000000000000000000000000000000000000000000000006"  # noqa: E501
+        ),
+        Bytes(
+            "1a8451e600000000000000000000000000000000000000000000000000000000000000f50000000000000000000000000000000000000000000000000000000000000006"  # noqa: E501
+        ),
+        Bytes(
+            "1a8451e600000000000000000000000000000000000000000000000000000000000000f0000000000000000000000000000000000000000000000000000000000000600d"  # noqa: E501
+        ),
+        Bytes(
+            "1a8451e600000000000000000000000000000000000000000000000000000000000000f5000000000000000000000000000000000000000000000000000000000000600d"  # noqa: E501
+        ),
+        Bytes(
+            "1a8451e600000000000000000000000000000000000000000000000000000000000000f00000000000000000000000000000000000000000000000000000000000000bad"  # noqa: E501
+        ),
+        Bytes(
+            "1a8451e600000000000000000000000000000000000000000000000000000000000000f50000000000000000000000000000000000000000000000000000000000000bad"  # noqa: E501
+        ),
+        Bytes(
+            "1a8451e600000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000000000000000000000000000600d"  # noqa: E501
+        ),
+        Bytes(
+            "1a8451e600000000000000000000000000000000000000000000000000000000000000ff0000000000000000000000000000000000000000000000000000000000000bad"  # noqa: E501
+        ),
+        Bytes(
+            "1a8451e600000000000000000000000000000000000000000000000000000000000000ee000000000000000000000000000000000000000000000000000000000000600d"  # noqa: E501
+        ),
+        Bytes(
+            "1a8451e600000000000000000000000000000000000000000000000000000000000000ee0000000000000000000000000000000000000000000000000000000000000bad"  # noqa: E501
+        ),
+    ]
+    tx_gas = [16777216]
+    tx_value = [0]
+
     tx = Transaction(
         sender=sender,
         to=contract_10,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
         nonce=1,
-        gas_price=10,
         error=_exc,
     )
 

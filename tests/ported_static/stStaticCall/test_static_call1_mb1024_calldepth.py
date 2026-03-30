@@ -12,6 +12,7 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -22,20 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "000000000000000000000000a79ae640e38871970f579f62237dfe2705068825",
-    "000000000000000000000000583aa587d7d852a5b8448cc4160537d9bd12c889",
-]
-TX_GAS = [882500000000]
-TX_VALUE = [10]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -43,6 +31,7 @@ def _tx_data(d: int) -> bytes:
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "d, g, v",
     [
@@ -70,10 +59,8 @@ def test_static_call1_mb1024_calldepth(
     v: int,
 ) -> None:
     """Test_static_call1_mb1024_calldepth."""
-    coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
-    addr_0xaaa50000fce5edbc8e2a8697c15331677e6ebf0b = Address(
-        "0x2ab8257767339461506c0c67824cf17bc77b52ca"
-    )
+    coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
+    addr = Address(0x2AB8257767339461506C0C67824CF17BC77B52CA)
     sender = EOA(
         key=0xE7C72B378297589ACEE4E0BA3272841BCFC5E220F86DE253F890274CFEE9E474
     )
@@ -83,15 +70,12 @@ def test_static_call1_mb1024_calldepth(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=892500000000,
     )
 
     pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-    pre[addr_0xaaa50000fce5edbc8e2a8697c15331677e6ebf0b] = Account(
-        balance=0xFFFFFFFFFFFFF
-    )
+    pre[addr] = Account(balance=0xFFFFFFFFFFFFF)
     # Source: lll
     # { [[ 0 ]] (CALL (GAS) (CALLDATALOAD 0) 0 0 0 0 0)  }
     target = pre.deploy_contract(  # noqa: F841
@@ -110,11 +94,11 @@ def test_static_call1_mb1024_calldepth(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
-        address=Address("0xb16dbbe237612935e6611c3f5fb7d80eb0046801"),  # noqa: E501
+        address=Address(0xB16DBBE237612935E6611C3F5FB7D80EB0046801),  # noqa: E501
     )
     # Source: lll
     # { (def 'i 0x80) [[ 0 ]] (+ @@0 1) (if (LT @@0 1024) [[ 1 ]] (STATICCALL (- (GAS) 1005000) <contract:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 1000000 0 0) [[ 2 ]] 1 )  }  # noqa: E501
-    addr_0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.ADD(Op.SLOAD(key=0x0), 0x1))
         + Op.JUMPI(pc=0x1B, condition=Op.LT(Op.SLOAD(key=0x0), 0x400))
         + Op.SSTORE(key=0x2, value=0x1)
@@ -135,11 +119,11 @@ def test_static_call1_mb1024_calldepth(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
-        address=Address("0xa79ae640e38871970f579f62237dfe2705068825"),  # noqa: E501
+        address=Address(0xA79AE640E38871970F579F62237DFE2705068825),  # noqa: E501
     )
     # Source: lll
     # { (def 'i 0x80) (MSTORE 0 (+ (MLOAD 0) 1)) (if (LT (MLOAD 0) 1024) (MSTORE 32 (STATICCALL (- (GAS) 1005000) <contract:0xcbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 1000000 0 0)) (MSTORE 64 1) )   }  # noqa: E501
-    addr_0xcbbf5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=Op.ADD(Op.MLOAD(offset=0x0), 0x1))
         + Op.JUMPI(pc=0x1B, condition=Op.LT(Op.MLOAD(offset=0x0), 0x400))
         + Op.MSTORE(offset=0x40, value=0x1)
@@ -160,7 +144,7 @@ def test_static_call1_mb1024_calldepth(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
-        address=Address("0x583aa587d7d852a5b8448cc4160537d9bd12c889"),  # noqa: E501
+        address=Address(0x583AA587D7D852A5B8448CC4160537D9BD12C889),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -169,9 +153,7 @@ def test_static_call1_mb1024_calldepth(
             "network": [">=Cancun<Osaka"],
             "result": {
                 target: Account(storage={0: 1}),
-                addr_0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={0: 1, 1: 0}, nonce=0
-                ),
+                addr_2: Account(storage={0: 1, 1: 0}, nonce=0),
             },
         },
         {
@@ -179,22 +161,26 @@ def test_static_call1_mb1024_calldepth(
             "network": [">=Cancun<Osaka"],
             "result": {
                 target: Account(storage={0: 1}),
-                addr_0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={0: 0, 1: 0}, nonce=0
-                ),
+                addr_2: Account(storage={0: 0, 1: 0}, nonce=0),
             },
         },
     ]
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Hash(addr_2, left_padding=True),
+        Hash(addr_3, left_padding=True),
+    ]
+    tx_gas = [882500000000]
+    tx_value = [10]
+
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
         error=_exc,
     )
 

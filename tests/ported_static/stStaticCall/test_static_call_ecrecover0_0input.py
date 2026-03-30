@@ -12,6 +12,7 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -22,33 +23,14 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "0000000000000000000000000000000000000000000000000000000000000000",
-    "0000000000000000000000000000000000000000000000000000000000000001",
-    "0000000000000000000000000000000000000000000000000000000000000002",
-    "0000000000000000000000000000000000000000000000000000000000000003",
-    "0000000000000000000000000000000000000000000000000000000000000004",
-    "0000000000000000000000000000000000000000000000000000000000000005",
-    "0000000000000000000000000000000000000000000000000000000000000006",
-    "0000000000000000000000000000000000000000000000000000000000000007",
-    "0000000000000000000000000000000000000000000000000000000000000008",
-]
-TX_GAS = [3652240]
-TX_VALUE = [100000]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
     ["state_tests/stStaticCall/static_CallEcrecover0_0inputFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "d, g, v",
     [
@@ -118,7 +100,7 @@ def test_static_call_ecrecover0_0input(
     v: int,
 ) -> None:
     """Test_static_call_ecrecover0_0input."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
@@ -128,7 +110,6 @@ def test_static_call_ecrecover0_0input(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -153,7 +134,7 @@ def test_static_call_ecrecover0_0input(
         + Op.STOP,
         balance=0x1312D00,
         nonce=0,
-        address=Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"),  # noqa: E501
+        address=Address(0x1FD04A51AC69C94C58521D30E2DEFC4856A581B0),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
@@ -196,13 +177,26 @@ def test_static_call_ecrecover0_0input(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Hash(0x0),
+        Hash(0x1),
+        Hash(0x2),
+        Hash(0x3),
+        Hash(0x4),
+        Hash(0x5),
+        Hash(0x6),
+        Hash(0x7),
+        Hash(0x8),
+    ]
+    tx_gas = [3652240]
+    tx_value = [100000]
+
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
         error=_exc,
     )
 

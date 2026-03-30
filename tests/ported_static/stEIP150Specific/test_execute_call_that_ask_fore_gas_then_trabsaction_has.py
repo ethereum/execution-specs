@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,7 +34,7 @@ def test_execute_call_that_ask_fore_gas_then_trabsaction_has(
     pre: Alloc,
 ) -> None:
     """Test_execute_call_that_ask_fore_gas_then_trabsaction_has."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xA2333EEF5630066B928DEA5FD85A239F511B5B067D1441EE7AC290D0122B917B
     )
@@ -44,7 +44,6 @@ def test_execute_call_that_ask_fore_gas_then_trabsaction_has(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -67,28 +66,24 @@ def test_execute_call_that_ask_fore_gas_then_trabsaction_has(
         )
         + Op.STOP,
         nonce=0,
-        address=Address("0x1819cf5bff62f0d379f146b85baaf9bd18239832"),  # noqa: E501
+        address=Address(0x1819CF5BFF62F0D379F146B85BAAF9BD18239832),  # noqa: E501
     )
     # Source: lll
     # { [[1]] 12 }
-    addr_0x1000000000000000000000000000000000000001 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x1, value=0xC) + Op.STOP,
         balance=0x186A0,
         nonce=0,
-        address=Address("0xbfdd294028701b119d416c68eff7dd9f7effd249"),  # noqa: E501
+        address=Address(0xBFDD294028701B119D416C68EFF7DD9F7EFFD249),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=100000,
-        gas_price=10,
     )
 
-    post = {
-        addr_0x1000000000000000000000000000000000000001: Account(
-            storage={1: 12}
-        ),
-    }
+    post = {addr: Account(storage={1: 12})}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

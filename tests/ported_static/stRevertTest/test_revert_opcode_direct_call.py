@@ -12,6 +12,7 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -22,19 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "000000000000000000000000ceb48d108c874b5b014acdd1a2466d65a3d01de6",
-]
-TX_GAS = [460000, 62912]
-TX_VALUE = [0]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -68,7 +57,7 @@ def test_revert_opcode_direct_call(
     v: int,
 ) -> None:
     """Test_revert_opcode_direct_call."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
@@ -78,7 +67,6 @@ def test_revert_opcode_direct_call(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -86,7 +74,7 @@ def test_revert_opcode_direct_call(
     pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # {  [[10]] (CALL 60000 (CALLDATALOAD 0) 0 0 0 0 0)}
-    addr_0x094f5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(
             key=0xA,
             value=Op.CALL(
@@ -102,7 +90,7 @@ def test_revert_opcode_direct_call(
         + Op.STOP,
         balance=1,
         nonce=0,
-        address=Address("0xf94d87faf19d8c731e70e1b0a25f9668718f6e17"),  # noqa: E501
+        address=Address(0xF94D87FAF19D8C731E70E1B0A25F9668718F6E17),  # noqa: E501
     )
     # Source: lll
     # { [[0]] (CALL 50000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[2]] 14 }  # noqa: E501
@@ -123,18 +111,18 @@ def test_revert_opcode_direct_call(
         + Op.STOP,
         balance=1,
         nonce=0,
-        address=Address("0xceb48d108c874b5b014acdd1a2466d65a3d01de6"),  # noqa: E501
+        address=Address(0xCEB48D108C874B5B014ACDD1A2466D65A3D01DE6),  # noqa: E501
     )
     # Source: lll
     # { [[1]] 12 (REVERT 0 1) [[3]] 13 }
-    addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x1, value=0xC)
         + Op.REVERT(offset=0x0, size=0x1)
         + Op.SSTORE(key=0x3, value=0xD)
         + Op.STOP,
         balance=1,
         nonce=0,
-        address=Address("0x93a599bde9a3b6390afdb06952aa5ec0b8c44f3b"),  # noqa: E501
+        address=Address(0x93A599BDE9A3B6390AFDB06952AA5EC0B8C44F3B),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -142,9 +130,7 @@ def test_revert_opcode_direct_call(
             "indexes": {"data": -1, "gas": 0, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={}
-                ),
+                addr_2: Account(storage={}),
                 target: Account(storage={0: 0, 2: 14}, nonce=0),
             },
         },
@@ -152,9 +138,7 @@ def test_revert_opcode_direct_call(
             "indexes": {"data": -1, "gas": 1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={}
-                ),
+                addr_2: Account(storage={}),
                 target: Account(storage={}),
             },
         },
@@ -162,12 +146,17 @@ def test_revert_opcode_direct_call(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Hash(target, left_padding=True),
+    ]
+    tx_gas = [460000, 62912]
+    tx_value = [0]
+
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
         error=_exc,
     )
 

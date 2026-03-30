@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_mload16bit_bound(
     pre: Alloc,
 ) -> None:
     """Test_mload16bit_bound."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xA9DF11BD92FC8535FFCA3AE0A2133C80D5F4ECC5D31D100B94FF03E63F7E74FF
     )
@@ -42,7 +42,6 @@ def test_mload16bit_bound(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=17592320524892,
     )
@@ -53,16 +52,16 @@ def test_mload16bit_bound(
         code=Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x10000)) + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x85eaa01ac6288c06360d431d62cd865c92b74a28"),  # noqa: E501
+        address=Address(0x85EAA01AC6288C06360D431D62CD865C92B74A28),  # noqa: E501
     )
     pre[sender] = Account(balance=0xA00050281798)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=100000,
         value=10,
-        gas_price=10,
     )
 
     post = {

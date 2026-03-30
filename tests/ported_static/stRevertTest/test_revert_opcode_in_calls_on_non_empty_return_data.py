@@ -12,6 +12,7 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -22,22 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "000000000000000000000000e73611b5b479b30c93ac377aeb3bfb199764f3c3",
-    "000000000000000000000000c9da6cd8413f64323f12cd44c99671f280f15e1c",
-    "000000000000000000000000f20ccaf271beaa36e7cf4c9ced2867fac9558f14",
-    "0000000000000000000000006bacdfa8216dbb2a09819f8739e57ae3574c9fff",
-]
-TX_GAS = [860000, 28000]
-TX_VALUE = [0]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -109,7 +95,7 @@ def test_revert_opcode_in_calls_on_non_empty_return_data(
     v: int,
 ) -> None:
     """Test: tis test checks that the returndata buffer is changed when a..."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
@@ -119,7 +105,6 @@ def test_revert_opcode_in_calls_on_non_empty_return_data(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -155,11 +140,11 @@ def test_revert_opcode_in_calls_on_non_empty_return_data(
         storage={10: 255},
         balance=1,
         nonce=0,
-        address=Address("0x172a8f572404293aa810685dfdc6f740c300cc4b"),  # noqa: E501
+        address=Address(0x172A8F572404293AA810685DFDC6F740C300CC4B),  # noqa: E501
     )
     # Source: lll
     # { (CALL 0 <contract:0xffff5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[0]] (CALL 50000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[2]] (RETURNDATASIZE) }  # noqa: E501
-    addr_0xb0005374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
             Op.CALL(
                 gas=0x0,
@@ -187,11 +172,11 @@ def test_revert_opcode_in_calls_on_non_empty_return_data(
         + Op.STOP,
         balance=1,
         nonce=0,
-        address=Address("0xe73611b5b479b30c93ac377aeb3bfb199764f3c3"),  # noqa: E501
+        address=Address(0xE73611B5B479B30C93AC377AEB3BFB199764F3C3),  # noqa: E501
     )
     # Source: lll
     # { (CALL 0 <contract:0xffff5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[0]] (CALLCODE 50000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[2]] (RETURNDATASIZE) }  # noqa: E501
-    addr_0xb1005374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
             Op.CALL(
                 gas=0x0,
@@ -219,11 +204,11 @@ def test_revert_opcode_in_calls_on_non_empty_return_data(
         + Op.STOP,
         balance=1,
         nonce=0,
-        address=Address("0xc9da6cd8413f64323f12cd44c99671f280f15e1c"),  # noqa: E501
+        address=Address(0xC9DA6CD8413F64323F12CD44C99671F280F15E1C),  # noqa: E501
     )
     # Source: lll
     # { (CALL 0 <contract:0xffff5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[0]] (DELEGATECALL 50000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) [[2]] (RETURNDATASIZE) }  # noqa: E501
-    addr_0xb2005374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
             Op.CALL(
                 gas=0x0,
@@ -250,11 +235,11 @@ def test_revert_opcode_in_calls_on_non_empty_return_data(
         + Op.STOP,
         balance=1,
         nonce=0,
-        address=Address("0xf20ccaf271beaa36e7cf4c9ced2867fac9558f14"),  # noqa: E501
+        address=Address(0xF20CCAF271BEAA36E7CF4C9CED2867FAC9558F14),  # noqa: E501
     )
     # Source: lll
     # { (CALL 0 <contract:0xffff5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[0]] (CALL 100000 <contract:0xb3305374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[2]] (RETURNDATASIZE) }  # noqa: E501
-    addr_0xb3005374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr_4 = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
             Op.CALL(
                 gas=0x0,
@@ -282,11 +267,11 @@ def test_revert_opcode_in_calls_on_non_empty_return_data(
         + Op.STOP,
         balance=1,
         nonce=0,
-        address=Address("0x6bacdfa8216dbb2a09819f8739e57ae3574c9fff"),  # noqa: E501
+        address=Address(0x6BACDFA8216DBB2A09819F8739E57AE3574C9FFF),  # noqa: E501
     )
     # Source: lll
     # { (CALL 0 <contract:0xffff5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[4]] (CALL 50000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[5]] (RETURNDATASIZE) }  # noqa: E501
-    addr_0xb3305374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr_5 = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
             Op.CALL(
                 gas=0x0,
@@ -314,28 +299,28 @@ def test_revert_opcode_in_calls_on_non_empty_return_data(
         + Op.STOP,
         balance=1,
         nonce=0,
-        address=Address("0xea519c47889074e6378b0d83747f2c3ea0b9cbc9"),  # noqa: E501
+        address=Address(0xEA519C47889074E6378B0D83747F2C3EA0B9CBC9),  # noqa: E501
     )
     # Source: lll
     # { [[1]] 12 (REVERT 0 1) [[3]] 13 }
-    addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr_6 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x1, value=0xC)
         + Op.REVERT(offset=0x0, size=0x1)
         + Op.SSTORE(key=0x3, value=0xD)
         + Op.STOP,
         balance=1,
         nonce=0,
-        address=Address("0x93a599bde9a3b6390afdb06952aa5ec0b8c44f3b"),  # noqa: E501
+        address=Address(0x93A599BDE9A3B6390AFDB06952AA5EC0B8C44F3B),  # noqa: E501
     )
     # Source: lll
     # { [1] 12 (RETURN 0 64) }
-    addr_0xffff5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr_7 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x1, value=0xC)
         + Op.RETURN(offset=0x0, size=0x40)
         + Op.STOP,
         balance=1,
         nonce=0,
-        address=Address("0x127eaf7e31d691a8393b7a2f84a6e94372190c01"),  # noqa: E501
+        address=Address(0x127EAF7E31D691A8393B7A2F84A6E94372190C01),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -343,119 +328,91 @@ def test_revert_opcode_in_calls_on_non_empty_return_data(
             "indexes": {"data": 0, "gas": 0, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={}
-                ),
+                addr_6: Account(storage={}),
                 target: Account(storage={10: 1}),
-                addr_0xb0005374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={2: 1}, nonce=0
-                ),
+                addr: Account(storage={2: 1}, nonce=0),
             },
         },
         {
             "indexes": {"data": 0, "gas": 1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={}
-                ),
-                addr_0xb0005374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={}
-                ),
+                addr_6: Account(storage={}),
+                addr: Account(storage={}),
             },
         },
         {
             "indexes": {"data": 1, "gas": 0, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={}
-                ),
+                addr_6: Account(storage={}),
                 target: Account(storage={10: 1}),
-                addr_0xb1005374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={2: 1}, nonce=0
-                ),
+                addr_2: Account(storage={2: 1}, nonce=0),
             },
         },
         {
             "indexes": {"data": 1, "gas": 1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={}
-                ),
-                addr_0xb1005374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={}
-                ),
+                addr_6: Account(storage={}),
+                addr_2: Account(storage={}),
             },
         },
         {
             "indexes": {"data": 2, "gas": 0, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={}
-                ),
+                addr_6: Account(storage={}),
                 target: Account(storage={10: 1}),
-                addr_0xb2005374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={2: 1}, nonce=0
-                ),
+                addr_3: Account(storage={2: 1}, nonce=0),
             },
         },
         {
             "indexes": {"data": 2, "gas": 1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={}
-                ),
-                addr_0xb2005374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={}
-                ),
+                addr_6: Account(storage={}),
+                addr_3: Account(storage={}),
             },
         },
         {
             "indexes": {"data": 3, "gas": 0, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={}
-                ),
+                addr_6: Account(storage={}),
                 target: Account(storage={10: 1}),
-                addr_0xb3005374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={0: 1}, nonce=0
-                ),
-                addr_0xb3305374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={5: 1}, nonce=0
-                ),
+                addr_4: Account(storage={0: 1}, nonce=0),
+                addr_5: Account(storage={5: 1}, nonce=0),
             },
         },
         {
             "indexes": {"data": 3, "gas": 1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={}
-                ),
+                addr_6: Account(storage={}),
                 target: Account(storage={10: 255}),
-                addr_0xb3005374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={0: 0}, nonce=0
-                ),
-                addr_0xb3305374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={5: 0}, nonce=0
-                ),
+                addr_4: Account(storage={0: 0}, nonce=0),
+                addr_5: Account(storage={5: 0}, nonce=0),
             },
         },
     ]
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Hash(addr, left_padding=True),
+        Hash(addr_2, left_padding=True),
+        Hash(addr_3, left_padding=True),
+        Hash(addr_4, left_padding=True),
+    ]
+    tx_gas = [860000, 28000]
+    tx_value = [0]
+
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
         error=_exc,
     )
 

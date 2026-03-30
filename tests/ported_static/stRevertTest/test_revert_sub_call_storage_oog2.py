@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -21,19 +22,7 @@ from execution_testing.specs.static_state.expect_section import (
 )
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "c0406226",
-]
-TX_GAS = [61500, 181000]
-TX_VALUE = [0, 1]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -79,7 +68,7 @@ def test_revert_sub_call_storage_oog2(
     v: int,
 ) -> None:
     """Test_revert_sub_call_storage_oog2."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
@@ -89,7 +78,6 @@ def test_revert_sub_call_storage_oog2(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -103,7 +91,7 @@ def test_revert_sub_call_storage_oog2(
         ),
         balance=1,
         nonce=0,
-        address=Address("0x48bc00be37fe77bd0f7b7b8009f908fc534a028b"),  # noqa: E501
+        address=Address(0x48BC00BE37FE77BD0F7B7B8009F908FC534A028B),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -128,13 +116,18 @@ def test_revert_sub_call_storage_oog2(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes("c0406226"),
+    ]
+    tx_gas = [61500, 181000]
+    tx_value = [0, 1]
+
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
         error=_exc,
     )
 

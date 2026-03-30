@@ -11,30 +11,16 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "61a47706000000000000000000000000000000000000000000000000000000000000c350",
-]
-TX_GAS = [150000, 250000000]
-TX_VALUE = [1]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -44,6 +30,7 @@ def _tx_data(d: int) -> bytes:
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "d, g, v",
     [
@@ -71,9 +58,9 @@ def test_quadratic_complexity_solidity_call_data_copy(
     v: int,
 ) -> None:
     """Test_quadratic_complexity_solidity_call_data_copy."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    contract_0 = Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
-    contract_1 = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
+    contract_1 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = EOA(
         key=0x6A7EEAC5F12B409D42028F66B0B2132535EE158CFDA439E3BFDD4558E8F4BF6C
     )
@@ -83,7 +70,6 @@ def test_quadratic_complexity_solidity_call_data_copy(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=350000000,
     )
@@ -144,7 +130,7 @@ def test_quadratic_complexity_solidity_call_data_copy(
         + Op.JUMP,
         balance=0x11C37937E08000,
         nonce=0,
-        address=Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
+        address=Address(0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
     # Source: lll
     # { (CALLDATACOPY 0 0 50000) }
@@ -153,41 +139,39 @@ def test_quadratic_complexity_solidity_call_data_copy(
         + Op.STOP,
         balance=0x4C4B40,
         nonce=0,
-        address=Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
+        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
     pre[sender] = Account(balance=0x11C37937E08000)
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                contract_0: Account(
-                    storage={},
-                    code=bytes.fromhex(
-                        "60003560e060020a9004806361a4770614601557005b601e6004356024565b60006000f35b60008160008190555073b94f5374fce5edbc8e2a8697c15331677e6ebf0b90505b600082131560bf5780600160a060020a03166000600060007f6a7573740000000000000000000000000000000000000000000000000000000081526004017f63616c6c000000000000000000000000000000000000000000000000000000008152602001600060008560155a03f150506001820391506045565b505056"  # noqa: E501
-                    ),
-                    nonce=0,
-                ),
-                contract_1: Account(
-                    storage={},
-                    code=bytes.fromhex("61c350600060003700"),
-                    nonce=0,
-                ),
-            },
-        },
+    tx_data = [
+        Bytes(
+            "61a47706000000000000000000000000000000000000000000000000000000000000c350"  # noqa: E501
+        ),
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    tx_gas = [150000, 250000000]
+    tx_value = [1]
 
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
-        error=_exc,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
     )
+
+    post = {
+        contract_0: Account(
+            storage={},
+            code=bytes.fromhex(
+                "60003560e060020a9004806361a4770614601557005b601e6004356024565b60006000f35b60008160008190555073b94f5374fce5edbc8e2a8697c15331677e6ebf0b90505b600082131560bf5780600160a060020a03166000600060007f6a7573740000000000000000000000000000000000000000000000000000000081526004017f63616c6c000000000000000000000000000000000000000000000000000000008152602001600060008560155a03f150506001820391506045565b505056"  # noqa: E501
+            ),
+            nonce=0,
+        ),
+        contract_1: Account(
+            storage={},
+            code=bytes.fromhex("61c350600060003700"),
+            nonce=0,
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_call_one_v_call_suicide(
     pre: Alloc,
 ) -> None:
     """Test_call_one_v_call_suicide."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
@@ -42,7 +42,6 @@ def test_call_one_v_call_suicide(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -67,30 +66,28 @@ def test_call_one_v_call_suicide(
         + Op.STOP,
         balance=100,
         nonce=0,
-        address=Address("0xea04224539257fbe043981aa6058fbc1d5e21b1a"),  # noqa: E501
+        address=Address(0xEA04224539257FBE043981AA6058FBC1D5E21B1A),  # noqa: E501
     )
     # Source: lll
     # { (SELFDESTRUCT <contract:target:0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b>) }  # noqa: E501
-    addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SELFDESTRUCT(
             address=0xEA04224539257FBE043981AA6058FBC1D5E21B1A
         )
         + Op.STOP,
         nonce=0,
-        address=Address("0x79968a94dbedb20475585e9dd4dae6333add4c01"),  # noqa: E501
+        address=Address(0x79968A94DBEDB20475585E9DD4DAE6333ADD4C01),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=600000,
-        gas_price=10,
     )
 
     post = {
-        addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-            storage={}, balance=0
-        ),
+        addr: Account(storage={}, balance=0),
         target: Account(storage={100: 14337}, balance=100),
     }
 

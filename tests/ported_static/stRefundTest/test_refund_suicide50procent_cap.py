@@ -12,6 +12,7 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -22,20 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "00000000000000000000000000000000000000000000000000000000000001f4",
-    "0000000000000000000000000000000000000000000000000000000000010000",
-]
-TX_GAS = [10000000]
-TX_VALUE = [0]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -69,7 +57,7 @@ def test_refund_suicide50procent_cap(
     v: int,
 ) -> None:
     """Test_refund_suicide50procent_cap."""
-    coinbase = Address("0xeb201d2887816e041f6e807e804f64f3a7a226fe")
+    coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
     sender = EOA(
         key=0xF79127A3004ABDE26A4CBD80C428CB10F829FA11B54D36E7B326F4F4A5927ACF
     )
@@ -79,7 +67,6 @@ def test_refund_suicide50procent_cap(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
@@ -115,19 +102,19 @@ def test_refund_suicide50procent_cap(
         storage={1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1, 8: 1},
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0xa6cc2ca5611255d50118601aa8ece6f124fc4c45"),  # noqa: E501
+        address=Address(0xA6CC2CA5611255D50118601AA8ECE6F124FC4C45),  # noqa: E501
     )
     pre[sender] = Account(balance=0x3B9ACA00)
     # Source: lll
     # { (SELFDESTRUCT <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>) }  # noqa: E501
-    addr_0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SELFDESTRUCT(
             address=0xA6CC2CA5611255D50118601AA8ECE6F124FC4C45
         )
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x4ff65047ce9c85f968689e4369c10003026a41a9"),  # noqa: E501
+        address=Address(0x4FF65047CE9C85F968689E4369C10003026A41A9),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -157,12 +144,18 @@ def test_refund_suicide50procent_cap(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Hash(0x1F4),
+        Hash(0x10000),
+    ]
+    tx_gas = [10000000]
+    tx_value = [0]
+
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
         error=_exc,
     )
 

@@ -12,6 +12,7 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -22,22 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "000000000000000000000000d7e294f032a5cc430e9e6c4148220867e9704dcd",
-    "000000000000000000000000ee88dfd8455d7d9d6d33231f3daf6d9a4526d5cf",
-    "00000000000000000000000068cf97c6ca41ecfc5623d8a7e9b6f72068213e95",
-    "0000000000000000000000001302fd3b212e7e634f82ed6d00ac14544e8b1cab",
-]
-TX_GAS = [800000, 126200, 160000, 50000]
-TX_VALUE = [0, 10]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -251,7 +237,7 @@ def test_revert_opcode_multiple_sub_calls(
     v: int,
 ) -> None:
     """Test_revert_opcode_multiple_sub_calls."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
@@ -261,7 +247,6 @@ def test_revert_opcode_multiple_sub_calls(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -281,11 +266,11 @@ def test_revert_opcode_multiple_sub_calls(
         )
         + Op.STOP,
         nonce=0,
-        address=Address("0x89ab420962193a25593b5663462b75c083d56148"),  # noqa: E501
+        address=Address(0x89AB420962193A25593B5663462B75C083D56148),  # noqa: E501
     )
     # Source: lll
     # { [[10]](CALL 50000 <contract:0xb000000000000000000000000000000000000000> 0 0 0 0 0) [[11]](CALL 50000 <contract:0xc000000000000000000000000000000000000000> 0 0 0 0 0) [[12]](CALL 50000 <contract:0xd000000000000000000000000000000000000000> 0 0 0 0 0) [[4]]12 [[5]]12 }  # noqa: E501
-    addr_0xa000000000000000000000000000000000000000 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(
             key=0xA,
             value=Op.CALL(
@@ -326,11 +311,11 @@ def test_revert_opcode_multiple_sub_calls(
         + Op.SSTORE(key=0x5, value=0xC)
         + Op.STOP,
         nonce=0,
-        address=Address("0xd7e294f032a5cc430e9e6c4148220867e9704dcd"),  # noqa: E501
+        address=Address(0xD7E294F032A5CC430E9E6C4148220867E9704DCD),  # noqa: E501
     )
     # Source: lll
     # { [[10]](CALLCODE 50000 <contract:0xb000000000000000000000000000000000000000> 0 0 0 0 0) [[11]](CALLCODE 50000 <contract:0xc000000000000000000000000000000000000000> 0 0 0 0 0) [[12]](CALLCODE 50000 <contract:0xd000000000000000000000000000000000000000> 0 0 0 0 0) [[4]]12 [[5]]12 }  # noqa: E501
-    addr_0xa100000000000000000000000000000000000000 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(
             key=0xA,
             value=Op.CALLCODE(
@@ -371,11 +356,11 @@ def test_revert_opcode_multiple_sub_calls(
         + Op.SSTORE(key=0x5, value=0xC)
         + Op.STOP,
         nonce=0,
-        address=Address("0xee88dfd8455d7d9d6d33231f3daf6d9a4526d5cf"),  # noqa: E501
+        address=Address(0xEE88DFD8455D7D9D6D33231F3DAF6D9A4526D5CF),  # noqa: E501
     )
     # Source: lll
     # { [[10]](DELEGATECALL 50000 <contract:0xb000000000000000000000000000000000000000> 0 0 0 0) [[11]](DELEGATECALL 50000 <contract:0xc000000000000000000000000000000000000000> 0 0 0 0) [[12]](DELEGATECALL 50000 <contract:0xd000000000000000000000000000000000000000> 0 0 0 0) [[4]]12 [[5]]12 }  # noqa: E501
-    addr_0xa200000000000000000000000000000000000000 = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(
             key=0xA,
             value=Op.DELEGATECALL(
@@ -413,11 +398,11 @@ def test_revert_opcode_multiple_sub_calls(
         + Op.SSTORE(key=0x5, value=0xC)
         + Op.STOP,
         nonce=0,
-        address=Address("0x68cf97c6ca41ecfc5623d8a7e9b6f72068213e95"),  # noqa: E501
+        address=Address(0x68CF97C6CA41ECFC5623D8A7E9B6F72068213E95),  # noqa: E501
     )
     # Source: lll
     # { [[10]](CALL 50000 <contract:0xb000000000000000000000000000000000000000> 0 0 0 0 0) [[11]](DELEGATECALL 50000 <contract:0xc000000000000000000000000000000000000000> 0 0 0 0) [[12]](CALLCODE 50000 <contract:0xd000000000000000000000000000000000000000> 0 0 0 0 0) [[4]]12 [[5]]12 }  # noqa: E501
-    addr_0xa300000000000000000000000000000000000000 = pre.deploy_contract(  # noqa: F841
+    addr_4 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(
             key=0xA,
             value=Op.CALL(
@@ -457,34 +442,34 @@ def test_revert_opcode_multiple_sub_calls(
         + Op.SSTORE(key=0x5, value=0xC)
         + Op.STOP,
         nonce=0,
-        address=Address("0x1302fd3b212e7e634f82ed6d00ac14544e8b1cab"),  # noqa: E501
+        address=Address(0x1302FD3B212E7E634F82ED6D00AC14544E8B1CAB),  # noqa: E501
     )
     # Source: lll
     # { [[1]] 12 (REVERT 0 1) }
-    addr_0xb000000000000000000000000000000000000000 = pre.deploy_contract(  # noqa: F841
+    addr_5 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x1, value=0xC)
         + Op.REVERT(offset=0x0, size=0x1)
         + Op.STOP,
         nonce=0,
-        address=Address("0x86c575f296a8a021a2a64972e57a20b06fe8b897"),  # noqa: E501
+        address=Address(0x86C575F296A8A021A2A64972E57A20B06FE8B897),  # noqa: E501
     )
     # Source: lll
     # { [[2]] 12 (REVERT 0 1) }
-    addr_0xc000000000000000000000000000000000000000 = pre.deploy_contract(  # noqa: F841
+    addr_6 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x2, value=0xC)
         + Op.REVERT(offset=0x0, size=0x1)
         + Op.STOP,
         nonce=0,
-        address=Address("0x3d2496d905cf0e9c77473cbfb6e100062b5af57f"),  # noqa: E501
+        address=Address(0x3D2496D905CF0E9C77473CBFB6E100062B5AF57F),  # noqa: E501
     )
     # Source: lll
     # { [[3]] 12 (REVERT 0 1) }
-    addr_0xd000000000000000000000000000000000000000 = pre.deploy_contract(  # noqa: F841
+    addr_7 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x3, value=0xC)
         + Op.REVERT(offset=0x0, size=0x1)
         + Op.STOP,
         nonce=0,
-        address=Address("0x83bac26dd305c061381c042d0bac07b08d15bbce"),  # noqa: E501
+        address=Address(0x83BAC26DD305C061381C042D0BAC07B08D15BBCE),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -493,19 +478,13 @@ def test_revert_opcode_multiple_sub_calls(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                addr_0xa000000000000000000000000000000000000000: Account(
+                addr: Account(
                     storage={4: 12, 5: 12, 10: 0, 11: 0, 12: 0},
                     nonce=0,
                 ),
-                addr_0xb000000000000000000000000000000000000000: Account(
-                    storage={1: 0, 2: 0, 3: 0}
-                ),
-                addr_0xc000000000000000000000000000000000000000: Account(
-                    storage={1: 0, 2: 0, 3: 0}
-                ),
-                addr_0xd000000000000000000000000000000000000000: Account(
-                    storage={1: 0, 2: 0, 3: 0}
-                ),
+                addr_5: Account(storage={1: 0, 2: 0, 3: 0}),
+                addr_6: Account(storage={1: 0, 2: 0, 3: 0}),
+                addr_7: Account(storage={1: 0, 2: 0, 3: 0}),
             },
         },
         {
@@ -513,19 +492,13 @@ def test_revert_opcode_multiple_sub_calls(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                addr_0xa100000000000000000000000000000000000000: Account(
+                addr_2: Account(
                     storage={4: 12, 5: 12, 10: 0, 11: 0, 12: 0},
                     nonce=0,
                 ),
-                addr_0xb000000000000000000000000000000000000000: Account(
-                    storage={1: 0, 2: 0, 3: 0}
-                ),
-                addr_0xc000000000000000000000000000000000000000: Account(
-                    storage={1: 0, 2: 0, 3: 0}
-                ),
-                addr_0xd000000000000000000000000000000000000000: Account(
-                    storage={1: 0, 2: 0, 3: 0}
-                ),
+                addr_5: Account(storage={1: 0, 2: 0, 3: 0}),
+                addr_6: Account(storage={1: 0, 2: 0, 3: 0}),
+                addr_7: Account(storage={1: 0, 2: 0, 3: 0}),
             },
         },
         {
@@ -533,19 +506,13 @@ def test_revert_opcode_multiple_sub_calls(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                addr_0xa200000000000000000000000000000000000000: Account(
+                addr_3: Account(
                     storage={4: 12, 5: 12, 10: 0, 11: 0, 12: 0},
                     nonce=0,
                 ),
-                addr_0xb000000000000000000000000000000000000000: Account(
-                    storage={1: 0, 2: 0, 3: 0}
-                ),
-                addr_0xc000000000000000000000000000000000000000: Account(
-                    storage={1: 0, 2: 0, 3: 0}
-                ),
-                addr_0xd000000000000000000000000000000000000000: Account(
-                    storage={1: 0, 2: 0, 3: 0}
-                ),
+                addr_5: Account(storage={1: 0, 2: 0, 3: 0}),
+                addr_6: Account(storage={1: 0, 2: 0, 3: 0}),
+                addr_7: Account(storage={1: 0, 2: 0, 3: 0}),
             },
         },
         {
@@ -553,19 +520,13 @@ def test_revert_opcode_multiple_sub_calls(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                addr_0xa300000000000000000000000000000000000000: Account(
+                addr_4: Account(
                     storage={4: 12, 5: 12, 10: 0, 11: 0, 12: 0},
                     nonce=0,
                 ),
-                addr_0xb000000000000000000000000000000000000000: Account(
-                    storage={1: 0, 2: 0, 3: 0}
-                ),
-                addr_0xc000000000000000000000000000000000000000: Account(
-                    storage={1: 0, 2: 0, 3: 0}
-                ),
-                addr_0xd000000000000000000000000000000000000000: Account(
-                    storage={1: 0, 2: 0, 3: 0}
-                ),
+                addr_5: Account(storage={1: 0, 2: 0, 3: 0}),
+                addr_6: Account(storage={1: 0, 2: 0, 3: 0}),
+                addr_7: Account(storage={1: 0, 2: 0, 3: 0}),
             },
         },
         {
@@ -573,18 +534,12 @@ def test_revert_opcode_multiple_sub_calls(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                addr_0xa300000000000000000000000000000000000000: Account(
+                addr_4: Account(
                     storage={4: 0, 5: 0, 10: 0, 11: 0, 12: 0}, nonce=0
                 ),
-                addr_0xb000000000000000000000000000000000000000: Account(
-                    storage={1: 0, 2: 0, 3: 0}
-                ),
-                addr_0xc000000000000000000000000000000000000000: Account(
-                    storage={1: 0, 2: 0, 3: 0}
-                ),
-                addr_0xd000000000000000000000000000000000000000: Account(
-                    storage={1: 0, 2: 0, 3: 0}
-                ),
+                addr_5: Account(storage={1: 0, 2: 0, 3: 0}),
+                addr_6: Account(storage={1: 0, 2: 0, 3: 0}),
+                addr_7: Account(storage={1: 0, 2: 0, 3: 0}),
             },
         },
         {
@@ -592,28 +547,16 @@ def test_revert_opcode_multiple_sub_calls(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                addr_0xa000000000000000000000000000000000000000: Account(
+                addr: Account(
                     storage={4: 12, 5: 12, 10: 0, 11: 0, 12: 0},
                     nonce=0,
                 ),
-                addr_0xa100000000000000000000000000000000000000: Account(
-                    storage={}, nonce=0
-                ),
-                addr_0xa200000000000000000000000000000000000000: Account(
-                    storage={}, nonce=0
-                ),
-                addr_0xa300000000000000000000000000000000000000: Account(
-                    storage={}, nonce=0
-                ),
-                addr_0xb000000000000000000000000000000000000000: Account(
-                    storage={1: 0, 2: 0, 3: 0}
-                ),
-                addr_0xc000000000000000000000000000000000000000: Account(
-                    storage={1: 0, 2: 0, 3: 0}
-                ),
-                addr_0xd000000000000000000000000000000000000000: Account(
-                    storage={1: 0, 2: 0, 3: 0}
-                ),
+                addr_2: Account(storage={}, nonce=0),
+                addr_3: Account(storage={}, nonce=0),
+                addr_4: Account(storage={}, nonce=0),
+                addr_5: Account(storage={1: 0, 2: 0, 3: 0}),
+                addr_6: Account(storage={1: 0, 2: 0, 3: 0}),
+                addr_7: Account(storage={1: 0, 2: 0, 3: 0}),
             },
         },
         {
@@ -621,40 +564,36 @@ def test_revert_opcode_multiple_sub_calls(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                addr_0xa000000000000000000000000000000000000000: Account(
+                addr: Account(
                     storage={4: 0, 5: 0, 10: 0, 11: 0, 12: 0}, nonce=0
                 ),
-                addr_0xa100000000000000000000000000000000000000: Account(
-                    storage={}, nonce=0
-                ),
-                addr_0xa200000000000000000000000000000000000000: Account(
-                    storage={}, nonce=0
-                ),
-                addr_0xa300000000000000000000000000000000000000: Account(
-                    storage={}, nonce=0
-                ),
-                addr_0xb000000000000000000000000000000000000000: Account(
-                    storage={1: 0, 2: 0, 3: 0}
-                ),
-                addr_0xc000000000000000000000000000000000000000: Account(
-                    storage={1: 0, 2: 0, 3: 0}
-                ),
-                addr_0xd000000000000000000000000000000000000000: Account(
-                    storage={1: 0, 2: 0, 3: 0}
-                ),
+                addr_2: Account(storage={}, nonce=0),
+                addr_3: Account(storage={}, nonce=0),
+                addr_4: Account(storage={}, nonce=0),
+                addr_5: Account(storage={1: 0, 2: 0, 3: 0}),
+                addr_6: Account(storage={1: 0, 2: 0, 3: 0}),
+                addr_7: Account(storage={1: 0, 2: 0, 3: 0}),
             },
         },
     ]
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Hash(addr, left_padding=True),
+        Hash(addr_2, left_padding=True),
+        Hash(addr_3, left_padding=True),
+        Hash(addr_4, left_padding=True),
+    ]
+    tx_gas = [800000, 126200, 160000, 50000]
+    tx_value = [0, 10]
+
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
         error=_exc,
     )
 

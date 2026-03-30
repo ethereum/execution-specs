@@ -12,31 +12,15 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "0000000000000000000000000000000000000000000000000000000000000064",
-    "0000000000000000000000000000000000000000000000000000000000000063",
-    "0000000000000000000000000000000000000000000000000000000000000065",
-]
-TX_GAS = [100000]
-TX_VALUE = [0]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -76,7 +60,7 @@ def test_returndatacopy_initial_256(
     v: int,
 ) -> None:
     """Test_returndatacopy_initial_256."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
     )
@@ -86,7 +70,6 @@ def test_returndatacopy_initial_256(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=111669149696,
     )
@@ -105,27 +88,25 @@ def test_returndatacopy_initial_256(
         storage={0: 1},
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x28f194b678152b435b5910dbdf69c091fa056347"),  # noqa: E501
+        address=Address(0x28F194B678152B435B5910DBDF69C091FA056347),  # noqa: E501
     )
     pre[sender] = Account(balance=0x6400000000)
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 1})},
-        },
+    tx_data = [
+        Hash(0x64),
+        Hash(0x63),
+        Hash(0x65),
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    tx_gas = [100000]
+    tx_value = [0]
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        gas_price=10,
-        error=_exc,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
     )
+
+    post = {target: Account(storage={0: 1})}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

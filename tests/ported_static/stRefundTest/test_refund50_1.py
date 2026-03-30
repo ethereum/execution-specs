@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_refund50_1(
     pre: Alloc,
 ) -> None:
     """Test_refund50_1."""
-    coinbase = Address("0xeb201d2887816e041f6e807e804f64f3a7a226fe")
+    coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
     sender = EOA(
         key=0xDC4EFA209AECDD4C2D5201A419EA27506151B4EC687F14A613229E310932491B
     )
@@ -42,7 +42,6 @@ def test_refund50_1(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
@@ -60,15 +59,15 @@ def test_refund50_1(
         storage={1: 1, 2: 1, 3: 1, 4: 1, 5: 1},
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x6737eac10f0b6ff19a1c903cafc30b26752a5af4"),  # noqa: E501
+        address=Address(0x6737EAC10F0B6FF19A1C903CAFC30B26752A5AF4),  # noqa: E501
     )
     pre[sender] = Account(balance=0x989680)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=100000,
-        gas_price=10,
     )
 
     post = {

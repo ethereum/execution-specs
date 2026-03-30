@@ -12,6 +12,7 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -22,20 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "0000000000000000000000000f572e5295c57f15886f9b263e2f6d2d6c7b5ec6",
-    "0000000000000000000000001f572e5295c57f15886f9b263e2f6d2d6c7b5ec6",
-]
-TX_GAS = [400000]
-TX_VALUE = [0]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -69,10 +57,10 @@ def test_create2_smart_init_code(
     v: int,
 ) -> None:
     """Create2SmartInitCode."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    contract_0 = Address("0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6")
-    contract_1 = Address("0x1f572e5295c57f15886f9b263e2f6d2d6c7b5ec6")
-    contract_2 = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0x0F572E5295C57F15886F9B263E2F6D2D6C7B5EC6)
+    contract_1 = Address(0x1F572E5295C57F15886F9B263E2F6D2D6C7B5EC6)
+    contract_2 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -82,7 +70,6 @@ def test_create2_smart_init_code(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=47244640256,
     )
@@ -105,7 +92,7 @@ def test_create2_smart_init_code(
         + Op.STOP,
         balance=100,
         nonce=0,
-        address=Address("0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6"),  # noqa: E501
+        address=Address(0x0F572E5295C57F15886F9B263E2F6D2D6C7B5EC6),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 0 0x600060015414601157600a6000f3601c565b6001600155600a6000f35b) [[1]](CREATE2 1 3 29 0) [[2]](CREATE2 1 5 27 0) }  # noqa: E501
@@ -125,7 +112,7 @@ def test_create2_smart_init_code(
         + Op.STOP,
         balance=100,
         nonce=0,
-        address=Address("0x1f572e5295c57f15886f9b263e2f6d2d6c7b5ec6"),  # noqa: E501
+        address=Address(0x1F572E5295C57F15886F9B263E2F6D2D6C7B5EC6),  # noqa: E501
     )
     pre[sender] = Account(balance=0x6400000000)
     # Source: lll
@@ -143,7 +130,7 @@ def test_create2_smart_init_code(
         + Op.STOP,
         balance=0x6400000000,
         nonce=0,
-        address=Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
+        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -178,12 +165,18 @@ def test_create2_smart_init_code(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Hash(contract_0, left_padding=True),
+        Hash(contract_1, left_padding=True),
+    ]
+    tx_gas = [400000]
+    tx_value = [0]
+
     tx = Transaction(
         sender=sender,
         to=contract_2,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
         error=_exc,
     )
 

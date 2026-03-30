@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_refund_change_non_zero_storage(
     pre: Alloc,
 ) -> None:
     """Test_refund_change_non_zero_storage."""
-    coinbase = Address("0xeb201d2887816e041f6e807e804f64f3a7a226fe")
+    coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
     sender = EOA(
         key=0x4D9FC6FDF95098986741EE78843AC52BEED77C8C801DC87BD3F04CD6BBF1A3EB
     )
@@ -42,7 +42,6 @@ def test_refund_change_non_zero_storage(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
@@ -55,16 +54,16 @@ def test_refund_change_non_zero_storage(
         storage={1: 1},
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x904261b07d3a5f213bbd6fb9f3bb66f4fb65c7eb"),  # noqa: E501
+        address=Address(0x904261B07D3A5F213BBD6FB9F3BB66F4FB65C7EB),  # noqa: E501
     )
     pre[sender] = Account(balance=0x3C336080)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=228500,
         value=10,
-        gas_price=10,
     )
 
     post = {

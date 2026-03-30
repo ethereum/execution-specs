@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_random_statetest647(
     pre: Alloc,
 ) -> None:
     """Malicious bytecode found by fuzztest tool: returndatacopy(0,-1)."""
-    coinbase = Address("0xd94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+    coinbase = Address(0xD94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = EOA(
         key=0x5B7B8EFB6D003CD481E408D8759A25ADC79955092F1A380D8F8B57346C1D1342
     )
@@ -42,7 +42,6 @@ def test_random_statetest647(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=18857228215205537,
     )
@@ -56,14 +55,14 @@ def test_random_statetest647(
         )
         + Op.STOP,
         nonce=7,
-        address=Address("0x782b7c65205e1c08192df7357e2fe778c81256a9"),  # noqa: E501
+        address=Address(0x782B7C65205E1C08192DF7357E2FE778C81256A9),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=5786929,
-        gas_price=10,
     )
 
     post = {sender: Account(nonce=1)}

@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_call_infinite_loop(
     pre: Alloc,
 ) -> None:
     """Test_call_infinite_loop."""
-    coinbase = Address("0xeb201d2887816e041f6e807e804f64f3a7a226fe")
+    coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
     sender = EOA(
         key=0x96C07046493EC8728482079AB999D2994420D9CF4D3491DFD06871B106D9D87B
     )
@@ -42,7 +42,6 @@ def test_call_infinite_loop(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
@@ -91,17 +90,16 @@ def test_call_infinite_loop(
         + Op.JUMP,
         balance=0x186A0,
         nonce=0,
-        address=Address("0xf9b9ccb6160ce3574df5d096ca9fd12ba81d97ee"),  # noqa: E501
+        address=Address(0xF9B9CCB6160CE3574DF5D096CA9FD12BA81D97EE),  # noqa: E501
     )
     pre[sender] = Account(balance=0x1DCD6500)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=bytes.fromhex("296df0df"),
+        data=Bytes("296df0df"),
         gas_limit=300000,
         value=1,
-        gas_price=10,
     )
 
     post = {sender: Account(nonce=1)}

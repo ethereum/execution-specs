@@ -12,6 +12,7 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -22,20 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "000000000000000000000000000000000000000000000000000000000000ea60",
-    "000000000000000000000000000000000000000000000000000000000001ea60",
-]
-TX_GAS = [110000, 160000]
-TX_VALUE = [1, 0]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -105,7 +93,7 @@ def test_revert_depth_create_address_collision(
     v: int,
 ) -> None:
     """Test_revert_depth_create_address_collision."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
@@ -115,7 +103,6 @@ def test_revert_depth_create_address_collision(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -141,17 +128,17 @@ def test_revert_depth_create_address_collision(
         + Op.STOP,
         balance=5,
         nonce=54,
-        address=Address("0x97e33a176b7c8d61b356d1c170ac2119d28867df"),  # noqa: E501
+        address=Address(0x97E33A176B7C8D61B356D1C170AC2119D28867DF),  # noqa: E501
     )
     # Source: lll
     # { [[2]] 8 (CREATE 0 0 0) [[3]] 12}
-    addr_0xb000000000000000000000000000000000000000 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x2, value=0x8)
         + Op.POP(Op.CREATE(value=0x0, offset=0x0, size=0x0))
         + Op.SSTORE(key=0x3, value=0xC)
         + Op.STOP,
         nonce=0,
-        address=Address("0xb1b49241a4ecf7860872e686090781c906b1b437"),  # noqa: E501
+        address=Address(0xB1B49241A4ECF7860872E686090781C906B1B437),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -166,9 +153,7 @@ def test_revert_depth_create_address_collision(
                     ),
                     nonce=54,
                 ),
-                addr_0xb000000000000000000000000000000000000000: Account(
-                    storage={}
-                ),
+                addr: Account(storage={}),
             },
         },
         {
@@ -182,9 +167,7 @@ def test_revert_depth_create_address_collision(
                     ),
                     nonce=54,
                 ),
-                addr_0xb000000000000000000000000000000000000000: Account(
-                    storage={}
-                ),
+                addr: Account(storage={}),
             },
         },
         {
@@ -199,9 +182,7 @@ def test_revert_depth_create_address_collision(
                     balance=5,
                     nonce=54,
                 ),
-                addr_0xb000000000000000000000000000000000000000: Account(
-                    storage={}
-                ),
+                addr: Account(storage={}),
             },
         },
         {
@@ -215,22 +196,26 @@ def test_revert_depth_create_address_collision(
                     ),
                     nonce=54,
                 ),
-                addr_0xb000000000000000000000000000000000000000: Account(
-                    storage={}
-                ),
+                addr: Account(storage={}),
             },
         },
     ]
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Hash(0xEA60),
+        Hash(0x1EA60),
+    ]
+    tx_gas = [110000, 160000]
+    tx_value = [1, 0]
+
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
         error=_exc,
     )
 

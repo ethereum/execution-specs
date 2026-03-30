@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -28,13 +28,14 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.slow
 @pytest.mark.pre_alloc_mutable
 def test_static_callcallcallcode_001_suicide_end2(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_static_callcallcallcode_001_suicide_end2."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
@@ -44,7 +45,6 @@ def test_static_callcallcallcode_001_suicide_end2(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=30000000,
     )
@@ -67,11 +67,11 @@ def test_static_callcallcallcode_001_suicide_end2(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x569cdc3b32cc3f9747bbde39fd70fead591d2f0d"),  # noqa: E501
+        address=Address(0x569CDC3B32CC3F9747BBDE39FD70FEAD591D2F0D),  # noqa: E501
     )
     # Source: lll
     # {  (STATICCALL 100000 <contract:0x1000000000000000000000000000000000000002> 0 64 0 64 ) }  # noqa: E501
-    addr_0x1000000000000000000000000000000000000001 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.STATICCALL(
             gas=0x186A0,
             address=0x90E9B92C59A0E93D8AB0B7AFBC945D6999A50A9B,
@@ -83,11 +83,11 @@ def test_static_callcallcallcode_001_suicide_end2(
         + Op.STOP,
         balance=0x2540BE400,
         nonce=0,
-        address=Address("0xd7997c3f1aacabdc66b4da9461b9558b1787e01c"),  # noqa: E501
+        address=Address(0xD7997C3F1AACABDC66B4DA9461B9558B1787E01C),  # noqa: E501
     )
     # Source: lll
     # {  (CALLCODE 50000 <contract:0x1000000000000000000000000000000000000003> 0 0 64 0 64 ) (SELFDESTRUCT <contract:0x1000000000000000000000000000000000000001>) }  # noqa: E501
-    addr_0x1000000000000000000000000000000000000002 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
             Op.CALLCODE(
                 gas=0xC350,
@@ -103,33 +103,29 @@ def test_static_callcallcallcode_001_suicide_end2(
         + Op.STOP,
         balance=0x2540BE400,
         nonce=0,
-        address=Address("0x90e9b92c59a0e93d8ab0b7afbc945d6999a50a9b"),  # noqa: E501
+        address=Address(0x90E9B92C59A0E93D8AB0B7AFBC945D6999A50A9B),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 3 1) }
-    addr_0x1000000000000000000000000000000000000003 = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x3, value=0x1) + Op.STOP,
         balance=0x2540BE400,
         nonce=0,
-        address=Address("0x48e2d4c0b593bfebe5ddb4f13aa355b8bd83ddd3"),  # noqa: E501
+        address=Address(0x48E2D4C0B593BFEBE5DDB4F13AA355B8BD83DDD3),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=3000000,
-        gas_price=10,
     )
 
     post = {
         target: Account(storage={0: 1, 1: 1}),
-        addr_0x1000000000000000000000000000000000000001: Account(
-            balance=0x2540BE400
-        ),
-        addr_0x1000000000000000000000000000000000000003: Account(
-            storage={3: 0}, balance=0x2540BE400
-        ),
+        addr: Account(balance=0x2540BE400),
+        addr_3: Account(storage={3: 0}, balance=0x2540BE400),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

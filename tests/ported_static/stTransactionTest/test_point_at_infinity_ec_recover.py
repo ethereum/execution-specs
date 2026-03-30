@@ -11,13 +11,13 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
 )
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -31,7 +31,7 @@ def test_point_at_infinity_ec_recover(
     pre: Alloc,
 ) -> None:
     """Test_point_at_infinity_ec_recover."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
@@ -41,7 +41,6 @@ def test_point_at_infinity_ec_recover(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=89128960,
     )
@@ -54,15 +53,15 @@ def test_point_at_infinity_ec_recover(
         ),
         balance=0xFFFFFFFF,
         nonce=0,
-        address=Address("0xb9f36f1cb467544974bb7e0f5e1f0a499d4e6d7d"),  # noqa: E501
+        address=Address(0xB9F36F1CB467544974BB7E0F5E1F0A499D4E6D7D),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=10000000,
-        gas_price=10,
     )
 
     post = {

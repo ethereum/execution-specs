@@ -11,13 +11,13 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
 )
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -31,8 +31,8 @@ def test_multi_owned_change_requirement_to1(
     pre: Alloc,
 ) -> None:
     """Test_multi_owned_change_requirement_to1."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    contract_0 = Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0x6295EE1B4F6DD65047762F924ECD367C17EABF8F)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -42,7 +42,6 @@ def test_multi_owned_change_requirement_to1(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
@@ -61,20 +60,19 @@ def test_multi_owned_change_requirement_to1(
         },
         balance=100,
         nonce=0,
-        address=Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"),  # noqa: E501
+        address=Address(0x6295EE1B4F6DD65047762F924ECD367C17EABF8F),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A75EF08F, nonce=1)
 
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=bytes.fromhex(
+        data=Bytes(
             "ba51a6df0000000000000000000000000000000000000000000000000000000000000001"  # noqa: E501
         ),
         gas_limit=10000000,
         value=100,
         nonce=1,
-        gas_price=10,
     )
 
     post = {

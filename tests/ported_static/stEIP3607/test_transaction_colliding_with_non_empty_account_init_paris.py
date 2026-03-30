@@ -11,7 +11,9 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
     TransactionException,
@@ -23,22 +25,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "00",
-    "60206000f3",
-    "600080808061271073cc7c3c64708397216f5f8aeb34a43f1749693fa95af100",
-    "600080808073cc7c3c64708397216f5f8aeb34a43f1749693fa95af400",
-]
-TX_GAS = [400000]
-TX_VALUE = [100000]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -90,10 +77,8 @@ def test_transaction_colliding_with_non_empty_account_init_paris(
     v: int,
 ) -> None:
     """Account with non-empty code attempts to send tx to create a contract."""
-    coinbase = Address("0xeb201d2887816e041f6e807e804f64f3a7a226fe")
-    addr_0x6295ee1b4f6dd65047762f924ecd367c17eabf8f = Address(
-        "0x76fae819612a29489a1a43208613d8f8557b8898"
-    )
+    coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
+    addr = Address(0x76FAE819612A29489A1A43208613D8F8557B8898)
     sender = EOA(
         key=0x3696BFBDBC65B14F4DC76D7762E0567E1DD55F053314276E47969D22E70A554E
     )
@@ -103,21 +88,20 @@ def test_transaction_colliding_with_non_empty_account_init_paris(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=71794957647893862,
     )
 
     pre[coinbase] = Account(balance=0, nonce=1)
     pre[sender] = Account(balance=0xDE0B6B3A7640000, code=Op.STOP)
-    pre[addr_0x6295ee1b4f6dd65047762f924ecd367c17eabf8f] = Account(balance=10)
+    pre[addr] = Account(balance=10)
     # Source: raw
     # 0x00
-    addr_0xd0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.STOP,
         balance=10,
         nonce=0,
-        address=Address("0xcc7c3c64708397216f5f8aeb34a43f1749693fa9"),  # noqa: E501
+        address=Address(0xCC7C3C64708397216F5F8AEB34A43F1749693FA9),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -133,14 +117,24 @@ def test_transaction_colliding_with_non_empty_account_init_paris(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes("00"),
+        Bytes("60206000f3"),
+        Hash(
+            0x600080808061271073CC7C3C64708397216F5F8AEB34A43F1749693FA95AF100
+        ),
+        Bytes("600080808073cc7c3c64708397216f5f8aeb34a43f1749693fa95af400"),
+    ]
+    tx_gas = [400000]
+    tx_value = [100000]
+
     tx = Transaction(
         sender=sender,
         to=None,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
-        error=_exc,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
+        error=TransactionException.SENDER_NOT_EOA,
     )
 
     state_test(env=env, pre=pre, post=post, tx=tx)

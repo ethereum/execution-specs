@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -27,14 +27,15 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")
+@pytest.mark.slow
 @pytest.mark.pre_alloc_mutable
 def test_static_loop_calls_depth_then_revert2(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_static_loop_calls_depth_then_revert2."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    contract_0 = Address("0xa000000000000000000000000000000000000000")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0xA000000000000000000000000000000000000000)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -44,7 +45,6 @@ def test_static_loop_calls_depth_then_revert2(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=9223372036854775807,
     )
@@ -74,14 +74,14 @@ def test_static_loop_calls_depth_then_revert2(
         + Op.JUMPDEST,
         balance=10,
         nonce=0,
-        address=Address("0xa000000000000000000000000000000000000000"),  # noqa: E501
+        address=Address(0xA000000000000000000000000000000000000000),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=contract_0,
+        data=Bytes(""),
         gas_limit=9214364837600034817,
-        gas_price=10,
     )
 
     post = {

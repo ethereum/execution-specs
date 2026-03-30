@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_call_ecrecover0_0input(
     pre: Alloc,
 ) -> None:
     """Test_call_ecrecover0_0input."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
@@ -42,7 +42,6 @@ def test_call_ecrecover0_0input(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -68,16 +67,16 @@ def test_call_ecrecover0_0input(
         + Op.STOP,
         balance=0x1312D00,
         nonce=0,
-        address=Address("0x6988d3cd2c65677341d1e302439627344dfb1c82"),  # noqa: E501
+        address=Address(0x6988D3CD2C65677341D1E302439627344DFB1C82),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=3652240,
         value=0x186A0,
-        gas_price=10,
     )
 
     post = {target: Account(storage={2: 1})}

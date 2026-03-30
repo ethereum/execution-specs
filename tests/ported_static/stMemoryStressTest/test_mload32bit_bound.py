@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -22,19 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "",
-]
-TX_GAS = [150000, 16777216]
-TX_VALUE = [10]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -68,7 +57,7 @@ def test_mload32bit_bound(
     v: int,
 ) -> None:
     """Test_mload32bit_bound."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xA3A3360EDACC183E5D6D28657FC0A09CD4819B2C73A02881B04471F81BE35A5A
     )
@@ -78,7 +67,6 @@ def test_mload32bit_bound(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=17592320524892,
     )
@@ -89,7 +77,7 @@ def test_mload32bit_bound(
         code=Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x100000000)) + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x74639acdfe345f749d595381961dac48c3c5e56a"),  # noqa: E501
+        address=Address(0x74639ACDFE345F749D595381961DAC48C3C5E56A),  # noqa: E501
     )
     pre[sender] = Account(balance=0x3E801F4FA93760)
 
@@ -122,13 +110,18 @@ def test_mload32bit_bound(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes(""),
+    ]
+    tx_gas = [150000, 16777216]
+    tx_value = [10]
+
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
         error=_exc,
     )
 

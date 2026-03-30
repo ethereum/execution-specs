@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,7 +34,7 @@ def test_returndatacopy_following_successful_create(
     pre: Alloc,
 ) -> None:
     """Test_returndatacopy_following_successful_create."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
     )
@@ -44,7 +44,6 @@ def test_returndatacopy_following_successful_create(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=111669149696,
     )
@@ -68,15 +67,15 @@ def test_returndatacopy_following_successful_create(
         + Op.STOP * 2,
         storage={0: 2},
         nonce=0,
-        address=Address("0xbabe109963095efa4c742d15426f841a7033d6aa"),  # noqa: E501
+        address=Address(0xBABE109963095EFA4C742D15426F841A7033D6AA),  # noqa: E501
     )
     pre[sender] = Account(balance=0x6400000000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=100000,
-        gas_price=10,
     )
 
     post = {target: Account(storage={0: 2})}

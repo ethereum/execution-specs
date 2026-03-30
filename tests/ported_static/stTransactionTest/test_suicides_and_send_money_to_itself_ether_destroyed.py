@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,7 +34,7 @@ def test_suicides_and_send_money_to_itself_ether_destroyed(
     pre: Alloc,
 ) -> None:
     """Test_suicides_and_send_money_to_itself_ether_destroyed."""
-    coinbase = Address("0xeb201d2887816e041f6e807e804f64f3a7a226fe")
+    coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
     sender = EOA(
         key=0xD066C5DB28BDA8940CFC5CBEFD1556CBC89C69B19F6D1AAA9FAC69AEE4B4A1BF
     )
@@ -44,7 +44,6 @@ def test_suicides_and_send_money_to_itself_ether_destroyed(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
@@ -60,15 +59,15 @@ def test_suicides_and_send_money_to_itself_ether_destroyed(
         + Op.STOP,
         balance=1000,
         nonce=0,
-        address=Address("0xccbd97bed823989bf91c6ac4ceac020b2881f3a5"),  # noqa: E501
+        address=Address(0xCCBD97BED823989BF91C6AC4CEAC020B2881F3A5),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=31700,
         value=10,
-        gas_price=10,
     )
 
     post = {

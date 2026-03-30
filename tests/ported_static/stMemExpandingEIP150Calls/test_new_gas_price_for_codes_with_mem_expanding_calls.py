@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,7 +34,7 @@ def test_new_gas_price_for_codes_with_mem_expanding_calls(
     pre: Alloc,
 ) -> None:
     """Test_new_gas_price_for_codes_with_mem_expanding_calls."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x3956FC06BD55836ACDB92DA0E38A15F2E568C088022CF2278180477F3F7702A
     )
@@ -44,27 +44,26 @@ def test_new_gas_price_for_codes_with_mem_expanding_calls(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
 
     # Source: hex
     # 0x1122334455667788991011121314151617181920212223242526272829303132
-    addr_0x1000000000000000000000000000000000000010 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=bytes.fromhex(
             "1122334455667788991011121314151617181920212223242526272829303132"
         ),
         balance=111,
         nonce=0,
-        address=Address("0x6b6af3c6e1714081c8c3085acbac8c2b21fadf0b"),  # noqa: E501
+        address=Address(0x6B6AF3C6E1714081C8C3085ACBAC8C2B21FADF0B),  # noqa: E501
     )
     # Source: hex
     # 0x6011606455
-    addr_0x1000000000000000000000000000000000000011 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x64, value=0x11),
         nonce=0,
-        address=Address("0x7b8c83e74cc8dfadb03138c2743c70588ace4222"),  # noqa: E501
+        address=Address(0x7B8C83E74CC8DFADB03138C2743C70588ACE4222),  # noqa: E501
     )
     pre[sender] = Account(balance=0xE8D4A5100000)
     # Source: hex
@@ -140,18 +139,18 @@ def test_new_gas_price_for_codes_with_mem_expanding_calls(
         + Op.SSTORE(key=0xA, value=Op.GAS),
         storage={0: 18},
         nonce=0,
-        address=Address("0x23a2ec54f5f8589778da7c2199caf3b179a24cb9"),  # noqa: E501
+        address=Address(0x23A2EC54F5F8589778DA7C2199CAF3B179A24CB9),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=600000,
-        gas_price=10,
     )
 
     post = {
-        addr_0x1000000000000000000000000000000000000010: Account(balance=111),
+        addr: Account(balance=111),
         target: Account(
             storage={
                 0: 18,

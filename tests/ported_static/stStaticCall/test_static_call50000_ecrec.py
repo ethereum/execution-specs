@@ -12,6 +12,7 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -22,20 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "00000000000000000000000088c698df82bba0a5bc4eded3c9abfcaa22adef92",
-    "000000000000000000000000b5c3e48b7024dbbdbe53d636adcc0531cdc8da1a",
-]
-TX_GAS = [94500000]
-TX_VALUE = [10]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -43,6 +31,7 @@ def _tx_data(d: int) -> bytes:
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "d, g, v",
     [
@@ -70,7 +59,7 @@ def test_static_call50000_ecrec(
     v: int,
 ) -> None:
     """Test_static_call50000_ecrec."""
-    coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+    coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = EOA(
         key=0xE7C72B378297589ACEE4E0BA3272841BCFC5E220F86DE253F890274CFEE9E474
     )
@@ -80,7 +69,6 @@ def test_static_call50000_ecrec(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=95000000,
     )
@@ -104,11 +92,11 @@ def test_static_call50000_ecrec(
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
         nonce=0,
-        address=Address("0xc0e4183389eb57f779a986d8c878f89b9401dc8e"),  # noqa: E501
+        address=Address(0xC0E4183389EB57F779A986D8C878F89B9401DC8E),  # noqa: E501
     )
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) [[ 0 ]] (STATICCALL 500 1 0 50000 0 0) ) [[ 1 ]] @i}  # noqa: E501
-    addr_0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.JUMPDEST
         + Op.JUMPI(
             pc=0x2A, condition=Op.ISZERO(Op.LT(Op.MLOAD(offset=0x80), 0xC350))
@@ -131,11 +119,11 @@ def test_static_call50000_ecrec(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
         nonce=0,
-        address=Address("0x88c698df82bba0a5bc4eded3c9abfcaa22adef92"),  # noqa: E501
+        address=Address(0x88C698DF82BBA0A5BC4EDED3C9ABFCAA22ADEF92),  # noqa: E501
     )
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (MSTORE 0 (STATICCALL 500 1 0 50000 0 0)) ) (MSTORE 32 @i ) }  # noqa: E501
-    addr_0xcccf5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.JUMPDEST
         + Op.JUMPI(
             pc=0x2A, condition=Op.ISZERO(Op.LT(Op.MLOAD(offset=0x80), 0xC350))
@@ -158,7 +146,7 @@ def test_static_call50000_ecrec(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
         nonce=0,
-        address=Address("0xb5c3e48b7024dbbdbe53d636adcc0531cdc8da1a"),  # noqa: E501
+        address=Address(0xB5C3E48B7024DBBDBE53D636ADCC0531CDC8DA1A),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -167,9 +155,7 @@ def test_static_call50000_ecrec(
             "network": [">=Cancun<Osaka"],
             "result": {
                 sender: Account(storage={}, nonce=1),
-                addr_0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={1: 50000}, nonce=0
-                ),
+                addr: Account(storage={1: 50000}, nonce=0),
                 target: Account(storage={0: 1, 1: 1}),
             },
         },
@@ -178,9 +164,7 @@ def test_static_call50000_ecrec(
             "network": [">=Cancun<Osaka"],
             "result": {
                 sender: Account(storage={}, code=b"", nonce=1),
-                addr_0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={}, nonce=0
-                ),
+                addr: Account(storage={}, nonce=0),
                 target: Account(storage={0: 1, 1: 1}),
             },
         },
@@ -188,13 +172,19 @@ def test_static_call50000_ecrec(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Hash(addr, left_padding=True),
+        Hash(addr_2, left_padding=True),
+    ]
+    tx_gas = [94500000]
+    tx_value = [10]
+
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
         error=_exc,
     )
 

@@ -11,7 +11,9 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -22,150 +24,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "0060016000f3",
-    "60016001015060006000f3",
-    "60016001025060006000f3",
-    "60016001035060006000f3",
-    "60016001045060006000f3",
-    "60016001055060006000f3",
-    "60016001065060006000f3",
-    "60016001075060006000f3",
-    "600160016001085060006000f3",
-    "600160016001095060006000f3",
-    "600160010a5060006000f3",
-    "600160010b5060006000f3",
-    "60016001105060006000f3",
-    "60016001115060006000f3",
-    "60016001125060006000f3",
-    "60016001135060006000f3",
-    "60016001145060006000f3",
-    "6000155060006000f3",
-    "60006000165060006000f3",
-    "60006000175060006000f3",
-    "60006000185060006000f3",
-    "6000195060006000f3",
-    "67805020100804020160001a5060006000f3",
-    "600060002060006000f3",
-    "305060006000f3",
-    "6000315060006000f3",
-    "325060006000f3",
-    "335060006000f3",
-    "345060006000f3",
-    "6000355060006000f3",
-    "365060006000f3",
-    "6000600060003760006000f3",
-    "385060006000f3",
-    "38600060013960015160005560006000f3",
-    "3a5060006000f3",
-    "60003b5060006000f3",
-    "6014600060007310000000000000000000000000000000000000103c60006000f3",
-    "3d5060006000f3",
-    "6000600060003e60006000f3",
-    "60005060005060006000f3",
-    "6000515060006000f3",
-    "600060005260006000f3",
-    "60ff60005360006000f3",
-    "6000545060006000f3",
-    "600160015560006000f3",
-    "600456005b60006000f3",
-    "6001600657005b60006000f3",
-    "585060006000f3",
-    "595060006000f3",
-    "5a5060006000f3",
-    "5b60006000f3",
-    "60ff5060006000f3",
-    "61ffff5060006000f3",
-    "62ffffff5060006000f3",
-    "63ffffffff5060006000f3",
-    "64ffffffffff5060006000f3",
-    "65ffffffffffff5060006000f3",
-    "66ffffffffffffff5060006000f3",
-    "67ffffffffffffffff5060006000f3",
-    "68ffffffffffffffffff5060006000f3",
-    "69ffffffffffffffffffff5060006000f3",
-    "6affffffffffffffffffffff5060006000f3",
-    "6bffffffffffffffffffffffff5060006000f3",
-    "6cffffffffffffffffffffffffff5060006000f3",
-    "6dffffffffffffffffffffffffffff5060006000f3",
-    "6effffffffffffffffffffffffffffff5060006000f3",
-    "6fffffffffffffffffffffffffffffffff5060006000f3",
-    "70ffffffffffffffffffffffffffffffffff5060006000f3",
-    "71ffffffffffffffffffffffffffffffffffff5060006000f3",
-    "72ffffffffffffffffffffffffffffffffffffff5060006000f3",
-    "73ffffffffffffffffffffffffffffffffffffffff5060006000f3",
-    "74ffffffffffffffffffffffffffffffffffffffffff5060006000f3",
-    "75ffffffffffffffffffffffffffffffffffffffffffff5060006000f3",
-    "76ffffffffffffffffffffffffffffffffffffffffffffff5060006000f3",
-    "77ffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3",
-    "78ffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3",
-    "79ffffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3",
-    "7affffffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3",
-    "7bffffffffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3",
-    "7cffffffffffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3",
-    "7dffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3",  # noqa: E501
-    "7effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3",  # noqa: E501
-    "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3",  # noqa: E501
-    "60ff80505060006000f3",
-    "60ff60ff8150505060006000f3",
-    "60ff60ff60ff825050505060006000f3",
-    "60ff60ff60ff60ff83505050505060006000f3",
-    "60ff60ff60ff60ff60ff8450505050505060006000f3",
-    "60ff60ff60ff60ff60ff60ff855050505050505060006000f3",
-    "60ff60ff60ff60ff60ff60ff60ff86505050505050505060006000f3",
-    "60ff60ff60ff60ff60ff60ff60ff60ff8750505050505050505060006000f3",
-    "60ff60ff60ff60ff60ff60ff60ff60ff60ff885050505050505050505060006000f3",
-    "60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff89505050505050505050505060006000f3",  # noqa: E501
-    "60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff8a50505050505050505050505060006000f3",  # noqa: E501
-    "60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff8b5050505050505050505050505060006000f3",  # noqa: E501
-    "60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff8c505050505050505050505050505060006000f3",  # noqa: E501
-    "60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff8d50505050505050505050505050505060006000f3",  # noqa: E501
-    "60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff8e5050505050505050505050505050505060006000f3",  # noqa: E501
-    "60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff8f505050505050505050505050505050505060006000f3",  # noqa: E501
-    "60ff60ff90505060006000f3",
-    "60ff60ff60ff9150505060006000f3",
-    "60ff60ff60ff60ff925050505060006000f3",
-    "60ff60ff60ff60ff60ff93505050505060006000f3",
-    "60ff60ff60ff60ff60ff60ff9450505050505060006000f3",
-    "60ff60ff60ff60ff60ff60ff60ff955050505050505060006000f3",
-    "60ff60ff60ff60ff60ff60ff60ff60ff96505050505050505060006000f3",
-    "600060ff60ff60ff60ff60ff60ff60ff60ff9750505050505050505060006000f3",
-    "600060ff60ff60ff60ff60ff60ff60ff60ff60ff985050505050505050505060006000f3",
-    "600060ff60ff60ff60ff60ff60ff60ff60ff60ff60ff99505050505050505050505060006000f3",  # noqa: E501
-    "600060ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff9a50505050505050505050505060006000f3",  # noqa: E501
-    "600060ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff9b5050505050505050505050505060006000f3",  # noqa: E501
-    "600060ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff9c505050505050505050505050505060006000f3",  # noqa: E501
-    "600060ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff9d50505050505050505050505050505060006000f3",  # noqa: E501
-    "600060ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff9e5050505050505050505050505050505060006000f3",  # noqa: E501
-    "600060ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff9f505050505050505050505050505050505060006000f3",  # noqa: E501
-    "60006000a060006000f3",
-    "60ff60006000a160006000f3",
-    "60ff60ff60006000a260006000f3",
-    "60ff60ff60ff60006000a360006000f3",
-    "60ff60ff60ff60ff60006000a460006000f3",
-    "6000600060fff05060006000f3",
-    "60006000600060006017730f572e5295c57f15886f9b263e2f6d2d6c7b5ec66064f15060006000f3",  # noqa: E501
-    "60006000600060006000730f572e5295c57f15886f9b263e2f6d2d6c7b5ec66064f25060006000f3",  # noqa: E501
-    "60006000f3",
-    "6000600060006000730f572e5295c57f15886f9b263e2f6d2d6c7b5ec6620186a0f45060006000f3",  # noqa: E501
-    "6000600060006000730f572e5295c57f15886f9b263e2f6d2d6c7b5ec6612710fa5060006000f3",  # noqa: E501
-    "60006000fd60006000f3",
-    "32ff",
-    "ef",
-    "60008080808073b94f5374fce5edbc8e2a8697c15331677e6ebf0b61c350f100",
-    "60008080808073b94f5374fce5edbc8e2a8697c15331677e6ebf0b61c350f150fe",
-    "60008080808073b94f5374fce5edbc8e2a8697c15331677e6ebf0b61c350f15060ef60005360016000f3",  # noqa: E501
-]
-TX_GAS = [400000]
-TX_VALUE = [100000]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -979,9 +838,9 @@ def test_opcodes_transaction_init(
     v: int,
 ) -> None:
     """Test_opcodes_transaction_init."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    contract_0 = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
-    contract_1 = Address("0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
+    contract_1 = Address(0x0F572E5295C57F15886F9B263E2F6D2D6C7B5EC6)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -991,7 +850,6 @@ def test_opcodes_transaction_init(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
@@ -1002,7 +860,7 @@ def test_opcodes_transaction_init(
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=0x1) + Op.STOP,
         nonce=0,
-        address=Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
+        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
     # Source: raw
     # 0x61ffff5060046000f3
@@ -1010,7 +868,7 @@ def test_opcodes_transaction_init(
         code=Op.POP(0xFFFF) + Op.RETURN(offset=0x0, size=0x4),
         balance=0xDE0B6B3A7640000,
         nonce=1,
-        address=Address("0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6"),  # noqa: E501
+        address=Address(0x0F572E5295C57F15886F9B263E2F6D2D6C7B5EC6),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -1279,13 +1137,219 @@ def test_opcodes_transaction_init(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes("0060016000f3"),
+        Bytes("60016001015060006000f3"),
+        Bytes("60016001025060006000f3"),
+        Bytes("60016001035060006000f3"),
+        Bytes("60016001045060006000f3"),
+        Bytes("60016001055060006000f3"),
+        Bytes("60016001065060006000f3"),
+        Bytes("60016001075060006000f3"),
+        Bytes("600160016001085060006000f3"),
+        Bytes("600160016001095060006000f3"),
+        Bytes("600160010a5060006000f3"),
+        Bytes("600160010b5060006000f3"),
+        Bytes("60016001105060006000f3"),
+        Bytes("60016001115060006000f3"),
+        Bytes("60016001125060006000f3"),
+        Bytes("60016001135060006000f3"),
+        Bytes("60016001145060006000f3"),
+        Bytes("6000155060006000f3"),
+        Bytes("60006000165060006000f3"),
+        Bytes("60006000175060006000f3"),
+        Bytes("60006000185060006000f3"),
+        Bytes("6000195060006000f3"),
+        Bytes("67805020100804020160001a5060006000f3"),
+        Bytes("600060002060006000f3"),
+        Bytes("305060006000f3"),
+        Bytes("6000315060006000f3"),
+        Bytes("325060006000f3"),
+        Bytes("335060006000f3"),
+        Bytes("345060006000f3"),
+        Bytes("6000355060006000f3"),
+        Bytes("365060006000f3"),
+        Bytes("6000600060003760006000f3"),
+        Bytes("385060006000f3"),
+        Bytes("38600060013960015160005560006000f3"),
+        Bytes("3a5060006000f3"),
+        Bytes("60003b5060006000f3"),
+        Bytes(
+            "6014600060007310000000000000000000000000000000000000103c60006000f3"  # noqa: E501
+        ),
+        Bytes("3d5060006000f3"),
+        Bytes("6000600060003e60006000f3"),
+        Bytes("60005060005060006000f3"),
+        Bytes("6000515060006000f3"),
+        Bytes("600060005260006000f3"),
+        Bytes("60ff60005360006000f3"),
+        Bytes("6000545060006000f3"),
+        Bytes("600160015560006000f3"),
+        Bytes("600456005b60006000f3"),
+        Bytes("6001600657005b60006000f3"),
+        Bytes("585060006000f3"),
+        Bytes("595060006000f3"),
+        Bytes("5a5060006000f3"),
+        Bytes("5b60006000f3"),
+        Bytes("60ff5060006000f3"),
+        Bytes("61ffff5060006000f3"),
+        Bytes("62ffffff5060006000f3"),
+        Bytes("63ffffffff5060006000f3"),
+        Bytes("64ffffffffff5060006000f3"),
+        Bytes("65ffffffffffff5060006000f3"),
+        Bytes("66ffffffffffffff5060006000f3"),
+        Bytes("67ffffffffffffffff5060006000f3"),
+        Bytes("68ffffffffffffffffff5060006000f3"),
+        Bytes("69ffffffffffffffffffff5060006000f3"),
+        Bytes("6affffffffffffffffffffff5060006000f3"),
+        Bytes("6bffffffffffffffffffffffff5060006000f3"),
+        Address(0x6CFFFFFFFFFFFFFFFFFFFFFFFFFF5060006000F3),
+        Bytes("6dffffffffffffffffffffffffffff5060006000f3"),
+        Bytes("6effffffffffffffffffffffffffffff5060006000f3"),
+        Bytes("6fffffffffffffffffffffffffffffffff5060006000f3"),
+        Bytes("70ffffffffffffffffffffffffffffffffff5060006000f3"),
+        Bytes("71ffffffffffffffffffffffffffffffffffff5060006000f3"),
+        Bytes("72ffffffffffffffffffffffffffffffffffffff5060006000f3"),
+        Bytes("73ffffffffffffffffffffffffffffffffffffffff5060006000f3"),
+        Bytes("74ffffffffffffffffffffffffffffffffffffffffff5060006000f3"),
+        Bytes("75ffffffffffffffffffffffffffffffffffffffffffff5060006000f3"),
+        Bytes("76ffffffffffffffffffffffffffffffffffffffffffffff5060006000f3"),
+        Bytes(
+            "77ffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3"
+        ),
+        Hash(
+            0x78FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5060006000F3
+        ),
+        Bytes(
+            "79ffffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3"  # noqa: E501
+        ),
+        Bytes(
+            "7affffffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3"  # noqa: E501
+        ),
+        Bytes(
+            "7bffffffffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3"  # noqa: E501
+        ),
+        Bytes(
+            "7cffffffffffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3"  # noqa: E501
+        ),
+        Bytes(
+            "7dffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3"  # noqa: E501
+        ),
+        Bytes(
+            "7effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3"  # noqa: E501
+        ),
+        Bytes(
+            "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3"  # noqa: E501
+        ),
+        Bytes("60ff80505060006000f3"),
+        Bytes("60ff60ff8150505060006000f3"),
+        Bytes("60ff60ff60ff825050505060006000f3"),
+        Bytes("60ff60ff60ff60ff83505050505060006000f3"),
+        Bytes("60ff60ff60ff60ff60ff8450505050505060006000f3"),
+        Bytes("60ff60ff60ff60ff60ff60ff855050505050505060006000f3"),
+        Bytes("60ff60ff60ff60ff60ff60ff60ff86505050505050505060006000f3"),
+        Bytes(
+            "60ff60ff60ff60ff60ff60ff60ff60ff8750505050505050505060006000f3"
+        ),
+        Bytes(
+            "60ff60ff60ff60ff60ff60ff60ff60ff60ff885050505050505050505060006000f3"  # noqa: E501
+        ),
+        Bytes(
+            "60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff89505050505050505050505060006000f3"  # noqa: E501
+        ),
+        Bytes(
+            "60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff8a50505050505050505050505060006000f3"  # noqa: E501
+        ),
+        Bytes(
+            "60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff8b5050505050505050505050505060006000f3"  # noqa: E501
+        ),
+        Bytes(
+            "60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff8c505050505050505050505050505060006000f3"  # noqa: E501
+        ),
+        Bytes(
+            "60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff8d50505050505050505050505050505060006000f3"  # noqa: E501
+        ),
+        Bytes(
+            "60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff8e5050505050505050505050505050505060006000f3"  # noqa: E501
+        ),
+        Bytes(
+            "60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff8f505050505050505050505050505050505060006000f3"  # noqa: E501
+        ),
+        Bytes("60ff60ff90505060006000f3"),
+        Bytes("60ff60ff60ff9150505060006000f3"),
+        Bytes("60ff60ff60ff60ff925050505060006000f3"),
+        Bytes("60ff60ff60ff60ff60ff93505050505060006000f3"),
+        Bytes("60ff60ff60ff60ff60ff60ff9450505050505060006000f3"),
+        Bytes("60ff60ff60ff60ff60ff60ff60ff955050505050505060006000f3"),
+        Bytes("60ff60ff60ff60ff60ff60ff60ff60ff96505050505050505060006000f3"),
+        Bytes(
+            "600060ff60ff60ff60ff60ff60ff60ff60ff9750505050505050505060006000f3"  # noqa: E501
+        ),
+        Bytes(
+            "600060ff60ff60ff60ff60ff60ff60ff60ff60ff985050505050505050505060006000f3"  # noqa: E501
+        ),
+        Bytes(
+            "600060ff60ff60ff60ff60ff60ff60ff60ff60ff60ff99505050505050505050505060006000f3"  # noqa: E501
+        ),
+        Bytes(
+            "600060ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff9a50505050505050505050505060006000f3"  # noqa: E501
+        ),
+        Bytes(
+            "600060ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff9b5050505050505050505050505060006000f3"  # noqa: E501
+        ),
+        Bytes(
+            "600060ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff9c505050505050505050505050505060006000f3"  # noqa: E501
+        ),
+        Bytes(
+            "600060ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff9d50505050505050505050505050505060006000f3"  # noqa: E501
+        ),
+        Bytes(
+            "600060ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff9e5050505050505050505050505050505060006000f3"  # noqa: E501
+        ),
+        Bytes(
+            "600060ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff9f505050505050505050505050505050505060006000f3"  # noqa: E501
+        ),
+        Bytes("60006000a060006000f3"),
+        Bytes("60ff60006000a160006000f3"),
+        Bytes("60ff60ff60006000a260006000f3"),
+        Bytes("60ff60ff60ff60006000a360006000f3"),
+        Bytes("60ff60ff60ff60ff60006000a460006000f3"),
+        Bytes("6000600060fff05060006000f3"),
+        Bytes(
+            "60006000600060006017730f572e5295c57f15886f9b263e2f6d2d6c7b5ec66064f15060006000f3"  # noqa: E501
+        ),
+        Bytes(
+            "60006000600060006000730f572e5295c57f15886f9b263e2f6d2d6c7b5ec66064f25060006000f3"  # noqa: E501
+        ),
+        Bytes("60006000f3"),
+        Bytes(
+            "6000600060006000730f572e5295c57f15886f9b263e2f6d2d6c7b5ec6620186a0f45060006000f3"  # noqa: E501
+        ),
+        Bytes(
+            "6000600060006000730f572e5295c57f15886f9b263e2f6d2d6c7b5ec6612710fa5060006000f3"  # noqa: E501
+        ),
+        Bytes("60006000fd60006000f3"),
+        Bytes("32ff"),
+        Bytes("ef"),
+        Hash(
+            0x60008080808073B94F5374FCE5EDBC8E2A8697C15331677E6EBF0B61C350F100
+        ),
+        Bytes(
+            "60008080808073b94f5374fce5edbc8e2a8697c15331677e6ebf0b61c350f150fe"  # noqa: E501
+        ),
+        Bytes(
+            "60008080808073b94f5374fce5edbc8e2a8697c15331677e6ebf0b61c350f15060ef60005360016000f3"  # noqa: E501
+        ),
+    ]
+    tx_gas = [400000]
+    tx_value = [100000]
+
     tx = Transaction(
         sender=sender,
         to=None,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
         error=_exc,
     )
 

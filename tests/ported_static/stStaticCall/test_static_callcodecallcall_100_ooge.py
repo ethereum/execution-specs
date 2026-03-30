@@ -12,36 +12,22 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "000000000000000000000000b126c622075b1189fb6c45e851641cfaddf65b36",
-    "000000000000000000000000fbef21c5a6c2adcf3d769f085e0cc9fe9a8df954",
-]
-TX_GAS = [172000]
-TX_VALUE = [0]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
     ["state_tests/stStaticCall/static_callcodecallcall_100_OOGEFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "d, g, v",
     [
@@ -69,7 +55,7 @@ def test_static_callcodecallcall_100_ooge(
     v: int,
 ) -> None:
     """Test_static_callcodecallcall_100_ooge."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
@@ -79,7 +65,6 @@ def test_static_callcodecallcall_100_ooge(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=30000000,
     )
@@ -103,11 +88,11 @@ def test_static_callcodecallcall_100_ooge(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0xdcff1ef291ec7b6a606ac4284680db5a06f33054"),  # noqa: E501
+        address=Address(0xDCFF1EF291EC7B6A606AC4284680DB5A06F33054),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 32 (CALLDATALOAD 0)) (STATICCALL 100000 <contract:0x1000000000000000000000000000000000000002> 0 64 0 64 ) (MSTORE 3 1) }  # noqa: E501
-    addr_0x1000000000000000000000000000000000000001 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x20, value=Op.CALLDATALOAD(offset=0x0))
         + Op.POP(
             Op.STATICCALL(
@@ -122,11 +107,11 @@ def test_static_callcodecallcall_100_ooge(
         + Op.MSTORE(offset=0x3, value=0x1)
         + Op.STOP,
         nonce=0,
-        address=Address("0xc4961fc5bdc17da68e909d07947a5e030952891e"),  # noqa: E501
+        address=Address(0xC4961FC5BDC17DA68E909D07947A5E030952891E),  # noqa: E501
     )
     # Source: lll
     # {  (STATICCALL 20020 (CALLDATALOAD 32) 0 64 0 64 ) (MSTORE 3 1) }
-    addr_0x1000000000000000000000000000000000000002 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
             Op.STATICCALL(
                 gas=0x4E34,
@@ -140,18 +125,18 @@ def test_static_callcodecallcall_100_ooge(
         + Op.MSTORE(offset=0x3, value=0x1)
         + Op.STOP,
         nonce=0,
-        address=Address("0x5ac4ee179abd5ea5f60962e651ded51161a55b6e"),  # noqa: E501
+        address=Address(0x5AC4EE179ABD5EA5F60962E651DED51161A55B6E),  # noqa: E501
     )
     # Source: lll
     # {  (SSTORE 3 1) }
-    addr_0x1000000000000000000000000000000000000003 = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x3, value=0x1) + Op.STOP,
         nonce=0,
-        address=Address("0xb126c622075b1189fb6c45e851641cfaddf65b36"),  # noqa: E501
+        address=Address(0xB126C622075B1189FB6C45E851641CFADDF65B36),  # noqa: E501
     )
     # Source: lll
     # {  (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (EXTCODESIZE 1)) }
-    addr_0x2000000000000000000000000000000000000003 = pre.deploy_contract(  # noqa: F841
+    addr_4 = pre.deploy_contract(  # noqa: F841
         code=Op.JUMPDEST
         + Op.JUMPI(
             pc=0x1C, condition=Op.ISZERO(Op.LT(Op.MLOAD(offset=0x80), 0xC350))
@@ -162,27 +147,24 @@ def test_static_callcodecallcall_100_ooge(
         + Op.JUMPDEST
         + Op.STOP,
         nonce=0,
-        address=Address("0xfbef21c5a6c2adcf3d769f085e0cc9fe9a8df954"),  # noqa: E501
+        address=Address(0xFBEF21C5A6C2ADCF3D769F085E0CC9FE9A8DF954),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 1, 1: 1})},
-        },
+    tx_data = [
+        Hash(addr_3, left_padding=True),
+        Hash(addr_4, left_padding=True),
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    tx_gas = [172000]
+    tx_value = [0]
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        gas_price=10,
-        error=_exc,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
     )
+
+    post = {target: Account(storage={0: 1, 1: 1})}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

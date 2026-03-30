@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_random_statetest275(
     pre: Alloc,
 ) -> None:
     """Test_random_statetest275."""
-    coinbase = Address("0x4f3f701464972e74606d6ea82d4d3080599a0e79")
+    coinbase = Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79)
     sender = EOA(
         key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
     )
@@ -42,7 +42,6 @@ def test_random_statetest275(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=9223372036854775807,
     )
@@ -64,7 +63,7 @@ def test_random_statetest275(
             ),
         ),
         nonce=0,
-        address=Address("0x69d3e12fb87d7effeb9ded3d46879ebe02925b4e"),  # noqa: E501
+        address=Address(0x69D3E12FB87D7EFFEB9DED3D46879EBE02925B4E),  # noqa: E501
     )
     # Source: raw
     # 0x6000355415600957005b60203560003555
@@ -80,19 +79,18 @@ def test_random_statetest275(
         ),
         balance=46,
         nonce=0,
-        address=Address("0x4f3f701464972e74606d6ea82d4d3080599a0e79"),  # noqa: E501
+        address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=bytes.fromhex(
+        data=Bytes(
             "437f000000000000000000000000000000000000000000000000000000000000c3507ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000197ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe09656756323c5974"  # noqa: E501
         ),
         gas_limit=100000,
         value=0x3F6FCF,
-        gas_price=10,
     )
 
     post = {

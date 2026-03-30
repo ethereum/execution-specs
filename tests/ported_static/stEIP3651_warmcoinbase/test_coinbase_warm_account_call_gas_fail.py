@@ -11,33 +11,16 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "693c61390000000000000000000000008ddf5d9a5251c41efd2949f53db0a464116c7c6e",
-    "693c6139000000000000000000000000498516b6b2f25cb6a8e011a7c37a617b77e7d500",
-    "693c61390000000000000000000000008873820bb96daa39db93ae64a9d6397e4c6a48d7",
-    "693c6139000000000000000000000000303b6790d019874a107418eb549e4e7766a64728",
-]
-TX_GAS = [80000]
-TX_VALUE = [0]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -85,7 +68,7 @@ def test_coinbase_warm_account_call_gas_fail(
     v: int,
 ) -> None:
     """Test_coinbase_warm_account_call_gas_fail."""
-    coinbase = Address("0x50228c44ed92561d94511e8518a75aa463bd444b")
+    coinbase = Address(0x50228C44ED92561D94511E8518A75AA463BD444B)
     sender = EOA(
         key=0x48DC5A9F099CAAAA557742CA3A990A94BE45B9969126A1BC74E5E8BE5A2B5B47
     )
@@ -95,7 +78,6 @@ def test_coinbase_warm_account_call_gas_fail(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
@@ -175,7 +157,7 @@ def test_coinbase_warm_account_call_gas_fail(
         + Op.JUMP(pc=0x73),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address("0x0a92fc97bb4c47b3d5e9e96fbb1c3fc2f07dba81"),  # noqa: E501
+        address=Address(0x0A92FC97BB4C47B3D5E9E96FBB1C3FC2F07DBA81),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -183,7 +165,7 @@ def test_coinbase_warm_account_call_gas_fail(
     #    let cb := coinbase()
     #    pop(call(0, cb, 0, 0, 0, 0, 0))
     # }
-    addr_0x0000000000000000000000000000000000001000 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.CALL(
             gas=Op.DUP2,
             address=Op.COINBASE,
@@ -196,7 +178,7 @@ def test_coinbase_warm_account_call_gas_fail(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address("0x8ddf5d9a5251c41efd2949f53db0a464116c7c6e"),  # noqa: E501
+        address=Address(0x8DDF5D9A5251C41EFD2949F53DB0A464116C7C6E),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -204,7 +186,7 @@ def test_coinbase_warm_account_call_gas_fail(
     #    let cb := coinbase()
     #    pop(callcode(0, cb, 0, 0, 0, 0, 0))
     # }
-    addr_0x0000000000000000000000000000000000002000 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.CALLCODE(
             gas=Op.DUP2,
             address=Op.COINBASE,
@@ -217,7 +199,7 @@ def test_coinbase_warm_account_call_gas_fail(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address("0x498516b6b2f25cb6a8e011a7c37a617b77e7d500"),  # noqa: E501
+        address=Address(0x498516B6B2F25CB6A8E011A7C37A617B77E7D500),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -225,7 +207,7 @@ def test_coinbase_warm_account_call_gas_fail(
     #    let cb := coinbase()
     #    pop(delegatecall(0, cb, 0, 0, 0, 0))
     # }
-    addr_0x0000000000000000000000000000000000003000 = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(  # noqa: F841
         code=Op.DELEGATECALL(
             gas=Op.DUP2,
             address=Op.COINBASE,
@@ -237,7 +219,7 @@ def test_coinbase_warm_account_call_gas_fail(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address("0x8873820bb96daa39db93ae64a9d6397e4c6a48d7"),  # noqa: E501
+        address=Address(0x8873820BB96DAA39DB93AE64A9D6397E4C6A48D7),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -245,7 +227,7 @@ def test_coinbase_warm_account_call_gas_fail(
     #    let cb := coinbase()
     #    pop(staticcall(0, cb, 0, 0, 0, 0))
     # }
-    addr_0x0000000000000000000000000000000000004000 = pre.deploy_contract(  # noqa: F841
+    addr_4 = pre.deploy_contract(  # noqa: F841
         code=Op.STATICCALL(
             gas=Op.DUP2,
             address=Op.COINBASE,
@@ -257,29 +239,36 @@ def test_coinbase_warm_account_call_gas_fail(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address("0x303b6790d019874a107418eb549e4e7766a64728"),  # noqa: E501
+        address=Address(0x303B6790D019874A107418EB549E4E7766A64728),  # noqa: E501
     )
     pre[coinbase] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
     pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 1})},
-        },
+    tx_data = [
+        Bytes(
+            "693c61390000000000000000000000008ddf5d9a5251c41efd2949f53db0a464116c7c6e"  # noqa: E501
+        ),
+        Bytes(
+            "693c6139000000000000000000000000498516b6b2f25cb6a8e011a7c37a617b77e7d500"  # noqa: E501
+        ),
+        Bytes(
+            "693c61390000000000000000000000008873820bb96daa39db93ae64a9d6397e4c6a48d7"  # noqa: E501
+        ),
+        Bytes(
+            "693c6139000000000000000000000000303b6790d019874a107418eb549e4e7766a64728"  # noqa: E501
+        ),
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    tx_gas = [80000]
+    tx_value = [0]
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
         nonce=1,
-        gas_price=10,
-        error=_exc,
     )
+
+    post = {target: Account(storage={0: 1})}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

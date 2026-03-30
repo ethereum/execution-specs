@@ -12,6 +12,7 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -22,20 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "0000000000000000000000002455231c1be66d57981908f4ac3633dee2e242e0",
-    "000000000000000000000000daf588778cbccf0d5636643dbc67b42246b52f4a",
-]
-TX_GAS = [9214364837600034817]
-TX_VALUE = [10]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -43,6 +31,7 @@ def _tx_data(d: int) -> bytes:
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "d, g, v",
     [
@@ -70,7 +59,7 @@ def test_static_call1024_pre_calls2(
     v: int,
 ) -> None:
     """Test_static_call1024_pre_calls2."""
-    coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+    coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = EOA(
         key=0xCC381C83857B17CA629268ED418E2915A0287B84EFE9CF2204C020302E83CDA0
     )
@@ -80,7 +69,6 @@ def test_static_call1024_pre_calls2(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=9223372036854775807,
     )
@@ -104,19 +92,19 @@ def test_static_call1024_pre_calls2(
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
         nonce=0,
-        address=Address("0xc0e4183389eb57f779a986d8c878f89b9401dc8e"),  # noqa: E501
+        address=Address(0xC0E4183389EB57F779A986D8C878F89B9401DC8E),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 0 1)}
-    addr_0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=0x1) + Op.STOP,
         balance=7000,
         nonce=0,
-        address=Address("0xeeb613e2a52609ee927be8a5b80ff190f6b71a37"),  # noqa: E501
+        address=Address(0xEEB613E2A52609EE927BE8A5B80FF190F6B71A37),  # noqa: E501
     )
     # Source: lll
     # { [[ 2 ]] (STATICCALL 0xffff <contract:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) [[ 3 ]] (STATICCALL 0xffff <contract:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0)  [[ 0 ]] (ADD @@0 1) [[ 1 ]] (DELEGATECALL 0xfffffffffff <contract:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) }  # noqa: E501
-    addr_0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(
             key=0x2,
             value=Op.STATICCALL(
@@ -154,11 +142,11 @@ def test_static_call1024_pre_calls2(
         + Op.STOP,
         balance=2024,
         nonce=0,
-        address=Address("0x2455231c1be66d57981908f4ac3633dee2e242e0"),  # noqa: E501
+        address=Address(0x2455231C1BE66D57981908F4AC3633DEE2E242E0),  # noqa: E501
     )
     # Source: lll
     # { (STATICCALL 0xffff <contract:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) (STATICCALL 0xffff <contract:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0)  (MSTORE 0 (ADD (MLOAD 0) 1)) (DELEGATECALL 0xfffffffffff <contract:0xcbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) }  # noqa: E501
-    addr_0xcbbf5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
             Op.STATICCALL(
                 gas=0xFFFF,
@@ -182,7 +170,7 @@ def test_static_call1024_pre_calls2(
         + Op.STOP,
         balance=2024,
         nonce=0,
-        address=Address("0xdaf588778cbccf0d5636643dbc67b42246b52f4a"),  # noqa: E501
+        address=Address(0xDAF588778CBCCF0D5636643DBC67B42246B52F4A),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -190,9 +178,7 @@ def test_static_call1024_pre_calls2(
             "indexes": {"data": 0, "gas": -1, "value": -1},
             "network": [">=Cancun<Osaka"],
             "result": {
-                addr_0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={0: 1024, 1: 1, 2: 0, 3: 0}
-                ),
+                addr_2: Account(storage={0: 1024, 1: 1, 2: 0, 3: 0}),
                 target: Account(storage={0: 1, 1: 1}),
             },
         },
@@ -200,9 +186,7 @@ def test_static_call1024_pre_calls2(
             "indexes": {"data": 1, "gas": -1, "value": -1},
             "network": [">=Cancun<Osaka"],
             "result": {
-                addr_0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={0: 0, 1: 0, 2: 0, 3: 0}
-                ),
+                addr_2: Account(storage={0: 0, 1: 0, 2: 0, 3: 0}),
                 target: Account(storage={0: 1, 1: 1}),
             },
         },
@@ -210,13 +194,19 @@ def test_static_call1024_pre_calls2(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Hash(addr_2, left_padding=True),
+        Hash(addr_3, left_padding=True),
+    ]
+    tx_gas = [9214364837600034817]
+    tx_value = [10]
+
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
         error=_exc,
     )
 

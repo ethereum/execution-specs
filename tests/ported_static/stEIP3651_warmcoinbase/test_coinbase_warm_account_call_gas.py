@@ -11,37 +11,16 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "693c61390000000000000000000000000000000000000000000000000000000000000000",
-    "693c61390000000000000000000000000000000000000000000000000000000000000001",
-    "693c61390000000000000000000000000000000000000000000000000000000000000002",
-    "693c61390000000000000000000000000000000000000000000000000000000000000003",
-    "693c61390000000000000000000000000000000000000000000000000000000000000004",
-    "693c61390000000000000000000000000000000000000000000000000000000000000005",
-    "693c61390000000000000000000000000000000000000000000000000000000000000006",
-    "693c61390000000000000000000000000000000000000000000000000000000000000007",
-]
-TX_GAS = [80000]
-TX_VALUE = [0]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -113,7 +92,7 @@ def test_coinbase_warm_account_call_gas(
     v: int,
 ) -> None:
     """Test_coinbase_warm_account_call_gas."""
-    coinbase = Address("0x50228c44ed92561d94511e8518a75aa463bd444b")
+    coinbase = Address(0x50228C44ED92561D94511E8518A75AA463BD444B)
     sender = EOA(
         key=0x48DC5A9F099CAAAA557742CA3A990A94BE45B9969126A1BC74E5E8BE5A2B5B47
     )
@@ -123,7 +102,6 @@ def test_coinbase_warm_account_call_gas(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
@@ -276,29 +254,48 @@ def test_coinbase_warm_account_call_gas(
         + Op.JUMP(pc=0x51),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address("0xa4a48fc5f3526a9bc06a0136ab0ba1d9574d15ba"),  # noqa: E501
+        address=Address(0xA4A48FC5F3526A9BC06A0136AB0BA1D9574D15BA),  # noqa: E501
     )
     pre[coinbase] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
     pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 100})},
-        },
+    tx_data = [
+        Bytes(
+            "693c61390000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+        ),
+        Bytes(
+            "693c61390000000000000000000000000000000000000000000000000000000000000001"  # noqa: E501
+        ),
+        Bytes(
+            "693c61390000000000000000000000000000000000000000000000000000000000000002"  # noqa: E501
+        ),
+        Bytes(
+            "693c61390000000000000000000000000000000000000000000000000000000000000003"  # noqa: E501
+        ),
+        Bytes(
+            "693c61390000000000000000000000000000000000000000000000000000000000000004"  # noqa: E501
+        ),
+        Bytes(
+            "693c61390000000000000000000000000000000000000000000000000000000000000005"  # noqa: E501
+        ),
+        Bytes(
+            "693c61390000000000000000000000000000000000000000000000000000000000000006"  # noqa: E501
+        ),
+        Bytes(
+            "693c61390000000000000000000000000000000000000000000000000000000000000007"  # noqa: E501
+        ),
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    tx_gas = [80000]
+    tx_value = [0]
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
         nonce=1,
-        gas_price=10,
-        error=_exc,
     )
+
+    post = {target: Account(storage={0: 100})}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,9 +32,9 @@ def test_create_hash_collision(
     pre: Alloc,
 ) -> None:
     """Test_create_hash_collision."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    contract_0 = Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87")
-    contract_1 = Address("0xd2571607e241ecf590ed94b12d87c94babe36db6")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87)
+    contract_1 = Address(0xD2571607E241ECF590ED94B12D87C94BABE36DB6)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -44,7 +44,6 @@ def test_create_hash_collision(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
@@ -62,7 +61,7 @@ def test_create_hash_collision(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"),  # noqa: E501
+        address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: raw
@@ -71,15 +70,15 @@ def test_create_hash_collision(
         code=Op.ADD(0x1, 0x1) + Op.PUSH1[0x55],
         balance=42,
         nonce=0,
-        address=Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"),  # noqa: E501
+        address=Address(0xD2571607E241ECF590ED94B12D87C94BABE36DB6),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=contract_0,
+        data=Bytes(""),
         gas_limit=10000000,
         value=0x186A0,
-        gas_price=10,
     )
 
     post = {

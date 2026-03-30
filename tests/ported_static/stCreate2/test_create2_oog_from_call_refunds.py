@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -22,42 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "693c6139000000000000000000000000000000000000000000000000000000000000001a",
-    "693c6139000000000000000000000000000000000000000000000000000000000000001b",
-    "693c6139000000000000000000000000000000000000000000000000000000000000001c",
-    "693c6139000000000000000000000000000000000000000000000000000000000000002a",
-    "693c6139000000000000000000000000000000000000000000000000000000000000002b",
-    "693c6139000000000000000000000000000000000000000000000000000000000000002c",
-    "693c6139000000000000000000000000000000000000000000000000000000000000003a",
-    "693c6139000000000000000000000000000000000000000000000000000000000000003b",
-    "693c6139000000000000000000000000000000000000000000000000000000000000003c",
-    "693c6139000000000000000000000000000000000000000000000000000000000000004a",
-    "693c6139000000000000000000000000000000000000000000000000000000000000004b",
-    "693c6139000000000000000000000000000000000000000000000000000000000000004c",
-    "693c6139000000000000000000000000000000000000000000000000000000000000005a",
-    "693c6139000000000000000000000000000000000000000000000000000000000000005b",
-    "693c6139000000000000000000000000000000000000000000000000000000000000005c",
-    "693c6139000000000000000000000000000000000000000000000000000000000000006a",
-    "693c6139000000000000000000000000000000000000000000000000000000000000006b",
-    "693c6139000000000000000000000000000000000000000000000000000000000000006c",
-    "693c6139000000000000000000000000000000000000000000000000000000000000007a",
-    "693c6139000000000000000000000000000000000000000000000000000000000000007b",
-    "693c6139000000000000000000000000000000000000000000000000000000000000007c",
-    "693c6139000000000000000000000000000000000000000000000000000000000000008a",
-    "693c6139000000000000000000000000000000000000000000000000000000000000008b",
-    "693c6139000000000000000000000000000000000000000000000000000000000000008c",
-]
-TX_GAS = [400000]
-TX_VALUE = [0]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -223,36 +189,36 @@ def test_create2_oog_from_call_refunds(
     v: int,
 ) -> None:
     """Test_create2_oog_from_call_refunds."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    contract_0 = Address("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-    contract_1 = Address("0x000000000000000000000000000000000000001a")
-    contract_2 = Address("0x000000000000000000000000000000000000001b")
-    contract_3 = Address("0x000000000000000000000000000000000000001c")
-    contract_4 = Address("0x000000000000000000000000000000000000002a")
-    contract_5 = Address("0x000000000000000000000000000000000000002b")
-    contract_6 = Address("0x000000000000000000000000000000000000002c")
-    contract_7 = Address("0x000000000000000000000000000000000000003a")
-    contract_8 = Address("0x000000000000000000000000000000000000003b")
-    contract_9 = Address("0x000000000000000000000000000000000000003c")
-    contract_10 = Address("0x000000000000000000000000000000000000004a")
-    contract_11 = Address("0x000000000000000000000000000000000000004b")
-    contract_12 = Address("0x000000000000000000000000000000000000004c")
-    contract_13 = Address("0x000000000000000000000000000000000000005a")
-    contract_14 = Address("0x000000000000000000000000000000000000005b")
-    contract_15 = Address("0x000000000000000000000000000000000000005c")
-    contract_16 = Address("0x000000000000000000000000000000000000006a")
-    contract_17 = Address("0x000000000000000000000000000000000000006b")
-    contract_18 = Address("0x000000000000000000000000000000000000006c")
-    contract_19 = Address("0x000000000000000000000000000000000000007a")
-    contract_20 = Address("0x000000000000000000000000000000000000007b")
-    contract_21 = Address("0x000000000000000000000000000000000000007c")
-    contract_22 = Address("0x000000000000000000000000000000000000008a")
-    contract_23 = Address("0x000000000000000000000000000000000000008b")
-    contract_24 = Address("0x000000000000000000000000000000000000008c")
-    contract_25 = Address("0x00000000000000000000000000000000000c0dea")
-    contract_26 = Address("0x00000000000000000000000000000000000c0ded")
-    contract_27 = Address("0x00000000000000000000000000000000000c0de0")
-    contract_28 = Address("0x00000000000000000000000000000000000c0de1")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA)
+    contract_1 = Address(0x000000000000000000000000000000000000001A)
+    contract_2 = Address(0x000000000000000000000000000000000000001B)
+    contract_3 = Address(0x000000000000000000000000000000000000001C)
+    contract_4 = Address(0x000000000000000000000000000000000000002A)
+    contract_5 = Address(0x000000000000000000000000000000000000002B)
+    contract_6 = Address(0x000000000000000000000000000000000000002C)
+    contract_7 = Address(0x000000000000000000000000000000000000003A)
+    contract_8 = Address(0x000000000000000000000000000000000000003B)
+    contract_9 = Address(0x000000000000000000000000000000000000003C)
+    contract_10 = Address(0x000000000000000000000000000000000000004A)
+    contract_11 = Address(0x000000000000000000000000000000000000004B)
+    contract_12 = Address(0x000000000000000000000000000000000000004C)
+    contract_13 = Address(0x000000000000000000000000000000000000005A)
+    contract_14 = Address(0x000000000000000000000000000000000000005B)
+    contract_15 = Address(0x000000000000000000000000000000000000005C)
+    contract_16 = Address(0x000000000000000000000000000000000000006A)
+    contract_17 = Address(0x000000000000000000000000000000000000006B)
+    contract_18 = Address(0x000000000000000000000000000000000000006C)
+    contract_19 = Address(0x000000000000000000000000000000000000007A)
+    contract_20 = Address(0x000000000000000000000000000000000000007B)
+    contract_21 = Address(0x000000000000000000000000000000000000007C)
+    contract_22 = Address(0x000000000000000000000000000000000000008A)
+    contract_23 = Address(0x000000000000000000000000000000000000008B)
+    contract_24 = Address(0x000000000000000000000000000000000000008C)
+    contract_25 = Address(0x00000000000000000000000000000000000C0DEA)
+    contract_26 = Address(0x00000000000000000000000000000000000C0DED)
+    contract_27 = Address(0x00000000000000000000000000000000000C0DE0)
+    contract_28 = Address(0x00000000000000000000000000000000000C0DE1)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -262,7 +228,6 @@ def test_create2_oog_from_call_refunds(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=4294967296,
     )
@@ -296,7 +261,7 @@ def test_create2_oog_from_call_refunds(
         + Op.JUMPDEST
         + Op.INVALID,
         nonce=1,
-        address=Address("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),  # noqa: E501
+        address=Address(0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -313,7 +278,7 @@ def test_create2_oog_from_call_refunds(
         + Op.SSTORE(key=Op.DUP3, value=Op.DUP1)
         + Op.RETURN,
         nonce=0,
-        address=Address("0x000000000000000000000000000000000000001a"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000001A),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -329,7 +294,7 @@ def test_create2_oog_from_call_refunds(
         + Op.SSTORE(key=0x1, value=0x0)
         + Op.RETURN(offset=0x0, size=0x1388),
         nonce=0,
-        address=Address("0x000000000000000000000000000000000000001b"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000001B),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -347,7 +312,7 @@ def test_create2_oog_from_call_refunds(
         + Op.SSTORE
         + Op.INVALID,
         nonce=0,
-        address=Address("0x000000000000000000000000000000000000001c"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000001C),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -370,7 +335,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.RETURN(offset=0x0, size=0x1),
         nonce=0,
-        address=Address("0x000000000000000000000000000000000000002a"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000002A),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -392,7 +357,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.RETURN(offset=0x0, size=0x1388),
         nonce=0,
-        address=Address("0x000000000000000000000000000000000000002b"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000002B),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -416,7 +381,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.INVALID,
         nonce=0,
-        address=Address("0x000000000000000000000000000000000000002c"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000002C),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -440,7 +405,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.RETURN(offset=0x0, size=0x1),
         nonce=0,
-        address=Address("0x000000000000000000000000000000000000003a"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000003A),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -463,7 +428,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.RETURN(offset=0x0, size=0x1388),
         nonce=0,
-        address=Address("0x000000000000000000000000000000000000003b"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000003B),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -488,7 +453,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.INVALID,
         nonce=0,
-        address=Address("0x000000000000000000000000000000000000003c"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000003C),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -513,7 +478,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.RETURN(offset=0x0, size=0x1),
         nonce=0,
-        address=Address("0x000000000000000000000000000000000000004a"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000004A),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -537,7 +502,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.RETURN(offset=0x0, size=0x1388),
         nonce=0,
-        address=Address("0x000000000000000000000000000000000000004b"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000004B),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -563,7 +528,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.INVALID,
         nonce=0,
-        address=Address("0x000000000000000000000000000000000000004c"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000004C),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -586,7 +551,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.RETURN(offset=0x0, size=0x1),
         nonce=0,
-        address=Address("0x000000000000000000000000000000000000005a"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000005A),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -608,7 +573,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.RETURN(offset=0x0, size=0x1388),
         nonce=0,
-        address=Address("0x000000000000000000000000000000000000005b"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000005B),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -632,7 +597,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.INVALID,
         nonce=0,
-        address=Address("0x000000000000000000000000000000000000005c"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000005C),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -655,7 +620,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.RETURN(offset=0x0, size=0x1),
         nonce=0,
-        address=Address("0x000000000000000000000000000000000000006a"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000006A),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -677,7 +642,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.RETURN(offset=0x0, size=0x1388),
         nonce=0,
-        address=Address("0x000000000000000000000000000000000000006b"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000006B),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -701,7 +666,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.INVALID,
         nonce=0,
-        address=Address("0x000000000000000000000000000000000000006c"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000006C),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -735,7 +700,7 @@ def test_create2_oog_from_call_refunds(
         + Op.ADD
         + Op.RETURN,
         nonce=0,
-        address=Address("0x000000000000000000000000000000000000007a"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000007A),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -767,7 +732,7 @@ def test_create2_oog_from_call_refunds(
         + Op.ADD
         + Op.RETURN,
         nonce=0,
-        address=Address("0x000000000000000000000000000000000000007b"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000007B),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -798,7 +763,7 @@ def test_create2_oog_from_call_refunds(
         + Op.POP(Op.CREATE)
         + Op.INVALID,
         nonce=0,
-        address=Address("0x000000000000000000000000000000000000007c"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000007C),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -834,7 +799,7 @@ def test_create2_oog_from_call_refunds(
         + Op.ADD
         + Op.RETURN,
         nonce=0,
-        address=Address("0x000000000000000000000000000000000000008a"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000008A),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -868,7 +833,7 @@ def test_create2_oog_from_call_refunds(
         + Op.ADD
         + Op.RETURN,
         nonce=0,
-        address=Address("0x000000000000000000000000000000000000008b"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000008B),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -900,7 +865,7 @@ def test_create2_oog_from_call_refunds(
         + Op.POP(Op.CREATE2)
         + Op.INVALID,
         nonce=0,
-        address=Address("0x000000000000000000000000000000000000008c"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000008C),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -912,7 +877,7 @@ def test_create2_oog_from_call_refunds(
         code=Op.SSTORE(key=0x1, value=0x0) + Op.STOP,
         storage={1: 1},
         nonce=1,
-        address=Address("0x00000000000000000000000000000000000c0dea"),  # noqa: E501
+        address=Address(0x00000000000000000000000000000000000C0DEA),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -923,7 +888,7 @@ def test_create2_oog_from_call_refunds(
         code=Op.SELFDESTRUCT(address=Op.ORIGIN),
         storage={1: 1},
         nonce=1,
-        address=Address("0x00000000000000000000000000000000000c0ded"),  # noqa: E501
+        address=Address(0x00000000000000000000000000000000000C0DED),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -954,7 +919,7 @@ def test_create2_oog_from_call_refunds(
         + Op.STOP,
         storage={1: 1},
         nonce=1,
-        address=Address("0x00000000000000000000000000000000000c0de0"),  # noqa: E501
+        address=Address(0x00000000000000000000000000000000000C0DE0),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -970,7 +935,7 @@ def test_create2_oog_from_call_refunds(
         + Op.SWAP1
         + Op.RETURN,
         nonce=1,
-        address=Address("0x00000000000000000000000000000000000c0de1"),  # noqa: E501
+        address=Address(0x00000000000000000000000000000000000C0DE1),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -1167,13 +1132,89 @@ def test_create2_oog_from_call_refunds(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes(
+            "693c6139000000000000000000000000000000000000000000000000000000000000001a"  # noqa: E501
+        ),
+        Bytes(
+            "693c6139000000000000000000000000000000000000000000000000000000000000001b"  # noqa: E501
+        ),
+        Bytes(
+            "693c6139000000000000000000000000000000000000000000000000000000000000001c"  # noqa: E501
+        ),
+        Bytes(
+            "693c6139000000000000000000000000000000000000000000000000000000000000002a"  # noqa: E501
+        ),
+        Bytes(
+            "693c6139000000000000000000000000000000000000000000000000000000000000002b"  # noqa: E501
+        ),
+        Bytes(
+            "693c6139000000000000000000000000000000000000000000000000000000000000002c"  # noqa: E501
+        ),
+        Bytes(
+            "693c6139000000000000000000000000000000000000000000000000000000000000003a"  # noqa: E501
+        ),
+        Bytes(
+            "693c6139000000000000000000000000000000000000000000000000000000000000003b"  # noqa: E501
+        ),
+        Bytes(
+            "693c6139000000000000000000000000000000000000000000000000000000000000003c"  # noqa: E501
+        ),
+        Bytes(
+            "693c6139000000000000000000000000000000000000000000000000000000000000004a"  # noqa: E501
+        ),
+        Bytes(
+            "693c6139000000000000000000000000000000000000000000000000000000000000004b"  # noqa: E501
+        ),
+        Bytes(
+            "693c6139000000000000000000000000000000000000000000000000000000000000004c"  # noqa: E501
+        ),
+        Bytes(
+            "693c6139000000000000000000000000000000000000000000000000000000000000005a"  # noqa: E501
+        ),
+        Bytes(
+            "693c6139000000000000000000000000000000000000000000000000000000000000005b"  # noqa: E501
+        ),
+        Bytes(
+            "693c6139000000000000000000000000000000000000000000000000000000000000005c"  # noqa: E501
+        ),
+        Bytes(
+            "693c6139000000000000000000000000000000000000000000000000000000000000006a"  # noqa: E501
+        ),
+        Bytes(
+            "693c6139000000000000000000000000000000000000000000000000000000000000006b"  # noqa: E501
+        ),
+        Bytes(
+            "693c6139000000000000000000000000000000000000000000000000000000000000006c"  # noqa: E501
+        ),
+        Bytes(
+            "693c6139000000000000000000000000000000000000000000000000000000000000007a"  # noqa: E501
+        ),
+        Bytes(
+            "693c6139000000000000000000000000000000000000000000000000000000000000007b"  # noqa: E501
+        ),
+        Bytes(
+            "693c6139000000000000000000000000000000000000000000000000000000000000007c"  # noqa: E501
+        ),
+        Bytes(
+            "693c6139000000000000000000000000000000000000000000000000000000000000008a"  # noqa: E501
+        ),
+        Bytes(
+            "693c6139000000000000000000000000000000000000000000000000000000000000008b"  # noqa: E501
+        ),
+        Bytes(
+            "693c6139000000000000000000000000000000000000000000000000000000000000008c"  # noqa: E501
+        ),
+    ]
+    tx_gas = [400000]
+    tx_value = [0]
+
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
         nonce=1,
-        gas_price=10,
         error=_exc,
     )
 

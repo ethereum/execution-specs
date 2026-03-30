@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,7 +34,7 @@ def test_callcallcodecall_010(
     pre: Alloc,
 ) -> None:
     """Test_callcallcodecall_010."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
@@ -44,7 +44,6 @@ def test_callcallcodecall_010(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=30000000,
     )
@@ -67,11 +66,11 @@ def test_callcallcodecall_010(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0xdb43306b16c521b9cc3667fbe7d1b697bb1f9605"),  # noqa: E501
+        address=Address(0xDB43306B16C521B9CC3667FBE7D1B697BB1F9605),  # noqa: E501
     )
     # Source: lll
     # {  [[ 1 ]] (DELEGATECALL 300000 <contract:0x1000000000000000000000000000000000000002> 0 64 0 64 ) }  # noqa: E501
-    addr_0x1000000000000000000000000000000000000001 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(
             key=0x1,
             value=Op.DELEGATECALL(
@@ -86,11 +85,11 @@ def test_callcallcodecall_010(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0xfed08e44ae95ece264bc94a1fc45af8bc4ef4f1d"),  # noqa: E501
+        address=Address(0xFED08E44AE95ECE264BC94A1FC45AF8BC4EF4F1D),  # noqa: E501
     )
     # Source: lll
     # {  [[ 2 ]] (CALLCODE 250000 <contract:0x1000000000000000000000000000000000000003> 2 0 64 0 64 ) (SSTORE 5 (CALLER))}  # noqa: E501
-    addr_0x1000000000000000000000000000000000000002 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(
             key=0x2,
             value=Op.CALLCODE(
@@ -107,11 +106,11 @@ def test_callcallcodecall_010(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x8738ab5302009e8bad163c8a9e91e72926b09d34"),  # noqa: E501
+        address=Address(0x8738AB5302009E8BAD163C8A9E91E72926B09D34),  # noqa: E501
     )
     # Source: lll
     # {  (SSTORE 3 1) (SSTORE 4 (CALLER)) (SSTORE 6 (CALLVALUE)) (SSTORE 330 (ADDRESS)) (SSTORE 332 (ORIGIN)) (SSTORE 336 (CALLDATASIZE)) (SSTORE 338 (CODESIZE)) (SSTORE 340 (GASPRICE))}  # noqa: E501
-    addr_0x1000000000000000000000000000000000000003 = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x3, value=0x1)
         + Op.SSTORE(key=0x4, value=Op.CALLER)
         + Op.SSTORE(key=0x6, value=Op.CALLVALUE)
@@ -122,15 +121,15 @@ def test_callcallcodecall_010(
         + Op.SSTORE(key=0x154, value=Op.GASPRICE)
         + Op.STOP,
         nonce=0,
-        address=Address("0xb8601b04bfd9eb63bc6ff0263567113d4cb874e4"),  # noqa: E501
+        address=Address(0xB8601B04BFD9EB63BC6FF0263567113D4CB874E4),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=3000000,
-        gas_price=10,
     )
 
     post = {
@@ -150,15 +149,9 @@ def test_callcallcodecall_010(
                 340: 10,
             },
         ),
-        addr_0x1000000000000000000000000000000000000001: Account(
-            storage={1: 0, 2: 0, 5: 0}
-        ),
-        addr_0x1000000000000000000000000000000000000002: Account(
-            storage={2: 0}
-        ),
-        addr_0x1000000000000000000000000000000000000003: Account(
-            storage={3: 0, 4: 0}
-        ),
+        addr: Account(storage={1: 0, 2: 0, 5: 0}),
+        addr_2: Account(storage={2: 0}),
+        addr_3: Account(storage={3: 0, 4: 0}),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_call_recursive_methods(
     pre: Alloc,
 ) -> None:
     """Test_call_recursive_methods."""
-    coinbase = Address("0xeb201d2887816e041f6e807e804f64f3a7a226fe")
+    coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
     sender = EOA(
         key=0xA9AE12CB2700C0214F86B9796881BC03A1FD5605D0E76D2DA2CA592E62D53E52
     )
@@ -42,7 +42,6 @@ def test_call_recursive_methods(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
@@ -91,17 +90,16 @@ def test_call_recursive_methods(
         + Op.JUMP,
         balance=0x186A0,
         nonce=0,
-        address=Address("0xc7c7851c7f3291bed1039bb4ffa166c290a605a9"),  # noqa: E501
+        address=Address(0xC7C7851C7F3291BED1039BB4FFA166C290A605A9),  # noqa: E501
     )
     pre[sender] = Account(balance=0x12A05F200)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=bytes.fromhex("981a3165"),
+        data=Bytes("981a3165"),
         gas_limit=60000,
         value=1,
-        gas_price=10,
     )
 
     post = {sender: Account(nonce=1)}

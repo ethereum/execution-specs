@@ -12,6 +12,7 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -22,20 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "000000000000000000000000d0a73d84aa7112e8d5179cae211b268d16dafd73",
-    "000000000000000000000000c1eb8f73f2e1e269acd146c961210b665078841b",
-]
-TX_GAS = [1000000000]
-TX_VALUE = [100000]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -43,6 +31,7 @@ def _tx_data(d: int) -> bytes:
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "d, g, v",
     [
@@ -70,7 +59,7 @@ def test_static_ab_acalls1(
     v: int,
 ) -> None:
     """Test_static_ab_acalls1."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
@@ -80,7 +69,6 @@ def test_static_ab_acalls1(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000000,
     )
@@ -104,11 +92,11 @@ def test_static_ab_acalls1(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0xe7fe01f115e85f0487086659fa9bbf09579b0e3a"),  # noqa: E501
+        address=Address(0xE7FE01F115E85F0487086659FA9BBF09579B0E3A),  # noqa: E501
     )
     # Source: lll
     # {  [[ (PC) ]] (STATICCALL (- (GAS) 100000) <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 0 0 0 0) }  # noqa: E501
-    addr_0x095e7baea6a6c7c4c2dfeb977efac326af552d87 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(
             key=Op.PC,
             value=Op.STATICCALL(
@@ -123,11 +111,11 @@ def test_static_ab_acalls1(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0xd0a73d84aa7112e8d5179cae211b268d16dafd73"),  # noqa: E501
+        address=Address(0xD0A73D84AA7112E8D5179CAE211B268D16DAFD73),  # noqa: E501
     )
     # Source: lll
     # { [[ (PC) ]] (ADD 1 (STATICCALL (- (GAS) 100000) <contract:0x095e7baea6a6c7c4c2dfeb977efac326af552d87> 0 0 0 0)) }  # noqa: E501
-    addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(
             key=Op.PC,
             value=Op.ADD(
@@ -145,11 +133,11 @@ def test_static_ab_acalls1(
         + Op.STOP,
         balance=23,
         nonce=0,
-        address=Address("0xcc7901b70dcec81d198ac6cf196ef14bca9870be"),  # noqa: E501
+        address=Address(0xCC7901B70DCEC81D198AC6CF196EF14BCA9870BE),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 1 (PC)) (STATICCALL (- (GAS) 100000) <contract:0x245304eb96065b2a98b57a48a06ae28d285a71b5> 0 0 0 0) }  # noqa: E501
-    addr_0x195e7baea6a6c7c4c2dfeb977efac326af552d87 = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x1, value=Op.PC)
         + Op.STATICCALL(
             gas=Op.SUB(Op.GAS, 0x186A0),
@@ -162,11 +150,11 @@ def test_static_ab_acalls1(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0xc1eb8f73f2e1e269acd146c961210b665078841b"),  # noqa: E501
+        address=Address(0xC1EB8F73F2E1E269ACD146C961210B665078841B),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE (PC) (ADD 1 (STATICCALL (- (GAS) 100000) <contract:0x195e7baea6a6c7c4c2dfeb977efac326af552d87> 0 0 0 0)) ) }  # noqa: E501
-    addr_0x245304eb96065b2a98b57a48a06ae28d285a71b5 = pre.deploy_contract(  # noqa: F841
+    addr_4 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(
             offset=Op.PC,
             value=Op.ADD(
@@ -184,7 +172,7 @@ def test_static_ab_acalls1(
         + Op.STOP,
         balance=23,
         nonce=0,
-        address=Address("0x5e75046384134a4554c3c7061d4637cb978d5699"),  # noqa: E501
+        address=Address(0x5E75046384134A4554C3C7061D4637CB978D5699),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
@@ -194,12 +182,8 @@ def test_static_ab_acalls1(
             "network": [">=Cancun<Osaka"],
             "result": {
                 target: Account(storage={0: 1, 1: 1}),
-                addr_0x095e7baea6a6c7c4c2dfeb977efac326af552d87: Account(
-                    storage={38: 0}
-                ),
-                addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5: Account(
-                    storage={41: 0}
-                ),
+                addr: Account(storage={38: 0}),
+                addr_2: Account(storage={41: 0}),
             },
         },
         {
@@ -207,25 +191,27 @@ def test_static_ab_acalls1(
             "network": [">=Cancun<Osaka"],
             "result": {
                 target: Account(storage={0: 1, 1: 1}),
-                addr_0x095e7baea6a6c7c4c2dfeb977efac326af552d87: Account(
-                    storage={38: 0}
-                ),
-                addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5: Account(
-                    storage={41: 0}
-                ),
+                addr: Account(storage={38: 0}),
+                addr_2: Account(storage={41: 0}),
             },
         },
     ]
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Hash(addr, left_padding=True),
+        Hash(addr_3, left_padding=True),
+    ]
+    tx_gas = [1000000000]
+    tx_value = [100000]
+
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
         error=_exc,
     )
 

@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_callcall_00_suicide_end(
     pre: Alloc,
 ) -> None:
     """Call -> (call -> code) suicide ."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
@@ -42,7 +42,6 @@ def test_callcall_00_suicide_end(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=30000000,
     )
@@ -65,11 +64,11 @@ def test_callcall_00_suicide_end(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x4353e77718be108d4c149d88b34caceda42c5c66"),  # noqa: E501
+        address=Address(0x4353E77718BE108D4C149D88B34CACEDA42C5C66),  # noqa: E501
     )
     # Source: lll
     # {  [[ 1 ]] (CALL 50000 <contract:0x1000000000000000000000000000000000000002> 0 0 64 0 64 ) (SELFDESTRUCT <contract:target:0x1000000000000000000000000000000000000000>) }  # noqa: E501
-    addr_0x1000000000000000000000000000000000000001 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(
             key=0x1,
             value=Op.CALL(
@@ -86,30 +85,28 @@ def test_callcall_00_suicide_end(
         + Op.STOP,
         balance=0x2540BE400,
         nonce=0,
-        address=Address("0xf741cfee7b7fb1025dccef3db5a3cbc8ffb776f8"),  # noqa: E501
+        address=Address(0xF741CFEE7B7FB1025DCCEF3DB5A3CBC8FFB776F8),  # noqa: E501
     )
     # Source: lll
     # {  (SSTORE 2 1) }
-    addr_0x1000000000000000000000000000000000000002 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x2, value=0x1) + Op.STOP,
         balance=0x2540BE400,
         nonce=0,
-        address=Address("0x703b936fd4d674f0ff5d6957f61097152f8781b8"),  # noqa: E501
+        address=Address(0x703B936FD4D674F0FF5D6957F61097152F8781B8),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=3000000,
-        gas_price=10,
     )
 
     post = {
         target: Account(balance=0xDE0B6B5FB6FE400),
-        addr_0x1000000000000000000000000000000000000002: Account(
-            storage={2: 1}, balance=0x2540BE400
-        ),
+        addr_2: Account(storage={2: 1}, balance=0x2540BE400),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

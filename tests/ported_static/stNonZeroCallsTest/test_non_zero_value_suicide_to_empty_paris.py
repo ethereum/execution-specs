@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,10 +34,8 @@ def test_non_zero_value_suicide_to_empty_paris(
     pre: Alloc,
 ) -> None:
     """Test_non_zero_value_suicide_to_empty_paris."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b = Address(
-        "0x76fae819612a29489a1a43208613d8f8557b8898"
-    )
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    addr = Address(0x76FAE819612A29489A1A43208613D8F8557B8898)
     sender = EOA(
         key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
@@ -47,7 +45,6 @@ def test_non_zero_value_suicide_to_empty_paris(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -62,15 +59,15 @@ def test_non_zero_value_suicide_to_empty_paris(
         + Op.STOP,
         balance=1,
         nonce=0,
-        address=Address("0xeb9a4c7a191790631d13fc4927446f5ef9d201fc"),  # noqa: E501
+        address=Address(0xEB9A4C7A191790631D13FC4927446F5EF9D201FC),  # noqa: E501
     )
-    pre[addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b] = Account(balance=10)
+    pre[addr] = Account(balance=10)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=600000,
-        gas_price=10,
     )
 
     post = {
@@ -82,7 +79,7 @@ def test_non_zero_value_suicide_to_empty_paris(
             balance=0,
             nonce=0,
         ),
-        addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(balance=11),
+        addr: Account(balance=11),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

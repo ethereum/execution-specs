@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,7 +34,7 @@ def test_14_revert_after_nested_staticcall(
     pre: Alloc,
 ) -> None:
     """Transient storage can't be manipulated from nested staticcall."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xBE0E7D5FEA1604BF57E004B0B414DF8DE04816DBB1C8F8719B725D0D6619B531
     )
@@ -44,7 +44,6 @@ def test_14_revert_after_nested_staticcall(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=4503599627370496,
     )
@@ -135,14 +134,14 @@ def test_14_revert_after_nested_staticcall(
         storage={1: 65535},
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x1150baff55fdcea5fd92b0995358ec0c416debe3"),  # noqa: E501
+        address=Address(0x1150BAFF55FDCEA5FD92B0995358EC0C416DEBE3),  # noqa: E501
     )
     pre[sender] = Account(balance=0x3635C9ADC5DEA00000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=bytes.fromhex("f5f40590"),
+        data=Bytes("f5f40590"),
         gas_limit=400000,
         max_fee_per_gas=2000,
         max_priority_fee_per_gas=0,

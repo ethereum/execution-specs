@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,10 +34,8 @@ def test_returndatasize_after_oog_after_deeper(
     pre: Alloc,
 ) -> None:
     """Transaction calls A (CALL B(CALL C(RETURN) OOG) 'check buffers')."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    addr_0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6 = Address(
-        "0xbda572e15071b6ab42cfec01423f1fbb1de68703"
-    )
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    addr = Address(0xBDA572E15071B6AB42CFEC01423F1FBB1DE68703)
     sender = EOA(
         key=0x987C63506890B18862BD2304513F21B726A7E35961C9214954326694141FDB46
     )
@@ -47,14 +45,11 @@ def test_returndatasize_after_oog_after_deeper(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=111669149696,
     )
 
-    pre[addr_0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6] = Account(
-        balance=0x1000000000
-    )
+    pre[addr] = Account(balance=0x1000000000)
     # Source: lll
     # { (seq (SSTORE 2 (CALL 100000 <contract:0x1000000000000000000000000000000000000002> 0 0 0 0 32)) (SSTORE 0 (RETURNDATASIZE))) (SSTORE 1 (MLOAD 0))}  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -75,11 +70,11 @@ def test_returndatasize_after_oog_after_deeper(
         + Op.STOP,
         storage={0: 0xFFFFFFFF, 1: 0xFFFFFFFF, 2: 0xFFFFFFFF},
         nonce=0,
-        address=Address("0x58eaa3041ad52c24e38e485222953f1cc19c7484"),  # noqa: E501
+        address=Address(0x58EAA3041AD52C24E38E485222953F1CC19C7484),  # noqa: E501
     )
     # Source: lll
     # { (seq (CALL 100000 <contract:0xbb00000000000000000000000000000000000000> 0 0 0 0 0) (while 1 (SSTORE 0 1)) )}  # noqa: E501
-    addr_0x1000000000000000000000000000000000000002 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
             Op.CALL(
                 gas=0x186A0,
@@ -99,24 +94,24 @@ def test_returndatasize_after_oog_after_deeper(
         + Op.STOP,
         balance=0x6400000000,
         nonce=0,
-        address=Address("0xcb33b9a773995316746a40201081d054635d02da"),  # noqa: E501
+        address=Address(0xCB33B9A773995316746A40201081D054635D02DA),  # noqa: E501
     )
     pre[sender] = Account(balance=0x100000000000)
     # Source: lll
     # { (seq (MSTORE 0 255) (RETURN 0 32) )}
-    addr_0xbb00000000000000000000000000000000000000 = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=0xFF)
         + Op.RETURN(offset=0x0, size=0x20)
         + Op.STOP,
         nonce=0,
-        address=Address("0x8e0c75135225713d8c9acbb889abba5a5f598920"),  # noqa: E501
+        address=Address(0x8E0C75135225713D8C9ACBB889ABBA5A5F598920),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=200000,
-        gas_price=10,
     )
 
     post = {target: Account(storage={0: 0, 1: 0, 2: 0})}

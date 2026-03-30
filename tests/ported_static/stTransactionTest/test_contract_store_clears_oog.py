@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_contract_store_clears_oog(
     pre: Alloc,
 ) -> None:
     """Test_contract_store_clears_oog."""
-    coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+    coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = EOA(
         key=0x2B75D0C814EB07C075FCCBDD9A036FAF651D9C46D7477D6C4F30772CFCA90D38
     )
@@ -42,7 +42,6 @@ def test_contract_store_clears_oog(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000,
     )
@@ -75,15 +74,15 @@ def test_contract_store_clears_oog(
             9: 12,
         },
         nonce=0,
-        address=Address("0xc9c8ce4628bda9f8bc4a2caaebb3616f83c4305d"),  # noqa: E501
+        address=Address(0xC9C8CE4628BDA9F8BC4A2CAAEBB3616F83C4305D),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=23000,
         value=10,
-        gas_price=10,
     )
 
     post = {

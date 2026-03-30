@@ -12,6 +12,7 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -22,26 +23,14 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "000000000000000000000000c54c4be163add3cc0efe5268a599a308dab12c74",
-    "0000000000000000000000007a365d98665a08e6ed6c1638c8ea6775fa649048",
-]
-TX_GAS = [1000000]
-TX_VALUE = [100000]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
     ["state_tests/stStaticCall/static_ABAcalls0Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "d, g, v",
     [
@@ -69,7 +58,7 @@ def test_static_ab_acalls0(
     v: int,
 ) -> None:
     """Test_static_ab_acalls0."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
@@ -79,7 +68,6 @@ def test_static_ab_acalls0(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -103,11 +91,11 @@ def test_static_ab_acalls0(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0xfddb268f64fd5a90f618bbee0bd38e0c24b0a945"),  # noqa: E501
+        address=Address(0xFDDB268F64FD5A90F618BBEE0BD38E0C24B0A945),  # noqa: E501
     )
     # Source: lll
     # {  [[ (PC) ]] (STATICCALL 100000 <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 0 0 0 0) }  # noqa: E501
-    addr_0x095e7baea6a6c7c4c2dfeb977efac326af552d87 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(
             key=Op.PC,
             value=Op.STATICCALL(
@@ -122,11 +110,11 @@ def test_static_ab_acalls0(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0xc54c4be163add3cc0efe5268a599a308dab12c74"),  # noqa: E501
+        address=Address(0xC54C4BE163ADD3CC0EFE5268A599A308DAB12C74),  # noqa: E501
     )
     # Source: lll
     # { [[ (PC) ]] (ADD 1 (STATICCALL 50000 <contract:0x095e7baea6a6c7c4c2dfeb977efac326af552d87> 0 0 0 0)) }  # noqa: E501
-    addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(
             key=Op.PC,
             value=Op.ADD(
@@ -144,11 +132,11 @@ def test_static_ab_acalls0(
         + Op.STOP,
         balance=23,
         nonce=0,
-        address=Address("0x9a95017e0dbf52bb87ddfda883b69d6188d574ca"),  # noqa: E501
+        address=Address(0x9A95017E0DBF52BB87DDFDA883B69D6188D574CA),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 1 (PC)) (STATICCALL 100000 <contract:0x245304eb96065b2a98b57a48a06ae28d285a71b5> 0 0 0 0) }  # noqa: E501
-    addr_0x195e7baea6a6c7c4c2dfeb977efac326af552d87 = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x1, value=Op.PC)
         + Op.STATICCALL(
             gas=0x186A0,
@@ -161,11 +149,11 @@ def test_static_ab_acalls0(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x7a365d98665a08e6ed6c1638c8ea6775fa649048"),  # noqa: E501
+        address=Address(0x7A365D98665A08E6ED6C1638C8EA6775FA649048),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 1 (PC)) (STATICCALL 50000 <contract:0x195e7baea6a6c7c4c2dfeb977efac326af552d87> 0 0 0 0) }  # noqa: E501
-    addr_0x245304eb96065b2a98b57a48a06ae28d285a71b5 = pre.deploy_contract(  # noqa: F841
+    addr_4 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x1, value=Op.PC)
         + Op.STATICCALL(
             gas=0xC350,
@@ -178,7 +166,7 @@ def test_static_ab_acalls0(
         + Op.STOP,
         balance=23,
         nonce=0,
-        address=Address("0x718a83e869d6f4dea50a650b9825cbfe683bdf16"),  # noqa: E501
+        address=Address(0x718A83E869D6F4DEA50A650B9825CBFE683BDF16),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
@@ -187,12 +175,8 @@ def test_static_ab_acalls0(
             "indexes": {"data": 0, "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                addr_0x095e7baea6a6c7c4c2dfeb977efac326af552d87: Account(
-                    storage={36: 0}, balance=0xDE0B6B3A76586A0
-                ),
-                addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5: Account(
-                    storage={38: 0}
-                ),
+                addr: Account(storage={36: 0}, balance=0xDE0B6B3A76586A0),
+                addr_2: Account(storage={38: 0}),
                 target: Account(storage={0: 1, 1: 1}),
             },
         },
@@ -200,12 +184,8 @@ def test_static_ab_acalls0(
             "indexes": {"data": 1, "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                addr_0x195e7baea6a6c7c4c2dfeb977efac326af552d87: Account(
-                    storage={36: 0}, balance=0xDE0B6B3A76586A0
-                ),
-                addr_0x245304eb96065b2a98b57a48a06ae28d285a71b5: Account(
-                    storage={38: 0}
-                ),
+                addr_3: Account(storage={36: 0}, balance=0xDE0B6B3A76586A0),
+                addr_4: Account(storage={38: 0}),
                 target: Account(storage={0: 1, 1: 1}),
             },
         },
@@ -213,13 +193,19 @@ def test_static_ab_acalls0(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Hash(addr, left_padding=True),
+        Hash(addr_3, left_padding=True),
+    ]
+    tx_gas = [1000000]
+    tx_value = [100000]
+
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
         error=_exc,
     )
 

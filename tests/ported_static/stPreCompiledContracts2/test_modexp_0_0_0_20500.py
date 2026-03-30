@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -22,19 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "30c8d1da00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
-]
-TX_GAS = [42540, 90000, 110000, 200000]
-TX_VALUE = [0]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -80,16 +69,16 @@ def test_modexp_0_0_0_20500(
     v: int,
 ) -> None:
     """Puts the base 0, exponent 0 and modulus 0 into the MODEXP..."""
-    coinbase = Address("0x3535353535353535353535353535353535353535")
-    contract_0 = Address("0xc305c901078781c232a2a521c2af7980f8385ee9")
-    contract_1 = Address("0x0000000000000000000000000000000000000001")
-    contract_2 = Address("0x0000000000000000000000000000000000000005")
-    contract_3 = Address("0x0000000000000000000000000000000000000008")
-    contract_4 = Address("0x0000000000000000000000000000000000000003")
-    contract_5 = Address("0x0000000000000000000000000000000000000006")
-    contract_6 = Address("0x0000000000000000000000000000000000000007")
-    contract_7 = Address("0x0000000000000000000000000000000000000004")
-    contract_8 = Address("0x0000000000000000000000000000000000000002")
+    coinbase = Address(0x3535353535353535353535353535353535353535)
+    contract_0 = Address(0xC305C901078781C232A2A521C2AF7980F8385EE9)
+    contract_1 = Address(0x0000000000000000000000000000000000000001)
+    contract_2 = Address(0x0000000000000000000000000000000000000005)
+    contract_3 = Address(0x0000000000000000000000000000000000000008)
+    contract_4 = Address(0x0000000000000000000000000000000000000003)
+    contract_5 = Address(0x0000000000000000000000000000000000000006)
+    contract_6 = Address(0x0000000000000000000000000000000000000007)
+    contract_7 = Address(0x0000000000000000000000000000000000000004)
+    contract_8 = Address(0x0000000000000000000000000000000000000002)
     sender = EOA(
         key=0x44852B2A670ADE5407E78FB2863C51DE9FCB96542A07186FE3AEDA6BB8A116D
     )
@@ -99,7 +88,6 @@ def test_modexp_0_0_0_20500(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
@@ -198,7 +186,7 @@ def test_modexp_0_0_0_20500(
         + Op.STOP
         + Op.JUMPDEST,
         nonce=1,
-        address=Address("0xc305c901078781c232a2a521c2af7980f8385ee9"),  # noqa: E501
+        address=Address(0xC305C901078781C232A2A521C2AF7980F8385EE9),  # noqa: E501
     )
     # Source: hex
     # 0x
@@ -206,7 +194,7 @@ def test_modexp_0_0_0_20500(
         code="",
         balance=0x201EE,
         nonce=0,
-        address=Address("0x3535353535353535353535353535353535353535"),  # noqa: E501
+        address=Address(0x3535353535353535353535353535353535353535),  # noqa: E501
     )
     # Source: hex
     # 0x
@@ -214,7 +202,7 @@ def test_modexp_0_0_0_20500(
         code="",
         balance=1,
         nonce=0,
-        address=Address("0x0000000000000000000000000000000000000001"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000000001),  # noqa: E501
     )
     # Source: hex
     # 0x
@@ -222,7 +210,7 @@ def test_modexp_0_0_0_20500(
         code="",
         balance=1,
         nonce=0,
-        address=Address("0x0000000000000000000000000000000000000005"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000000005),  # noqa: E501
     )
     # Source: hex
     # 0x
@@ -230,7 +218,7 @@ def test_modexp_0_0_0_20500(
         code="",
         balance=1,
         nonce=0,
-        address=Address("0x0000000000000000000000000000000000000008"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000000008),  # noqa: E501
     )
     # Source: hex
     # 0x
@@ -238,7 +226,7 @@ def test_modexp_0_0_0_20500(
         code="",
         balance=1,
         nonce=0,
-        address=Address("0x0000000000000000000000000000000000000003"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000000003),  # noqa: E501
     )
     # Source: hex
     # 0x
@@ -246,7 +234,7 @@ def test_modexp_0_0_0_20500(
         code="",
         balance=1,
         nonce=0,
-        address=Address("0x0000000000000000000000000000000000000006"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000000006),  # noqa: E501
     )
     # Source: hex
     # 0x
@@ -254,7 +242,7 @@ def test_modexp_0_0_0_20500(
         code="",
         balance=1,
         nonce=0,
-        address=Address("0x0000000000000000000000000000000000000007"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000000007),  # noqa: E501
     )
     # Source: hex
     # 0x
@@ -262,7 +250,7 @@ def test_modexp_0_0_0_20500(
         code="",
         balance=1,
         nonce=0,
-        address=Address("0x0000000000000000000000000000000000000004"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000000004),  # noqa: E501
     )
     # Source: hex
     # 0x
@@ -270,7 +258,7 @@ def test_modexp_0_0_0_20500(
         code="",
         balance=1,
         nonce=0,
-        address=Address("0x0000000000000000000000000000000000000002"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000000002),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -328,13 +316,20 @@ def test_modexp_0_0_0_20500(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes(
+            "30c8d1da00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+        ),
+    ]
+    tx_gas = [42540, 90000, 110000, 200000]
+    tx_value = [0]
+
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
         nonce=1,
-        gas_price=10,
         error=_exc,
     )
 

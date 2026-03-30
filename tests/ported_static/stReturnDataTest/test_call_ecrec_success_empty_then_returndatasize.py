@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,7 +34,7 @@ def test_call_ecrec_success_empty_then_returndatasize(
     pre: Alloc,
 ) -> None:
     """Test_call_ecrec_success_empty_then_returndatasize."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
     )
@@ -44,7 +44,6 @@ def test_call_ecrec_success_empty_then_returndatasize(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=111669149696,
     )
@@ -67,15 +66,15 @@ def test_call_ecrec_success_empty_then_returndatasize(
         + Op.STOP,
         storage={0: 24743},
         nonce=0,
-        address=Address("0x77e2f61794bcfd86b1c2380c34aab5fb7c25e95e"),  # noqa: E501
+        address=Address(0x77E2F61794BCFD86B1C2380C34AAB5FB7C25E95E),  # noqa: E501
     )
     pre[sender] = Account(balance=0x6400000000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=100000,
-        gas_price=10,
     )
 
     post = {target: Account(storage={0: 0})}

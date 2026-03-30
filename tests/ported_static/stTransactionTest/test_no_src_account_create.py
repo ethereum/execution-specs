@@ -10,6 +10,7 @@ from execution_testing import (
     AccessList,
     Address,
     Alloc,
+    Bytes,
     Environment,
     Hash,
     StateTestFiller,
@@ -23,52 +24,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "",
-    "dead60a7",
-    "00",
-    "00",
-    "00",
-]
-TX_GAS = [21000, 210000, 0]
-TX_VALUE = [0, 1]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
-
-
-TX_ACCESS_LISTS: dict[int, list] = {
-    2: [],
-    3: [
-        AccessList(
-            address=Address("0x4d7b154e5bf8310a4d8220c8eed80020e4b8f86f"),
-            storage_keys=[],
-        ),
-    ],
-    4: [
-        AccessList(
-            address=Address("0x4d7b154e5bf8310a4d8220c8eed80020e4b8f86f"),
-            storage_keys=[
-                Hash(
-                    "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
-                ),  # noqa: E501
-                Hash(
-                    "0x0000000000000000000000000000000000000000000000000000000000000001"  # noqa: E501
-                ),  # noqa: E501
-            ],
-        ),
-    ],
-}
-
-
-def _tx_access_list(d: int) -> list | None:
-    """Get access list for data index d. None means no access list (legacy tx)."""  # noqa: E501
-    return TX_ACCESS_LISTS.get(d)
 
 
 @pytest.mark.ported_from(
@@ -300,7 +256,7 @@ def test_no_src_account_create(
     v: int,
 ) -> None:
     """Test_no_src_account_create."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0)
 
     env = Environment(
@@ -308,17 +264,16 @@ def test_no_src_account_create(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=89128960,
     )
 
     # Source: raw
     # 0x00
-    addr_0xd0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.STOP,
         nonce=0,
-        address=Address("0x4d7b154e5bf8310a4d8220c8eed80020e4b8f86f"),  # noqa: E501
+        address=Address(0x4D7B154E5BF8310A4D8220C8EED80020E4B8F86F),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -418,14 +373,47 @@ def test_no_src_account_create(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes(""),
+        Bytes("dead60a7"),
+        Bytes("00"),
+        Bytes("00"),
+        Bytes("00"),
+    ]
+    tx_gas = [21000, 210000, 0]
+    tx_value = [0, 1]
+
+    tx_access_lists: dict[int, list] = {
+        2: [],
+        3: [
+            AccessList(
+                address=Address(0x4D7B154E5BF8310A4D8220C8EED80020E4B8F86F),
+                storage_keys=[],
+            ),
+        ],
+        4: [
+            AccessList(
+                address=Address(0x4D7B154E5BF8310A4D8220C8EED80020E4B8F86F),
+                storage_keys=[
+                    Hash(
+                        "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                    ),  # noqa: E501
+                    Hash(
+                        "0x0000000000000000000000000000000000000000000000000000000000000001"  # noqa: E501
+                    ),  # noqa: E501
+                ],
+            ),
+        ],
+    }
+
     tx = Transaction(
         sender=sender,
         to=None,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
         gas_price=100,
-        access_list=_tx_access_list(d),
+        access_list=tx_access_lists.get(d),
         error=_exc,
     )
 

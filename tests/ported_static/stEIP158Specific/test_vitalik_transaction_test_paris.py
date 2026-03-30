@@ -11,13 +11,13 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
 )
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -31,8 +31,8 @@ def test_vitalik_transaction_test_paris(
     pre: Alloc,
 ) -> None:
     """Test_vitalik_transaction_test_paris."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    contract_0 = Address("0xee098e6c2a43d9e2c04f08f0c3a87b0ba59079d4")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0xEE098E6C2A43D9E2C04F08F0C3A87B0BA59079D4)
     sender = EOA(
         key=0xC85EF7D79691FE79573B1A7064C19C1A9819EBDBD1FAAAB1A8EC92344438AAF4
     )
@@ -42,7 +42,6 @@ def test_vitalik_transaction_test_paris(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -55,18 +54,17 @@ def test_vitalik_transaction_test_paris(
         code="",
         balance=10,
         nonce=0,
-        address=Address("0xee098e6c2a43d9e2c04f08f0c3a87b0ba59079d4"),  # noqa: E501
+        address=Address(0xEE098E6C2A43D9E2C04F08F0C3A87B0BA59079D4),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=None,
-        data=bytes.fromhex(
+        data=Bytes(
             "6000607f5359610043806100135939610056566c010000000000000000000000007fee098e6c2a43d9e2c04f08f0c3a87b0ba59079d4d53532071d6cd0cb86facd5605ff6100008061003f60003961003f565b6000f35b816000f0905050596100718061006c59396100dd5661005f8061000e60003961006d566000603f5359610043806100135939610056566c010000000000000000000000007fee098e6c2a43d9e2c04f08f0c3a87b0ba59079d4d53532071d6cd0cb86facd5605ff6100008061003f60003961003f565b6000f35b816000f0905050fe5b6000f35b816000f0905060405260006000600060006000604051620249f0f15061000080610108600039610108565b6000f3"  # noqa: E501
         ),
         gas_limit=2097151,
         nonce=335,
-        gas_price=10,
     )
 
     post = {

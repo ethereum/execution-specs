@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -33,7 +33,7 @@ def test_static_return50000_2(
     pre: Alloc,
 ) -> None:
     """Test_static_return50000_2."""
-    coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+    coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = EOA(
         key=0xE7C72B378297589ACEE4E0BA3272841BCFC5E220F86DE253F890274CFEE9E474
     )
@@ -43,7 +43,6 @@ def test_static_return50000_2(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=89250000,
     )
@@ -51,13 +50,13 @@ def test_static_return50000_2(
     pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
     # Source: lll
     # { (MSTORE 0 (CALLDATALOAD 49999)) (RETURN (MLOAD 0) 1) }
-    addr_0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=Op.CALLDATALOAD(offset=0xC34F))
         + Op.RETURN(offset=Op.MLOAD(offset=0x0), size=0x1)
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
-        address=Address("0x0d08fb89197bd8f97c770ed75e28ed610a3016e9"),  # noqa: E501
+        address=Address(0x0D08FB89197BD8F97C770ED75E28ED610A3016E9),  # noqa: E501
     )
     # Source: lll
     # { [[ 0 ]] (CALL (GAS) <contract:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[ 1 ]] 1 }  # noqa: E501
@@ -78,11 +77,11 @@ def test_static_return50000_2(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
-        address=Address("0x9a8ca98b299a0220faad60948d01ce83ccc97831"),  # noqa: E501
+        address=Address(0x9A8CA98B299A0220FAAD60948D01CE83CCC97831),  # noqa: E501
     )
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) [[ 0 ]] (STATICCALL 1564 <contract:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 50000 0 0) ) [[ 1 ]] @i }  # noqa: E501
-    addr_0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.JUMPDEST
         + Op.JUMPI(
             pc=0x3D, condition=Op.ISZERO(Op.LT(Op.MLOAD(offset=0x80), 0xC350))
@@ -105,20 +104,20 @@ def test_static_return50000_2(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
-        address=Address("0xdf43bba207127b641624b20497fa07055f4a3939"),  # noqa: E501
+        address=Address(0xDF43BBA207127B641624B20497FA07055F4A3939),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=15500000,
         value=10,
-        gas_price=10,
     )
 
     post = {
         target: Account(storage={0: 1, 1: 1}, nonce=0),
-        addr_0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
+        addr_2: Account(
             storage={0: 1, 1: 50000},
             balance=0xFFFFFFFFFFFFF,
             nonce=0,

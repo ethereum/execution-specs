@@ -11,30 +11,16 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "",
-]
-TX_GAS = [150000, 16777216]
-TX_VALUE = [1]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -68,7 +54,7 @@ def test_jump_bounds(
     v: int,
 ) -> None:
     """Test_jump_bounds."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x31B5AF02B012484AE954B3A43943242EDE546A2E76FC0A6ACC17435107C385EB
     )
@@ -78,7 +64,6 @@ def test_jump_bounds(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=9223372036854775807,
     )
@@ -88,28 +73,24 @@ def test_jump_bounds(
     target = pre.deploy_contract(  # noqa: F841
         code=Op.JUMP(pc=0x0) + Op.STOP,
         nonce=0,
-        address=Address("0xb2448deb71e9fd31ed854e3b856f729adbc0c288"),  # noqa: E501
+        address=Address(0xB2448DEB71E9FD31ED854E3B856F729ADBC0C288),  # noqa: E501
     )
     pre[sender] = Account(balance=0x7FFFFFFFFFFFFFFF)
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {target: Account(balance=0)},
-        },
+    tx_data = [
+        Bytes(""),
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    tx_gas = [150000, 16777216]
+    tx_value = [1]
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
-        error=_exc,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
     )
+
+    post = {target: Account(balance=0)}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

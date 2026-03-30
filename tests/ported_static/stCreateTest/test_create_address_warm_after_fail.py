@@ -17,6 +17,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -28,33 +29,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "52c3fd240000000000000000000000000000000000000000000000000000000000000000",
-    "52c3fd24000000000000000000000000000000000000000000000000000000000000000a",
-    "52c3fd240000000000000000000000000000000000000000000000000000000000000001",
-    "52c3fd24000000000000000000000000000000000000000000000000000000000000000b",
-    "52c3fd240000000000000000000000000000000000000000000000000000000000000002",
-    "52c3fd24000000000000000000000000000000000000000000000000000000000000000c",
-    "52c3fd240000000000000000000000000000000000000000000000000000000000000003",
-    "52c3fd240000000000000000000000000000000000000000000000000000000000000004",
-    "52c3fd24000000000000000000000000000000000000000000000000000000000000000d",
-    "52c3fd24000000000000000000000000000000000000000000000000000000000000000e",
-    "52c3fd240000000000000000000000000000000000000000000000000000000000000005",
-    "52c3fd240000000000000000000000000000000000000000000000000000000000000006",
-    "52c3fd240000000000000000000000000000000000000000000000000000000000000010",
-    "52c3fd240000000000000000000000000000000000000000000000000000000000000007",
-    "52c3fd240000000000000000000000000000000000000000000000000000000000000011",
-]
-TX_GAS = [16777216]
-TX_VALUE = [0, 1]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -259,11 +234,11 @@ def test_create_address_warm_after_fail(
     Invokes failing CREATE (because initcode fails) and checks
     if the...
     """
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    contract_0 = Address("0x00000000000000000000000000000000000c0dec")
-    contract_1 = Address("0x00000000000000000000000000000000c0de1006")
-    contract_2 = Address("0x00000000000000000000000000000020c0de1006")
-    contract_3 = Address("0x00000000000000000000000000000000c0deffff")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0x00000000000000000000000000000000000C0DEC)
+    contract_1 = Address(0x00000000000000000000000000000000C0DE1006)
+    contract_2 = Address(0x00000000000000000000000000000020C0DE1006)
+    contract_3 = Address(0x00000000000000000000000000000000C0DEFFFF)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -273,7 +248,6 @@ def test_create_address_warm_after_fail(
         number=1,
         timestamp=999,
         prev_randao=0x20000,
-        difficulty=1,
         base_fee_per_gas=10,
         gas_limit=3000000000,
     )
@@ -317,7 +291,7 @@ def test_create_address_warm_after_fail(
         ),
         balance=4096,
         nonce=0,
-        address=Address("0x00000000000000000000000000000000000c0dec"),  # noqa: E501
+        address=Address(0x00000000000000000000000000000000000C0DEC),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -343,7 +317,7 @@ def test_create_address_warm_after_fail(
         + Op.RETURN(offset=0x0, size=0x6000),
         balance=4096,
         nonce=1,
-        address=Address("0x00000000000000000000000000000000c0de1006"),  # noqa: E501
+        address=Address(0x00000000000000000000000000000000C0DE1006),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -372,7 +346,7 @@ def test_create_address_warm_after_fail(
         + Op.RETURN(offset=0x0, size=0x6000),
         balance=4096,
         nonce=1,
-        address=Address("0x00000000000000000000000000000020c0de1006"),  # noqa: E501
+        address=Address(0x00000000000000000000000000000020C0DE1006),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -398,7 +372,7 @@ def test_create_address_warm_after_fail(
         + Op.RETURN(offset=0x0, size=0x20),
         balance=4096,
         nonce=18446744073709551615,
-        address=Address("0x00000000000000000000000000000000c0deffff"),  # noqa: E501
+        address=Address(0x00000000000000000000000000000000C0DEFFFF),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -865,13 +839,62 @@ def test_create_address_warm_after_fail(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes(
+            "52c3fd240000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+        ),
+        Bytes(
+            "52c3fd24000000000000000000000000000000000000000000000000000000000000000a"  # noqa: E501
+        ),
+        Bytes(
+            "52c3fd240000000000000000000000000000000000000000000000000000000000000001"  # noqa: E501
+        ),
+        Bytes(
+            "52c3fd24000000000000000000000000000000000000000000000000000000000000000b"  # noqa: E501
+        ),
+        Bytes(
+            "52c3fd240000000000000000000000000000000000000000000000000000000000000002"  # noqa: E501
+        ),
+        Bytes(
+            "52c3fd24000000000000000000000000000000000000000000000000000000000000000c"  # noqa: E501
+        ),
+        Bytes(
+            "52c3fd240000000000000000000000000000000000000000000000000000000000000003"  # noqa: E501
+        ),
+        Bytes(
+            "52c3fd240000000000000000000000000000000000000000000000000000000000000004"  # noqa: E501
+        ),
+        Bytes(
+            "52c3fd24000000000000000000000000000000000000000000000000000000000000000d"  # noqa: E501
+        ),
+        Bytes(
+            "52c3fd24000000000000000000000000000000000000000000000000000000000000000e"  # noqa: E501
+        ),
+        Bytes(
+            "52c3fd240000000000000000000000000000000000000000000000000000000000000005"  # noqa: E501
+        ),
+        Bytes(
+            "52c3fd240000000000000000000000000000000000000000000000000000000000000006"  # noqa: E501
+        ),
+        Bytes(
+            "52c3fd240000000000000000000000000000000000000000000000000000000000000010"  # noqa: E501
+        ),
+        Bytes(
+            "52c3fd240000000000000000000000000000000000000000000000000000000000000007"  # noqa: E501
+        ),
+        Bytes(
+            "52c3fd240000000000000000000000000000000000000000000000000000000000000011"  # noqa: E501
+        ),
+    ]
+    tx_gas = [16777216]
+    tx_value = [0, 1]
+
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
         error=_exc,
     )
 

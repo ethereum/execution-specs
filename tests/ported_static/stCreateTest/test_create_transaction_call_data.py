@@ -13,6 +13,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -23,21 +24,7 @@ from execution_testing.specs.static_state.expect_section import (
 )
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "60003560005560213560015500",
-    "6001600080376000516000556020600160003760005160015500",
-    "3860008039386000f3",
-]
-TX_GAS = [100000]
-TX_VALUE = [0]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -86,7 +73,6 @@ def test_create_transaction_call_data(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=1,
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
@@ -118,12 +104,19 @@ def test_create_transaction_call_data(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes("60003560005560213560015500"),
+        Bytes("6001600080376000516000556020600160003760005160015500"),
+        Bytes("3860008039386000f3"),
+    ]
+    tx_gas = [100000]
+    tx_value = [0]
+
     tx = Transaction(
         sender=sender,
         to=None,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
         error=_exc,
     )
 

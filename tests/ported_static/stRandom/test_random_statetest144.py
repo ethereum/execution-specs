@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,10 +32,8 @@ def test_random_statetest144(
     pre: Alloc,
 ) -> None:
     """Test_random_statetest144."""
-    coinbase = Address("0xb0085a57673c8f7d78fb870418f622e42fd686e4")
-    addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5 = Address(
-        "0x19bcdbcd094c63df253c825b4b8e6dffc45c21a4"
-    )
+    coinbase = Address(0xB0085A57673C8F7D78FB870418F622E42FD686E4)
+    addr = Address(0x19BCDBCD094C63DF253C825B4B8E6DFFC45C21A4)
     sender = EOA(
         key=0x102DA5C19454BAF64E4F417E04AC2551245F3F217FFE9197F0C1D80FC2B16CFF
     )
@@ -45,7 +43,6 @@ def test_random_statetest144(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=1545160903,
     )
@@ -105,17 +102,15 @@ def test_random_statetest144(
         + Op.PUSH9[0xCE21A850C04A77CEB9],
         balance=0x3255F99DE856501,
         nonce=89,
-        address=Address("0xea1cd1b117b10ac33fd7bbf18889624625ede7d4"),  # noqa: E501
+        address=Address(0xEA1CD1B117B10AC33FD7BBF18889624625EDE7D4),  # noqa: E501
     )
-    pre[addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5] = Account(
-        balance=0x2401AC5958344E85, nonce=53
-    )
+    pre[addr] = Account(balance=0x2401AC5958344E85, nonce=53)
     pre[sender] = Account(balance=0x71E90493E6EB4C59)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=bytes.fromhex(
+        data=Bytes(
             "166e31b12700cdefa7a0591398d415023175d1e5a1eca036986533972cab6625e976572ee91c150c"  # noqa: E501
         ),
         gas_limit=100000,
@@ -125,9 +120,7 @@ def test_random_statetest144(
 
     post = {
         target: Account(storage={}, nonce=89),
-        addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5: Account(
-            storage={}, code=b"", nonce=53
-        ),
+        addr: Account(storage={}, code=b"", nonce=53),
         sender: Account(storage={}, code=b"", nonce=1),
         coinbase: Account(storage={}, code=b"", nonce=0),
     }

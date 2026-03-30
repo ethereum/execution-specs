@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_create_with_invalid_opcode(
     pre: Alloc,
 ) -> None:
     """Test_create_with_invalid_opcode."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
@@ -42,7 +42,6 @@ def test_create_with_invalid_opcode(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
@@ -57,16 +56,16 @@ def test_create_with_invalid_opcode(
         + Op.CREATE,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0xcc73f3508071f505fb5a5c6108b9444fe05fdd4d"),  # noqa: E501
+        address=Address(0xCC73F3508071F505FB5A5C6108B9444FE05FDD4D),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=300000,
         value=0x186A0,
-        gas_price=10,
     )
 
     post = {target: Account(storage={}, nonce=1)}

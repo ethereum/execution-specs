@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -41,14 +41,13 @@ def test_random_statetest643(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=35761922600709271,
     )
 
     # Source: raw
     # 0x79ecfecf2ab84463f738fc85b069590fcff0334fb1a7108861a44465a26237bc83297ff893a1a95c84afbecc79e1ee4acc8fca826df1ab268bdfd9e712ad0d261f5ede0b6545e6a7d462826d39eb0ac5b4c3ef35f0b4e6d9e05f0773fc63be0c082847f6f9f7728764e142fcd95702c36d65c1e55ec0e2128768030e4eb0de74b57969caa2f2493998537ad0ecba9400ebae911dad6f98bd15da63a8614aa455dc593fa70386a260c66270f1d7527b75f1bf8a683b5d1721f7dd57755bd6a9bed9f874e3876cfcac6762ea51  # noqa: E501
-    addr_0x1000000000000000000000000000000000000000 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.PUSH26[0xECFECF2AB84463F738FC85B069590FCFF0334FB1A7108861A444]
         + Op.SIGNEXTEND(
             0xF893A1A95C84AFBECC79E1EE4ACC8FCA826DF1AB268BDFD9E712AD0D261F5EDE,
@@ -67,12 +66,12 @@ def test_random_statetest643(
         ),
         balance=0x3F91B25C1601534B,
         nonce=210,
-        address=Address("0x6e40c70f8be9a7633e8a31580c85f275b86362ef"),  # noqa: E501
+        address=Address(0x6E40C70F8BE9A7633E8A31580C85F275B86362EF),  # noqa: E501
     )
     pre[sender] = Account(balance=0xA015CDDAB7107B04)
     # Source: raw
     # 0x436debc3912504eded08f73b9ff9490d73fc4f820a0890b7e8417fa97940713aeb870e59a790607f6b3d5649e57458ea8692da323253735967657e3fc6e02f6de1c0ff6cc18e051bdd52ad7b1eb441440620426b3485ab683d44ff8d5544eb7f7fb3e1f4c30063640b5a626f341b6271dd59621208476208431973<contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b>6338f86b9af4  # noqa: E501
-    addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.NUMBER
         + Op.PUSH14[0xEBC3912504EDED08F73B9FF9490D]
         + Op.PUSH20[0xFC4F820A0890B7E8417FA97940713AEB870E59A7]
@@ -93,28 +92,23 @@ def test_random_statetest643(
         ),
         balance=0x262E8DE142312A2D,
         nonce=243,
-        address=Address("0x971ab94b9c20484b37b157476a9f106f639779ed"),  # noqa: E501
+        address=Address(0x971AB94B9C20484B37B157476A9F106F639779ED),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=None,
-        data=bytes.fromhex(
+        data=Bytes(
             "620d15bc62074ac2f3789b4ff89d27fb5018b60a3730731819c16c8a1e6513c3c2703e63f82ce3617b9c5bdd435cc4e8eaffa5d05d45aef99b6726757bbe89b4ae0e5b9b6062855c2d525b6ca347c35412d0ab99dbc839a14f619a34621beef752635999fd987437da3edb75b58f986d9b62ffc1e6dae25c7e0c019f73922a0ab96d77aef70627e71d0a63d38d2d09afec6a9f6dd36fff38e99a634e506f29060c4e3c3371d213d31078939857877d1780bc984b1ae1225b8dc7cc534cd080ba4b324f436d2c211b3c30889cf66d57b8f669c1be7711d78254d859636790551a4a0f6e0c06664680c8fadd1d7e7b3e887ea3cff5077d014551ed36a72977742f6dcee4113c33297428527783529e675399ca43d5df7d9a4151fcac7093585bb8c6df7d6563faafe035226b81786f72b243bfdbc99e8fd67571df50e0ed7a8e1aaca76fcc65151e7730dee525a07c75d1b3855ae0bfbe0d79ff4905974c837e30a06fb163d89d"  # noqa: E501
         ),
         gas_limit=9840869,
         value=0xF0EC2CE5,
-        gas_price=10,
     )
 
     post = {
-        addr_0x1000000000000000000000000000000000000000: Account(
-            storage={}, nonce=210
-        ),
+        addr: Account(storage={}, nonce=210),
         sender: Account(storage={}, code=b"", nonce=1),
-        addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-            storage={}, nonce=243
-        ),
+        addr_2: Account(storage={}, nonce=243),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

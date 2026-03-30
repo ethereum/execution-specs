@@ -12,30 +12,15 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "000000000000000000000000c94f5374fce5edbc8e2a8697c15331677e6ebf0b",
-    "000000000000000000000000d94f5374fce5edbc8e2a8697c15331677e6ebf0b",
-]
-TX_GAS = [120000]
-TX_VALUE = [0]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -69,10 +54,10 @@ def test_staticcall_createfails(
     v: int,
 ) -> None:
     """Test_staticcall_createfails."""
-    coinbase = Address("0x1000000000000000000000000000000000000000")
-    contract_0 = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
-    contract_1 = Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b")
-    contract_2 = Address("0xd94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+    coinbase = Address(0x1000000000000000000000000000000000000000)
+    contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
+    contract_1 = Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
+    contract_2 = Address(0xD94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -82,7 +67,6 @@ def test_staticcall_createfails(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=23826461031063688,
     )
@@ -105,7 +89,7 @@ def test_staticcall_createfails(
         + Op.STOP,
         storage={1: 1},
         nonce=63,
-        address=Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
+        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 1 1) [[2]] (CREATE 1 1 1) }
@@ -114,38 +98,35 @@ def test_staticcall_createfails(
         + Op.SSTORE(key=0x2, value=Op.CREATE(value=0x1, offset=0x1, size=0x1))
         + Op.STOP,
         nonce=63,
-        address=Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
+        address=Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
     # Source: raw
     # 0x60006000f0
     contract_2 = pre.deploy_contract(  # noqa: F841
         code=Op.PUSH1[0x0] * 2 + Op.CREATE,
         nonce=63,
-        address=Address("0xd94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
+        address=Address(0xD94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(storage={1: 0}),
-                Address(
-                    "0x1d0384eb7c2b1a9d9862c8e180f9e4d1696a2a8e"
-                ): Account.NONEXISTENT,
-            },
-        },
+    tx_data = [
+        Hash(contract_1, left_padding=True),
+        Hash(contract_2, left_padding=True),
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    tx_gas = [120000]
+    tx_value = [0]
 
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        gas_price=10,
-        error=_exc,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
     )
+
+    post = {
+        contract_0: Account(storage={1: 0}),
+        Address(
+            "0x1d0384eb7c2b1a9d9862c8e180f9e4d1696a2a8e"
+        ): Account.NONEXISTENT,
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

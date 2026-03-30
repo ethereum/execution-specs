@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_contract_store_clears_success(
     pre: Alloc,
 ) -> None:
     """Test_contract_store_clears_success."""
-    coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+    coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = EOA(
         key=0xE624AFC0DCCEAD9A7C59F0007C5C5C3B3DD36EED1CFD8F309A68C9BA3D07769B
     )
@@ -42,7 +42,6 @@ def test_contract_store_clears_success(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -75,15 +74,15 @@ def test_contract_store_clears_success(
             9: 12,
         },
         nonce=0,
-        address=Address("0xd61e0564fab2b0da5136f75db579b663bd9f2bd8"),  # noqa: E501
+        address=Address(0xD61E0564FAB2B0DA5136F75DB579B663BD9F2BD8),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=130000,
         value=10,
-        gas_price=10,
     )
 
     post = {target: Account(storage={}, balance=10)}

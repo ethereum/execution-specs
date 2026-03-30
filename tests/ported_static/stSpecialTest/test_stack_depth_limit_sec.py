@@ -11,13 +11,13 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
 )
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -31,7 +31,7 @@ def test_stack_depth_limit_sec(
     pre: Alloc,
 ) -> None:
     """Test_stack_depth_limit_sec."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -41,7 +41,6 @@ def test_stack_depth_limit_sec(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
@@ -51,12 +50,11 @@ def test_stack_depth_limit_sec(
     tx = Transaction(
         sender=sender,
         to=None,
-        data=bytes.fromhex(
+        data=Bytes(
             "305032503350600460006000396000515060046000600037600051506f600060006000600060003060405a03f160005260106010f3"  # noqa: E501
         ),
         gas_limit=1000000,
         value=10,
-        gas_price=10,
     )
 
     post = {

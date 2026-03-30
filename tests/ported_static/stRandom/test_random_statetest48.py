@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -33,7 +33,7 @@ def test_random_statetest48(
     pre: Alloc,
 ) -> None:
     """Test_random_statetest48."""
-    coinbase = Address("0x4f3f701464972e74606d6ea82d4d3080599a0e79")
+    coinbase = Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79)
     sender = EOA(
         key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
     )
@@ -43,7 +43,6 @@ def test_random_statetest48(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=9223372036854775807,
     )
@@ -79,7 +78,7 @@ def test_random_statetest48(
         + Op.SWAP3
         + Op.ORIGIN,
         nonce=0,
-        address=Address("0x292e762689b448debe7899ade7acb27a84a85c44"),  # noqa: E501
+        address=Address(0x292E762689B448DEBE7899ADE7ACB27A84A85C44),  # noqa: E501
     )
     # Source: raw
     # 0x6000355415600957005b60203560003555
@@ -95,19 +94,18 @@ def test_random_statetest48(
         ),
         balance=46,
         nonce=0,
-        address=Address("0x4f3f701464972e74606d6ea82d4d3080599a0e79"),  # noqa: E501
+        address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=bytes.fromhex(
+        data=Bytes(
             "76dd12f3185b84dfc71eb93f4df4ca30dcf34446f25793016424a5e33b6a65fb5d64a9394d7ebefb1c15de971a2d2f53377765d50c698d4e26adea05dd2f6a1688f60eb8b172d796a45c6f79596bfb719df5a571ce8c339e9d7e9b3905324643a2b9fd541956552fc258e688303ecb25082776fde7334cdf046f70c8669a6a05c36909038278e925f0156be9ddb9b83786de8a325ab28e61d18397714bcda0fd5ca879c870d383721c638733b1f78074cc1079e72e0bbbad262348a8976eaaf313a261dccb69dbaf283beebcac7ac3b8166a4deb1fe5099a1c7f3ef595357e76ca260a703bec4848a3cc9804d6de6e5b853b54dd65979292f596ee132edf67eb948e4e4d22f9cb7629bf8b642cb921b2ed9b13e47cb06d6c6f4384c7b372ee7cb61f76a363f8fa68309e3d308179ad3e15fd752d6586e9030c8c1f274878bf7fbe1b569944fdda166c47411878f3702bbe1bbabbce8b10701076e0338bfa289d424c13f4f438474afd71abc18290e0a3c853537a13ce9869d3942c7b6802bfb0f345a9af828b96"  # noqa: E501
         ),
         gas_limit=2120993272,
         value=0x5C4C6E38,
-        gas_price=10,
     )
 
     post = {

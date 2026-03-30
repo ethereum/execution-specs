@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_mload_dejavu(
     pre: Alloc,
 ) -> None:
     """Test_mload_dejavu."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x7DD1D0EC78FE936B0E88F8C21226F51F048579915C7BAFF1C5D7FD84B2139BF1
     )
@@ -42,7 +42,6 @@ def test_mload_dejavu(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=52949672960,
     )
@@ -53,16 +52,16 @@ def test_mload_dejavu(
         code=Op.MLOAD(offset=0xFFFFFFF),
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0xea3899b6a7db8734111af8b25f6d873e1d14870d"),  # noqa: E501
+        address=Address(0xEA3899B6A7DB8734111AF8B25F6D873E1D14870D),  # noqa: E501
     )
     pre[sender] = Account(balance=0x271000000000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=100000,
         value=10,
-        gas_price=10,
     )
 
     post = {

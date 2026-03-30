@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -22,19 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "",
-]
-TX_GAS = [166262, 156262, 170000]
-TX_VALUE = [10]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -74,10 +63,8 @@ def test_callcode_lose_gas_oog(
     v: int,
 ) -> None:
     """Recursive call."""
-    coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
-    addr_0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b = Address(
-        "0xd9b97c712ebce43f3c19179bbef44b550f9e8bc0"
-    )
+    coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
+    addr = Address(0xD9B97C712EBCE43F3C19179BBEF44B550F9E8BC0)
     sender = EOA(
         key=0xE7C72B378297589ACEE4E0BA3272841BCFC5E220F86DE253F890274CFEE9E474
     )
@@ -87,15 +74,12 @@ def test_callcode_lose_gas_oog(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=9223372036854775807,
     )
 
     pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-    pre[addr_0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b] = Account(
-        balance=7000
-    )
+    pre[addr] = Account(balance=7000)
     # Source: lll
     # { [[ 0 ]] (ADD @@0 1) [[ 1 ]] (CALLCODE (ADD 1(MUL @@0 100000)) <contract:target:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[ 2 ]] (ADD 1(MUL @@0 1000)) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -118,7 +102,7 @@ def test_callcode_lose_gas_oog(
         + Op.STOP,
         balance=1024,
         nonce=0,
-        address=Address("0xb0fafbe5aa1d6f184eb4bcb79b292e4d3238f4ca"),  # noqa: E501
+        address=Address(0xB0FAFBE5AA1D6F184EB4BCB79B292E4D3238F4CA),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -141,13 +125,18 @@ def test_callcode_lose_gas_oog(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes(""),
+    ]
+    tx_gas = [166262, 156262, 170000]
+    tx_value = [10]
+
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
         error=_exc,
     )
 

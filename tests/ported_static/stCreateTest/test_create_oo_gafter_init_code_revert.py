@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,10 +32,10 @@ def test_create_oo_gafter_init_code_revert(
     pre: Alloc,
 ) -> None:
     """Calls a contract that runs CREATE which deploy a code."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    contract_0 = Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b")
-    contract_1 = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
-    contract_2 = Address("0x094f5374fce5edbc8e2a8697c15331677e6ebf0b")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
+    contract_1 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
+    contract_2 = Address(0x094F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -45,7 +45,6 @@ def test_create_oo_gafter_init_code_revert(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -68,7 +67,7 @@ def test_create_oo_gafter_init_code_revert(
         + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0))
         + Op.STOP,
         nonce=0,
-        address=Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
+        address=Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 0 0x6460016001556000526005601bf3) (CREATE 0 18 14) (CALLCODE 10000 0x094f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0 0) (REVERT 0 32) }  # noqa: E501
@@ -89,21 +88,21 @@ def test_create_oo_gafter_init_code_revert(
         + Op.REVERT(offset=0x0, size=0x20)
         + Op.STOP,
         nonce=0,
-        address=Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
+        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
     # Source: lll
     # { (KECCAK256 0x00 0x2fffff) }
     contract_2 = pre.deploy_contract(  # noqa: F841
         code=Op.SHA3(offset=0x0, size=0x2FFFFF) + Op.STOP,
         nonce=0,
-        address=Address("0x094f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
+        address=Address(0x094F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=contract_0,
+        data=Bytes(""),
         gas_limit=285000,
-        gas_price=10,
     )
 
     post = {

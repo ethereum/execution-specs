@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -19,7 +20,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,7 +34,7 @@ def test_invalid_tr(
     pre: Alloc,
 ) -> None:
     """A state test with invalid transaction example filler."""
-    coinbase = Address("0x7704d8a022a1ba8f3539fc82c7d7fb065abc0df3")
+    coinbase = Address(0x7704D8A022A1BA8F3539FC82C7D7FB065ABC0DF3)
     sender = EOA(
         key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
     )
@@ -44,7 +44,6 @@ def test_invalid_tr(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=71794957647893862,
     )
@@ -56,16 +55,16 @@ def test_invalid_tr(
         code=Op.SSTORE(key=0x0, value=Op.ADD(0x1, 0x1)) + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x4567f627abb612a28ed0a355e3fa9bf1e455677a"),  # noqa: E501
+        address=Address(0x4567F627ABB612A28ED0A355E3FA9BF1E455677A),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=1000,
         value=0x186A0,
-        gas_price=10,
         error=TransactionException.INTRINSIC_GAS_TOO_LOW,
     )
 

@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -22,23 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "01",
-    "02",
-    "03",
-    "04",
-    "05",
-]
-TX_GAS = [10000000]
-TX_VALUE = [0]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -93,9 +78,9 @@ def test_multi_selfdestruct(
     Implements: SUC000, SUC001, SUC002, SUC003, SUC004, SUC005
     .
     """
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    contract_0 = Address("0x000000000000000000000000000000000000dead")
-    contract_1 = Address("0xcccccccccccccccccccccccccccccccccccccccc")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0x000000000000000000000000000000000000DEAD)
+    contract_1 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -105,7 +90,6 @@ def test_multi_selfdestruct(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=1000,
         gas_limit=71794957647893862,
     )
@@ -153,7 +137,7 @@ def test_multi_selfdestruct(
         + Op.STOP,
         balance=3,
         nonce=1,
-        address=Address("0x000000000000000000000000000000000000dead"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000DEAD),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -293,7 +277,7 @@ def test_multi_selfdestruct(
         },
         balance=0x5F5E100,
         nonce=1,
-        address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),  # noqa: E501
+        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
 
@@ -352,11 +336,21 @@ def test_multi_selfdestruct(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes("01"),
+        Bytes("02"),
+        Bytes("03"),
+        Bytes("04"),
+        Bytes("05"),
+    ]
+    tx_gas = [10000000]
+    tx_value = [0]
+
     tx = Transaction(
         sender=sender,
         to=contract_1,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
         nonce=1,
         gas_price=1000,
         error=_exc,

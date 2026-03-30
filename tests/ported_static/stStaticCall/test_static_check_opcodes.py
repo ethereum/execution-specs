@@ -12,6 +12,7 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -22,26 +23,14 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "000000000000000000000000b4b91c40f3e3a6e5576b0413572b88d535cee7b0",
-    "000000000000000000000000e4b8baa7da1a97bff89d7db0ae345dd30cd8c1d0",
-]
-TX_GAS = [50000, 335000]
-TX_VALUE = [0, 100]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
     ["state_tests/stStaticCall/static_CheckOpcodesFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "d, g, v",
     [
@@ -105,7 +94,7 @@ def test_static_check_opcodes(
     v: int,
 ) -> None:
     """Test_static_check_opcodes."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
@@ -115,7 +104,6 @@ def test_static_check_opcodes(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -137,11 +125,11 @@ def test_static_check_opcodes(
         )
         + Op.STOP,
         nonce=0,
-        address=Address("0x50f628d871a69f2db31e98d7fbf8ae6f1fc0d55c"),  # noqa: E501
+        address=Address(0x50F628D871A69F2DB31E98D7FBF8AE6F1FC0D55C),  # noqa: E501
     )
     # Source: lll
     # { (if (= <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b> (ORIGIN)) (MSTORE 1 1) (SSTORE 1 2) ) (if (= <contract:target:0x1000000000000000000000000000000000000000> (CALLER)) (MSTORE 1 1) (SSTORE 1 2) ) (if (= <contract:0x1000000000000000000000000000000000000001> (ADDRESS)) (MSTORE 1 1) (SSTORE 1 2) )   (if (= 0 (CALLVALUE)) (MSTORE 1 1) (SSTORE 1 2) ) }  # noqa: E501
-    addr_0x1000000000000000000000000000000000000001 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.JUMPI(
             pc=0x22,
             condition=Op.EQ(
@@ -183,11 +171,11 @@ def test_static_check_opcodes(
         + Op.JUMPDEST
         + Op.STOP,
         nonce=0,
-        address=Address("0xb4b91c40f3e3a6e5576b0413572b88d535cee7b0"),  # noqa: E501
+        address=Address(0xB4B91C40F3E3A6E5576B0413572B88D535CEE7B0),  # noqa: E501
     )
     # Source: lll
     # { (STATICCALL 100000 <contract:0x1000000000000000000000000000000000000003> 0 0 0 0) }  # noqa: E501
-    addr_0x1000000000000000000000000000000000000002 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.STATICCALL(
             gas=0x186A0,
             address=0x2B8B4845ACB3EF63F61F109B960754CF76DFBDFD,
@@ -198,11 +186,11 @@ def test_static_check_opcodes(
         )
         + Op.STOP,
         nonce=0,
-        address=Address("0xe4b8baa7da1a97bff89d7db0ae345dd30cd8c1d0"),  # noqa: E501
+        address=Address(0xE4B8BAA7DA1A97BFF89D7DB0AE345DD30CD8C1D0),  # noqa: E501
     )
     # Source: lll
     # { (if (= <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b> (ORIGIN)) (MSTORE 1 1) (SSTORE 1 2) ) (if (= <contract:0x1000000000000000000000000000000000000002> (CALLER)) (MSTORE 1 1) (SSTORE 1 2) ) (if (= <contract:0x1000000000000000000000000000000000000001> (ADDRESS)) (MSTORE 1 1) (SSTORE 1 2) )   (if (= 0 (CALLVALUE)) (MSTORE 1 1) (SSTORE 1 2) ) }  # noqa: E501
-    addr_0x1000000000000000000000000000000000000003 = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(  # noqa: F841
         code=Op.JUMPI(
             pc=0x22,
             condition=Op.EQ(
@@ -244,7 +232,7 @@ def test_static_check_opcodes(
         + Op.JUMPDEST
         + Op.STOP,
         nonce=0,
-        address=Address("0x2b8b4845acb3ef63f61f109b960754cf76dfbdfd"),  # noqa: E501
+        address=Address(0x2B8B4845ACB3EF63F61F109B960754CF76DFBDFD),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -276,13 +264,19 @@ def test_static_check_opcodes(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Hash(addr, left_padding=True),
+        Hash(addr_2, left_padding=True),
+    ]
+    tx_gas = [50000, 335000]
+    tx_value = [0, 100]
+
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
         error=_exc,
     )
 

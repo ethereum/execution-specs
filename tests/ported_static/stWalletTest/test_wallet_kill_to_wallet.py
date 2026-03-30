@@ -11,13 +11,13 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
 )
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -31,8 +31,8 @@ def test_wallet_kill_to_wallet(
     pre: Alloc,
 ) -> None:
     """Test_wallet_kill_to_wallet."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    contract_0 = Address("0xec0e71ad0a90ffe1909d27dac207f7680abba42d")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0xEC0E71AD0A90FFE1909D27DAC207F7680ABBA42D)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -42,7 +42,6 @@ def test_wallet_kill_to_wallet(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
@@ -63,19 +62,18 @@ def test_wallet_kill_to_wallet(
         },
         balance=100,
         nonce=0,
-        address=Address("0xec0e71ad0a90ffe1909d27dac207f7680abba42d"),  # noqa: E501
+        address=Address(0xEC0E71AD0A90FFE1909D27DAC207F7680ABBA42D),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=bytes.fromhex(
+        data=Bytes(
             "cbf0b0c0000000000000000000000000ec0e71ad0a90ffe1909d27dac207f7680abba42d"  # noqa: E501
         ),
         gas_limit=10000000,
         value=100,
         nonce=1,
-        gas_price=10,
     )
 
     post = {

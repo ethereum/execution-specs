@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,7 +34,7 @@ def test_returndatacopy_after_successful_delegatecall(
     pre: Alloc,
 ) -> None:
     """Test_returndatacopy_after_successful_delegatecall."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
     )
@@ -44,7 +44,6 @@ def test_returndatacopy_after_successful_delegatecall(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=111669149696,
     )
@@ -69,25 +68,25 @@ def test_returndatacopy_after_successful_delegatecall(
             0: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
         },
         nonce=0,
-        address=Address("0xb669c96e9e7ccfd69d0fd0ffcf9260e9d1e6f5c4"),  # noqa: E501
+        address=Address(0xB669C96E9E7CCFD69D0FD0FFCF9260E9D1E6F5C4),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 0x0 (CALLER)) (RETURN 0 32) }
-    addr_0x1000000000000000000000000000000000000002 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=Op.CALLER)
         + Op.RETURN(offset=0x0, size=0x20)
         + Op.STOP,
         balance=0x6400000000,
         nonce=0,
-        address=Address("0x52fd0cbc013ee33577eec035031dbc4489a1e0bd"),  # noqa: E501
+        address=Address(0x52FD0CBC013EE33577EEC035031DBC4489A1E0BD),  # noqa: E501
     )
     pre[sender] = Account(balance=0x6400000000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=100000,
-        gas_price=10,
     )
 
     post = {

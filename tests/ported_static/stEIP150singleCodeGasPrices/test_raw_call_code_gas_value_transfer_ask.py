@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,7 +34,7 @@ def test_raw_call_code_gas_value_transfer_ask(
     pre: Alloc,
 ) -> None:
     """Test_raw_call_code_gas_value_transfer_ask."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
@@ -44,17 +44,16 @@ def test_raw_call_code_gas_value_transfer_ask(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
 
     # Source: lll
     # { [[2]] (GAS) }
-    addr_0x094f5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x2, value=Op.GAS) + Op.STOP,
         nonce=0,
-        address=Address("0xe497cd0909c3691e0b6d2a42e26f36696fc27ba5"),  # noqa: E501
+        address=Address(0xE497CD0909C3691E0B6D2A42E26F36696FC27BA5),  # noqa: E501
     )
     pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
@@ -75,19 +74,19 @@ def test_raw_call_code_gas_value_transfer_ask(
         + Op.SSTORE(key=0x1, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
         + Op.STOP,
         nonce=0,
-        address=Address("0x956d6bbd9f4f04f26a090166e43c641b1c5c2ede"),  # noqa: E501
+        address=Address(0x956D6BBD9F4F04F26A090166E43C641B1C5C2EDE),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=500000,
         value=10,
-        gas_price=10,
     )
 
     post = {
-        addr_0x094f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(storage={}),
+        addr: Account(storage={}),
         target: Account(storage={1: 31439, 2: 0x70E1C}),
     }
 

@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_revert_opcode_in_create_returns(
     pre: Alloc,
 ) -> None:
     """Test_revert_opcode_in_create_returns."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
     )
@@ -42,7 +42,6 @@ def test_revert_opcode_in_create_returns(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=42949672960,
     )
@@ -62,15 +61,15 @@ def test_revert_opcode_in_create_returns(
         + Op.STOP,
         storage={0: 1},
         nonce=0,
-        address=Address("0x910073ceed5c2372dc67ffd941b0f148dc4ebaf5"),  # noqa: E501
+        address=Address(0x910073CEED5C2372DC67FFD941B0F148DC4EBAF5),  # noqa: E501
     )
     pre[sender] = Account(balance=0x6400000000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=100000,
-        gas_price=10,
     )
 
     post = {target: Account(storage={0: 32})}

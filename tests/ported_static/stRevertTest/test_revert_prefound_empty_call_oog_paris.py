@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,10 +32,8 @@ def test_revert_prefound_empty_call_oog_paris(
     pre: Alloc,
 ) -> None:
     """Test_revert_prefound_empty_call_oog_paris."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    addr_0x7db299e0885c85039f56fa504a13dd8ce8a56aa7 = Address(
-        "0x76fae819612a29489a1a43208613d8f8557b8898"
-    )
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    addr = Address(0x76FAE819612A29489A1A43208613D8F8557B8898)
     sender = EOA(
         key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
@@ -45,13 +43,12 @@ def test_revert_prefound_empty_call_oog_paris(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
 
     pre[sender] = Account(balance=0xE8D4A51000)
-    pre[addr_0x7db299e0885c85039f56fa504a13dd8ce8a56aa7] = Account(balance=10)
+    pre[addr] = Account(balance=10)
     # Source: lll
     # { [[0]] (CALL 50000 <eoa:0x7db299e0885c85039f56fa504a13dd8ce8a56aa7> 0 0 32 0 32) [[1]]12 [[2]]12 }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -72,20 +69,16 @@ def test_revert_prefound_empty_call_oog_paris(
         + Op.STOP,
         balance=1,
         nonce=0,
-        address=Address("0xf679bfe5f61e7640b9a66db191d5d86abc7b5c0a"),  # noqa: E501
+        address=Address(0xF679BFE5F61E7640B9A66DB191D5D86ABC7B5C0A),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=63000,
-        gas_price=10,
     )
 
-    post = {
-        addr_0x7db299e0885c85039f56fa504a13dd8ce8a56aa7: Account(
-            storage={}, code=b"", balance=10, nonce=0
-        ),
-    }
+    post = {addr: Account(storage={}, code=b"", balance=10, nonce=0)}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

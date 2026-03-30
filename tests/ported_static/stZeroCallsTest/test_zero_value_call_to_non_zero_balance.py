@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,10 +32,8 @@ def test_zero_value_call_to_non_zero_balance(
     pre: Alloc,
 ) -> None:
     """Test_zero_value_call_to_non_zero_balance."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b = Address(
-        "0x9089da66e8bbc08846842a301905501bc8525dc4"
-    )
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    addr = Address(0x9089DA66E8BBC08846842A301905501BC8525DC4)
     sender = EOA(
         key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
@@ -45,7 +43,6 @@ def test_zero_value_call_to_non_zero_balance(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -70,19 +67,19 @@ def test_zero_value_call_to_non_zero_balance(
         + Op.SSTORE(key=0x64, value=0x1)
         + Op.STOP,
         nonce=0,
-        address=Address("0xf202bae278ac09857f5a56991c7a4679632f5841"),  # noqa: E501
+        address=Address(0xF202BAE278AC09857F5A56991C7A4679632F5841),  # noqa: E501
     )
-    pre[addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b] = Account(balance=100)
+    pre[addr] = Account(balance=100)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=600000,
-        gas_price=10,
     )
 
     post = {
-        addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(balance=100),
+        addr: Account(balance=100),
         target: Account(storage={0: 0x8D5B6, 1: 1, 100: 1}),
     }
 

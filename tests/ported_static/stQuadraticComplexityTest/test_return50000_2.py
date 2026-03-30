@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -22,19 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "",
-]
-TX_GAS = [150000, 16000000]
-TX_VALUE = [10]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -69,7 +58,7 @@ def test_return50000_2(
     v: int,
 ) -> None:
     """Test_return50000_2."""
-    coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+    coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = EOA(
         key=0xE7C72B378297589ACEE4E0BA3272841BCFC5E220F86DE253F890274CFEE9E474
     )
@@ -79,7 +68,6 @@ def test_return50000_2(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=8825000000,
     )
@@ -87,13 +75,13 @@ def test_return50000_2(
     pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
     # Source: lll
     # { [ 0 ] (CALLDATALOAD 49999) (RETURN @0 1) }
-    addr_0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=Op.CALLDATALOAD(offset=0xC34F))
         + Op.RETURN(offset=Op.MLOAD(offset=0x0), size=0x1)
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
-        address=Address("0xf2c82ca2413a9f3f06781db577400ddb6c76767d"),  # noqa: E501
+        address=Address(0xF2C82CA2413A9F3F06781DB577400DDB6C76767D),  # noqa: E501
     )
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) [[ 0 ]] (CALL 1564 <contract:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 50000 0 0) ) [[ 1 ]] @i }  # noqa: E501
@@ -121,7 +109,7 @@ def test_return50000_2(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
-        address=Address("0x6123b8b3e245b90f39ed7418d320a60abb365b9f"),  # noqa: E501
+        address=Address(0x6123B8B3E245B90F39ED7418D320A60ABB365B9F),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -130,7 +118,7 @@ def test_return50000_2(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(storage={}, code=b"", nonce=1),
-                addr_0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
+                addr: Account(
                     storage={},
                     code=bytes.fromhex("61c34f356000526001600051f300"),
                     nonce=0,
@@ -149,7 +137,7 @@ def test_return50000_2(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(storage={}, code=b"", nonce=1),
-                addr_0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
+                addr: Account(
                     storage={},
                     code=bytes.fromhex("61c34f356000526001600051f300"),
                     nonce=0,
@@ -167,13 +155,18 @@ def test_return50000_2(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes(""),
+    ]
+    tx_gas = [150000, 16000000]
+    tx_value = [10]
+
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
         error=_exc,
     )
 

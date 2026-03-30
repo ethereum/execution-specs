@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_random_statetest648(
     pre: Alloc,
 ) -> None:
     """Consensus issue test produced by fuzz testing team..."""
-    coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+    coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = EOA(
         key=0xFF348633B687EC0F553647F4DDEED7590E90C7EA65B87C5BD399F4C869B9C9FC
     )
@@ -42,7 +42,6 @@ def test_random_statetest648(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10944489199640098,
     )
@@ -65,26 +64,25 @@ def test_random_statetest648(
         + Op.SELFDESTRUCT(address=0xF5)
         + Op.REVERT,
         nonce=0,
-        address=Address("0xca5c69fa03b9dff4d059971ac17edac7ef758725"),  # noqa: E501
+        address=Address(0xCA5C69FA03B9DFF4D059971AC17EDAC7EF758725),  # noqa: E501
     )
     # Source: raw
     # 0x600050
-    addr_0x00000000000000000000000000000000000000f5 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.POP(0x0),
         nonce=0,
-        address=Address("0xa828265d4b2db08e65a1c68d2878f15368b5ae75"),  # noqa: E501
+        address=Address(0xA828265D4B2DB08E65A1C68D2878F15368B5AE75),  # noqa: E501
     )
     pre[sender] = Account(balance=0xFFFFFFFF)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=bytes.fromhex(
+        data=Bytes(
             "384c289327fda733f319011b605929b98b6cc52e4915c942369264c71a3ca70ebce56fef7e41103f1acc71e91f299bf6c5730b265d6f9d475936735ea60c58b9bb125a78178171784759606d696e98f8522b52fe213edee397b3df6ca9f0c6"  # noqa: E501
         ),
         gas_limit=343469,
         value=0xDB2206,
-        gas_price=10,
     )
 
     post = {sender: Account(nonce=1)}

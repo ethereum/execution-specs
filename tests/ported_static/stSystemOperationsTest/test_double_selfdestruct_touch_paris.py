@@ -14,6 +14,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -25,19 +26,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "",
-]
-TX_GAS = [10000000]
-TX_VALUE = [0, 1, 2]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -79,9 +68,9 @@ def test_double_selfdestruct_touch_paris(
     v: int,
 ) -> None:
     """A single contract can execute SELFDESTRUCT multiple times using by..."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    empty_account_1 = Address("0x68fa59e127b7526718eb0a4e113df5793628cb91")
-    empty_account_2 = Address("0x76fae819612a29489a1a43208613d8f8557b8898")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    empty_account_1 = Address(0x68FA59E127B7526718EB0A4E113DF5793628CB91)
+    empty_account_2 = Address(0x76FAE819612A29489A1A43208613D8F8557B8898)
     sender = EOA(
         key=0xE92C121432830128CA66D3D8C4E6D8D96CC4BEFA7C612D28415082EB3C8339C5
     )
@@ -91,7 +80,6 @@ def test_double_selfdestruct_touch_paris(
         number=1,
         timestamp=999,
         prev_randao=0x20000,
-        difficulty=1,
         base_fee_per_gas=10,
         gas_limit=30000000,
     )
@@ -129,7 +117,7 @@ def test_double_selfdestruct_touch_paris(
         + Op.CALL
         + Op.STOP,
         nonce=0,
-        address=Address("0x8ec7465877d3957084dc907c0f6d8f2911a17a52"),  # noqa: E501
+        address=Address(0x8EC7465877D3957084DC907C0F6D8F2911A17A52),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -138,7 +126,7 @@ def test_double_selfdestruct_touch_paris(
     #   sstore(0, index)
     #   selfdestruct(sload(index))
     # }
-    addr_0x000000000000000000000000000000000000dead = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.ADD(Op.SLOAD(key=0x0), 0x1)
         + Op.SSTORE(key=0x0, value=Op.DUP1)
         + Op.SELFDESTRUCT(address=Op.SLOAD),
@@ -148,7 +136,7 @@ def test_double_selfdestruct_touch_paris(
             2: 0x76FAE819612A29489A1A43208613D8F8557B8898,
         },
         nonce=0,
-        address=Address("0x29e4504a3d2a0e0ae0ebbbefedd4570639b3ebee"),  # noqa: E501
+        address=Address(0x29E4504A3D2A0E0AE0EBBBEFEDD4570639B3EBEE),  # noqa: E501
     )
     pre[empty_account_1] = Account(balance=10)
     pre[empty_account_2] = Account(balance=10)
@@ -188,13 +176,18 @@ def test_double_selfdestruct_touch_paris(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes(""),
+    ]
+    tx_gas = [10000000]
+    tx_value = [0, 1, 2]
+
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
         error=_exc,
     )
 

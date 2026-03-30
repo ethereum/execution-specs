@@ -11,13 +11,13 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
 )
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -31,9 +31,9 @@ def test_multi_owned_remove_owner_by_non_owner(
     pre: Alloc,
 ) -> None:
     """Test_multi_owned_remove_owner_by_non_owner."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    contract_0 = Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f")
-    contract_1 = Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0x6295EE1B4F6DD65047762F924ECD367C17EABF8F)
+    contract_1 = Address(0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = EOA(
         key=0xA95DEFE70EBEA7804F9C3BE42D20D24375E2A92B9D9666B832069C5F3CD423DD
     )
@@ -43,7 +43,6 @@ def test_multi_owned_remove_owner_by_non_owner(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
@@ -63,7 +62,7 @@ def test_multi_owned_remove_owner_by_non_owner(
         },
         balance=100,
         nonce=0,
-        address=Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"),  # noqa: E501
+        address=Address(0x6295EE1B4F6DD65047762F924ECD367C17EABF8F),  # noqa: E501
     )
     # Source: hex
     # 0x
@@ -71,19 +70,18 @@ def test_multi_owned_remove_owner_by_non_owner(
         code="",
         balance=0xDE0B6B3A75EF08F,
         nonce=1,
-        address=Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
+        address=Address(0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=bytes.fromhex(
+        data=Bytes(
             "173825d9000000000000000000000000a94f5374fce5edbc8e2a8697c15331677e6ebf0b"  # noqa: E501
         ),
         gas_limit=10000000,
         value=100,
         nonce=1,
-        gas_price=10,
     )
 
     post = {

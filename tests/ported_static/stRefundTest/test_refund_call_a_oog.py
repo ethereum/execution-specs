@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_refund_call_a_oog(
     pre: Alloc,
 ) -> None:
     """Test_refund_call_a_oog."""
-    coinbase = Address("0xeb201d2887816e041f6e807e804f64f3a7a226fe")
+    coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
     sender = EOA(
         key=0x27B48AAA30A609C11C7ABA1CB67FC191B5B59F9FF876930F0085D5FAEF4A4824
     )
@@ -42,7 +42,6 @@ def test_refund_call_a_oog(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
@@ -67,34 +66,32 @@ def test_refund_call_a_oog(
         storage={1: 1},
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x1b98d6b82e06b90c71c779925ae5b84e28401256"),  # noqa: E501
+        address=Address(0x1B98D6B82E06B90C71C779925AE5B84E28401256),  # noqa: E501
     )
     pre[sender] = Account(balance=0x2DC6C0)
     # Source: lll
     # { [[ 1 ]] 0 }
-    addr_0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x1, value=0x0) + Op.STOP,
         storage={1: 1},
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0xf4c9fc42faeda49049e3b8e2b97a17cc2fe95718"),  # noqa: E501
+        address=Address(0xF4C9FC42FAEDA49049E3B8E2B97A17CC2FE95718),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=31069,
         value=10,
-        gas_price=10,
     )
 
     post = {
         target: Account(storage={1: 1}, balance=0xDE0B6B3A7640000),
         coinbase: Account(balance=0),
         sender: Account(balance=0x29091E, nonce=1),
-        addr_0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa: Account(
-            storage={1: 1}
-        ),
+        addr: Account(storage={1: 1}),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

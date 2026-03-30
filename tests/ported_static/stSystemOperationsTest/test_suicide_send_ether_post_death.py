@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,7 +34,7 @@ def test_suicide_send_ether_post_death(
     pre: Alloc,
 ) -> None:
     """Test_suicide_send_ether_post_death."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
     )
@@ -44,7 +44,6 @@ def test_suicide_send_ether_post_death(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -163,17 +162,16 @@ def test_suicide_send_ether_post_death(
         + Op.JUMP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0xa997455dca526734f5607f7c452de0cfb9af19f4"),  # noqa: E501
+        address=Address(0xA997455DCA526734F5607F7C452DE0CFB9AF19F4),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=bytes.fromhex("4d536fe3"),
+        data=Bytes("4d536fe3"),
         gas_limit=3000000,
         value=0x186A0,
-        gas_price=10,
     )
 
     post = {

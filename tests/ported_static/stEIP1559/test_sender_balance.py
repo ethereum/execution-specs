@@ -15,6 +15,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -22,7 +23,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -36,7 +36,7 @@ def test_sender_balance(
     pre: Alloc,
 ) -> None:
     """The execution records the EIP-1559 transaction origin balance to..."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
@@ -46,7 +46,6 @@ def test_sender_balance(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=1,
         base_fee_per_gas=11,
         gas_limit=30000000,
     )
@@ -59,13 +58,14 @@ def test_sender_balance(
     target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.BALANCE(address=Op.CALLER)) + Op.STOP,
         nonce=0,
-        address=Address("0x420132f96200ba8e5c98298a85633c35c4f052ef"),  # noqa: E501
+        address=Address(0x420132F96200BA8E5C98298A85633C35C4F052EF),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=60000,
         max_fee_per_gas=1000,
         max_priority_fee_per_gas=100,

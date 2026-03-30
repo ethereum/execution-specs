@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -22,20 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "6000600060006000600073fce41d047b4a1d4450382dcc29ec7e5fedc5f9a361c350f1506b620102036000526003601df36000526000600c60146000f500",  # noqa: E501
-    "6000600060006000600073cff64f4c5df8f436c4f2c1af4b2e3f9e3004c77961c350f1506b626010ff6000526003601df36000526000600c60146000f500",  # noqa: E501
-]
-TX_GAS = [400000]
-TX_VALUE = [0]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -69,9 +57,9 @@ def test_create2collision_selfdestructed2(
     v: int,
 ) -> None:
     """A contract which performs SUICIDE, and is then attempted to be..."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    contract_0 = Address("0xfce41d047b4a1d4450382dcc29ec7e5fedc5f9a3")
-    contract_1 = Address("0xcff64f4c5df8f436c4f2c1af4b2e3f9e3004c779")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0xFCE41D047B4A1D4450382DCC29EC7E5FEDC5F9A3)
+    contract_1 = Address(0xCFF64F4C5DF8F436C4F2C1AF4B2E3F9E3004C779)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -81,7 +69,6 @@ def test_create2collision_selfdestructed2(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
@@ -93,7 +80,7 @@ def test_create2collision_selfdestructed2(
         code=Op.SELFDESTRUCT(address=0x10) + Op.STOP,
         balance=1,
         nonce=0,
-        address=Address("0xfce41d047b4a1d4450382dcc29ec7e5fedc5f9a3"),  # noqa: E501
+        address=Address(0xFCE41D047B4A1D4450382DCC29EC7E5FEDC5F9A3),  # noqa: E501
     )
     # Source: raw
     # 0x6010ff
@@ -101,7 +88,7 @@ def test_create2collision_selfdestructed2(
         code=Op.SELFDESTRUCT(address=0x10),
         balance=1,
         nonce=1,
-        address=Address("0xcff64f4c5df8f436c4f2c1af4b2e3f9e3004c779"),  # noqa: E501
+        address=Address(0xCFF64F4C5DF8F436C4F2C1AF4B2E3F9E3004C779),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -136,12 +123,22 @@ def test_create2collision_selfdestructed2(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes(
+            "6000600060006000600073fce41d047b4a1d4450382dcc29ec7e5fedc5f9a361c350f1506b620102036000526003601df36000526000600c60146000f500"  # noqa: E501
+        ),
+        Bytes(
+            "6000600060006000600073cff64f4c5df8f436c4f2c1af4b2e3f9e3004c77961c350f1506b626010ff6000526003601df36000526000600c60146000f500"  # noqa: E501
+        ),
+    ]
+    tx_gas = [400000]
+    tx_value = [0]
+
     tx = Transaction(
         sender=sender,
         to=None,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
         error=_exc,
     )
 

@@ -12,6 +12,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -23,42 +24,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "693c61390000000000000000000000000000000000000000000000000000000000000000",
-    "693c61390000000000000000000000000000000000000000000000000000000000000000",
-    "693c61390000000000000000000000000000000000000000000000000000000000000000",
-]
-TX_GAS = [16777216]
-TX_VALUE = [0]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
-
-
-TX_ACCESS_LISTS: dict[int, list] = {
-    1: [
-        AccessList(
-            address=Address("0x7704d8a022a1ba8f3539fc82c7d7fb065abc0df3"),
-            storage_keys=[],
-        ),
-    ],
-    2: [
-        AccessList(
-            address=Address("0x000000000000000000000000000000000000ba5a"),
-            storage_keys=[],
-        ),
-    ],
-}
-
-
-def _tx_access_list(d: int) -> list | None:
-    """Get access list for data index d. None means no access list (legacy tx)."""  # noqa: E501
-    return TX_ACCESS_LISTS.get(d)
 
 
 @pytest.mark.ported_from(
@@ -98,7 +64,7 @@ def test_coinbase_t01(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address("0x7704d8a022a1ba8f3539fc82c7d7fb065abc0df3")
+    coinbase = Address(0x7704D8A022A1BA8F3539FC82C7D7FB065ABC0DF3)
     sender = EOA(
         key=0xDE0C95357363DA5C1C5A73BD7C2781CA5C9FECC1014103B5E1D1E990AE8208EC
     )
@@ -108,7 +74,6 @@ def test_coinbase_t01(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=100,
         gas_limit=71794957647893862,
     )
@@ -146,7 +111,7 @@ def test_coinbase_t01(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=1,
-        address=Address("0x30873f83c35401e315e6e5994c012f1ee8119585"),  # noqa: E501
+        address=Address(0x30873F83C35401E315E6E5994C012F1EE8119585),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
     pre[coinbase] = Account(balance=0, nonce=1)
@@ -166,14 +131,43 @@ def test_coinbase_t01(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes(
+            "693c61390000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+        ),
+        Bytes(
+            "693c61390000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+        ),
+        Bytes(
+            "693c61390000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+        ),
+    ]
+    tx_gas = [16777216]
+    tx_value = [0]
+
+    tx_access_lists: dict[int, list] = {
+        1: [
+            AccessList(
+                address=Address(0x7704D8A022A1BA8F3539FC82C7D7FB065ABC0DF3),
+                storage_keys=[],
+            ),
+        ],
+        2: [
+            AccessList(
+                address=Address(0x000000000000000000000000000000000000BA5A),
+                storage_keys=[],
+            ),
+        ],
+    }
+
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
         nonce=1,
         gas_price=1000,
-        access_list=_tx_access_list(d),
+        access_list=tx_access_lists.get(d),
         error=_exc,
     )
 

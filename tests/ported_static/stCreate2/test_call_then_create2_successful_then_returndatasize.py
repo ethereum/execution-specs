@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,9 +34,9 @@ def test_call_then_create2_successful_then_returndatasize(
     pre: Alloc,
 ) -> None:
     """Test_call_then_create2_successful_then_returndatasize."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    contract_0 = Address("0x0aabbccdd5c57f15886f9b263e2f6d2d6c7b5ec6")
-    contract_1 = Address("0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0x0AABBCCDD5C57F15886F9B263E2F6D2D6C7B5EC6)
+    contract_1 = Address(0x0F572E5295C57F15886F9B263E2F6D2D6C7B5EC6)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -46,7 +46,6 @@ def test_call_then_create2_successful_then_returndatasize(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=47244640256,
     )
@@ -61,7 +60,7 @@ def test_call_then_create2_successful_then_returndatasize(
         + Op.RETURN(offset=0x0, size=0x20)
         + Op.STOP * 2,
         nonce=0,
-        address=Address("0x0aabbccdd5c57f15886f9b263e2f6d2d6c7b5ec6"),  # noqa: E501
+        address=Address(0x0AABBCCDD5C57F15886F9B263E2F6D2D6C7B5EC6),  # noqa: E501
     )
     # Source: lll
     # { (seq (CALL 0x0900000000 0x0aabbccdd5c57f15886f9b263e2f6d2d6c7b5ec6 0 0 0 0 0) (CREATE2 0 0 (lll (seq (mstore 0 0x112233) (RETURN 0 32) (STOP) ) 0) 0) (SSTORE 0 (RETURNDATASIZE)) (STOP) )}  # noqa: E501
@@ -90,15 +89,15 @@ def test_call_then_create2_successful_then_returndatasize(
         + Op.STOP * 2,
         storage={0: 1},
         nonce=0,
-        address=Address("0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6"),  # noqa: E501
+        address=Address(0x0F572E5295C57F15886F9B263E2F6D2D6C7B5EC6),  # noqa: E501
     )
     pre[sender] = Account(balance=0x6400000000)
 
     tx = Transaction(
         sender=sender,
         to=contract_1,
+        data=Bytes(""),
         gas_limit=100000,
-        gas_price=10,
     )
 
     post = {

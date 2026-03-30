@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -22,19 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "",
-]
-TX_GAS = [150000, 250000000]
-TX_VALUE = [10]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -42,6 +31,7 @@ def _tx_data(d: int) -> bytes:
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "d, g, v",
     [
@@ -69,10 +59,8 @@ def test_call1_mb1024_calldepth(
     v: int,
 ) -> None:
     """Test_call1_mb1024_calldepth."""
-    coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
-    addr_0xaaa50000fce5edbc8e2a8697c15331677e6ebf0b = Address(
-        "0x2ab8257767339461506c0c67824cf17bc77b52ca"
-    )
+    coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
+    addr = Address(0x2AB8257767339461506C0C67824CF17BC77B52CA)
     sender = EOA(
         key=0xE7C72B378297589ACEE4E0BA3272841BCFC5E220F86DE253F890274CFEE9E474
     )
@@ -82,15 +70,12 @@ def test_call1_mb1024_calldepth(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=882500000000,
     )
 
     pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-    pre[addr_0xaaa50000fce5edbc8e2a8697c15331677e6ebf0b] = Account(
-        balance=0xFFFFFFFFFFFFF
-    )
+    pre[addr] = Account(balance=0xFFFFFFFFFFFFF)
     # Source: lll
     # { (def 'i 0x80) [[ 0 ]] (+ @@0 1) (if (LT @@0 1024) [[ 1 ]] (CALL (- (GAS) 1005000) <contract:target:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 1000000 0 0) [[ 2 ]] 1 )  }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -115,7 +100,7 @@ def test_call1_mb1024_calldepth(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
-        address=Address("0x9d15232f6851f9f3a88f88a3b358ed1579977a5a"),  # noqa: E501
+        address=Address(0x9D15232F6851F9F3A88F88A3B358ED1579977A5A),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -124,9 +109,7 @@ def test_call1_mb1024_calldepth(
             "network": [">=Cancun<Osaka"],
             "result": {
                 sender: Account(storage={}, code=b"", nonce=1),
-                addr_0xaaa50000fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={}, code=b"", nonce=0
-                ),
+                addr: Account(storage={}, code=b"", nonce=0),
                 target: Account(storage={0: 69, 1: 1}, nonce=0),
             },
         },
@@ -135,9 +118,7 @@ def test_call1_mb1024_calldepth(
             "network": [">=Cancun<Osaka"],
             "result": {
                 sender: Account(storage={}, code=b"", nonce=1),
-                addr_0xaaa50000fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={}, code=b"", nonce=0
-                ),
+                addr: Account(storage={}, code=b"", nonce=0),
                 target: Account(storage={}, nonce=0),
             },
         },
@@ -145,13 +126,18 @@ def test_call1_mb1024_calldepth(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes(""),
+    ]
+    tx_gas = [150000, 250000000]
+    tx_value = [10]
+
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
         error=_exc,
     )
 

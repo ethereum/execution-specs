@@ -15,6 +15,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -22,7 +23,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -38,9 +38,9 @@ def test_delegatecall_to_precompile_from_contract_initialization(
     pre: Alloc,
 ) -> None:
     """Contract B staticcalls contract A."""
-    coinbase = Address("0xcafe000000000000000000000000000000000001")
-    contract_0 = Address("0xb000000000000000000000000000000000000000")
-    contract_1 = Address("0xa000000000000000000000000000000000000000")
+    coinbase = Address(0xCAFE000000000000000000000000000000000001)
+    contract_0 = Address(0xB000000000000000000000000000000000000000)
+    contract_1 = Address(0xA000000000000000000000000000000000000000)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -50,7 +50,6 @@ def test_delegatecall_to_precompile_from_contract_initialization(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -88,7 +87,7 @@ def test_delegatecall_to_precompile_from_contract_initialization(
         },
         balance=1000,
         nonce=0,
-        address=Address("0xb000000000000000000000000000000000000000"),  # noqa: E501
+        address=Address(0xB000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # {
@@ -376,19 +375,18 @@ def test_delegatecall_to_precompile_from_contract_initialization(
         + Op.STOP,
         balance=1000,
         nonce=0,
-        address=Address("0xa000000000000000000000000000000000000000"),  # noqa: E501
+        address=Address(0xA000000000000000000000000000000000000000),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=bytes.fromhex(
+        data=Bytes(
             "7ffeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed60005562012020620a00006000600073a0000000000000000000000000000000000000005afa507ffeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed600155620a000051610a0055620a110051610a1155620a010051610a0155620a120051610a1255620a020051610a0255620a130051610a1355620a030051610a0355620a140051610a1455620a040051610a0455620a150051610a1555620a050051610a0555620a160051610a1655620a060051610a0655620a170051610a1755620a070051610a0755620a180051610a1855620a080051610a0855620a190051610a1955620a090051610a0955620a200051610a2055620a100051610a105500"  # noqa: E501
         ),
         gas_limit=4000000,
         value=100,
-        gas_price=10,
     )
 
     post = {

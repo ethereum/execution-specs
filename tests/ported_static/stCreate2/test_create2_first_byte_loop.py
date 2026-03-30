@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -22,21 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "1a8451e6000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ef",  # noqa: E501
-    "1a8451e600000000000000000000000000000000000000000000000000000000000000ef00000000000000000000000000000000000000000000000000000000000000f0",  # noqa: E501
-    "1a8451e600000000000000000000000000000000000000000000000000000000000000f00000000000000000000000000000000000000000000000000000000000000100",  # noqa: E501
-]
-TX_GAS = [16777216]
-TX_VALUE = [0]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -76,7 +63,7 @@ def test_create2_first_byte_loop(
     v: int,
 ) -> None:
     """Test_create2_first_byte_loop."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xF79127A3004ABDE26A4CBD80C428CB10F829FA11B54D36E7B326F4F4A5927ACF
     )
@@ -86,7 +73,6 @@ def test_create2_first_byte_loop(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=89128960,
     )
@@ -136,7 +122,7 @@ def test_create2_first_byte_loop(
         + Op.SSTORE(key=Op.DUP2, value=Op.DUP2)
         + Op.JUMP(pc=0x4A),
         nonce=0,
-        address=Address("0x09fdd11d68be787a4c43f692a0778befc011cd35"),  # noqa: E501
+        address=Address(0x09FDD11D68BE787A4C43F692A0778BEFC011CD35),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -183,12 +169,25 @@ def test_create2_first_byte_loop(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes(
+            "1a8451e6000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ef"  # noqa: E501
+        ),
+        Bytes(
+            "1a8451e600000000000000000000000000000000000000000000000000000000000000ef00000000000000000000000000000000000000000000000000000000000000f0"  # noqa: E501
+        ),
+        Bytes(
+            "1a8451e600000000000000000000000000000000000000000000000000000000000000f00000000000000000000000000000000000000000000000000000000000000100"  # noqa: E501
+        ),
+    ]
+    tx_gas = [16777216]
+    tx_value = [0]
+
     tx = Transaction(
         sender=sender,
         to=entry,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
         error=_exc,
     )
 

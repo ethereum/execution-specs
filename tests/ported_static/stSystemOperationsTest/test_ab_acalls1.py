@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -33,7 +33,7 @@ def test_ab_acalls1(
     pre: Alloc,
 ) -> None:
     """Test_ab_acalls1."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
@@ -43,7 +43,6 @@ def test_ab_acalls1(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000000,
     )
@@ -66,11 +65,11 @@ def test_ab_acalls1(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x572a88ed686beb6c9b71dc491ba1e120b327a85f"),  # noqa: E501
+        address=Address(0x572A88ED686BEB6C9B71DC491BA1E120B327A85F),  # noqa: E501
     )
     # Source: lll
     # { [[ (PC) ]] (ADD 1 (CALL (- (GAS) 100000) <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87> 23 0 0 0 0)) }  # noqa: E501
-    addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(
             key=Op.PC,
             value=Op.ADD(
@@ -89,23 +88,21 @@ def test_ab_acalls1(
         + Op.STOP,
         balance=23,
         nonce=0,
-        address=Address("0x6236ea4ea8f3e5263acb65a97abe8683ab54d03a"),  # noqa: E501
+        address=Address(0x6236EA4EA8F3E5263ACB65A97ABE8683AB54D03A),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=1000000000,
         value=0x186A0,
-        gas_price=10,
     )
 
     post = {
         target: Account(storage={38: 1}),
-        addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5: Account(
-            storage={41: 2}
-        ),
+        addr: Account(storage={41: 2}),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

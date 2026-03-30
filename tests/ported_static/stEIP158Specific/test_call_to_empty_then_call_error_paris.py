@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,10 +32,8 @@ def test_call_to_empty_then_call_error_paris(
     pre: Alloc,
 ) -> None:
     """Test_call_to_empty_then_call_error_paris."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    addr_0xee098e6c2a43d9e2c04f08f0c3a87b0ba59079d4 = Address(
-        "0x76fae819612a29489a1a43208613d8f8557b8898"
-    )
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    addr_2 = Address(0x76FAE819612A29489A1A43208613D8F8557B8898)
     sender = EOA(
         key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
@@ -45,7 +43,6 @@ def test_call_to_empty_then_call_error_paris(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -76,26 +73,24 @@ def test_call_to_empty_then_call_error_paris(
         )
         + Op.STOP,
         nonce=0,
-        address=Address("0x2fd4e62119e6702b1b340b14aab503af144d0da4"),  # noqa: E501
+        address=Address(0x2FD4E62119E6702B1B340B14AAB503AF144D0DA4),  # noqa: E501
     )
     # Source: lll
     # { (GAS) }
-    addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.GAS + Op.STOP,
         nonce=0,
-        address=Address("0xab4cdae660b629c6f7be5a12139558e6296ad0b5"),  # noqa: E501
+        address=Address(0xAB4CDAE660B629C6F7BE5A12139558E6296AD0B5),  # noqa: E501
     )
-    pre[addr_0xee098e6c2a43d9e2c04f08f0c3a87b0ba59079d4] = Account(balance=10)
+    pre[addr_2] = Account(balance=10)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=600000,
-        gas_price=10,
     )
 
-    post = {
-        addr_0xee098e6c2a43d9e2c04f08f0c3a87b0ba59079d4: Account(balance=10)
-    }
+    post = {addr_2: Account(balance=10)}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

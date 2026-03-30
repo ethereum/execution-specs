@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,7 +34,7 @@ def test_delegatecall_emptycontract(
     pre: Alloc,
 ) -> None:
     """Test_delegatecall_emptycontract."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x11489F9B076D3F3185EBE5C6E2DBEDBE9E283A6CE75895780134252B3DD5DBCC
     )
@@ -44,7 +44,6 @@ def test_delegatecall_emptycontract(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
@@ -66,15 +65,15 @@ def test_delegatecall_emptycontract(
         + Op.STOP,
         balance=1000,
         nonce=0,
-        address=Address("0x4a88cf3b3f1dabdd27e62fcb5df86d7d685e0044"),  # noqa: E501
+        address=Address(0x4A88CF3B3F1DABDD27E62FCB5DF86D7D685E0044),  # noqa: E501
     )
     pre[sender] = Account(balance=0x10C8E0)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=105044,
-        gas_price=10,
     )
 
     post = {target: Account(storage={0: 1})}

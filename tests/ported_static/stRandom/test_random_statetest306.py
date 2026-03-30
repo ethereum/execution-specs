@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -33,7 +33,7 @@ def test_random_statetest306(
     pre: Alloc,
 ) -> None:
     """Test_random_statetest306."""
-    coinbase = Address("0x4f3f701464972e74606d6ea82d4d3080599a0e79")
+    coinbase = Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79)
     sender = EOA(
         key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
     )
@@ -43,7 +43,6 @@ def test_random_statetest306(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=9223372036854775807,
     )
@@ -121,7 +120,7 @@ def test_random_statetest306(
         + Op.PUSH27[0x8BFDF0BEC9EB4385B554870A996E0CAB662D991D0E5F9357F2F99F]
         + Op.SWAP9,
         nonce=0,
-        address=Address("0xce8d3e84f685b2eed55366547289ac4d314de277"),  # noqa: E501
+        address=Address(0xCE8D3E84F685B2EED55366547289AC4D314DE277),  # noqa: E501
     )
     # Source: raw
     # 0x6000355415600957005b60203560003555
@@ -137,19 +136,18 @@ def test_random_statetest306(
         ),
         balance=46,
         nonce=0,
-        address=Address("0x4f3f701464972e74606d6ea82d4d3080599a0e79"),  # noqa: E501
+        address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=bytes.fromhex(
+        data=Bytes(
             "79f7441ed5bec692c84f9c7783152d38908fea76de8a06eca5ebcf7e81423a68b78d5f1a84706bdb516f17a29dd779ee16374163c1ab2a85a2097e7b6235aecf7cc509b9d184688f56ccfe8638c51ee70858f690e71b338261fd2b72db56f2a0923a6d1bc51dd15ff9aae18348213d68fc8e120c307a7490f46b2d528d86e503a251fd188764646dd3b8bc3c7066a32dcaa91da430f61aed0466338f17d9703f1c8648d0b19db4fcdcd0893f0f6f21c789306b8f8d110fbd563111fd088de367b9f001758786ced578880bb55e224855b0293f9277dc7201e63845a8d8eae7dc8e3e642820b61315716544e2fd297f018fe1df86427052e3a85c0c7748f6fa89b890be2a3b916794ecfff1e87a87582c991b0c61687637866981d0819020714fbaee296a9ac19ac255226d4d2cf967104b669a622e77fc4c7469aee1553e5cf5cb2a79726f07829adfa8a988fb07479add89c1a8947d88a9b361493025a66fd49776d7304a036894ecda2e148f7f87270cdd52727667c09ee625c7a37ac99ab8a195cd0a97fa9e7247f9d0f17888132eb3f44d24d3d49c0a2e6d4850ee413c36893d04dfa9826f7236a10c77f7da3d31db8eae3070972c9d722347d4a95604d40ba66a2f53710451be8f1994756471ba4d09257f6abe619cc850f123d4715bacc2b9cf167be82e629cf36521b290bab47b9597664c0890a5d6242211d344805a3d75460c21ca9ad05dec187ddecc44c9b1c0b4c0d34c66926db22974c0bc059a6aa6354a43bf26f06e7dfa7f0e07f4f3607a8bc1227b7f0d65d660aa3c1eb7731850729f5dc3285b398806dd4b54aecbe7cb367573a1aa8f062b33e27db1e2fdef478ac306ec57be3b6b0fd0fbbe558507ead60ce60a61eade67afdd8ba512300ecc686d511310578908f49660d163e372ddd2636dbf1c1b6d39292b97dbd48fee420c354d341365e64505aeffc89b6e764afc7f97200924ff8d68846e387f6bca4c4ea3f4e04ac8061efd5260577aa69c34a7287609d2448bb32d2687a46d54c893ba21520ec26e792c836ebb8c9c1005ab55d99c62150413fb7a7f8e2ec4766471e2452ee833fa10995e94d2c1cf89c64260836aab9b3c6a1f699776b5900f48b7c1f97dba13656a85fea0cc2d4fe85aa7a9766d767cfd6a3314acc32eea93e15c3077fa26a3917a48af0765b5690af372219af6c2e7e5b194e6db7f76ca0b28647c5066bfbf142ac3eb1361b77953e328106b1e817e8649a9bdf4f27834bd25279dc2b7a6fab4d4e4830602f84d298f5d2682183a226118fc6c452c99ead827293548afcfeaf9655e76240e57846151bb7b1c1cc5971f0ad83dc7b02c05c2bc0a3adeb65bf608eb5c0aaf186a887a4357e31bdd83940e443289727a6e36bfc974bc20e97fa8983f18137be520500b388fe2f63185c5c66bcc71a48c7fc9c210f73a4a73c4561f62adb5ed9d7ae9a0e4833f198dd3faa1af3ad59c282f3277fac135659e7eb7c9926fd5e954f6f42a9cd2cb6498da0767958716"  # noqa: E501
         ),
         gas_limit=1970726856,
         value=0x5AF02372,
-        gas_price=10,
     )
 
     post = {

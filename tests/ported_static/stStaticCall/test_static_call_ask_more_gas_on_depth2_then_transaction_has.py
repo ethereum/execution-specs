@@ -12,6 +12,7 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -22,20 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "000000000000000000000000ef69a9b2c20255fb7bd2b0ac7d45601a03d570b0",
-    "0000000000000000000000008169dc735802bb5c18a777052cf4ce326b5fd725",
-]
-TX_GAS = [600000]
-TX_VALUE = [0]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -44,6 +32,7 @@ def _tx_data(d: int) -> bytes:
     ],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "d, g, v",
     [
@@ -71,7 +60,7 @@ def test_static_call_ask_more_gas_on_depth2_then_transaction_has(
     v: int,
 ) -> None:
     """Test_static_call_ask_more_gas_on_depth2_then_transaction_has."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
@@ -81,7 +70,6 @@ def test_static_call_ask_more_gas_on_depth2_then_transaction_has(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -105,11 +93,11 @@ def test_static_call_ask_more_gas_on_depth2_then_transaction_has(
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
         nonce=0,
-        address=Address("0xc0e4183389eb57f779a986d8c878f89b9401dc8e"),  # noqa: E501
+        address=Address(0xC0E4183389EB57F779A986D8C878F89B9401DC8E),  # noqa: E501
     )
     # Source: lll
     # { (SSTORE 8 1) (SSTORE 9 (STATICCALL 200000 <contract:0x1000000000000000000000000000000000000107> 0 0 0 0)) }  # noqa: E501
-    addr_0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x8, value=0x1)
         + Op.SSTORE(
             key=0x9,
@@ -124,11 +112,11 @@ def test_static_call_ask_more_gas_on_depth2_then_transaction_has(
         )
         + Op.STOP,
         nonce=0,
-        address=Address("0xef69a9b2c20255fb7bd2b0ac7d45601a03d570b0"),  # noqa: E501
+        address=Address(0xEF69A9B2C20255FB7BD2B0AC7D45601A03D570B0),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 8 (GAS)) (MSTORE 9 (STATICCALL 600000 <contract:0x1000000000000000000000000000000000000108> 0 0 0 0)) }  # noqa: E501
-    addr_0x1000000000000000000000000000000000000107 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x8, value=Op.GAS)
         + Op.MSTORE(
             offset=0x9,
@@ -143,18 +131,18 @@ def test_static_call_ask_more_gas_on_depth2_then_transaction_has(
         )
         + Op.STOP,
         nonce=0,
-        address=Address("0xd9539c5a3dc4713d47a547bfc9a075bd97287080"),  # noqa: E501
+        address=Address(0xD9539C5A3DC4713D47A547BFC9A075BD97287080),  # noqa: E501
     )
     # Source: lll
     # { (SSTORE 8 1)}
-    addr_0x1000000000000000000000000000000000000108 = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x8, value=0x1) + Op.STOP,
         nonce=0,
-        address=Address("0x5044bfb29664a79de12215897c630dc8a11b0b97"),  # noqa: E501
+        address=Address(0x5044BFB29664A79DE12215897C630DC8A11B0B97),  # noqa: E501
     )
     # Source: lll
     # { (SSTORE 8 1) (SSTORE 9 (STATICCALL 200000 <contract:0x2000000000000000000000000000000000000107> 0 0 0 0)) }  # noqa: E501
-    addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr_4 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x8, value=0x1)
         + Op.SSTORE(
             key=0x9,
@@ -169,11 +157,11 @@ def test_static_call_ask_more_gas_on_depth2_then_transaction_has(
         )
         + Op.STOP,
         nonce=0,
-        address=Address("0x8169dc735802bb5c18a777052cf4ce326b5fd725"),  # noqa: E501
+        address=Address(0x8169DC735802BB5C18A777052CF4CE326B5FD725),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 8 (GAS)) (MSTORE 9 (STATICCALL 600000 <contract:0x2000000000000000000000000000000000000108> 0 0 0 0)) }  # noqa: E501
-    addr_0x2000000000000000000000000000000000000107 = pre.deploy_contract(  # noqa: F841
+    addr_5 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x8, value=Op.GAS)
         + Op.MSTORE(
             offset=0x9,
@@ -188,14 +176,14 @@ def test_static_call_ask_more_gas_on_depth2_then_transaction_has(
         )
         + Op.STOP,
         nonce=0,
-        address=Address("0xe5a4d8074950ec8067d602848b666ca151b09c9f"),  # noqa: E501
+        address=Address(0xE5A4D8074950EC8067D602848B666CA151B09C9F),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 8 (GAS))}
-    addr_0x2000000000000000000000000000000000000108 = pre.deploy_contract(  # noqa: F841
+    addr_6 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x8, value=Op.GAS) + Op.STOP,
         nonce=0,
-        address=Address("0x91b291a3336bc1357388354df18ca061b39e3745"),  # noqa: E501
+        address=Address(0x91B291A3336BC1357388354DF18CA061B39E3745),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -203,15 +191,9 @@ def test_static_call_ask_more_gas_on_depth2_then_transaction_has(
             "indexes": {"data": 0, "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                addr_0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={8: 1, 9: 1}
-                ),
-                addr_0x1000000000000000000000000000000000000107: Account(
-                    storage={8: 0, 9: 0}
-                ),
-                addr_0x1000000000000000000000000000000000000108: Account(
-                    storage={8: 0}
-                ),
+                addr: Account(storage={8: 1, 9: 1}),
+                addr_2: Account(storage={8: 0, 9: 0}),
+                addr_3: Account(storage={8: 0}),
                 target: Account(storage={0: 1, 1: 1}),
             },
         },
@@ -219,15 +201,9 @@ def test_static_call_ask_more_gas_on_depth2_then_transaction_has(
             "indexes": {"data": 1, "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={8: 1, 9: 1}
-                ),
-                addr_0x2000000000000000000000000000000000000107: Account(
-                    storage={8: 0, 9: 0}
-                ),
-                addr_0x2000000000000000000000000000000000000108: Account(
-                    storage={8: 0}
-                ),
+                addr_4: Account(storage={8: 1, 9: 1}),
+                addr_5: Account(storage={8: 0, 9: 0}),
+                addr_6: Account(storage={8: 0}),
                 target: Account(storage={0: 1, 1: 1}),
             },
         },
@@ -235,12 +211,18 @@ def test_static_call_ask_more_gas_on_depth2_then_transaction_has(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Hash(addr, left_padding=True),
+        Hash(addr_4, left_padding=True),
+    ]
+    tx_gas = [600000]
+    tx_value = [0]
+
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
         error=_exc,
     )
 

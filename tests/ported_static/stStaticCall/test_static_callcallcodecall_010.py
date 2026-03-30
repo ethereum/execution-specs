@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -26,13 +26,14 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stStaticCall/static_callcallcodecall_010Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.slow
 @pytest.mark.pre_alloc_mutable
 def test_static_callcallcodecall_010(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_static_callcallcodecall_010."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
@@ -42,7 +43,6 @@ def test_static_callcallcodecall_010(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=30000000,
     )
@@ -65,11 +65,11 @@ def test_static_callcallcodecall_010(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x46df4a924470cb27a2f8700239656c40dd4794c8"),  # noqa: E501
+        address=Address(0x46DF4A924470CB27A2F8700239656C40DD4794C8),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 3 1)  (DELEGATECALL 300000 <contract:0x1000000000000000000000000000000000000002> 0 64 0 64 ) (MSTORE 3 1) }  # noqa: E501
-    addr_0x1000000000000000000000000000000000000001 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x3, value=0x1)
         + Op.POP(
             Op.DELEGATECALL(
@@ -85,11 +85,11 @@ def test_static_callcallcodecall_010(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x8bd89f495b3f37357d15a16d7b0f72470abe929f"),  # noqa: E501
+        address=Address(0x8BD89F495B3F37357D15A16D7B0F72470ABE929F),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 3 1) (STATICCALL 250000 <contract:0x1000000000000000000000000000000000000003> 0 64 0 64 ) (MSTORE 3 1)}  # noqa: E501
-    addr_0x1000000000000000000000000000000000000002 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x3, value=0x1)
         + Op.POP(
             Op.STATICCALL(
@@ -105,22 +105,22 @@ def test_static_callcallcodecall_010(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x5aaef6827794656b94367d6130f40d34b219f1fd"),  # noqa: E501
+        address=Address(0x5AAEF6827794656B94367D6130F40D34B219F1FD),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 1 1) }
-    addr_0x1000000000000000000000000000000000000003 = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x1, value=0x1) + Op.STOP,
         nonce=0,
-        address=Address("0x2a142c79a9b097c111ce945214226126b75e332c"),  # noqa: E501
+        address=Address(0x2A142C79A9B097C111CE945214226126B75E332C),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=3000000,
-        gas_price=10,
     )
 
     post = {target: Account(storage={0: 1, 1: 1})}

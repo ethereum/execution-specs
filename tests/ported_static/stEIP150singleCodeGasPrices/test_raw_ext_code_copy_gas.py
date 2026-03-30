@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_raw_ext_code_copy_gas(
     pre: Alloc,
 ) -> None:
     """Test_raw_ext_code_copy_gas."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
@@ -42,19 +42,18 @@ def test_raw_ext_code_copy_gas(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
 
     # Source: raw
     # 0x0112233445566778899101112131415161718191202122232425
-    addr_0x094f5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=bytes.fromhex(
             "0112233445566778899101112131415161718191202122232425"
         ),
         nonce=0,
-        address=Address("0x4a84c43fba78ae75cbc15c5b63caa15da55f4464"),  # noqa: E501
+        address=Address(0x4A84C43FBA78AE75CBC15C5B63CAA15DA55F4464),  # noqa: E501
     )
     pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
@@ -70,14 +69,14 @@ def test_raw_ext_code_copy_gas(
         + Op.SSTORE(key=0x1, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
         + Op.STOP,
         nonce=0,
-        address=Address("0x3d74e06fe0af85e65c8b2f5dcff3fa076f5b5bb8"),  # noqa: E501
+        address=Address(0x3D74E06FE0AF85E65C8B2F5DCFF3FA076F5B5BB8),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=600000,
-        gas_price=10,
     )
 
     post = {target: Account(storage={1: 2629})}

@@ -12,6 +12,7 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -22,28 +23,14 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "0000000000000000000000001000000000000000000000000000000000000001",
-    "0000000000000000000000002000000000000000000000000000000000000001",
-    "0000000000000000000000003000000000000000000000000000000000000001",
-    "0000000000000000000000004000000000000000000000000000000000000001",
-]
-TX_GAS = [1000000]
-TX_VALUE = [0]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
     ["state_tests/stStaticCall/static_RawCallGasAskFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "d, g, v",
     [
@@ -83,13 +70,13 @@ def test_static_raw_call_gas_ask(
     v: int,
 ) -> None:
     """Test_static_raw_call_gas_ask."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    contract_0 = Address("0x094f5374fce5edbc8e2a8697c15331677e6ebf0b")
-    contract_1 = Address("0x1000000000000000000000000000000000000000")
-    contract_2 = Address("0x1000000000000000000000000000000000000001")
-    contract_3 = Address("0x2000000000000000000000000000000000000001")
-    contract_4 = Address("0x3000000000000000000000000000000000000001")
-    contract_5 = Address("0x4000000000000000000000000000000000000001")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0x094F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
+    contract_1 = Address(0x1000000000000000000000000000000000000000)
+    contract_2 = Address(0x1000000000000000000000000000000000000001)
+    contract_3 = Address(0x2000000000000000000000000000000000000001)
+    contract_4 = Address(0x3000000000000000000000000000000000000001)
+    contract_5 = Address(0x4000000000000000000000000000000000000001)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -99,7 +86,6 @@ def test_static_raw_call_gas_ask(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -109,7 +95,7 @@ def test_static_raw_call_gas_ask(
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=Op.GAS) + Op.STOP,
         nonce=0,
-        address=Address("0x094f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
+        address=Address(0x094F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
     pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
@@ -127,7 +113,7 @@ def test_static_raw_call_gas_ask(
         + Op.STOP,
         balance=0xE8D4A51000,
         nonce=0,
-        address=Address("0x1000000000000000000000000000000000000000"),  # noqa: E501
+        address=Address(0x1000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # {  (STATICCALL 3000000 0x094f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0) [[1]] (GAS) }  # noqa: E501
@@ -145,7 +131,7 @@ def test_static_raw_call_gas_ask(
         + Op.SSTORE(key=0x1, value=Op.GAS)
         + Op.STOP,
         nonce=0,
-        address=Address("0x1000000000000000000000000000000000000001"),  # noqa: E501
+        address=Address(0x1000000000000000000000000000000000000001),  # noqa: E501
     )
     # Source: lll
     # { (STATICCALL 130000 0x094f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0) [[1]] (GAS) }  # noqa: E501
@@ -163,7 +149,7 @@ def test_static_raw_call_gas_ask(
         + Op.SSTORE(key=0x1, value=Op.GAS)
         + Op.STOP,
         nonce=0,
-        address=Address("0x2000000000000000000000000000000000000001"),  # noqa: E501
+        address=Address(0x2000000000000000000000000000000000000001),  # noqa: E501
     )
     # Source: lll
     # { (STATICCALL 3000000 0x094f5374fce5edbc8e2a8697c15331677e6ebf0b 0 8000 0 8000) [[1]] (GAS) }  # noqa: E501
@@ -181,7 +167,7 @@ def test_static_raw_call_gas_ask(
         + Op.SSTORE(key=0x1, value=Op.GAS)
         + Op.STOP,
         nonce=0,
-        address=Address("0x3000000000000000000000000000000000000001"),  # noqa: E501
+        address=Address(0x3000000000000000000000000000000000000001),  # noqa: E501
     )
     # Source: lll
     # { (STATICCALL 130000 0x094f5374fce5edbc8e2a8697c15331677e6ebf0b 0 8000 0 8000) [[1]] (GAS) }  # noqa: E501
@@ -199,7 +185,7 @@ def test_static_raw_call_gas_ask(
         + Op.SSTORE(key=0x1, value=Op.GAS)
         + Op.STOP,
         nonce=0,
-        address=Address("0x4000000000000000000000000000000000000001"),  # noqa: E501
+        address=Address(0x4000000000000000000000000000000000000001),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -227,12 +213,20 @@ def test_static_raw_call_gas_ask(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Hash(contract_2, left_padding=True),
+        Hash(contract_3, left_padding=True),
+        Hash(contract_4, left_padding=True),
+        Hash(contract_5, left_padding=True),
+    ]
+    tx_gas = [1000000]
+    tx_value = [0]
+
     tx = Transaction(
         sender=sender,
         to=contract_1,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
         error=_exc,
     )
 

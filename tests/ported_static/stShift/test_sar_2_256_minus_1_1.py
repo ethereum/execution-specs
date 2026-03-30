@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_sar_2_256_minus_1_1(
     pre: Alloc,
 ) -> None:
     """Test_sar_2_256_minus_1_1."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
     )
@@ -42,7 +42,6 @@ def test_sar_2_256_minus_1_1(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
@@ -60,16 +59,16 @@ def test_sar_2_256_minus_1_1(
         storage={0: 3},
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x37a6df595c7ae4907cf940ce2ed9301836379be0"),  # noqa: E501
+        address=Address(0x37A6DF595C7AE4907CF940CE2ED9301836379BE0),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=400000,
         value=0x186A0,
-        gas_price=10,
     )
 
     post = {

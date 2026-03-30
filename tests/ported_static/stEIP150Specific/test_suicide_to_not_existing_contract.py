@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_suicide_to_not_existing_contract(
     pre: Alloc,
 ) -> None:
     """Test_suicide_to_not_existing_contract."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
@@ -42,7 +42,6 @@ def test_suicide_to_not_existing_contract(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -66,28 +65,28 @@ def test_suicide_to_not_existing_contract(
         + Op.SSTORE(key=0x1, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
         + Op.STOP,
         nonce=0,
-        address=Address("0xbabae893bee69e2141e0e92f2251664ac445ea2a"),  # noqa: E501
+        address=Address(0xBABAE893BEE69E2141E0E92F2251664AC445EA2A),  # noqa: E501
     )
     # Source: lll
     # { (SELFDESTRUCT 0x2000000000000000000000000000000000000115) }
-    addr_0x1000000000000000000000000000000000000116 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SELFDESTRUCT(
             address=0x2000000000000000000000000000000000000115
         )
         + Op.STOP,
         nonce=0,
-        address=Address("0x09d6d7885d3d58a49c8352635776c205f722501c"),  # noqa: E501
+        address=Address(0x09D6D7885D3D58A49C8352635776C205F722501C),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=600000,
-        gas_price=10,
     )
 
     post = {
-        addr_0x1000000000000000000000000000000000000116: Account(
+        addr: Account(
             storage={},
             code=bytes.fromhex(
                 "732000000000000000000000000000000000000115ff00"

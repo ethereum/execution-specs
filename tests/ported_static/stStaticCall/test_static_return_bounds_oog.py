@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -22,26 +23,14 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "00",
-    "0000000000000000000000000000000000000001",
-]
-TX_GAS = [15000000]
-TX_VALUE = [1]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
     ["state_tests/stStaticCall/static_RETURN_BoundsOOGFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "d, g, v",
     [
@@ -69,7 +58,7 @@ def test_static_return_bounds_oog(
     v: int,
 ) -> None:
     """Test_static_return_bounds_oog."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x50EADFB1030587AB3A993A6ECC073041FC3B45E119DAA31A13D78C7E209631A5
     )
@@ -79,7 +68,6 @@ def test_static_return_bounds_oog(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=9223372036854775807,
     )
@@ -271,138 +259,138 @@ def test_static_return_bounds_oog(
         + Op.JUMPDEST
         + Op.STOP,
         nonce=0,
-        address=Address("0x57545d218764bc417fdcbbc2c1f43b2a62105ce1"),  # noqa: E501
+        address=Address(0x57545D218764BC417FDCBBC2C1F43B2A62105CE1),  # noqa: E501
     )
     # Source: lll
     # { (RETURN 0 0) }
-    addr_0x1000000000000000000000000000000000000001 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.RETURN(offset=0x0, size=0x0) + Op.STOP,
         nonce=0,
-        address=Address("0x5efbf04d8e1cc5b6b3719b16b5744a09bacfc18b"),  # noqa: E501
+        address=Address(0x5EFBF04D8E1CC5B6B3719B16B5744A09BACFC18B),  # noqa: E501
     )
     # Source: lll
     # { (RETURN 0xfffffff 0) }
-    addr_0x1000000000000000000000000000000000000002 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.RETURN(offset=0xFFFFFFF, size=0x0) + Op.STOP,
         nonce=0,
-        address=Address("0xc7aa750fe05c7e38475a49fe98a301024d0c1d54"),  # noqa: E501
+        address=Address(0xC7AA750FE05C7E38475A49FE98A301024D0C1D54),  # noqa: E501
     )
     # Source: lll
     # {  (RETURN 0xffffffff 0)  }
-    addr_0x1000000000000000000000000000000000000003 = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(  # noqa: F841
         code=Op.RETURN(offset=0xFFFFFFFF, size=0x0) + Op.STOP,
         nonce=0,
-        address=Address("0xff6b6d23be161344e86eb7b174acedd4b1dc6dc7"),  # noqa: E501
+        address=Address(0xFF6B6D23BE161344E86EB7B174ACEDD4B1DC6DC7),  # noqa: E501
     )
     # Source: lll
     # { (RETURN 0xffffffffffffffff 0) }
-    addr_0x1000000000000000000000000000000000000004 = pre.deploy_contract(  # noqa: F841
+    addr_4 = pre.deploy_contract(  # noqa: F841
         code=Op.RETURN(offset=0xFFFFFFFFFFFFFFFF, size=0x0) + Op.STOP,
         nonce=0,
-        address=Address("0x7bbcf24c83493c4e733cb54079b51873d3211ad2"),  # noqa: E501
+        address=Address(0x7BBCF24C83493C4E733CB54079B51873D3211AD2),  # noqa: E501
     )
     # Source: lll
     # { (RETURN 0xfffffffffffffffffffffffffff 0) }
-    addr_0x1000000000000000000000000000000000000005 = pre.deploy_contract(  # noqa: F841
+    addr_5 = pre.deploy_contract(  # noqa: F841
         code=Op.RETURN(offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFF, size=0x0)
         + Op.STOP,
         nonce=0,
-        address=Address("0x7a4461ac9f9cd13f40f9514a7c60e23a71c1dff3"),  # noqa: E501
+        address=Address(0x7A4461AC9F9CD13F40F9514A7C60E23A71C1DFF3),  # noqa: E501
     )
     # Source: lll
     # { (RETURN 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0)  }  # noqa: E501
-    addr_0x1000000000000000000000000000000000000006 = pre.deploy_contract(  # noqa: F841
+    addr_6 = pre.deploy_contract(  # noqa: F841
         code=Op.RETURN(
             offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
             size=0x0,
         )
         + Op.STOP,
         nonce=0,
-        address=Address("0x4912bc7b66a3bf27adfa54ab049e90e8c9c4dc63"),  # noqa: E501
+        address=Address(0x4912BC7B66A3BF27ADFA54AB049E90E8C9C4DC63),  # noqa: E501
     )
     # Source: lll
     # { (RETURN 0 0xfffffff) }
-    addr_0x1000000000000000000000000000000000000007 = pre.deploy_contract(  # noqa: F841
+    addr_7 = pre.deploy_contract(  # noqa: F841
         code=Op.RETURN(offset=0x0, size=0xFFFFFFF) + Op.STOP,
         nonce=0,
-        address=Address("0x7266f1c07958d55ce36de0592604f1a915bdf1c2"),  # noqa: E501
+        address=Address(0x7266F1C07958D55CE36DE0592604F1A915BDF1C2),  # noqa: E501
     )
     # Source: lll
     # {  (RETURN 0 0xffffffff)  }
-    addr_0x1000000000000000000000000000000000000008 = pre.deploy_contract(  # noqa: F841
+    addr_8 = pre.deploy_contract(  # noqa: F841
         code=Op.RETURN(offset=0x0, size=0xFFFFFFFF) + Op.STOP,
         nonce=0,
-        address=Address("0x2ceb88d6c420e5c65593d9ebed9a25600ab9e113"),  # noqa: E501
+        address=Address(0x2CEB88D6C420E5C65593D9EBED9A25600AB9E113),  # noqa: E501
     )
     # Source: lll
     # { (RETURN 0 0xffffffffffffffff) }
-    addr_0x1000000000000000000000000000000000000009 = pre.deploy_contract(  # noqa: F841
+    addr_9 = pre.deploy_contract(  # noqa: F841
         code=Op.RETURN(offset=0x0, size=0xFFFFFFFFFFFFFFFF) + Op.STOP,
         nonce=0,
-        address=Address("0x0b09ca4308585f026b8d02be147fea0739ec463a"),  # noqa: E501
+        address=Address(0x0B09CA4308585F026B8D02BE147FEA0739EC463A),  # noqa: E501
     )
     # Source: lll
     # { (RETURN 0 0xfffffffffffffffffffffffffff) }
-    addr_0x1000000000000000000000000000000000000010 = pre.deploy_contract(  # noqa: F841
+    addr_10 = pre.deploy_contract(  # noqa: F841
         code=Op.RETURN(offset=0x0, size=0xFFFFFFFFFFFFFFFFFFFFFFFFFFF)
         + Op.STOP,
         nonce=0,
-        address=Address("0xf519de4dcb9aaa53f8f0db9b18c715c928caade8"),  # noqa: E501
+        address=Address(0xF519DE4DCB9AAA53F8F0DB9B18C715C928CAADE8),  # noqa: E501
     )
     # Source: lll
     # { (RETURN 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)  }  # noqa: E501
-    addr_0x1000000000000000000000000000000000000011 = pre.deploy_contract(  # noqa: F841
+    addr_11 = pre.deploy_contract(  # noqa: F841
         code=Op.RETURN(
             offset=0x0,
             size=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
         )
         + Op.STOP,
         nonce=0,
-        address=Address("0x28463490948d21efc49949b4d394989bf52c57f1"),  # noqa: E501
+        address=Address(0x28463490948D21EFC49949B4D394989BF52C57F1),  # noqa: E501
     )
     # Source: lll
     # { (RETURN 0xfffffff 0xfffffff) }
-    addr_0x1000000000000000000000000000000000000012 = pre.deploy_contract(  # noqa: F841
+    addr_12 = pre.deploy_contract(  # noqa: F841
         code=Op.RETURN(offset=0xFFFFFFF, size=0xFFFFFFF) + Op.STOP,
         nonce=0,
-        address=Address("0x07084994c5891b1467d74bedb0477da4909e4c0e"),  # noqa: E501
+        address=Address(0x07084994C5891B1467D74BEDB0477DA4909E4C0E),  # noqa: E501
     )
     # Source: lll
     # {  (RETURN 0xffffffff 0xffffffff)  }
-    addr_0x1000000000000000000000000000000000000013 = pre.deploy_contract(  # noqa: F841
+    addr_13 = pre.deploy_contract(  # noqa: F841
         code=Op.RETURN(offset=0xFFFFFFFF, size=0xFFFFFFFF) + Op.STOP,
         nonce=0,
-        address=Address("0xad7754a8a56cc5ad4e319fa94194e435628dee67"),  # noqa: E501
+        address=Address(0xAD7754A8A56CC5AD4E319FA94194E435628DEE67),  # noqa: E501
     )
     # Source: lll
     # { (RETURN 0xffffffffffffffff 0xffffffffffffffff) }
-    addr_0x1000000000000000000000000000000000000014 = pre.deploy_contract(  # noqa: F841
+    addr_14 = pre.deploy_contract(  # noqa: F841
         code=Op.RETURN(offset=0xFFFFFFFFFFFFFFFF, size=0xFFFFFFFFFFFFFFFF)
         + Op.STOP,
         nonce=0,
-        address=Address("0x416408c1d7fda274ddeb45ffe4817068808121ca"),  # noqa: E501
+        address=Address(0x416408C1D7FDA274DDEB45FFE4817068808121CA),  # noqa: E501
     )
     # Source: lll
     # { (RETURN 0xfffffffffffffffffffffffffff 0xfffffffffffffffffffffffffff) }
-    addr_0x1000000000000000000000000000000000000015 = pre.deploy_contract(  # noqa: F841
+    addr_15 = pre.deploy_contract(  # noqa: F841
         code=Op.RETURN(
             offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFF,
             size=0xFFFFFFFFFFFFFFFFFFFFFFFFFFF,
         )
         + Op.STOP,
         nonce=0,
-        address=Address("0x2548bda95a3831abcd613f4d24e4634615a71cca"),  # noqa: E501
+        address=Address(0x2548BDA95A3831ABCD613F4D24E4634615A71CCA),  # noqa: E501
     )
     # Source: lll
     # { (RETURN 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)  }  # noqa: E501
-    addr_0x1000000000000000000000000000000000000016 = pre.deploy_contract(  # noqa: F841
+    addr_16 = pre.deploy_contract(  # noqa: F841
         code=Op.RETURN(
             offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
             size=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
         )
         + Op.STOP,
         nonce=0,
-        address=Address("0x76006c948f3a0529479c6d18a6f95908426e8092"),  # noqa: E501
+        address=Address(0x76006C948F3A0529479C6D18A6F95908426E8092),  # noqa: E501
     )
     pre[sender] = Account(
         balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
@@ -445,13 +433,19 @@ def test_static_return_bounds_oog(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes("00"),
+        Address(0x1),
+    ]
+    tx_gas = [15000000]
+    tx_value = [1]
+
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
         error=_exc,
     )
 

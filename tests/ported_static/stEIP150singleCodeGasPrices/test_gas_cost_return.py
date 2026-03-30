@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_gas_cost_return(
     pre: Alloc,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x40AC0FC28C27E961EE46EC43355A094DE205856EDBD4654CF2577C2608D4EC1E
     )
@@ -42,26 +42,25 @@ def test_gas_cost_return(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
 
     # Source: raw
     # 0x600060FF00
-    addr_0x0000000000000000000000000000000000001000 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.PUSH1[0x0] + Op.PUSH1[0xFF] + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address("0xeb0e68b88a12fc84ad4a1eeb07b289638c4d9f3c"),  # noqa: E501
+        address=Address(0xEB0E68B88A12FC84AD4A1EEB07B289638C4D9F3C),  # noqa: E501
     )
     # Source: raw
     # 0x600060FFF3
-    addr_0x0000000000000000000000000000000000002000 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.RETURN(offset=0xFF, size=0x0),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address("0x35cd99e56b0f9ac243172a86bef4d042dfdbc166"),  # noqa: E501
+        address=Address(0x35CD99E56B0F9AC243172A86BEF4D042DFDBC166),  # noqa: E501
     )
     # Source: lll
     # {
@@ -132,17 +131,16 @@ def test_gas_cost_return(
         storage={0: 24743},
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address("0x155665fb22995bb5b9dc1d8d9d57a00ac64dc1e0"),  # noqa: E501
+        address=Address(0x155665FB22995BB5B9DC1D8D9D57A00AC64DC1E0),  # noqa: E501
     )
     pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=bytes.fromhex("00"),
+        data=Bytes("00"),
         gas_limit=16777216,
         value=1,
-        gas_price=10,
     )
 
     post = {target: Account(storage={0: 0, 1: 0})}

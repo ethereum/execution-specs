@@ -12,6 +12,7 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -22,20 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "000000000000000000000000cfb4c99d22928822feffa77a1a6de64042e48dd3",
-    "000000000000000000000000b02bd8691a1a4f5fd4432b5b17c68dde3013fc35",
-]
-TX_GAS = [882500000]
-TX_VALUE = [10]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -43,6 +31,7 @@ def _tx_data(d: int) -> bytes:
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "d, g, v",
     [
@@ -70,7 +59,7 @@ def test_static_call50000_identity2(
     v: int,
 ) -> None:
     """Test_static_call50000_identity2."""
-    coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+    coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = EOA(
         key=0xE7C72B378297589ACEE4E0BA3272841BCFC5E220F86DE253F890274CFEE9E474
     )
@@ -80,7 +69,6 @@ def test_static_call50000_identity2(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=8925000000,
     )
@@ -104,11 +92,11 @@ def test_static_call50000_identity2(
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
         nonce=0,
-        address=Address("0xc0e4183389eb57f779a986d8c878f89b9401dc8e"),  # noqa: E501
+        address=Address(0xC0E4183389EB57F779A986D8C878F89B9401DC8E),  # noqa: E501
     )
     # Source: lll
     # { (def 'i 0x80) [ 1 ] 42 (for {} (< @i 50000) [i](+ @i 1) [[ 0 ]] (STATICCALL 1564 4 0 50000 1 50000) ) [[ 1 ]] @i [[ 2 ]] @1 }  # noqa: E501
-    addr_0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x1, value=0x2A)
         + Op.JUMPDEST
         + Op.JUMPI(
@@ -133,11 +121,11 @@ def test_static_call50000_identity2(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
-        address=Address("0xcfb4c99d22928822feffa77a1a6de64042e48dd3"),  # noqa: E501
+        address=Address(0xCFB4C99D22928822FEFFA77A1A6DE64042E48DD3),  # noqa: E501
     )
     # Source: lll
     # { (def 'i 0x80) [ 1 ] 42 (for {} (< @i 50000) [i](+ @i 1) (MSTORE 0 (STATICCALL 1564 4 0 50000 1 50000)) ) (MSTORE 32 @i) (MSTORE 64 @1 ) }  # noqa: E501
-    addr_0xcccf5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x1, value=0x2A)
         + Op.JUMPDEST
         + Op.JUMPI(
@@ -162,7 +150,7 @@ def test_static_call50000_identity2(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
-        address=Address("0xb02bd8691a1a4f5fd4432b5b17c68dde3013fc35"),  # noqa: E501
+        address=Address(0xB02BD8691A1A4F5FD4432B5B17C68DDE3013FC35),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -171,9 +159,7 @@ def test_static_call50000_identity2(
             "network": [">=Cancun<Osaka"],
             "result": {
                 sender: Account(storage={}, code=b"", nonce=1),
-                addr_0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={1: 50000, 2: 42}, nonce=0
-                ),
+                addr: Account(storage={1: 50000, 2: 42}, nonce=0),
                 target: Account(storage={0: 1, 1: 1}),
             },
         },
@@ -182,9 +168,7 @@ def test_static_call50000_identity2(
             "network": [">=Cancun<Osaka"],
             "result": {
                 sender: Account(storage={}, code=b"", nonce=1),
-                addr_0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                    storage={}, nonce=0
-                ),
+                addr: Account(storage={}, nonce=0),
                 target: Account(storage={0: 1, 1: 1}),
             },
         },
@@ -192,13 +176,19 @@ def test_static_call50000_identity2(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Hash(addr, left_padding=True),
+        Hash(addr_2, left_padding=True),
+    ]
+    tx_gas = [882500000]
+    tx_value = [10]
+
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
         error=_exc,
     )
 

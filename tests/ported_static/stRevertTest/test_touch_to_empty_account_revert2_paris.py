@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,10 +32,8 @@ def test_touch_to_empty_account_revert2_paris(
     pre: Alloc,
 ) -> None:
     """Test_touch_to_empty_account_revert2_paris."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    addr_0x1000000000000000000000000000000000000000 = Address(
-        "0x76fae819612a29489a1a43208613d8f8557b8898"
-    )
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    addr = Address(0x76FAE819612A29489A1A43208613D8F8557B8898)
     sender = EOA(
         key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
@@ -45,13 +43,12 @@ def test_touch_to_empty_account_revert2_paris(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
 
     pre[sender] = Account(balance=0xE8D4A51000)
-    pre[addr_0x1000000000000000000000000000000000000000] = Account(balance=10)
+    pre[addr] = Account(balance=10)
     # Source: lll
     # { [[0]](CALL 130000 <eoa:0x1000000000000000000000000000000000000000> 0 0 0 0 0) [[1]](CALL 130000 <contract:0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -81,11 +78,11 @@ def test_touch_to_empty_account_revert2_paris(
         )
         + Op.STOP,
         nonce=0,
-        address=Address("0x0982de98d43928669ec4ed9fea05f2b852bbec41"),  # noqa: E501
+        address=Address(0x0982DE98D43928669EC4ED9FEA05F2B852BBEC41),  # noqa: E501
     )
     # Source: lll
     # { [[2]](CALL 130000 <eoa:0x1000000000000000000000000000000000000000> 0 0 0 0 0) (KECCAK256 0x00 0x2fffff) }  # noqa: E501
-    addr_0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(
             key=0x2,
             value=Op.CALL(
@@ -101,18 +98,16 @@ def test_touch_to_empty_account_revert2_paris(
         + Op.SHA3(offset=0x0, size=0x2FFFFF)
         + Op.STOP,
         nonce=0,
-        address=Address("0xfc4d79463bc948eb3fe54196270de2b78c201506"),  # noqa: E501
+        address=Address(0xFC4D79463BC948EB3FE54196270DE2B78C201506),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=1000000,
-        gas_price=10,
     )
 
-    post = {
-        addr_0x1000000000000000000000000000000000000000: Account(balance=10)
-    }
+    post = {addr: Account(balance=10)}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

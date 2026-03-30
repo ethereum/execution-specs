@@ -12,6 +12,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     Hash,
     StateTestFiller,
@@ -21,7 +22,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -38,7 +38,7 @@ def test_empty_blobhash_list(
     pre: Alloc,
 ) -> None:
     """BLOB000."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
     )
@@ -48,7 +48,6 @@ def test_empty_blobhash_list(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=7,
         excess_blob_gas=0,
         gas_limit=68719476736,
@@ -63,22 +62,23 @@ def test_empty_blobhash_list(
         code=Op.SSTORE(key=0x0, value=Op.BLOBHASH(index=0x0)) + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0xc4dcf66bd4cdefe4ce7fba4951be4e9f580122c5"),  # noqa: E501
+        address=Address(0xC4DCF66BD4CDEFE4CE7FBA4951BE4E9F580122C5),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=bytes.fromhex("00"),
+        data=Bytes("00"),
         gas_limit=4000000,
         value=0x186A0,
         max_fee_per_gas=5000000000,
         max_priority_fee_per_gas=2,
         max_fee_per_blob_gas=10,
+        blob_versioned_hashes=[],
         access_list=[
             AccessList(
-                address=Address("0xc4dcf66bd4cdefe4ce7fba4951be4e9f580122c5"),
+                address=Address(0xC4DCF66BD4CDEFE4CE7FBA4951BE4E9F580122C5),
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501

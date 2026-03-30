@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_mem_copy_self(
     pre: Alloc,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x48DC5A9F099CAAAA557742CA3A990A94BE45B9969126A1BC74E5E8BE5A2B5B47
     )
@@ -42,7 +42,6 @@ def test_mem_copy_self(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
@@ -104,16 +103,16 @@ def test_mem_copy_self(
         storage={0: 24743},
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address("0xb595300ac049b84c5277c7ca68a96d74ae377b85"),  # noqa: E501
+        address=Address(0xB595300AC049B84C5277C7CA68A96D74AE377B85),  # noqa: E501
     )
     pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=16777216,
         nonce=1,
-        gas_price=10,
     )
 
     post = {

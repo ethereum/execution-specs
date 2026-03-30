@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,10 +34,8 @@ def test_non_zero_value_suicide_to_one_storage_key_paris(
     pre: Alloc,
 ) -> None:
     """Test_non_zero_value_suicide_to_one_storage_key_paris."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b = Address(
-        "0x4757608f18b70777ae788dd4056eeed52f7aa68f"
-    )
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    addr = Address(0x4757608F18B70777AE788DD4056EEED52F7AA68F)
     sender = EOA(
         key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
@@ -47,7 +45,6 @@ def test_non_zero_value_suicide_to_one_storage_key_paris(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -63,17 +60,15 @@ def test_non_zero_value_suicide_to_one_storage_key_paris(
         storage={0: 1},
         balance=1,
         nonce=0,
-        address=Address("0xcf0486ce2acf393729249ba0f9b3cfbe450df9c3"),  # noqa: E501
+        address=Address(0xCF0486CE2ACF393729249BA0F9B3CFBE450DF9C3),  # noqa: E501
     )
-    pre[addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b] = Account(
-        balance=10, storage={0: 1}
-    )
+    pre[addr] = Account(balance=10, storage={0: 1})
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=600000,
-        gas_price=10,
     )
 
     post = {
@@ -85,9 +80,7 @@ def test_non_zero_value_suicide_to_one_storage_key_paris(
             balance=0,
             nonce=0,
         ),
-        addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-            storage={0: 1}, balance=11
-        ),
+        addr: Account(storage={0: 1}, balance=11),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

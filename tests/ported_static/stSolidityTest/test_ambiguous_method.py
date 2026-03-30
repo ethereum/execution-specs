@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_ambiguous_method(
     pre: Alloc,
 ) -> None:
     """Test_ambiguous_method."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xA9AE12CB2700C0214F86B9796881BC03A1FD5605D0E76D2DA2CA592E62D53E52
     )
@@ -42,7 +42,6 @@ def test_ambiguous_method(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
@@ -71,17 +70,16 @@ def test_ambiguous_method(
         + Op.JUMP,
         balance=0x186A0,
         nonce=0,
-        address=Address("0x235c9320b0f4d30204334c1ddb008dfe1d75b1b9"),  # noqa: E501
+        address=Address(0x235C9320B0F4D30204334C1DDB008DFE1D75B1B9),  # noqa: E501
     )
     pre[sender] = Account(balance=0x12A05F200)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=bytes.fromhex("c0406226"),
+        data=Bytes("c0406226"),
         gas_limit=300000,
         value=1,
-        gas_price=10,
     )
 
     post = {target: Account(storage={0: 335})}

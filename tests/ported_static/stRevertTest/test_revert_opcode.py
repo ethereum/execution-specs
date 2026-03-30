@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -22,19 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "",
-]
-TX_GAS = [800000, 30000]
-TX_VALUE = [0, 10]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -80,7 +69,7 @@ def test_revert_opcode(
     v: int,
 ) -> None:
     """Test_revert_opcode."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
@@ -90,7 +79,6 @@ def test_revert_opcode(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -103,7 +91,7 @@ def test_revert_opcode(
         + Op.REVERT(offset=0x0, size=0x1)
         + Op.SSTORE(key=0x1, value=0x11),
         nonce=0,
-        address=Address("0xf5eaf70f313ab7c223ded96f5a804abc49bf804a"),  # noqa: E501
+        address=Address(0xF5EAF70F313AB7C223DED96F5A804ABC49BF804A),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -127,13 +115,18 @@ def test_revert_opcode(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes(""),
+    ]
+    tx_gas = [800000, 30000]
+    tx_value = [0, 10]
+
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
         error=_exc,
     )
 

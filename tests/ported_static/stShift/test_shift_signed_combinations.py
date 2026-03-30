@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -33,7 +33,7 @@ def test_shift_signed_combinations(
     pre: Alloc,
 ) -> None:
     """Https://github."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
@@ -43,7 +43,6 @@ def test_shift_signed_combinations(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
@@ -309,16 +308,16 @@ def test_shift_signed_combinations(
         + Op.STOP * 2,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x6c08b7236ee4784e5499b9a576902679d8f863d5"),  # noqa: E501
+        address=Address(0x6C08B7236EE4784E5499B9A576902679D8F863D5),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=80000000,
         value=1,
-        gas_price=10,
     )
 
     post = {

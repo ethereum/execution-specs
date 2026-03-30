@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_loop_calls_then_revert(
     pre: Alloc,
 ) -> None:
     """Test_loop_calls_then_revert."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
@@ -42,7 +42,6 @@ def test_loop_calls_then_revert(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
@@ -67,29 +66,27 @@ def test_loop_calls_then_revert(
         + Op.JUMPI(pc=0x0, condition=Op.SLOAD(key=0x0)),
         storage={0: 850},
         nonce=0,
-        address=Address("0x0347aff20d9d3c574e18f3b17dc267ddcd2d75ca"),  # noqa: E501
+        address=Address(0x0347AFF20D9D3C574E18F3B17DC267DDCD2D75CA),  # noqa: E501
     )
     # Source: lll
     # { [[0]] (ADD 1 (SLOAD 0)) }
-    addr_0xb000000000000000000000000000000000000000 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.ADD(0x1, Op.SLOAD(key=0x0)))
         + Op.STOP,
         nonce=0,
-        address=Address("0xc47bcbf49dd735566cfde927821e938d5b33014c"),  # noqa: E501
+        address=Address(0xC47BCBF49DD735566CFDE927821E938D5B33014C),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=10000000,
-        gas_price=10,
     )
 
     post = {
         target: Account(storage={0: 0}),
-        addr_0xb000000000000000000000000000000000000000: Account(
-            storage={0: 850}
-        ),
+        addr: Account(storage={0: 850}),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

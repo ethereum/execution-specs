@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -22,34 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "ebd141d50000000000000000000000000000000000000000000000000000000000000010",
-    "6e3a72040000000000000000000000000000000000000000000000000000000000000010",
-    "c1c922f10000000000000000000000000000000000000000000000000000000000000010",
-    "ebd141d50000000000000000000000000000000000000000000000000000000000000100",
-    "5114e2c8000000000000000000000000000000000000000000000000000000000000000a",
-    "5114e2c80000000000000000000000000000000000000000000000000000000000000032",
-    "264bb86a0000000000000000000000000000000000000000000000000000000000000006",
-    "7074a4860000000000000000000000000000000000000000000000000000000000000006",
-    "7f9317bd",
-    "c54b5829f2f4f1f2f4f1f2f4f1f2f4f1f2f4f1f2f4f1f2f4f1f2f4f1f2f4f1f2f4f1f1f1",
-    "c54b5829f1f1f1f1f2f2f2f2f4f4f4f4f1f1f1f1f2f2f2f2f4f4f4f4f1f1f1f1f2f2f2f2",
-    "c54b5829f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1",
-    "c54b5829f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1",
-    "c54b5829f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2",
-    "c54b5829f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4",
-    "5d7935df",
-]
-TX_GAS = [16777216]
-TX_VALUE = [0]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -167,19 +141,19 @@ def test_trans_storage_ok(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    contract_0 = Address("0x00000000000000000000000000000000ebd141d5")
-    contract_1 = Address("0x000000000000000000000000000000006e3a7204")
-    contract_2 = Address("0x00000000000000000000000000000000c1c922f1")
-    contract_3 = Address("0x00000000000000000000000000000000ca11bacc")
-    contract_4 = Address("0x000000000000000000000000000000005114e2c8")
-    contract_5 = Address("0x00000000000000000000000000000000264bb86a")
-    contract_6 = Address("0x000000000000000000000000000000007074a486")
-    contract_7 = Address("0x000000000000000000000000000000000000add1")
-    contract_8 = Address("0x000000000000000000000000000000007f9317bd")
-    contract_9 = Address("0x00000000000000000000000000000000c54b5829")
-    contract_10 = Address("0x00000000000000000000000000000000000057a7")
-    contract_11 = Address("0x000000000000000000000000000000005d7935df")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0x00000000000000000000000000000000EBD141D5)
+    contract_1 = Address(0x000000000000000000000000000000006E3A7204)
+    contract_2 = Address(0x00000000000000000000000000000000C1C922F1)
+    contract_3 = Address(0x00000000000000000000000000000000CA11BACC)
+    contract_4 = Address(0x000000000000000000000000000000005114E2C8)
+    contract_5 = Address(0x00000000000000000000000000000000264BB86A)
+    contract_6 = Address(0x000000000000000000000000000000007074A486)
+    contract_7 = Address(0x000000000000000000000000000000000000ADD1)
+    contract_8 = Address(0x000000000000000000000000000000007F9317BD)
+    contract_9 = Address(0x00000000000000000000000000000000C54B5829)
+    contract_10 = Address(0x00000000000000000000000000000000000057A7)
+    contract_11 = Address(0x000000000000000000000000000000005D7935DF)
     sender = EOA(
         key=0x48DC5A9F099CAAAA557742CA3A990A94BE45B9969126A1BC74E5E8BE5A2B5B47
     )
@@ -189,7 +163,6 @@ def test_trans_storage_ok(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
@@ -303,7 +276,7 @@ def test_trans_storage_ok(
         + Op.TSTORE
         + Op.JUMP,
         nonce=1,
-        address=Address("0x00000000000000000000000000000000ebd141d5"),  # noqa: E501
+        address=Address(0x00000000000000000000000000000000EBD141D5),  # noqa: E501
     )
     # Source: yul
     # {
@@ -414,7 +387,7 @@ def test_trans_storage_ok(
         + Op.TSTORE
         + Op.JUMP,
         nonce=1,
-        address=Address("0x000000000000000000000000000000006e3a7204"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000006E3A7204),  # noqa: E501
     )
     # Source: yul
     # {
@@ -524,7 +497,7 @@ def test_trans_storage_ok(
         + Op.TSTORE
         + Op.JUMP,
         nonce=1,
-        address=Address("0x00000000000000000000000000000000c1c922f1"),  # noqa: E501
+        address=Address(0x00000000000000000000000000000000C1C922F1),  # noqa: E501
     )
     # Source: yul
     # {
@@ -571,7 +544,7 @@ def test_trans_storage_ok(
         + Op.JUMP,
         storage={0: 24743, 1: 24743},
         nonce=1,
-        address=Address("0x00000000000000000000000000000000ca11bacc"),  # noqa: E501
+        address=Address(0x00000000000000000000000000000000CA11BACC),  # noqa: E501
     )
     # Source: yul
     # {
@@ -682,7 +655,7 @@ def test_trans_storage_ok(
         + Op.TSTORE
         + Op.JUMP,
         nonce=1,
-        address=Address("0x000000000000000000000000000000005114e2c8"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000005114E2C8),  # noqa: E501
     )
     # Source: yul
     # {
@@ -816,7 +789,7 @@ def test_trans_storage_ok(
         + Op.TSTORE
         + Op.JUMP,
         nonce=1,
-        address=Address("0x00000000000000000000000000000000264bb86a"),  # noqa: E501
+        address=Address(0x00000000000000000000000000000000264BB86A),  # noqa: E501
     )
     # Source: yul
     # {
@@ -949,7 +922,7 @@ def test_trans_storage_ok(
         + Op.TSTORE
         + Op.JUMP,
         nonce=1,
-        address=Address("0x000000000000000000000000000000007074a486"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000007074A486),  # noqa: E501
     )
     # Source: yul
     # {
@@ -983,7 +956,7 @@ def test_trans_storage_ok(
         + Op.TSTORE
         + Op.JUMP,
         nonce=1,
-        address=Address("0x000000000000000000000000000000000000add1"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000ADD1),  # noqa: E501
     )
     # Source: yul
     # {
@@ -1078,7 +1051,7 @@ def test_trans_storage_ok(
         + Op.JUMP,
         storage={0: 24743},
         nonce=1,
-        address=Address("0x000000000000000000000000000000007f9317bd"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000007F9317BD),  # noqa: E501
     )
     # Source: yul
     # {
@@ -1202,7 +1175,7 @@ def test_trans_storage_ok(
         + Op.TSTORE
         + Op.JUMP,
         nonce=1,
-        address=Address("0x00000000000000000000000000000000c54b5829"),  # noqa: E501
+        address=Address(0x00000000000000000000000000000000C54B5829),  # noqa: E501
     )
     # Source: yul
     # {
@@ -1249,7 +1222,7 @@ def test_trans_storage_ok(
         + Op.TSTORE
         + Op.JUMP,
         nonce=1,
-        address=Address("0x00000000000000000000000000000000000057a7"),  # noqa: E501
+        address=Address(0x00000000000000000000000000000000000057A7),  # noqa: E501
     )
     # Source: yul
     # {
@@ -1310,7 +1283,7 @@ def test_trans_storage_ok(
         + Op.STOP,
         storage={2: 24743, 18: 24743},
         nonce=1,
-        address=Address("0x000000000000000000000000000000005d7935df"),  # noqa: E501
+        address=Address(0x000000000000000000000000000000005D7935DF),  # noqa: E501
     )
     # Source: yul
     # {
@@ -1335,7 +1308,7 @@ def test_trans_storage_ok(
         + Op.SSTORE(key=0x1, value=Op.CALL)
         + Op.STOP,
         nonce=1,
-        address=Address("0xdd53b677a6fd4e871a6355f283b1bd7ceb95a95e"),  # noqa: E501
+        address=Address(0xDD53B677A6FD4E871A6355F283B1BD7CEB95A95E),  # noqa: E501
     )
     pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
 
@@ -1442,13 +1415,61 @@ def test_trans_storage_ok(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes(
+            "ebd141d50000000000000000000000000000000000000000000000000000000000000010"  # noqa: E501
+        ),
+        Bytes(
+            "6e3a72040000000000000000000000000000000000000000000000000000000000000010"  # noqa: E501
+        ),
+        Bytes(
+            "c1c922f10000000000000000000000000000000000000000000000000000000000000010"  # noqa: E501
+        ),
+        Bytes(
+            "ebd141d50000000000000000000000000000000000000000000000000000000000000100"  # noqa: E501
+        ),
+        Bytes(
+            "5114e2c8000000000000000000000000000000000000000000000000000000000000000a"  # noqa: E501
+        ),
+        Bytes(
+            "5114e2c80000000000000000000000000000000000000000000000000000000000000032"  # noqa: E501
+        ),
+        Bytes(
+            "264bb86a0000000000000000000000000000000000000000000000000000000000000006"  # noqa: E501
+        ),
+        Bytes(
+            "7074a4860000000000000000000000000000000000000000000000000000000000000006"  # noqa: E501
+        ),
+        Bytes("7f9317bd"),
+        Bytes(
+            "c54b5829f2f4f1f2f4f1f2f4f1f2f4f1f2f4f1f2f4f1f2f4f1f2f4f1f2f4f1f2f4f1f1f1"  # noqa: E501
+        ),
+        Bytes(
+            "c54b5829f1f1f1f1f2f2f2f2f4f4f4f4f1f1f1f1f2f2f2f2f4f4f4f4f1f1f1f1f2f2f2f2"  # noqa: E501
+        ),
+        Bytes(
+            "c54b5829f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1"  # noqa: E501
+        ),
+        Bytes(
+            "c54b5829f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1"  # noqa: E501
+        ),
+        Bytes(
+            "c54b5829f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2"  # noqa: E501
+        ),
+        Bytes(
+            "c54b5829f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4"  # noqa: E501
+        ),
+        Bytes("5d7935df"),
+    ]
+    tx_gas = [16777216]
+    tx_value = [0]
+
     tx = Transaction(
         sender=sender,
         to=target,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
         nonce=1,
-        gas_price=10,
         error=_exc,
     )
 

@@ -14,6 +14,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -21,7 +22,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -31,15 +31,16 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.slow
 @pytest.mark.pre_alloc_mutable
 def test_staticcall_to_precompile_from_called_contract(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """STATICCALL to precompiled contracts from contract that called from..."""
-    coinbase = Address("0xcafe000000000000000000000000000000000001")
-    contract_0 = Address("0xb000000000000000000000000000000000000000")
-    contract_1 = Address("0xa000000000000000000000000000000000000000")
+    coinbase = Address(0xCAFE000000000000000000000000000000000001)
+    contract_0 = Address(0xB000000000000000000000000000000000000000)
+    contract_1 = Address(0xA000000000000000000000000000000000000000)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -49,7 +50,6 @@ def test_staticcall_to_precompile_from_called_contract(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -73,7 +73,7 @@ def test_staticcall_to_precompile_from_called_contract(
         )
         + Op.STOP,
         nonce=0,
-        address=Address("0xb000000000000000000000000000000000000000"),  # noqa: E501
+        address=Address(0xB000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # {
@@ -355,16 +355,16 @@ def test_staticcall_to_precompile_from_called_contract(
         + Op.SSTORE(key=0x20, value=Op.MLOAD(offset=0x3E8))
         + Op.STOP,
         nonce=0,
-        address=Address("0xa000000000000000000000000000000000000000"),  # noqa: E501
+        address=Address(0xA000000000000000000000000000000000000000),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=contract_0,
+        data=Bytes(""),
         gas_limit=1000000,
         value=100,
-        gas_price=10,
     )
 
     post = {

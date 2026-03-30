@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,10 +34,8 @@ def test_zero_value_suicide_to_one_storage_key_oog_revert_paris(
     pre: Alloc,
 ) -> None:
     """Test_zero_value_suicide_to_one_storage_key_oog_revert_paris."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b = Address(
-        "0x4757608f18b70777ae788dd4056eeed52f7aa68f"
-    )
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    addr_2 = Address(0x4757608F18B70777AE788DD4056EEED52F7AA68F)
     sender = EOA(
         key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
@@ -47,7 +45,6 @@ def test_zero_value_suicide_to_one_storage_key_oog_revert_paris(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -73,36 +70,32 @@ def test_zero_value_suicide_to_one_storage_key_oog_revert_paris(
         + Op.STOP,
         storage={0: 1},
         nonce=0,
-        address=Address("0x1d63510fcd4f3069306ebae45ec6910c0bc944c8"),  # noqa: E501
+        address=Address(0x1D63510FCD4F3069306EBAE45EC6910C0BC944C8),  # noqa: E501
     )
     # Source: lll
     # { (SELFDESTRUCT <eoa:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b>) }
-    addr_0xd94f5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SELFDESTRUCT(
             address=0x4757608F18B70777AE788DD4056EEED52F7AA68F
         )
         + Op.STOP,
         storage={0: 1},
         nonce=0,
-        address=Address("0x8d444744833c9b79fdfe630f155cf1f3bbeb92e3"),  # noqa: E501
+        address=Address(0x8D444744833C9B79FDFE630F155CF1F3BBEB92E3),  # noqa: E501
     )
-    pre[addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b] = Account(
-        balance=10, storage={0: 1}
-    )
+    pre[addr_2] = Account(balance=10, storage={0: 1})
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=75000,
-        gas_price=10,
     )
 
     post = {
         sender: Account(nonce=1),
         target: Account(storage={0: 1}),
-        addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-            storage={0: 1}, balance=10
-        ),
+        addr_2: Account(storage={0: 1}, balance=10),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

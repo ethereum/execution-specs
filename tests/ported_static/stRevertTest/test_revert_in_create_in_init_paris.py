@@ -11,13 +11,13 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
 )
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -31,10 +31,8 @@ def test_revert_in_create_in_init_paris(
     pre: Alloc,
 ) -> None:
     """Test_revert_in_create_in_init_paris."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    addr_0x6295ee1b4f6dd65047762f924ecd367c17eabf8f = Address(
-        "0x4757608f18b70777ae788dd4056eeed52f7aa68f"
-    )
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    addr = Address(0x4757608F18B70777AE788DD4056EEED52F7AA68F)
     sender = EOA(
         key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
     )
@@ -44,30 +42,22 @@ def test_revert_in_create_in_init_paris(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=42949672960,
     )
 
-    pre[addr_0x6295ee1b4f6dd65047762f924ecd367c17eabf8f] = Account(
-        balance=10, storage={0: 1}
-    )
+    pre[addr] = Account(balance=10, storage={0: 1})
     pre[sender] = Account(balance=0x6400000000)
 
     tx = Transaction(
         sender=sender,
         to=None,
-        data=bytes.fromhex(
+        data=Bytes(
             "3050600d80602460003960006000f0503d6000556020600060003e6000516001550000fe6211223360005260206000fd00"  # noqa: E501
         ),
         gas_limit=200000,
-        gas_price=10,
     )
 
-    post = {
-        addr_0x6295ee1b4f6dd65047762f924ecd367c17eabf8f: Account(
-            storage={0: 1}, balance=10
-        ),
-    }
+    post = {addr: Account(storage={0: 1}, balance=10)}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

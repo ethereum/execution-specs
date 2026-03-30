@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_call_sha256_4_gas99(
     pre: Alloc,
 ) -> None:
     """Test_call_sha256_4_gas99."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
@@ -42,7 +42,6 @@ def test_call_sha256_4_gas99(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -70,16 +69,16 @@ def test_call_sha256_4_gas99(
         + Op.STOP,
         balance=0x1312D00,
         nonce=0,
-        address=Address("0x1b0415178117104203e61be499a69ba4a5b2a3b9"),  # noqa: E501
+        address=Address(0x1B0415178117104203E61BE499A69BA4A5B2A3B9),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=365224,
         value=0x186A0,
-        gas_price=10,
     )
 
     post = {

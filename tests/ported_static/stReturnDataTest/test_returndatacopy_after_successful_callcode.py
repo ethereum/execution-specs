@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,7 +34,7 @@ def test_returndatacopy_after_successful_callcode(
     pre: Alloc,
 ) -> None:
     """Test_returndatacopy_after_successful_callcode."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
     )
@@ -44,7 +44,6 @@ def test_returndatacopy_after_successful_callcode(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=111669149696,
     )
@@ -68,11 +67,11 @@ def test_returndatacopy_after_successful_callcode(
         + Op.STOP,
         storage={0: 0xFFFFFFFFFFFF},
         nonce=0,
-        address=Address("0x7e319028b16c006ecc1b068cce1a1c9b0b457b0d"),  # noqa: E501
+        address=Address(0x7E319028B16C006ECC1B068CCE1A1C9B0B457B0D),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 0x0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) (RETURN 0 32) }  # noqa: E501
-    addr_0x1000000000000000000000000000000000000002 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(
             offset=0x0,
             value=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
@@ -81,15 +80,15 @@ def test_returndatacopy_after_successful_callcode(
         + Op.STOP,
         balance=0x6400000000,
         nonce=0,
-        address=Address("0x53b272d553d8179d017aae6f3badf0570743593a"),  # noqa: E501
+        address=Address(0x53B272D553D8179D017AAE6F3BADF0570743593A),  # noqa: E501
     )
     pre[sender] = Account(balance=0x6400000000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=100000,
-        gas_price=10,
     )
 
     post = {

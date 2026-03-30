@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,7 +34,7 @@ def test_raw_ext_code_copy_memory_gas(
     pre: Alloc,
 ) -> None:
     """Test_raw_ext_code_copy_memory_gas."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
@@ -44,19 +44,18 @@ def test_raw_ext_code_copy_memory_gas(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
 
     # Source: raw
     # 0x0112233445566778899101112131415161718191202122232425
-    addr_0x094f5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=bytes.fromhex(
             "0112233445566778899101112131415161718191202122232425"
         ),
         nonce=0,
-        address=Address("0x4a84c43fba78ae75cbc15c5b63caa15da55f4464"),  # noqa: E501
+        address=Address(0x4A84C43FBA78AE75CBC15C5B63CAA15DA55F4464),  # noqa: E501
     )
     pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
@@ -72,14 +71,14 @@ def test_raw_ext_code_copy_memory_gas(
         + Op.SSTORE(key=0x1, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
         + Op.STOP,
         nonce=0,
-        address=Address("0x792ed227b10fcd174acc9e5a69c1f1471a138c5d"),  # noqa: E501
+        address=Address(0x792ED227B10FCD174ACC9E5A69C1F1471A138C5D),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=600000,
-        gas_price=10,
     )
 
     post = {target: Account(storage={1: 4948})}

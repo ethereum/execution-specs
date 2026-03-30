@@ -12,6 +12,7 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -22,20 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "000000000000000000000000000000000000000000000000000000000000ea60",
-    "000000000000000000000000000000000000000000000000000000000001ea60",
-]
-TX_GAS = [110000, 170000]
-TX_VALUE = [1, 0]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -107,9 +95,9 @@ def test_revert_depth_create_address_collision_berlin(
     v: int,
 ) -> None:
     """Copy of this test for CREATE2."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    contract_0 = Address("0x3e180b1862f9d158abb5e519a6d8605540c23682")
-    contract_1 = Address("0xb000000000000000000000000000000000000000")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0x3E180B1862F9D158ABB5E519A6D8605540C23682)
+    contract_1 = Address(0xB000000000000000000000000000000000000000)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -119,7 +107,6 @@ def test_revert_depth_create_address_collision_berlin(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -145,7 +132,7 @@ def test_revert_depth_create_address_collision_berlin(
         + Op.STOP,
         balance=5,
         nonce=54,
-        address=Address("0x3e180b1862f9d158abb5e519a6d8605540c23682"),  # noqa: E501
+        address=Address(0x3E180B1862F9D158ABB5E519A6D8605540C23682),  # noqa: E501
     )
     # Source: lll
     # { [[2]] 8 (CREATE2 0 0 0 0) [[3]] 12}
@@ -155,7 +142,7 @@ def test_revert_depth_create_address_collision_berlin(
         + Op.SSTORE(key=0x3, value=0xC)
         + Op.STOP,
         nonce=0,
-        address=Address("0xb000000000000000000000000000000000000000"),  # noqa: E501
+        address=Address(0xB000000000000000000000000000000000000000),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -208,13 +195,19 @@ def test_revert_depth_create_address_collision_berlin(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Hash(0xEA60),
+        Hash(0x1EA60),
+    ]
+    tx_gas = [110000, 170000]
+    tx_value = [1, 0]
+
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
         error=_exc,
     )
 

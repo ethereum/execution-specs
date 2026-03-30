@@ -11,13 +11,13 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
 )
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -31,7 +31,7 @@ def test_high_gas_limit(
     pre: Alloc,
 ) -> None:
     """Test_high_gas_limit."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x50EADFB1030587AB3A993A6ECC073041FC3B45E119DAA31A13D78C7E209631A5
     )
@@ -41,7 +41,6 @@ def test_high_gas_limit(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=9223372036854775807,
     )
@@ -53,10 +52,9 @@ def test_high_gas_limit(
     tx = Transaction(
         sender=sender,
         to=Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"),
-        data=bytes.fromhex("3240349548983454"),
+        data=Bytes("3240349548983454"),
         gas_limit=100000,
         value=900,
-        gas_price=10,
     )
 
     post = {

@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -27,13 +27,14 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")
+@pytest.mark.slow
 @pytest.mark.pre_alloc_mutable
 def test_static_call_recursive_bomb_pre_call2(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_static_call_recursive_bomb_pre_call2."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x77F65B71F1F16A75476F469F7106D1B60BFEC266AE25B8DA16A9091D223AA24A
     )
@@ -43,7 +44,6 @@ def test_static_call_recursive_bomb_pre_call2(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=9223372036854775807,
     )
@@ -76,11 +76,11 @@ def test_static_call_recursive_bomb_pre_call2(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
         nonce=0,
-        address=Address("0x5e01fe5d73a471c61018a02f7cf7d8f977343093"),  # noqa: E501
+        address=Address(0x5E01FE5D73A471C61018A02F7CF7D8F977343093),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 0 (+ (MLOAD 0) 1)) (STATICCALL (- (GAS) 224000) (ADDRESS) 0 0 0 0) }  # noqa: E501
-    addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=Op.ADD(Op.MLOAD(offset=0x0), 0x1))
         + Op.STATICCALL(
             gas=Op.SUB(Op.GAS, 0x36B00),
@@ -93,15 +93,15 @@ def test_static_call_recursive_bomb_pre_call2(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0xed136edce8f08ef121c25430e7dec4ed3feb511d"),  # noqa: E501
+        address=Address(0xED136EDCE8F08EF121C25430E7DEC4ED3FEB511D),  # noqa: E501
     )
     pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=9214364837600034817,
-        gas_price=10,
     )
 
     post = {

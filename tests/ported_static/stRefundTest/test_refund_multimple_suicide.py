@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_refund_multimple_suicide(
     pre: Alloc,
 ) -> None:
     """Test_refund_multimple_suicide."""
-    coinbase = Address("0xeb201d2887816e041f6e807e804f64f3a7a226fe")
+    coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
     sender = EOA(
         key=0xC69694690A07D1418B0AADFD424A00EA9F25D84B94FECEF12943DE9CD38EDE14
     )
@@ -42,7 +42,6 @@ def test_refund_multimple_suicide(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
@@ -146,16 +145,15 @@ def test_refund_multimple_suicide(
         + Op.JUMP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x8b9574e5049501f581886404adf7037002276e78"),  # noqa: E501
+        address=Address(0x8B9574E5049501F581886404ADF7037002276E78),  # noqa: E501
     )
     pre[sender] = Account(balance=0x623A7C0)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=bytes.fromhex("c0406226"),
+        data=Bytes("c0406226"),
         gas_limit=300000,
-        gas_price=10,
     )
 
     post = {

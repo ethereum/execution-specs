@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_callto_return2(
     pre: Alloc,
 ) -> None:
     """Test_callto_return2."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
@@ -42,7 +42,6 @@ def test_callto_return2(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -73,11 +72,11 @@ def test_callto_return2(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0xbd44c6eb4f918aa9ab1da6bca875839b1250e4e9"),  # noqa: E501
+        address=Address(0xBD44C6EB4F918AA9AB1DA6BCA875839B1250E4E9),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155603760005360026000f2
-    addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x1, value=0x1)
         + Op.MSTORE8(offset=0x0, value=0x37)
         + Op.PUSH1[0x2]
@@ -85,16 +84,16 @@ def test_callto_return2(
         + Op.CALLCODE,
         balance=23,
         nonce=0,
-        address=Address("0x2b45331c406df38b99656c3ed3a97ef219979232"),  # noqa: E501
+        address=Address(0x2B45331C406DF38B99656C3ED3A97EF219979232),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=300000,
         value=0x186A0,
-        gas_price=10,
     )
 
     post = {target: Account(storage={0: 0}, nonce=0)}

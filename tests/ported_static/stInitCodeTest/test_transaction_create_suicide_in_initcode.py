@@ -11,13 +11,13 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
 )
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -33,7 +33,7 @@ def test_transaction_create_suicide_in_initcode(
     pre: Alloc,
 ) -> None:
     """Test_transaction_create_suicide_in_initcode."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -43,7 +43,6 @@ def test_transaction_create_suicide_in_initcode(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
@@ -54,10 +53,9 @@ def test_transaction_create_suicide_in_initcode(
     tx = Transaction(
         sender=sender,
         to=None,
-        data=bytes.fromhex("30ff00"),
+        data=Bytes("30ff00"),
         gas_limit=155000,
         value=1,
-        gas_price=10,
     )
 
     post = {

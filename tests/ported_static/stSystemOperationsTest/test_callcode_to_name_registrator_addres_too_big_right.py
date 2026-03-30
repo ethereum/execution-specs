@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,7 +34,7 @@ def test_callcode_to_name_registrator_addres_too_big_right(
     pre: Alloc,
 ) -> None:
     """Test_callcode_to_name_registrator_addres_too_big_right."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
@@ -44,7 +44,6 @@ def test_callcode_to_name_registrator_addres_too_big_right(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
@@ -75,11 +74,11 @@ def test_callcode_to_name_registrator_addres_too_big_right(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0xc8de9ea9779e64cf3e682f2157a7d38205af9444"),  # noqa: E501
+        address=Address(0xC8DE9EA9779E64CF3E682F2157A7D38205AF9444),  # noqa: E501
     )
     # Source: raw
     # 0x6000355415600957005b60203560003555
-    addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.JUMPI(
             pc=0x9,
             condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
@@ -91,16 +90,16 @@ def test_callcode_to_name_registrator_addres_too_big_right(
         ),
         balance=23,
         nonce=0,
-        address=Address("0x15eb18969e0925c8e4a76fd7cbce36a2b056b27e"),  # noqa: E501
+        address=Address(0x15EB18969E0925C8E4A76FD7CBCE36A2B056B27E),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=1000000,
         value=0x186A0,
-        gas_price=10,
     )
 
     post = {target: Account(storage={0: 1})}

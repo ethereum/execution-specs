@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,10 +32,8 @@ def test_random_statetest184(
     pre: Alloc,
 ) -> None:
     """Test_random_statetest184."""
-    coinbase = Address("0x6d6e40885310545835a5b582dbc23ef026404bda")
-    addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5 = Address(
-        "0xf377657e450772b703a269e12bb487ff421a5c6d"
-    )
+    coinbase = Address(0x6D6E40885310545835A5B582DBC23EF026404BDA)
+    addr = Address(0xF377657E450772B703A269E12BB487FF421A5C6D)
     sender = EOA(
         key=0x382ACD382CC7A37BB6A57C4A171F216EF77EF04EBD5E6C0744EE5C90B0D962EF
     )
@@ -45,7 +43,6 @@ def test_random_statetest184(
         number=1,
         timestamp=10000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=69449279085,
     )
@@ -70,17 +67,15 @@ def test_random_statetest184(
         ),
         balance=0x70A217C02C8F2D4,
         nonce=117,
-        address=Address("0x898207f2d9b9fb11cec9647a70e9390711732daa"),  # noqa: E501
+        address=Address(0x898207F2D9B9FB11CEC9647A70E9390711732DAA),  # noqa: E501
     )
-    pre[addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5] = Account(
-        balance=0x9740421FF0FF3AE3, nonce=29
-    )
+    pre[addr] = Account(balance=0x9740421FF0FF3AE3, nonce=29)
     pre[sender] = Account(balance=0x10C1142F2B8E8EB058)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=bytes.fromhex("64dd3e4e84676723342c1dfaf9af4ef3"),
+        data=Bytes("64dd3e4e84676723342c1dfaf9af4ef3"),
         gas_limit=100000,
         value=0x6D1DD024,
         gas_price=28,
@@ -91,9 +86,7 @@ def test_random_statetest184(
             storage={140: 0x823A02877CEF7C1AFB60663009DEF564},
             nonce=117,
         ),
-        addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5: Account(
-            storage={}, code=b"", nonce=29
-        ),
+        addr: Account(storage={}, code=b"", nonce=29),
         sender: Account(storage={}, code=b"", nonce=1),
     }
 

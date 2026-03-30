@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,7 +34,7 @@ def test_delegatecall_value_check(
     pre: Alloc,
 ) -> None:
     """Test_delegatecall_value_check."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
@@ -44,7 +44,6 @@ def test_delegatecall_value_check(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=30000000,
     )
@@ -66,24 +65,24 @@ def test_delegatecall_value_check(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address("0x55bb8a8658b848ebbbb73cbf6ac9d59d715aec58"),  # noqa: E501
+        address=Address(0x55BB8A8658B848EBBBB73CBF6AC9D59D715AEC58),  # noqa: E501
     )
     # Source: lll
     # {[[ 1 ]] (CALLVALUE) }
-    addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x1, value=Op.CALLVALUE) + Op.STOP,
         balance=23,
         nonce=0,
-        address=Address("0x5d25ad2a26f849e9400d6b65244f26f4eea11adf"),  # noqa: E501
+        address=Address(0x5D25AD2A26F849E9400D6B65244F26F4EEA11ADF),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=3000000,
         value=23,
-        gas_price=10,
     )
 
     post = {target: Account(storage={0: 1, 1: 23})}

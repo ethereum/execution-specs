@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -34,7 +34,7 @@ def test_deleagate_call_after_value_transfer(
     pre: Alloc,
 ) -> None:
     """Test_deleagate_call_after_value_transfer."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x3722FAAB4D25B944622D559EA4BCF38B4BCF3CAF07A6D2C6FD99321C1A66C974
     )
@@ -44,7 +44,6 @@ def test_deleagate_call_after_value_transfer(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
@@ -64,25 +63,25 @@ def test_deleagate_call_after_value_transfer(
         + Op.STOP,
         balance=0x10C8E0,
         nonce=0,
-        address=Address("0xdd657898b318b3d967472eaa82bb75c4141b6735"),  # noqa: E501
+        address=Address(0xDD657898B318B3D967472EAA82BB75C4141B6735),  # noqa: E501
     )
     # Source: lll
     # { (SSTORE 0 (CALLVALUE)) (SSTORE 1 (CALLER)) (SSTORE 2 (CALLDATALOAD 0)) }  # noqa: E501
-    addr_0x1000000000000000000000000000000000000001 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.CALLVALUE)
         + Op.SSTORE(key=0x1, value=Op.CALLER)
         + Op.SSTORE(key=0x2, value=Op.CALLDATALOAD(offset=0x0))
         + Op.STOP,
         nonce=0,
-        address=Address("0x0346aa231cb52f55ddf201dc19ca469cc73e6495"),  # noqa: E501
+        address=Address(0x0346AA231CB52F55DDF201DC19CA469CC73E6495),  # noqa: E501
     )
     pre[sender] = Account(balance=0x2386F26FC10000)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=453081,
-        gas_price=10,
     )
 
     post = {
@@ -93,9 +92,7 @@ def test_deleagate_call_after_value_transfer(
                 2: 1,
             },
         ),
-        addr_0x1000000000000000000000000000000000000001: Account(
-            storage={0: 0, 1: 0, 2: 0}
-        ),
+        addr: Account(storage={0: 0, 1: 0, 2: 0}),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

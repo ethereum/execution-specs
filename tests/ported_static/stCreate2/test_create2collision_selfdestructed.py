@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -22,21 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "6000600060006000600073e2b35478fdd26477cc576dd906e6277761246a3c61c350f1506000600060006000f500",  # noqa: E501
-    "6000600060006000600073af3ecba2fe09a4f6c19f16a9d119e44e08c2da0161c350f15064600160015560005260006005601b6000f500",  # noqa: E501
-    "6000600060006000600073ec2c6832d00680ece8ff9254f81fdab0a5a2ac5061c350f1506d6460016001556000526005601bf36000526000600e60126000f500",  # noqa: E501
-]
-TX_GAS = [400000]
-TX_VALUE = [1]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -76,10 +63,10 @@ def test_create2collision_selfdestructed(
     v: int,
 ) -> None:
     """Collision with address that has been selfdestructed in the same..."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    contract_0 = Address("0xe2b35478fdd26477cc576dd906e6277761246a3c")
-    contract_1 = Address("0xaf3ecba2fe09a4f6c19f16a9d119e44e08c2da01")
-    contract_2 = Address("0xec2c6832d00680ece8ff9254f81fdab0a5a2ac50")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0xE2B35478FDD26477CC576DD906E6277761246A3C)
+    contract_1 = Address(0xAF3ECBA2FE09A4F6C19F16A9D119E44E08C2DA01)
+    contract_2 = Address(0xEC2C6832D00680ECE8FF9254F81FDAB0A5A2AC50)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -89,7 +76,6 @@ def test_create2collision_selfdestructed(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
@@ -101,7 +87,7 @@ def test_create2collision_selfdestructed(
         code=Op.SELFDESTRUCT(address=0x10) + Op.STOP,
         balance=1,
         nonce=0,
-        address=Address("0xe2b35478fdd26477cc576dd906e6277761246a3c"),  # noqa: E501
+        address=Address(0xE2B35478FDD26477CC576DD906E6277761246A3C),  # noqa: E501
     )
     # Source: lll
     # { (SELFDESTRUCT 0x10) }
@@ -109,7 +95,7 @@ def test_create2collision_selfdestructed(
         code=Op.SELFDESTRUCT(address=0x10) + Op.STOP,
         balance=1,
         nonce=0,
-        address=Address("0xaf3ecba2fe09a4f6c19f16a9d119e44e08c2da01"),  # noqa: E501
+        address=Address(0xAF3ECBA2FE09A4F6C19F16A9D119E44E08C2DA01),  # noqa: E501
     )
     # Source: lll
     # { (SELFDESTRUCT 0x10) }
@@ -117,7 +103,7 @@ def test_create2collision_selfdestructed(
         code=Op.SELFDESTRUCT(address=0x10) + Op.STOP,
         balance=1,
         nonce=0,
-        address=Address("0xec2c6832d00680ece8ff9254f81fdab0a5a2ac50"),  # noqa: E501
+        address=Address(0xEC2C6832D00680ECE8FF9254F81FDAB0A5A2AC50),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -167,13 +153,26 @@ def test_create2collision_selfdestructed(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes(
+            "6000600060006000600073e2b35478fdd26477cc576dd906e6277761246a3c61c350f1506000600060006000f500"  # noqa: E501
+        ),
+        Bytes(
+            "6000600060006000600073af3ecba2fe09a4f6c19f16a9d119e44e08c2da0161c350f15064600160015560005260006005601b6000f500"  # noqa: E501
+        ),
+        Bytes(
+            "6000600060006000600073ec2c6832d00680ece8ff9254f81fdab0a5a2ac5061c350f1506d6460016001556000526005601bf36000526000600e60126000f500"  # noqa: E501
+        ),
+    ]
+    tx_gas = [400000]
+    tx_value = [1]
+
     tx = Transaction(
         sender=sender,
         to=None,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
         error=_exc,
     )
 

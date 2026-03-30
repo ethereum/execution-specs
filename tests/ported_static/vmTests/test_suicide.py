@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -22,21 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "693c61390000000000000000000000000000000000000000000000000000000000001000",
-    "693c61390000000000000000000000000000000000000000000000000000000000001001",
-    "693c61390000000000000000000000000000000000000000000000000000000000001002",
-]
-TX_GAS = [16777216]
-TX_VALUE = [0]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -76,11 +63,11 @@ def test_suicide(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    contract_0 = Address("0x0000000000000000000000000000000000001000")
-    contract_1 = Address("0x0000000000000000000000000000000000001001")
-    contract_2 = Address("0x0000000000000000000000000000000000001002")
-    contract_3 = Address("0xcccccccccccccccccccccccccccccccccccccccc")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0x0000000000000000000000000000000000001000)
+    contract_1 = Address(0x0000000000000000000000000000000000001001)
+    contract_2 = Address(0x0000000000000000000000000000000000001002)
+    contract_3 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -90,7 +77,6 @@ def test_suicide(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
@@ -103,7 +89,7 @@ def test_suicide(
         code=Op.SELFDESTRUCT(address=Op.CALLER) + Op.STOP,
         balance=0xFF000000000000,
         nonce=0,
-        address=Address("0x0000000000000000000000000000000000001000"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000001000),  # noqa: E501
     )
     # Source: lll
     # {
@@ -113,7 +99,7 @@ def test_suicide(
         code=Op.SELFDESTRUCT(address=0xDEAD) + Op.STOP,
         balance=0x100000000000,
         nonce=0,
-        address=Address("0x0000000000000000000000000000000000001001"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000001001),  # noqa: E501
     )
     # Source: lll
     # {
@@ -123,7 +109,7 @@ def test_suicide(
         code=Op.SELFDESTRUCT(address=Op.ADDRESS) + Op.STOP,
         balance=0x100000000000,
         nonce=0,
-        address=Address("0x0000000000000000000000000000000000001002"),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000001002),  # noqa: E501
     )
     # Source: lll
     # {
@@ -142,7 +128,7 @@ def test_suicide(
         + Op.STOP,
         balance=0x100000000000,
         nonce=0,
-        address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),  # noqa: E501
+        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
     pre[sender] = Account(balance=0x5AF3107A4000)
 
@@ -173,12 +159,25 @@ def test_suicide(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Bytes(
+            "693c61390000000000000000000000000000000000000000000000000000000000001000"  # noqa: E501
+        ),
+        Bytes(
+            "693c61390000000000000000000000000000000000000000000000000000000000001001"  # noqa: E501
+        ),
+        Bytes(
+            "693c61390000000000000000000000000000000000000000000000000000000000001002"  # noqa: E501
+        ),
+    ]
+    tx_gas = [16777216]
+    tx_value = [0]
+
     tx = Transaction(
         sender=sender,
         to=contract_3,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
         error=_exc,
     )
 

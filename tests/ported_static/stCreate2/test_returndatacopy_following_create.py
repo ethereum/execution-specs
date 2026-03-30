@@ -12,6 +12,7 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -22,20 +23,7 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "0000000000000000000000000f572e5295c57f15886f9b263e2f6d2d6c7b5ec6",
-    "0000000000000000000000001f572e5295c57f15886f9b263e2f6d2d6c7b5ec6",
-]
-TX_GAS = [100000]
-TX_VALUE = [0]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -69,10 +57,10 @@ def test_returndatacopy_following_create(
     v: int,
 ) -> None:
     """Check that create2 does not fill returndata buffer with its return..."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    contract_0 = Address("0x1aabbccdd5c57f15886f9b263e2f6d2d6c7b5ec6")
-    contract_1 = Address("0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6")
-    contract_2 = Address("0x1f572e5295c57f15886f9b263e2f6d2d6c7b5ec6")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0x1AABBCCDD5C57F15886F9B263E2F6D2D6C7B5EC6)
+    contract_1 = Address(0x0F572E5295C57F15886F9B263E2F6D2D6C7B5EC6)
+    contract_2 = Address(0x1F572E5295C57F15886F9B263E2F6D2D6C7B5EC6)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
@@ -82,7 +70,6 @@ def test_returndatacopy_following_create(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=47244640256,
     )
@@ -101,7 +88,7 @@ def test_returndatacopy_following_create(
         )
         + Op.STOP,
         nonce=0,
-        address=Address("0x1aabbccdd5c57f15886f9b263e2f6d2d6c7b5ec6"),  # noqa: E501
+        address=Address(0x1AABBCCDD5C57F15886F9B263E2F6D2D6C7B5EC6),  # noqa: E501
     )
     # Source: lll
     # { (CREATE2 0 0 (lll (seq (MSTORE 0 0x0000111122223333444455556666777788889999aaaabbbbccccddddeeeeffff) (RETURN 0 32)) 0) 0) (RETURNDATACOPY 0 0 32) (SSTORE 0 (MLOAD 0)) }  # noqa: E501
@@ -123,7 +110,7 @@ def test_returndatacopy_following_create(
         + Op.STOP,
         storage={0: 1},
         nonce=0,
-        address=Address("0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6"),  # noqa: E501
+        address=Address(0x0F572E5295C57F15886F9B263E2F6D2D6C7B5EC6),  # noqa: E501
     )
     # Source: lll
     # { (seq (create2 0 0 (lll (STOP) 0) 0) (RETURNDATACOPY 0 0 32) (SSTORE 0 (MLOAD 0)) )}  # noqa: E501
@@ -140,7 +127,7 @@ def test_returndatacopy_following_create(
         + Op.STOP * 2,
         storage={0: 1},
         nonce=0,
-        address=Address("0x1f572e5295c57f15886f9b263e2f6d2d6c7b5ec6"),  # noqa: E501
+        address=Address(0x1F572E5295C57F15886F9B263E2F6D2D6C7B5EC6),  # noqa: E501
     )
     pre[sender] = Account(balance=0x6400000000)
 
@@ -159,12 +146,18 @@ def test_returndatacopy_following_create(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    tx_data = [
+        Hash(contract_1, left_padding=True),
+        Hash(contract_2, left_padding=True),
+    ]
+    tx_gas = [100000]
+    tx_value = [0]
+
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        gas_price=10,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
         error=_exc,
     )
 

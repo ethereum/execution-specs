@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_test_structures_and_variabless(
     pre: Alloc,
 ) -> None:
     """Test_test_structures_and_variabless."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x6F0117D3E9C684C7D6E1E6B79DC3880DA2BEBE77C765B171C062FDFFD38A673F
     )
@@ -42,7 +42,6 @@ def test_test_structures_and_variabless(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=9223372036854775807,
     )
@@ -224,17 +223,16 @@ def test_test_structures_and_variabless(
         + Op.JUMP,
         balance=0x186A0,
         nonce=0,
-        address=Address("0x53d3dbdfd3ae109712a4771f7f37a6b1cda7b864"),  # noqa: E501
+        address=Address(0x53D3DBDFD3AE109712A4771F7F37A6B1CDA7B864),  # noqa: E501
     )
     pre[sender] = Account(balance=0x2540BE400)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=bytes.fromhex("c0406226"),
+        data=Bytes("c0406226"),
         gas_limit=350000,
         value=100,
-        gas_price=10,
     )
 
     post = {

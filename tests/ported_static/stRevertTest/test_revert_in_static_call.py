@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,6 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
 
 
@@ -32,7 +32,7 @@ def test_revert_in_static_call(
     pre: Alloc,
 ) -> None:
     """Test_revert_in_static_call."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xA2333EEF5630066B928DEA5FD85A239F511B5B067D1441EE7AC290D0122B917B
     )
@@ -42,7 +42,6 @@ def test_revert_in_static_call(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
@@ -64,22 +63,22 @@ def test_revert_in_static_call(
         + Op.STOP,
         balance=1000,
         nonce=0,
-        address=Address("0x30f7398d20afe518491069c036185caf69d5aae9"),  # noqa: E501
+        address=Address(0x30F7398D20AFE518491069C036185CAF69D5AAE9),  # noqa: E501
     )
     # Source: lll
     # { (REVERT 0 0) }
-    addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.REVERT(offset=0x0, size=0x0) + Op.STOP,
         nonce=0,
-        address=Address("0x33fcf0576ab8b4527c9426094e2e355a7ffc7e71"),  # noqa: E501
+        address=Address(0x33FCF0576AB8B4527C9426094E2E355A7FFC7E71),  # noqa: E501
     )
     pre[sender] = Account(balance=0x5F5E100)
 
     tx = Transaction(
         sender=sender,
         to=target,
+        data=Bytes(""),
         gas_limit=105044,
-        gas_price=10,
     )
 
     post = {target: Account(storage={})}

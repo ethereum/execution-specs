@@ -11,30 +11,16 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
-
 REFERENCE_SPEC_VERSION = "N/A"
-
-TX_DATA = [
-    "326e3696ffc10e3e95c67d29784a35ba967d416feb1e1712098bcbb4d20454c1681694f51d8591ff7b80f0e4da50c89a0a777fa7666abccfbd600e213bd71da4925c2a2115799e9c3bb1622f075452",  # noqa: E501
-]
-TX_GAS = [26970]
-TX_VALUE = [4074160023, 0]
-
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
@@ -68,10 +54,8 @@ def test_random_statetest645(
     v: int,
 ) -> None:
     """Geth Failed this test on Frontier and Homestead."""
-    coinbase = Address("0xaa0103980a7c3113d3a8f81478b0281492eb3d38")
-    addr_0xffffffffffffffffffffffffffffffffffffffff = Address(
-        "0x9e9c03f8f885c32813db5207fd04870f08327f30"
-    )
+    coinbase = Address(0xAA0103980A7C3113D3A8F81478B0281492EB3D38)
+    addr_2 = Address(0x9E9C03F8F885C32813DB5207FD04870F08327F30)
     sender = EOA(
         key=0xE5FB93861A38E5458E9D2FF0203D01D1D8167FA9C0DB762CC5CA50EB43B3376
     )
@@ -81,14 +65,13 @@ def test_random_statetest645(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
-        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=13175566155172316,
     )
 
     # Source: raw
     # 0x58679b8e24022d8c28f3620b55a06384bc2f83136515b61916f0f579ea3e9d28799d45aa77bf1fc1a84edf0193dea2d610209eaaf9c814  # noqa: E501
-    addr_0x1000000000000000000000000000000000000000 = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.PC
         + Op.PUSH8[0x9B8E24022D8C28F3]
         + Op.SGT(0x84BC2F83, 0xB55A0)
@@ -98,7 +81,7 @@ def test_random_statetest645(
         ),
         balance=0xBCBAF5A33577F162,
         nonce=29,
-        address=Address("0x322c72dedad1a81092ab9ba908fbec8779ce1c32"),  # noqa: E501
+        address=Address(0x322C72DEDAD1A81092AB9BA908FBEC8779CE1C32),  # noqa: E501
     )
     pre[sender] = Account(balance=0x6F1F70FEA641F30A)
     # Source: raw
@@ -112,39 +95,31 @@ def test_random_statetest645(
         ),
         balance=0x2BE1CFD5D6D6B0B7,
         nonce=175,
-        address=Address("0xaa0103980a7c3113d3a8f81478b0281492eb3d38"),  # noqa: E501
+        address=Address(0xAA0103980A7C3113D3A8F81478B0281492EB3D38),  # noqa: E501
     )
-    pre[addr_0xffffffffffffffffffffffffffffffffffffffff] = Account(
-        balance=0xB3508C0F8A22F8A1, nonce=28
-    )
+    pre[addr_2] = Account(balance=0xB3508C0F8A22F8A1, nonce=28)
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                addr_0x1000000000000000000000000000000000000000: Account(
-                    storage={}, nonce=29
-                ),
-                sender: Account(storage={}, code=b"", nonce=1),
-                coinbase: Account(storage={}, nonce=175),
-                addr_0xffffffffffffffffffffffffffffffffffffffff: Account(
-                    storage={}, code=b"", nonce=28
-                ),
-            },
-        },
+    tx_data = [
+        Bytes(
+            "326e3696ffc10e3e95c67d29784a35ba967d416feb1e1712098bcbb4d20454c1681694f51d8591ff7b80f0e4da50c89a0a777fa7666abccfbd600e213bd71da4925c2a2115799e9c3bb1622f075452"  # noqa: E501
+        ),
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    tx_gas = [26970]
+    tx_value = [4074160023, 0]
 
     tx = Transaction(
         sender=sender,
         to=Address("0x0000000000000000000000000000000000000003"),
-        data=_tx_data(d),
-        gas_limit=TX_GAS[g],
-        value=TX_VALUE[v],
-        gas_price=10,
-        error=_exc,
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+        value=tx_value[v],
     )
+
+    post = {
+        addr: Account(storage={}, nonce=29),
+        sender: Account(storage={}, code=b"", nonce=1),
+        coinbase: Account(storage={}, nonce=175),
+        addr_2: Account(storage={}, code=b"", nonce=28),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)
