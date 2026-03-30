@@ -167,11 +167,11 @@ def _state_account(account: Account) -> StateAccount:
     )
 
 
-def _collect_account_node_set(
+def _collect_account_proof_node_rlps(
     alloc: Alloc,
     addresses: Sequence[StateAddress | bytes],
 ) -> set[bytes]:
-    """Collect hashed witness nodes for the given account proof paths."""
+    """Collect witness node RLPs for hashed account proof-path nodes."""
     storage_roots: dict[StateAddress, Root] = {}
     accounts: dict[StateAddress, StateAccount | None] = {}
 
@@ -202,7 +202,7 @@ def collect_account_proof_nodes(
     addresses: Sequence[StateAddress | bytes],
 ) -> list[Bytes]:
     """Collect account-trie proof nodes for the given addresses."""
-    return _nodes(_collect_account_node_set(alloc, addresses))
+    return _nodes(_collect_account_proof_node_rlps(alloc, addresses))
 
 
 def collect_account_path_only_nodes(
@@ -211,6 +211,8 @@ def collect_account_path_only_nodes(
     relative_to_addresses: Sequence[StateAddress | bytes],
 ) -> list[Bytes]:
     """Collect nodes unique to one account proof path relative to others."""
-    address_nodes = _collect_account_node_set(alloc, [address])
-    reference_nodes = _collect_account_node_set(alloc, relative_to_addresses)
+    address_nodes = _collect_account_proof_node_rlps(alloc, [address])
+    reference_nodes = _collect_account_proof_node_rlps(
+        alloc, relative_to_addresses
+    )
     return _nodes(address_nodes - reference_nodes)
