@@ -319,7 +319,8 @@ class TestMalformedWitnessNodes:
     def test_branch_with_zero_occupied_entries(self) -> None:
         """A branch node must encode at least two occupied entries."""
         with pytest.raises(
-            AssertionError, match="BranchNode must have at least 2 children"
+            AssertionError,
+            match="BranchNode must have at least 2 occupied entries",
         ):
             _decode_root_from_rlp(Bytes(rlp.encode([b""] * 17)))
 
@@ -329,7 +330,8 @@ class TestMalformedWitnessNodes:
         branch[0] = [nibble_list_to_compact(Bytes(b"\x01"), True), b"value"]
 
         with pytest.raises(
-            AssertionError, match="BranchNode must have at least 2 children"
+            AssertionError,
+            match="BranchNode must have at least 2 occupied entries",
         ):
             _decode_root_from_rlp(Bytes(rlp.encode(branch)))
 

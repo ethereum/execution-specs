@@ -973,7 +973,9 @@ def _decode_witness_node(
         else:
             value = b""
         occupied = 16 - children.count(None) + (value != b"")
-        assert occupied >= 2, "BranchNode must have at least 2 children"
+        assert occupied >= 2, (
+            "BranchNode must have at least 2 occupied entries"
+        )
         return MutableBranchNode(
             children=children,
             value=value,
