@@ -62,6 +62,7 @@ SLOW_CATEGORIES = {
     "stTimeConsuming",
 }
 
+
 class _AnalyzerAlloc(Alloc):
     """Alloc subclass that supports fund_eoa for analysis."""
 
@@ -207,8 +208,8 @@ def analyze(
         valid_from=valid_from,
         valid_until=valid_until,
         is_slow=(
-              (model.info is not None and "slow" in model.info.pytest_marks)                                                                             
-              or category in SLOW_CATEGORIES                                                                                                               
+            (model.info is not None and "slow" in model.info.pytest_marks)
+            or category in SLOW_CATEGORIES
         ),
         is_multi_case=is_multi_case,
         is_fork_dependent=is_fork_dependent,
