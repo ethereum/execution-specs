@@ -98,7 +98,6 @@ class Frontier(
         Return dataclass with the defined gas costs constants for genesis.
         """
         return GasCosts(
-            GAS_JUMPDEST=1,
             GAS_BASE=2,
             GAS_VERY_LOW=3,
             GAS_LOW=5,
@@ -188,6 +187,7 @@ class Frontier(
             GAS_OPCODE_BYTE=GAS_VERY_LOW,
             GAS_OPCODE_JUMP=GAS_MID,
             GAS_OPCODE_JUMPI=GAS_HIGH,
+            GAS_OPCODE_JUMPDEST=1,
             GAS_OPCODE_CALLDATALOAD=GAS_VERY_LOW,
             GAS_OPCODE_CALLDATACOPY=GAS_VERY_LOW,
             GAS_OPCODE_CODECOPY=GAS_VERY_LOW,
@@ -429,7 +429,7 @@ class Frontier(
             Opcodes.PC: gas_costs.GAS_BASE,
             Opcodes.MSIZE: gas_costs.GAS_BASE,
             Opcodes.GAS: gas_costs.GAS_BASE,
-            Opcodes.JUMPDEST: gas_costs.GAS_JUMPDEST,
+            Opcodes.JUMPDEST: gas_costs.GAS_OPCODE_JUMPDEST,
             # Push operations (PUSH1 through PUSH32)
             **{
                 getattr(Opcodes, f"PUSH{i}"): gas_costs.GAS_OPCODE_PUSH

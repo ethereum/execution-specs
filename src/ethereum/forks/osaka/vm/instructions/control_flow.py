@@ -165,7 +165,7 @@ def jumpdest(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_JUMPDEST)
+    charge_gas(evm, GasCosts.GAS_OPCODE_JUMPDEST)
 
     # OPERATION
     pass

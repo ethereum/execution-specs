@@ -30,7 +30,6 @@ class GasCosts:
     These values may be patched at runtime by a future gas repricing utility
     """
 
-    GAS_JUMPDEST = Uint(1)
     GAS_BASE = Uint(2)
     GAS_VERY_LOW = Uint(3)
     GAS_SLOAD = Uint(200)
@@ -98,6 +97,7 @@ class GasCosts:
     GAS_OPCODE_SAR = GAS_VERY_LOW
     GAS_OPCODE_JUMP = GAS_MID
     GAS_OPCODE_JUMPI = GAS_HIGH
+    GAS_OPCODE_JUMPDEST = Uint(1)
     GAS_OPCODE_CALLDATALOAD = GAS_VERY_LOW
     GAS_OPCODE_CALLDATACOPY = GAS_VERY_LOW
     GAS_OPCODE_CODECOPY = GAS_VERY_LOW
