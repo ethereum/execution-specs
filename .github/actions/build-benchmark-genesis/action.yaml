@@ -55,7 +55,7 @@ runs:
       uses: ./.github/actions/start-hive-dev
       with:
         clients: besu,go-ethereum,nethermind
-        client-file: .github/configs/hive/latest.yaml
+        client-file: .github/configs/hive/master.yaml
         hive-path: hive
 
     - name: Extract genesis configs
