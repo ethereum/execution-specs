@@ -519,37 +519,42 @@ def test_placeholder_in_bytecode() -> None:
     assert code._placeholders[p] > 0
 
 
-def test_placeholder_creates_correct_push_opcode() -> None:
+@pytest.mark.parametrize(
+    "width",
+    [pytest.param(w, id=f"PUSH{w}") for w in range(1, 33)],
+)
+def test_placeholder_creates_correct_push_opcode(width: int) -> None:
     """Test that placeholder creates the correct PUSH opcode."""
-    # PUSH1 (0x60) for width=1
-    p1 = Placeholder(width=1)
-    code1 = Op.ADD(p1, 0)
-    assert bytes(code1)[2] == Op.PUSH1.int()
-
-    # PUSH2 (0x61) for width=2
-    p2 = Placeholder(width=2)
-    code2 = Op.ADD(p2, 0)
-    assert bytes(code2)[2] == Op.PUSH2.int()
-
-    # PUSH3 (0x62) for width=3
-    p3 = Placeholder(width=3)
-    code3 = Op.ADD(p3, 0)
-    assert bytes(code3)[2] == Op.PUSH3.int()
+    p = Placeholder(width=width)
+    code = Op.ADD(p, 0)
+    expected_push_opcode = getattr(Op, f"PUSH{width}").int()
+    assert bytes(code)[2] == expected_push_opcode
 
 
-def test_placeholder_fill_basic() -> None:
+@pytest.mark.parametrize(
+    "width,fill_value",
+    [
+        pytest.param(1, 0x42, id="width=1"),
+        pytest.param(2, 0x1234, id="width=2"),
+        pytest.param(3, 0x123456, id="width=3"),
+        pytest.param(4, 0x12345678, id="width=4"),
+        pytest.param(8, 0xFF, id="width=8"),
+        pytest.param(16, 0xABCD, id="width=16"),
+        pytest.param(32, 0xDEADBEEF, id="width=32"),
+    ],
+)
+def test_placeholder_fill_basic(width: int, fill_value: int) -> None:
     """Test basic placeholder fill functionality."""
-    p = Placeholder(width=2)
-    # Use placeholder as stack argument - creates PUSH2 with zeros
+    p = Placeholder(width=width)
+    push_op = getattr(Op, f"PUSH{width}")
     code = Op.POP(p)
 
-    # Before fill, bytecode should contain PUSH2 with zeros, then POP
-    # PUSH2 (0x61) + 2 zero bytes + POP (0x50)
-    assert bytes(code) == bytes(Op.POP(Op.PUSH2(0x0000)))
+    # Before fill, bytecode should contain zeros
+    assert bytes(code) == bytes(Op.POP(push_op(0)))
 
     # Fill with actual value
-    filled = code.fill(p, 0x1234)
-    assert bytes(filled) == bytes(Op.POP(Op.PUSH2(0x1234)))
+    filled = code.fill(p, fill_value)
+    assert bytes(filled) == bytes(Op.POP(push_op(fill_value)))
 
 
 def test_placeholder_fill_removes_placeholder() -> None:
@@ -562,19 +567,30 @@ def test_placeholder_fill_removes_placeholder() -> None:
     assert p not in filled._placeholders
 
 
-def test_placeholder_fill_overflow() -> None:
+@pytest.mark.parametrize(
+    "width",
+    [
+        pytest.param(1, id="width=1"),
+        pytest.param(2, id="width=2"),
+        pytest.param(4, id="width=4"),
+        pytest.param(8, id="width=8"),
+        pytest.param(32, id="width=32"),
+    ],
+)
+def test_placeholder_fill_overflow(width: int) -> None:
     """Test that fill raises error for value overflow."""
-    p = Placeholder(width=1)
+    p = Placeholder(width=width)
     code = Op.POP(p)
 
-    # Value 256 doesn't fit in 1 byte
-    with pytest.raises(ValueError, match="doesn't fit in 1 bytes"):
-        code.fill(p, 256)
+    overflow_value = 256**width
+    with pytest.raises(ValueError, match="doesn't fit"):
+        code.fill(p, overflow_value)
 
-    # Value 255 should work
-    filled = code.fill(p, 255)
-    # PUSH1 (0x60) + 0xFF + POP (0x50)
-    assert bytes(filled) == bytes(Op.POP(Op.PUSH1(0xFF)))
+    # Max value should work
+    max_value = 256**width - 1
+    filled = code.fill(p, max_value)
+    push_op = getattr(Op, f"PUSH{width}")
+    assert bytes(filled) == bytes(Op.POP(push_op(max_value)))
 
 
 def test_placeholder_fill_negative_value() -> None:
@@ -641,16 +657,13 @@ def test_placeholder_immutability() -> None:
 @pytest.mark.parametrize(
     "width,max_value",
     [
-        pytest.param(1, 256**1 - 1, id="width=1"),
-        pytest.param(2, 256**2 - 1, id="width=2"),
-        pytest.param(3, 256**3 - 1, id="width=3"),
-        pytest.param(4, 256**4 - 1, id="width=4"),
+        pytest.param(w, 256**w - 1, id=f"width={w}")
+        for w in [1, 2, 3, 4, 8, 16, 20, 32]
     ],
 )
 def test_placeholder_max_values(width: int, max_value: int) -> None:
     """Test that placeholders accept their maximum values."""
     p = Placeholder(width=width)
-    # Use placeholder as stack argument
     code = Op.POP(p)
 
     # Should work with max value
@@ -662,3 +675,54 @@ def test_placeholder_max_values(width: int, max_value: int) -> None:
     code2 = Op.POP(p2)
     with pytest.raises(ValueError, match="doesn't fit"):
         code2.fill(p2, max_value + 1)
+
+
+def test_placeholder_fill_zero() -> None:
+    """Test that fill with value=0 produces correct bytecode."""
+    p = Placeholder(width=2)
+    code = Op.POP(p)
+
+    filled = code.fill(p, 0)
+    assert bytes(filled) == bytes(Op.POP(Op.PUSH2(0)))
+
+
+def test_multiple_placeholders() -> None:
+    """Test multiple placeholders in the same bytecode."""
+    p1 = Placeholder(width=2)
+    p2 = Placeholder(width=1)
+
+    code = Op.ADD(p1, p2)
+
+    assert p1 in code._placeholders
+    assert p2 in code._placeholders
+
+    # Fill first placeholder, second should remain
+    filled1 = code.fill(p1, 0x1234)
+    assert p1 not in filled1._placeholders
+    assert p2 in filled1._placeholders
+
+    # Fill second placeholder
+    filled2 = filled1.fill(p2, 0xAB)
+    assert p1 not in filled2._placeholders
+    assert p2 not in filled2._placeholders
+
+    # Verify final bytecode
+    assert bytes(filled2) == bytes(Op.ADD(Op.PUSH2(0x1234), Op.PUSH1(0xAB)))
+
+
+def test_placeholder_offset_after_concatenation() -> None:
+    """Test that placeholder offsets are adjusted after concatenation."""
+    p = Placeholder(width=2)
+    prefix = Op.PUSH1(0xFF) + Op.POP
+    suffix = Op.POP(p)
+
+    combined = prefix + suffix
+
+    assert p in combined._placeholders
+    # The placeholder offset should account for the prefix length
+    assert combined._placeholders[p] == (len(prefix) + suffix._placeholders[p])
+
+    # Fill should still produce correct bytecode
+    filled = combined.fill(p, 0xBEEF)
+    expected = prefix + Op.POP(Op.PUSH2(0xBEEF))
+    assert bytes(filled) == bytes(expected)
