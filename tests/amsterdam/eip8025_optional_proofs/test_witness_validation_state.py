@@ -321,7 +321,7 @@ def test_validation_state_missing_failed_call_target_account_proof_node(
     full_alloc = merge_with_amsterdam_pre_alloc(pre)
     proof_nodes = collect_account_proof_nodes(full_alloc, [target])
     assert proof_nodes
-    removed_node = _required_node(proof_nodes)
+    removed_node = _leaf_node(proof_nodes)
 
     tx = Transaction(sender=sender, to=caller, gas_limit=500_000)
 
