@@ -351,7 +351,6 @@ def test_validation_state_missing_failed_call_target_account_proof_node(
     )
 
 
-
 def test_validation_state_extra_unused_trie_node(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
