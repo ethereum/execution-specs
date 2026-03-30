@@ -56,7 +56,11 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 MAX_BYTECODE_OP_SIZE = 24576
-
+SLOW_CATEGORIES = {
+    "stQuadraticComplexityTest",
+    "stStaticCall",
+    "stTimeConsuming",
+}
 
 class _AnalyzerAlloc(Alloc):
     """Alloc subclass that supports fund_eoa for analysis."""
