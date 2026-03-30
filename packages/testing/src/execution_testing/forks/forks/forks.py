@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
 from os.path import realpath
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Dict, List, Mapping, Sized
@@ -37,11 +36,33 @@ from ..base_fork import (
 )
 from ..gas_costs import GasCosts
 from .eips.amsterdam.eip_7928 import EIP7928
+from .eips.berlin.eip_2930 import EIP2930
+from .eips.byzantium.eip_140 import EIP140
+from .eips.byzantium.eip_196 import EIP196
+from .eips.byzantium.eip_197 import EIP197
+from .eips.byzantium.eip_198 import EIP198
+from .eips.byzantium.eip_211 import EIP211
+from .eips.byzantium.eip_214 import EIP214
+from .eips.byzantium.eip_649 import EIP649
 from .eips.cancun.eip_1153 import EIP1153
 from .eips.cancun.eip_4788 import EIP4788
 from .eips.cancun.eip_4844 import EIP4844
 from .eips.cancun.eip_5656 import EIP5656
 from .eips.cancun.eip_7516 import EIP7516
+from .eips.constantinople.eip_145 import EIP145
+from .eips.constantinople.eip_1014 import EIP1014
+from .eips.constantinople.eip_1052 import EIP1052
+from .eips.constantinople.eip_1234 import EIP1234
+from .eips.homestead.eip_7 import EIP7
+from .eips.istanbul.eip_152 import EIP152
+from .eips.istanbul.eip_1108 import EIP1108
+from .eips.istanbul.eip_1344 import EIP1344
+from .eips.istanbul.eip_1884 import EIP1884
+from .eips.istanbul.eip_2028 import EIP2028
+from .eips.london.eip_1559 import EIP1559
+from .eips.london.eip_3198 import EIP3198
+from .eips.london.eip_3529 import EIP3529
+from .eips.paris.eip_3675 import EIP3675
 from .eips.osaka.eip_7594 import EIP7594
 from .eips.osaka.eip_7825 import EIP7825
 from .eips.osaka.eip_7918 import EIP7918
@@ -1222,7 +1243,7 @@ class Frontier(BaseFork, solc_name="homestead"):
         return FixtureHeader(**defaults)
 
 
-class Homestead(Frontier):
+class Homestead(EIP7, Frontier):
     """Homestead fork."""
 
     @classmethod
@@ -1237,32 +1258,6 @@ class Homestead(Frontier):
             Address(3, label="RIPEMD160"),
             Address(4, label="ID"),
         ] + super(Homestead, cls).precompiles()
-
-    @classmethod
-    def call_opcodes(cls) -> List[Opcodes]:
-        """At Homestead, DELEGATECALL opcode was introduced."""
-        return [Opcodes.DELEGATECALL] + super(Homestead, cls).call_opcodes()
-
-    @classmethod
-    def opcode_gas_map(
-        cls,
-    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
-        """Add DELEGATECALL opcode gas cost for Homestead."""
-        gas_costs = cls.gas_costs()
-        memory_expansion_calculator = cls.memory_expansion_gas_calculator()
-        base_map = super(Homestead, cls).opcode_gas_map()
-        return {
-            **base_map,
-            Opcodes.DELEGATECALL: cls._with_memory_expansion(
-                lambda op: cls._calculate_call_gas(op, gas_costs),
-                memory_expansion_calculator,
-            ),
-        }
-
-    @classmethod
-    def valid_opcodes(cls) -> List[Opcodes]:
-        """Return the list of Opcodes that are valid to work on this fork."""
-        return [Opcodes.DELEGATECALL] + super(Homestead, cls).valid_opcodes()
 
     @classmethod
     def transaction_intrinsic_cost_calculator(
@@ -1347,30 +1342,10 @@ class SpuriousDragon(TangerineWhistle, ignore=True, ruleset_name="SPURIOUS"):
         return True
 
 
-class Byzantium(SpuriousDragon):
+class Byzantium(
+    EIP649, EIP214, EIP211, EIP140, EIP197, EIP196, EIP198, SpuriousDragon
+):
     """Byzantium fork."""
-
-    @classmethod
-    def get_reward(cls) -> int:
-        """
-        At Byzantium, the block reward is reduced to 3_000_000_000_000_000_000
-        wei.
-        """
-        return 3_000_000_000_000_000_000
-
-    @classmethod
-    def precompiles(cls) -> List[Address]:
-        """
-        At Byzantium, precompiles for bigint modular exponentiation, addition
-        and scalar multiplication on elliptic curve alt_bn128, and optimal ate
-        pairing check on elliptic curve alt_bn128 are introduced.
-        """
-        return [
-            Address(5, label="MODEXP"),
-            Address(6, label="BN254_ADD"),
-            Address(7, label="BN254_MUL"),
-            Address(8, label="BN254_PAIRING"),
-        ] + super(Byzantium, cls).precompiles()
 
     @classmethod
     def max_code_size(cls) -> int:
@@ -1382,119 +1357,11 @@ class Byzantium(SpuriousDragon):
         """
         return 0x6000
 
-    @classmethod
-    def call_opcodes(cls) -> List[Opcodes]:
-        """At Byzantium, STATICCALL opcode was introduced."""
-        return [Opcodes.STATICCALL] + super(Byzantium, cls).call_opcodes()
 
-    @classmethod
-    def opcode_gas_map(
-        cls,
-    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
-        """Add Byzantium opcodes gas costs."""
-        gas_costs = cls.gas_costs()
-        memory_expansion_calculator = cls.memory_expansion_gas_calculator()
-        base_map = super(Byzantium, cls).opcode_gas_map()
-        return {
-            **base_map,
-            Opcodes.RETURNDATASIZE: gas_costs.GAS_BASE,
-            Opcodes.RETURNDATACOPY: cls._with_memory_expansion(
-                cls._with_data_copy(gas_costs.GAS_VERY_LOW, gas_costs),
-                memory_expansion_calculator,
-            ),
-            Opcodes.STATICCALL: cls._with_memory_expansion(
-                lambda op: cls._calculate_call_gas(op, gas_costs),
-                memory_expansion_calculator,
-            ),
-            Opcodes.REVERT: cls._with_memory_expansion(
-                0, memory_expansion_calculator
-            ),
-        }
-
-    @classmethod
-    def valid_opcodes(cls) -> List[Opcodes]:
-        """Return list of Opcodes that are valid to work on this fork."""
-        return [
-            Opcodes.REVERT,
-            Opcodes.RETURNDATASIZE,
-            Opcodes.RETURNDATACOPY,
-            Opcodes.STATICCALL,
-        ] + super(Byzantium, cls).valid_opcodes()
-
-    @classmethod
-    def gas_costs(cls) -> GasCosts:
-        """
-        On Byzantium, precompiled contract gas costs are introduced.
-        """
-        return replace(
-            super(Byzantium, cls).gas_costs(),
-            GAS_PRECOMPILE_ECADD=500,
-            GAS_PRECOMPILE_ECMUL=40_000,
-            GAS_PRECOMPILE_ECPAIRING_BASE=100_000,
-            GAS_PRECOMPILE_ECPAIRING_PER_POINT=80_000,
-        )
-
-
-class Constantinople(Byzantium):
+class Constantinople(EIP1234, EIP1052, EIP1014, EIP145, Byzantium):
     """Constantinople fork."""
 
-    @classmethod
-    def get_reward(cls) -> int:
-        """
-        At Constantinople, the block reward is reduced to
-        2_000_000_000_000_000_000 wei.
-        """
-        return 2_000_000_000_000_000_000
-
-    @classmethod
-    def _calculate_create2_gas(
-        cls, opcode: OpcodeBase, gas_costs: GasCosts
-    ) -> int:
-        """Calculate CREATE2 gas cost based on metadata."""
-        metadata = opcode.metadata
-
-        # Keccak256 hashing cost
-        init_code_size = metadata["init_code_size"]
-        init_code_words = (init_code_size + 31) // 32
-        hash_gas = gas_costs.GAS_KECCAK256_PER_WORD * init_code_words
-
-        return gas_costs.GAS_CREATE + hash_gas
-
-    @classmethod
-    def create_opcodes(cls) -> List[Opcodes]:
-        """At Constantinople, `CREATE2` opcode is added."""
-        return [Opcodes.CREATE2] + super(Constantinople, cls).create_opcodes()
-
-    @classmethod
-    def opcode_gas_map(
-        cls,
-    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
-        """Add Constantinople opcodes gas costs."""
-        gas_costs = cls.gas_costs()
-        memory_expansion_calculator = cls.memory_expansion_gas_calculator()
-        base_map = super(Constantinople, cls).opcode_gas_map()
-        return {
-            **base_map,
-            Opcodes.SHL: gas_costs.GAS_VERY_LOW,
-            Opcodes.SHR: gas_costs.GAS_VERY_LOW,
-            Opcodes.SAR: gas_costs.GAS_VERY_LOW,
-            Opcodes.EXTCODEHASH: cls._with_account_access(0, gas_costs),
-            Opcodes.CREATE2: cls._with_memory_expansion(
-                lambda op: cls._calculate_create2_gas(op, gas_costs),
-                memory_expansion_calculator,
-            ),
-        }
-
-    @classmethod
-    def valid_opcodes(cls) -> List[Opcodes]:
-        """Return list of Opcodes that are valid to work on this fork."""
-        return [
-            Opcodes.SHL,
-            Opcodes.SHR,
-            Opcodes.SAR,
-            Opcodes.EXTCODEHASH,
-            Opcodes.CREATE2,
-        ] + super(Constantinople, cls).valid_opcodes()
+    pass
 
 
 class ConstantinopleFix(
@@ -1507,52 +1374,12 @@ class ConstantinopleFix(
     pass
 
 
-class Istanbul(ConstantinopleFix):
+class Istanbul(
+    EIP2028, EIP1884, EIP1344, EIP1108, EIP152, ConstantinopleFix
+):
     """Istanbul fork."""
 
-    @classmethod
-    def precompiles(cls) -> List[Address]:
-        """At Istanbul, a precompile for blake2 compression is introduced."""
-        return [
-            Address(9, label="BLAKE2F"),
-        ] + super(Istanbul, cls).precompiles()
-
-    @classmethod
-    def opcode_gas_map(
-        cls,
-    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
-        """Add Istanbul opcodes gas costs."""
-        gas_costs = cls.gas_costs()
-        base_map = super(Istanbul, cls).opcode_gas_map()
-        return {
-            **base_map,
-            Opcodes.CHAINID: gas_costs.GAS_BASE,
-            Opcodes.SELFBALANCE: gas_costs.GAS_LOW,
-        }
-
-    @classmethod
-    def valid_opcodes(cls) -> List[Opcodes]:
-        """Return list of Opcodes that are valid to work on this fork."""
-        return [Opcodes.CHAINID, Opcodes.SELFBALANCE] + super(
-            Istanbul, cls
-        ).valid_opcodes()
-
-    @classmethod
-    def gas_costs(cls) -> GasCosts:
-        """
-        On Istanbul, the non-zero transaction data byte cost is reduced to 16
-        due to EIP-2028.
-        """
-        return replace(
-            super(Istanbul, cls).gas_costs(),
-            GAS_TX_DATA_PER_NON_ZERO=16,  # https://eips.ethereum.org/EIPS/eip-2028
-            # https://eips.ethereum.org/EIPS/eip-1108
-            GAS_PRECOMPILE_ECADD=150,
-            GAS_PRECOMPILE_ECMUL=6000,
-            GAS_PRECOMPILE_ECPAIRING_BASE=45_000,
-            GAS_PRECOMPILE_ECPAIRING_PER_POINT=34_000,
-            GAS_PRECOMPILE_BLAKE2F_PER_ROUND=1,
-        )
+    pass
 
 
 # Glacier forks skipped, unless explicitly specified
@@ -1562,233 +1389,16 @@ class MuirGlacier(Istanbul, solc_name="istanbul", ignore=True):
     pass
 
 
-class Berlin(Istanbul):
+class Berlin(EIP2930, Istanbul):
     """Berlin fork."""
 
-    @classmethod
-    def tx_types(cls) -> List[int]:
-        """At Berlin, access list transactions are introduced."""
-        return [1] + super(Berlin, cls).tx_types()
-
-    @classmethod
-    def contract_creating_tx_types(cls) -> List[int]:
-        """At Berlin, access list transactions are introduced."""
-        return [1] + super(Berlin, cls).contract_creating_tx_types()
-
-    @classmethod
-    def transaction_intrinsic_cost_calculator(
-        cls,
-    ) -> TransactionIntrinsicCostCalculator:
-        """
-        At Berlin, the transaction intrinsic cost needs to take the access list
-        into account.
-        """
-        super_fn = super(Berlin, cls).transaction_intrinsic_cost_calculator()
-        gas_costs = cls.gas_costs()
-
-        def fn(
-            *,
-            calldata: BytesConvertible = b"",
-            contract_creation: bool = False,
-            access_list: List[AccessList] | None = None,
-            authorization_list_or_count: Sized | int | None = None,
-            return_cost_deducted_prior_execution: bool = False,
-        ) -> int:
-            del return_cost_deducted_prior_execution
-
-            intrinsic_cost: int = super_fn(
-                calldata=calldata,
-                contract_creation=contract_creation,
-                authorization_list_or_count=authorization_list_or_count,
-            )
-            if access_list is not None:
-                for access in access_list:
-                    intrinsic_cost += gas_costs.GAS_TX_ACCESS_LIST_ADDRESS
-                    for _ in access.storage_keys:
-                        intrinsic_cost += (
-                            gas_costs.GAS_TX_ACCESS_LIST_STORAGE_KEY
-                        )
-            return intrinsic_cost
-
-        return fn
+    pass
 
 
-class London(Berlin):
+class London(EIP3529, EIP3198, EIP1559, Berlin):
     """London fork."""
 
-    @classmethod
-    def header_base_fee_required(cls) -> bool:
-        """Header must contain the Base Fee starting from London."""
-        return True
-
-    @classmethod
-    def tx_types(cls) -> List[int]:
-        """At London, dynamic fee transactions are introduced."""
-        return [2] + super(London, cls).tx_types()
-
-    @classmethod
-    def contract_creating_tx_types(cls) -> List[int]:
-        """At London, dynamic fee transactions are introduced."""
-        return [2] + super(London, cls).contract_creating_tx_types()
-
-    @classmethod
-    def opcode_gas_map(
-        cls,
-    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
-        """Add London opcodes gas costs."""
-        gas_costs = cls.gas_costs()
-        base_map = super(London, cls).opcode_gas_map()
-        return {
-            **base_map,
-            Opcodes.BASEFEE: gas_costs.GAS_BASE,
-        }
-
-    @classmethod
-    def valid_opcodes(cls) -> List[Opcodes]:
-        """Return list of Opcodes that are valid to work on this fork."""
-        return [Opcodes.BASEFEE] + super(London, cls).valid_opcodes()
-
-    @classmethod
-    def max_refund_quotient(cls) -> int:
-        """Return the max refund quotient at London."""
-        return 5
-
-    @classmethod
-    def base_fee_max_change_denominator(cls) -> int:
-        """Return the base fee max change denominator at London."""
-        return 8
-
-    @classmethod
-    def base_fee_elasticity_multiplier(cls) -> int:
-        """Return the base fee elasticity multiplier at London."""
-        return 2
-
-    @classmethod
-    def base_fee_per_gas_calculator(cls) -> BaseFeePerGasCalculator:
-        """
-        Return a callable that calculates the base fee per gas at London.
-
-        EIP-1559 block validation pseudo code:
-
-        if INITIAL_FORK_BLOCK_NUMBER == block.number:
-            expected_base_fee_per_gas = INITIAL_BASE_FEE
-        elif parent_gas_used == parent_gas_target:
-            expected_base_fee_per_gas = parent_base_fee_per_gas
-        elif parent_gas_used > parent_gas_target:
-            gas_used_delta = parent_gas_used - parent_gas_target
-            base_fee_per_gas_delta = max( parent_base_fee_per_gas
-                                  * gas_used_delta // parent_gas_target //
-                                  BASE_FEE_MAX_CHANGE_DENOMINATOR, 1, )
-            expected_base_fee_per_gas = parent_base_fee_per_gas +
-                                       base_fee_per_gas_delta
-        else:
-            gas_used_delta = parent_gas_target - parent_gas_used
-            base_fee_per_gas_delta = (
-                              parent_base_fee_per_gas * gas_used_delta //
-                              parent_gas_target //
-                              BASE_FEE_MAX_CHANGE_DENOMINATOR
-                              )
-            expected_base_fee_per_gas = parent_base_fee_per_gas -
-                                        base_fee_per_gas_delta
-        """
-        base_fee_max_change_denominator = cls.base_fee_max_change_denominator()
-        elasticity_multiplier = cls.base_fee_elasticity_multiplier()
-
-        def fn(
-            *,
-            parent_base_fee_per_gas: int,
-            parent_gas_used: int,
-            parent_gas_limit: int,
-        ) -> int:
-            parent_gas_target = parent_gas_limit // elasticity_multiplier
-            if parent_gas_used == parent_gas_target:
-                return parent_base_fee_per_gas
-            elif parent_gas_used > parent_gas_target:
-                gas_used_delta = parent_gas_used - parent_gas_target
-                base_fee_per_gas_delta = max(
-                    parent_base_fee_per_gas
-                    * gas_used_delta
-                    // parent_gas_target
-                    // base_fee_max_change_denominator,
-                    1,
-                )
-                return parent_base_fee_per_gas + base_fee_per_gas_delta
-            else:
-                gas_used_delta = parent_gas_target - parent_gas_used
-                base_fee_per_gas_delta = (
-                    parent_base_fee_per_gas
-                    * gas_used_delta
-                    // parent_gas_target
-                    // base_fee_max_change_denominator
-                )
-                return parent_base_fee_per_gas - base_fee_per_gas_delta
-
-        return fn
-
-    @classmethod
-    def base_fee_change_calculator(cls) -> BaseFeeChangeCalculator:
-        """
-        Return a callable that calculates the gas that needs to be used to
-        change the base fee.
-        """
-        base_fee_max_change_denominator = cls.base_fee_max_change_denominator()
-        elasticity_multiplier = cls.base_fee_elasticity_multiplier()
-        base_fee_per_gas_calculator = cls.base_fee_per_gas_calculator()
-
-        def fn(
-            *,
-            parent_base_fee_per_gas: int,
-            parent_gas_limit: int,
-            required_base_fee_per_gas: int,
-        ) -> int:
-            parent_gas_target = parent_gas_limit // elasticity_multiplier
-
-            if parent_base_fee_per_gas == required_base_fee_per_gas:
-                return parent_gas_target
-            elif required_base_fee_per_gas > parent_base_fee_per_gas:
-                # Base fee needs to go up, so we need to use more than target
-                base_fee_per_gas_delta = (
-                    required_base_fee_per_gas - parent_base_fee_per_gas
-                )
-                parent_gas_used = (
-                    (
-                        base_fee_per_gas_delta
-                        * base_fee_max_change_denominator
-                        * parent_gas_target
-                    )
-                    // parent_base_fee_per_gas
-                ) + parent_gas_target
-            elif required_base_fee_per_gas < parent_base_fee_per_gas:
-                # Base fee needs to go down, so we need to use less than target
-                base_fee_per_gas_delta = (
-                    parent_base_fee_per_gas - required_base_fee_per_gas
-                )
-
-                parent_gas_used = (
-                    parent_gas_target
-                    - (
-                        (
-                            base_fee_per_gas_delta
-                            * base_fee_max_change_denominator
-                            * parent_gas_target
-                        )
-                        // parent_base_fee_per_gas
-                    )
-                    - 1
-                )
-
-            assert (
-                base_fee_per_gas_calculator(
-                    parent_base_fee_per_gas=parent_base_fee_per_gas,
-                    parent_gas_used=parent_gas_used,
-                    parent_gas_limit=parent_gas_limit,
-                )
-                == required_base_fee_per_gas
-            )
-
-            return parent_gas_used
-
-        return fn
+    pass
 
 
 # Glacier forks skipped, unless explicitly specified
@@ -1805,30 +1415,14 @@ class GrayGlacier(ArrowGlacier, solc_name="london", ignore=True):
 
 
 class Paris(
+    EIP3675,
     London,
     transition_tool_name="Merge",
     ruleset_name="MERGE",
-    # Engine API method bumps
-    engine_new_payload_version_bump=True,
-    engine_forkchoice_updated_version_bump=True,
-    engine_get_payload_version_bump=True,
 ):
     """Paris (Merge) fork."""
 
-    @classmethod
-    def header_prev_randao_required(cls) -> bool:
-        """Prev Randao is required starting from Paris."""
-        return True
-
-    @classmethod
-    def header_zero_difficulty_required(cls) -> bool:
-        """Zero difficulty is required starting from Paris."""
-        return True
-
-    @classmethod
-    def get_reward(cls) -> int:
-        """Paris updates the reward to 0."""
-        return 0
+    pass
 
 
 class Shanghai(
