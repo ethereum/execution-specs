@@ -125,7 +125,7 @@ def analyze(
         valid_until = valid_forks_chrono[-1]
 
     # 4. Category from filler path
-    category = filler_path.parts[0] if filler_path.parts else ""
+    category = filler_path.parent.name if filler_path.parent.name else ""
 
     # 5. Build address -> variable name mapping
     addr_to_var = _assign_variable_names(model, tags)
