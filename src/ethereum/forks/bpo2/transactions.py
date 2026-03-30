@@ -488,7 +488,13 @@ AccessListCapableTransaction = (
     | SetCodeTransaction
 )
 """
-Union type representing transaction variants that include access list.
+Transaction types that include an [EIP-2930]-style access list.
+
+See [`has_access_list`][hal] and [`Access`][a] for more details.
+
+[EIP-2930]: https://eips.ethereum.org/EIPS/eip-2930
+[hal]: ref:ethereum.forks.amsterdam.transactions.has_access_list
+[a]: ref:ethereum.forks.amsterdam.transactions.Access
 """
 
 
@@ -893,14 +899,11 @@ def has_access_list(
     tx: Transaction,
 ) -> TypeGuard[AccessListCapableTransaction]:
     """
-    Return whether the transaction has an access list.
+    Return whether the transaction has an [EIP-2930]-style access list.
+
+    [EIP-2930]: https://eips.ethereum.org/EIPS/eip-2930
     """
     return isinstance(
         tx,
-        (
-            AccessListTransaction,
-            FeeMarketTransaction,
-            BlobTransaction,
-            SetCodeTransaction,
-        ),
+        AccessListCapableTransaction,
     )
