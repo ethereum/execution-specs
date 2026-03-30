@@ -91,10 +91,6 @@ def _trie_lookup(
             f"Unexpected node type {type(node)}"
         )
 
-        assert pos <= len(nibbles), (
-            "BranchNode cannot appear past the end of a key "
-            "in state/storage trie"
-        )
         if pos == len(nibbles):
             return node.value or None
         idx = nibbles[pos]
