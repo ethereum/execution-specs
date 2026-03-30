@@ -57,7 +57,7 @@ def jump(evm: Evm) -> None:
     jump_dest = Uint(pop(evm.stack))
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_OPCODE_JUMP)
+    charge_gas(evm, GasCosts.OPCODE_JUMP)
 
     # OPERATION
     if jump_dest not in evm.valid_jump_destinations:
@@ -84,7 +84,7 @@ def jumpi(evm: Evm) -> None:
     conditional_value = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_OPCODE_JUMPI)
+    charge_gas(evm, GasCosts.OPCODE_JUMPI)
 
     # OPERATION
     if conditional_value == 0:
@@ -162,7 +162,7 @@ def jumpdest(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_OPCODE_JUMPDEST)
+    charge_gas(evm, GasCosts.OPCODE_JUMPDEST)
 
     # OPERATION
     pass

@@ -65,7 +65,7 @@ def push_n(evm: Evm, num_bytes: int) -> None:
     if num_bytes == 0:
         charge_gas(evm, GasCosts.GAS_BASE)
     else:
-        charge_gas(evm, GasCosts.GAS_OPCODE_PUSH)
+        charge_gas(evm, GasCosts.OPCODE_PUSH)
 
     # OPERATION
     data_to_push = U256.from_be_bytes(
@@ -95,7 +95,7 @@ def dup_n(evm: Evm, item_number: int) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_OPCODE_DUP)
+    charge_gas(evm, GasCosts.OPCODE_DUP)
     if item_number >= len(evm.stack):
         raise StackUnderflowError
     data_to_duplicate = evm.stack[len(evm.stack) - 1 - item_number]
@@ -127,7 +127,7 @@ def swap_n(evm: Evm, item_number: int) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_OPCODE_SWAP)
+    charge_gas(evm, GasCosts.OPCODE_SWAP)
     if item_number >= len(evm.stack):
         raise StackUnderflowError
     evm.stack[-1], evm.stack[-1 - item_number] = (

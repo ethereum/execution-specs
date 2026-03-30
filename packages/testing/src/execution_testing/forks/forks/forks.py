@@ -164,40 +164,40 @@ class Frontier(
             GAS_PRECOMPILE_P256VERIFY=0,
             GAS_BLOCK_ACCESS_LIST_ITEM=0,
             # Opcode specific gas constants for repricing
-            GAS_OPCODE_ADD=GAS_VERY_LOW,
-            GAS_OPCODE_SUB=GAS_VERY_LOW,
-            GAS_OPCODE_MUL=GAS_LOW,
-            GAS_OPCODE_DIV=GAS_LOW,
-            GAS_OPCODE_SDIV=GAS_LOW,
-            GAS_OPCODE_MOD=GAS_LOW,
-            GAS_OPCODE_SMOD=GAS_LOW,
-            GAS_OPCODE_ADDMOD=GAS_MID,
-            GAS_OPCODE_MULMOD=GAS_MID,
-            GAS_OPCODE_SIGNEXTEND=GAS_LOW,
-            GAS_OPCODE_LT=GAS_VERY_LOW,
-            GAS_OPCODE_GT=GAS_VERY_LOW,
-            GAS_OPCODE_SLT=GAS_VERY_LOW,
-            GAS_OPCODE_SGT=GAS_VERY_LOW,
-            GAS_OPCODE_EQ=GAS_VERY_LOW,
-            GAS_OPCODE_ISZERO=GAS_VERY_LOW,
-            GAS_OPCODE_AND=GAS_VERY_LOW,
-            GAS_OPCODE_OR=GAS_VERY_LOW,
-            GAS_OPCODE_XOR=GAS_VERY_LOW,
-            GAS_OPCODE_NOT=GAS_VERY_LOW,
-            GAS_OPCODE_BYTE=GAS_VERY_LOW,
-            GAS_OPCODE_JUMP=GAS_MID,
-            GAS_OPCODE_JUMPI=GAS_HIGH,
-            GAS_OPCODE_JUMPDEST=1,
-            GAS_OPCODE_CALLDATALOAD=GAS_VERY_LOW,
-            GAS_OPCODE_CALLDATACOPY=GAS_VERY_LOW,
-            GAS_OPCODE_CODECOPY=GAS_VERY_LOW,
-            GAS_OPCODE_BLOCKHASH=20,
-            GAS_OPCODE_MLOAD=GAS_VERY_LOW,
-            GAS_OPCODE_MSTORE=GAS_VERY_LOW,
-            GAS_OPCODE_MSTORE8=GAS_VERY_LOW,
-            GAS_OPCODE_PUSH=GAS_VERY_LOW,
-            GAS_OPCODE_DUP=GAS_VERY_LOW,
-            GAS_OPCODE_SWAP=GAS_VERY_LOW,
+            OPCODE_ADD=GAS_VERY_LOW,
+            OPCODE_SUB=GAS_VERY_LOW,
+            OPCODE_MUL=GAS_LOW,
+            OPCODE_DIV=GAS_LOW,
+            OPCODE_SDIV=GAS_LOW,
+            OPCODE_MOD=GAS_LOW,
+            OPCODE_SMOD=GAS_LOW,
+            OPCODE_ADDMOD=GAS_MID,
+            OPCODE_MULMOD=GAS_MID,
+            OPCODE_SIGNEXTEND=GAS_LOW,
+            OPCODE_LT=GAS_VERY_LOW,
+            OPCODE_GT=GAS_VERY_LOW,
+            OPCODE_SLT=GAS_VERY_LOW,
+            OPCODE_SGT=GAS_VERY_LOW,
+            OPCODE_EQ=GAS_VERY_LOW,
+            OPCODE_ISZERO=GAS_VERY_LOW,
+            OPCODE_AND=GAS_VERY_LOW,
+            OPCODE_OR=GAS_VERY_LOW,
+            OPCODE_XOR=GAS_VERY_LOW,
+            OPCODE_NOT=GAS_VERY_LOW,
+            OPCODE_BYTE=GAS_VERY_LOW,
+            OPCODE_JUMP=GAS_MID,
+            OPCODE_JUMPI=GAS_HIGH,
+            OPCODE_JUMPDEST=1,
+            OPCODE_CALLDATALOAD=GAS_VERY_LOW,
+            OPCODE_CALLDATACOPY=GAS_VERY_LOW,
+            OPCODE_CODECOPY=GAS_VERY_LOW,
+            OPCODE_BLOCKHASH=20,
+            OPCODE_MLOAD=GAS_VERY_LOW,
+            OPCODE_MSTORE=GAS_VERY_LOW,
+            OPCODE_MSTORE8=GAS_VERY_LOW,
+            OPCODE_PUSH=GAS_VERY_LOW,
+            OPCODE_DUP=GAS_VERY_LOW,
+            OPCODE_SWAP=GAS_VERY_LOW,
         )
 
     @classmethod
@@ -331,33 +331,33 @@ class Frontier(
         return {
             # Stop and arithmetic operations
             Opcodes.STOP: 0,
-            Opcodes.ADD: gas_costs.GAS_OPCODE_ADD,
-            Opcodes.MUL: gas_costs.GAS_OPCODE_MUL,
-            Opcodes.SUB: gas_costs.GAS_OPCODE_SUB,
-            Opcodes.DIV: gas_costs.GAS_OPCODE_DIV,
-            Opcodes.SDIV: gas_costs.GAS_OPCODE_SDIV,
-            Opcodes.MOD: gas_costs.GAS_OPCODE_MOD,
-            Opcodes.SMOD: gas_costs.GAS_OPCODE_SMOD,
-            Opcodes.ADDMOD: gas_costs.GAS_OPCODE_ADDMOD,
-            Opcodes.MULMOD: gas_costs.GAS_OPCODE_MULMOD,
+            Opcodes.ADD: gas_costs.OPCODE_ADD,
+            Opcodes.MUL: gas_costs.OPCODE_MUL,
+            Opcodes.SUB: gas_costs.OPCODE_SUB,
+            Opcodes.DIV: gas_costs.OPCODE_DIV,
+            Opcodes.SDIV: gas_costs.OPCODE_SDIV,
+            Opcodes.MOD: gas_costs.OPCODE_MOD,
+            Opcodes.SMOD: gas_costs.OPCODE_SMOD,
+            Opcodes.ADDMOD: gas_costs.OPCODE_ADDMOD,
+            Opcodes.MULMOD: gas_costs.OPCODE_MULMOD,
             Opcodes.EXP: lambda op: (
                 gas_costs.GAS_EXPONENTIATION
                 + gas_costs.GAS_EXPONENTIATION_PER_BYTE
                 * ((op.metadata["exponent"].bit_length() + 7) // 8)
             ),
-            Opcodes.SIGNEXTEND: gas_costs.GAS_OPCODE_SIGNEXTEND,
+            Opcodes.SIGNEXTEND: gas_costs.OPCODE_SIGNEXTEND,
             # Comparison & bitwise logic operations
-            Opcodes.LT: gas_costs.GAS_OPCODE_LT,
-            Opcodes.GT: gas_costs.GAS_OPCODE_GT,
-            Opcodes.SLT: gas_costs.GAS_OPCODE_SLT,
-            Opcodes.SGT: gas_costs.GAS_OPCODE_SGT,
-            Opcodes.EQ: gas_costs.GAS_OPCODE_EQ,
-            Opcodes.ISZERO: gas_costs.GAS_OPCODE_ISZERO,
-            Opcodes.AND: gas_costs.GAS_OPCODE_AND,
-            Opcodes.OR: gas_costs.GAS_OPCODE_OR,
-            Opcodes.XOR: gas_costs.GAS_OPCODE_XOR,
-            Opcodes.NOT: gas_costs.GAS_OPCODE_NOT,
-            Opcodes.BYTE: gas_costs.GAS_OPCODE_BYTE,
+            Opcodes.LT: gas_costs.OPCODE_LT,
+            Opcodes.GT: gas_costs.OPCODE_GT,
+            Opcodes.SLT: gas_costs.OPCODE_SLT,
+            Opcodes.SGT: gas_costs.OPCODE_SGT,
+            Opcodes.EQ: gas_costs.OPCODE_EQ,
+            Opcodes.ISZERO: gas_costs.OPCODE_ISZERO,
+            Opcodes.AND: gas_costs.OPCODE_AND,
+            Opcodes.OR: gas_costs.OPCODE_OR,
+            Opcodes.XOR: gas_costs.OPCODE_XOR,
+            Opcodes.NOT: gas_costs.OPCODE_NOT,
+            Opcodes.BYTE: gas_costs.OPCODE_BYTE,
             # SHA3
             Opcodes.SHA3: cls._with_memory_expansion(
                 lambda op: (
@@ -373,17 +373,15 @@ class Frontier(
             Opcodes.ORIGIN: gas_costs.GAS_BASE,
             Opcodes.CALLER: gas_costs.GAS_BASE,
             Opcodes.CALLVALUE: gas_costs.GAS_BASE,
-            Opcodes.CALLDATALOAD: gas_costs.GAS_OPCODE_CALLDATALOAD,
+            Opcodes.CALLDATALOAD: gas_costs.OPCODE_CALLDATALOAD,
             Opcodes.CALLDATASIZE: gas_costs.GAS_BASE,
             Opcodes.CALLDATACOPY: cls._with_memory_expansion(
-                cls._with_data_copy(
-                    gas_costs.GAS_OPCODE_CALLDATACOPY, gas_costs
-                ),
+                cls._with_data_copy(gas_costs.OPCODE_CALLDATACOPY, gas_costs),
                 memory_expansion_calculator,
             ),
             Opcodes.CODESIZE: gas_costs.GAS_BASE,
             Opcodes.CODECOPY: cls._with_memory_expansion(
-                cls._with_data_copy(gas_costs.GAS_OPCODE_CODECOPY, gas_costs),
+                cls._with_data_copy(gas_costs.OPCODE_CODECOPY, gas_costs),
                 memory_expansion_calculator,
             ),
             Opcodes.GASPRICE: gas_costs.GAS_BASE,
@@ -396,7 +394,7 @@ class Frontier(
                 memory_expansion_calculator,
             ),
             # Block information
-            Opcodes.BLOCKHASH: gas_costs.GAS_OPCODE_BLOCKHASH,
+            Opcodes.BLOCKHASH: gas_costs.OPCODE_BLOCKHASH,
             Opcodes.COINBASE: gas_costs.GAS_BASE,
             Opcodes.TIMESTAMP: gas_costs.GAS_BASE,
             Opcodes.NUMBER: gas_costs.GAS_BASE,
@@ -405,15 +403,15 @@ class Frontier(
             # Stack, memory, storage and flow operations
             Opcodes.POP: gas_costs.GAS_BASE,
             Opcodes.MLOAD: cls._with_memory_expansion(
-                gas_costs.GAS_OPCODE_MLOAD,
+                gas_costs.OPCODE_MLOAD,
                 memory_expansion_calculator,
             ),
             Opcodes.MSTORE: cls._with_memory_expansion(
-                gas_costs.GAS_OPCODE_MSTORE,
+                gas_costs.OPCODE_MSTORE,
                 memory_expansion_calculator,
             ),
             Opcodes.MSTORE8: cls._with_memory_expansion(
-                gas_costs.GAS_OPCODE_MSTORE8,
+                gas_costs.OPCODE_MSTORE8,
                 memory_expansion_calculator,
             ),
             Opcodes.SLOAD: lambda op: (
@@ -424,25 +422,25 @@ class Frontier(
             Opcodes.SSTORE: lambda op: cls._calculate_sstore_gas(
                 op, gas_costs
             ),
-            Opcodes.JUMP: gas_costs.GAS_OPCODE_JUMP,
-            Opcodes.JUMPI: gas_costs.GAS_OPCODE_JUMPI,
+            Opcodes.JUMP: gas_costs.OPCODE_JUMP,
+            Opcodes.JUMPI: gas_costs.OPCODE_JUMPI,
             Opcodes.PC: gas_costs.GAS_BASE,
             Opcodes.MSIZE: gas_costs.GAS_BASE,
             Opcodes.GAS: gas_costs.GAS_BASE,
-            Opcodes.JUMPDEST: gas_costs.GAS_OPCODE_JUMPDEST,
+            Opcodes.JUMPDEST: gas_costs.OPCODE_JUMPDEST,
             # Push operations (PUSH1 through PUSH32)
             **{
-                getattr(Opcodes, f"PUSH{i}"): gas_costs.GAS_OPCODE_PUSH
+                getattr(Opcodes, f"PUSH{i}"): gas_costs.OPCODE_PUSH
                 for i in range(1, 33)
             },
             # Dup operations (DUP1 through DUP16)
             **{
-                getattr(Opcodes, f"DUP{i}"): gas_costs.GAS_OPCODE_DUP
+                getattr(Opcodes, f"DUP{i}"): gas_costs.OPCODE_DUP
                 for i in range(1, 17)
             },
             # Swap operations (SWAP1 through SWAP16)
             **{
-                getattr(Opcodes, f"SWAP{i}"): gas_costs.GAS_OPCODE_SWAP
+                getattr(Opcodes, f"SWAP{i}"): gas_costs.OPCODE_SWAP
                 for i in range(1, 17)
             },
             # Logging operations
