@@ -565,7 +565,7 @@ def blob_hash(evm: Evm) -> None:
     index = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_BLOBHASH)
+    charge_gas(evm, GasCosts.GAS_OPCODE_BLOBHASH)
 
     # OPERATION
     if int(index) < len(evm.message.tx_env.blob_versioned_hashes):
