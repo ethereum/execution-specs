@@ -97,46 +97,46 @@ class GasCosts:
     GAS_BLOCK_ACCESS_LIST_ITEM: int
 
     # Opcode specific gas constants for repricing
-    GAS_OPCODE_ADD: int
-    GAS_OPCODE_SUB: int
-    GAS_OPCODE_MUL: int
-    GAS_OPCODE_DIV: int
-    GAS_OPCODE_SDIV: int
-    GAS_OPCODE_MOD: int
-    GAS_OPCODE_SMOD: int
-    GAS_OPCODE_ADDMOD: int
-    GAS_OPCODE_MULMOD: int
-    GAS_OPCODE_SIGNEXTEND: int
-    GAS_OPCODE_LT: int
-    GAS_OPCODE_GT: int
-    GAS_OPCODE_SLT: int
-    GAS_OPCODE_SGT: int
-    GAS_OPCODE_EQ: int
-    GAS_OPCODE_ISZERO: int
-    GAS_OPCODE_AND: int
-    GAS_OPCODE_OR: int
-    GAS_OPCODE_XOR: int
-    GAS_OPCODE_NOT: int
-    GAS_OPCODE_BYTE: int
-    GAS_OPCODE_JUMP: int
-    GAS_OPCODE_JUMPI: int
-    GAS_OPCODE_JUMPDEST: int
-    GAS_OPCODE_CALLDATALOAD: int
-    GAS_OPCODE_CALLDATACOPY: int
-    GAS_OPCODE_CODECOPY: int
-    GAS_OPCODE_BLOCKHASH: int
-    GAS_OPCODE_MLOAD: int
-    GAS_OPCODE_MSTORE: int
-    GAS_OPCODE_MSTORE8: int
-    GAS_OPCODE_PUSH: int
-    GAS_OPCODE_DUP: int
-    GAS_OPCODE_SWAP: int
+    OPCODE_ADD: int
+    OPCODE_SUB: int
+    OPCODE_MUL: int
+    OPCODE_DIV: int
+    OPCODE_SDIV: int
+    OPCODE_MOD: int
+    OPCODE_SMOD: int
+    OPCODE_ADDMOD: int
+    OPCODE_MULMOD: int
+    OPCODE_SIGNEXTEND: int
+    OPCODE_LT: int
+    OPCODE_GT: int
+    OPCODE_SLT: int
+    OPCODE_SGT: int
+    OPCODE_EQ: int
+    OPCODE_ISZERO: int
+    OPCODE_AND: int
+    OPCODE_OR: int
+    OPCODE_XOR: int
+    OPCODE_NOT: int
+    OPCODE_BYTE: int
+    OPCODE_JUMP: int
+    OPCODE_JUMPI: int
+    OPCODE_JUMPDEST: int
+    OPCODE_CALLDATALOAD: int
+    OPCODE_CALLDATACOPY: int
+    OPCODE_CODECOPY: int
+    OPCODE_BLOCKHASH: int
+    OPCODE_MLOAD: int
+    OPCODE_MSTORE: int
+    OPCODE_MSTORE8: int
+    OPCODE_PUSH: int
+    OPCODE_DUP: int
+    OPCODE_SWAP: int
 
     # Defined post-Frontier
-    GAS_OPCODE_SHL: int = 0
-    GAS_OPCODE_SHR: int = 0
-    GAS_OPCODE_SAR: int = 0
-    GAS_OPCODE_RETURNDATACOPY: int = 0
-    GAS_OPCODE_BLOBHASH: int = 0
-    GAS_OPCODE_MCOPY: int = 0
-    GAS_OPCODE_CLZ: int = 0
+    OPCODE_SHL: int = 0
+    OPCODE_SHR: int = 0
+    OPCODE_SAR: int = 0
+    OPCODE_RETURNDATACOPY: int = 0
+    OPCODE_BLOBHASH: int = 0
+    OPCODE_MCOPY: int = 0
+    OPCODE_CLZ: int = 0

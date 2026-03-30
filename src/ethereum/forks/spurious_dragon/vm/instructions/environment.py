@@ -161,7 +161,7 @@ def calldataload(evm: Evm) -> None:
     start_index = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_OPCODE_CALLDATALOAD)
+    charge_gas(evm, GasCosts.OPCODE_CALLDATALOAD)
 
     # OPERATION
     value = buffer_read(evm.message.data, start_index, U256(32))
@@ -221,7 +221,7 @@ def calldatacopy(evm: Evm) -> None:
     )
     charge_gas(
         evm,
-        GasCosts.GAS_OPCODE_CALLDATACOPY + copy_gas_cost + extend_memory.cost,
+        GasCosts.OPCODE_CALLDATACOPY + copy_gas_cost + extend_memory.cost,
     )
 
     # OPERATION
@@ -282,7 +282,7 @@ def codecopy(evm: Evm) -> None:
     )
     charge_gas(
         evm,
-        GasCosts.GAS_OPCODE_CODECOPY + copy_gas_cost + extend_memory.cost,
+        GasCosts.OPCODE_CODECOPY + copy_gas_cost + extend_memory.cost,
     )
 
     # OPERATION

@@ -34,7 +34,7 @@ def less_than(evm: Evm) -> None:
     right = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_OPCODE_LT)
+    charge_gas(evm, GasCosts.OPCODE_LT)
 
     # OPERATION
     result = U256(left < right)
@@ -60,7 +60,7 @@ def signed_less_than(evm: Evm) -> None:
     right = pop(evm.stack).to_signed()
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_OPCODE_SLT)
+    charge_gas(evm, GasCosts.OPCODE_SLT)
 
     # OPERATION
     result = U256(left < right)
@@ -87,7 +87,7 @@ def greater_than(evm: Evm) -> None:
     right = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_OPCODE_GT)
+    charge_gas(evm, GasCosts.OPCODE_GT)
 
     # OPERATION
     result = U256(left > right)
@@ -113,7 +113,7 @@ def signed_greater_than(evm: Evm) -> None:
     right = pop(evm.stack).to_signed()
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_OPCODE_SGT)
+    charge_gas(evm, GasCosts.OPCODE_SGT)
 
     # OPERATION
     result = U256(left > right)
@@ -140,7 +140,7 @@ def equal(evm: Evm) -> None:
     right = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_OPCODE_EQ)
+    charge_gas(evm, GasCosts.OPCODE_EQ)
 
     # OPERATION
     result = U256(left == right)
@@ -166,7 +166,7 @@ def is_zero(evm: Evm) -> None:
     x = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_OPCODE_ISZERO)
+    charge_gas(evm, GasCosts.OPCODE_ISZERO)
 
     # OPERATION
     result = U256(x == 0)
