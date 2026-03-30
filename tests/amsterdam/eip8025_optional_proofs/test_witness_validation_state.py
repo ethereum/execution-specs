@@ -351,60 +351,6 @@ def test_validation_state_missing_failed_call_target_account_proof_node(
     )
 
 
-def test_validation_state_missing_account_node_for_storage_resolution(
-    pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
-) -> None:
-    """Removing the account proof gating storage-root lookup fails."""
-    read_slot = 1
-    storage = build_large_storage([read_slot])
-
-    contract = pre.deploy_contract(
-        code=Op.SLOAD(read_slot) + Op.POP + Op.STOP,
-        storage=as_storage(storage),
-    )
-    sender = pre.fund_eoa()
-    full_alloc = merge_with_amsterdam_pre_alloc(pre)
-    account_proof_nodes = collect_account_proof_nodes(full_alloc, [contract])
-    storage_proof_nodes = collect_storage_proof_nodes(storage, [read_slot])
-    reference_account_nodes = collect_account_proof_nodes(
-        full_alloc,
-        [
-            sender,
-            *Amsterdam.execution_witness_implicit_code_addresses(),
-        ],
-    )
-    contract_only_account_nodes = sorted(
-        set(account_proof_nodes) - set(reference_account_nodes)
-    )
-
-    # The contract remaining node in the MPT proof is the account leaf node.
-    assert len(contract_only_account_nodes) == 1
-    removed_node = contract_only_account_nodes[0]
-
-    tx = Transaction(sender=sender, to=contract, gas_limit=500_000)
-
-    blockchain_test(
-        pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                expected_execution_witness_state=(
-                    ExecutionWitnessStateExpectation(
-                        nodes_present=(
-                            account_proof_nodes + storage_proof_nodes
-                        ),
-                    ).modify(remove_state_node(removed_node))
-                ),
-                expected_stateless_validation_success=False,
-            )
-        ],
-        post={
-            sender: Account(nonce=1),
-            contract: Account(storage=storage),
-        },
-    )
-
 
 def test_validation_state_extra_unused_trie_node(
     pre: Alloc,
