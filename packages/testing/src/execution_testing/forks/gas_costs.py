@@ -13,7 +13,6 @@ GAS_HIGH = 10
 class GasCosts:
     """Class that contains the gas cost constants for any fork."""
 
-    GAS_JUMPDEST: int
     GAS_BASE: int
     GAS_VERY_LOW: int
     GAS_LOW: int
@@ -121,6 +120,7 @@ class GasCosts:
     GAS_OPCODE_BYTE: int
     GAS_OPCODE_JUMP: int
     GAS_OPCODE_JUMPI: int
+    GAS_OPCODE_JUMPDEST: int
     GAS_OPCODE_CALLDATALOAD: int
     GAS_OPCODE_CALLDATACOPY: int
     GAS_OPCODE_CODECOPY: int
