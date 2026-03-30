@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from execution_testing.base_types import Address
+
 
 @dataclass
 class EnvironmentIR:
@@ -29,7 +31,7 @@ class AccountIR:
     is_sender: bool
     balance: int = 0
     nonce: int | None = None
-    address: str | None = None
+    address: Address | None = None
     source_comment: str = ""
     code_expr: str = ""
     storage: dict = field(default_factory=dict)

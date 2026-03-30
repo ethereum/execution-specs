@@ -198,7 +198,7 @@ def analyze(
     )
 
     # 14. Import flags
-    needs_access_list = access_list_entries or any(
+    needs_access_list = bool(access_list_entries) or any(
         model.transaction.data[d.index].access_list is not None
         for d in model.transaction.data
     )
@@ -329,76 +329,67 @@ def _bytes_to_op_expr(code_bytes: bytes) -> str | None:
 
 def _assign_variable_names(
     model: StateStaticTest, tags: TagDict
-) -> dict[str, str]:
+) -> dict[Address | EOA, str]:
     """Build address -> variable name mapping."""
-    addr_to_var: dict[str, str] = {}
-    used_names: set[str] = set()
+    addr_to_var: dict[Address | EOA, str] = {}
     contract_counter = 0
 
     # Coinbase
-    coinbase_addr: str | None = None
+    coinbase_addr: Address | None = None
     if isinstance(model.env.current_coinbase, Tag):
         tag_name = model.env.current_coinbase.name
         if tag_name in tags:
-            resolved = tags[tag_name]
-            coinbase_addr = _addr_hex(resolved)
+            coinbase_addr = tags[tag_name]
     else:
-        coinbase_addr = _addr_hex(model.env.current_coinbase)
+        coinbase_addr = model.env.current_coinbase
 
     if coinbase_addr:
         addr_to_var[coinbase_addr] = "coinbase"
-        used_names.add("coinbase")
 
     # Sender
-    sender_addr: str | None = None
+    sender_addr: Address | EOA | None = None
     if isinstance(model.transaction.secret_key, SenderKeyTag):
         tag_name = model.transaction.secret_key.name
         if tag_name in tags:
-            resolved = tags[tag_name]
-            sender_addr = _addr_hex(resolved)
+            sender_addr = tags[tag_name]
     else:
         # Non-tagged sender: derive address from key
-        key_int = int.from_bytes(bytes(model.transaction.secret_key), "big")
-        eoa = EOA(key=key_int)
-        sender_addr = _addr_hex(eoa)
+        sender_addr = EOA(key=model.transaction.secret_key)
 
     if sender_addr:
         addr_to_var[sender_addr] = "sender"
-        used_names.add("sender")
 
     # Tagged pre-state accounts
     for address_or_tag, _account in model.pre.root.items():
         if isinstance(address_or_tag, Tag):
             tag_name = address_or_tag.name
             if tag_name in tags:
-                resolved = tags[tag_name]
-                addr = _addr_hex(resolved)
+                addr = tags[tag_name]
                 if addr not in addr_to_var:
-                    var_name = _sanitize_var_name(tag_name, used_names)
+                    var_name = _sanitize_var_name(
+                        tag_name, set(addr_to_var.values())
+                    )
                     addr_to_var[addr] = var_name
-                    used_names.add(var_name)
 
     # Non-tagged pre-state accounts
     for address_or_tag, _account in model.pre.root.items():
         if not isinstance(address_or_tag, Tag):
-            addr = _addr_hex(address_or_tag)
-            if addr not in addr_to_var:
+            if address_or_tag not in addr_to_var:
                 var_name = f"contract_{contract_counter}"
                 contract_counter += 1
-                addr_to_var[addr] = var_name
-                used_names.add(var_name)
+                addr_to_var[address_or_tag] = var_name
 
     # Transaction "to" address
     if model.transaction.to is not None:
         if isinstance(model.transaction.to, Tag):
             tag_name = model.transaction.to.name
             if tag_name in tags:
-                resolved = tags[tag_name]
-                to_addr = _addr_hex(resolved)
+                to_addr = tags[tag_name]
                 if to_addr not in addr_to_var:
-                    var_name = _sanitize_var_name(tag_name, used_names)
+                    var_name = _sanitize_var_name(
+                        tag_name, set(addr_to_var.values())
+                    )
                     addr_to_var[to_addr] = var_name
-                    used_names.add(var_name)
 
     return addr_to_var
 
@@ -510,7 +501,9 @@ def _build_sender_ir(
         # Get the filler-derived key from tags (eoa_from_hash result)
         resolved = tags.get(tag_name)
         if isinstance(resolved, EOA):
-            key_int = int.from_bytes(bytes(resolved.key), "big")
+            key = resolved.key
+            assert key is not None
+            key_int = int.from_bytes(key, "big")
         else:
             key_int = 0
         # Find sender balance from pre-state
@@ -525,9 +518,8 @@ def _build_sender_ir(
             tag_name,
         )
     else:
-        key_int = int.from_bytes(bytes(model.transaction.secret_key), "big")
         # Find sender balance from pre-state
-        eoa = EOA(key=key_int)
+        eoa = EOA(key=model.transaction.secret_key)
         sender_addr = _addr_hex(eoa)
         balance = 0
         for address_or_tag, account in model.pre.root.items():
@@ -535,7 +527,11 @@ def _build_sender_ir(
                 if _addr_hex(address_or_tag) == sender_addr:
                     balance = int(account.balance) if account.balance else 0
                     break
-        return SenderIR(is_tagged=False, key=key_int, balance=balance), None
+        return SenderIR(
+            is_tagged=False,
+            key=int.from_bytes(eoa.key, "big"),
+            balance=balance,
+        ), None
 
 
 def _build_parameters(model: StateStaticTest) -> list[ParameterCaseIR]:
@@ -583,7 +579,7 @@ def _build_parameters(model: StateStaticTest) -> list[ParameterCaseIR]:
 def _build_accounts(
     model: StateStaticTest,
     tags: TagDict,
-    addr_to_var: dict[str, str],
+    addr_to_var: dict[Address | EOA, str],
     sender_tag_name: str | None,
 ) -> tuple[list[AccountIR], bool]:
     """Build AccountIR list. Return (accounts, needs_op_import)."""
@@ -602,17 +598,24 @@ def _build_accounts(
                 is_sender = True
                 is_eoa = True
             resolved = tags.get(tag_name)
-            addr_hex = _addr_hex(resolved) if resolved else None
             var_name = (
-                addr_to_var.get(addr_hex, tag_name) if addr_hex else tag_name
+                addr_to_var.get(resolved, tag_name)
+                if resolved is not None
+                else tag_name
             )
+            address = resolved
         else:
-            addr_hex = _addr_hex(address_or_tag)
-            var_name = addr_to_var.get(addr_hex, f"addr_{addr_hex[:10]}")
+            address_str = str(address_or_tag)
+            var_name = addr_to_var.get(
+                address_or_tag, f"addr_{address_str[:10]}"
+            )
             # Check if this non-tagged address is the sender
-            if addr_to_var.get(addr_hex) == "sender":
+            if addr_to_var.get(address_or_tag) == "sender":
                 is_sender = True
                 is_eoa = True
+            address = address_or_tag
+
+        assert not var_name.startswith("0x")
 
         # Determine if non-tagged account has code (is a contract)
         has_code = account.code is not None and account.code.source.strip()
@@ -662,7 +665,7 @@ def _build_accounts(
                 is_sender=is_sender,
                 balance=balance,
                 nonce=nonce,
-                address=addr_hex,
+                address=address,
                 source_comment=source_comment,
                 code_expr=code_expr,
                 storage=storage,
@@ -676,7 +679,7 @@ def _build_accounts(
 def _build_environment(
     model: StateStaticTest,
     tags: TagDict,
-    addr_to_var: dict[str, str],
+    addr_to_var: dict[Address | EOA, str],
 ) -> EnvironmentIR:
     """Build EnvironmentIR."""
     # Resolve coinbase
@@ -684,13 +687,10 @@ def _build_environment(
         tag_name = model.env.current_coinbase.name
         resolved = tags.get(tag_name)
         coinbase_var = (
-            addr_to_var.get(_addr_hex(resolved), tag_name)
-            if resolved
-            else tag_name
+            addr_to_var.get(resolved, tag_name) if resolved else tag_name
         )
     else:
-        addr = _addr_hex(model.env.current_coinbase)
-        coinbase_var = addr_to_var.get(addr, "coinbase")
+        coinbase_var = addr_to_var.get(model.env.current_coinbase, "coinbase")
 
     return EnvironmentIR(
         coinbase_var=coinbase_var,
@@ -777,7 +777,7 @@ def _format_exception_value(
 def _build_expect_entries(
     model: StateStaticTest,
     tags: TagDict,
-    addr_to_var: dict[str, str],
+    addr_to_var: dict[Address | EOA, str],
     all_fork_names: list[str],
 ) -> list[ExpectEntryIR]:
     """Build ExpectEntryIR list."""
@@ -801,18 +801,15 @@ def _build_expect_entries(
                 # Use resolve() for all tags — handles CreateTag's
                 # address derivation (compute_create_address etc.)
                 try:
-                    resolved_addr = address_or_tag.resolve(tags)
-                    addr = _addr_hex(resolved_addr)
+                    addr = address_or_tag.resolve(tags)
                 except (KeyError, AssertionError):
                     tag_name = address_or_tag.name
-                    resolved_raw = tags.get(tag_name)
-                    addr = (
-                        _addr_hex(resolved_raw) if resolved_raw else tag_name
-                    )
+                    addr = tags.get(tag_name, tag_name)
                 var_ref = addr_to_var.get(addr, f'Address("{addr}")')
             else:
-                addr = _addr_hex(address_or_tag)
-                var_ref = addr_to_var.get(addr, f'Address("{addr}")')
+                var_ref = addr_to_var.get(
+                    address_or_tag, f'Address("{address_or_tag}")'
+                )
 
             if account_expect is None:
                 # shouldnotexist
@@ -891,7 +888,7 @@ def _build_expect_entries(
 def _build_transaction_ir(
     model: StateStaticTest,
     tags: TagDict,
-    addr_to_var: dict[str, str],
+    addr_to_var: dict[Address | EOA, str],
     tx_data: list[str],
     tx_gas: list[int],
     tx_value: list[int],
@@ -907,13 +904,13 @@ def _build_transaction_ir(
         tag_name = model.transaction.to.name
         resolved = tags.get(tag_name)
         if resolved:
-            addr = _addr_hex(resolved)
-            to_var = addr_to_var.get(addr, tag_name)
+            to_var = addr_to_var.get(resolved, tag_name)
         else:
             to_var = tag_name
     else:
-        addr = _addr_hex(model.transaction.to)
-        to_var = addr_to_var.get(addr, f'Address("{addr}")')
+        to_var = addr_to_var.get(
+            model.transaction.to, f'Address("{model.transaction.to}")'
+        )
 
     # Access lists — check if they vary per data entry
     access_list_entries: list[AccessListEntryIR] = []
@@ -1018,28 +1015,27 @@ def _build_transaction_ir(
 def _build_address_constants(
     model: StateStaticTest,
     tags: TagDict,
-    addr_to_var: dict[str, str],
+    addr_to_var: dict[Address | EOA, str],
     sender_tag_name: str | None,
 ) -> list[dict[str, str]]:
     """Build list of address constants for the function body."""
     constants: list[dict[str, str]] = []
-    seen: set[str] = set()
+    seen: set[Address | EOA] = set()
 
     # Coinbase (tagged or not)
     if isinstance(model.env.current_coinbase, Tag):
         tag_name = model.env.current_coinbase.name
         resolved = tags.get(tag_name)
         if resolved:
-            addr = _addr_hex(resolved)
-            var_name = addr_to_var.get(addr, "coinbase")
-            if var_name != "sender" and addr not in seen:
-                constants.append({"var_name": var_name, "hex": addr})
-                seen.add(addr)
+            var_name = addr_to_var.get(resolved, "coinbase")
+            if var_name != "sender" and resolved not in seen:
+                constants.append({"var_name": var_name, "hex": f"{resolved}"})
+                seen.add(resolved)
     else:
-        addr = _addr_hex(model.env.current_coinbase)
-        var_name = addr_to_var.get(addr)
+        addr = model.env.current_coinbase
+        var_name = addr_to_var.get(model.env.current_coinbase)
         if var_name and var_name != "sender" and addr not in seen:
-            constants.append({"var_name": var_name, "hex": addr})
+            constants.append({"var_name": var_name, "hex": f"{addr}"})
             seen.add(addr)
 
     # All non-sender, non-contract pre-state accounts (tagged or not)
@@ -1055,21 +1051,23 @@ def _build_address_constants(
                 continue
             resolved = tags.get(tag_name)
             if resolved:
-                addr = _addr_hex(resolved)
-                var_name = addr_to_var.get(addr, tag_name)
-                if addr not in seen and var_name != "coinbase":
-                    constants.append({"var_name": var_name, "hex": addr})
-                    seen.add(addr)
+                var_name = addr_to_var.get(resolved, tag_name)
+                if resolved not in seen and var_name != "coinbase":
+                    constants.append(
+                        {"var_name": var_name, "hex": f"{resolved}"}
+                    )
+                    seen.add(resolved)
         else:
-            addr = _addr_hex(address_or_tag)
-            var_name = addr_to_var.get(addr)
+            var_name = addr_to_var.get(address_or_tag)
             if (
                 var_name
                 and var_name != "sender"
                 and var_name != "coinbase"
-                and addr not in seen
+                and address_or_tag not in seen
             ):
-                constants.append({"var_name": var_name, "hex": addr})
-                seen.add(addr)
+                constants.append(
+                    {"var_name": var_name, "hex": f"{address_or_tag}"}
+                )
+                seen.add(address_or_tag)
 
     return constants
