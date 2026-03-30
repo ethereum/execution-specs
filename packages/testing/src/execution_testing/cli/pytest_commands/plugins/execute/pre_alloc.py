@@ -408,7 +408,8 @@ class Alloc(SharedAlloc):
         if stub is not None and self._address_stubs is not None:
             if stub not in self._address_stubs:
                 raise ValueError(
-                    f"Stub name {stub} not found in address stubs"
+                    f"Stub '{stub}' not found in address stubs. "
+                    "Provide --address-stubs with a mapping file."
                 )
             contract_address = self._address_stubs[stub]
             logger.info(
