@@ -226,7 +226,7 @@ def {{ test_name }}(
 {% if env.prev_randao is not none %}
         prev_randao={{ env.prev_randao | format_int }},
 {% endif %}
-{% if env.difficulty is not none %}
+{% if env.difficulty is not none and env.prev_randao is none %}
         difficulty={{ env.difficulty | format_int }},
 {% endif %}
 {% if env.base_fee_per_gas is not none %}
