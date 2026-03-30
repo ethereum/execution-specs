@@ -31,6 +31,14 @@ on:
         description: "Space-separated list of Docker images to cache"
         required: false
         default: "docker.io/ethereum/client-go:latest docker.io/alpine:latest docker.io/library/golang:1-alpine"
+      client:
+        description: "Hive client to test (e.g., go-ethereum, besu)"
+        required: false
+        default: "go-ethereum"
+      client_file:
+        description: "Client config file name under .github/configs/hive/ (e.g., latest.yaml, master.yaml)"
+        required: false
+        default: "latest.yaml"
   workflow_call:
     inputs:
       docker_images:
@@ -38,6 +46,16 @@ on:
         required: false
         type: string
         default: "docker.io/ethereum/client-go:latest docker.io/alpine:latest docker.io/library/golang:1-alpine"
+      client:
+        description: "Hive client to test (e.g., go-ethereum, besu)"
+        required: false
+        type: string
+        default: "go-ethereum"
+      client_file:
+        description: "Client config file name under .github/configs/hive/ (e.g., latest.yaml, master.yaml)"
+        required: false
+        type: string
+        default: "latest.yaml"
 
 concurrency:
   group: hive-consume-${{ github.workflow }}-${{ github.ref || github.run_id }}
@@ -64,6 +82,9 @@ jobs:
     name: ${{ matrix.name }}
     needs: cache-docker-images
     runs-on: [self-hosted-ghr, size-l-x64]
+    env:
+      CLIENT: ${{ inputs.client || 'go-ethereum' }}
+      CLIENT_FILE: ${{ inputs.client_file || 'latest.yaml' }}
     strategy:
       fail-fast: true
       matrix:
@@ -133,10 +154,12 @@ jobs:
           cd hive
           ./hive --sim '${{ matrix.simulator }}' \
             --sim.parallelism=1 \
-            --client go-ethereum \
-            --client-file ../execution-specs/.github/configs/hive/latest.yaml \
+            --client ${{ env.CLIENT }} \
+            --client-file ../execution-specs/.github/configs/hive/${{ env.CLIENT_FILE }} \
             --sim.buildarg fixtures=${{ env.FIXTURES_URL }} \
             --sim.limit="${{ matrix.sim_limit }}" \
+            --sim.loglevel=5 \
+            --docker.buildoutput \
             --docker.output
 
       - name: Build Hive client images
@@ -144,8 +167,8 @@ jobs:
         run: |
           cd hive
           ./hive \
-            --client go-ethereum \
-            --client-file ../execution-specs/.github/configs/hive/latest.yaml \
+            --client ${{ env.CLIENT }} \
+            --client-file ../execution-specs/.github/configs/hive/${{ env.CLIENT_FILE }} \
             --docker.buildoutput
         timeout-minutes: 10
 
@@ -154,8 +177,8 @@ jobs:
         id: start-hive
         uses: ./execution-specs/.github/actions/start-hive-dev
         with:
-          clients: go-ethereum
-          client-file: execution-specs/.github/configs/hive/latest.yaml
+          clients: ${{ env.CLIENT }}
+          client-file: execution-specs/.github/configs/hive/${{ env.CLIENT_FILE }}
           hive-path: hive
           timeout: "30"
 
@@ -167,3 +190,11 @@ jobs:
         run: |
           uv sync --all-extras
           uv run consume ${{ matrix.consume_command }} --input ${{ env.FIXTURES_URL }} -k "${{ matrix.test_filter }}"
+
+      - name: Upload Hive logs
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: hive-logs-${{ matrix.name }}
+          path: hive/workspace/
+          retention-days: 7
