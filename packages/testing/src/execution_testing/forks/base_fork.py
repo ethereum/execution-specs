@@ -246,6 +246,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     _ruleset_name: ClassVar[Optional[str]] = None
     _fork_by_timestamp: ClassVar[bool] = False
     _blob_constants: ClassVar[Dict[str, int]] = {}
+    _deployed: ClassVar[bool] = True
 
     # Method version bumps
     _engine_new_payload_version_bump: ClassVar[bool] = False
@@ -262,6 +263,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         bpo_fork: bool = False,
         ruleset_name: Optional[str] = None,
         fork_by_timestamp: Optional[bool] = None,
+        deployed: Optional[bool] = None,
         update_blob_constants: Optional[Dict[str, int]] = None,
         engine_new_payload_version_bump: Optional[bool] = None,
         engine_forkchoice_updated_version_bump: Optional[bool] = None,
@@ -344,6 +346,13 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         else:
             for eip_base in eip_bases:
                 cls._blob_constants |= eip_base._blob_constants
+
+        # Determine fork deployment status
+        if deployed is not None:
+            cls._deployed = deployed
+        else:
+            if base_fork_class is not BaseFork:
+                cls._deployed = base_fork_class._deployed
 
     # Header information abstract methods
     @classmethod
@@ -1014,11 +1023,8 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     def is_deployed(cls) -> bool:
         """
         Return whether the fork has been deployed to mainnet, or not.
-
-        Must be overridden and return False for forks that are still under
-        development.
         """
-        return True
+        return cls._deployed
 
     @classmethod
     def ignore(cls) -> bool:

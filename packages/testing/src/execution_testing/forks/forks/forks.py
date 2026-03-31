@@ -994,8 +994,16 @@ class Frontier(BaseFork, solc_name="homestead"):
 
     @classmethod
     def precompiles(cls) -> List[Address]:
-        """At Genesis, no precompiles are present."""
-        return []
+        """
+        At Genesis, EC-recover, SHA256, RIPEMD160, and Identity precompiles
+        are introduced.
+        """
+        return [
+            Address(1, label="ECREC"),
+            Address(2, label="SHA256"),
+            Address(3, label="RIPEMD160"),
+            Address(4, label="ID"),
+        ]
 
     @classmethod
     def system_contracts(cls) -> List[Address]:
@@ -1256,19 +1264,7 @@ class Frontier(BaseFork, solc_name="homestead"):
 class Homestead(EIP7, EIP2, Frontier):
     """Homestead fork."""
 
-    @classmethod
-    def precompiles(cls) -> List[Address]:
-        """
-        TODO: These might be active since Frontier, needs update.
-        At Homestead, EC-recover, SHA256, RIPEMD160, and Identity precompiles
-        are introduced.
-        """
-        return [
-            Address(1, label="ECREC"),
-            Address(2, label="SHA256"),
-            Address(3, label="RIPEMD160"),
-            Address(4, label="ID"),
-        ] + super(Homestead, cls).precompiles()
+    pass
 
 
 class DAOFork(Homestead, ignore=True, ruleset_name=""):
@@ -1450,6 +1446,7 @@ class BPO2(
 class BPO3(
     BPO2,
     bpo_fork=True,
+    deployed=False,
     update_blob_constants={
         "BLOB_BASE_FEE_UPDATE_FRACTION": 20609697,
         "TARGET_BLOBS_PER_BLOCK": 21,
@@ -1461,10 +1458,7 @@ class BPO3(
     For testing purposes only.
     """
 
-    @classmethod
-    def is_deployed(cls) -> bool:
-        """BPO3 is a pseudo fork for testing, not deployed to mainnet."""
-        return False
+    pass
 
 
 class BPO4(
@@ -1493,14 +1487,11 @@ class BPO5(BPO4, bpo_fork=True):
     pass
 
 
-class Amsterdam(EIP7928, BPO2):
+class Amsterdam(EIP7928, BPO2, deployed=False):
     """Amsterdam fork."""
 
     # TODO: We may need to adjust which BPO Amsterdam inherits from as the
     #  related Amsterdam specs change over time, and before Amsterdam is
     #  live on mainnet.
 
-    @classmethod
-    def is_deployed(cls) -> bool:
-        """Return True if this fork is deployed."""
-        return False
+    pass
