@@ -278,10 +278,10 @@ def {{ test_name }}(
     {% endfor %}
     ]
     tx_gas = [{{ tx_gas | join(", ") }}]
+{% if tx_value != [0] %}
     tx_value = [{{ tx_value | join(", ") }}]
-
-
-    {% if tx.per_data_access_lists %}
+{% endif %}
+{% if tx.per_data_access_lists %}
     tx_access_lists: dict[int, list] = {
     {% for d_idx, al_entries in tx.per_data_access_lists.items() %}
         {{ d_idx }}: [
@@ -298,8 +298,8 @@ def {{ test_name }}(
         ],
     {% endfor %}
     }
-
 {% endif %}
+
 {% endif %}
 
 {# Transaction #}
