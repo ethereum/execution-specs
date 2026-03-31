@@ -308,7 +308,25 @@ def _classify_code_source(source: str) -> str:
     return "\n".join(comment_lines)
 
 
-def _bytes_to_op_expr(code_bytes: bytes) -> str | None:
+def _get_int_definitions(
+    addr_to_var: dict[Address | EOA, str] | None,
+) -> dict[int, str]:
+    """
+    Convert variable dictionary to int definitions used by the evm bytecode
+    parser.
+    """
+    result: dict[int, str] = {}
+    if not addr_to_var:
+        return result
+    for k, v in addr_to_var.items():
+        result[int.from_bytes(k, "big")] = v
+    return result
+
+
+def _bytes_to_op_expr(
+    code_bytes: bytes,
+    addr_to_var: dict[Address | EOA, str] | None = None,
+) -> str | None:
     """Convert compiled bytecode to Op expression string."""
     if not code_bytes or len(code_bytes) > MAX_BYTECODE_OP_SIZE:
         return None
@@ -318,9 +336,16 @@ def _bytes_to_op_expr(code_bytes: bytes) -> str | None:
         return None
 
     try:
-        op_str = process_evm_bytes_string(hex_str, assembly=False)
+        int_definitions = _get_int_definitions(addr_to_var)
+        op_str = process_evm_bytes_string(
+            hex_str,
+            assembly=False,
+            int_definitions=int_definitions,
+        )
         # Roundtrip check
-        compiled = eval(op_str, {"Op": Op})  # noqa: S307
+        compiled = eval(
+            op_str, {"Op": Op}, {v: k for k, v in int_definitions.items()}
+        )  # noqa: S307
         if compiled.hex() != hex_str.lower():
             return None
         return op_str
@@ -637,6 +662,8 @@ def _build_accounts(
                 code_bytes = account.code.compiled(tags)
                 if len(code_bytes) > MAX_BYTECODE_OP_SIZE:
                     oversized_code = True
+                # TODO: To add `addr_to_var` here, we need to resolve
+                # dependency order.
                 op_expr = _bytes_to_op_expr(code_bytes)
                 if op_expr:
                     code_expr = op_expr
@@ -1123,7 +1150,7 @@ def _decode_tx_data(
 ) -> str:
     """Attempt to decode meaningful information from the transaction data."""
     if probably_bytecode:
-        bytecode = _bytes_to_op_expr(data)
+        bytecode = _bytes_to_op_expr(data, addr_to_var)
         if bytecode:
             imports.needs_op = True
             return bytecode

@@ -28,7 +28,7 @@ class OpcodeWithOperands:
     opcode: Op
     operands: List[int] = field(default_factory=list)
     args: List["OpcodeWithOperands | HexNumber"] = field(default_factory=list)
-    kwargs: Dict[str, "OpcodeWithOperands | HexNumber"] = field(
+    kwargs: Dict[str, "OpcodeWithOperands | HexNumber | str"] = field(
         default_factory=dict
     )
 
@@ -49,7 +49,9 @@ class OpcodeWithOperands:
             output = f"{output}({', '.join(args)})"
         return output
 
-    def opcode_or_int(self) -> "OpcodeWithOperands | HexNumber":
+    def opcode_or_int(
+        self, int_definitions: dict[int, str] | None = None
+    ) -> "OpcodeWithOperands | HexNumber | str":
         """
         Return self or an HexNumber if the opcode is a PUSH opcode and can be
         seamlessly converted to int when used as a stack argument or keyword
@@ -69,6 +71,8 @@ class OpcodeWithOperands:
             value = self.operands[0]
             min_bytes = max(1, (value.bit_length() + 7) // 8)
             if self.opcode.data_portion_length == min_bytes:
+                if int_definitions and value in int_definitions:
+                    return int_definitions[value]
                 return HexNumber(value)
         return self
 
@@ -103,7 +107,9 @@ class OpcodeWithOperandsAssembly(OpcodeWithOperands):
 
 
 def process_evm_bytes(  # noqa: D103
-    evm_bytes: bytes, assembly: bool
+    evm_bytes: bytes,
+    assembly: bool = False,
+    int_definitions: dict[int, str] | None = None,
 ) -> List[OpcodeWithOperands]:
     evm_bytes_array = bytearray(evm_bytes)
 
@@ -143,7 +149,10 @@ def process_evm_bytes(  # noqa: D103
                 reversed(opcodes[-opcode.popped_stack_items :])
             )
             if all(arg.opcode.pushed_stack_items == 1 for arg in args):
-                args_with_int = [arg.opcode_or_int() for arg in args]
+                args_with_int = [
+                    arg.opcode_or_int(int_definitions=int_definitions)
+                    for arg in args
+                ]
                 opcodes = opcodes[: -opcode.popped_stack_items]
                 if opcode.kwargs and len(opcode.kwargs) == len(args_with_int):
                     opcode_with_operands.kwargs = dict(
@@ -218,6 +227,7 @@ def process_evm_bytes_string(
     evm_bytes_hex_string: str,
     assembly: bool = False,
     skip_simplify: bool = False,
+    int_definitions: dict[int, str] | None = None,
 ) -> str:
     """Process the given EVM bytes hex string."""
     if evm_bytes_hex_string.startswith("0x"):
@@ -225,7 +235,11 @@ def process_evm_bytes_string(
 
     evm_bytes = bytes.fromhex(evm_bytes_hex_string)
     return format_opcodes(
-        process_evm_bytes(evm_bytes, assembly=assembly),
+        process_evm_bytes(
+            evm_bytes,
+            assembly=assembly,
+            int_definitions=int_definitions,
+        ),
         assembly=assembly,
         skip_simplify=skip_simplify,
     )
