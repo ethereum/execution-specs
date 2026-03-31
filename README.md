@@ -90,7 +90,7 @@ Requires:
 Building the spec documentation:
 
 ```bash
-just spec-docs
+just docs-spec
 ```
 
 The path to the generated HTML will be printed to the console.

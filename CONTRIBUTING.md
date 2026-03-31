@@ -285,4 +285,4 @@ The tool currently performs the following checks
 - The order of the identifiers between each hardfork is consistent.
 - Import statements follow the relevant import rules in modules.
 
-The command to run the tool is `just ethereum-spec-lint` (or `uv run ethereum-spec-lint`).
+The command to run the tool is `just lint-spec` (or `uv run ethereum-spec-lint`).

@@ -81,7 +81,7 @@ gh act --workflows .github/workflows/test.yaml -s GITHUB_TOKEN=$(gh auth token) 
 This is optional, recent versions will automatically detect the matrix strategy and run supported values. To run a specific matrix value, use the `--matrix` option:
 
 ```bash
-gh act --workflows .github/workflows/test.yaml -s GITHUB_TOKEN=$(gh auth token) --matrix python:3.12 -j tests_pytest_py3
+gh act --workflows .github/workflows/test.yaml -s GITHUB_TOKEN=$(gh auth token) --matrix python:3.12 -j test-tests
 ```
 
 ### Running Release Workflows

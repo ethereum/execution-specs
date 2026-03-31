@@ -115,7 +115,7 @@ jobs:
           flags: unittests
           token: ${{ secrets.CODECOV_TOKEN }}
 
-  pypy3:
+  fill-pypy:
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
     steps:
@@ -126,13 +126,13 @@ jobs:
         with:
           python-version: "pypy3.11"
       - uses: ./.github/actions/setup-env
-      - name: Run pypy3 tests
-        run: just pypy3
+      - name: Run fill-pypy tests
+        run: just fill-pypy
         env:
           PYPY_GC_MAX: "2G"
           PYPY_GC_MIN: "1G"
 
-  json_loader:
+  json-loader:
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
     steps:
@@ -141,12 +141,12 @@ jobs:
           submodules: recursive
       - uses: ./.github/actions/setup-uv
       - uses: ./.github/actions/setup-env
-      - name: Fill and run json_loader tests
-        run: just json_loader
+      - name: Fill and run json-loader tests
+        run: just json-loader
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
 
-  tests_pytest_py3:
+  test-tests:
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
     steps:
@@ -156,12 +156,12 @@ jobs:
       - uses: ./.github/actions/setup-uv
       - uses: ./.github/actions/setup-env
       - uses: ./.github/actions/build-evmone
-      - name: Run py3 tests
-        run: just tests_pytest_py3
+      - name: Run test-tests
+        run: just test-tests
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
 
-  tests_pytest_pypy3:
+  test-tests-pypy:
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
     steps:
@@ -173,8 +173,8 @@ jobs:
           python-version: "pypy3.11"
       - uses: ./.github/actions/setup-env
       - uses: ./.github/actions/build-evmone
-      - name: Run pypy3 tests
-        run: just tests_pytest_pypy3
+      - name: Run test-tests-pypy
+        run: just test-tests-pypy
         env:
           PYPY_GC_MAX: "2G"
           PYPY_GC_MIN: "1G"
