@@ -13,6 +13,7 @@ FILL_TEST_ARGS = (
     "--fork",
     "--from",
     "--until",
+    "--address-stubs",
     "--help",
 )
 

@@ -49,6 +49,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "pre_alloc",
         "Arguments defining pre-allocation behavior during test filling.",
     )
+    # TODO: consolidate with execute/rpc/remote.py
     pre_alloc_group.addoption(
         "--rpc-endpoint",
         action="store",
