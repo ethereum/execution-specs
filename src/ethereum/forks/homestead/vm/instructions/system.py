@@ -65,7 +65,7 @@ def create(evm: Evm) -> None:
         evm.memory, [(memory_start_position, memory_size)]
     )
 
-    charge_gas(evm, GasCosts.GAS_CREATE + extend_memory.cost)
+    charge_gas(evm, GasCosts.CREATE + extend_memory.cost)
 
     create_message_gas = evm.gas_left
     evm.gas_left = Uint(0)
@@ -154,7 +154,7 @@ def return_(evm: Evm) -> None:
         evm.memory, [(memory_start_position, memory_size)]
     )
 
-    charge_gas(evm, GasCosts.GAS_ZERO + extend_memory.cost)
+    charge_gas(evm, GasCosts.ZERO + extend_memory.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -365,7 +365,7 @@ def selfdestruct(evm: Evm) -> None:
     beneficiary = to_address_masked(pop(evm.stack))
 
     # GAS
-    gas_cost = GasCosts.GAS_ZERO
+    gas_cost = GasCosts.ZERO
 
     originator = evm.message.current_target
 
@@ -435,7 +435,7 @@ def delegatecall(evm: Evm) -> None:
             (memory_output_start_position, memory_output_size),
         ],
     )
-    charge_gas(evm, GasCosts.GAS_CALL + gas + extend_memory.cost)
+    charge_gas(evm, GasCosts.CALL + gas + extend_memory.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by

@@ -51,7 +51,7 @@ def point_evaluation(evm: Evm) -> None:
     proof = Bytes48(data[144:192])
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_POINT_EVALUATION)
+    charge_gas(evm, GasCosts.POINT_EVALUATION)
     if kzg_commitment_to_versioned_hash(commitment) != versioned_hash:
         raise KZGProofError
 

@@ -33,37 +33,37 @@ class GasCosts:
     """
 
     # General
-    GAS_BASE = Uint(2)
-    GAS_VERY_LOW = Uint(3)
-    GAS_STORAGE_SET = Uint(20000)
-    GAS_COLD_STORAGE_WRITE = Uint(5000)
-    GAS_LOW = Uint(5)
-    GAS_MID = Uint(8)
-    GAS_HIGH = Uint(10)
-    GAS_EXPONENTIATION = Uint(10)
-    GAS_EXPONENTIATION_PER_BYTE = Uint(50)
-    GAS_MEMORY = Uint(3)
-    GAS_KECCAK256 = Uint(30)
-    GAS_KECCAK256_PER_WORD = Uint(6)
-    GAS_COPY = Uint(3)
-    GAS_LOG = Uint(375)
-    GAS_LOG_DATA_PER_BYTE = Uint(8)
-    GAS_LOG_TOPIC = Uint(375)
-    GAS_CREATE = Uint(32000)
-    GAS_CODE_DEPOSIT_PER_BYTE = Uint(200)
-    GAS_ZERO = Uint(0)
-    GAS_NEW_ACCOUNT = Uint(25000)
-    GAS_CALL_VALUE = Uint(9000)
-    GAS_CALL_STIPEND = Uint(2300)
-    GAS_SELF_DESTRUCT = Uint(5000)
-    GAS_SELF_DESTRUCT_NEW_ACCOUNT = Uint(25000)
-    GAS_RETURN_DATA_COPY = Uint(3)
-    GAS_FAST_STEP = Uint(5)
-    GAS_COLD_STORAGE_ACCESS = Uint(2100)
-    GAS_COLD_ACCOUNT_ACCESS = Uint(2600)
-    GAS_WARM_ACCESS = Uint(100)
-    GAS_CODE_INIT_PER_WORD = Uint(2)
-    GAS_POINT_EVALUATION = Uint(50000)
+    BASE = Uint(2)
+    VERY_LOW = Uint(3)
+    STORAGE_SET = Uint(20000)
+    COLD_STORAGE_WRITE = Uint(5000)
+    LOW = Uint(5)
+    MID = Uint(8)
+    HIGH = Uint(10)
+    EXPONENTIATION = Uint(10)
+    EXPONENTIATION_PER_BYTE = Uint(50)
+    MEMORY = Uint(3)
+    KECCAK256 = Uint(30)
+    KECCAK256_PER_WORD = Uint(6)
+    COPY = Uint(3)
+    LOG = Uint(375)
+    LOG_DATA_PER_BYTE = Uint(8)
+    LOG_TOPIC = Uint(375)
+    CREATE = Uint(32000)
+    CODE_DEPOSIT_PER_BYTE = Uint(200)
+    ZERO = Uint(0)
+    NEW_ACCOUNT = Uint(25000)
+    CALL_VALUE = Uint(9000)
+    CALL_STIPEND = Uint(2300)
+    SELF_DESTRUCT = Uint(5000)
+    SELF_DESTRUCT_NEW_ACCOUNT = Uint(25000)
+    RETURN_DATA_COPY = Uint(3)
+    FAST_STEP = Uint(5)
+    COLD_STORAGE_ACCESS = Uint(2100)
+    COLD_ACCOUNT_ACCESS = Uint(2600)
+    WARM_ACCESS = Uint(100)
+    CODE_INIT_PER_WORD = Uint(2)
+    POINT_EVALUATION = Uint(50000)
 
     # Refunds
     REFUND_STORAGE_CLEAR = 4800
@@ -85,53 +85,53 @@ class GasCosts:
     PRECOMPILE_BLS_G2MAP = Uint(23800)
 
     # Blobs
-    GAS_PER_BLOB = U64(2**17)
+    PER_BLOB = U64(2**17)
     BLOB_TARGET_GAS_PER_BLOCK = U64(786432)
     BLOB_MIN_GASPRICE = Uint(1)
     BLOB_BASE_FEE_UPDATE_FRACTION = Uint(5007716)
 
     # Opcodes
-    OPCODE_ADD = GAS_VERY_LOW
-    OPCODE_SUB = GAS_VERY_LOW
-    OPCODE_MUL = GAS_LOW
-    OPCODE_DIV = GAS_LOW
-    OPCODE_SDIV = GAS_LOW
-    OPCODE_MOD = GAS_LOW
-    OPCODE_SMOD = GAS_LOW
-    OPCODE_ADDMOD = GAS_MID
-    OPCODE_MULMOD = GAS_MID
-    OPCODE_SIGNEXTEND = GAS_LOW
-    OPCODE_LT = GAS_VERY_LOW
-    OPCODE_GT = GAS_VERY_LOW
-    OPCODE_SLT = GAS_VERY_LOW
-    OPCODE_SGT = GAS_VERY_LOW
-    OPCODE_EQ = GAS_VERY_LOW
-    OPCODE_ISZERO = GAS_VERY_LOW
-    OPCODE_AND = GAS_VERY_LOW
-    OPCODE_OR = GAS_VERY_LOW
-    OPCODE_XOR = GAS_VERY_LOW
-    OPCODE_NOT = GAS_VERY_LOW
-    OPCODE_BYTE = GAS_VERY_LOW
-    OPCODE_SHL = GAS_VERY_LOW
-    OPCODE_SHR = GAS_VERY_LOW
-    OPCODE_SAR = GAS_VERY_LOW
-    OPCODE_JUMP = GAS_MID
-    OPCODE_JUMPI = GAS_HIGH
+    OPCODE_ADD = VERY_LOW
+    OPCODE_SUB = VERY_LOW
+    OPCODE_MUL = LOW
+    OPCODE_DIV = LOW
+    OPCODE_SDIV = LOW
+    OPCODE_MOD = LOW
+    OPCODE_SMOD = LOW
+    OPCODE_ADDMOD = MID
+    OPCODE_MULMOD = MID
+    OPCODE_SIGNEXTEND = LOW
+    OPCODE_LT = VERY_LOW
+    OPCODE_GT = VERY_LOW
+    OPCODE_SLT = VERY_LOW
+    OPCODE_SGT = VERY_LOW
+    OPCODE_EQ = VERY_LOW
+    OPCODE_ISZERO = VERY_LOW
+    OPCODE_AND = VERY_LOW
+    OPCODE_OR = VERY_LOW
+    OPCODE_XOR = VERY_LOW
+    OPCODE_NOT = VERY_LOW
+    OPCODE_BYTE = VERY_LOW
+    OPCODE_SHL = VERY_LOW
+    OPCODE_SHR = VERY_LOW
+    OPCODE_SAR = VERY_LOW
+    OPCODE_JUMP = MID
+    OPCODE_JUMPI = HIGH
     OPCODE_JUMPDEST = Uint(1)
-    OPCODE_CALLDATALOAD = GAS_VERY_LOW
-    OPCODE_CALLDATACOPY = GAS_VERY_LOW
-    OPCODE_CODECOPY = GAS_VERY_LOW
-    OPCODE_RETURNDATACOPY = GAS_VERY_LOW
+    OPCODE_CALLDATALOAD = VERY_LOW
+    OPCODE_CALLDATACOPY = VERY_LOW
+    OPCODE_CODECOPY = VERY_LOW
+    OPCODE_RETURNDATACOPY = VERY_LOW
     OPCODE_BLOCKHASH = Uint(20)
-    OPCODE_COINBASE = GAS_BASE
+    OPCODE_COINBASE = BASE
     OPCODE_BLOBHASH = Uint(3)
-    OPCODE_MLOAD = GAS_VERY_LOW
-    OPCODE_MSTORE = GAS_VERY_LOW
-    OPCODE_MSTORE8 = GAS_VERY_LOW
-    OPCODE_MCOPY = GAS_VERY_LOW
-    OPCODE_PUSH = GAS_VERY_LOW
-    OPCODE_DUP = GAS_VERY_LOW
-    OPCODE_SWAP = GAS_VERY_LOW
+    OPCODE_MLOAD = VERY_LOW
+    OPCODE_MSTORE = VERY_LOW
+    OPCODE_MSTORE8 = VERY_LOW
+    OPCODE_MCOPY = VERY_LOW
+    OPCODE_PUSH = VERY_LOW
+    OPCODE_DUP = VERY_LOW
+    OPCODE_SWAP = VERY_LOW
 
 
 @dataclass
@@ -205,7 +205,7 @@ def calculate_memory_gas_cost(size_in_bytes: Uint) -> Uint:
 
     """
     size_in_words = ceil32(size_in_bytes) // Uint(32)
-    linear_cost = size_in_words * GasCosts.GAS_MEMORY
+    linear_cost = size_in_words * GasCosts.MEMORY
     quadratic_cost = size_in_words ** Uint(2) // Uint(512)
     total_gas_cost = linear_cost + quadratic_cost
     try:
@@ -260,7 +260,7 @@ def calculate_message_call_gas(
     gas_left: Uint,
     memory_cost: Uint,
     extra_gas: Uint,
-    call_stipend: Uint = GasCosts.GAS_CALL_STIPEND,
+    call_stipend: Uint = GasCosts.CALL_STIPEND,
 ) -> MessageCallGas:
     """
     Calculates the MessageCallGas (cost and gas made available to the sub-call)
@@ -332,9 +332,7 @@ def init_code_cost(init_code_length: Uint) -> Uint:
         The gas to be charged for the init code.
 
     """
-    return (
-        GasCosts.GAS_CODE_INIT_PER_WORD * ceil32(init_code_length) // Uint(32)
-    )
+    return GasCosts.CODE_INIT_PER_WORD * ceil32(init_code_length) // Uint(32)
 
 
 def calculate_excess_blob_gas(parent_header: Header) -> U64:
@@ -385,7 +383,7 @@ def calculate_total_blob_gas(tx: Transaction) -> U64:
 
     """
     if isinstance(tx, BlobTransaction):
-        return GasCosts.GAS_PER_BLOB * U64(len(tx.blob_versioned_hashes))
+        return GasCosts.PER_BLOB * U64(len(tx.blob_versioned_hashes))
     else:
         return U64(0)
 

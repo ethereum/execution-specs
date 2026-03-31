@@ -38,7 +38,7 @@ def sload(evm: Evm) -> None:
     key = pop(evm.stack).to_be_bytes32()
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_SLOAD)
+    charge_gas(evm, GasCosts.SLOAD)
 
     # OPERATION
     value = get_storage(
@@ -64,7 +64,7 @@ def sstore(evm: Evm) -> None:
     # STACK
     key = pop(evm.stack).to_be_bytes32()
     new_value = pop(evm.stack)
-    if evm.gas_left <= GasCosts.GAS_CALL_STIPEND:
+    if evm.gas_left <= GasCosts.CALL_STIPEND:
         raise OutOfGasError
 
     state = evm.message.block_env.state
@@ -75,11 +75,11 @@ def sstore(evm: Evm) -> None:
 
     if original_value == current_value and current_value != new_value:
         if original_value == 0:
-            gas_cost = GasCosts.GAS_STORAGE_SET
+            gas_cost = GasCosts.STORAGE_SET
         else:
-            gas_cost = GasCosts.GAS_COLD_STORAGE_WRITE
+            gas_cost = GasCosts.COLD_STORAGE_WRITE
     else:
-        gas_cost = GasCosts.GAS_SLOAD
+        gas_cost = GasCosts.SLOAD
 
     # Refund Counter Calculation
     if current_value != new_value:
@@ -96,12 +96,12 @@ def sstore(evm: Evm) -> None:
             if original_value == 0:
                 # Slot was originally empty and was SET earlier
                 evm.refund_counter += int(
-                    GasCosts.GAS_STORAGE_SET - GasCosts.GAS_SLOAD
+                    GasCosts.STORAGE_SET - GasCosts.SLOAD
                 )
             else:
                 # Slot was originally non-empty and was UPDATED earlier
                 evm.refund_counter += int(
-                    GasCosts.GAS_COLD_STORAGE_WRITE - GasCosts.GAS_SLOAD
+                    GasCosts.COLD_STORAGE_WRITE - GasCosts.SLOAD
                 )
 
     charge_gas(evm, gas_cost)

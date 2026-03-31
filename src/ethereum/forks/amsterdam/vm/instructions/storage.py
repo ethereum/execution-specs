@@ -46,10 +46,10 @@ def sload(evm: Evm) -> None:
 
     # GAS
     if (evm.message.current_target, key) in evm.accessed_storage_keys:
-        charge_gas(evm, GasCosts.GAS_WARM_ACCESS)
+        charge_gas(evm, GasCosts.WARM_ACCESS)
     else:
         evm.accessed_storage_keys.add((evm.message.current_target, key))
-        charge_gas(evm, GasCosts.GAS_COLD_STORAGE_ACCESS)
+        charge_gas(evm, GasCosts.COLD_STORAGE_ACCESS)
 
     # OPERATION
     tx_state = evm.message.tx_env.state
@@ -79,7 +79,7 @@ def sstore(evm: Evm) -> None:
     new_value = pop(evm.stack)
 
     # check we have at least the stipend gas
-    check_gas(evm, GasCosts.GAS_CALL_STIPEND + Uint(1))
+    check_gas(evm, GasCosts.CALL_STIPEND + Uint(1))
 
     tx_state = evm.message.tx_env.state
     original_value = get_storage_original(
@@ -91,18 +91,17 @@ def sstore(evm: Evm) -> None:
 
     if (evm.message.current_target, key) not in evm.accessed_storage_keys:
         evm.accessed_storage_keys.add((evm.message.current_target, key))
-        gas_cost += GasCosts.GAS_COLD_STORAGE_ACCESS
+        gas_cost += GasCosts.COLD_STORAGE_ACCESS
 
     if original_value == current_value and current_value != new_value:
         if original_value == 0:
-            gas_cost += GasCosts.GAS_STORAGE_SET
+            gas_cost += GasCosts.STORAGE_SET
         else:
             gas_cost += (
-                GasCosts.GAS_COLD_STORAGE_WRITE
-                - GasCosts.GAS_COLD_STORAGE_ACCESS
+                GasCosts.COLD_STORAGE_WRITE - GasCosts.COLD_STORAGE_ACCESS
             )
     else:
-        gas_cost += GasCosts.GAS_WARM_ACCESS
+        gas_cost += GasCosts.WARM_ACCESS
 
     # Refund Counter Calculation
     if current_value != new_value:
@@ -119,14 +118,14 @@ def sstore(evm: Evm) -> None:
             if original_value == 0:
                 # Slot was originally empty and was SET earlier
                 evm.refund_counter += int(
-                    GasCosts.GAS_STORAGE_SET - GasCosts.GAS_WARM_ACCESS
+                    GasCosts.STORAGE_SET - GasCosts.WARM_ACCESS
                 )
             else:
                 # Slot was originally non-empty and was UPDATED earlier
                 evm.refund_counter += int(
-                    GasCosts.GAS_COLD_STORAGE_WRITE
-                    - GasCosts.GAS_COLD_STORAGE_ACCESS
-                    - GasCosts.GAS_WARM_ACCESS
+                    GasCosts.COLD_STORAGE_WRITE
+                    - GasCosts.COLD_STORAGE_ACCESS
+                    - GasCosts.WARM_ACCESS
                 )
 
     charge_gas(evm, gas_cost)
@@ -151,7 +150,7 @@ def tload(evm: Evm) -> None:
     key = pop(evm.stack).to_be_bytes32()
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_WARM_ACCESS)
+    charge_gas(evm, GasCosts.WARM_ACCESS)
 
     # OPERATION
     value = get_transient_storage(
@@ -181,7 +180,7 @@ def tstore(evm: Evm) -> None:
     new_value = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_WARM_ACCESS)
+    charge_gas(evm, GasCosts.WARM_ACCESS)
     set_transient_storage(
         evm.message.tx_env.state,
         evm.message.current_target,

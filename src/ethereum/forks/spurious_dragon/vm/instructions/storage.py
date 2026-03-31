@@ -37,7 +37,7 @@ def sload(evm: Evm) -> None:
     key = pop(evm.stack).to_be_bytes32()
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_SLOAD)
+    charge_gas(evm, GasCosts.SLOAD)
 
     # OPERATION
     value = get_storage(
@@ -68,9 +68,9 @@ def sstore(evm: Evm) -> None:
     state = evm.message.block_env.state
     current_value = get_storage(state, evm.message.current_target, key)
     if new_value != 0 and current_value == 0:
-        gas_cost = GasCosts.GAS_STORAGE_SET
+        gas_cost = GasCosts.STORAGE_SET
     else:
-        gas_cost = GasCosts.GAS_COLD_STORAGE_WRITE
+        gas_cost = GasCosts.COLD_STORAGE_WRITE
 
     if new_value == 0 and current_value != 0:
         evm.refund_counter += GasCosts.REFUND_STORAGE_CLEAR
