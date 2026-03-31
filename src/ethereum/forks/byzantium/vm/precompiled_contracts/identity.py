@@ -35,8 +35,8 @@ def identity(evm: Evm) -> None:
     word_count = ceil32(Uint(len(data))) // Uint(32)
     charge_gas(
         evm,
-        GasCosts.GAS_PRECOMPILE_IDENTITY_BASE
-        + GasCosts.GAS_PRECOMPILE_IDENTITY_PER_WORD * word_count,
+        GasCosts.PRECOMPILE_IDENTITY_BASE
+        + GasCosts.PRECOMPILE_IDENTITY_PER_WORD * word_count,
     )
 
     # OPERATION

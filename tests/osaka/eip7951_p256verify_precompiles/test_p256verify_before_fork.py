@@ -29,7 +29,7 @@ pytestmark = pytest.mark.valid_at_transition_to("Osaka")
 @pytest.fixture
 def precompile_gas(vector_gas_value: int | None, fork: TransitionFork) -> int:
     """Gas cost for the precompile."""
-    gas = fork.transitions_to().gas_costs().GAS_PRECOMPILE_P256VERIFY
+    gas = fork.transitions_to().gas_costs().PRECOMPILE_P256VERIFY
     if vector_gas_value is not None:
         assert vector_gas_value == gas, (
             f"Calculated gas {vector_gas_value} != Vector gas {gas}"

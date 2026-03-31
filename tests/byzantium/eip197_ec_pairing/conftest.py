@@ -23,6 +23,6 @@ def precompile_gas(input_data: bytes, fork: Fork) -> int:
     gas_costs = fork.gas_costs()
     k = len(input_data) // 192
     return (
-        gas_costs.GAS_PRECOMPILE_ECPAIRING_BASE
-        + gas_costs.GAS_PRECOMPILE_ECPAIRING_PER_POINT * k
+        gas_costs.PRECOMPILE_ECPAIRING_BASE
+        + gas_costs.PRECOMPILE_ECPAIRING_PER_POINT * k
     )

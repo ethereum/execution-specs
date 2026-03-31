@@ -1101,7 +1101,7 @@ def test_precompile_will_return_success_with_tx_value(
     call_256verify_bytecode = (
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
         + Op.CALL(
-            gas=fork.gas_costs().GAS_PRECOMPILE_P256VERIFY,
+            gas=fork.gas_costs().PRECOMPILE_P256VERIFY,
             address=Spec.P256VERIFY,
             value=Op.CALLVALUE(),
             args_offset=0,
@@ -1244,7 +1244,7 @@ def test_contract_creation_transaction(
     contract_bytecode = (
         Op.CODECOPY(0, Op.SUB(Op.CODESIZE, len(input_data)), len(input_data))
         + Op.CALL(
-            gas=fork.gas_costs().GAS_PRECOMPILE_P256VERIFY,
+            gas=fork.gas_costs().PRECOMPILE_P256VERIFY,
             address=Spec.P256VERIFY,
             value=0,
             args_offset=0,
@@ -1311,7 +1311,7 @@ def test_contract_initcode(
     call_256verify_bytecode = (
         Op.CODECOPY(0, Op.SUB(Op.CODESIZE, len(input_data)), len(input_data))
         + Op.CALL(
-            gas=fork.gas_costs().GAS_PRECOMPILE_P256VERIFY,
+            gas=fork.gas_costs().PRECOMPILE_P256VERIFY,
             address=Spec.P256VERIFY,
             value=0,
             args_offset=0,
