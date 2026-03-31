@@ -179,14 +179,14 @@ Individual checks and auto-fix are also available as recipes:
 just fix           # Auto-fix formatting and lint issues.
 just lint          # Lint with ruff.
 just format-check  # Check formatting with ruff.
-just mypy          # Run type checking with mypy.
+just typecheck     # Run type checking with mypy.
 just spellcheck    # Check spelling with codespell.
 ```
 
 Run `just` to see all available recipes. Recipes that accept arguments can be passed extra flags, for example:
 
 ```bash
-just mypy --warn-unreachable
+just typecheck --warn-unreachable
 ```
 
 > [!TIP]

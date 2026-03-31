@@ -14,7 +14,7 @@ Run `just` to list all available recipes. Individual checks can be run directly,
 
 ```console
 just lint
-just mypy
+just typecheck
 just spellcheck
 ```
 
