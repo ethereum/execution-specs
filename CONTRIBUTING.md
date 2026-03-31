@@ -197,6 +197,30 @@ just typecheck --warn-unreachable
 > export MYPY_CACHE_DIR=~/path/to/execution-specs/.mypy_cache
 > ```
 
+### Shell Auto-Completion
+
+`just` provides tab-completion for recipe names and arguments. To enable it for your shell:
+
+**Bash** — add to `~/.bashrc`:
+
+```bash
+eval "$(just --completions bash)"
+```
+
+**Zsh** — add to `~/.zshrc`:
+
+```bash
+eval "$(just --completions zsh)"
+```
+
+**Fish** — run once (fish auto-loads completions from this directory):
+
+```bash
+just --completions fish > ~/.config/fish/completions/just.fish
+```
+
+After restarting your shell (or sourcing the config), `just <Tab>` will complete recipe names.
+
 A trace of the EVM execution for any test case can be obtained by providing the `--evm-trace` argument to pytest.
 Note: Make sure to run the EVM trace on a small number of tests at a time. The log might otherwise get very big.
 Below is an example.
