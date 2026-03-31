@@ -43,7 +43,7 @@ jobs:
       - name: Run changelog validation
         run: just changelog
 
-  markdownlint:
+  lint-md:
     name: Lint markdown files with markdownlint
     runs-on: ubuntu-latest
     steps:
