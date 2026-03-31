@@ -23,7 +23,7 @@ fix:
 
 # Run all static checks (spellcheck, lint, format, mypy, ...)
 [group('static analysis'), parallel]
-static: typecheck lint-spec spellcheck actionlint lock-check format-check lint
+static: typecheck lint-spec spellcheck lint-actions lock-check format-check lint
 
 # Check spelling
 [group('static analysis')]
@@ -81,7 +81,7 @@ lock-check:
 
 # Lint GitHub Actions workflows
 [group('static analysis')]
-actionlint:
+lint-actions:
     uv run actionlint -pyflakes pyflakes -shellcheck "shellcheck -S warning"
 
 # Generate HTML coverage report from last just fill run
