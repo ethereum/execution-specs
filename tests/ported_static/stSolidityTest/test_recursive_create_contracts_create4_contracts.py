@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -254,9 +255,7 @@ def test_recursive_create_contracts_create4_contracts(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=Bytes(
-            "a444f5e90000000000000000000000000000000000000000000000000000000000000004"  # noqa: E501
-        ),
+        data=Bytes("a444f5e9") + Hash(0x4),
         gas_limit=300000,
         value=1,
     )

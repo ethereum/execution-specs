@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -4097,504 +4098,172 @@ def test_underflow_test(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes(
-            "693c61390000000000000000000000003aac251f428dcd7cb57e01c7dbb8bc3a76d5d628"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000cc44bebaeb76a6568aa26ae045f8516fa29b0f9c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000e383f3e5b45fa86d5b37cdfeb146cf903641c76c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000da3ec48d60f1cf78ecc154fa0c6181cf833916aa"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000b50944b674eb20b0fe99a18bb764b45500c41144"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000fcc0a7ebcab4f6d8c91c9062f2cd1148073253d2"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000d54c502b5478a191e9a25bc0d1ba94669c5a5f4f"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000836d0c3ce82596908935c3cc794da4603e135b1c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000c131d96e30386b63f89592008939dd517579f203"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000058cd7cc2b1b1cd459decc8ebbbd2fcbf9c68cef9"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000005df0dd6d100e8dd03d211b55d4a8cc7c7657c038"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000004e985c32a0f53ab426fe2bcdea720f0f71a4c1d1"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000009d8ea14af8d401208eb0687b8ae6f1e5ed6808d4"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000018c875e7eb21e50bad81e8940a2272fd6760e0dd"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000c51017527cdd990d0c8e146ed36237694024021c"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000023d790b6f14975963ee30ff45cc4621c7e1eeaf7"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000824de5bb894849fcdd60634275d6bcb8157d4a0"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000da24ffd288756277e556671ae2306b7587ef0c63"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000c36332f339266d7989b005864c48548883213125"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000973b5cc7e4678bcb85618b38c910f8adc68703a6"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000001e27cc27790c60dde31215bf2be1d9a66c41c8fa"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000001523b84a9fb4a0d32f070847190d34f912c04c4e"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000077225976113d69eee2fd870ea02d670badabdcab"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000002947a82b8aabd0f80c7e215bc066ea92bdd65b31"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000f9a965915f18a6108b842a40148dc5fd47ec7140"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000d60ab3d73fd71f071ede5eead527db298236b162"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000e519ac21322361b960bed6ccbbf538840e85f76e"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000c74809261edc3edd91ec17dbf4b898233c42ddb4"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000cc9ffede5b0d7f58002f852181d0b4b35c0dabee"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000bdf35fc6c5c2a3e1e9711112ff7ef71e2419532"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000002b3bc02cabba968640fd86614f855a406b5c32e2"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000005029d082367aa4510d5a6e3b5cf83cd41e05c7f4"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000c744cf16cf5e2eb3c97e641e63801b8af3015def"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000be25986eb0ee281252e783918d867630e5119455"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000001029b338aa781a64308000fa49515769618f176e"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000c8d2eb10090f9940b7e816e6a278ae2ec943d232"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000007d00c3c2cbb3b64bbb4f0f518ef779f6df875f6e"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000e8565720ba47032e7b0edcb4bce06303f83ff450"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000004c47590ab3f1dfe486900d0ec41510f85545b182"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000009b0edd3cf5b6ccc09b3c9d15646ef629a7767ba8"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000010df9321d0355308a994d3709e30609bd72655b7"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000c52f28d6433f203eae23f5f2fc642938a25aafe7"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000001be71f78fcfbc7e4002db615e7fc878e7f090c50"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000f04fe60ad6f92fa14a53a0882943a66ea4e49ef1"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000a7b1cd72ebc0b8f3e353885ef17b04aa28d8f0fa"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000701a7d6aa6ef15a38fd8311e074a96c09b434a2a"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000c024f0f81b1c2c1ab6362e5ecf79a7be3de2f60e"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000a49e66f497a85d949d334a20724bc6b75da3d3ae"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000b37c41d445866ceb36edc4e6456cae78949c9f97"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000008e689eee6c7387a37612a42f8ee44dd7a823fb5c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000ec8b92806c1ad0f2dcf5b0207db7eddb464df0ca"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000011ffe11bb835b6ce89fc91d65b1f6c0919b07a1d"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000943b918e625b3ecb5d186d820a60c8eebd1c71ec"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000058a413dde8ddd92c793fca0b18ce89bd3dfba0e8"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000c24790535cfea9781d66d59b81d9b92a576bb9ef"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000488a9b0f0e885b96f67c113f0979799f801d70d3"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000059f8c0328e432df7467313742e1effc9ee2bac4e"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000bc57a2f2490132b8f8980cd242f7dc76b4b3f1c3"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000050a33da19f003aec73bc65754e12a7f94c9b1c34"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000866777eaddc2be0a50b3d3f76f2064876ea42802"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000664f23c7af786dc61b6a068b3f9bde0051716384"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000075a2a8afa2446ec88a716ef7074351accfaccadf"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000093d0507f681ba7de662d14ae8de922d161698c8e"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000bf337119d0b966cc500cd3ff5ab9f3c7fddaa91d"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000007142d01ed8802179659127719398fa679ac41292"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000a3d5aecbf6541cd2a0df5ae2e1294abc682180e6"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000006f72794f9c9d8a693ff6c1134d611d353678fcf0"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000b8479583829f24d888a0493a9132845b3d6a5305"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000005f750bad38b37c4ebcc5fee4eed5639283a09a38"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000014ed6c71ebccdf69007d79fe699d368102533929"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000092bfb1aa73e92c1f591d8b6854514df6672bbb90"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000b2e76a6fdfc66a93a2354748ec2d107a818fe73c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000ec26e590a6f5da137088aee0c4d6b0f8870eb1ad"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000ac95d1d1c86af90f5a0cf44c104d0da04ab3a467"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000a1903db9aa9aa2665ca7da383db9291d93f1d576"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000891e304c4126f24bf762df079c7683420b16ff57"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000007aedaf23d4e9afb84baa67824cebfec01339afc1"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000005096db6b2ea6ace8e2aeb3610faaad183a51ca8d"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000017f25a871ea2ea564cffe99d31dedcf1fcff0a63"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000fb5dbfcd64b16ab0129b99278b9d5ccfb9b605b9"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000c70e97b872035f925b07db55b85a3eac04e724d6"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000d051afb76160844eb32df55e052044de76250ebc"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000dac05b6fc9dc9c0b65ecc5032f2313f7a7dd2586"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000003fd249e0be1d7bf6386b7dc90d92bf95f9f98bc4"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000a7eec8574dbfc883575f2b20a80f14f335a809b6"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000022d7d32459b46a9b69542c31545cb3a0d887064c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000715f213243cd7baeefd3a52434353015a4fc8de2"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000079d8aedd70f8a99a15e3083d3335a028d69af9fa"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000016a80f6c0bbed421a0d6b392e891a52fca715213"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000009bd8e7c30198bd73a39e51d6866b72026272773e"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000f465862e7bf5085fb692e16d3181afaba87550cc"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000008ce099e0d9e5e5153e578f7cbfa9fd071b714142"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000008e3ab300e3d93ac55727c65510ff8bd96ea76928"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000af6ead2e1a296b787d4b084d30b0733518fd2462"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000084798b4fb35d09db14ecab9d65a4a280e483fe29"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000007d002cacbe954f4360fe634fbe23f5b67c686cbf"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000799721e570bcd85be50c0d7a399af369be561fbe"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000009386c3cce8cab9f8c3bc1a89c82a0e55588ced9d"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000933cb75e0e03a16aa3d3e7114d269a6fe4db46f9"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000f1cfc656c8d8e2bcfdfea0e0e9cabcc0b743dd19"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000ee8790666225df6f97ae194e20853f2907bbaebc"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000045952ed2c957691ae4de05032b429a8a0f0ced5b"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000008ceb89e3037b7ac8b58e3765ea3eb65f1a9e4a7c"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000005782c86be10d218c82d509f3257e9dfdbf6dead8"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000e6d703c31f83bc617a62f78e3c3a615001d3dd2c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000113855e9aa747f6ae6fd74667d7a288b2288caf6"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000002c2938555e004cbb0ce4481bad8a15857d983d06"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000063e21ad1535b95aaeed05e893b5b7947d6b0f15a"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000005bce589f39f0eff323bcbeac539dc9fd0f429bd2"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000008030a1eb20b388143f12fb547b5e53a4c164a621"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000005bb0e367bec7d734cb0fc9c27eb85af479b39673"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000e594a68387d42d18bb8e460cef74876f05985e3a"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000009a90a463d916b189eee17b331f27a54142b79961"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000029d8125096a81237be857845270ab34afab88ac"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000d423fa4896aca0a02cba41462e754c3241427f0"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000ca098deb4ab81002cddbd3c93261d6d1cb5113b5"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000fbc09ac707fcca4ae8e348f01457ea18825bd139"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000662d9872215dde44ec296918a0fd96c45c97b332"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000aeec863f85b9a222ac1ffff774a881d46ec3ad37"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000005d4fa1456fbf03872b922dc0e8e48ec49f5faf9e"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000004da0082f56c3cae860eb6fb0fe36bc17cfba2c27"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000444a2203a30517f4a8becca90192b193a7b6ecf3"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000d5765c6e58b373df78d7311fe80a67de0ddf987e"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000742bf896d715c00eb77f340fcaa65bacaee2467c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000c698050f674750bbcafa30c433633dee22b8a9d3"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000006ce1b9fedca232f6829f0831ed2c23bd9c2f99a2"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000091605658e9533e831c9f855874faa14c363dc795"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000f2578fadcdd5cd7b55f7046c88a7a77e195a7b17"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000034fb465a898787f7ed08bc2f5de86a896f8bc4da"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000f84f405591be4ab47ca2ca1841dcb57cc43f076f"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000002cd79f853ec648b7c3ec3fac7c7ce82d7d83ea1e"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000cd1b3e02e0bc556b0c7d4779c69a9a383c0c7cd"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000175de68007e136237a4f26b6983dbce27a87fb5b"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000009c8fc002a1dcd0edcf93c20dc9d674031dc5a28d"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000008b62b65db3bd1be727290b490c679c0e84585498"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000006c6bc4f9ccde5da559a3e5dddb6b60a8675c0076"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000e98c1ab0ff23d5c5005c639781d1a635b9af887b"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000acda51eb0d678a0d52bfa44e4354d8f371f43438"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000009768a9bb367830f3331b0c09d7183c131e44a7fc"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000d6bb0ea7c7f60c967d3deeeaaba555daafbc52cb"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000019598106d1cede298b275523e64593c95d5c431c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000b44c7350f24bb5482057b53911a1d3c91c263eaf"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000d0e14670e6e8718377bc2fae6b6814d558d3dee"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000a15fe2669809ddc6640e94572907a53411b2aa6e"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000d435f13e92f7db306b9b32e1d61db6ecd9c135bd"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000c3fce336558080ef8b1a20a209b173e6d163e548"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000620d85c5acc41cbfa47a763bbb9e326054b1819d"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000009b9d04770c429114574c11780fc9658d3257e80b"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000044c420a5b1a9071eb7ff6f1027c167c002c7f355"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000dcb6a7c9b64471effdd8bbf72d32d271deeec8c5"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000003ad6053af54d703f7e7229bd5bf120c908c8513d"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000d9292de838cd8839d91b496d8a9d25ac102cd821"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000002ac63027195da2ee9ce4cc1dff225ca97d3c2f0c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000723a69480f074f5df2544cacf63347fb5f0f36d1"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000073f7599a216d98d9ff1559788a9771d78895a6a3"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000004289634ebf793179377faa7140610bb80db21b45"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000066a62a0af37886b9b057a1bad714665525e7687f"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000001bb096578fe2f1be79e03ea88551a8bdd0692bea"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000745a759f45602915eab7bdc87bc8d1c1675d4e29"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000bf99ad09fc2f72924cbe6da6020f985e65f78901"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000727fd27941dbe4d8f1e2e9daa0df70288fd73772"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000001eb3790937f47fe31a45f55bd82f50107e7a463a"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000cd63f547ee166a3feb23a945f488ccc5ee921eef"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000008fd69485a26470a721f6dd7e685da39ee2a3dc1c"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000006f631ae51ead55c8526aff13665fe5dd055e3561"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000001debd2afba875db8938ce64218b40fb210e1de0a"  # noqa: E501
-        ),
+        Bytes("693c6139") + Hash(addr, left_padding=True),
+        Bytes("693c6139") + Hash(addr_2, left_padding=True),
+        Bytes("693c6139") + Hash(addr_3, left_padding=True),
+        Bytes("693c6139") + Hash(addr_4, left_padding=True),
+        Bytes("693c6139") + Hash(addr_5, left_padding=True),
+        Bytes("693c6139") + Hash(addr_6, left_padding=True),
+        Bytes("693c6139") + Hash(addr_7, left_padding=True),
+        Bytes("693c6139") + Hash(addr_8, left_padding=True),
+        Bytes("693c6139") + Hash(addr_9, left_padding=True),
+        Bytes("693c6139") + Hash(addr_10, left_padding=True),
+        Bytes("693c6139") + Hash(addr_11, left_padding=True),
+        Bytes("693c6139") + Hash(addr_12, left_padding=True),
+        Bytes("693c6139") + Hash(addr_13, left_padding=True),
+        Bytes("693c6139") + Hash(addr_14, left_padding=True),
+        Bytes("693c6139") + Hash(addr_15, left_padding=True),
+        Bytes("693c6139") + Hash(addr_16, left_padding=True),
+        Bytes("693c6139") + Hash(addr_17, left_padding=True),
+        Bytes("693c6139") + Hash(addr_18, left_padding=True),
+        Bytes("693c6139") + Hash(addr_19, left_padding=True),
+        Bytes("693c6139") + Hash(addr_20, left_padding=True),
+        Bytes("693c6139") + Hash(addr_21, left_padding=True),
+        Bytes("693c6139") + Hash(addr_22, left_padding=True),
+        Bytes("693c6139") + Hash(addr_23, left_padding=True),
+        Bytes("693c6139") + Hash(addr_24, left_padding=True),
+        Bytes("693c6139") + Hash(addr_25, left_padding=True),
+        Bytes("693c6139") + Hash(addr_26, left_padding=True),
+        Bytes("693c6139") + Hash(addr_27, left_padding=True),
+        Bytes("693c6139") + Hash(addr_28, left_padding=True),
+        Bytes("693c6139") + Hash(addr_29, left_padding=True),
+        Bytes("693c6139") + Hash(addr_30, left_padding=True),
+        Bytes("693c6139") + Hash(addr_31, left_padding=True),
+        Bytes("693c6139") + Hash(addr_32, left_padding=True),
+        Bytes("693c6139") + Hash(addr_33, left_padding=True),
+        Bytes("693c6139") + Hash(addr_34, left_padding=True),
+        Bytes("693c6139") + Hash(addr_35, left_padding=True),
+        Bytes("693c6139") + Hash(addr_36, left_padding=True),
+        Bytes("693c6139") + Hash(addr_37, left_padding=True),
+        Bytes("693c6139") + Hash(addr_38, left_padding=True),
+        Bytes("693c6139") + Hash(addr_39, left_padding=True),
+        Bytes("693c6139") + Hash(addr_40, left_padding=True),
+        Bytes("693c6139") + Hash(addr_41, left_padding=True),
+        Bytes("693c6139") + Hash(addr_42, left_padding=True),
+        Bytes("693c6139") + Hash(addr_43, left_padding=True),
+        Bytes("693c6139") + Hash(addr_44, left_padding=True),
+        Bytes("693c6139") + Hash(addr_45, left_padding=True),
+        Bytes("693c6139") + Hash(addr_46, left_padding=True),
+        Bytes("693c6139") + Hash(addr_47, left_padding=True),
+        Bytes("693c6139") + Hash(addr_48, left_padding=True),
+        Bytes("693c6139") + Hash(addr_49, left_padding=True),
+        Bytes("693c6139") + Hash(addr_50, left_padding=True),
+        Bytes("693c6139") + Hash(addr_51, left_padding=True),
+        Bytes("693c6139") + Hash(addr_52, left_padding=True),
+        Bytes("693c6139") + Hash(addr_53, left_padding=True),
+        Bytes("693c6139") + Hash(addr_54, left_padding=True),
+        Bytes("693c6139") + Hash(addr_55, left_padding=True),
+        Bytes("693c6139") + Hash(addr_56, left_padding=True),
+        Bytes("693c6139") + Hash(addr_57, left_padding=True),
+        Bytes("693c6139") + Hash(addr_58, left_padding=True),
+        Bytes("693c6139") + Hash(addr_59, left_padding=True),
+        Bytes("693c6139") + Hash(addr_60, left_padding=True),
+        Bytes("693c6139") + Hash(addr_61, left_padding=True),
+        Bytes("693c6139") + Hash(addr_62, left_padding=True),
+        Bytes("693c6139") + Hash(addr_63, left_padding=True),
+        Bytes("693c6139") + Hash(addr_64, left_padding=True),
+        Bytes("693c6139") + Hash(addr_65, left_padding=True),
+        Bytes("693c6139") + Hash(addr_66, left_padding=True),
+        Bytes("693c6139") + Hash(addr_67, left_padding=True),
+        Bytes("693c6139") + Hash(addr_68, left_padding=True),
+        Bytes("693c6139") + Hash(addr_69, left_padding=True),
+        Bytes("693c6139") + Hash(addr_70, left_padding=True),
+        Bytes("693c6139") + Hash(addr_71, left_padding=True),
+        Bytes("693c6139") + Hash(addr_72, left_padding=True),
+        Bytes("693c6139") + Hash(addr_73, left_padding=True),
+        Bytes("693c6139") + Hash(addr_74, left_padding=True),
+        Bytes("693c6139") + Hash(addr_75, left_padding=True),
+        Bytes("693c6139") + Hash(addr_76, left_padding=True),
+        Bytes("693c6139") + Hash(addr_77, left_padding=True),
+        Bytes("693c6139") + Hash(addr_78, left_padding=True),
+        Bytes("693c6139") + Hash(addr_79, left_padding=True),
+        Bytes("693c6139") + Hash(addr_80, left_padding=True),
+        Bytes("693c6139") + Hash(addr_81, left_padding=True),
+        Bytes("693c6139") + Hash(addr_82, left_padding=True),
+        Bytes("693c6139") + Hash(addr_83, left_padding=True),
+        Bytes("693c6139") + Hash(addr_84, left_padding=True),
+        Bytes("693c6139") + Hash(addr_85, left_padding=True),
+        Bytes("693c6139") + Hash(addr_86, left_padding=True),
+        Bytes("693c6139") + Hash(addr_87, left_padding=True),
+        Bytes("693c6139") + Hash(addr_88, left_padding=True),
+        Bytes("693c6139") + Hash(addr_89, left_padding=True),
+        Bytes("693c6139") + Hash(addr_90, left_padding=True),
+        Bytes("693c6139") + Hash(addr_91, left_padding=True),
+        Bytes("693c6139") + Hash(addr_92, left_padding=True),
+        Bytes("693c6139") + Hash(addr_93, left_padding=True),
+        Bytes("693c6139") + Hash(addr_94, left_padding=True),
+        Bytes("693c6139") + Hash(addr_95, left_padding=True),
+        Bytes("693c6139") + Hash(addr_96, left_padding=True),
+        Bytes("693c6139") + Hash(addr_97, left_padding=True),
+        Bytes("693c6139") + Hash(addr_98, left_padding=True),
+        Bytes("693c6139") + Hash(addr_99, left_padding=True),
+        Bytes("693c6139") + Hash(addr_100, left_padding=True),
+        Bytes("693c6139") + Hash(addr_101, left_padding=True),
+        Bytes("693c6139") + Hash(addr_102, left_padding=True),
+        Bytes("693c6139") + Hash(addr_103, left_padding=True),
+        Bytes("693c6139") + Hash(addr_104, left_padding=True),
+        Bytes("693c6139") + Hash(addr_105, left_padding=True),
+        Bytes("693c6139") + Hash(addr_106, left_padding=True),
+        Bytes("693c6139") + Hash(addr_107, left_padding=True),
+        Bytes("693c6139") + Hash(addr_108, left_padding=True),
+        Bytes("693c6139") + Hash(addr_109, left_padding=True),
+        Bytes("693c6139") + Hash(addr_110, left_padding=True),
+        Bytes("693c6139") + Hash(addr_111, left_padding=True),
+        Bytes("693c6139") + Hash(addr_112, left_padding=True),
+        Bytes("693c6139") + Hash(addr_113, left_padding=True),
+        Bytes("693c6139") + Hash(addr_114, left_padding=True),
+        Bytes("693c6139") + Hash(addr_115, left_padding=True),
+        Bytes("693c6139") + Hash(addr_116, left_padding=True),
+        Bytes("693c6139") + Hash(addr_117, left_padding=True),
+        Bytes("693c6139") + Hash(addr_118, left_padding=True),
+        Bytes("693c6139") + Hash(addr_119, left_padding=True),
+        Bytes("693c6139") + Hash(addr_120, left_padding=True),
+        Bytes("693c6139") + Hash(addr_121, left_padding=True),
+        Bytes("693c6139") + Hash(addr_122, left_padding=True),
+        Bytes("693c6139") + Hash(addr_123, left_padding=True),
+        Bytes("693c6139") + Hash(addr_124, left_padding=True),
+        Bytes("693c6139") + Hash(addr_125, left_padding=True),
+        Bytes("693c6139") + Hash(addr_126, left_padding=True),
+        Bytes("693c6139") + Hash(addr_127, left_padding=True),
+        Bytes("693c6139") + Hash(addr_128, left_padding=True),
+        Bytes("693c6139") + Hash(addr_129, left_padding=True),
+        Bytes("693c6139") + Hash(addr_130, left_padding=True),
+        Bytes("693c6139") + Hash(addr_131, left_padding=True),
+        Bytes("693c6139") + Hash(addr_132, left_padding=True),
+        Bytes("693c6139") + Hash(addr_133, left_padding=True),
+        Bytes("693c6139") + Hash(addr_134, left_padding=True),
+        Bytes("693c6139") + Hash(addr_135, left_padding=True),
+        Bytes("693c6139") + Hash(addr_136, left_padding=True),
+        Bytes("693c6139") + Hash(addr_137, left_padding=True),
+        Bytes("693c6139") + Hash(addr_138, left_padding=True),
+        Bytes("693c6139") + Hash(addr_139, left_padding=True),
+        Bytes("693c6139") + Hash(addr_140, left_padding=True),
+        Bytes("693c6139") + Hash(addr_141, left_padding=True),
+        Bytes("693c6139") + Hash(addr_142, left_padding=True),
+        Bytes("693c6139") + Hash(addr_143, left_padding=True),
+        Bytes("693c6139") + Hash(addr_144, left_padding=True),
+        Bytes("693c6139") + Hash(addr_145, left_padding=True),
+        Bytes("693c6139") + Hash(addr_146, left_padding=True),
+        Bytes("693c6139") + Hash(addr_147, left_padding=True),
+        Bytes("693c6139") + Hash(addr_148, left_padding=True),
+        Bytes("693c6139") + Hash(addr_149, left_padding=True),
+        Bytes("693c6139") + Hash(addr_150, left_padding=True),
+        Bytes("693c6139") + Hash(addr_151, left_padding=True),
+        Bytes("693c6139") + Hash(addr_152, left_padding=True),
+        Bytes("693c6139") + Hash(addr_153, left_padding=True),
+        Bytes("693c6139") + Hash(addr_154, left_padding=True),
+        Bytes("693c6139") + Hash(addr_155, left_padding=True),
+        Bytes("693c6139") + Hash(addr_156, left_padding=True),
+        Bytes("693c6139") + Hash(addr_157, left_padding=True),
+        Bytes("693c6139") + Hash(addr_158, left_padding=True),
+        Bytes("693c6139") + Hash(addr_159, left_padding=True),
+        Bytes("693c6139") + Hash(addr_160, left_padding=True),
+        Bytes("693c6139") + Hash(addr_161, left_padding=True),
+        Bytes("693c6139") + Hash(addr_162, left_padding=True),
+        Bytes("693c6139") + Hash(addr_163, left_padding=True),
+        Bytes("693c6139") + Hash(addr_164, left_padding=True),
+        Bytes("693c6139") + Hash(addr_165, left_padding=True),
+        Bytes("693c6139") + Hash(addr_166, left_padding=True),
     ]
     tx_gas = [8000000]
     tx_value = [1]

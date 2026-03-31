@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -87,9 +88,9 @@ def test_wallet_change_owner_remove_pending_transaction(
     tx = Transaction(
         sender=sender,
         to=contract_1,
-        data=Bytes(
-            "f00d4b5d000000000000000000000000a94f5374fce5edbc8e2a8697c15331677e6ebf0b000000000000000000000000aaaf5374fce5edbc8e2a8697c15331677e6ebaaa"  # noqa: E501
-        ),
+        data=Bytes("f00d4b5d")
+        + Hash(contract_0, left_padding=True)
+        + Hash(0xAAAF5374FCE5EDBC8E2A8697C15331677E6EBAAA),
         gas_limit=10000000,
     )
 

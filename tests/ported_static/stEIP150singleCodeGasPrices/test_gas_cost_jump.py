@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -227,15 +228,9 @@ def test_gas_cost_jump(
     pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     tx_data = [
-        Bytes(
-            "c5b5a1ae00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000004"  # noqa: E501
-        ),
-        Bytes(
-            "c5b5a1ae00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000006"  # noqa: E501
-        ),
-        Bytes(
-            "c5b5a1ae00000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000006"  # noqa: E501
-        ),
+        Bytes("c5b5a1ae") + Hash(0x1) + Hash(0x4),
+        Bytes("c5b5a1ae") + Hash(0x2) + Hash(0x6),
+        Bytes("c5b5a1ae") + Hash(0x3) + Hash(0x6),
     ]
     tx_gas = [16777216]
     tx_value = [1]

@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -144,9 +145,7 @@ def test_quadratic_complexity_solidity_call_data_copy(
     pre[sender] = Account(balance=0x11C37937E08000)
 
     tx_data = [
-        Bytes(
-            "61a47706000000000000000000000000000000000000000000000000000000000000c350"  # noqa: E501
-        ),
+        Bytes("61a47706") + Hash(0xC350),
     ]
     tx_gas = [150000, 250000000]
     tx_value = [1]

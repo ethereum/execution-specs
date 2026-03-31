@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -170,15 +171,9 @@ def test_create2_first_byte_loop(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes(
-            "1a8451e6000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ef"  # noqa: E501
-        ),
-        Bytes(
-            "1a8451e600000000000000000000000000000000000000000000000000000000000000ef00000000000000000000000000000000000000000000000000000000000000f0"  # noqa: E501
-        ),
-        Bytes(
-            "1a8451e600000000000000000000000000000000000000000000000000000000000000f00000000000000000000000000000000000000000000000000000000000000100"  # noqa: E501
-        ),
+        Bytes("1a8451e6") + Hash(0x0) + Hash(0xEF),
+        Bytes("1a8451e6") + Hash(0xEF) + Hash(0xF0),
+        Bytes("1a8451e6") + Hash(0xF0) + Hash(0x100),
     ]
     tx_gas = [16777216]
     tx_value = [0]

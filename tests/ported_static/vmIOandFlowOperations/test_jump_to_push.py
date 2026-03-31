@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -1722,240 +1723,84 @@ def test_jump_to_push(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000001a"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000002a"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000003a"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000004a"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000005a"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000006a"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000007a"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000008a"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000009a"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000000000000000000000000000000000000000000aa"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000000000000000000000000000000000000000000ba"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000000000000000000000000000000000000000000ca"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000000000000000000000000000000000000000000da"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000000000000000000000000000000000000000000ea"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000000000000000000000000000000000000000000fa"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000010a"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000011a"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000012a"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000013a"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000014a"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000015a"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000016a"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000017a"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000018a"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000019a"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000020a"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000001c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000002c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000003c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000004c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000005c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000006c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000007c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000008c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000009c"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000000000000000000000000000000000000000000ac"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000000000000000000000000000000000000000000bc"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000000000000000000000000000000000000000000cc"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000000000000000000000000000000000000000000dc"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000000000000000000000000000000000000000000ec"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000000000000000000000000000000000000000000fc"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000010c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000011c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000012c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000013c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000014c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000015c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000016c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000017c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000018c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000019c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000020c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000001c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000002c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000003c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000004c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000005c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000006c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000007c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000008c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000009c"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000000000000000000000000000000000000000000ac"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000000000000000000000000000000000000000000bc"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000000000000000000000000000000000000000000cc"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000000000000000000000000000000000000000000dc"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000000000000000000000000000000000000000000ec"  # noqa: E501
-        ),
-        Bytes(
-            "693c613900000000000000000000000000000000000000000000000000000000000000fc"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000010c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000011c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000012c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000013c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000014c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000015c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000016c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000017c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000018c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000019c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000020c"  # noqa: E501
-        ),
+        Bytes("693c6139") + Hash(contract_0, left_padding=True),
+        Bytes("693c6139") + Hash(contract_2, left_padding=True),
+        Bytes("693c6139") + Hash(contract_5, left_padding=True),
+        Bytes("693c6139") + Hash(contract_8, left_padding=True),
+        Bytes("693c6139") + Hash(contract_11, left_padding=True),
+        Bytes("693c6139") + Hash(contract_14, left_padding=True),
+        Bytes("693c6139") + Hash(contract_17, left_padding=True),
+        Bytes("693c6139") + Hash(contract_20, left_padding=True),
+        Bytes("693c6139") + Hash(contract_23, left_padding=True),
+        Bytes("693c6139") + Hash(contract_26, left_padding=True),
+        Bytes("693c6139") + Hash(contract_29, left_padding=True),
+        Bytes("693c6139") + Hash(contract_32, left_padding=True),
+        Bytes("693c6139") + Hash(contract_35, left_padding=True),
+        Bytes("693c6139") + Hash(contract_38, left_padding=True),
+        Bytes("693c6139") + Hash(contract_41, left_padding=True),
+        Bytes("693c6139") + Hash(contract_44, left_padding=True),
+        Bytes("693c6139") + Hash(contract_47, left_padding=True),
+        Bytes("693c6139") + Hash(contract_50, left_padding=True),
+        Bytes("693c6139") + Hash(contract_53, left_padding=True),
+        Bytes("693c6139") + Hash(contract_56, left_padding=True),
+        Bytes("693c6139") + Hash(contract_59, left_padding=True),
+        Bytes("693c6139") + Hash(contract_62, left_padding=True),
+        Bytes("693c6139") + Hash(contract_65, left_padding=True),
+        Bytes("693c6139") + Hash(contract_68, left_padding=True),
+        Bytes("693c6139") + Hash(contract_71, left_padding=True),
+        Bytes("693c6139") + Hash(contract_92, left_padding=True),
+        Bytes("693c6139") + Hash(0x1C),
+        Bytes("693c6139") + Hash(contract_4, left_padding=True),
+        Bytes("693c6139") + Hash(contract_7, left_padding=True),
+        Bytes("693c6139") + Hash(contract_10, left_padding=True),
+        Bytes("693c6139") + Hash(contract_13, left_padding=True),
+        Bytes("693c6139") + Hash(contract_16, left_padding=True),
+        Bytes("693c6139") + Hash(contract_19, left_padding=True),
+        Bytes("693c6139") + Hash(contract_22, left_padding=True),
+        Bytes("693c6139") + Hash(contract_25, left_padding=True),
+        Bytes("693c6139") + Hash(contract_28, left_padding=True),
+        Bytes("693c6139") + Hash(contract_31, left_padding=True),
+        Bytes("693c6139") + Hash(contract_34, left_padding=True),
+        Bytes("693c6139") + Hash(contract_37, left_padding=True),
+        Bytes("693c6139") + Hash(contract_40, left_padding=True),
+        Bytes("693c6139") + Hash(contract_43, left_padding=True),
+        Bytes("693c6139") + Hash(contract_46, left_padding=True),
+        Bytes("693c6139") + Hash(contract_49, left_padding=True),
+        Bytes("693c6139") + Hash(contract_52, left_padding=True),
+        Bytes("693c6139") + Hash(contract_55, left_padding=True),
+        Bytes("693c6139") + Hash(contract_58, left_padding=True),
+        Bytes("693c6139") + Hash(contract_61, left_padding=True),
+        Bytes("693c6139") + Hash(contract_64, left_padding=True),
+        Bytes("693c6139") + Hash(contract_67, left_padding=True),
+        Bytes("693c6139") + Hash(contract_70, left_padding=True),
+        Bytes("693c6139") + Hash(contract_73, left_padding=True),
+        Bytes("693c6139") + Hash(contract_94, left_padding=True),
+        Bytes("693c6139") + Hash(0x1C),
+        Bytes("693c6139") + Hash(contract_4, left_padding=True),
+        Bytes("693c6139") + Hash(contract_7, left_padding=True),
+        Bytes("693c6139") + Hash(contract_10, left_padding=True),
+        Bytes("693c6139") + Hash(contract_13, left_padding=True),
+        Bytes("693c6139") + Hash(contract_16, left_padding=True),
+        Bytes("693c6139") + Hash(contract_19, left_padding=True),
+        Bytes("693c6139") + Hash(contract_22, left_padding=True),
+        Bytes("693c6139") + Hash(contract_25, left_padding=True),
+        Bytes("693c6139") + Hash(contract_28, left_padding=True),
+        Bytes("693c6139") + Hash(contract_31, left_padding=True),
+        Bytes("693c6139") + Hash(contract_34, left_padding=True),
+        Bytes("693c6139") + Hash(contract_37, left_padding=True),
+        Bytes("693c6139") + Hash(contract_40, left_padding=True),
+        Bytes("693c6139") + Hash(contract_43, left_padding=True),
+        Bytes("693c6139") + Hash(contract_46, left_padding=True),
+        Bytes("693c6139") + Hash(contract_49, left_padding=True),
+        Bytes("693c6139") + Hash(contract_52, left_padding=True),
+        Bytes("693c6139") + Hash(contract_55, left_padding=True),
+        Bytes("693c6139") + Hash(contract_58, left_padding=True),
+        Bytes("693c6139") + Hash(contract_61, left_padding=True),
+        Bytes("693c6139") + Hash(contract_64, left_padding=True),
+        Bytes("693c6139") + Hash(contract_67, left_padding=True),
+        Bytes("693c6139") + Hash(contract_70, left_padding=True),
+        Bytes("693c6139") + Hash(contract_73, left_padding=True),
+        Bytes("693c6139") + Hash(contract_94, left_padding=True),
     ]
     tx_gas = [16777216]
     tx_value = [1]

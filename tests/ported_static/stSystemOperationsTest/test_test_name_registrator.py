@@ -11,8 +11,8 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -67,8 +67,11 @@ def test_test_name_registrator(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=Bytes(
-            "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffafffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa"  # noqa: E501
+        data=Hash(
+            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFA
+        )
+        + Hash(
+            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFA
         ),
         gas_limit=1000000,
         value=0x186A0,

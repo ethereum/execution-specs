@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -290,12 +291,8 @@ def test_code_in_constructor(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes(
-            "83c7d7580000000000000000000000000000000000000000000000000000000000000001"  # noqa: E501
-        ),
-        Bytes(
-            "83c7d7580000000000000000000000000000000000000000000000000000000000000002"  # noqa: E501
-        ),
+        Bytes("83c7d758") + Hash(0x1),
+        Bytes("83c7d758") + Hash(0x2),
     ]
     tx_gas = [9437184]
     tx_value = [0]

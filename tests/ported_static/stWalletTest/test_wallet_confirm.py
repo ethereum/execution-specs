@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -85,8 +86,9 @@ def test_wallet_confirm(
     tx = Transaction(
         sender=sender,
         to=contract_1,
-        data=Bytes(
-            "797af6276877e4536b661640954061cdbc3a9761fb5245c340fcb1721307cd9d5f285c96"  # noqa: E501
+        data=Bytes("797af627")
+        + Hash(
+            0x6877E4536B661640954061CDBC3A9761FB5245C340FCB1721307CD9D5F285C96
         ),
         gas_limit=10000000,
     )

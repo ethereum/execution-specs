@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -9106,9 +9107,7 @@ def test_block504980(
     tx = Transaction(
         sender=sender,
         to=contract_8,
-        data=Bytes(
-            "36a560bd00000000000000000000000000000000000000000000000000000000000f69b5"  # noqa: E501
-        ),
+        data=Bytes("36a560bd") + Hash(0xF69B5),
         gas_limit=3000000,
         gas_price=10000000000000,
     )

@@ -14,6 +14,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -132,15 +133,9 @@ def test_coinbase_t01(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
-        ),
+        Bytes("693c6139") + Hash(0x0),
+        Bytes("693c6139") + Hash(0x0),
+        Bytes("693c6139") + Hash(0x0),
     ]
     tx_gas = [16777216]
     tx_value = [0]

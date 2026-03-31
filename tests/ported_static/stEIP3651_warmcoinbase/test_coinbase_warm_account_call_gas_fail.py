@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -245,18 +246,10 @@ def test_coinbase_warm_account_call_gas_fail(
     pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
 
     tx_data = [
-        Bytes(
-            "693c61390000000000000000000000008ddf5d9a5251c41efd2949f53db0a464116c7c6e"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000498516b6b2f25cb6a8e011a7c37a617b77e7d500"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000008873820bb96daa39db93ae64a9d6397e4c6a48d7"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000303b6790d019874a107418eb549e4e7766a64728"  # noqa: E501
-        ),
+        Bytes("693c6139") + Hash(addr, left_padding=True),
+        Bytes("693c6139") + Hash(addr_2, left_padding=True),
+        Bytes("693c6139") + Hash(addr_3, left_padding=True),
+        Bytes("693c6139") + Hash(addr_4, left_padding=True),
     ]
     tx_gas = [80000]
     tx_value = [0]

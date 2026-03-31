@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -68,9 +69,7 @@ def test_wallet_kill_to_wallet(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=Bytes(
-            "cbf0b0c0000000000000000000000000ec0e71ad0a90ffe1909d27dac207f7680abba42d"  # noqa: E501
-        ),
+        data=Bytes("cbf0b0c0") + Hash(contract_0, left_padding=True),
         gas_limit=10000000,
         value=100,
         nonce=1,

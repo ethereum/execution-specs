@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -140,12 +141,8 @@ def test_loop_stacklimit(
     pre[sender] = Account(balance=0x100000000000)
 
     tx_data = [
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000000001"  # noqa: E501
-        ),
+        Bytes("693c6139") + Hash(0x0),
+        Bytes("693c6139") + Hash(0x1),
     ]
     tx_gas = [16777216]
     tx_value = [1]

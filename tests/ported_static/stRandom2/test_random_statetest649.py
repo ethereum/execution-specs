@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -158,8 +159,15 @@ def test_random_statetest649(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=Bytes(
-            "756dbf65726963616e207f9439303733373936353331363631303037345a057265737582673075742074650041030a000000efbf7125e86c756dbf65726963616e207f9439303733373936353331363631303037345a0572657375826730757420746500"  # noqa: E501
+        data=Bytes("756dbf65")
+        + Hash(
+            0x726963616E207F9439303733373936353331363631303037345A057265737582
+        )
+        + Hash(
+            0x673075742074650041030A000000EFBF7125E86C756DBF65726963616E207F94
+        )
+        + Hash(
+            0x39303733373936353331363631303037345A0572657375826730757420746500
         ),
         gas_limit=147828,
         value=0xEFBF7125,

@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -1061,78 +1062,30 @@ def test_create_oog_from_call_refunds(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000001a"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000001b"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000001c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000002a"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000002b"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000002c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000003a"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000003b"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000003c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000004a"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000004b"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000004c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000005a"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000005b"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000005c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000006a"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000006b"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000006c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000007a"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000007b"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000007c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000008a"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000008b"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000008c"  # noqa: E501
-        ),
+        Bytes("693c6139") + Hash(contract_1, left_padding=True),
+        Bytes("693c6139") + Hash(contract_2, left_padding=True),
+        Bytes("693c6139") + Hash(contract_3, left_padding=True),
+        Bytes("693c6139") + Hash(contract_4, left_padding=True),
+        Bytes("693c6139") + Hash(contract_5, left_padding=True),
+        Bytes("693c6139") + Hash(contract_6, left_padding=True),
+        Bytes("693c6139") + Hash(contract_7, left_padding=True),
+        Bytes("693c6139") + Hash(contract_8, left_padding=True),
+        Bytes("693c6139") + Hash(contract_9, left_padding=True),
+        Bytes("693c6139") + Hash(contract_10, left_padding=True),
+        Bytes("693c6139") + Hash(contract_11, left_padding=True),
+        Bytes("693c6139") + Hash(contract_12, left_padding=True),
+        Bytes("693c6139") + Hash(contract_13, left_padding=True),
+        Bytes("693c6139") + Hash(contract_14, left_padding=True),
+        Bytes("693c6139") + Hash(contract_15, left_padding=True),
+        Bytes("693c6139") + Hash(contract_16, left_padding=True),
+        Bytes("693c6139") + Hash(contract_17, left_padding=True),
+        Bytes("693c6139") + Hash(contract_18, left_padding=True),
+        Bytes("693c6139") + Hash(contract_19, left_padding=True),
+        Bytes("693c6139") + Hash(contract_20, left_padding=True),
+        Bytes("693c6139") + Hash(contract_21, left_padding=True),
+        Bytes("693c6139") + Hash(contract_22, left_padding=True),
+        Bytes("693c6139") + Hash(contract_23, left_padding=True),
+        Bytes("693c6139") + Hash(contract_24, left_padding=True),
     ]
     tx_gas = [400000]
     tx_value = [0]

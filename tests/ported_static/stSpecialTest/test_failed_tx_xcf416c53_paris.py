@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -93,9 +94,7 @@ def test_failed_tx_xcf416c53_paris(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=Bytes(
-            "97dd3054000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002bc"  # noqa: E501
-        ),
+        data=Bytes("97dd3054") + Hash(0x0) + Hash(0x2BC),
         gas_limit=16300000,
         nonce=1,
     )

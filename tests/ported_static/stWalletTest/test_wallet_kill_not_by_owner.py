@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -77,9 +78,8 @@ def test_wallet_kill_not_by_owner(
     tx = Transaction(
         sender=sender,
         to=contract_1,
-        data=Bytes(
-            "cbf0b0c0000000000000000000000000aaaf5374fce5edbc8e2a8697c15331677e6ebaaa"  # noqa: E501
-        ),
+        data=Bytes("cbf0b0c0")
+        + Hash(0xAAAF5374FCE5EDBC8E2A8697C15331677E6EBAAA),
         gas_limit=10000000,
         value=100,
         nonce=1,

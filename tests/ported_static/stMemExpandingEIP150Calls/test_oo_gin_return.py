@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -194,24 +195,12 @@ def test_oo_gin_return(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes(
-            "1a8451e60000000000000000000000009f5c4c430e37b429d18f8aba147e2302af08f2100000000000000000000000000000000000000000000000000000000000000036"  # noqa: E501
-        ),
-        Bytes(
-            "1a8451e6000000000000000000000000cee9f0c6117cc881ad7b4c378c2bebee8fcd04a90000000000000000000000000000000000000000000000000000000000000036"  # noqa: E501
-        ),
-        Bytes(
-            "1a8451e60000000000000000000000009f5c4c430e37b429d18f8aba147e2302af08f2100000000000000000000000000000000000000000000000000000000000000025"  # noqa: E501
-        ),
-        Bytes(
-            "1a8451e6000000000000000000000000cee9f0c6117cc881ad7b4c378c2bebee8fcd04a90000000000000000000000000000000000000000000000000000000000000025"  # noqa: E501
-        ),
-        Bytes(
-            "1a8451e60000000000000000000000009f5c4c430e37b429d18f8aba147e2302af08f2100000000000000000000000000000000000000000000000000000000000000010"  # noqa: E501
-        ),
-        Bytes(
-            "1a8451e6000000000000000000000000cee9f0c6117cc881ad7b4c378c2bebee8fcd04a90000000000000000000000000000000000000000000000000000000000000010"  # noqa: E501
-        ),
+        Bytes("1a8451e6") + Hash(return_, left_padding=True) + Hash(0x36),
+        Bytes("1a8451e6") + Hash(revert, left_padding=True) + Hash(0x36),
+        Bytes("1a8451e6") + Hash(return_, left_padding=True) + Hash(0x25),
+        Bytes("1a8451e6") + Hash(revert, left_padding=True) + Hash(0x25),
+        Bytes("1a8451e6") + Hash(return_, left_padding=True) + Hash(0x10),
+        Bytes("1a8451e6") + Hash(revert, left_padding=True) + Hash(0x10),
     ]
     tx_gas = [9437184]
     tx_value = [0]

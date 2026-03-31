@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
     TransactionException,
@@ -376,12 +377,8 @@ def test_eoa_empty_paris(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000000001"  # noqa: E501
-        ),
+        Bytes("693c6139") + Hash(0x0),
+        Bytes("693c6139") + Hash(0x1),
     ]
     tx_gas = [10000000, 9999999]
     tx_value = [0, 100]

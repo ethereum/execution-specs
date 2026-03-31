@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -69,9 +70,8 @@ def test_multi_owned_remove_owner_owner_is_not_owner(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=Bytes(
-            "173825d9000000000000000000000000aaaf5374fce5edbc8e2a8697c15331677e6ebaaa"  # noqa: E501
-        ),
+        data=Bytes("173825d9")
+        + Hash(0xAAAF5374FCE5EDBC8E2A8697C15331677E6EBAAA),
         gas_limit=10000000,
         value=100,
         nonce=1,

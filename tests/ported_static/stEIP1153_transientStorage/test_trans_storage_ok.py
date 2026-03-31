@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -1416,48 +1417,38 @@ def test_trans_storage_ok(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes(
-            "ebd141d50000000000000000000000000000000000000000000000000000000000000010"  # noqa: E501
-        ),
-        Bytes(
-            "6e3a72040000000000000000000000000000000000000000000000000000000000000010"  # noqa: E501
-        ),
-        Bytes(
-            "c1c922f10000000000000000000000000000000000000000000000000000000000000010"  # noqa: E501
-        ),
-        Bytes(
-            "ebd141d50000000000000000000000000000000000000000000000000000000000000100"  # noqa: E501
-        ),
-        Bytes(
-            "5114e2c8000000000000000000000000000000000000000000000000000000000000000a"  # noqa: E501
-        ),
-        Bytes(
-            "5114e2c80000000000000000000000000000000000000000000000000000000000000032"  # noqa: E501
-        ),
-        Bytes(
-            "264bb86a0000000000000000000000000000000000000000000000000000000000000006"  # noqa: E501
-        ),
-        Bytes(
-            "7074a4860000000000000000000000000000000000000000000000000000000000000006"  # noqa: E501
-        ),
+        Bytes("ebd141d5") + Hash(0x10),
+        Bytes("6e3a7204") + Hash(0x10),
+        Bytes("c1c922f1") + Hash(0x10),
+        Bytes("ebd141d5") + Hash(0x100),
+        Bytes("5114e2c8") + Hash(0xA),
+        Bytes("5114e2c8") + Hash(0x32),
+        Bytes("264bb86a") + Hash(0x6),
+        Bytes("7074a486") + Hash(0x6),
         Bytes("7f9317bd"),
-        Bytes(
-            "c54b5829f2f4f1f2f4f1f2f4f1f2f4f1f2f4f1f2f4f1f2f4f1f2f4f1f2f4f1f2f4f1f1f1"  # noqa: E501
+        Bytes("c54b5829")
+        + Hash(
+            0xF2F4F1F2F4F1F2F4F1F2F4F1F2F4F1F2F4F1F2F4F1F2F4F1F2F4F1F2F4F1F1F1
         ),
-        Bytes(
-            "c54b5829f1f1f1f1f2f2f2f2f4f4f4f4f1f1f1f1f2f2f2f2f4f4f4f4f1f1f1f1f2f2f2f2"  # noqa: E501
+        Bytes("c54b5829")
+        + Hash(
+            0xF1F1F1F1F2F2F2F2F4F4F4F4F1F1F1F1F2F2F2F2F4F4F4F4F1F1F1F1F2F2F2F2
         ),
-        Bytes(
-            "c54b5829f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1"  # noqa: E501
+        Bytes("c54b5829")
+        + Hash(
+            0xF1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1
         ),
-        Bytes(
-            "c54b5829f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1"  # noqa: E501
+        Bytes("c54b5829")
+        + Hash(
+            0xF1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1
         ),
-        Bytes(
-            "c54b5829f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2"  # noqa: E501
+        Bytes("c54b5829")
+        + Hash(
+            0xF2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2
         ),
-        Bytes(
-            "c54b5829f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4"  # noqa: E501
+        Bytes("c54b5829")
+        + Hash(
+            0xF4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4
         ),
         Bytes("5d7935df"),
     ]

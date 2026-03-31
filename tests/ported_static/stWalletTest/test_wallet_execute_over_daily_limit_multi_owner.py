@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -71,9 +72,10 @@ def test_wallet_execute_over_daily_limit_multi_owner(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=Bytes(
-            "b61d27f6000000000000000000000000aaaf5374fce5edbc8e2a8697c15331677e6ebaaa00000000000000000000000000000000000000000000000000000000000000090000000000000000000000000000000000000000000000000000000000000060"  # noqa: E501
-        ),
+        data=Bytes("b61d27f6")
+        + Hash(0xAAAF5374FCE5EDBC8E2A8697C15331677E6EBAAA)
+        + Hash(0x9)
+        + Hash(0x60),
         gas_limit=10000000,
         nonce=1,
     )

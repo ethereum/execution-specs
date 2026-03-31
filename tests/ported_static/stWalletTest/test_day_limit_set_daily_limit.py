@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -68,9 +69,7 @@ def test_day_limit_set_daily_limit(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=Bytes(
-            "b20d30a90000000000000000000000000000000000000000000000000000000000000002"  # noqa: E501
-        ),
+        data=Bytes("b20d30a9") + Hash(0x2),
         gas_limit=635701,
         value=100,
         nonce=1,

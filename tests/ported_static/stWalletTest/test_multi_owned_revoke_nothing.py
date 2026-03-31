@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -67,8 +68,9 @@ def test_multi_owned_revoke_nothing(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=Bytes(
-            "b75c7dc66e369836487c234b9e553ef3f787c2d8865520739d340c67b3d251a33986e58d"  # noqa: E501
+        data=Bytes("b75c7dc6")
+        + Hash(
+            0x6E369836487C234B9E553EF3F787C2D8865520739D340C67B3D251A33986E58D
         ),
         gas_limit=10000000,
         value=100,

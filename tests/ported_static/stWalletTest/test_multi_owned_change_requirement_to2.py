@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -67,9 +68,7 @@ def test_multi_owned_change_requirement_to2(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=Bytes(
-            "ba51a6df0000000000000000000000000000000000000000000000000000000000000002"  # noqa: E501
-        ),
+        data=Bytes("ba51a6df") + Hash(0x2),
         gas_limit=10000000,
         value=100,
         nonce=1,

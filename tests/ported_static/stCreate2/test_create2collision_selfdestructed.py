@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -161,8 +162,11 @@ def test_create2collision_selfdestructed(
         Bytes(
             "6000600060006000600073af3ecba2fe09a4f6c19f16a9d119e44e08c2da0161c350f15064600160015560005260006005601b6000f500"  # noqa: E501
         ),
-        Bytes(
-            "6000600060006000600073ec2c6832d00680ece8ff9254f81fdab0a5a2ac5061c350f1506d6460016001556000526005601bf36000526000600e60126000f500"  # noqa: E501
+        Hash(
+            0x6000600060006000600073EC2C6832D00680ECE8FF9254F81FDAB0A5A2AC5061
+        )
+        + Hash(
+            0xC350F1506D6460016001556000526005601BF36000526000600E60126000F500
         ),
     ]
     tx_gas = [400000]

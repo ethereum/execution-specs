@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -327,9 +328,7 @@ def test_exp_power256(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
-        ),
+        data=Bytes("693c6139") + Hash(0x0),
         gas_limit=16777216,
         value=1,
     )

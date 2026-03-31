@@ -1230,8 +1230,9 @@ def test_opcodes_transaction_init(
         Bytes(
             "7bffffffffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3"  # noqa: E501
         ),
-        Bytes(
-            "7cffffffffffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3"  # noqa: E501
+        Bytes("7cffffff")
+        + Hash(
+            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5060006000F3
         ),
         Bytes(
             "7dffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3"  # noqa: E501
@@ -1286,8 +1287,9 @@ def test_opcodes_transaction_init(
         Bytes(
             "600060ff60ff60ff60ff60ff60ff60ff60ff9750505050505050505060006000f3"  # noqa: E501
         ),
-        Bytes(
-            "600060ff60ff60ff60ff60ff60ff60ff60ff60ff985050505050505050505060006000f3"  # noqa: E501
+        Bytes("600060ff")
+        + Hash(
+            0x60FF60FF60FF60FF60FF60FF60FF60FF985050505050505050505060006000F3
         ),
         Bytes(
             "600060ff60ff60ff60ff60ff60ff60ff60ff60ff60ff99505050505050505050505060006000f3"  # noqa: E501

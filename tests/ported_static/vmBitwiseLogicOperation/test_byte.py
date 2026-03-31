@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -443,42 +444,18 @@ def test_byte(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000001000"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000001001"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000001002"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000001003"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000001004"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000001005"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000001006"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000001007"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000001008"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000001009"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000100a"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000000200"  # noqa: E501
-        ),
+        Bytes("693c6139") + Hash(contract_0, left_padding=True),
+        Bytes("693c6139") + Hash(contract_1, left_padding=True),
+        Bytes("693c6139") + Hash(contract_2, left_padding=True),
+        Bytes("693c6139") + Hash(contract_3, left_padding=True),
+        Bytes("693c6139") + Hash(contract_4, left_padding=True),
+        Bytes("693c6139") + Hash(contract_5, left_padding=True),
+        Bytes("693c6139") + Hash(contract_6, left_padding=True),
+        Bytes("693c6139") + Hash(contract_7, left_padding=True),
+        Bytes("693c6139") + Hash(contract_8, left_padding=True),
+        Bytes("693c6139") + Hash(contract_9, left_padding=True),
+        Bytes("693c6139") + Hash(contract_10, left_padding=True),
+        Bytes("693c6139") + Hash(contract_11, left_padding=True),
     ]
     tx_gas = [16777216]
     tx_value = [1]

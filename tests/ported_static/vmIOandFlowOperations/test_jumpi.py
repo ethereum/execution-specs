@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
 )
@@ -605,84 +606,32 @@ def test_jumpi(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000001000"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000001001"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000000200"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000000201"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000001002"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000000202"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000001003"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000000203"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000001004"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000001005"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000001006"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000001007"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000001008"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000000208"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000001009"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000100a"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000100b"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000100c"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000100d"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000020d"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000100e"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000020e"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000100f"  # noqa: E501
-        ),
-        Bytes(
-            "693c6139000000000000000000000000000000000000000000000000000000000000020f"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000000110"  # noqa: E501
-        ),
-        Bytes(
-            "693c61390000000000000000000000000000000000000000000000000000000000000111"  # noqa: E501
-        ),
+        Bytes("693c6139") + Hash(contract_0, left_padding=True),
+        Bytes("693c6139") + Hash(contract_1, left_padding=True),
+        Bytes("693c6139") + Hash(contract_2, left_padding=True),
+        Bytes("693c6139") + Hash(contract_3, left_padding=True),
+        Bytes("693c6139") + Hash(contract_4, left_padding=True),
+        Bytes("693c6139") + Hash(contract_5, left_padding=True),
+        Bytes("693c6139") + Hash(contract_6, left_padding=True),
+        Bytes("693c6139") + Hash(contract_7, left_padding=True),
+        Bytes("693c6139") + Hash(contract_8, left_padding=True),
+        Bytes("693c6139") + Hash(contract_9, left_padding=True),
+        Bytes("693c6139") + Hash(contract_10, left_padding=True),
+        Bytes("693c6139") + Hash(contract_11, left_padding=True),
+        Bytes("693c6139") + Hash(contract_12, left_padding=True),
+        Bytes("693c6139") + Hash(contract_13, left_padding=True),
+        Bytes("693c6139") + Hash(contract_14, left_padding=True),
+        Bytes("693c6139") + Hash(contract_15, left_padding=True),
+        Bytes("693c6139") + Hash(contract_16, left_padding=True),
+        Bytes("693c6139") + Hash(contract_17, left_padding=True),
+        Bytes("693c6139") + Hash(contract_18, left_padding=True),
+        Bytes("693c6139") + Hash(contract_19, left_padding=True),
+        Bytes("693c6139") + Hash(contract_20, left_padding=True),
+        Bytes("693c6139") + Hash(contract_21, left_padding=True),
+        Bytes("693c6139") + Hash(contract_22, left_padding=True),
+        Bytes("693c6139") + Hash(contract_23, left_padding=True),
+        Bytes("693c6139") + Hash(contract_24, left_padding=True),
+        Bytes("693c6139") + Hash(contract_25, left_padding=True),
     ]
     tx_gas = [16777216]
     tx_value = [1]
