@@ -11,7 +11,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -146,33 +145,252 @@ def test_sstore_gas_left(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes(
-            "6000600060006000600073b0409d84ab61455cb8bec14b94f635146ab55613610901f115604b5760006000600060006000734092b3905cfea2485ea53222f41eb26e67587802617530f1505b00"  # noqa: E501
-        ),
-        Bytes(
-            "6000600060006000600073b0409d84ab61455cb8bec14b94f635146ab55613610902f115604b5760006000600060006000734092b3905cfea2485ea53222f41eb26e67587802617530f1505b00"  # noqa: E501
-        ),
-        Bytes(
-            "6000600060006000600073b0409d84ab61455cb8bec14b94f635146ab55613610903f115604b5760006000600060006000734092b3905cfea2485ea53222f41eb26e67587802617530f1505b00"  # noqa: E501
-        ),
-        Bytes(
-            "60016001556000600060006000600073b0409d84ab61455cb8bec14b94f635146ab55613610901f21560505760006000600060006000734092b3905cfea2485ea53222f41eb26e67587802617530f1505b00"  # noqa: E501
-        ),
-        Bytes(
-            "60016001556000600060006000600073b0409d84ab61455cb8bec14b94f635146ab55613610902f21560505760006000600060006000734092b3905cfea2485ea53222f41eb26e67587802617530f1505b00"  # noqa: E501
-        ),
-        Bytes(
-            "60016001556000600060006000600073b0409d84ab61455cb8bec14b94f635146ab55613610903f21560505760006000600060006000734092b3905cfea2485ea53222f41eb26e67587802617530f1505b00"  # noqa: E501
-        ),
-        Bytes(
-            "6001600155600060006000600073b0409d84ab61455cb8bec14b94f635146ab55613610901f415604e5760006000600060006000734092b3905cfea2485ea53222f41eb26e67587802617530f1505b00"  # noqa: E501
-        ),
-        Bytes(
-            "6001600155600060006000600073b0409d84ab61455cb8bec14b94f635146ab55613610902f415604e5760006000600060006000734092b3905cfea2485ea53222f41eb26e67587802617530f1505b00"  # noqa: E501
-        ),
-        Bytes(
-            "6001600155600060006000600073b0409d84ab61455cb8bec14b94f635146ab55613610903f415604e5760006000600060006000734092b3905cfea2485ea53222f41eb26e67587802617530f1505b00"  # noqa: E501
-        ),
+        Op.JUMPI(
+            pc=0x4B,
+            condition=Op.ISZERO(
+                Op.CALL(
+                    gas=0x901,
+                    address=0xB0409D84AB61455CB8BEC14B94F635146AB55613,
+                    value=0x0,
+                    args_offset=0x0,
+                    args_size=0x0,
+                    ret_offset=0x0,
+                    ret_size=0x0,
+                )
+            ),
+        )
+        + Op.POP(
+            Op.CALL(
+                gas=0x7530,
+                address=0x4092B3905CFEA2485EA53222F41EB26E67587802,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.JUMPDEST
+        + Op.STOP,
+        Op.JUMPI(
+            pc=0x4B,
+            condition=Op.ISZERO(
+                Op.CALL(
+                    gas=0x902,
+                    address=0xB0409D84AB61455CB8BEC14B94F635146AB55613,
+                    value=0x0,
+                    args_offset=0x0,
+                    args_size=0x0,
+                    ret_offset=0x0,
+                    ret_size=0x0,
+                )
+            ),
+        )
+        + Op.POP(
+            Op.CALL(
+                gas=0x7530,
+                address=0x4092B3905CFEA2485EA53222F41EB26E67587802,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.JUMPDEST
+        + Op.STOP,
+        Op.JUMPI(
+            pc=0x4B,
+            condition=Op.ISZERO(
+                Op.CALL(
+                    gas=0x903,
+                    address=0xB0409D84AB61455CB8BEC14B94F635146AB55613,
+                    value=0x0,
+                    args_offset=0x0,
+                    args_size=0x0,
+                    ret_offset=0x0,
+                    ret_size=0x0,
+                )
+            ),
+        )
+        + Op.POP(
+            Op.CALL(
+                gas=0x7530,
+                address=0x4092B3905CFEA2485EA53222F41EB26E67587802,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.JUMPDEST
+        + Op.STOP,
+        Op.SSTORE(key=0x1, value=0x1)
+        + Op.JUMPI(
+            pc=0x50,
+            condition=Op.ISZERO(
+                Op.CALLCODE(
+                    gas=0x901,
+                    address=0xB0409D84AB61455CB8BEC14B94F635146AB55613,
+                    value=0x0,
+                    args_offset=0x0,
+                    args_size=0x0,
+                    ret_offset=0x0,
+                    ret_size=0x0,
+                )
+            ),
+        )
+        + Op.POP(
+            Op.CALL(
+                gas=0x7530,
+                address=0x4092B3905CFEA2485EA53222F41EB26E67587802,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.JUMPDEST
+        + Op.STOP,
+        Op.SSTORE(key=0x1, value=0x1)
+        + Op.JUMPI(
+            pc=0x50,
+            condition=Op.ISZERO(
+                Op.CALLCODE(
+                    gas=0x902,
+                    address=0xB0409D84AB61455CB8BEC14B94F635146AB55613,
+                    value=0x0,
+                    args_offset=0x0,
+                    args_size=0x0,
+                    ret_offset=0x0,
+                    ret_size=0x0,
+                )
+            ),
+        )
+        + Op.POP(
+            Op.CALL(
+                gas=0x7530,
+                address=0x4092B3905CFEA2485EA53222F41EB26E67587802,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.JUMPDEST
+        + Op.STOP,
+        Op.SSTORE(key=0x1, value=0x1)
+        + Op.JUMPI(
+            pc=0x50,
+            condition=Op.ISZERO(
+                Op.CALLCODE(
+                    gas=0x903,
+                    address=0xB0409D84AB61455CB8BEC14B94F635146AB55613,
+                    value=0x0,
+                    args_offset=0x0,
+                    args_size=0x0,
+                    ret_offset=0x0,
+                    ret_size=0x0,
+                )
+            ),
+        )
+        + Op.POP(
+            Op.CALL(
+                gas=0x7530,
+                address=0x4092B3905CFEA2485EA53222F41EB26E67587802,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.JUMPDEST
+        + Op.STOP,
+        Op.SSTORE(key=0x1, value=0x1)
+        + Op.JUMPI(
+            pc=0x4E,
+            condition=Op.ISZERO(
+                Op.DELEGATECALL(
+                    gas=0x901,
+                    address=0xB0409D84AB61455CB8BEC14B94F635146AB55613,
+                    args_offset=0x0,
+                    args_size=0x0,
+                    ret_offset=0x0,
+                    ret_size=0x0,
+                )
+            ),
+        )
+        + Op.POP(
+            Op.CALL(
+                gas=0x7530,
+                address=0x4092B3905CFEA2485EA53222F41EB26E67587802,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.JUMPDEST
+        + Op.STOP,
+        Op.SSTORE(key=0x1, value=0x1)
+        + Op.JUMPI(
+            pc=0x4E,
+            condition=Op.ISZERO(
+                Op.DELEGATECALL(
+                    gas=0x902,
+                    address=0xB0409D84AB61455CB8BEC14B94F635146AB55613,
+                    args_offset=0x0,
+                    args_size=0x0,
+                    ret_offset=0x0,
+                    ret_size=0x0,
+                )
+            ),
+        )
+        + Op.POP(
+            Op.CALL(
+                gas=0x7530,
+                address=0x4092B3905CFEA2485EA53222F41EB26E67587802,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.JUMPDEST
+        + Op.STOP,
+        Op.SSTORE(key=0x1, value=0x1)
+        + Op.JUMPI(
+            pc=0x4E,
+            condition=Op.ISZERO(
+                Op.DELEGATECALL(
+                    gas=0x903,
+                    address=0xB0409D84AB61455CB8BEC14B94F635146AB55613,
+                    args_offset=0x0,
+                    args_size=0x0,
+                    ret_offset=0x0,
+                    ret_size=0x0,
+                )
+            ),
+        )
+        + Op.POP(
+            Op.CALL(
+                gas=0x7530,
+                address=0x4092B3905CFEA2485EA53222F41EB26E67587802,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.JUMPDEST
+        + Op.STOP,
     ]
     tx_gas = [200000]
     tx_value = [1]

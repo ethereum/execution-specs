@@ -13,7 +13,6 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
-    Hash,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -1139,210 +1138,369 @@ def test_opcodes_transaction_init(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes("0060016000f3"),
-        Bytes("60016001015060006000f3"),
-        Bytes("60016001025060006000f3"),
-        Bytes("60016001035060006000f3"),
-        Bytes("60016001045060006000f3"),
-        Bytes("60016001055060006000f3"),
-        Bytes("60016001065060006000f3"),
-        Bytes("60016001075060006000f3"),
-        Bytes("600160016001085060006000f3"),
-        Bytes("600160016001095060006000f3"),
-        Bytes("600160010a5060006000f3"),
-        Bytes("600160010b5060006000f3"),
-        Bytes("60016001105060006000f3"),
-        Bytes("60016001115060006000f3"),
-        Bytes("60016001125060006000f3"),
-        Bytes("60016001135060006000f3"),
-        Bytes("60016001145060006000f3"),
-        Bytes("6000155060006000f3"),
-        Bytes("60006000165060006000f3"),
-        Bytes("60006000175060006000f3"),
-        Bytes("60006000185060006000f3"),
-        Bytes("6000195060006000f3"),
-        Bytes("67805020100804020160001a5060006000f3"),
-        Bytes("600060002060006000f3"),
-        Bytes("305060006000f3"),
-        Bytes("6000315060006000f3"),
-        Bytes("325060006000f3"),
-        Bytes("335060006000f3"),
-        Bytes("345060006000f3"),
-        Bytes("6000355060006000f3"),
-        Bytes("365060006000f3"),
-        Bytes("6000600060003760006000f3"),
-        Bytes("385060006000f3"),
-        Bytes("38600060013960015160005560006000f3"),
-        Bytes("3a5060006000f3"),
-        Bytes("60003b5060006000f3"),
-        Bytes(
-            "6014600060007310000000000000000000000000000000000000103c60006000f3"  # noqa: E501
-        ),
-        Bytes("3d5060006000f3"),
-        Bytes("6000600060003e60006000f3"),
-        Bytes("60005060005060006000f3"),
-        Bytes("6000515060006000f3"),
-        Bytes("600060005260006000f3"),
-        Bytes("60ff60005360006000f3"),
-        Bytes("6000545060006000f3"),
-        Bytes("600160015560006000f3"),
-        Bytes("600456005b60006000f3"),
-        Bytes("6001600657005b60006000f3"),
-        Bytes("585060006000f3"),
-        Bytes("595060006000f3"),
-        Bytes("5a5060006000f3"),
-        Bytes("5b60006000f3"),
-        Bytes("60ff5060006000f3"),
-        Bytes("61ffff5060006000f3"),
-        Bytes("62ffffff5060006000f3"),
-        Bytes("63ffffffff5060006000f3"),
-        Bytes("64ffffffffff5060006000f3"),
-        Bytes("65ffffffffffff5060006000f3"),
-        Bytes("66ffffffffffffff5060006000f3"),
-        Bytes("67ffffffffffffffff5060006000f3"),
-        Bytes("68ffffffffffffffffff5060006000f3"),
-        Bytes("69ffffffffffffffffffff5060006000f3"),
-        Bytes("6affffffffffffffffffffff5060006000f3"),
-        Bytes("6bffffffffffffffffffffffff5060006000f3"),
-        Address(0x6CFFFFFFFFFFFFFFFFFFFFFFFFFF5060006000F3),
-        Bytes("6dffffffffffffffffffffffffffff5060006000f3"),
-        Bytes("6effffffffffffffffffffffffffffff5060006000f3"),
-        Bytes("6fffffffffffffffffffffffffffffffff5060006000f3"),
-        Bytes("70ffffffffffffffffffffffffffffffffff5060006000f3"),
-        Bytes("71ffffffffffffffffffffffffffffffffffff5060006000f3"),
-        Bytes("72ffffffffffffffffffffffffffffffffffffff5060006000f3"),
-        Bytes("73ffffffffffffffffffffffffffffffffffffffff5060006000f3"),
-        Bytes("74ffffffffffffffffffffffffffffffffffffffffff5060006000f3"),
-        Bytes("75ffffffffffffffffffffffffffffffffffffffffffff5060006000f3"),
-        Bytes("76ffffffffffffffffffffffffffffffffffffffffffffff5060006000f3"),
-        Bytes(
-            "77ffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3"
-        ),
-        Hash(
-            0x78FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5060006000F3
-        ),
-        Bytes(
-            "79ffffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3"  # noqa: E501
-        ),
-        Bytes(
-            "7affffffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3"  # noqa: E501
-        ),
-        Bytes(
-            "7bffffffffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3"  # noqa: E501
-        ),
-        Bytes("7cffffff")
-        + Hash(
-            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5060006000F3
-        ),
-        Bytes(
-            "7dffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3"  # noqa: E501
-        ),
-        Bytes(
-            "7effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3"  # noqa: E501
-        ),
-        Bytes(
-            "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3"  # noqa: E501
-        ),
-        Bytes("60ff80505060006000f3"),
-        Bytes("60ff60ff8150505060006000f3"),
-        Bytes("60ff60ff60ff825050505060006000f3"),
-        Bytes("60ff60ff60ff60ff83505050505060006000f3"),
-        Bytes("60ff60ff60ff60ff60ff8450505050505060006000f3"),
-        Bytes("60ff60ff60ff60ff60ff60ff855050505050505060006000f3"),
-        Bytes("60ff60ff60ff60ff60ff60ff60ff86505050505050505060006000f3"),
-        Bytes(
-            "60ff60ff60ff60ff60ff60ff60ff60ff8750505050505050505060006000f3"
-        ),
-        Bytes(
-            "60ff60ff60ff60ff60ff60ff60ff60ff60ff885050505050505050505060006000f3"  # noqa: E501
-        ),
-        Bytes(
-            "60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff89505050505050505050505060006000f3"  # noqa: E501
-        ),
-        Bytes(
-            "60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff8a50505050505050505050505060006000f3"  # noqa: E501
-        ),
-        Bytes(
-            "60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff8b5050505050505050505050505060006000f3"  # noqa: E501
-        ),
-        Bytes(
-            "60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff8c505050505050505050505050505060006000f3"  # noqa: E501
-        ),
-        Bytes(
-            "60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff8d50505050505050505050505050505060006000f3"  # noqa: E501
-        ),
-        Bytes(
-            "60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff8e5050505050505050505050505050505060006000f3"  # noqa: E501
-        ),
-        Bytes(
-            "60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff8f505050505050505050505050505050505060006000f3"  # noqa: E501
-        ),
-        Bytes("60ff60ff90505060006000f3"),
-        Bytes("60ff60ff60ff9150505060006000f3"),
-        Bytes("60ff60ff60ff60ff925050505060006000f3"),
-        Bytes("60ff60ff60ff60ff60ff93505050505060006000f3"),
-        Bytes("60ff60ff60ff60ff60ff60ff9450505050505060006000f3"),
-        Bytes("60ff60ff60ff60ff60ff60ff60ff955050505050505060006000f3"),
-        Bytes("60ff60ff60ff60ff60ff60ff60ff60ff96505050505050505060006000f3"),
-        Bytes(
-            "600060ff60ff60ff60ff60ff60ff60ff60ff9750505050505050505060006000f3"  # noqa: E501
-        ),
-        Bytes("600060ff")
-        + Hash(
-            0x60FF60FF60FF60FF60FF60FF60FF60FF985050505050505050505060006000F3
-        ),
-        Bytes(
-            "600060ff60ff60ff60ff60ff60ff60ff60ff60ff60ff99505050505050505050505060006000f3"  # noqa: E501
-        ),
-        Bytes(
-            "600060ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff9a50505050505050505050505060006000f3"  # noqa: E501
-        ),
-        Bytes(
-            "600060ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff9b5050505050505050505050505060006000f3"  # noqa: E501
-        ),
-        Bytes(
-            "600060ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff9c505050505050505050505050505060006000f3"  # noqa: E501
-        ),
-        Bytes(
-            "600060ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff9d50505050505050505050505050505060006000f3"  # noqa: E501
-        ),
-        Bytes(
-            "600060ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff9e5050505050505050505050505050505060006000f3"  # noqa: E501
-        ),
-        Bytes(
-            "600060ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff9f505050505050505050505050505050505060006000f3"  # noqa: E501
-        ),
-        Bytes("60006000a060006000f3"),
-        Bytes("60ff60006000a160006000f3"),
-        Bytes("60ff60ff60006000a260006000f3"),
-        Bytes("60ff60ff60ff60006000a360006000f3"),
-        Bytes("60ff60ff60ff60ff60006000a460006000f3"),
-        Bytes("6000600060fff05060006000f3"),
-        Bytes(
-            "60006000600060006017730f572e5295c57f15886f9b263e2f6d2d6c7b5ec66064f15060006000f3"  # noqa: E501
-        ),
-        Bytes(
-            "60006000600060006000730f572e5295c57f15886f9b263e2f6d2d6c7b5ec66064f25060006000f3"  # noqa: E501
-        ),
-        Bytes("60006000f3"),
-        Bytes(
-            "6000600060006000730f572e5295c57f15886f9b263e2f6d2d6c7b5ec6620186a0f45060006000f3"  # noqa: E501
-        ),
-        Bytes(
-            "6000600060006000730f572e5295c57f15886f9b263e2f6d2d6c7b5ec6612710fa5060006000f3"  # noqa: E501
-        ),
-        Bytes("60006000fd60006000f3"),
-        Bytes("32ff"),
+        Op.STOP + Op.RETURN(offset=0x0, size=0x1),
+        Op.POP(Op.ADD(0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.MUL(0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.SUB(0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.DIV(0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.SDIV(0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.MOD(0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.SMOD(0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.ADDMOD(0x1, 0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.MULMOD(0x1, 0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.EXP(0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.SIGNEXTEND(0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.LT(0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.GT(0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.SLT(0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.SGT(0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.EQ(0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.ISZERO(0x0)) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.AND(0x0, 0x0)) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.OR(0x0, 0x0)) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.XOR(0x0, 0x0)) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.NOT(0x0)) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.BYTE(0x0, 0x8050201008040201))
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.SHA3(offset=0x0, size=0x0) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.ADDRESS) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.BALANCE(address=0x0)) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.ORIGIN) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.CALLER) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.CALLVALUE) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.CALLDATALOAD(offset=0x0)) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.CALLDATASIZE) + Op.RETURN(offset=0x0, size=0x0),
+        Op.CALLDATACOPY(dest_offset=0x0, offset=0x0, size=0x0)
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.CODESIZE) + Op.RETURN(offset=0x0, size=0x0),
+        Op.CODECOPY(dest_offset=0x1, offset=0x0, size=Op.CODESIZE)
+        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x1))
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.GASPRICE) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.EXTCODESIZE(address=0x0)) + Op.RETURN(offset=0x0, size=0x0),
+        Op.EXTCODECOPY(
+            address=0x1000000000000000000000000000000000000010,
+            dest_offset=0x0,
+            offset=0x0,
+            size=0x14,
+        )
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.RETURNDATASIZE) + Op.RETURN(offset=0x0, size=0x0),
+        Op.RETURNDATACOPY(dest_offset=0x0, offset=0x0, size=0x0)
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0x0) * 2 + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.MLOAD(offset=0x0)) + Op.RETURN(offset=0x0, size=0x0),
+        Op.MSTORE(offset=0x0, value=0x0) + Op.RETURN(offset=0x0, size=0x0),
+        Op.MSTORE8(offset=0x0, value=0xFF) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.SLOAD(key=0x0)) + Op.RETURN(offset=0x0, size=0x0),
+        Op.SSTORE(key=0x1, value=0x1) + Op.RETURN(offset=0x0, size=0x0),
+        Op.JUMP(pc=0x4)
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.JUMPI(pc=0x6, condition=0x1)
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.PC) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.MSIZE) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.GAS) + Op.RETURN(offset=0x0, size=0x0),
+        Op.JUMPDEST + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0xFF) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0xFFFF) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0xFFFFFF) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0xFFFFFFFF) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0xFFFFFFFFFF) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0xFFFFFFFFFFFF) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0xFFFFFFFFFFFFFF) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0xFFFFFFFFFFFFFFFF) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0xFFFFFFFFFFFFFFFFFF) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0xFFFFFFFFFFFFFFFFFFFF) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFF) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFF) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFF) + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(
+            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+        )
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(
+            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+        )
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0xFF]
+        + Op.POP(Op.DUP1)
+        + Op.POP
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0xFF] * 2
+        + Op.POP(Op.DUP2)
+        + Op.POP * 2
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0xFF] * 3
+        + Op.POP(Op.DUP3)
+        + Op.POP * 3
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0xFF] * 4
+        + Op.POP(Op.DUP4)
+        + Op.POP * 4
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0xFF] * 5
+        + Op.POP(Op.DUP5)
+        + Op.POP * 5
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0xFF] * 6
+        + Op.POP(Op.DUP6)
+        + Op.POP * 6
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0xFF] * 7
+        + Op.POP(Op.DUP7)
+        + Op.POP * 7
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0xFF] * 8
+        + Op.POP(Op.DUP8)
+        + Op.POP * 8
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0xFF] * 9
+        + Op.POP(Op.DUP9)
+        + Op.POP * 9
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0xFF] * 10
+        + Op.POP(Op.DUP10)
+        + Op.POP * 10
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0xFF] * 11
+        + Op.POP(Op.DUP11)
+        + Op.POP * 11
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0xFF] * 12
+        + Op.POP(Op.DUP12)
+        + Op.POP * 12
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0xFF] * 13
+        + Op.POP(Op.DUP13)
+        + Op.POP * 13
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0xFF] * 14
+        + Op.POP(Op.DUP14)
+        + Op.POP * 14
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0xFF] * 15
+        + Op.POP(Op.DUP15)
+        + Op.POP * 15
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0xFF] * 16
+        + Op.POP(Op.DUP16)
+        + Op.POP * 16
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0xFF] * 2
+        + Op.SWAP1
+        + Op.POP * 2
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0xFF] * 3
+        + Op.SWAP2
+        + Op.POP * 3
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0xFF] * 4
+        + Op.SWAP3
+        + Op.POP * 4
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0xFF] * 5
+        + Op.SWAP4
+        + Op.POP * 5
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0xFF] * 6
+        + Op.SWAP5
+        + Op.POP * 6
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0xFF] * 7
+        + Op.SWAP6
+        + Op.POP * 7
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0xFF] * 8
+        + Op.SWAP7
+        + Op.POP * 8
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0x0]
+        + Op.PUSH1[0xFF] * 8
+        + Op.SWAP8
+        + Op.POP * 9
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0x0]
+        + Op.PUSH1[0xFF] * 9
+        + Op.SWAP9
+        + Op.POP * 10
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0x0]
+        + Op.PUSH1[0xFF] * 10
+        + Op.SWAP10
+        + Op.POP * 11
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0x0]
+        + Op.PUSH1[0xFF] * 11
+        + Op.SWAP11
+        + Op.POP * 12
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0x0]
+        + Op.PUSH1[0xFF] * 12
+        + Op.SWAP12
+        + Op.POP * 13
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0x0]
+        + Op.PUSH1[0xFF] * 13
+        + Op.SWAP13
+        + Op.POP * 14
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0x0]
+        + Op.PUSH1[0xFF] * 14
+        + Op.SWAP14
+        + Op.POP * 15
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0x0]
+        + Op.PUSH1[0xFF] * 15
+        + Op.SWAP15
+        + Op.POP * 16
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.PUSH1[0x0]
+        + Op.PUSH1[0xFF] * 16
+        + Op.SWAP16
+        + Op.POP * 17
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.LOG0(offset=0x0, size=0x0) + Op.RETURN(offset=0x0, size=0x0),
+        Op.LOG1(offset=0x0, size=0x0, topic_1=0xFF)
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.LOG2(offset=0x0, size=0x0, topic_1=0xFF, topic_2=0xFF)
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.LOG3(offset=0x0, size=0x0, topic_1=0xFF, topic_2=0xFF, topic_3=0xFF)
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.LOG4(
+            offset=0x0,
+            size=0x0,
+            topic_1=0xFF,
+            topic_2=0xFF,
+            topic_3=0xFF,
+            topic_4=0xFF,
+        )
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(Op.CREATE(value=0xFF, offset=0x0, size=0x0))
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(
+            Op.CALL(
+                gas=0x64,
+                address=0xF572E5295C57F15886F9B263E2F6D2D6C7B5EC6,
+                value=0x17,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(
+            Op.CALLCODE(
+                gas=0x64,
+                address=0xF572E5295C57F15886F9B263E2F6D2D6C7B5EC6,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(
+            Op.DELEGATECALL(
+                gas=0x186A0,
+                address=0xF572E5295C57F15886F9B263E2F6D2D6C7B5EC6,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.POP(
+            Op.STATICCALL(
+                gas=0x2710,
+                address=0xF572E5295C57F15886F9B263E2F6D2D6C7B5EC6,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.RETURN(offset=0x0, size=0x0),
+        Op.REVERT(offset=0x0, size=0x0) + Op.RETURN(offset=0x0, size=0x0),
+        Op.SELFDESTRUCT(address=Op.ORIGIN),
         Bytes("ef"),
-        Hash(
-            0x60008080808073B94F5374FCE5EDBC8E2A8697C15331677E6EBF0B61C350F100
-        ),
-        Bytes(
-            "60008080808073b94f5374fce5edbc8e2a8697c15331677e6ebf0b61c350f150fe"  # noqa: E501
-        ),
-        Bytes(
-            "60008080808073b94f5374fce5edbc8e2a8697c15331677e6ebf0b61c350f15060ef60005360016000f3"  # noqa: E501
-        ),
+        Op.CALL(
+            gas=0xC350,
+            address=0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+            value=Op.DUP1,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=Op.DUP1,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        Op.POP(
+            Op.CALL(
+                gas=0xC350,
+                address=0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                value=Op.DUP1,
+                args_offset=Op.DUP1,
+                args_size=Op.DUP1,
+                ret_offset=Op.DUP1,
+                ret_size=0x0,
+            )
+        )
+        + Op.INVALID,
+        Op.POP(
+            Op.CALL(
+                gas=0xC350,
+                address=0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                value=Op.DUP1,
+                args_offset=Op.DUP1,
+                args_size=Op.DUP1,
+                ret_offset=Op.DUP1,
+                ret_size=0x0,
+            )
+        )
+        + Op.MSTORE8(offset=0x0, value=0xEF)
+        + Op.RETURN(offset=0x0, size=0x1),
     ]
     tx_gas = [400000]
     tx_value = [100000]

@@ -11,11 +11,11 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -60,9 +60,94 @@ def test_vitalik_transaction_test_paris(
     tx = Transaction(
         sender=sender,
         to=None,
-        data=Bytes(
-            "6000607f5359610043806100135939610056566c010000000000000000000000007fee098e6c2a43d9e2c04f08f0c3a87b0ba59079d4d53532071d6cd0cb86facd5605ff6100008061003f60003961003f565b6000f35b816000f0905050596100718061006c59396100dd5661005f8061000e60003961006d566000603f5359610043806100135939610056566c010000000000000000000000007fee098e6c2a43d9e2c04f08f0c3a87b0ba59079d4d53532071d6cd0cb86facd5605ff6100008061003f60003961003f565b6000f35b816000f0905050fe5b6000f35b816000f0905060405260006000600060006000604051620249f0f15061000080610108600039610108565b6000f3"  # noqa: E501
-        ),
+        data=Op.MSTORE8(offset=0x7F, value=0x0)
+        + Op.MSIZE
+        + Op.PUSH2[0x43]
+        + Op.CODECOPY(
+            dest_offset=Op.MSIZE, offset=Op.PUSH2[0x13], size=Op.DUP1
+        )
+        + Op.JUMP(pc=Op.PUSH2[0x56])
+        + Op.SELFDESTRUCT(
+            address=Op.SDIV(
+                0xEE098E6C2A43D9E2C04F08F0C3A87B0BA59079D4D53532071D6CD0CB86FACD56,  # noqa: E501
+                0x1000000000000000000000000,
+            )
+        )
+        + Op.PUSH2[0x0]
+        + Op.CODECOPY(dest_offset=0x0, offset=Op.PUSH2[0x3F], size=Op.DUP1)
+        + Op.JUMP(pc=Op.PUSH2[0x3F])
+        + Op.JUMPDEST
+        + Op.PUSH1[0x0]
+        + Op.RETURN
+        + Op.JUMPDEST
+        + Op.DUP2
+        + Op.PUSH1[0x0]
+        + Op.CREATE
+        + Op.SWAP1
+        + Op.POP * 2
+        + Op.MSIZE
+        + Op.PUSH2[0x71]
+        + Op.CODECOPY(
+            dest_offset=Op.MSIZE, offset=Op.PUSH2[0x6C], size=Op.DUP1
+        )
+        + Op.JUMP(pc=Op.PUSH2[0xDD])
+        + Op.PUSH2[0x5F]
+        + Op.CODECOPY(dest_offset=0x0, offset=Op.PUSH2[0xE], size=Op.DUP1)
+        + Op.JUMP(pc=Op.PUSH2[0x6D])
+        + Op.MSTORE8(offset=0x3F, value=0x0)
+        + Op.MSIZE
+        + Op.PUSH2[0x43]
+        + Op.CODECOPY(
+            dest_offset=Op.MSIZE, offset=Op.PUSH2[0x13], size=Op.DUP1
+        )
+        + Op.JUMP(pc=Op.PUSH2[0x56])
+        + Op.SELFDESTRUCT(
+            address=Op.SDIV(
+                0xEE098E6C2A43D9E2C04F08F0C3A87B0BA59079D4D53532071D6CD0CB86FACD56,  # noqa: E501
+                0x1000000000000000000000000,
+            )
+        )
+        + Op.PUSH2[0x0]
+        + Op.CODECOPY(dest_offset=0x0, offset=Op.PUSH2[0x3F], size=Op.DUP1)
+        + Op.JUMP(pc=Op.PUSH2[0x3F])
+        + Op.JUMPDEST
+        + Op.PUSH1[0x0]
+        + Op.RETURN
+        + Op.JUMPDEST
+        + Op.DUP2
+        + Op.PUSH1[0x0]
+        + Op.CREATE
+        + Op.SWAP1
+        + Op.POP * 2
+        + Op.INVALID
+        + Op.JUMPDEST
+        + Op.PUSH1[0x0]
+        + Op.RETURN
+        + Op.JUMPDEST
+        + Op.DUP2
+        + Op.PUSH1[0x0]
+        + Op.CREATE
+        + Op.SWAP1
+        + Op.POP
+        + Op.PUSH1[0x40]
+        + Op.MSTORE
+        + Op.POP(
+            Op.CALL(
+                gas=0x249F0,
+                address=Op.MLOAD(offset=0x40),
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.PUSH2[0x0]
+        + Op.CODECOPY(dest_offset=0x0, offset=0x108, size=Op.DUP1)
+        + Op.JUMP(pc=0x108)
+        + Op.JUMPDEST
+        + Op.PUSH1[0x0]
+        + Op.RETURN,
         gas_limit=2097151,
         nonce=335,
     )

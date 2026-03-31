@@ -11,13 +11,13 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
 from execution_testing.forks import Fork
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -83,10 +83,10 @@ def test_create_contract_return_big_offset(
     pre[sender] = Account(balance=0x9184E72A000)
 
     tx_data = [
-        Bytes("6201000062074ac2f3"),
-        Bytes("62051eb862074ac2f3"),
-        Bytes("62051eb962074ac2f3"),
-        Bytes("620d15bc62074ac2f3"),
+        Op.RETURN(offset=0x74AC2, size=0x10000),
+        Op.RETURN(offset=0x74AC2, size=0x51EB8),
+        Op.RETURN(offset=0x74AC2, size=0x51EB9),
+        Op.RETURN(offset=0x74AC2, size=0xD15BC),
     ]
     tx_gas = [16777216]
 

@@ -11,7 +11,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -108,15 +107,34 @@ def test_init_colliding_with_non_empty_account(
     )
 
     tx_data = [
-        Bytes("60206000f3"),
-        Bytes(
-            "6001600055600080808061271073d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d05af100"  # noqa: E501
-        ),
-        Bytes("60016000556000602081612710f500"),
-        Bytes("600160005560206000612710f000"),
-        Bytes(
-            "6001600055600080808073d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d05af400"  # noqa: E501
-        ),
+        Op.RETURN(offset=0x0, size=0x20),
+        Op.SSTORE(key=0x0, value=0x1)
+        + Op.CALL(
+            gas=Op.GAS,
+            address=0xD0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0,
+            value=0x2710,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=Op.DUP1,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        Op.SSTORE(key=0x0, value=0x1)
+        + Op.CREATE2(value=0x2710, offset=Op.DUP2, size=0x20, salt=0x0)
+        + Op.STOP,
+        Op.SSTORE(key=0x0, value=0x1)
+        + Op.CREATE(value=0x2710, offset=0x0, size=0x20)
+        + Op.STOP,
+        Op.SSTORE(key=0x0, value=0x1)
+        + Op.DELEGATECALL(
+            gas=Op.GAS,
+            address=0xD0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=Op.DUP1,
+            ret_size=0x0,
+        )
+        + Op.STOP,
     ]
     tx_gas = [400000]
     tx_value = [100000]

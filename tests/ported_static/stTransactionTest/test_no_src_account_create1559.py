@@ -11,7 +11,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     Hash,
     StateTestFiller,
@@ -22,6 +21,7 @@ from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -235,9 +235,9 @@ def test_no_src_account_create1559(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes("00"),
-        Bytes("00"),
-        Bytes("00"),
+        Op.STOP,
+        Op.STOP,
+        Op.STOP,
     ]
     tx_gas = [21000, 210000, 0]
     tx_value = [0, 1]

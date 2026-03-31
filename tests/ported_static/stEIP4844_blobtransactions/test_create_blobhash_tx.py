@@ -12,7 +12,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     Hash,
     StateTestFiller,
@@ -69,7 +68,7 @@ def test_create_blobhash_tx(
     tx = Transaction(
         sender=sender,
         to=None,
-        data=Bytes("00"),
+        data=Op.STOP,
         gas_limit=4000000,
         value=0x186A0,
         max_fee_per_gas=5000000000,

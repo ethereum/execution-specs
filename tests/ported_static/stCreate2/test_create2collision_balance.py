@@ -11,7 +11,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -21,6 +20,7 @@ from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -169,10 +169,14 @@ def test_create2collision_balance(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes("6000600060006000f500"),
-        Bytes("64600160015560005260006005601b6000f500"),
-        Bytes("6d6460016001556000526005601bf36000526000600e60126000f500"),
-        Bytes("6000600060006001f500"),
+        Op.CREATE2(value=0x0, offset=0x0, size=0x0, salt=0x0) + Op.STOP,
+        Op.MSTORE(offset=0x0, value=0x6001600155)
+        + Op.CREATE2(value=0x0, offset=0x1B, size=0x5, salt=0x0)
+        + Op.STOP,
+        Op.MSTORE(offset=0x0, value=0x6460016001556000526005601BF3)
+        + Op.CREATE2(value=0x0, offset=0x12, size=0xE, salt=0x0)
+        + Op.STOP,
+        Op.CREATE2(value=0x1, offset=0x0, size=0x0, salt=0x0) + Op.STOP,
     ]
     tx_gas = [400000]
     tx_value = [1]

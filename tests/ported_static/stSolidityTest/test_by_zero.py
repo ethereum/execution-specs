@@ -11,13 +11,13 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
 from execution_testing.forks import Fork
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -83,10 +83,10 @@ def test_by_zero(
     pre[sender] = Account(balance=0x8AC7230489E80000)
 
     tx_data = [
-        Bytes("600160006001045500"),
-        Bytes("600160006001055500"),
-        Bytes("600160006001065500"),
-        Bytes("600160006001075500"),
+        Op.SSTORE(key=Op.DIV(0x1, 0x0), value=0x1) + Op.STOP,
+        Op.SSTORE(key=Op.SDIV(0x1, 0x0), value=0x1) + Op.STOP,
+        Op.SSTORE(key=Op.MOD(0x1, 0x0), value=0x1) + Op.STOP,
+        Op.SSTORE(key=Op.SMOD(0x1, 0x0), value=0x1) + Op.STOP,
     ]
     tx_gas = [400000]
 

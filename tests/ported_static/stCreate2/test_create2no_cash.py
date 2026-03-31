@@ -11,7 +11,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -116,15 +115,35 @@ def test_create2no_cash(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes(
-            "6000600060006000600073e2b35478fdd26477cc576dd906e6277761246a3c620249f0f100"  # noqa: E501
-        ),
-        Bytes(
-            "6000600060006000600173e2b35478fdd26477cc576dd906e6277761246a3c620249f0f100"  # noqa: E501
-        ),
-        Bytes(
-            "600060006000600073e2b35478fdd26477cc576dd906e6277761246a3c620249f0fa00"  # noqa: E501
-        ),
+        Op.CALL(
+            gas=0x249F0,
+            address=0xE2B35478FDD26477CC576DD906E6277761246A3C,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        Op.CALL(
+            gas=0x249F0,
+            address=0xE2B35478FDD26477CC576DD906E6277761246A3C,
+            value=0x1,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        Op.STATICCALL(
+            gas=0x249F0,
+            address=0xE2B35478FDD26477CC576DD906E6277761246A3C,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.STOP,
     ]
     tx_gas = [400000]
     tx_value = [1]

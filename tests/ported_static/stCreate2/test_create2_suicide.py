@@ -11,7 +11,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -21,6 +20,7 @@ from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -217,34 +217,110 @@ def test_create2_suicide(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes("626001ff60005260006003601d6000f500"),
-        Bytes(
-            "6b626001ff6000526003601df36000526000600c60146000f55060006000600060006000735649527a8464a86cae579719d347065f6eb27279620249f0f100"  # noqa: E501
-        ),
-        Bytes("626001ff60005260006003601d6001f500"),
-        Bytes(
-            "6b626001ff6000526003601df36000526000600c60146001f55060006000600060006000735649527a8464a86cae579719d347065f6eb27279620249f0f100"  # noqa: E501
-        ),
-        Bytes("6130ff60005260006002601e6000f500"),
-        Bytes(
-            "6a6130ff6000526002601ef36000526000600b60156000f55060006000600060006000736cd0e5133771823da00d4cb545ec8cdab0e38203620249f0f100"  # noqa: E501
-        ),
-        Bytes("6130ff60005260006002601e6001f500"),
-        Bytes(
-            "6a6130ff6000526002601ef36000526000600b60156001f55060006000600060006000736cd0e5133771823da00d4cb545ec8cdab0e38203620249f0f100"  # noqa: E501
-        ),
-        Bytes(
-            "6b626001ff6000526003601df36000526000600c60146000f5506000600060006000735649527a8464a86cae579719d347065f6eb27279620249f0fa00"  # noqa: E501
-        ),
-        Bytes(
-            "6b626001ff6000526003601df36000526000600c60146001f5506000600060006000735649527a8464a86cae579719d347065f6eb27279620249f0fa00"  # noqa: E501
-        ),
-        Bytes(
-            "6a6130ff6000526002601ef36000526000600b60156000f5506000600060006000736cd0e5133771823da00d4cb545ec8cdab0e38203620249f0fa00"  # noqa: E501
-        ),
-        Bytes(
-            "6a6130ff6000526002601ef36000526000600b60156001f5506000600060006000736cd0e5133771823da00d4cb545ec8cdab0e38203620249f0fa00"  # noqa: E501
-        ),
+        Op.MSTORE(offset=0x0, value=0x6001FF)
+        + Op.CREATE2(value=0x0, offset=0x1D, size=0x3, salt=0x0)
+        + Op.STOP,
+        Op.MSTORE(offset=0x0, value=0x626001FF6000526003601DF3)
+        + Op.POP(Op.CREATE2(value=0x0, offset=0x14, size=0xC, salt=0x0))
+        + Op.CALL(
+            gas=0x249F0,
+            address=0x5649527A8464A86CAE579719D347065F6EB27279,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        Op.MSTORE(offset=0x0, value=0x6001FF)
+        + Op.CREATE2(value=0x1, offset=0x1D, size=0x3, salt=0x0)
+        + Op.STOP,
+        Op.MSTORE(offset=0x0, value=0x626001FF6000526003601DF3)
+        + Op.POP(Op.CREATE2(value=0x1, offset=0x14, size=0xC, salt=0x0))
+        + Op.CALL(
+            gas=0x249F0,
+            address=0x5649527A8464A86CAE579719D347065F6EB27279,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        Op.MSTORE(offset=0x0, value=0x30FF)
+        + Op.CREATE2(value=0x0, offset=0x1E, size=0x2, salt=0x0)
+        + Op.STOP,
+        Op.MSTORE(offset=0x0, value=0x6130FF6000526002601EF3)
+        + Op.POP(Op.CREATE2(value=0x0, offset=0x15, size=0xB, salt=0x0))
+        + Op.CALL(
+            gas=0x249F0,
+            address=0x6CD0E5133771823DA00D4CB545EC8CDAB0E38203,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        Op.MSTORE(offset=0x0, value=0x30FF)
+        + Op.CREATE2(value=0x1, offset=0x1E, size=0x2, salt=0x0)
+        + Op.STOP,
+        Op.MSTORE(offset=0x0, value=0x6130FF6000526002601EF3)
+        + Op.POP(Op.CREATE2(value=0x1, offset=0x15, size=0xB, salt=0x0))
+        + Op.CALL(
+            gas=0x249F0,
+            address=0x6CD0E5133771823DA00D4CB545EC8CDAB0E38203,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        Op.MSTORE(offset=0x0, value=0x626001FF6000526003601DF3)
+        + Op.POP(Op.CREATE2(value=0x0, offset=0x14, size=0xC, salt=0x0))
+        + Op.STATICCALL(
+            gas=0x249F0,
+            address=0x5649527A8464A86CAE579719D347065F6EB27279,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        Op.MSTORE(offset=0x0, value=0x626001FF6000526003601DF3)
+        + Op.POP(Op.CREATE2(value=0x1, offset=0x14, size=0xC, salt=0x0))
+        + Op.STATICCALL(
+            gas=0x249F0,
+            address=0x5649527A8464A86CAE579719D347065F6EB27279,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        Op.MSTORE(offset=0x0, value=0x6130FF6000526002601EF3)
+        + Op.POP(Op.CREATE2(value=0x0, offset=0x15, size=0xB, salt=0x0))
+        + Op.STATICCALL(
+            gas=0x249F0,
+            address=0x6CD0E5133771823DA00D4CB545EC8CDAB0E38203,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        Op.MSTORE(offset=0x0, value=0x6130FF6000526002601EF3)
+        + Op.POP(Op.CREATE2(value=0x1, offset=0x15, size=0xB, salt=0x0))
+        + Op.STATICCALL(
+            gas=0x249F0,
+            address=0x6CD0E5133771823DA00D4CB545EC8CDAB0E38203,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.STOP,
     ]
     tx_gas = [600000]
     tx_value = [10]

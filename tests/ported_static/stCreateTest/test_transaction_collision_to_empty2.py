@@ -11,7 +11,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -20,6 +19,7 @@ from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -116,7 +116,7 @@ def test_transaction_collision_to_empty2(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes("6001600155"),
+        Op.SSTORE(key=0x1, value=0x1),
     ]
     tx_gas = [600000, 54000]
     tx_value = [0, 1]

@@ -11,11 +11,11 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -52,7 +52,15 @@ def test_transaction_create_auto_suicide_contract(
     tx = Transaction(
         sender=sender,
         to=None,
-        data=Bytes("600a80600c6000396000fff2ffff600160008035811a81"),
+        data=Op.PUSH1[0xA]
+        + Op.CODECOPY(dest_offset=0x0, offset=0xC, size=Op.DUP1)
+        + Op.SELFDESTRUCT(address=0x0)
+        + Op.SELFDESTRUCT(address=Op.CALLCODE)
+        + Op.SELFDESTRUCT
+        + Op.PUSH1[0x1]
+        + Op.PUSH1[0x0]
+        + Op.BYTE(Op.DUP2, Op.CALLDATALOAD(offset=Op.DUP1))
+        + Op.DUP2,
         gas_limit=55000,
         value=15,
     )

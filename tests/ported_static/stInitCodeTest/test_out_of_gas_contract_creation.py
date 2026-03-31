@@ -11,7 +11,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -21,6 +20,7 @@ from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -123,8 +123,22 @@ def test_out_of_gas_contract_creation(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes("600a80600c6000396000f200600160008035811a8100"),
-        Bytes("600160015560026001556003600155600460015560056001556006600155"),
+        Op.PUSH1[0xA]
+        + Op.CODECOPY(dest_offset=0x0, offset=0xC, size=Op.DUP1)
+        + Op.PUSH1[0x0]
+        + Op.CALLCODE
+        + Op.STOP
+        + Op.PUSH1[0x1]
+        + Op.PUSH1[0x0]
+        + Op.BYTE(Op.DUP2, Op.CALLDATALOAD(offset=Op.DUP1))
+        + Op.DUP2
+        + Op.STOP,
+        Op.SSTORE(key=0x1, value=0x1)
+        + Op.SSTORE(key=0x1, value=0x2)
+        + Op.SSTORE(key=0x1, value=0x3)
+        + Op.SSTORE(key=0x1, value=0x4)
+        + Op.SSTORE(key=0x1, value=0x5)
+        + Op.SSTORE(key=0x1, value=0x6),
     ]
     tx_gas = [56000, 150000]
     tx_value = [1]

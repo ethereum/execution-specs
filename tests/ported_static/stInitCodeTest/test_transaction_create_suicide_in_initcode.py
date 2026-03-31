@@ -11,12 +11,12 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -54,7 +54,7 @@ def test_transaction_create_suicide_in_initcode(
     tx = Transaction(
         sender=sender,
         to=None,
-        data=Bytes("30ff00"),
+        data=Op.SELFDESTRUCT(address=Op.ADDRESS) + Op.STOP,
         gas_limit=155000,
         value=1,
     )

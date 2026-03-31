@@ -12,7 +12,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     Hash,
     StateTestFiller,
@@ -23,6 +22,7 @@ from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -105,9 +105,39 @@ def test_manual_create(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes("5a3031505a90036001555a60ff6000555a900360005500"),
-        Bytes("5a3031505a90036001555a60ff6000555a900360005500"),
-        Bytes("5a3031505a90036001555a60ff6000555a900360005500"),
+        Op.GAS
+        + Op.POP(Op.BALANCE(address=Op.ADDRESS))
+        + Op.GAS
+        + Op.SWAP1
+        + Op.SSTORE(key=0x1, value=Op.SUB)
+        + Op.GAS
+        + Op.SSTORE(key=0x0, value=0xFF)
+        + Op.GAS
+        + Op.SWAP1
+        + Op.SSTORE(key=0x0, value=Op.SUB)
+        + Op.STOP,
+        Op.GAS
+        + Op.POP(Op.BALANCE(address=Op.ADDRESS))
+        + Op.GAS
+        + Op.SWAP1
+        + Op.SSTORE(key=0x1, value=Op.SUB)
+        + Op.GAS
+        + Op.SSTORE(key=0x0, value=0xFF)
+        + Op.GAS
+        + Op.SWAP1
+        + Op.SSTORE(key=0x0, value=Op.SUB)
+        + Op.STOP,
+        Op.GAS
+        + Op.POP(Op.BALANCE(address=Op.ADDRESS))
+        + Op.GAS
+        + Op.SWAP1
+        + Op.SSTORE(key=0x1, value=Op.SUB)
+        + Op.GAS
+        + Op.SSTORE(key=0x0, value=0xFF)
+        + Op.GAS
+        + Op.SWAP1
+        + Op.SSTORE(key=0x0, value=Op.SUB)
+        + Op.STOP,
     ]
     tx_gas = [400000]
     tx_access_lists: dict[int, list] = {

@@ -11,7 +11,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -124,12 +123,34 @@ def test_create2collision_selfdestructed2(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes(
-            "6000600060006000600073fce41d047b4a1d4450382dcc29ec7e5fedc5f9a361c350f1506b620102036000526003601df36000526000600c60146000f500"  # noqa: E501
-        ),
-        Bytes(
-            "6000600060006000600073cff64f4c5df8f436c4f2c1af4b2e3f9e3004c77961c350f1506b626010ff6000526003601df36000526000600c60146000f500"  # noqa: E501
-        ),
+        Op.POP(
+            Op.CALL(
+                gas=0xC350,
+                address=0xFCE41D047B4A1D4450382DCC29EC7E5FEDC5F9A3,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.MSTORE(offset=0x0, value=0x620102036000526003601DF3)
+        + Op.CREATE2(value=0x0, offset=0x14, size=0xC, salt=0x0)
+        + Op.STOP,
+        Op.POP(
+            Op.CALL(
+                gas=0xC350,
+                address=0xCFF64F4C5DF8F436C4F2C1AF4B2E3F9E3004C779,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.MSTORE(offset=0x0, value=0x626010FF6000526003601DF3)
+        + Op.CREATE2(value=0x0, offset=0x14, size=0xC, salt=0x0)
+        + Op.STOP,
     ]
     tx_gas = [400000]
 

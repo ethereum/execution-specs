@@ -11,7 +11,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -228,17 +227,37 @@ def test_static_contract_creation_make_call_that_ask_more_gas_then_transaction_p
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes(
-            "604060006040600073100000000000000000000000000000000000000161c350fa"  # noqa: E501
+        Op.STATICCALL(
+            gas=0xC350,
+            address=0x1000000000000000000000000000000000000001,
+            args_offset=0x0,
+            args_size=0x40,
+            ret_offset=0x0,
+            ret_size=0x40,
         ),
-        Bytes(
-            "604060006040600073200000000000000000000000000000000000000161c350fa"  # noqa: E501
+        Op.STATICCALL(
+            gas=0xC350,
+            address=0x2000000000000000000000000000000000000001,
+            args_offset=0x0,
+            args_size=0x40,
+            ret_offset=0x0,
+            ret_size=0x40,
         ),
-        Bytes(
-            "604060006040600073300000000000000000000000000000000000000161c350fa"  # noqa: E501
+        Op.STATICCALL(
+            gas=0xC350,
+            address=0x3000000000000000000000000000000000000001,
+            args_offset=0x0,
+            args_size=0x40,
+            ret_offset=0x0,
+            ret_size=0x40,
         ),
-        Bytes(
-            "604060006040600073400000000000000000000000000000000000000161c350fa"  # noqa: E501
+        Op.STATICCALL(
+            gas=0xC350,
+            address=0x4000000000000000000000000000000000000001,
+            args_offset=0x0,
+            args_size=0x40,
+            ret_offset=0x0,
+            ret_size=0x40,
         ),
     ]
     tx_gas = [96000]

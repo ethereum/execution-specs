@@ -11,9 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
-    Hash,
     StateTestFiller,
     Transaction,
     TransactionException,
@@ -118,12 +116,27 @@ def test_transaction_colliding_with_non_empty_account_init_paris(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes("00"),
-        Bytes("60206000f3"),
-        Hash(
-            0x600080808061271073CC7C3C64708397216F5F8AEB34A43F1749693FA95AF100
-        ),
-        Bytes("600080808073cc7c3c64708397216f5f8aeb34a43f1749693fa95af400"),
+        Op.STOP,
+        Op.RETURN(offset=0x0, size=0x20),
+        Op.CALL(
+            gas=Op.GAS,
+            address=0xCC7C3C64708397216F5F8AEB34A43F1749693FA9,
+            value=0x2710,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=Op.DUP1,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        Op.DELEGATECALL(
+            gas=Op.GAS,
+            address=0xCC7C3C64708397216F5F8AEB34A43F1749693FA9,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=Op.DUP1,
+            ret_size=0x0,
+        )
+        + Op.STOP,
     ]
     tx_gas = [400000]
     tx_value = [100000]

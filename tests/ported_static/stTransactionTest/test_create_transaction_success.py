@@ -11,12 +11,12 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -51,9 +51,21 @@ def test_create_transaction_success(
     tx = Transaction(
         sender=sender,
         to=None,
-        data=Bytes(
-            "602280600c6000396000f30060e060020a600035048063f8a8fd6d14601457005b601a6020565b60006000f35b56"  # noqa: E501
-        ),
+        data=Op.PUSH1[0x22]
+        + Op.CODECOPY(dest_offset=0x0, offset=0xC, size=Op.DUP1)
+        + Op.PUSH1[0x0]
+        + Op.RETURN
+        + Op.STOP
+        + Op.DIV(Op.CALLDATALOAD(offset=0x0), Op.EXP(0x2, 0xE0))
+        + Op.JUMPI(pc=0x14, condition=Op.EQ(0xF8A8FD6D, Op.DUP1))
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.PUSH1[0x1A]
+        + Op.JUMP(pc=0x20)
+        + Op.JUMPDEST
+        + Op.RETURN(offset=0x0, size=0x0)
+        + Op.JUMPDEST
+        + Op.JUMP,
         gas_limit=70000,
         value=100,
     )

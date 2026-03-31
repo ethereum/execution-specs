@@ -12,7 +12,6 @@ from execution_testing import (
     EOA,
     Account,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -22,6 +21,7 @@ from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -105,9 +105,16 @@ def test_create_transaction_call_data(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes("60003560005560213560015500"),
-        Bytes("6001600080376000516000556020600160003760005160015500"),
-        Bytes("3860008039386000f3"),
+        Op.SSTORE(key=0x0, value=Op.CALLDATALOAD(offset=0x0))
+        + Op.SSTORE(key=0x1, value=Op.CALLDATALOAD(offset=0x21))
+        + Op.STOP,
+        Op.CALLDATACOPY(dest_offset=Op.DUP1, offset=0x0, size=0x1)
+        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
+        + Op.CALLDATACOPY(dest_offset=0x0, offset=0x1, size=0x20)
+        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0))
+        + Op.STOP,
+        Op.CODECOPY(dest_offset=Op.DUP1, offset=0x0, size=Op.CODESIZE)
+        + Op.RETURN(offset=0x0, size=Op.CODESIZE),
     ]
     tx_gas = [100000]
 

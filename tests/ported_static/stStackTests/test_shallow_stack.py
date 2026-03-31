@@ -11,14 +11,13 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
-    Hash,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
 from execution_testing.forks import Fork
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -546,93 +545,407 @@ def test_shallow_stack(
     pre[sender] = Account(balance=0x271000000000)
 
     tx_data = [
-        Bytes("600101600055"),
-        Bytes("600102600055"),
-        Bytes("600103600055"),
-        Bytes("600104600055"),
-        Bytes("600105600055"),
-        Bytes("600106600055"),
-        Bytes("600107600055"),
-        Bytes("6002600108600055"),
-        Bytes("6002600109600055"),
-        Bytes("60010a600055"),
-        Bytes("60010b600055"),
-        Bytes("600110600055"),
-        Bytes("600111600055"),
-        Bytes("600112600055"),
-        Bytes("600113600055"),
-        Bytes("600114600055"),
-        Bytes("15600055"),
-        Bytes("600116600055"),
-        Bytes("600117600055"),
-        Bytes("600118600055"),
-        Bytes("19600055"),
-        Bytes("60011a600055"),
-        Bytes("600120600055"),
-        Bytes("31600055"),
-        Bytes("35600055"),
-        Bytes("6001600237600055"),
-        Bytes("6001600239600055"),
-        Bytes("3b600055"),
-        Bytes("6001600260033c600055"),
-        Bytes("40600055"),
-        Bytes("50600055"),
-        Bytes("51600055"),
-        Bytes("600152600055"),
-        Bytes("600153600055"),
-        Bytes("54600055"),
-        Bytes("600155600055"),
-        Bytes("56600055"),
-        Bytes("600157600055"),
-        Bytes("80600055"),
-        Bytes("600181600055"),
-        Bytes("6002600182600055"),
-        Bytes("60036002600183600055"),
-        Bytes("600460036002600184600055"),
-        Bytes("6005600460036002600185600055"),
-        Bytes("60066005600460036002600186600055"),
-        Bytes("600760066005600460036002600187600055"),
-        Address(0x6008600760066005600460036002600188600055),
-        Bytes("60096008600760066005600460036002600189600055"),
-        Bytes("60106009600860076006600560046003600260018a600055"),
-        Bytes("601160106009600860076006600560046003600260018b600055"),
-        Bytes("6012601160106009600860076006600560046003600260018c600055"),
-        Bytes("60136012601160106009600860076006600560046003600260018d600055"),
-        Hash(
-            0x601460136012601160106009600860076006600560046003600260018E600055
-        ),
-        Bytes("60136012601160106009600860076006600560046003600260018f600055"),
-        Bytes("600190600055"),
-        Bytes("6002600191600055"),
-        Bytes("60036002600192600055"),
-        Bytes("600460036002600193600055"),
-        Bytes("6005600460036002600194600055"),
-        Bytes("60066005600460036002600195600055"),
-        Bytes("600760066005600460036002600196600055"),
-        Address(0x6008600760066005600460036002600197600055),
-        Bytes("60096008600760066005600460036002600198600055"),
-        Bytes("601060096008600760066005600460036002600199600055"),
-        Bytes("601160106009600860076006600560046003600260019a600055"),
-        Bytes("6012601160106009600860076006600560046003600260019b600055"),
-        Bytes("60136012601160106009600860076006600560046003600260019c600055"),
-        Hash(
-            0x601460136012601160106009600860076006600560046003600260019D600055
-        ),
-        Bytes(
-            "6015601460136012601160106009600860076006600560046003600260019e600055"  # noqa: E501
-        ),
-        Bytes("6012601160106009600860076006600560046003600260019f600055"),
-        Bytes("6001a0600055"),
-        Bytes("60026001a1600055"),
-        Bytes("600360026001a2600055"),
-        Bytes("6004600360026001a3600055"),
-        Bytes("60056004600360026001a4600055"),
-        Bytes("60026001f0600055"),
-        Bytes("600660056004600360026001f1600055"),
-        Bytes("600660056004600360026001f2600055"),
-        Bytes("6001f3600055"),
-        Bytes("60056004600360026001f4600055"),
-        Bytes("ff600055"),
+        Op.PUSH1[0x1] + Op.SSTORE(key=0x0, value=Op.ADD),
+        Op.PUSH1[0x1] + Op.SSTORE(key=0x0, value=Op.MUL),
+        Op.PUSH1[0x1] + Op.SSTORE(key=0x0, value=Op.SUB),
+        Op.PUSH1[0x1] + Op.SSTORE(key=0x0, value=Op.DIV),
+        Op.PUSH1[0x1] + Op.SSTORE(key=0x0, value=Op.SDIV),
+        Op.PUSH1[0x1] + Op.SSTORE(key=0x0, value=Op.MOD),
+        Op.PUSH1[0x1] + Op.SSTORE(key=0x0, value=Op.SMOD),
+        Op.PUSH1[0x2] + Op.PUSH1[0x1] + Op.SSTORE(key=0x0, value=Op.ADDMOD),
+        Op.PUSH1[0x2] + Op.PUSH1[0x1] + Op.SSTORE(key=0x0, value=Op.MULMOD),
+        Op.PUSH1[0x1] + Op.SSTORE(key=0x0, value=Op.EXP),
+        Op.PUSH1[0x1] + Op.SSTORE(key=0x0, value=Op.SIGNEXTEND),
+        Op.PUSH1[0x1] + Op.SSTORE(key=0x0, value=Op.LT),
+        Op.PUSH1[0x1] + Op.SSTORE(key=0x0, value=Op.GT),
+        Op.PUSH1[0x1] + Op.SSTORE(key=0x0, value=Op.SLT),
+        Op.PUSH1[0x1] + Op.SSTORE(key=0x0, value=Op.SGT),
+        Op.PUSH1[0x1] + Op.SSTORE(key=0x0, value=Op.EQ),
+        Op.SSTORE(key=0x0, value=Op.ISZERO),
+        Op.PUSH1[0x1] + Op.SSTORE(key=0x0, value=Op.AND),
+        Op.PUSH1[0x1] + Op.SSTORE(key=0x0, value=Op.OR),
+        Op.PUSH1[0x1] + Op.SSTORE(key=0x0, value=Op.XOR),
+        Op.SSTORE(key=0x0, value=Op.NOT),
+        Op.PUSH1[0x1] + Op.SSTORE(key=0x0, value=Op.BYTE),
+        Op.PUSH1[0x1] + Op.SSTORE(key=0x0, value=Op.SHA3),
+        Op.SSTORE(key=0x0, value=Op.BALANCE),
+        Op.SSTORE(key=0x0, value=Op.CALLDATALOAD),
+        Op.PUSH1[0x1]
+        + Op.PUSH1[0x2]
+        + Op.CALLDATACOPY
+        + Op.PUSH1[0x0]
+        + Op.SSTORE,
+        Op.PUSH1[0x1]
+        + Op.PUSH1[0x2]
+        + Op.CODECOPY
+        + Op.PUSH1[0x0]
+        + Op.SSTORE,
+        Op.SSTORE(key=0x0, value=Op.EXTCODESIZE),
+        Op.PUSH1[0x1]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x3]
+        + Op.EXTCODECOPY
+        + Op.PUSH1[0x0]
+        + Op.SSTORE,
+        Op.SSTORE(key=0x0, value=Op.BLOCKHASH),
+        Op.POP + Op.PUSH1[0x0] + Op.SSTORE,
+        Op.SSTORE(key=0x0, value=Op.MLOAD),
+        Op.PUSH1[0x1] + Op.MSTORE + Op.PUSH1[0x0] + Op.SSTORE,
+        Op.PUSH1[0x1] + Op.MSTORE8 + Op.PUSH1[0x0] + Op.SSTORE,
+        Op.SSTORE(key=0x0, value=Op.SLOAD),
+        Op.PUSH1[0x1] + Op.SSTORE + Op.PUSH1[0x0] + Op.SSTORE,
+        Op.JUMP + Op.PUSH1[0x0] + Op.SSTORE,
+        Op.PUSH1[0x1] + Op.JUMPI + Op.PUSH1[0x0] + Op.SSTORE,
+        Op.SSTORE(key=0x0, value=Op.DUP1),
+        Op.PUSH1[0x1] + Op.SSTORE(key=0x0, value=Op.DUP2),
+        Op.PUSH1[0x2] + Op.PUSH1[0x1] + Op.SSTORE(key=0x0, value=Op.DUP3),
+        Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.SSTORE(key=0x0, value=Op.DUP4),
+        Op.PUSH1[0x4]
+        + Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.SSTORE(key=0x0, value=Op.DUP5),
+        Op.PUSH1[0x5]
+        + Op.PUSH1[0x4]
+        + Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.SSTORE(key=0x0, value=Op.DUP6),
+        Op.PUSH1[0x6]
+        + Op.PUSH1[0x5]
+        + Op.PUSH1[0x4]
+        + Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.SSTORE(key=0x0, value=Op.DUP7),
+        Op.PUSH1[0x7]
+        + Op.PUSH1[0x6]
+        + Op.PUSH1[0x5]
+        + Op.PUSH1[0x4]
+        + Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.SSTORE(key=0x0, value=Op.DUP8),
+        Op.PUSH1[0x8]
+        + Op.PUSH1[0x7]
+        + Op.PUSH1[0x6]
+        + Op.PUSH1[0x5]
+        + Op.PUSH1[0x4]
+        + Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.SSTORE(key=0x0, value=Op.DUP9),
+        Op.PUSH1[0x9]
+        + Op.PUSH1[0x8]
+        + Op.PUSH1[0x7]
+        + Op.PUSH1[0x6]
+        + Op.PUSH1[0x5]
+        + Op.PUSH1[0x4]
+        + Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.SSTORE(key=0x0, value=Op.DUP10),
+        Op.PUSH1[0x10]
+        + Op.PUSH1[0x9]
+        + Op.PUSH1[0x8]
+        + Op.PUSH1[0x7]
+        + Op.PUSH1[0x6]
+        + Op.PUSH1[0x5]
+        + Op.PUSH1[0x4]
+        + Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.SSTORE(key=0x0, value=Op.DUP11),
+        Op.PUSH1[0x11]
+        + Op.PUSH1[0x10]
+        + Op.PUSH1[0x9]
+        + Op.PUSH1[0x8]
+        + Op.PUSH1[0x7]
+        + Op.PUSH1[0x6]
+        + Op.PUSH1[0x5]
+        + Op.PUSH1[0x4]
+        + Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.SSTORE(key=0x0, value=Op.DUP12),
+        Op.PUSH1[0x12]
+        + Op.PUSH1[0x11]
+        + Op.PUSH1[0x10]
+        + Op.PUSH1[0x9]
+        + Op.PUSH1[0x8]
+        + Op.PUSH1[0x7]
+        + Op.PUSH1[0x6]
+        + Op.PUSH1[0x5]
+        + Op.PUSH1[0x4]
+        + Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.SSTORE(key=0x0, value=Op.DUP13),
+        Op.PUSH1[0x13]
+        + Op.PUSH1[0x12]
+        + Op.PUSH1[0x11]
+        + Op.PUSH1[0x10]
+        + Op.PUSH1[0x9]
+        + Op.PUSH1[0x8]
+        + Op.PUSH1[0x7]
+        + Op.PUSH1[0x6]
+        + Op.PUSH1[0x5]
+        + Op.PUSH1[0x4]
+        + Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.SSTORE(key=0x0, value=Op.DUP14),
+        Op.PUSH1[0x14]
+        + Op.PUSH1[0x13]
+        + Op.PUSH1[0x12]
+        + Op.PUSH1[0x11]
+        + Op.PUSH1[0x10]
+        + Op.PUSH1[0x9]
+        + Op.PUSH1[0x8]
+        + Op.PUSH1[0x7]
+        + Op.PUSH1[0x6]
+        + Op.PUSH1[0x5]
+        + Op.PUSH1[0x4]
+        + Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.SSTORE(key=0x0, value=Op.DUP15),
+        Op.PUSH1[0x13]
+        + Op.PUSH1[0x12]
+        + Op.PUSH1[0x11]
+        + Op.PUSH1[0x10]
+        + Op.PUSH1[0x9]
+        + Op.PUSH1[0x8]
+        + Op.PUSH1[0x7]
+        + Op.PUSH1[0x6]
+        + Op.PUSH1[0x5]
+        + Op.PUSH1[0x4]
+        + Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.SSTORE(key=0x0, value=Op.DUP16),
+        Op.PUSH1[0x1] + Op.SWAP1 + Op.PUSH1[0x0] + Op.SSTORE,
+        Op.PUSH1[0x2] + Op.PUSH1[0x1] + Op.SWAP2 + Op.PUSH1[0x0] + Op.SSTORE,
+        Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.SWAP3
+        + Op.PUSH1[0x0]
+        + Op.SSTORE,
+        Op.PUSH1[0x4]
+        + Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.SWAP4
+        + Op.PUSH1[0x0]
+        + Op.SSTORE,
+        Op.PUSH1[0x5]
+        + Op.PUSH1[0x4]
+        + Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.SWAP5
+        + Op.PUSH1[0x0]
+        + Op.SSTORE,
+        Op.PUSH1[0x6]
+        + Op.PUSH1[0x5]
+        + Op.PUSH1[0x4]
+        + Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.SWAP6
+        + Op.PUSH1[0x0]
+        + Op.SSTORE,
+        Op.PUSH1[0x7]
+        + Op.PUSH1[0x6]
+        + Op.PUSH1[0x5]
+        + Op.PUSH1[0x4]
+        + Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.SWAP7
+        + Op.PUSH1[0x0]
+        + Op.SSTORE,
+        Op.PUSH1[0x8]
+        + Op.PUSH1[0x7]
+        + Op.PUSH1[0x6]
+        + Op.PUSH1[0x5]
+        + Op.PUSH1[0x4]
+        + Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.SWAP8
+        + Op.PUSH1[0x0]
+        + Op.SSTORE,
+        Op.PUSH1[0x9]
+        + Op.PUSH1[0x8]
+        + Op.PUSH1[0x7]
+        + Op.PUSH1[0x6]
+        + Op.PUSH1[0x5]
+        + Op.PUSH1[0x4]
+        + Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.SWAP9
+        + Op.PUSH1[0x0]
+        + Op.SSTORE,
+        Op.PUSH1[0x10]
+        + Op.PUSH1[0x9]
+        + Op.PUSH1[0x8]
+        + Op.PUSH1[0x7]
+        + Op.PUSH1[0x6]
+        + Op.PUSH1[0x5]
+        + Op.PUSH1[0x4]
+        + Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.SWAP10
+        + Op.PUSH1[0x0]
+        + Op.SSTORE,
+        Op.PUSH1[0x11]
+        + Op.PUSH1[0x10]
+        + Op.PUSH1[0x9]
+        + Op.PUSH1[0x8]
+        + Op.PUSH1[0x7]
+        + Op.PUSH1[0x6]
+        + Op.PUSH1[0x5]
+        + Op.PUSH1[0x4]
+        + Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.SWAP11
+        + Op.PUSH1[0x0]
+        + Op.SSTORE,
+        Op.PUSH1[0x12]
+        + Op.PUSH1[0x11]
+        + Op.PUSH1[0x10]
+        + Op.PUSH1[0x9]
+        + Op.PUSH1[0x8]
+        + Op.PUSH1[0x7]
+        + Op.PUSH1[0x6]
+        + Op.PUSH1[0x5]
+        + Op.PUSH1[0x4]
+        + Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.SWAP12
+        + Op.PUSH1[0x0]
+        + Op.SSTORE,
+        Op.PUSH1[0x13]
+        + Op.PUSH1[0x12]
+        + Op.PUSH1[0x11]
+        + Op.PUSH1[0x10]
+        + Op.PUSH1[0x9]
+        + Op.PUSH1[0x8]
+        + Op.PUSH1[0x7]
+        + Op.PUSH1[0x6]
+        + Op.PUSH1[0x5]
+        + Op.PUSH1[0x4]
+        + Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.SWAP13
+        + Op.PUSH1[0x0]
+        + Op.SSTORE,
+        Op.PUSH1[0x14]
+        + Op.PUSH1[0x13]
+        + Op.PUSH1[0x12]
+        + Op.PUSH1[0x11]
+        + Op.PUSH1[0x10]
+        + Op.PUSH1[0x9]
+        + Op.PUSH1[0x8]
+        + Op.PUSH1[0x7]
+        + Op.PUSH1[0x6]
+        + Op.PUSH1[0x5]
+        + Op.PUSH1[0x4]
+        + Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.SWAP14
+        + Op.PUSH1[0x0]
+        + Op.SSTORE,
+        Op.PUSH1[0x15]
+        + Op.PUSH1[0x14]
+        + Op.PUSH1[0x13]
+        + Op.PUSH1[0x12]
+        + Op.PUSH1[0x11]
+        + Op.PUSH1[0x10]
+        + Op.PUSH1[0x9]
+        + Op.PUSH1[0x8]
+        + Op.PUSH1[0x7]
+        + Op.PUSH1[0x6]
+        + Op.PUSH1[0x5]
+        + Op.PUSH1[0x4]
+        + Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.SWAP15
+        + Op.PUSH1[0x0]
+        + Op.SSTORE,
+        Op.PUSH1[0x12]
+        + Op.PUSH1[0x11]
+        + Op.PUSH1[0x10]
+        + Op.PUSH1[0x9]
+        + Op.PUSH1[0x8]
+        + Op.PUSH1[0x7]
+        + Op.PUSH1[0x6]
+        + Op.PUSH1[0x5]
+        + Op.PUSH1[0x4]
+        + Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.SWAP16
+        + Op.PUSH1[0x0]
+        + Op.SSTORE,
+        Op.PUSH1[0x1] + Op.LOG0 + Op.PUSH1[0x0] + Op.SSTORE,
+        Op.PUSH1[0x2] + Op.PUSH1[0x1] + Op.LOG1 + Op.PUSH1[0x0] + Op.SSTORE,
+        Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.LOG2
+        + Op.PUSH1[0x0]
+        + Op.SSTORE,
+        Op.PUSH1[0x4]
+        + Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.LOG3
+        + Op.PUSH1[0x0]
+        + Op.SSTORE,
+        Op.PUSH1[0x5]
+        + Op.PUSH1[0x4]
+        + Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.LOG4
+        + Op.PUSH1[0x0]
+        + Op.SSTORE,
+        Op.PUSH1[0x2] + Op.PUSH1[0x1] + Op.SSTORE(key=0x0, value=Op.CREATE),
+        Op.PUSH1[0x6]
+        + Op.PUSH1[0x5]
+        + Op.PUSH1[0x4]
+        + Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.SSTORE(key=0x0, value=Op.CALL),
+        Op.PUSH1[0x6]
+        + Op.PUSH1[0x5]
+        + Op.PUSH1[0x4]
+        + Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.SSTORE(key=0x0, value=Op.CALLCODE),
+        Op.PUSH1[0x1] + Op.RETURN + Op.PUSH1[0x0] + Op.SSTORE,
+        Op.PUSH1[0x5]
+        + Op.PUSH1[0x4]
+        + Op.PUSH1[0x3]
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x1]
+        + Op.SSTORE(key=0x0, value=Op.DELEGATECALL),
+        Op.SELFDESTRUCT + Op.PUSH1[0x0] + Op.SSTORE,
     ]
     tx_gas = [300000]
 

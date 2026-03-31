@@ -11,7 +11,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -298,36 +297,227 @@ def test_sstore_xto_xto_y(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes(
-            "6000600060006000600073b000000000000000000000000000000000000000620493e0f1506000600060006000600073dea0000000000000000000000000000000000000620927c0f100"  # noqa: E501
-        ),
-        Bytes(
-            "6000600060006000600073b000000000000000000000000000000000000000620493e0f2506000600060006000600073dea0000000000000000000000000000000000000620927c0f100"  # noqa: E501
-        ),
-        Bytes(
-            "600060006000600073b000000000000000000000000000000000000000620493e0f4506000600060006000600073dea0000000000000000000000000000000000000620927c0f100"  # noqa: E501
-        ),
-        Bytes(
-            "600060006000600073c000000000000000000000000000000000000000620493e0fa506000600060006000600073dea0000000000000000000000000000000000000620927c0f100"  # noqa: E501
-        ),
-        Bytes(
-            "6000601580603860003960006000f5506000600060006000600073dea0000000000000000000000000000000000000620927c0f1500000fe600260005560026000556001600055600160015500"  # noqa: E501
-        ),
-        Bytes(
-            "6000600060006000600073b000000000000000000000000000000000000000620493e0f1506000600060006000600073dea0000000000000000000000000000000000000620927c0f15060206000fd00"  # noqa: E501
-        ),
-        Bytes(
-            "6000600060006000600073b000000000000000000000000000000000000000620493e0f2506000600060006000600073dea0000000000000000000000000000000000000620927c0f15060206000fd00"  # noqa: E501
-        ),
-        Bytes(
-            "600060006000600073b000000000000000000000000000000000000000620493e0f4506000600060006000600073dea0000000000000000000000000000000000000620927c0f15060206000fd00"  # noqa: E501
-        ),
-        Bytes(
-            "600060006000600073c000000000000000000000000000000000000000620493e0fa506000600060006000600073dea0000000000000000000000000000000000000620927c0f15060206000fd00"  # noqa: E501
-        ),
-        Bytes(
-            "6000601580603d60003960006000f5506000600060006000600073dea0000000000000000000000000000000000000620927c0f15060206000fd0000fe600260005560026000556001600055600160015500"  # noqa: E501
-        ),
+        Op.POP(
+            Op.CALL(
+                gas=0x493E0,
+                address=0xB000000000000000000000000000000000000000,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.CALL(
+            gas=0x927C0,
+            address=0xDEA0000000000000000000000000000000000000,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        Op.POP(
+            Op.CALLCODE(
+                gas=0x493E0,
+                address=0xB000000000000000000000000000000000000000,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.CALL(
+            gas=0x927C0,
+            address=0xDEA0000000000000000000000000000000000000,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        Op.POP(
+            Op.DELEGATECALL(
+                gas=0x493E0,
+                address=0xB000000000000000000000000000000000000000,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.CALL(
+            gas=0x927C0,
+            address=0xDEA0000000000000000000000000000000000000,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        Op.POP(
+            Op.STATICCALL(
+                gas=0x493E0,
+                address=0xC000000000000000000000000000000000000000,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.CALL(
+            gas=0x927C0,
+            address=0xDEA0000000000000000000000000000000000000,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        Op.PUSH1[0x0]
+        + Op.PUSH1[0x15]
+        + Op.CODECOPY(dest_offset=0x0, offset=0x38, size=Op.DUP1)
+        + Op.PUSH1[0x0] * 2
+        + Op.POP(Op.CREATE2)
+        + Op.POP(
+            Op.CALL(
+                gas=0x927C0,
+                address=0xDEA0000000000000000000000000000000000000,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.STOP * 2
+        + Op.INVALID
+        + Op.SSTORE(key=0x0, value=0x2) * 2
+        + Op.SSTORE(key=0x0, value=0x1)
+        + Op.SSTORE(key=0x1, value=0x1)
+        + Op.STOP,
+        Op.POP(
+            Op.CALL(
+                gas=0x493E0,
+                address=0xB000000000000000000000000000000000000000,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.POP(
+            Op.CALL(
+                gas=0x927C0,
+                address=0xDEA0000000000000000000000000000000000000,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.REVERT(offset=0x0, size=0x20)
+        + Op.STOP,
+        Op.POP(
+            Op.CALLCODE(
+                gas=0x493E0,
+                address=0xB000000000000000000000000000000000000000,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.POP(
+            Op.CALL(
+                gas=0x927C0,
+                address=0xDEA0000000000000000000000000000000000000,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.REVERT(offset=0x0, size=0x20)
+        + Op.STOP,
+        Op.POP(
+            Op.DELEGATECALL(
+                gas=0x493E0,
+                address=0xB000000000000000000000000000000000000000,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.POP(
+            Op.CALL(
+                gas=0x927C0,
+                address=0xDEA0000000000000000000000000000000000000,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.REVERT(offset=0x0, size=0x20)
+        + Op.STOP,
+        Op.POP(
+            Op.STATICCALL(
+                gas=0x493E0,
+                address=0xC000000000000000000000000000000000000000,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.POP(
+            Op.CALL(
+                gas=0x927C0,
+                address=0xDEA0000000000000000000000000000000000000,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.REVERT(offset=0x0, size=0x20)
+        + Op.STOP,
+        Op.PUSH1[0x0]
+        + Op.PUSH1[0x15]
+        + Op.CODECOPY(dest_offset=0x0, offset=0x3D, size=Op.DUP1)
+        + Op.PUSH1[0x0] * 2
+        + Op.POP(Op.CREATE2)
+        + Op.POP(
+            Op.CALL(
+                gas=0x927C0,
+                address=0xDEA0000000000000000000000000000000000000,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.REVERT(offset=0x0, size=0x20)
+        + Op.STOP * 2
+        + Op.INVALID
+        + Op.SSTORE(key=0x0, value=0x2) * 2
+        + Op.SSTORE(key=0x0, value=0x1)
+        + Op.SSTORE(key=0x1, value=0x1)
+        + Op.STOP,
     ]
     tx_gas = [1000000, 400000]
     tx_value = [1]

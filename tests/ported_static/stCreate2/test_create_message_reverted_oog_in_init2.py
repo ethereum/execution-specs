@@ -11,7 +11,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -20,6 +19,7 @@ from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -107,7 +107,9 @@ def test_create_message_reverted_oog_in_init2(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes("69600c600055600d6001556000526000600a60166000f500"),
+        Op.MSTORE(offset=0x0, value=0x600C600055600D600155)
+        + Op.CREATE2(value=0x0, offset=0x16, size=0xA, salt=0x0)
+        + Op.STOP,
     ]
     tx_gas = [110000, 150000]
     tx_value = [100]

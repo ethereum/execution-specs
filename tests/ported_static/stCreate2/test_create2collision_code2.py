@@ -11,7 +11,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -114,8 +113,12 @@ def test_create2collision_code2(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes("6b620102036000526003601df36000526000600c60146000f500"),
-        Bytes("6b620102036000526003601df36000526000600c60146001f500"),
+        Op.MSTORE(offset=0x0, value=0x620102036000526003601DF3)
+        + Op.CREATE2(value=0x0, offset=0x14, size=0xC, salt=0x0)
+        + Op.STOP,
+        Op.MSTORE(offset=0x0, value=0x620102036000526003601DF3)
+        + Op.CREATE2(value=0x1, offset=0x14, size=0xC, salt=0x0)
+        + Op.STOP,
     ]
     tx_gas = [400000]
     tx_value = [1]

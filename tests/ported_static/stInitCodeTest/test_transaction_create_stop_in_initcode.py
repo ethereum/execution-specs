@@ -11,12 +11,12 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -51,7 +51,16 @@ def test_transaction_create_stop_in_initcode(
     tx = Transaction(
         sender=sender,
         to=None,
-        data=Bytes("600a80600c600039600000f20000600160008035811a81"),
+        data=Op.PUSH1[0xA]
+        + Op.CODECOPY(dest_offset=0x0, offset=0xC, size=Op.DUP1)
+        + Op.PUSH1[0x0]
+        + Op.STOP
+        + Op.CALLCODE
+        + Op.STOP * 2
+        + Op.PUSH1[0x1]
+        + Op.PUSH1[0x0]
+        + Op.BYTE(Op.DUP2, Op.CALLDATALOAD(offset=Op.DUP1))
+        + Op.DUP2,
         gas_limit=55000,
         value=1,
     )

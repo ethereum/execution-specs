@@ -11,7 +11,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -96,8 +95,13 @@ def test_static_contract_creation_oo_gdont_leave_empty_contract_via_transaction(
     tx = Transaction(
         sender=sender,
         to=None,
-        data=Bytes(
-            "604060006040600073200000000000000000000000000000000000000161c350fa"  # noqa: E501
+        data=Op.STATICCALL(
+            gas=0xC350,
+            address=0x2000000000000000000000000000000000000001,
+            args_offset=0x0,
+            args_size=0x40,
+            ret_offset=0x0,
+            ret_size=0x40,
         ),
         gas_limit=96000,
     )

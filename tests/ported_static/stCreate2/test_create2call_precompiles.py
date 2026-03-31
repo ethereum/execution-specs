@@ -11,7 +11,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -296,30 +295,239 @@ def test_create2call_precompiles(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes(
-            "6000609b80601360003960006000f5500000fe7f18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c600052601c6020527f73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75f6040527feeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549606052602060806080600060006001620493e0f160025560a060020a6080510660005560005432146001550000"  # noqa: E501
-        ),
-        Bytes(
-            "6000602480601360003960006000f5500000fe64f34578907f6005526020600060256000600060026101f4f16002556000516000550000"  # noqa: E501
-        ),
-        Bytes(
-            "6000601b80601360003960006000f5500000fe602060006000600060006003610258f16002556000516000550000"  # noqa: E501
-        ),
-        Bytes(
-            "6000602480601360003960006000f5500000fe64f34578907f6000526020600060256000600060046101f4f16002556000516000550000"  # noqa: E501
-        ),
-        Bytes(
-            "6000609680601360003960006000f5500000fe6001600052602060205260206040527f03fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc6060527f2efffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc6080527f2f0000000000000000000000000000000000000000000000000000000000000060965260206103e860976000600060055af26001556103e8516002550000"  # noqa: E501
-        ),
-        Bytes(
-            "6000602280601360003960006000f5500000fe600160005260206000610100600060006006620927c0f16002556000516000550000"  # noqa: E501
-        ),
-        Bytes(
-            "600060b780601360003960006000f5500000fe7f0f25929bcb43d5a57391564615c9e70a992b10eafa4db109709649cf48c50dd26000527f16da2f5cb6be7a0aa72c440c53c9bbdfec6c36c7d515536431b3a865468acbba6020527f1de49a4b0233273bba8146af82042d004f2085ec982397db0d97da17204cc2866040527f0217327ffc463919bef80cc166d09c6172639d8589799928761bcd9f22c903d46060526000600060806000600073addf5374fce5edbc8e2a8697c15331677e6ebf0b6207a120f2500000"  # noqa: E501
-        ),
-        Bytes(
-            "600060c680601360003960006000f5500000fe7f1de49a4b0233273bba8146af82042d004f2085ec982397db0d97da17204cc2866000527f0217327ffc463919bef80cc166d09c6172639d8589799928761bcd9f22c903d4602052600060405260006060527f1de49a4b0233273bba8146af82042d004f2085ec982397db0d97da17204cc2866080527f0217327ffc463919bef80cc166d09c6172639d8589799928761bcd9f22c903d460a052600160c0526000600060e06000600073b94f5374fce5edbc8e2a8697c15331677e6ebf0b6207a120f2500000"  # noqa: E501
-        ),
+        Op.PUSH1[0x0]
+        + Op.PUSH1[0x9B]
+        + Op.CODECOPY(dest_offset=0x0, offset=0x13, size=Op.DUP1)
+        + Op.PUSH1[0x0] * 2
+        + Op.POP(Op.CREATE2)
+        + Op.STOP * 2
+        + Op.INVALID
+        + Op.MSTORE(
+            offset=0x0,
+            value=0x18C547E4F7B0F325AD1E56F57E26C745B09A3E503D86E00E5255FF7F715D3D1C,  # noqa: E501
+        )
+        + Op.MSTORE(offset=0x20, value=0x1C)
+        + Op.MSTORE(
+            offset=0x40,
+            value=0x73B1693892219D736CABA55BDB67216E485557EA6B6AF75F37096C9AA6A5A75F,  # noqa: E501
+        )
+        + Op.MSTORE(
+            offset=0x60,
+            value=0xEEB940B1D03B21E36B0E47E79769F095FE2AB855BD91E3A38756B7D75A9C4549,  # noqa: E501
+        )
+        + Op.SSTORE(
+            key=0x2,
+            value=Op.CALL(
+                gas=0x493E0,
+                address=0x1,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x80,
+                ret_offset=0x80,
+                ret_size=0x20,
+            ),
+        )
+        + Op.SSTORE(
+            key=0x0, value=Op.MOD(Op.MLOAD(offset=0x80), Op.EXP(0x2, 0xA0))
+        )
+        + Op.SSTORE(key=0x1, value=Op.EQ(Op.ORIGIN, Op.SLOAD(key=0x0)))
+        + Op.STOP * 2,
+        Op.PUSH1[0x0]
+        + Op.PUSH1[0x24]
+        + Op.CODECOPY(dest_offset=0x0, offset=0x13, size=Op.DUP1)
+        + Op.PUSH1[0x0] * 2
+        + Op.POP(Op.CREATE2)
+        + Op.STOP * 2
+        + Op.INVALID
+        + Op.MSTORE(offset=0x5, value=0xF34578907F)
+        + Op.SSTORE(
+            key=0x2,
+            value=Op.CALL(
+                gas=0x1F4,
+                address=0x2,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x25,
+                ret_offset=0x0,
+                ret_size=0x20,
+            ),
+        )
+        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
+        + Op.STOP * 2,
+        Op.PUSH1[0x0]
+        + Op.PUSH1[0x1B]
+        + Op.CODECOPY(dest_offset=0x0, offset=0x13, size=Op.DUP1)
+        + Op.PUSH1[0x0] * 2
+        + Op.POP(Op.CREATE2)
+        + Op.STOP * 2
+        + Op.INVALID
+        + Op.SSTORE(
+            key=0x2,
+            value=Op.CALL(
+                gas=0x258,
+                address=0x3,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x20,
+            ),
+        )
+        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
+        + Op.STOP * 2,
+        Op.PUSH1[0x0]
+        + Op.PUSH1[0x24]
+        + Op.CODECOPY(dest_offset=0x0, offset=0x13, size=Op.DUP1)
+        + Op.PUSH1[0x0] * 2
+        + Op.POP(Op.CREATE2)
+        + Op.STOP * 2
+        + Op.INVALID
+        + Op.MSTORE(offset=0x0, value=0xF34578907F)
+        + Op.SSTORE(
+            key=0x2,
+            value=Op.CALL(
+                gas=0x1F4,
+                address=0x4,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x25,
+                ret_offset=0x0,
+                ret_size=0x20,
+            ),
+        )
+        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
+        + Op.STOP * 2,
+        Op.PUSH1[0x0]
+        + Op.PUSH1[0x96]
+        + Op.CODECOPY(dest_offset=0x0, offset=0x13, size=Op.DUP1)
+        + Op.PUSH1[0x0] * 2
+        + Op.POP(Op.CREATE2)
+        + Op.STOP * 2
+        + Op.INVALID
+        + Op.MSTORE(offset=0x0, value=0x1)
+        + Op.MSTORE(offset=0x20, value=0x20)
+        + Op.MSTORE(offset=0x40, value=0x20)
+        + Op.MSTORE(
+            offset=0x60,
+            value=0x3FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC,  # noqa: E501
+        )
+        + Op.MSTORE(
+            offset=0x80,
+            value=0x2EFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC,  # noqa: E501
+        )
+        + Op.MSTORE(
+            offset=0x96,
+            value=0x2F00000000000000000000000000000000000000000000000000000000000000,  # noqa: E501
+        )
+        + Op.SSTORE(
+            key=0x1,
+            value=Op.CALLCODE(
+                gas=Op.GAS,
+                address=0x5,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x97,
+                ret_offset=0x3E8,
+                ret_size=0x20,
+            ),
+        )
+        + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=0x3E8))
+        + Op.STOP * 2,
+        Op.PUSH1[0x0]
+        + Op.PUSH1[0x22]
+        + Op.CODECOPY(dest_offset=0x0, offset=0x13, size=Op.DUP1)
+        + Op.PUSH1[0x0] * 2
+        + Op.POP(Op.CREATE2)
+        + Op.STOP * 2
+        + Op.INVALID
+        + Op.MSTORE(offset=0x0, value=0x1)
+        + Op.SSTORE(
+            key=0x2,
+            value=Op.CALL(
+                gas=0x927C0,
+                address=0x6,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x100,
+                ret_offset=0x0,
+                ret_size=0x20,
+            ),
+        )
+        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
+        + Op.STOP * 2,
+        Op.PUSH1[0x0]
+        + Op.PUSH1[0xB7]
+        + Op.CODECOPY(dest_offset=0x0, offset=0x13, size=Op.DUP1)
+        + Op.PUSH1[0x0] * 2
+        + Op.POP(Op.CREATE2)
+        + Op.STOP * 2
+        + Op.INVALID
+        + Op.MSTORE(
+            offset=0x0,
+            value=0xF25929BCB43D5A57391564615C9E70A992B10EAFA4DB109709649CF48C50DD2,  # noqa: E501
+        )
+        + Op.MSTORE(
+            offset=0x20,
+            value=0x16DA2F5CB6BE7A0AA72C440C53C9BBDFEC6C36C7D515536431B3A865468ACBBA,  # noqa: E501
+        )
+        + Op.MSTORE(
+            offset=0x40,
+            value=0x1DE49A4B0233273BBA8146AF82042D004F2085EC982397DB0D97DA17204CC286,  # noqa: E501
+        )
+        + Op.MSTORE(
+            offset=0x60,
+            value=0x217327FFC463919BEF80CC166D09C6172639D8589799928761BCD9F22C903D4,  # noqa: E501
+        )
+        + Op.POP(
+            Op.CALLCODE(
+                gas=0x7A120,
+                address=0xADDF5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x80,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.STOP * 2,
+        Op.PUSH1[0x0]
+        + Op.PUSH1[0xC6]
+        + Op.CODECOPY(dest_offset=0x0, offset=0x13, size=Op.DUP1)
+        + Op.PUSH1[0x0] * 2
+        + Op.POP(Op.CREATE2)
+        + Op.STOP * 2
+        + Op.INVALID
+        + Op.MSTORE(
+            offset=0x0,
+            value=0x1DE49A4B0233273BBA8146AF82042D004F2085EC982397DB0D97DA17204CC286,  # noqa: E501
+        )
+        + Op.MSTORE(
+            offset=0x20,
+            value=0x217327FFC463919BEF80CC166D09C6172639D8589799928761BCD9F22C903D4,  # noqa: E501
+        )
+        + Op.MSTORE(offset=0x40, value=0x0)
+        + Op.MSTORE(offset=0x60, value=0x0)
+        + Op.MSTORE(
+            offset=0x80,
+            value=0x1DE49A4B0233273BBA8146AF82042D004F2085EC982397DB0D97DA17204CC286,  # noqa: E501
+        )
+        + Op.MSTORE(
+            offset=0xA0,
+            value=0x217327FFC463919BEF80CC166D09C6172639D8589799928761BCD9F22C903D4,  # noqa: E501
+        )
+        + Op.MSTORE(offset=0xC0, value=0x1)
+        + Op.POP(
+            Op.CALLCODE(
+                gas=0x7A120,
+                address=0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0xE0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.STOP * 2,
     ]
     tx_gas = [15000000]
     tx_value = [1]

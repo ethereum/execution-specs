@@ -12,10 +12,10 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
-    Hash,
     StateTestFiller,
     Transaction,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -52,9 +52,17 @@ def test_failed_create_reverts_deletion_paris(
     tx = Transaction(
         sender=sender,
         to=None,
-        data=Hash(
-            0x3050600D80601360003960006000F050FE00FE6211223360005260206000FD00
-        ),
+        data=Op.POP(Op.ADDRESS)
+        + Op.PUSH1[0xD]
+        + Op.CODECOPY(dest_offset=0x0, offset=0x13, size=Op.DUP1)
+        + Op.PUSH1[0x0] * 2
+        + Op.POP(Op.CREATE)
+        + Op.INVALID
+        + Op.STOP
+        + Op.INVALID
+        + Op.MSTORE(offset=0x0, value=0x112233)
+        + Op.REVERT(offset=0x0, size=0x20)
+        + Op.STOP,
         gas_limit=100000,
     )
 

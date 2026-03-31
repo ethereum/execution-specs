@@ -11,13 +11,13 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
 from execution_testing.forks import Fork
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -71,7 +71,9 @@ def test_revert_opcode_in_init(
     pre[sender] = Account(balance=0xE8D4A51000)
 
     tx_data = [
-        Bytes("600160005560016000fd6011600155"),
+        Op.SSTORE(key=0x0, value=0x1)
+        + Op.REVERT(offset=0x0, size=0x1)
+        + Op.SSTORE(key=0x1, value=0x11),
     ]
     tx_gas = [160000]
     tx_value = [0, 10]

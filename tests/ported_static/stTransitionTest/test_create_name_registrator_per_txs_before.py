@@ -11,12 +11,12 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -53,8 +53,20 @@ def test_create_name_registrator_per_txs_before(
     tx = Transaction(
         sender=sender,
         to=None,
-        data=Bytes(
-            "6001600155601080600c6000396000f3006000355415600957005b60203560003555"  # noqa: E501
+        data=Op.SSTORE(key=0x1, value=0x1)
+        + Op.PUSH1[0x10]
+        + Op.CODECOPY(dest_offset=0x0, offset=0xC, size=Op.DUP1)
+        + Op.PUSH1[0x0]
+        + Op.RETURN
+        + Op.STOP
+        + Op.JUMPI(
+            pc=0x9,
+            condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
+        )
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.SSTORE(
+            key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
         ),
         gas_limit=200000,
         value=0x186A0,

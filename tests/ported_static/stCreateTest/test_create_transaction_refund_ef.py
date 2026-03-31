@@ -12,7 +12,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -63,7 +62,19 @@ def test_create_transaction_refund_ef(
     tx = Transaction(
         sender=sender,
         to=None,
-        data=Bytes("600080808080625ef94d61c350f15060ef60005360016000f3"),
+        data=Op.POP(
+            Op.CALL(
+                gas=0xC350,
+                address=0x5EF94D,
+                value=Op.DUP1,
+                args_offset=Op.DUP1,
+                args_size=Op.DUP1,
+                ret_offset=Op.DUP1,
+                ret_size=0x0,
+            )
+        )
+        + Op.MSTORE8(offset=0x0, value=0xEF)
+        + Op.RETURN(offset=0x0, size=0x1),
         gas_limit=100000,
     )
 

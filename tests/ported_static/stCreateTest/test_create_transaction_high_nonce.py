@@ -12,7 +12,6 @@ from execution_testing import (
     EOA,
     Account,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -22,6 +21,7 @@ from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -89,7 +89,7 @@ def test_create_transaction_high_nonce(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes("60016000f3"),
+        Op.RETURN(offset=0x0, size=0x1),
     ]
     tx_gas = [90000]
     tx_value = [0, 1]

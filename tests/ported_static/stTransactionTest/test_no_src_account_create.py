@@ -376,9 +376,9 @@ def test_no_src_account_create(
     tx_data = [
         Bytes(""),
         Bytes("dead60a7"),
-        Bytes("00"),
-        Bytes("00"),
-        Bytes("00"),
+        Op.STOP,
+        Op.STOP,
+        Op.STOP,
     ]
     tx_gas = [21000, 210000, 0]
     tx_value = [0, 1]

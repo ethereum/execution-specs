@@ -11,12 +11,12 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -51,9 +51,15 @@ def test_stack_depth_limit_sec(
     tx = Transaction(
         sender=sender,
         to=None,
-        data=Bytes(
-            "305032503350600460006000396000515060046000600037600051506f600060006000600060003060405a03f160005260106010f3"  # noqa: E501
-        ),
+        data=Op.POP(Op.ADDRESS)
+        + Op.POP(Op.ORIGIN)
+        + Op.POP(Op.CALLER)
+        + Op.CODECOPY(dest_offset=0x0, offset=0x0, size=0x4)
+        + Op.POP(Op.MLOAD(offset=0x0))
+        + Op.CALLDATACOPY(dest_offset=0x0, offset=0x0, size=0x4)
+        + Op.POP(Op.MLOAD(offset=0x0))
+        + Op.MSTORE(offset=0x0, value=0x600060006000600060003060405A03F1)
+        + Op.RETURN(offset=0x10, size=0x10),
         gas_limit=1000000,
         value=10,
     )

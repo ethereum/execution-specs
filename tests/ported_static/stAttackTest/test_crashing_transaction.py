@@ -11,11 +11,11 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -50,9 +50,49 @@ def test_crashing_transaction(
     tx = Transaction(
         sender=sender,
         to=None,
-        data=Bytes(
-            "60606040525b5b61c3505a1115602c576040516034806039833901809050604051809103906000f0506006565b5b600a80606d6000396000f360606040525b3373ffffffffffffffffffffffffffffffffffffffff16ff5b600a80602a6000396000f360606040526008565b0060606040526008565b00"  # noqa: E501
-        ),
+        data=Op.MSTORE(offset=0x40, value=0x60)
+        + Op.JUMPDEST * 2
+        + Op.JUMPI(pc=0x2C, condition=Op.ISZERO(Op.GT(Op.GAS, 0xC350)))
+        + Op.MLOAD(offset=0x40)
+        + Op.PUSH1[0x34]
+        + Op.CODECOPY(dest_offset=Op.DUP4, offset=0x39, size=Op.DUP1)
+        + Op.ADD
+        + Op.DUP1
+        + Op.SWAP1
+        + Op.POP
+        + Op.MLOAD(offset=0x40)
+        + Op.DUP1
+        + Op.SWAP2
+        + Op.SUB
+        + Op.SWAP1
+        + Op.PUSH1[0x0]
+        + Op.POP(Op.CREATE)
+        + Op.JUMP(pc=0x6)
+        + Op.JUMPDEST * 2
+        + Op.PUSH1[0xA]
+        + Op.CODECOPY(dest_offset=0x0, offset=0x6D, size=Op.DUP1)
+        + Op.PUSH1[0x0]
+        + Op.RETURN
+        + Op.MSTORE(offset=0x40, value=0x60)
+        + Op.JUMPDEST
+        + Op.SELFDESTRUCT(
+            address=Op.AND(
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF, Op.CALLER
+            )
+        )
+        + Op.JUMPDEST
+        + Op.PUSH1[0xA]
+        + Op.CODECOPY(dest_offset=0x0, offset=0x2A, size=Op.DUP1)
+        + Op.PUSH1[0x0]
+        + Op.RETURN
+        + Op.MSTORE(offset=0x40, value=0x60)
+        + Op.JUMP(pc=0x8)
+        + Op.JUMPDEST
+        + Op.STOP
+        + Op.MSTORE(offset=0x40, value=0x60)
+        + Op.JUMP(pc=0x8)
+        + Op.JUMPDEST
+        + Op.STOP,
         gas_limit=4657786,
         value=1,
         nonce=3270,

@@ -11,12 +11,12 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -52,7 +52,7 @@ def test_stack_under_flow_contract_creation(
     tx = Transaction(
         sender=sender,
         to=None,
-        data=Bytes("6000f1"),
+        data=Op.PUSH1[0x0] + Op.CALL,
         gas_limit=72000,
     )
 

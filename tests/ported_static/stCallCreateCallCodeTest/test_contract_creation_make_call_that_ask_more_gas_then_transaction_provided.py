@@ -11,7 +11,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -129,8 +128,14 @@ def test_contract_creation_make_call_that_ask_more_gas_then_transaction_provided
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes(
-            "6040600060406000600073100000000000000000000000000000000000000161c350f1"  # noqa: E501
+        Op.CALL(
+            gas=0xC350,
+            address=0x1000000000000000000000000000000000000001,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x40,
+            ret_offset=0x0,
+            ret_size=0x40,
         ),
     ]
     tx_gas = [96000, 60000]

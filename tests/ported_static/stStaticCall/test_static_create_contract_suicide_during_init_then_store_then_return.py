@@ -11,7 +11,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -107,12 +106,54 @@ def test_static_create_contract_suicide_during_init_then_store_then_return(
     )
 
     tx_data = [
-        Bytes(
-            "600060006000600073c94f5374fce5edbc8e2a8697c15331677e6ebf0b61ea60fa506d64600c6000556000526005601bf360005273d94f5374fce5edbc8e2a8697c15331677e6ebf0bff600060006000600073d94f5374fce5edbc8e2a8697c15331677e6ebf0b61ea60fa50600b600055600e6012f3"  # noqa: E501
-        ),
-        Bytes(
-            "600060006000600073094f5374fce5edbc8e2a8697c15331677e6ebf0b61ea60fa506d64600c6000556000526005601bf360005273d94f5374fce5edbc8e2a8697c15331677e6ebf0bff600060006000600073194f5374fce5edbc8e2a8697c15331677e6ebf0b61ea60fa50600b600055600e6012f3"  # noqa: E501
-        ),
+        Op.POP(
+            Op.STATICCALL(
+                gas=0xEA60,
+                address=0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.MSTORE(offset=0x0, value=0x64600C6000556000526005601BF3)
+        + Op.SELFDESTRUCT(address=0xD94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
+        + Op.POP(
+            Op.STATICCALL(
+                gas=0xEA60,
+                address=0xD94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.SSTORE(key=0x0, value=0xB)
+        + Op.RETURN(offset=0x12, size=0xE),
+        Op.POP(
+            Op.STATICCALL(
+                gas=0xEA60,
+                address=0x94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.MSTORE(offset=0x0, value=0x64600C6000556000526005601BF3)
+        + Op.SELFDESTRUCT(address=0xD94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
+        + Op.POP(
+            Op.STATICCALL(
+                gas=0xEA60,
+                address=0x194F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.SSTORE(key=0x0, value=0xB)
+        + Op.RETURN(offset=0x12, size=0xE),
     ]
     tx_gas = [600000]
     tx_value = [10]

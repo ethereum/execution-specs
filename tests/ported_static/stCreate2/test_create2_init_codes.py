@@ -11,7 +11,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -21,6 +20,7 @@ from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -209,15 +209,59 @@ def test_create2_init_codes(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes("60006000536000600160006000f560005500"),
-        Bytes("60566000536000600160006000f560005500"),
-        Bytes("60016000536000600160006000f560005500"),
-        Bytes("60f46000536000600160006000f560005500"),
-        Bytes("6a60016001556001546002556000526000600b60156000f560005500"),
-        Address(0x626001FF60005260006003601D6000F560005500),
-        Address(0x626001FF60005260006003601D6001F560005500),
-        Bytes("60006003601d6000f560005500"),
-        Bytes("6160a960005260006002601e6001f560005500"),
+        Op.MSTORE8(offset=0x0, value=0x0)
+        + Op.SSTORE(
+            key=0x0,
+            value=Op.CREATE2(value=0x0, offset=0x0, size=0x1, salt=0x0),
+        )
+        + Op.STOP,
+        Op.MSTORE8(offset=0x0, value=0x56)
+        + Op.SSTORE(
+            key=0x0,
+            value=Op.CREATE2(value=0x0, offset=0x0, size=0x1, salt=0x0),
+        )
+        + Op.STOP,
+        Op.MSTORE8(offset=0x0, value=0x1)
+        + Op.SSTORE(
+            key=0x0,
+            value=Op.CREATE2(value=0x0, offset=0x0, size=0x1, salt=0x0),
+        )
+        + Op.STOP,
+        Op.MSTORE8(offset=0x0, value=0xF4)
+        + Op.SSTORE(
+            key=0x0,
+            value=Op.CREATE2(value=0x0, offset=0x0, size=0x1, salt=0x0),
+        )
+        + Op.STOP,
+        Op.MSTORE(offset=0x0, value=0x6001600155600154600255)
+        + Op.SSTORE(
+            key=0x0,
+            value=Op.CREATE2(value=0x0, offset=0x15, size=0xB, salt=0x0),
+        )
+        + Op.STOP,
+        Op.MSTORE(offset=0x0, value=0x6001FF)
+        + Op.SSTORE(
+            key=0x0,
+            value=Op.CREATE2(value=0x0, offset=0x1D, size=0x3, salt=0x0),
+        )
+        + Op.STOP,
+        Op.MSTORE(offset=0x0, value=0x6001FF)
+        + Op.SSTORE(
+            key=0x0,
+            value=Op.CREATE2(value=0x1, offset=0x1D, size=0x3, salt=0x0),
+        )
+        + Op.STOP,
+        Op.SSTORE(
+            key=0x0,
+            value=Op.CREATE2(value=0x0, offset=0x1D, size=0x3, salt=0x0),
+        )
+        + Op.STOP,
+        Op.MSTORE(offset=0x0, value=0x60A9)
+        + Op.SSTORE(
+            key=0x0,
+            value=Op.CREATE2(value=0x1, offset=0x1E, size=0x2, salt=0x0),
+        )
+        + Op.STOP,
     ]
     tx_gas = [800000]
     tx_value = [1]

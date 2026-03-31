@@ -11,12 +11,12 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -51,7 +51,9 @@ def test_codesize_init(
     tx = Transaction(
         sender=sender,
         to=None,
-        data=Bytes("38600155303b60025500"),
+        data=Op.SSTORE(key=0x1, value=Op.CODESIZE)
+        + Op.SSTORE(key=0x2, value=Op.EXTCODESIZE(address=Op.ADDRESS))
+        + Op.STOP,
         gas_limit=15000000,
     )
 

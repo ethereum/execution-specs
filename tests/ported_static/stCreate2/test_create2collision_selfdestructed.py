@@ -11,9 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
-    Hash,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -156,18 +154,47 @@ def test_create2collision_selfdestructed(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes(
-            "6000600060006000600073e2b35478fdd26477cc576dd906e6277761246a3c61c350f1506000600060006000f500"  # noqa: E501
-        ),
-        Bytes(
-            "6000600060006000600073af3ecba2fe09a4f6c19f16a9d119e44e08c2da0161c350f15064600160015560005260006005601b6000f500"  # noqa: E501
-        ),
-        Hash(
-            0x6000600060006000600073EC2C6832D00680ECE8FF9254F81FDAB0A5A2AC5061
+        Op.POP(
+            Op.CALL(
+                gas=0xC350,
+                address=0xE2B35478FDD26477CC576DD906E6277761246A3C,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
         )
-        + Hash(
-            0xC350F1506D6460016001556000526005601BF36000526000600E60126000F500
-        ),
+        + Op.CREATE2(value=0x0, offset=0x0, size=0x0, salt=0x0)
+        + Op.STOP,
+        Op.POP(
+            Op.CALL(
+                gas=0xC350,
+                address=0xAF3ECBA2FE09A4F6C19F16A9D119E44E08C2DA01,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.MSTORE(offset=0x0, value=0x6001600155)
+        + Op.CREATE2(value=0x0, offset=0x1B, size=0x5, salt=0x0)
+        + Op.STOP,
+        Op.POP(
+            Op.CALL(
+                gas=0xC350,
+                address=0xEC2C6832D00680ECE8FF9254F81FDAB0A5A2AC50,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.MSTORE(offset=0x0, value=0x6460016001556000526005601BF3)
+        + Op.CREATE2(value=0x0, offset=0x12, size=0xE, salt=0x0)
+        + Op.STOP,
     ]
     tx_gas = [400000]
     tx_value = [1]

@@ -11,13 +11,13 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
 from execution_testing.forks import Fork
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -71,8 +71,10 @@ def test_codesize_valid(
     pre[sender] = Account(balance=0xE8D4A51000)
 
     tx_data = [
-        Bytes("615ed5600d600039615ed56000f3"),
-        Bytes("616000600d6000396160006000f3"),
+        Op.CODECOPY(dest_offset=0x0, offset=0xD, size=0x5ED5)
+        + Op.RETURN(offset=0x0, size=0x5ED5),
+        Op.CODECOPY(dest_offset=0x0, offset=0xD, size=0x6000)
+        + Op.RETURN(offset=0x0, size=0x6000),
     ]
     tx_gas = [15000000]
     tx_value = [1]

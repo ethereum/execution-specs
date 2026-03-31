@@ -11,7 +11,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -63,9 +62,18 @@ def test_create_empty000_createin_init_code_transaction(
     tx = Transaction(
         sender=sender,
         to=None,
-        data=Bytes(
-            "6000600060006000600073c94f5374fce5edbc8e2a8697c15331677e6ebf0b61ea60f150600060006000f0"  # noqa: E501
-        ),
+        data=Op.POP(
+            Op.CALL(
+                gas=0xEA60,
+                address=0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.CREATE(value=0x0, offset=0x0, size=0x0),
         gas_limit=600000,
     )
 
