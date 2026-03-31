@@ -145,8 +145,13 @@ def analyze(
     sender_ir, sender_tag_name = _build_sender_ir(model, tags)
 
     # 7. Build TX arrays
+    probably_bytecode = model.transaction.to is None
     tx_data, tx_gas, tx_value = _build_tx_arrays(
-        model.transaction, tags, addr_to_var, imports
+        model.transaction,
+        tags,
+        addr_to_var,
+        probably_bytecode,
+        imports,
     )
 
     # 8. Parameter matrix
@@ -1111,9 +1116,17 @@ def _decode_tx_data_word(
 
 
 def _decode_tx_data(
-    data: bytes, addr_to_var: dict[Address | EOA, str], imports: ImportsIR
+    data: bytes,
+    addr_to_var: dict[Address | EOA, str],
+    probably_bytecode: bool,
+    imports: ImportsIR,
 ) -> str:
     """Attempt to decode meaningful information from the transaction data."""
+    if probably_bytecode:
+        bytecode = _bytes_to_op_expr(data)
+        if bytecode:
+            imports.needs_op = True
+            return bytecode
     decoded_words: list[str] = []
     if len(data) > 0 and len(data) % 32 in (0, 4):
         if len(data) % 32 == 4:
@@ -1134,6 +1147,7 @@ def _build_tx_arrays(
     tx: GeneralTransactionInFiller,
     tags: TagDict,
     addr_to_var: dict[Address | EOA, str],
+    probably_bytecode: bool,
     imports: ImportsIR,
 ) -> tuple[list[str], list[int], list[int]]:
     """Build the list of data that goes in each transaction."""
@@ -1141,7 +1155,9 @@ def _build_tx_arrays(
     for d_entry in tx.data:
         data_box = tx.data[d_entry.index]
         compiled = data_box.data.compiled(tags)
-        tx_data.append(_decode_tx_data(compiled, addr_to_var, imports))
+        tx_data.append(
+            _decode_tx_data(compiled, addr_to_var, probably_bytecode, imports)
+        )
 
     tx_gas = [int(g) for g in tx.gas_limit]
     tx_value = [int(v) for v in tx.value]
