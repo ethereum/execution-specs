@@ -33,61 +33,15 @@ from ..base_fork import (
     TransactionIntrinsicCostCalculator,
 )
 from ..gas_costs import GasCosts
-from .eips.amsterdam.eip_7928 import EIP7928
-from .eips.berlin.eip_2930 import EIP2930
-from .eips.byzantium.eip_140 import EIP140
-from .eips.byzantium.eip_196 import EIP196
-from .eips.byzantium.eip_197 import EIP197
-from .eips.byzantium.eip_198 import EIP198
-from .eips.byzantium.eip_211 import EIP211
-from .eips.byzantium.eip_214 import EIP214
-from .eips.byzantium.eip_649 import EIP649
-from .eips.cancun.eip_1153 import EIP1153
-from .eips.cancun.eip_4788 import EIP4788
-from .eips.cancun.eip_4844 import EIP4844
-from .eips.cancun.eip_5656 import EIP5656
-from .eips.cancun.eip_7516 import EIP7516
-from .eips.constantinople.eip_145 import EIP145
-from .eips.constantinople.eip_1014 import EIP1014
-from .eips.constantinople.eip_1052 import EIP1052
-from .eips.constantinople.eip_1234 import EIP1234
-from .eips.homestead.eip_2 import EIP2
-from .eips.homestead.eip_7 import EIP7
-from .eips.istanbul.eip_152 import EIP152
-from .eips.istanbul.eip_1108 import EIP1108
-from .eips.istanbul.eip_1344 import EIP1344
-from .eips.istanbul.eip_1884 import EIP1884
-from .eips.istanbul.eip_2028 import EIP2028
-from .eips.london.eip_1559 import EIP1559
-from .eips.london.eip_3198 import EIP3198
-from .eips.london.eip_3529 import EIP3529
-from .eips.osaka.eip_7594 import EIP7594
-from .eips.osaka.eip_7825 import EIP7825
-from .eips.osaka.eip_7918 import EIP7918
-from .eips.osaka.eip_7934 import EIP7934
-from .eips.osaka.eip_7939 import EIP7939
-from .eips.osaka.eip_7951 import EIP7951
-from .eips.paris.eip_3675 import EIP3675
-from .eips.prague.eip_2537 import EIP2537
-from .eips.prague.eip_2935 import EIP2935
-from .eips.prague.eip_6110 import EIP6110
-from .eips.prague.eip_7002 import EIP7002
-from .eips.prague.eip_7251 import EIP7251
-from .eips.prague.eip_7623 import EIP7623
-from .eips.prague.eip_7685 import EIP7685
-from .eips.prague.eip_7691 import EIP7691
-from .eips.prague.eip_7702 import EIP7702
-from .eips.shanghai.eip_3855 import EIP3855
-from .eips.shanghai.eip_3860 import EIP3860
-from .eips.shanghai.eip_4895 import EIP4895
-from .eips.spurious_dragon.eip_155 import EIP155
-from .eips.spurious_dragon.eip_161 import EIP161
-from .eips.spurious_dragon.eip_170 import EIP170
+from . import eips
 from .helpers import ceiling_division
 
 
 # All forks must be listed here !!! in the order they were introduced !!!
-class Frontier(BaseFork, solc_name="homestead"):
+class Frontier(
+    BaseFork,
+    solc_name="homestead",
+):
     """Frontier fork."""
 
     @classmethod
@@ -1261,28 +1215,40 @@ class Frontier(BaseFork, solc_name="homestead"):
         return FixtureHeader(**defaults)
 
 
-class Homestead(EIP7, EIP2, Frontier):
+class Homestead(
+    eips.EIP7,
+    eips.EIP2,
+    Frontier,
+):
     """Homestead fork."""
 
     pass
 
 
-class DAOFork(Homestead, ignore=True, ruleset_name=""):
+class DAOFork(
+    Homestead,
+    ignore=True,
+    ruleset_name="",
+):
     """DAO fork."""
 
     pass
 
 
-class TangerineWhistle(DAOFork, ignore=True, ruleset_name="TANGERINE"):
+class TangerineWhistle(
+    DAOFork,
+    ignore=True,
+    ruleset_name="TANGERINE",
+):
     """TangerineWhistle fork (EIP-150)."""
 
     pass
 
 
 class SpuriousDragon(
-    EIP170,
-    EIP161,
-    EIP155,
+    eips.EIP170,
+    eips.EIP161,
+    eips.EIP155,
     TangerineWhistle,
     ignore=True,
     ruleset_name="SPURIOUS",
@@ -1293,14 +1259,27 @@ class SpuriousDragon(
 
 
 class Byzantium(
-    EIP649, EIP214, EIP211, EIP140, EIP198, EIP196, EIP197, SpuriousDragon
+    eips.EIP649,
+    eips.EIP214,
+    eips.EIP211,
+    eips.EIP140,
+    eips.EIP198,
+    eips.EIP196,
+    eips.EIP197,
+    SpuriousDragon,
 ):
     """Byzantium fork."""
 
     pass
 
 
-class Constantinople(EIP1234, EIP1052, EIP1014, EIP145, Byzantium):
+class Constantinople(
+    eips.EIP1234,
+    eips.EIP1052,
+    eips.EIP1014,
+    eips.EIP145,
+    Byzantium,
+):
     """Constantinople fork."""
 
     pass
@@ -1316,46 +1295,73 @@ class ConstantinopleFix(
     pass
 
 
-class Istanbul(EIP2028, EIP1884, EIP1344, EIP1108, EIP152, ConstantinopleFix):
+class Istanbul(
+    eips.EIP2028,
+    eips.EIP1884,
+    eips.EIP1344,
+    eips.EIP1108,
+    eips.EIP152,
+    ConstantinopleFix,
+):
     """Istanbul fork."""
 
     pass
 
 
 # Glacier forks skipped, unless explicitly specified
-class MuirGlacier(Istanbul, solc_name="istanbul", ignore=True):
+class MuirGlacier(
+    Istanbul,
+    solc_name="istanbul",
+    ignore=True,
+):
     """Muir Glacier fork."""
 
     pass
 
 
-class Berlin(EIP2930, Istanbul):
+class Berlin(
+    eips.EIP2930,
+    Istanbul,
+):
     """Berlin fork."""
 
     pass
 
 
-class London(EIP3529, EIP3198, EIP1559, Berlin):
+class London(
+    eips.EIP3529,
+    eips.EIP3198,
+    eips.EIP1559,
+    Berlin,
+):
     """London fork."""
 
     pass
 
 
 # Glacier forks skipped, unless explicitly specified
-class ArrowGlacier(London, solc_name="london", ignore=True):
+class ArrowGlacier(
+    London,
+    solc_name="london",
+    ignore=True,
+):
     """Arrow Glacier fork."""
 
     pass
 
 
-class GrayGlacier(ArrowGlacier, solc_name="london", ignore=True):
+class GrayGlacier(
+    ArrowGlacier,
+    solc_name="london",
+    ignore=True,
+):
     """Gray Glacier fork."""
 
     pass
 
 
 class Paris(
-    EIP3675,
+    eips.EIP3675,
     London,
     transition_tool_name="Merge",
     ruleset_name="MERGE",
@@ -1366,9 +1372,9 @@ class Paris(
 
 
 class Shanghai(
-    EIP3855,
-    EIP3860,
-    EIP4895,
+    eips.EIP3855,
+    eips.EIP3860,
+    eips.EIP4895,
     Paris,
     fork_by_timestamp=True,
 ):
@@ -1377,22 +1383,29 @@ class Shanghai(
     pass
 
 
-class Cancun(EIP5656, EIP1153, EIP4788, EIP4844, EIP7516, Shanghai):
+class Cancun(
+    eips.EIP5656,
+    eips.EIP1153,
+    eips.EIP4788,
+    eips.EIP4844,
+    eips.EIP7516,
+    Shanghai,
+):
     """Cancun fork."""
 
     pass
 
 
 class Prague(
-    EIP7691,
-    EIP7685,
-    EIP2935,
-    EIP7251,
-    EIP7002,
-    EIP6110,
-    EIP7623,
-    EIP7702,
-    EIP2537,
+    eips.EIP7691,
+    eips.EIP7685,
+    eips.EIP2935,
+    eips.EIP7251,
+    eips.EIP7002,
+    eips.EIP6110,
+    eips.EIP7623,
+    eips.EIP7702,
+    eips.EIP2537,
     Cancun,
 ):
     """Prague fork."""
@@ -1401,12 +1414,12 @@ class Prague(
 
 
 class Osaka(
-    EIP7939,
-    EIP7934,
-    EIP7825,
-    EIP7918,
-    EIP7594,
-    EIP7951,
+    eips.EIP7939,
+    eips.EIP7934,
+    eips.EIP7825,
+    eips.EIP7918,
+    eips.EIP7594,
+    eips.EIP7951,
     Prague,
     solc_name="cancun",
 ):
@@ -1478,7 +1491,10 @@ class BPO4(
     pass
 
 
-class BPO5(BPO4, bpo_fork=True):
+class BPO5(
+    BPO4,
+    bpo_fork=True,
+):
     """
     Pseudo BPO5 fork - Blob Parameter Only fork 5.
     For testing purposes only. Required to parse Fusaka devnet genesis files.
@@ -1487,7 +1503,11 @@ class BPO5(BPO4, bpo_fork=True):
     pass
 
 
-class Amsterdam(EIP7928, BPO2, deployed=False):
+class Amsterdam(
+    eips.EIP7928,
+    BPO2,
+    deployed=False,
+):
     """Amsterdam fork."""
 
     # TODO: We may need to adjust which BPO Amsterdam inherits from as the

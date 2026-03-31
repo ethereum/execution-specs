@@ -1,8 +1,5 @@
 """Helper methods to resolve forks during test filling."""
 
-import importlib
-import inspect
-import pkgutil
 import re
 from typing import (
     Annotated,
@@ -54,16 +51,7 @@ for fork_name in forks.__dict__:
     ):
         all_forks.append(fork)
 
-all_eips: List[Type[BaseFork]] = []
-for _importer, modname, _ispkg in pkgutil.walk_packages(
-    eips.__path__, prefix=eips.__name__ + "."
-):
-    if not re.search(r"\.eip_\d+$", modname):
-        continue
-    module = importlib.import_module(modname)
-    for name, obj in inspect.getmembers(module, inspect.isclass):
-        if name.startswith("EIP") and obj.__module__ == modname:
-            all_eips.append(obj)
+all_eips: List[Type[BaseFork]] = eips.ALL_EIPS
 
 transition_forks: List[Type[TransitionBaseClass]] = []
 
