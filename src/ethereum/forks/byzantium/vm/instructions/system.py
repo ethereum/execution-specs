@@ -69,7 +69,7 @@ def create(evm: Evm) -> None:
         evm.memory, [(memory_start_position, memory_size)]
     )
 
-    charge_gas(evm, GasCosts.GAS_CREATE + extend_memory.cost)
+    charge_gas(evm, GasCosts.CREATE + extend_memory.cost)
 
     create_message_gas = max_message_call_gas(Uint(evm.gas_left))
     evm.gas_left -= create_message_gas
@@ -163,7 +163,7 @@ def return_(evm: Evm) -> None:
         evm.memory, [(memory_start_position, memory_size)]
     )
 
-    charge_gas(evm, GasCosts.GAS_ZERO + extend_memory.cost)
+    charge_gas(evm, GasCosts.ZERO + extend_memory.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -273,16 +273,16 @@ def call(evm: Evm) -> None:
 
     code_address = to
 
-    create_gas_cost = GasCosts.GAS_NEW_ACCOUNT
+    create_gas_cost = GasCosts.NEW_ACCOUNT
     if value == 0 or is_account_alive(evm.message.block_env.state, to):
         create_gas_cost = Uint(0)
-    transfer_gas_cost = Uint(0) if value == 0 else GasCosts.GAS_CALL_VALUE
+    transfer_gas_cost = Uint(0) if value == 0 else GasCosts.CALL_VALUE
     message_call_gas = calculate_message_call_gas(
         value,
         gas,
         Uint(evm.gas_left),
         extend_memory.cost,
-        GasCosts.GAS_CALL + create_gas_cost + transfer_gas_cost,
+        GasCosts.CALL + create_gas_cost + transfer_gas_cost,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
     if evm.message.is_static and value != U256(0):
@@ -344,13 +344,13 @@ def callcode(evm: Evm) -> None:
             (memory_output_start_position, memory_output_size),
         ],
     )
-    transfer_gas_cost = Uint(0) if value == 0 else GasCosts.GAS_CALL_VALUE
+    transfer_gas_cost = Uint(0) if value == 0 else GasCosts.CALL_VALUE
     message_call_gas = calculate_message_call_gas(
         value,
         gas,
         Uint(evm.gas_left),
         extend_memory.cost,
-        GasCosts.GAS_CALL + transfer_gas_cost,
+        GasCosts.CALL + transfer_gas_cost,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
 
@@ -397,7 +397,7 @@ def selfdestruct(evm: Evm) -> None:
     beneficiary = to_address_masked(pop(evm.stack))
 
     # GAS
-    gas_cost = GasCosts.GAS_SELF_DESTRUCT
+    gas_cost = GasCosts.SELF_DESTRUCT
     if (
         not is_account_alive(evm.message.block_env.state, beneficiary)
         and get_account(
@@ -405,7 +405,7 @@ def selfdestruct(evm: Evm) -> None:
         ).balance
         != 0
     ):
-        gas_cost += GasCosts.GAS_SELF_DESTRUCT_NEW_ACCOUNT
+        gas_cost += GasCosts.SELF_DESTRUCT_NEW_ACCOUNT
 
     originator = evm.message.current_target
 
@@ -481,7 +481,7 @@ def delegatecall(evm: Evm) -> None:
         ],
     )
     message_call_gas = calculate_message_call_gas(
-        U256(0), gas, Uint(evm.gas_left), extend_memory.cost, GasCosts.GAS_CALL
+        U256(0), gas, Uint(evm.gas_left), extend_memory.cost, GasCosts.CALL
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
 
@@ -540,7 +540,7 @@ def staticcall(evm: Evm) -> None:
         gas,
         Uint(evm.gas_left),
         extend_memory.cost,
-        GasCosts.GAS_CALL,
+        GasCosts.CALL,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
 

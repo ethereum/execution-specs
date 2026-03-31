@@ -38,7 +38,7 @@ def pop(evm: Evm) -> None:
     stack.pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_BASE)
+    charge_gas(evm, GasCosts.BASE)
 
     # OPERATION
     pass

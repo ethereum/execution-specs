@@ -149,7 +149,7 @@ def create(evm: Evm) -> None:
         evm.memory, [(memory_start_position, memory_size)]
     )
 
-    charge_gas(evm, GasCosts.GAS_CREATE + extend_memory.cost)
+    charge_gas(evm, GasCosts.CREATE + extend_memory.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -194,8 +194,8 @@ def create2(evm: Evm) -> None:
     call_data_words = ceil32(Uint(memory_size)) // Uint(32)
     charge_gas(
         evm,
-        GasCosts.GAS_CREATE
-        + GasCosts.GAS_KECCAK256_PER_WORD * call_data_words
+        GasCosts.CREATE
+        + GasCosts.KECCAK256_PER_WORD * call_data_words
         + extend_memory.cost,
     )
 
@@ -234,7 +234,7 @@ def return_(evm: Evm) -> None:
         evm.memory, [(memory_start_position, memory_size)]
     )
 
-    charge_gas(evm, GasCosts.GAS_ZERO + extend_memory.cost)
+    charge_gas(evm, GasCosts.ZERO + extend_memory.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -345,17 +345,17 @@ def call(evm: Evm) -> None:
     )
 
     if to in evm.accessed_addresses:
-        access_gas_cost = GasCosts.GAS_WARM_ACCESS
+        access_gas_cost = GasCosts.WARM_ACCESS
     else:
         evm.accessed_addresses.add(to)
-        access_gas_cost = GasCosts.GAS_COLD_ACCOUNT_ACCESS
+        access_gas_cost = GasCosts.COLD_ACCOUNT_ACCESS
 
     code_address = to
 
-    create_gas_cost = GasCosts.GAS_NEW_ACCOUNT
+    create_gas_cost = GasCosts.NEW_ACCOUNT
     if value == 0 or is_account_alive(evm.message.block_env.state, to):
         create_gas_cost = Uint(0)
-    transfer_gas_cost = Uint(0) if value == 0 else GasCosts.GAS_CALL_VALUE
+    transfer_gas_cost = Uint(0) if value == 0 else GasCosts.CALL_VALUE
     message_call_gas = calculate_message_call_gas(
         value,
         gas,
@@ -425,12 +425,12 @@ def callcode(evm: Evm) -> None:
     )
 
     if code_address in evm.accessed_addresses:
-        access_gas_cost = GasCosts.GAS_WARM_ACCESS
+        access_gas_cost = GasCosts.WARM_ACCESS
     else:
         evm.accessed_addresses.add(code_address)
-        access_gas_cost = GasCosts.GAS_COLD_ACCOUNT_ACCESS
+        access_gas_cost = GasCosts.COLD_ACCOUNT_ACCESS
 
-    transfer_gas_cost = Uint(0) if value == 0 else GasCosts.GAS_CALL_VALUE
+    transfer_gas_cost = Uint(0) if value == 0 else GasCosts.CALL_VALUE
     message_call_gas = calculate_message_call_gas(
         value,
         gas,
@@ -483,10 +483,10 @@ def selfdestruct(evm: Evm) -> None:
     beneficiary = to_address_masked(pop(evm.stack))
 
     # GAS
-    gas_cost = GasCosts.GAS_SELF_DESTRUCT
+    gas_cost = GasCosts.SELF_DESTRUCT
     if beneficiary not in evm.accessed_addresses:
         evm.accessed_addresses.add(beneficiary)
-        gas_cost += GasCosts.GAS_COLD_ACCOUNT_ACCESS
+        gas_cost += GasCosts.COLD_ACCOUNT_ACCESS
 
     if (
         not is_account_alive(evm.message.block_env.state, beneficiary)
@@ -495,7 +495,7 @@ def selfdestruct(evm: Evm) -> None:
         ).balance
         != 0
     ):
-        gas_cost += GasCosts.GAS_SELF_DESTRUCT_NEW_ACCOUNT
+        gas_cost += GasCosts.SELF_DESTRUCT_NEW_ACCOUNT
 
     originator = evm.message.current_target
 
@@ -573,10 +573,10 @@ def delegatecall(evm: Evm) -> None:
     )
 
     if code_address in evm.accessed_addresses:
-        access_gas_cost = GasCosts.GAS_WARM_ACCESS
+        access_gas_cost = GasCosts.WARM_ACCESS
     else:
         evm.accessed_addresses.add(code_address)
-        access_gas_cost = GasCosts.GAS_COLD_ACCOUNT_ACCESS
+        access_gas_cost = GasCosts.COLD_ACCOUNT_ACCESS
 
     message_call_gas = calculate_message_call_gas(
         U256(0), gas, Uint(evm.gas_left), extend_memory.cost, access_gas_cost
@@ -632,10 +632,10 @@ def staticcall(evm: Evm) -> None:
     )
 
     if to in evm.accessed_addresses:
-        access_gas_cost = GasCosts.GAS_WARM_ACCESS
+        access_gas_cost = GasCosts.WARM_ACCESS
     else:
         evm.accessed_addresses.add(to)
-        access_gas_cost = GasCosts.GAS_COLD_ACCOUNT_ACCESS
+        access_gas_cost = GasCosts.COLD_ACCOUNT_ACCESS
 
     code_address = to
 

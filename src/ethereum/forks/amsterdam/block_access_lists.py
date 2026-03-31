@@ -762,9 +762,9 @@ def validate_block_access_list_gas_limit(
         # Count each unique storage key as one item
         bal_items += Uint(len(unique_slots))
 
-    if bal_items > block_gas_limit // GasCosts.GAS_BLOCK_ACCESS_LIST_ITEM:
+    if bal_items > block_gas_limit // GasCosts.BLOCK_ACCESS_LIST_ITEM:
         raise BlockAccessListGasLimitExceededError(
             f"Block access list exceeds gas limit, {bal_items} items "
             f"exceeds limit of "
-            f"{block_gas_limit // GasCosts.GAS_BLOCK_ACCESS_LIST_ITEM}."
+            f"{block_gas_limit // GasCosts.BLOCK_ACCESS_LIST_ITEM}."
         )

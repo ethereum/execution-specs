@@ -38,7 +38,7 @@ def pop(evm: Evm) -> None:
     stack.pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_BASE)
+    charge_gas(evm, GasCosts.BASE)
 
     # OPERATION
     pass
@@ -66,7 +66,7 @@ def push_n(evm: Evm, num_bytes: int) -> None:
 
     # GAS
     if num_bytes == 0:
-        charge_gas(evm, GasCosts.GAS_BASE)
+        charge_gas(evm, GasCosts.BASE)
     else:
         charge_gas(evm, GasCosts.OPCODE_PUSH)
 

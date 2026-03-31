@@ -133,7 +133,7 @@ def msize(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_BASE)
+    charge_gas(evm, GasCosts.BASE)
 
     # OPERATION
     push(evm.stack, U256(len(evm.memory)))
@@ -159,7 +159,7 @@ def mcopy(evm: Evm) -> None:
 
     # GAS
     words = ceil32(Uint(length)) // Uint(32)
-    copy_gas_cost = GasCosts.GAS_COPY * words
+    copy_gas_cost = GasCosts.COPY * words
 
     extend_memory = calculate_gas_extend_memory(
         evm.memory, [(source, length), (destination, length)]

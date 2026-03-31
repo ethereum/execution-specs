@@ -89,7 +89,7 @@ def coinbase(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_BASE)
+    charge_gas(evm, GasCosts.BASE)
 
     # OPERATION
     push(evm.stack, U256.from_be_bytes(evm.message.block_env.coinbase))
@@ -123,7 +123,7 @@ def timestamp(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_BASE)
+    charge_gas(evm, GasCosts.BASE)
 
     # OPERATION
     push(evm.stack, evm.message.block_env.time)
@@ -156,7 +156,7 @@ def number(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_BASE)
+    charge_gas(evm, GasCosts.BASE)
 
     # OPERATION
     push(evm.stack, U256(evm.message.block_env.number))
@@ -189,7 +189,7 @@ def prev_randao(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_BASE)
+    charge_gas(evm, GasCosts.BASE)
 
     # OPERATION
     push(evm.stack, U256.from_be_bytes(evm.message.block_env.prev_randao))
@@ -222,7 +222,7 @@ def gas_limit(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_BASE)
+    charge_gas(evm, GasCosts.BASE)
 
     # OPERATION
     push(evm.stack, U256(evm.message.block_env.block_gas_limit))
@@ -252,7 +252,7 @@ def chain_id(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_BASE)
+    charge_gas(evm, GasCosts.BASE)
 
     # OPERATION
     push(evm.stack, U256(evm.message.block_env.chain_id))

@@ -315,8 +315,8 @@ def exp(evm: Evm) -> None:
     exponent_bytes = (exponent_bits + Uint(7)) // Uint(8)
     charge_gas(
         evm,
-        GasCosts.GAS_EXPONENTIATION
-        + GasCosts.GAS_EXPONENTIATION_PER_BYTE * exponent_bytes,
+        GasCosts.EXPONENTIATION
+        + GasCosts.EXPONENTIATION_PER_BYTE * exponent_bytes,
     )
 
     # OPERATION
