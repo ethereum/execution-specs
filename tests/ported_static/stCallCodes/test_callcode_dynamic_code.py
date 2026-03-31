@@ -347,7 +347,6 @@ def test_callcode_dynamic_code(
         Hash(contract_4, left_padding=True),
     ]
     tx_gas = [1000000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

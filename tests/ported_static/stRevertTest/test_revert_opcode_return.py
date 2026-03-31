@@ -247,7 +247,6 @@ def test_revert_opcode_return(
         Hash(addr_6, left_padding=True),
     ]
     tx_gas = [800000, 80000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

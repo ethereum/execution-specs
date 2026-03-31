@@ -288,7 +288,6 @@ def test_static_callcallcall_000(
         Hash(addr_5, left_padding=True),
     ]
     tx_gas = [3000000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

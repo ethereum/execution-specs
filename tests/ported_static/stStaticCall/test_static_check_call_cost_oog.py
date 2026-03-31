@@ -99,7 +99,6 @@ def test_static_check_call_cost_oog(
         Bytes(""),
     ]
     tx_gas = [22000, 1000000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

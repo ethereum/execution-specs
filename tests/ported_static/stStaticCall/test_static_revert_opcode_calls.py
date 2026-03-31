@@ -103,7 +103,6 @@ def test_static_revert_opcode_calls(
         Bytes(""),
     ]
     tx_gas = [460000, 88000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

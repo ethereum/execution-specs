@@ -477,7 +477,6 @@ def test_create_oo_gafter_max_codesize(
         Bytes("a6f227c0") + Hash(0xFA) + Hash(0xFA) + Hash(0x0) + Hash(0x1EE),
     ]
     tx_gas = [4294967296]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

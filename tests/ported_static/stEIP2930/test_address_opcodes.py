@@ -666,7 +666,6 @@ def test_address_opcodes(
     ]
     tx_gas = [16777216]
     tx_value = [100000]
-
     tx_access_lists: dict[int, list] = {
         0: [
             AccessList(

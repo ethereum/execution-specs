@@ -136,7 +136,6 @@ def test_static_call_contract_to_create_contract_oog_bonus_gas(
         Bytes(""),
     ]
     tx_gas = [20000000, 80000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

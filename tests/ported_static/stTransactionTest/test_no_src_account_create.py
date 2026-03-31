@@ -382,7 +382,6 @@ def test_no_src_account_create(
     ]
     tx_gas = [21000, 210000, 0]
     tx_value = [0, 1]
-
     tx_access_lists: dict[int, list] = {
         2: [],
         3: [

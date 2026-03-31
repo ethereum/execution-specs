@@ -138,8 +138,6 @@ def test_coinbase_t01(
         Bytes("693c6139") + Hash(0x0),
     ]
     tx_gas = [16777216]
-    tx_value = [0]
-
     tx_access_lists: dict[int, list] = {
         1: [
             AccessList(

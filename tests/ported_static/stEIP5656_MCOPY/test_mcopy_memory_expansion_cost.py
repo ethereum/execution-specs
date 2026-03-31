@@ -303,7 +303,6 @@ def test_mcopy_memory_expansion_cost(
         Hash(0x1) + Hash(0x1) + Hash(0xFFFFFFFFFFFFFFFF),
     ]
     tx_gas = [100000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

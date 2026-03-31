@@ -1292,7 +1292,6 @@ def test_modexp(
         ),
     ]
     tx_gas = [100000000, 90000, 110000, 200000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

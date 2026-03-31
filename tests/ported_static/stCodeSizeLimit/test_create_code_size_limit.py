@@ -130,7 +130,6 @@ def test_create_code_size_limit(
         Bytes("6160016000f3"),
     ]
     tx_gas = [15000000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

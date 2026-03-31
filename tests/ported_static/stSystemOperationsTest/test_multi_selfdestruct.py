@@ -344,7 +344,6 @@ def test_multi_selfdestruct(
         Bytes("05"),
     ]
     tx_gas = [10000000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

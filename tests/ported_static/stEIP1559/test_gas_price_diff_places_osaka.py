@@ -1240,7 +1240,6 @@ def test_gas_price_diff_places(
         Bytes("693c6139") + Hash(0xF5FA),
     ]
     tx_gas = [1000000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

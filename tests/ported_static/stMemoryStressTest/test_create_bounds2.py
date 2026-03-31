@@ -93,7 +93,6 @@ def test_create_bounds2(
         Bytes(""),
     ]
     tx_gas = [150000, 16777216]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

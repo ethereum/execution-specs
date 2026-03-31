@@ -199,7 +199,6 @@ def test_modexp_modsize0_returndatasize(
         ),
     ]
     tx_gas = [10000000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

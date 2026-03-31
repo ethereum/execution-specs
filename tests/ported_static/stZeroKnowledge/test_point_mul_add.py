@@ -628,7 +628,6 @@ def test_point_mul_add(
         + Hash(0x0),
     ]
     tx_gas = [2000000, 90000, 110000, 192000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

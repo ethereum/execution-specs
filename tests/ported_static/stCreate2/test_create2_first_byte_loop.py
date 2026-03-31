@@ -176,7 +176,6 @@ def test_create2_first_byte_loop(
         Bytes("1a8451e6") + Hash(0xF0) + Hash(0x100),
     ]
     tx_gas = [16777216]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

@@ -88,7 +88,6 @@ def test_returndatasize_initial_zero_read(
         Bytes("992919aa"),
     ]
     tx_gas = [100000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

@@ -98,7 +98,6 @@ def test_returndatacopy_initial_256(
         Hash(0x65),
     ]
     tx_gas = [100000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

@@ -170,7 +170,6 @@ def test_create2_smart_init_code(
         Hash(contract_1, left_padding=True),
     ]
     tx_gas = [400000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

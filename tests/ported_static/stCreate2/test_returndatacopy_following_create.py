@@ -151,7 +151,6 @@ def test_returndatacopy_following_create(
         Hash(contract_2, left_padding=True),
     ]
     tx_gas = [100000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

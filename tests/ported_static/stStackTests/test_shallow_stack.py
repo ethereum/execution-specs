@@ -635,7 +635,6 @@ def test_shallow_stack(
         Bytes("ff600055"),
     ]
     tx_gas = [300000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

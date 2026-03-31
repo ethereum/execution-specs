@@ -203,7 +203,6 @@ def test_oo_gin_return(
         Bytes("1a8451e6") + Hash(revert, left_padding=True) + Hash(0x10),
     ]
     tx_gas = [9437184]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

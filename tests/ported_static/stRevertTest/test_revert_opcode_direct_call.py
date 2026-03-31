@@ -150,7 +150,6 @@ def test_revert_opcode_direct_call(
         Hash(target, left_padding=True),
     ]
     tx_gas = [460000, 62912]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

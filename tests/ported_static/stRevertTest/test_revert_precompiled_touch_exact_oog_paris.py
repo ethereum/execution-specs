@@ -898,7 +898,6 @@ def test_revert_precompiled_touch_exact_oog_paris(
         Hash(0x4000000000000000000000000000000000000000) + Hash(0x8),
     ]
     tx_gas = [22500, 120000, 69000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

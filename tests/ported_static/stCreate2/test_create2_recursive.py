@@ -131,7 +131,6 @@ def test_create2_recursive(
         Bytes(""),
     ]
     tx_gas = [9151314442816847871, 20070000000000, 20080000000000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

@@ -142,7 +142,6 @@ def test_static_loop_calls_then_revert(
         Bytes(""),
     ]
     tx_gas = [10000000, 9000000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

@@ -422,7 +422,6 @@ def test_mcopy(
         Hash(0x2) + Hash(0x2) + Hash(0x33),
     ]
     tx_gas = [1000000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

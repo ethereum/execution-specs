@@ -184,7 +184,6 @@ def test_callcode_in_initcode_to_exis_contract_with_v_transfer_ne_money(
         Hash(contract_2, left_padding=True),
     ]
     tx_gas = [1000000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

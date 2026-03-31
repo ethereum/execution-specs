@@ -473,7 +473,6 @@ def test_create2check_fields_in_initcode(
         Hash(contract_8, left_padding=True),
     ]
     tx_gas = [600000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

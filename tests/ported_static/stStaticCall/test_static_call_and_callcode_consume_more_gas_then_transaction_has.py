@@ -204,7 +204,6 @@ def test_static_call_and_callcode_consume_more_gas_then_transaction_has(
         Hash(addr_3, left_padding=True),
     ]
     tx_gas = [600000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

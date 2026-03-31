@@ -268,7 +268,6 @@ def test_modexp_0_0_0_22000(
         + Hash(0x0),
     ]
     tx_gas = [48136, 90000, 110000, 200000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

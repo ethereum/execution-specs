@@ -104,7 +104,6 @@ def test_modexp_random_input(
         Hash(0x0) + Hash(0x11470) + Hash(0x6166035) + Hash(0x8),
     ]
     tx_gas = [710000, 7000000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

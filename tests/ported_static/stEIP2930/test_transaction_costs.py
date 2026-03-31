@@ -199,7 +199,6 @@ def test_transaction_costs(
     ]
     tx_gas = [400000]
     tx_value = [100000]
-
     tx_access_lists: dict[int, list] = {
         1: [],
         2: [

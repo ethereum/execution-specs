@@ -110,7 +110,6 @@ def test_create_transaction_call_data(
         Bytes("3860008039386000f3"),
     ]
     tx_gas = [100000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

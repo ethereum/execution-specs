@@ -110,8 +110,6 @@ def test_manual_create(
         Bytes("5a3031505a90036001555a60ff6000555a900360005500"),
     ]
     tx_gas = [400000]
-    tx_value = [0]
-
     tx_access_lists: dict[int, list] = {
         0: [
             AccessList(

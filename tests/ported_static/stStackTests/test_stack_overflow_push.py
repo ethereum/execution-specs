@@ -3797,7 +3797,6 @@ def test_stack_overflow_push(
         ),
     ]
     tx_gas = [6000000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

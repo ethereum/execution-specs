@@ -122,7 +122,6 @@ def test_create_e_contract_create_ne_contract_in_init_oog_tr(
         ),
     ]
     tx_gas = [160000, 60000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

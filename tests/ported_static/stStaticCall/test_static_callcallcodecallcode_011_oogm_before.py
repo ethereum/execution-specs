@@ -170,7 +170,6 @@ def test_static_callcallcodecallcode_011_oogm_before(
         Hash(addr_3, left_padding=True),
     ]
     tx_gas = [172000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

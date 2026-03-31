@@ -201,7 +201,6 @@ def test_callcode_dynamic_code2_self_call(
         Hash(contract_2, left_padding=True),
     ]
     tx_gas = [1453081]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

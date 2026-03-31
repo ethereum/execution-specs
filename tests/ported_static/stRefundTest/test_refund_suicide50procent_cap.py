@@ -149,7 +149,6 @@ def test_refund_suicide50procent_cap(
         Hash(0x10000),
     ]
     tx_gas = [10000000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

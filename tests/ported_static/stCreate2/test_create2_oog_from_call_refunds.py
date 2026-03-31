@@ -1160,7 +1160,6 @@ def test_create2_oog_from_call_refunds(
         Bytes("693c6139") + Hash(contract_24, left_padding=True),
     ]
     tx_gas = [400000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

@@ -1261,7 +1261,6 @@ def test_base_fee_diff_places(
         Bytes("693c6139") + Hash(contract_12, left_padding=True),
     ]
     tx_gas = [4503599627370496]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

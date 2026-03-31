@@ -308,7 +308,6 @@ def test_sstore_change_from_external_call_in_init_code(
         ),
     ]
     tx_gas = [200000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

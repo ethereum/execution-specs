@@ -89,7 +89,6 @@ def test_create_contract_return_big_offset(
         Bytes("620d15bc62074ac2f3"),
     ]
     tx_gas = [16777216]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

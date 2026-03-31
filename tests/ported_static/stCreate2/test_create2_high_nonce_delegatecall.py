@@ -967,7 +967,6 @@ def test_create2_high_nonce_delegatecall(
         + Hash(0x1),
     ]
     tx_gas = [16777216]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

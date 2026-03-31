@@ -267,7 +267,6 @@ def test_push0(
         contract_7,
     ]
     tx_gas = [700000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

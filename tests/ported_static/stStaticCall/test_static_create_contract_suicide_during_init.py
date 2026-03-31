@@ -153,7 +153,6 @@ def test_static_create_contract_suicide_during_init(
         ),
     ]
     tx_gas = [150000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

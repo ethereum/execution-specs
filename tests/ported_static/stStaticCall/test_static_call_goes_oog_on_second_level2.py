@@ -137,7 +137,6 @@ def test_static_call_goes_oog_on_second_level2(
         Hash(addr_3, left_padding=True),
     ]
     tx_gas = [160000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

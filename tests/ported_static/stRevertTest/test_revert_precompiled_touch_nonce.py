@@ -497,7 +497,6 @@ def test_revert_precompiled_touch_nonce(
         Hash(addr_4, left_padding=True),
     ]
     tx_gas = [100000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

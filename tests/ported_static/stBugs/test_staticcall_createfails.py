@@ -114,7 +114,6 @@ def test_staticcall_createfails(
         Hash(contract_2, left_padding=True),
     ]
     tx_gas = [120000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

@@ -73,7 +73,6 @@ def test_transaction_data_costs652(
         Bytes("00000000000000000000112233445566778f32"),
     ]
     tx_gas = [22000, 72000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

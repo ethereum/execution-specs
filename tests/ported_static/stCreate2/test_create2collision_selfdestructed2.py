@@ -132,7 +132,6 @@ def test_create2collision_selfdestructed2(
         ),
     ]
     tx_gas = [400000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

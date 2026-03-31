@@ -792,7 +792,6 @@ def test_oog(
         Bytes("1a8451e6") + Hash(0xFA) + Hash(0x2BC),
     ]
     tx_gas = [16777216]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

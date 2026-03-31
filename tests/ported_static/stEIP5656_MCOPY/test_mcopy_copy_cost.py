@@ -601,7 +601,6 @@ def test_mcopy_copy_cost(
         Hash(0x20) + Hash(0xAEE1),
     ]
     tx_gas = [100000, 55697]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

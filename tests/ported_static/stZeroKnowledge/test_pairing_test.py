@@ -584,7 +584,6 @@ def test_pairing_test(
         ),
     ]
     tx_gas = [10000000, 90000, 110000, 150000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

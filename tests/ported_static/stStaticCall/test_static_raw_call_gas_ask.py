@@ -220,7 +220,6 @@ def test_static_raw_call_gas_ask(
         Hash(contract_5, left_padding=True),
     ]
     tx_gas = [1000000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

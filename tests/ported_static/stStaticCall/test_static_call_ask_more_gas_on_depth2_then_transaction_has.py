@@ -216,7 +216,6 @@ def test_static_call_ask_more_gas_on_depth2_then_transaction_has(
         Hash(addr_4, left_padding=True),
     ]
     tx_gas = [600000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

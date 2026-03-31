@@ -224,7 +224,6 @@ def test_static_callcall_00_ooge_1(
         Hash(addr_4, left_padding=True),
     ]
     tx_gas = [380066]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

@@ -134,7 +134,6 @@ def test_contract_creation_make_call_that_ask_more_gas_then_transaction_provided
         ),
     ]
     tx_gas = [96000, 60000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

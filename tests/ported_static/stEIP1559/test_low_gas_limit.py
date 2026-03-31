@@ -135,8 +135,6 @@ def test_low_gas_limit(
         Bytes("00"),
     ]
     tx_gas = [90000, 50000, 25000, 20000]
-    tx_value = [0]
-
     tx_access_lists: dict[int, list] = {
         0: [],
     }

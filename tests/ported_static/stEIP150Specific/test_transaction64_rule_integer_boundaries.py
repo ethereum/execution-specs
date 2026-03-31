@@ -229,7 +229,6 @@ def test_transaction64_rule_integer_boundaries(
         ),
     ]
     tx_gas = [800000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

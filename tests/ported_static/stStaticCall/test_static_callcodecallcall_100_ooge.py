@@ -156,7 +156,6 @@ def test_static_callcodecallcall_100_ooge(
         Hash(addr_4, left_padding=True),
     ]
     tx_gas = [172000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

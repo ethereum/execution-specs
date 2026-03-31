@@ -252,7 +252,6 @@ def test_create_collision_results(
         Bytes("02"),
     ]
     tx_gas = [16777216]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

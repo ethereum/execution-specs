@@ -158,7 +158,6 @@ def test_out_of_funds_old_types(
     ]
     tx_gas = [16777216, 40000]
     tx_value = [0, 1000000000000000000]
-
     tx_access_lists: dict[int, list] = {
         1: [],
     }

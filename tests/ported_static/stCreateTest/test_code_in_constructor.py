@@ -295,7 +295,6 @@ def test_code_in_constructor(
         Bytes("83c7d758") + Hash(0x2),
     ]
     tx_gas = [9437184]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

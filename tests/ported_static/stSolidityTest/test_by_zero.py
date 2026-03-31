@@ -89,7 +89,6 @@ def test_by_zero(
         Bytes("600160006001075500"),
     ]
     tx_gas = [400000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

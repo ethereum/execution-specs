@@ -753,7 +753,6 @@ def test_trans_storage_reset(
         + Hash(0xF200FE),
     ]
     tx_gas = [16777216]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

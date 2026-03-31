@@ -155,7 +155,6 @@ def test_revert_depth2(
         Bytes(""),
     ]
     tx_gas = [170685, 136685]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

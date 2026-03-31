@@ -1453,7 +1453,6 @@ def test_trans_storage_ok(
         Bytes("5d7935df"),
     ]
     tx_gas = [16777216]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

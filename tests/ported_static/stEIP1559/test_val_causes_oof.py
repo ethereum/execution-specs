@@ -201,7 +201,6 @@ def test_val_causes_oof(
     ]
     tx_gas = [100000, 90000, 110000]
     tx_value = [0, 1]
-
     tx_access_lists: dict[int, list] = {
         0: [],
         1: [],

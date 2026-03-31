@@ -394,7 +394,6 @@ def test_create_large_result(
         Bytes("048071d3") + Hash(0xF5) + Hash(0xFD) + Hash(0xC000),
     ]
     tx_gas = [80000000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

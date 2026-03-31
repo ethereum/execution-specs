@@ -252,7 +252,6 @@ def test_self_balance_call_types(
         Hash(0x3),
     ]
     tx_gas = [1000000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

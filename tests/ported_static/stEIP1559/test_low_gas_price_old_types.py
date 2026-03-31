@@ -105,7 +105,6 @@ def test_low_gas_price_old_types(
     ]
     tx_gas = [400000]
     tx_value = [100000]
-
     tx_access_lists: dict[int, list] = {
         1: [],
     }

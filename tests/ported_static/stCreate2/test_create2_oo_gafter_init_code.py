@@ -112,7 +112,6 @@ def test_create2_oo_gafter_init_code(
         Bytes(""),
     ]
     tx_gas = [54000, 55000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

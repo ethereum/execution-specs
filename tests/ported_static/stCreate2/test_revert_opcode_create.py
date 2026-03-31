@@ -107,7 +107,6 @@ def test_revert_opcode_create(
         Bytes("600160005560016000fe6011600155"),
     ]
     tx_gas = [460000, 70000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

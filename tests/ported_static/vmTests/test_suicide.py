@@ -166,7 +166,6 @@ def test_suicide(
         Bytes("693c6139") + Hash(contract_2, left_padding=True),
     ]
     tx_gas = [16777216]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

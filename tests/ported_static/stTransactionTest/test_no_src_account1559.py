@@ -246,7 +246,6 @@ def test_no_src_account1559(
     ]
     tx_gas = [21000, 210000, 0]
     tx_value = [0, 1]
-
     tx_access_lists: dict[int, list] = {
         0: [],
         1: [

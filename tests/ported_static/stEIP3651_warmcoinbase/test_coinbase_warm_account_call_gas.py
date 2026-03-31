@@ -271,7 +271,6 @@ def test_coinbase_warm_account_call_gas(
         Bytes("693c6139") + Hash(0x7),
     ]
     tx_gas = [80000]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

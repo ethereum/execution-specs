@@ -407,7 +407,6 @@ def test_operation_diff_gas(
         Bytes("048071d3") + Hash(0x3B) + Hash(0x0) + Hash(0x64),
     ]
     tx_gas = [16777216]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

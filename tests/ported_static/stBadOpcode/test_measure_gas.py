@@ -422,7 +422,6 @@ def test_measure_gas(
         Bytes("693c6139") + Hash(0x3B),
     ]
     tx_gas = [16777216]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

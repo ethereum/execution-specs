@@ -705,7 +705,6 @@ def test_ecrecover_weird_v(
         ),
     ]
     tx_gas = [16777216]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,

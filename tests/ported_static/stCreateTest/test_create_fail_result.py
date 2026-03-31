@@ -694,7 +694,6 @@ def test_create_fail_result(
         Bytes("1a8451e6") + Hash(0xEE) + Hash(contract_1, left_padding=True),
     ]
     tx_gas = [16777216]
-    tx_value = [0]
 
     tx = Transaction(
         sender=sender,
