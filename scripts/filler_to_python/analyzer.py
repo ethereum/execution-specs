@@ -1074,6 +1074,62 @@ def _build_address_constants(
     return constants
 
 
+def _decode_tx_data_word(
+    data: bytes, addr_to_var: dict[Address | EOA, str], imports: ImportsIR
+) -> str:
+    """
+    Attempt to decode a single word of 32 or 20 bytes from the transaction
+    data into meaningful information.
+    """
+    addr_var: str | None = None
+    if len(data.lstrip(b"\x00")) <= 20:
+        maybe_addr = Address(int.from_bytes(data, "big"))
+        if maybe_addr in addr_to_var:
+            addr_var = addr_to_var[maybe_addr]
+
+    if len(data) == 32 or len(data) == 20:
+        if addr_var:
+            if len(data) == 20:
+                return addr_var
+            else:
+                imports.needs_hash = True
+                return f"Hash({addr_var}, left_padding=True)"
+        else:
+            if len(data) == 32:
+                imports.needs_hash = True
+                hex_type = "Hash"
+            else:
+                hex_type = "Address"
+            hex_string = data.hex().lstrip("0")
+            if len(hex_string) == 0:
+                hex_string = "0"
+            return f"{hex_type}(0x{hex_string})"
+    else:
+        imports.needs_bytes = True
+        hex_string = data.hex()
+        return f'Bytes("{hex_string}")'
+
+
+def _decode_tx_data(
+    data: bytes, addr_to_var: dict[Address | EOA, str], imports: ImportsIR
+) -> str:
+    """Attempt to decode meaningful information from the transaction data."""
+    decoded_words: list[str] = []
+    if len(data) > 0 and len(data) % 32 in (0, 4):
+        if len(data) % 32 == 4:
+            decoded_words.append(
+                _decode_tx_data_word(data[:4], addr_to_var, imports)
+            )
+        offset = 4 if len(data) % 32 == 4 else 0
+        for i in range(offset, len(data), 32):
+            decoded_words.append(
+                _decode_tx_data_word(data[i : i + 32], addr_to_var, imports)
+            )
+    else:
+        return _decode_tx_data_word(data, addr_to_var, imports)
+    return " + ".join(decoded_words)
+
+
 def _build_tx_arrays(
     tx: GeneralTransactionInFiller,
     tags: TagDict,
@@ -1085,33 +1141,7 @@ def _build_tx_arrays(
     for d_entry in tx.data:
         data_box = tx.data[d_entry.index]
         compiled = data_box.data.compiled(tags)
-        addr_var: str | None = None
-        if len(compiled.lstrip(b"\x00")) <= 20:
-            maybe_addr = Address(int.from_bytes(compiled, "big"))
-            if maybe_addr in addr_to_var:
-                addr_var = addr_to_var[maybe_addr]
-
-        if len(compiled) == 32 or len(compiled) == 20:
-            if addr_var:
-                if len(compiled) == 20:
-                    tx_data.append(addr_var)
-                else:
-                    imports.needs_hash = True
-                    tx_data.append(f"Hash({addr_var}, left_padding=True)")
-            else:
-                if len(compiled) == 32:
-                    imports.needs_hash = True
-                    hex_type = "Hash"
-                else:
-                    hex_type = "Address"
-                hex_string = compiled.hex().lstrip("0")
-                if len(hex_string) == 0:
-                    hex_string = "0"
-                tx_data.append(f"{hex_type}(0x{hex_string})")
-        else:
-            imports.needs_bytes = True
-            hex_string = compiled.hex()
-            tx_data.append(f'Bytes("{hex_string}")')
+        tx_data.append(_decode_tx_data(compiled, addr_to_var, imports))
 
     tx_gas = [int(g) for g in tx.gas_limit]
     tx_value = [int(v) for v in tx.value]
