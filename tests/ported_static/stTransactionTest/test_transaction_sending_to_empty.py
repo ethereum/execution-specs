@@ -16,7 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
     compute_create_address,
+    Fork,
 )
+
+from execution_testing.forks import Amsterdam
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -29,6 +32,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.pre_alloc_mutable
 def test_transaction_sending_to_empty(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
 ) -> None:
     """Test_transaction_sending_to_empty."""
@@ -43,7 +47,7 @@ def test_transaction_sending_to_empty(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=1000000,
+        gas_limit=3000000 if fork >= Amsterdam else 1000000,
     )
 
     pre[sender] = Account(balance=0x5F5E100)
@@ -52,7 +56,7 @@ def test_transaction_sending_to_empty(
         sender=sender,
         to=None,
         data=Bytes(""),
-        gas_limit=53000,
+        gas_limit=2053000 if fork >= Amsterdam else 53000,
     )
 
     post = {
