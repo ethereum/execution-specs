@@ -52,9 +52,6 @@ def test_codecopy_dejavu2(
         code=Op.CODECOPY(
             dest_offset=0x1F, offset=0x10000000000000001, size=0xA
         )
-        + Op.JUMPI(pc=0x17, condition=Op.ISZERO(Op.MLOAD(offset=0x0)))
-        + Op.STOP
-        + Op.JUMPDEST
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
