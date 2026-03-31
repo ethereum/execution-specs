@@ -37,7 +37,7 @@ def blake2f(evm: Evm) -> None:
 
     charge_gas(
         evm,
-        GasCosts.GAS_PRECOMPILE_BLAKE2F_PER_ROUND * rounds,
+        GasCosts.PRECOMPILE_BLAKE2F_PER_ROUND * rounds,
     )
     if f not in [0, 1]:
         raise InvalidParameter

@@ -38,8 +38,8 @@ def ripemd160(evm: Evm) -> None:
     word_count = ceil32(Uint(len(data))) // Uint(32)
     charge_gas(
         evm,
-        GasCosts.GAS_PRECOMPILE_RIPEMD160_BASE
-        + GasCosts.GAS_PRECOMPILE_RIPEMD160_PER_WORD * word_count,
+        GasCosts.PRECOMPILE_RIPEMD160_BASE
+        + GasCosts.PRECOMPILE_RIPEMD160_PER_WORD * word_count,
     )
 
     # OPERATION

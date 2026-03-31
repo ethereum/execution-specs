@@ -41,7 +41,7 @@ def p256verify(evm: Evm) -> None:
     data = evm.message.data
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_PRECOMPILE_P256VERIFY)
+    charge_gas(evm, GasCosts.PRECOMPILE_P256VERIFY)
 
     if len(data) != 160:
         return

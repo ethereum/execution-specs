@@ -40,8 +40,8 @@ def sha256(evm: Evm) -> None:
     word_count = ceil32(Uint(len(data))) // Uint(32)
     charge_gas(
         evm,
-        GasCosts.GAS_PRECOMPILE_SHA256_BASE
-        + GasCosts.GAS_PRECOMPILE_SHA256_PER_WORD * word_count,
+        GasCosts.PRECOMPILE_SHA256_BASE
+        + GasCosts.PRECOMPILE_SHA256_PER_WORD * word_count,
     )
 
     # OPERATION

@@ -37,7 +37,7 @@ def ecrecover(evm: Evm) -> None:
     data = evm.message.data
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_PRECOMPILE_ECRECOVER)
+    charge_gas(evm, GasCosts.PRECOMPILE_ECRECOVER)
 
     # OPERATION
     message_hash_bytes = buffer_read(data, U256(0), U256(32))

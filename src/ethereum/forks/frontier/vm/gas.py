@@ -32,12 +32,12 @@ class GasCosts:
     These values may be patched at runtime by a future gas repricing utility
     """
 
+    # General
     GAS_BASE = Uint(2)
     GAS_VERY_LOW = Uint(3)
     GAS_SLOAD = Uint(50)
     GAS_STORAGE_SET = Uint(20000)
     GAS_COLD_STORAGE_WRITE = Uint(5000)
-    REFUND_STORAGE_CLEAR = 15000
     GAS_LOW = Uint(5)
     GAS_MID = Uint(8)
     GAS_HIGH = Uint(10)
@@ -59,16 +59,21 @@ class GasCosts:
     GAS_NEW_ACCOUNT = Uint(25000)
     GAS_CALL_VALUE = Uint(9000)
     GAS_CALL_STIPEND = Uint(2300)
-    REFUND_SELF_DESTRUCT = Uint(24000)
-    GAS_PRECOMPILE_ECRECOVER = Uint(3000)
-    GAS_PRECOMPILE_SHA256_BASE = Uint(60)
-    GAS_PRECOMPILE_SHA256_PER_WORD = Uint(12)
-    GAS_PRECOMPILE_RIPEMD160_BASE = Uint(600)
-    GAS_PRECOMPILE_RIPEMD160_PER_WORD = Uint(120)
-    GAS_PRECOMPILE_IDENTITY_BASE = Uint(15)
-    GAS_PRECOMPILE_IDENTITY_PER_WORD = Uint(3)
 
-    # Opcode specific vars used for repricing
+    # Refunds
+    REFUND_STORAGE_CLEAR = 15000
+    REFUND_SELF_DESTRUCT = Uint(24000)
+
+    # Precompiles
+    PRECOMPILE_ECRECOVER = Uint(3000)
+    PRECOMPILE_SHA256_BASE = Uint(60)
+    PRECOMPILE_SHA256_PER_WORD = Uint(12)
+    PRECOMPILE_RIPEMD160_BASE = Uint(600)
+    PRECOMPILE_RIPEMD160_PER_WORD = Uint(120)
+    PRECOMPILE_IDENTITY_BASE = Uint(15)
+    PRECOMPILE_IDENTITY_PER_WORD = Uint(3)
+
+    # Opcodes
     OPCODE_ADD = GAS_VERY_LOW
     OPCODE_SUB = GAS_VERY_LOW
     OPCODE_MUL = GAS_LOW
