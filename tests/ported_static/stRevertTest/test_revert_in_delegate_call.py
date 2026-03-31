@@ -15,8 +15,11 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    Fork,
 )
 from execution_testing.vm import Op
+
+from execution_testing.forks import Amsterdam
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -29,6 +32,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.pre_alloc_mutable
 def test_revert_in_delegate_call(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
 ) -> None:
     """Test_revert_in_delegate_call."""
@@ -43,7 +47,7 @@ def test_revert_in_delegate_call(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=1000000,
+        gas_limit=3000000 if fork >= Amsterdam else 1000000,
     )
 
     # Source: lll
@@ -83,7 +87,7 @@ def test_revert_in_delegate_call(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=105044,
+        gas_limit=2105044 if fork >= Amsterdam else 105044,
     )
 
     post = {target: Account(storage={1: 32, 2: 10})}
