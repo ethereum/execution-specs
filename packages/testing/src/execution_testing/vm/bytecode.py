@@ -313,6 +313,11 @@ class Bytecode:
         if other == 1:
             return Bytecode(self)
 
+        if self._placeholders:
+            raise ValueError(
+                "Cannot multiply bytecode containing placeholders"
+            )
+
         result_bytes = self._bytes_ * other
 
         a_pop = self.popped_stack_items

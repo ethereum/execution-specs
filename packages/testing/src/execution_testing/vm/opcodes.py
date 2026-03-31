@@ -55,16 +55,8 @@ def _stack_argument_to_bytecode(
 
     # Handle Placeholder - create appropriate PUSH with zeros
     if isinstance(arg, Placeholder):
-        # PUSH1 is 0x60, PUSH2 is 0x61, ..., PUSH32 is 0x7f
-        push_opcode = 0x5F + arg.width
-        bytecode_bytes = bytes([push_opcode]) + bytes(arg.width)
-        bytecode = Bytecode(
-            bytecode_bytes,
-            popped_stack_items=0,
-            pushed_stack_items=1,
-            min_stack_height=0,
-            max_stack_height=1,
-        )
+        push_opcode = _push_opcodes_byte_list[arg.width - 1]
+        bytecode = Bytecode(push_opcode[bytes(arg.width)])
         bytecode._placeholders = {arg: 1}
         return bytecode
 

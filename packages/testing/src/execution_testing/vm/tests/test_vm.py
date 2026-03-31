@@ -726,3 +726,28 @@ def test_placeholder_offset_after_concatenation() -> None:
     filled = combined.fill(p, 0xBEEF)
     expected = prefix + Op.POP(Op.PUSH2(0xBEEF))
     assert bytes(filled) == bytes(expected)
+
+
+def test_placeholder_mul_raises() -> None:
+    """Test that multiplying bytecode with placeholders raises."""
+    p = Placeholder(width=2)
+    code = Op.POP(p)
+
+    with pytest.raises(ValueError, match="Cannot multiply.*placeholders"):
+        code * 3
+
+    # Multiplying by 0 and 1 should still work
+    assert bytes(code * 0) == b""
+    assert bytes(code * 1) == bytes(code)
+    assert p in (code * 1)._placeholders
+
+
+def test_placeholder_in_opcode_list() -> None:
+    """Test that placeholder PUSH opcode is included in opcode_list."""
+    p = Placeholder(width=2)
+    code = Op.POP(p)
+
+    # The opcode_list should contain the PUSH2 and POP opcodes
+    assert len(code.opcode_list) == 2
+    assert code.opcode_list[0] == Op.PUSH2
+    assert code.opcode_list[1] == Op.POP
