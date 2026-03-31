@@ -35,9 +35,7 @@ class EIP2930(BaseFork):
         """
         Transaction intrinsic cost includes access list cost.
         """
-        super_fn = super(
-            EIP2930, cls
-        ).transaction_intrinsic_cost_calculator()
+        super_fn = super(EIP2930, cls).transaction_intrinsic_cost_calculator()
         gas_costs = cls.gas_costs()
 
         def fn(
@@ -57,9 +55,7 @@ class EIP2930(BaseFork):
             )
             if access_list is not None:
                 for access in access_list:
-                    intrinsic_cost += (
-                        gas_costs.GAS_TX_ACCESS_LIST_ADDRESS
-                    )
+                    intrinsic_cost += gas_costs.GAS_TX_ACCESS_LIST_ADDRESS
                     for _ in access.storage_keys:
                         intrinsic_cost += (
                             gas_costs.GAS_TX_ACCESS_LIST_STORAGE_KEY

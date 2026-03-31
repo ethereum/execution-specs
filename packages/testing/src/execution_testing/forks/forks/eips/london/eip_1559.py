@@ -73,9 +73,7 @@ class EIP1559(BaseFork):
             expected_base_fee_per_gas = parent_base_fee_per_gas -
                                         base_fee_per_gas_delta
         """
-        base_fee_max_change_denominator = (
-            cls.base_fee_max_change_denominator()
-        )
+        base_fee_max_change_denominator = cls.base_fee_max_change_denominator()
         elasticity_multiplier = cls.base_fee_elasticity_multiplier()
 
         def fn(
@@ -84,9 +82,7 @@ class EIP1559(BaseFork):
             parent_gas_used: int,
             parent_gas_limit: int,
         ) -> int:
-            parent_gas_target = (
-                parent_gas_limit // elasticity_multiplier
-            )
+            parent_gas_target = parent_gas_limit // elasticity_multiplier
             if parent_gas_used == parent_gas_target:
                 return parent_base_fee_per_gas
             elif parent_gas_used > parent_gas_target:
@@ -98,9 +94,7 @@ class EIP1559(BaseFork):
                     // base_fee_max_change_denominator,
                     1,
                 )
-                return (
-                    parent_base_fee_per_gas + base_fee_per_gas_delta
-                )
+                return parent_base_fee_per_gas + base_fee_per_gas_delta
             else:
                 gas_used_delta = parent_gas_target - parent_gas_used
                 base_fee_per_gas_delta = (
@@ -109,9 +103,7 @@ class EIP1559(BaseFork):
                     // parent_gas_target
                     // base_fee_max_change_denominator
                 )
-                return (
-                    parent_base_fee_per_gas - base_fee_per_gas_delta
-                )
+                return parent_base_fee_per_gas - base_fee_per_gas_delta
 
         return fn
 
@@ -121,13 +113,9 @@ class EIP1559(BaseFork):
         Return a callable that calculates the gas that needs to be used
         to change the base fee.
         """
-        base_fee_max_change_denominator = (
-            cls.base_fee_max_change_denominator()
-        )
+        base_fee_max_change_denominator = cls.base_fee_max_change_denominator()
         elasticity_multiplier = cls.base_fee_elasticity_multiplier()
-        base_fee_per_gas_calculator = (
-            cls.base_fee_per_gas_calculator()
-        )
+        base_fee_per_gas_calculator = cls.base_fee_per_gas_calculator()
 
         def fn(
             *,
@@ -135,16 +123,13 @@ class EIP1559(BaseFork):
             parent_gas_limit: int,
             required_base_fee_per_gas: int,
         ) -> int:
-            parent_gas_target = (
-                parent_gas_limit // elasticity_multiplier
-            )
+            parent_gas_target = parent_gas_limit // elasticity_multiplier
 
             if parent_base_fee_per_gas == required_base_fee_per_gas:
                 return parent_gas_target
             elif required_base_fee_per_gas > parent_base_fee_per_gas:
                 base_fee_per_gas_delta = (
-                    required_base_fee_per_gas
-                    - parent_base_fee_per_gas
+                    required_base_fee_per_gas - parent_base_fee_per_gas
                 )
                 parent_gas_used = (
                     (
@@ -156,8 +141,7 @@ class EIP1559(BaseFork):
                 ) + parent_gas_target
             elif required_base_fee_per_gas < parent_base_fee_per_gas:
                 base_fee_per_gas_delta = (
-                    parent_base_fee_per_gas
-                    - required_base_fee_per_gas
+                    parent_base_fee_per_gas - required_base_fee_per_gas
                 )
 
                 parent_gas_used = (

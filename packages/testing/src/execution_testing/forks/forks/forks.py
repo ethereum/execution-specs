@@ -1,9 +1,5 @@
 """All Ethereum fork class definitions."""
 
-from __future__ import annotations
-
-from os.path import realpath
-from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Dict, List, Mapping, Sized
 
 if TYPE_CHECKING:
@@ -53,6 +49,7 @@ from .eips.constantinople.eip_145 import EIP145
 from .eips.constantinople.eip_1014 import EIP1014
 from .eips.constantinople.eip_1052 import EIP1052
 from .eips.constantinople.eip_1234 import EIP1234
+from .eips.homestead.eip_2 import EIP2
 from .eips.homestead.eip_7 import EIP7
 from .eips.istanbul.eip_152 import EIP152
 from .eips.istanbul.eip_1108 import EIP1108
@@ -62,13 +59,13 @@ from .eips.istanbul.eip_2028 import EIP2028
 from .eips.london.eip_1559 import EIP1559
 from .eips.london.eip_3198 import EIP3198
 from .eips.london.eip_3529 import EIP3529
-from .eips.paris.eip_3675 import EIP3675
 from .eips.osaka.eip_7594 import EIP7594
 from .eips.osaka.eip_7825 import EIP7825
 from .eips.osaka.eip_7918 import EIP7918
 from .eips.osaka.eip_7934 import EIP7934
 from .eips.osaka.eip_7939 import EIP7939
 from .eips.osaka.eip_7951 import EIP7951
+from .eips.paris.eip_3675 import EIP3675
 from .eips.prague.eip_2537 import EIP2537
 from .eips.prague.eip_2935 import EIP2935
 from .eips.prague.eip_6110 import EIP6110
@@ -81,10 +78,10 @@ from .eips.prague.eip_7702 import EIP7702
 from .eips.shanghai.eip_3855 import EIP3855
 from .eips.shanghai.eip_3860 import EIP3860
 from .eips.shanghai.eip_4895 import EIP4895
+from .eips.spurious_dragon.eip_155 import EIP155
+from .eips.spurious_dragon.eip_161 import EIP161
+from .eips.spurious_dragon.eip_170 import EIP170
 from .helpers import ceiling_division
-
-CURRENT_FILE = Path(realpath(__file__))
-CURRENT_FOLDER = CURRENT_FILE.parent
 
 
 # All forks must be listed here !!! in the order they were introduced !!!
@@ -686,6 +683,17 @@ class Frontier(BaseFork, solc_name="homestead"):
         return gas_costs.GAS_CREATE
 
     @classmethod
+    def _calculate_create2_gas(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """
+        Calculate CREATE2 gas cost including initcode cost.
+        """
+        raise NotImplementedError(
+            f"CREATE2 opcode is not supported in {cls.name()}"
+        )
+
+    @classmethod
     def _calculate_return_gas(
         cls, opcode: OpcodeBase, gas_costs: GasCosts
     ) -> int:
@@ -1243,12 +1251,13 @@ class Frontier(BaseFork, solc_name="homestead"):
         return FixtureHeader(**defaults)
 
 
-class Homestead(EIP7, Frontier):
+class Homestead(EIP7, EIP2, Frontier):
     """Homestead fork."""
 
     @classmethod
     def precompiles(cls) -> List[Address]:
         """
+        TODO: These might be active since Frontier, needs update.
         At Homestead, EC-recover, SHA256, RIPEMD160, and Identity precompiles
         are introduced.
         """
@@ -1258,41 +1267,6 @@ class Homestead(EIP7, Frontier):
             Address(3, label="RIPEMD160"),
             Address(4, label="ID"),
         ] + super(Homestead, cls).precompiles()
-
-    @classmethod
-    def transaction_intrinsic_cost_calculator(
-        cls,
-    ) -> TransactionIntrinsicCostCalculator:
-        """
-        At Homestead, the transaction intrinsic cost needs to take contract
-        creation into account.
-        """
-        super_fn = super(
-            Homestead, cls
-        ).transaction_intrinsic_cost_calculator()
-        gas_costs = cls.gas_costs()
-
-        def fn(
-            *,
-            calldata: BytesConvertible = b"",
-            contract_creation: bool = False,
-            access_list: List[AccessList] | None = None,
-            authorization_list_or_count: Sized | int | None = None,
-            return_cost_deducted_prior_execution: bool = False,
-        ) -> int:
-            del return_cost_deducted_prior_execution
-
-            intrinsic_cost: int = super_fn(
-                calldata=calldata,
-                contract_creation=contract_creation,
-                access_list=access_list,
-                authorization_list_or_count=authorization_list_or_count,
-            )
-            if contract_creation:
-                intrinsic_cost += gas_costs.GAS_TX_CREATE
-            return intrinsic_cost
-
-        return fn
 
 
 class DAOFork(Homestead, ignore=True, ruleset_name=""):
@@ -1307,39 +1281,17 @@ class TangerineWhistle(DAOFork, ignore=True, ruleset_name="TANGERINE"):
     pass
 
 
-class SpuriousDragon(TangerineWhistle, ignore=True, ruleset_name="SPURIOUS"):
+class SpuriousDragon(
+    EIP170,
+    EIP161,
+    EIP155,
+    TangerineWhistle,
+    ignore=True,
+    ruleset_name="SPURIOUS",
+):
     """SpuriousDragon fork."""
 
-    @classmethod
-    def _calculate_call_gas(
-        cls, opcode: OpcodeBase, gas_costs: GasCosts
-    ) -> int:
-        """
-        At Spurious Dragon, the call gas cost needs to take the value transfer
-        and account new into account.
-        """
-        base_cost = super(SpuriousDragon, cls)._calculate_call_gas(
-            opcode, gas_costs
-        )
-
-        # Additional costs for value transfer, does not apply to STATICCALL
-        metadata = opcode.metadata
-        if "value_transfer" in metadata:
-            if metadata["value_transfer"]:
-                base_cost += gas_costs.GAS_CALL_VALUE
-                if metadata["account_new"]:
-                    base_cost += gas_costs.GAS_NEW_ACCOUNT
-            elif metadata["account_new"]:
-                raise ValueError("Account new requires value transfer")
-
-        return base_cost
-
-    @classmethod
-    def supports_protected_txs(cls) -> bool:
-        """
-        At Genesis, supports EIP-155 protected transactions.
-        """
-        return True
+    pass
 
 
 class Byzantium(
@@ -1347,15 +1299,7 @@ class Byzantium(
 ):
     """Byzantium fork."""
 
-    @classmethod
-    def max_code_size(cls) -> int:
-        # NOTE: Move this to Spurious Dragon once this fork is introduced. See
-        # EIP-170.
-        """
-        At Spurious Dragon, an upper bound was introduced for max contract code
-        size.
-        """
-        return 0x6000
+    pass
 
 
 class Constantinople(EIP1234, EIP1052, EIP1014, EIP145, Byzantium):
@@ -1374,9 +1318,7 @@ class ConstantinopleFix(
     pass
 
 
-class Istanbul(
-    EIP2028, EIP1884, EIP1344, EIP1108, EIP152, ConstantinopleFix
-):
+class Istanbul(EIP2028, EIP1884, EIP1344, EIP1108, EIP152, ConstantinopleFix):
     """Istanbul fork."""
 
     pass

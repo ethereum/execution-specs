@@ -434,6 +434,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """
         pass
 
+    # Gas calculation helpers
     @classmethod
     @abstractmethod
     def _calculate_sstore_refund(
@@ -470,6 +471,16 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def _calculate_create2_gas(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """
+        Calculate CREATE2 gas cost including initcode cost.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
     def _calculate_return_gas(
         cls, opcode: OpcodeBase, gas_costs: GasCosts
     ) -> int:
@@ -484,6 +495,37 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """Calculate SELFDESTRUCT gas cost based on metadata."""
         pass
 
+    @classmethod
+    @abstractmethod
+    def _with_memory_expansion(
+        cls,
+        base_gas: int | Callable[[OpcodeBase], int],
+        memory_expansion_gas_calculator: MemoryExpansionGasCalculator,
+    ) -> Callable[[OpcodeBase], int]:
+        """Wrap a gas cost calculator to include memory expansion cost."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def _with_account_access(
+        cls,
+        base_gas: int | Callable[[OpcodeBase], int],
+        gas_costs: "GasCosts",
+    ) -> Callable[[OpcodeBase], int]:
+        """Wrap a gas cost calculator to include account access cost."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def _with_data_copy(
+        cls,
+        base_gas: int | Callable[[OpcodeBase], int],
+        gas_costs: "GasCosts",
+    ) -> Callable[[OpcodeBase], int]:
+        """Wrap a gas cost calculator to include data copy cost."""
+        pass
+
+    # Gas calculators
     @classmethod
     @abstractmethod
     def memory_expansion_gas_calculator(cls) -> MemoryExpansionGasCalculator:
@@ -519,6 +561,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """
         pass
 
+    # Fee helpers
     @classmethod
     @abstractmethod
     def base_fee_max_change_denominator(cls) -> int:
@@ -537,6 +580,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """Return the max refund quotient at a given fork."""
         pass
 
+    # Transaction cost calculators
     @classmethod
     @abstractmethod
     def transaction_data_floor_cost_calculator(
