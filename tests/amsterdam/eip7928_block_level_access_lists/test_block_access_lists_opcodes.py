@@ -1900,8 +1900,9 @@ def test_bal_sstore_static_context(
     """
     SSTORE in static context must not leak storage reads into BAL.
 
-    Contract B IS in BAL (accessed via STATICCALL) but MUST NOT have
-    storage_reads — the static check must fire before any implicit SLOAD.
+    Contract A STATICCALLs Contract B which attempts SSTORE. Contract B
+    IS in BAL (accessed via STATICCALL) but MUST NOT have storage_reads
+    — the static check must fire before any implicit SLOAD.
     """
     alice = pre.fund_eoa()
 
@@ -1911,9 +1912,9 @@ def test_bal_sstore_static_context(
     )
 
     contract_a = pre.deploy_contract(
-        code=Op.STATICCALL(gas=1_000_000, address=contract_b)
-        + Op.POP
-        + Op.SSTORE(0, 1)
+        code=Op.SSTORE(0, Op.STATICCALL(gas=1_000_000, address=contract_b))
+        + Op.SSTORE(1, 1),  # proves execution continued
+        storage={0: 0xDEAD},  # non-zero so STATICCALL result (0) is detectable
     )
 
     tx = Transaction(
@@ -1941,6 +1942,16 @@ def test_bal_sstore_static_context(
                                 BalStorageSlot(
                                     slot=0x00,
                                     slot_changes=[
+                                        # STATICCALL returns 0 (inner SSTORE
+                                        # failed in static context)
+                                        BalStorageChange(
+                                            block_access_index=1, post_value=0
+                                        ),
+                                    ],
+                                ),
+                                BalStorageSlot(
+                                    slot=0x01,
+                                    slot_changes=[
                                         BalStorageChange(
                                             block_access_index=1, post_value=1
                                         ),
@@ -1956,7 +1967,7 @@ def test_bal_sstore_static_context(
             )
         ],
         post={
-            contract_a: Account(storage={0: 1}),
+            contract_a: Account(storage={0: 0, 1: 1}),
             contract_b: Account(
                 storage={0: original_value} if original_value else {}
             ),
@@ -1964,25 +1975,35 @@ def test_bal_sstore_static_context(
     )
 
 
-def build_static_context_test(
+def blockchain_test_under_static_call(
     pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
     *,
-    caller: Address,
-    expected_not_in_bal: list[Address],
+    static_call_target: Address,
+    expected_not_in_bal: list[Address] | None = None,
+    bal_expectations: Dict[Address, BalAccountExpectation | None]
+    | None = None,
     post: Dict[Address, Account | None] | None = None,
     tx_access_list: list[AccessList] | None = None,
-) -> tuple[Block, Dict[Address, Account | None]]:
+) -> None:
     """
-    Build the block (with BAL expectations) and post-state for a static
-    context test. Deploys a static_caller that STATICCALLs caller and
-    continues with SSTORE to prove execution resumed.
+    Run a blockchain_test that STATICCALLs static_call_target and
+    verifies BAL expectations. Stores the STATICCALL result to detect
+    silent failures.
+
+    Use expected_not_in_bal for addresses that must NOT appear in BAL,
+    or bal_expectations for full control over additional BAL entries.
     """
     alice = pre.fund_eoa()
 
+    # Slot 0: STATICCALL result, pre-set to non-zero so writes are
+    # detectable regardless of return value (0 or 1).
     static_caller = pre.deploy_contract(
-        code=Op.STATICCALL(gas=1_000_000, address=caller)
-        + Op.POP
-        + Op.SSTORE(0, 1)
+        code=Op.SSTORE(
+            0, Op.STATICCALL(gas=1_000_000, address=static_call_target)
+        )
+        + Op.SSTORE(1, 1),
+        storage={0: 0xDEAD},
     )
 
     tx = Transaction(
@@ -1991,6 +2012,10 @@ def build_static_context_test(
         gas_limit=2_000_000,
         access_list=tx_access_list,
     )
+
+    # Inner call fails (returns 0) when forbidden opcodes are tested,
+    # succeeds (returns 1) for positive/allowed tests.
+    staticcall_result = 0 if expected_not_in_bal else 1
 
     account_expectations: Dict[Address, BalAccountExpectation | None] = {
         alice: BalAccountExpectation(
@@ -2001,30 +2026,46 @@ def build_static_context_test(
                 BalStorageSlot(
                     slot=0x00,
                     slot_changes=[
+                        BalStorageChange(
+                            block_access_index=1,
+                            post_value=staticcall_result,
+                        ),
+                    ],
+                ),
+                BalStorageSlot(
+                    slot=0x01,
+                    slot_changes=[
                         BalStorageChange(block_access_index=1, post_value=1),
                     ],
                 ),
             ],
         ),
-        caller: BalAccountExpectation.empty(),
+        static_call_target: BalAccountExpectation.empty(),
     }
-    for target in expected_not_in_bal:
-        account_expectations[target] = None
+    if expected_not_in_bal:
+        for addr in expected_not_in_bal:
+            account_expectations[addr] = None
+    if bal_expectations:
+        account_expectations.update(bal_expectations)
 
-    post_state: Dict[Address, Account | None] = {
-        static_caller: Account(storage={0: 1}),
+    _post: Dict[Address, Account | None] = {
+        static_caller: Account(storage={0: staticcall_result, 1: 1}),
     }
     if post:
-        post_state.update(post)
+        _post.update(post)
 
-    block = Block(
-        txs=[tx],
-        expected_block_access_list=BlockAccessListExpectation(
-            account_expectations=account_expectations
-        ),
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations=account_expectations
+                ),
+            )
+        ],
+        post=_post,
     )
-
-    return block, post_state
 
 
 @pytest.mark.parametrize(
@@ -2055,13 +2096,7 @@ def test_bal_call_with_value_in_static_context(
 
     caller_starting_balance = 10**18
     caller = pre.deploy_contract(
-        code=Op.CALL(
-            gas=100_000,
-            address=target,
-            value=1,
-            address_warm=target_is_warm,
-        )
-        + Op.STOP,
+        code=Op.CALL(gas=100_000, address=target, value=1) + Op.STOP,
         balance=caller_starting_balance,
     )
 
@@ -2071,9 +2106,10 @@ def test_bal_call_with_value_in_static_context(
         else None
     )
 
-    block, post = build_static_context_test(
+    blockchain_test_under_static_call(
         pre,
-        caller=caller,
+        blockchain_test,
+        static_call_target=caller,
         expected_not_in_bal=[target],
         post={
             caller: Account(balance=caller_starting_balance),
@@ -2081,8 +2117,6 @@ def test_bal_call_with_value_in_static_context(
         },
         tx_access_list=access_list,
     )
-
-    blockchain_test(pre=pre, blocks=[block], post=post)
 
 
 @pytest.mark.parametrize("value", [0, 1], ids=["no_value", "with_value"])
@@ -2121,17 +2155,16 @@ def test_bal_create_in_static_context(
         opcode=create_opcode,
     )
 
-    block, post = build_static_context_test(
+    blockchain_test_under_static_call(
         pre,
-        caller=caller,
+        blockchain_test,
+        static_call_target=caller,
         expected_not_in_bal=[would_be_address],
         post={
             caller: Account(nonce=1, balance=value),
             would_be_address: Account.NONEXISTENT,
         },
     )
-
-    blockchain_test(pre=pre, blocks=[block], post=post)
 
 
 @pytest.mark.parametrize(
@@ -2140,13 +2173,13 @@ def test_bal_create_in_static_context(
     ids=["cold_beneficiary", "warm_beneficiary"],
 )
 @pytest.mark.parametrize(
-    "caller_has_balance", [False, True], ids=["no_balance", "with_balance"]
+    "caller_balance", [0, 100], ids=["no_balance", "with_balance"]
 )
 def test_bal_selfdestruct_in_static_context(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
     beneficiary_is_warm: bool,
-    caller_has_balance: bool,
+    caller_balance: int,
 ) -> None:
     """
     SELFDESTRUCT in static context: beneficiary NOT in BAL.
@@ -2156,8 +2189,6 @@ def test_bal_selfdestruct_in_static_context(
     """
     beneficiary_balance = 1
     beneficiary = pre.fund_eoa(amount=beneficiary_balance)
-
-    caller_balance = 100 if caller_has_balance else 0
     caller = pre.deploy_contract(
         code=Op.SELFDESTRUCT(address=beneficiary),
         balance=caller_balance,
@@ -2169,9 +2200,10 @@ def test_bal_selfdestruct_in_static_context(
         else None
     )
 
-    block, post = build_static_context_test(
+    blockchain_test_under_static_call(
         pre,
-        caller=caller,
+        blockchain_test,
+        static_call_target=caller,
         expected_not_in_bal=[beneficiary],
         post={
             caller: Account(balance=caller_balance),
@@ -2179,8 +2211,6 @@ def test_bal_selfdestruct_in_static_context(
         },
         tx_access_list=access_list,
     )
-
-    blockchain_test(pre=pre, blocks=[block], post=post)
 
 
 @pytest.mark.with_all_call_opcodes
@@ -2195,62 +2225,19 @@ def test_bal_call_opcode_succeeds_in_static_context(
     Target IS in BAL. Ensures clients don't over-restrict call opcodes
     beyond what EIP-214 forbids (only CALL with nonzero value).
     """
-    alice = pre.fund_eoa()
-
     target = pre.deploy_contract(code=Op.STOP)
 
-    # caller invokes call_opcode(target) — no value transfer
     caller = pre.deploy_contract(
         code=call_opcode(address=target) + Op.STOP,
     )
 
-    static_caller = pre.deploy_contract(
-        code=Op.STATICCALL(gas=1_000_000, address=caller)
-        + Op.POP
-        + Op.SSTORE(0, 1)
-    )
-
-    tx = Transaction(
-        sender=alice,
-        to=static_caller,
-        gas_limit=2_000_000,
-    )
-
-    blockchain_test(
-        pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                expected_block_access_list=BlockAccessListExpectation(
-                    account_expectations={
-                        alice: BalAccountExpectation(
-                            nonce_changes=[
-                                BalNonceChange(
-                                    block_access_index=1, post_nonce=1
-                                )
-                            ],
-                        ),
-                        static_caller: BalAccountExpectation(
-                            storage_changes=[
-                                BalStorageSlot(
-                                    slot=0x00,
-                                    slot_changes=[
-                                        BalStorageChange(
-                                            block_access_index=1,
-                                            post_value=1,
-                                        ),
-                                    ],
-                                ),
-                            ],
-                        ),
-                        caller: BalAccountExpectation.empty(),
-                        # target IS in BAL — call succeeded
-                        target: BalAccountExpectation.empty(),
-                    }
-                ),
-            )
-        ],
-        post={static_caller: Account(storage={0: 1})},
+    blockchain_test_under_static_call(
+        pre,
+        blockchain_test,
+        static_call_target=caller,
+        bal_expectations={
+            target: BalAccountExpectation.empty(),
+        },
     )
 
 
@@ -2261,68 +2248,22 @@ def test_bal_callcode_with_value_in_static_context(
     """
     CALLCODE with nonzero value succeeds in static context.
 
-    EIP-214 explicitly excludes CALLCODE from the write-protection
-    check. Target IS in BAL. Ensures clients don't accidentally apply
-    the CALL-with-value restriction to CALLCODE.
+    EIP-214 explicitly excludes CALLCODE from write-protection.
     """
-    alice = pre.fund_eoa()
-
     target = pre.deploy_contract(code=Op.STOP)
 
-    caller_balance = 10**18
     caller = pre.deploy_contract(
         code=Op.CALLCODE(gas=100_000, address=target, value=1) + Op.STOP,
-        balance=caller_balance,
+        balance=10**18,
     )
 
-    static_caller = pre.deploy_contract(
-        code=Op.STATICCALL(gas=1_000_000, address=caller)
-        + Op.POP
-        + Op.SSTORE(0, 1)
-    )
-
-    tx = Transaction(
-        sender=alice,
-        to=static_caller,
-        gas_limit=2_000_000,
-    )
-
-    blockchain_test(
-        pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                expected_block_access_list=BlockAccessListExpectation(
-                    account_expectations={
-                        alice: BalAccountExpectation(
-                            nonce_changes=[
-                                BalNonceChange(
-                                    block_access_index=1, post_nonce=1
-                                )
-                            ],
-                        ),
-                        static_caller: BalAccountExpectation(
-                            storage_changes=[
-                                BalStorageSlot(
-                                    slot=0x00,
-                                    slot_changes=[
-                                        BalStorageChange(
-                                            block_access_index=1,
-                                            post_value=1,
-                                        ),
-                                    ],
-                                ),
-                            ],
-                        ),
-                        caller: BalAccountExpectation.empty(),
-                        # target IS in BAL — CALLCODE with value is
-                        # not forbidden in static context (EIP-214)
-                        target: BalAccountExpectation.empty(),
-                    }
-                ),
-            )
-        ],
-        post={static_caller: Account(storage={0: 1})},
+    blockchain_test_under_static_call(
+        pre,
+        blockchain_test,
+        static_call_target=caller,
+        bal_expectations={
+            target: BalAccountExpectation.empty(),
+        },
     )
 
 
