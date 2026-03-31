@@ -1,5 +1,7 @@
 """All Ethereum fork class definitions."""
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Callable, Dict, List, Mapping, Sized
 
 if TYPE_CHECKING:
