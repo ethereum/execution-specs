@@ -1980,9 +1980,7 @@ def blockchain_test_under_static_call(
     blockchain_test: BlockchainTestFiller,
     *,
     static_call_target: Address,
-    expected_not_in_bal: list[Address] | None = None,
-    bal_expectations: Dict[Address, BalAccountExpectation | None]
-    | None = None,
+    bal_expectations: Dict[Address, BalAccountExpectation | None],
     post: Dict[Address, Account | None] | None = None,
     tx_access_list: list[AccessList] | None = None,
 ) -> None:
@@ -1990,9 +1988,6 @@ def blockchain_test_under_static_call(
     Run a blockchain_test that STATICCALLs static_call_target and
     verifies BAL expectations. Stores the STATICCALL result to detect
     silent failures.
-
-    Use expected_not_in_bal for addresses that must NOT appear in BAL,
-    or bal_expectations for full control over additional BAL entries.
     """
     alice = pre.fund_eoa()
 
@@ -2013,9 +2008,11 @@ def blockchain_test_under_static_call(
         access_list=tx_access_list,
     )
 
-    # Inner call fails (returns 0) when forbidden opcodes are tested,
-    # succeeds (returns 1) for positive/allowed tests.
-    staticcall_result = 0 if expected_not_in_bal else 1
+    # Inner call fails (returns 0) when forbidden opcodes are tested
+    # (None values in bal_expectations), succeeds (returns 1) otherwise.
+    staticcall_result = (
+        0 if any(v is None for v in bal_expectations.values()) else 1
+    )
 
     account_expectations: Dict[Address, BalAccountExpectation | None] = {
         alice: BalAccountExpectation(
@@ -2042,11 +2039,7 @@ def blockchain_test_under_static_call(
         ),
         static_call_target: BalAccountExpectation.empty(),
     }
-    if expected_not_in_bal:
-        for addr in expected_not_in_bal:
-            account_expectations[addr] = None
-    if bal_expectations:
-        account_expectations.update(bal_expectations)
+    account_expectations.update(bal_expectations)
 
     _post: Dict[Address, Account | None] = {
         static_caller: Account(storage={0: staticcall_result, 1: 1}),
@@ -2110,7 +2103,7 @@ def test_bal_call_with_value_in_static_context(
         pre,
         blockchain_test,
         static_call_target=caller,
-        expected_not_in_bal=[target],
+        bal_expectations={target: None},
         post={
             caller: Account(balance=caller_starting_balance),
             target: Account(balance=target_starting_balance),
@@ -2159,7 +2152,7 @@ def test_bal_create_in_static_context(
         pre,
         blockchain_test,
         static_call_target=caller,
-        expected_not_in_bal=[would_be_address],
+        bal_expectations={would_be_address: None},
         post={
             caller: Account(nonce=1, balance=value),
             would_be_address: Account.NONEXISTENT,
@@ -2204,7 +2197,7 @@ def test_bal_selfdestruct_in_static_context(
         pre,
         blockchain_test,
         static_call_target=caller,
-        expected_not_in_bal=[beneficiary],
+        bal_expectations={beneficiary: None},
         post={
             caller: Account(balance=caller_balance),
             beneficiary: Account(balance=beneficiary_balance),
