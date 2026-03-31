@@ -26,25 +26,25 @@ def block_base_fee_per_gas() -> int:
 @pytest.fixture
 def target_blobs_per_block(fork: Fork) -> int:
     """Return default number of blobs to be included in the block."""
-    return fork.target_blobs_per_block()
+    return fork.transitions_to().target_blobs_per_block()
 
 
 @pytest.fixture
 def max_blobs_per_block(fork: Fork) -> int:
     """Return default number of blobs to be included in the block."""
-    return fork.max_blobs_per_block()
+    return fork.transitions_to().max_blobs_per_block()
 
 
 @pytest.fixture
 def max_blobs_per_tx(fork: Fork) -> int:
     """Return max number of blobs per transaction."""
-    return fork.max_blobs_per_tx()
+    return fork.transitions_to().max_blobs_per_tx()
 
 
 @pytest.fixture
 def blob_gas_per_blob(fork: Fork) -> int:
     """Return default blob gas cost per blob."""
-    return fork.blob_gas_per_blob()
+    return fork.transitions_to().blob_gas_per_blob()
 
 
 @pytest.fixture(autouse=True)
@@ -97,7 +97,7 @@ def excess_blob_gas(
     """
     if parent_excess_blobs is None or parent_blobs is None:
         return None
-    return fork.excess_blob_gas_calculator()(
+    return fork.transitions_to().excess_blob_gas_calculator()(
         parent_excess_blobs=parent_excess_blobs,
         parent_blob_count=parent_blobs,
         parent_base_fee_per_gas=block_base_fee_per_gas,
@@ -119,7 +119,7 @@ def correct_excess_blob_gas(
     """
     if parent_excess_blobs is None or parent_blobs is None:
         return 0
-    return fork.excess_blob_gas_calculator()(
+    return fork.transitions_to().excess_blob_gas_calculator()(
         parent_excess_blobs=parent_excess_blobs,
         parent_blob_count=parent_blobs,
         parent_base_fee_per_gas=block_base_fee_per_gas,
@@ -132,7 +132,7 @@ def block_fee_per_blob_gas(
     correct_excess_blob_gas: int,
 ) -> int:
     """Calculate the blob gas price for the current block."""
-    get_blob_gas_price = fork.blob_gas_price_calculator()
+    get_blob_gas_price = fork.transitions_to().blob_gas_price_calculator()
     return get_blob_gas_price(excess_blob_gas=correct_excess_blob_gas)
 
 
@@ -145,7 +145,7 @@ def blob_gas_price(
     if excess_blob_gas is None:
         return None
 
-    get_blob_gas_price = fork.blob_gas_price_calculator()
+    get_blob_gas_price = fork.transitions_to().blob_gas_price_calculator()
     return get_blob_gas_price(
         excess_blob_gas=excess_blob_gas,
     )
