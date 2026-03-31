@@ -713,6 +713,13 @@ class ValidityMarker(ABC):
 
     mark: Mark | None
 
+    class ValidityMarkerCombinationError(Exception):
+        """
+        Combination of two validity markers generates an empty fork range.
+        """
+
+        pass
+
     def __init_subclass__(
         cls,
         marker_name: str | None = None,
@@ -863,9 +870,17 @@ class ValidityMarker(ABC):
             fork_set = self._process_with_marker_args(
                 *self.mark.args, **self.mark.kwargs
             )
+            if not fork_set:
+                # Test is marked for an EIP that is not yet enabled in any
+                # fork.
+                return fork_set
         if self.flag:
-            return forks - fork_set
-        return forks & fork_set
+            resulting_set = forks - fork_set
+        else:
+            resulting_set = forks & fork_set
+        if not resulting_set:
+            raise ValidityMarker.ValidityMarkerCombinationError()
+        return resulting_set
 
     @abstractmethod
     def _process_with_marker_args(
@@ -1135,17 +1150,38 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
         test_fork_set = ValidityMarker.get_test_fork_set_from_metafunc(
             metafunc
         )
-    except Exception as e:
-        pytest.fail(f"Error generating tests for {test_name}: {e}")
-
-    if not test_fork_set:
+    except ValidityMarker.ValidityMarkerCombinationError:
+        markers = ValidityMarker.get_all_validity_markers(
+            metafunc.definition.iter_markers()
+        )
+        marker_names = [
+            f"@pytest.mark.{marker.marker_name}" for marker in markers
+        ]
         pytest.fail(
             "The test function's "
             f"'{test_name}' fork validity markers generate "
             "an empty fork range. Please check the arguments to its "
-            f"markers:  @pytest.mark.valid_from and "
-            f"@pytest.mark.valid_until."
+            f"markers: {', '.join(marker_names)}."
         )
+    except Exception as e:
+        pytest.fail(f"Error generating tests for {test_name}: {e}")
+
+    if not test_fork_set:
+        if metafunc.config.getoption("verbose") >= 2:
+            pytest_params = [
+                pytest.param(
+                    None,
+                    marks=[
+                        pytest.mark.skip(
+                            reason=(
+                                f"{test_name} is not enabled for any fork."
+                            )
+                        )
+                    ],
+                )
+            ]
+            metafunc.parametrize("fork", pytest_params, scope="function")
+        return
 
     # Get the intersection between the test's validity marker and the current
     # filling parameters.
