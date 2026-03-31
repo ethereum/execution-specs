@@ -150,7 +150,7 @@ def test_sstore_gas_left(
             condition=Op.ISZERO(
                 Op.CALL(
                     gas=0x901,
-                    address=0xB0409D84AB61455CB8BEC14B94F635146AB55613,
+                    address=addr,
                     value=0x0,
                     args_offset=0x0,
                     args_size=0x0,
@@ -162,7 +162,7 @@ def test_sstore_gas_left(
         + Op.POP(
             Op.CALL(
                 gas=0x7530,
-                address=0x4092B3905CFEA2485EA53222F41EB26E67587802,
+                address=addr_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -177,7 +177,7 @@ def test_sstore_gas_left(
             condition=Op.ISZERO(
                 Op.CALL(
                     gas=0x902,
-                    address=0xB0409D84AB61455CB8BEC14B94F635146AB55613,
+                    address=addr,
                     value=0x0,
                     args_offset=0x0,
                     args_size=0x0,
@@ -189,7 +189,7 @@ def test_sstore_gas_left(
         + Op.POP(
             Op.CALL(
                 gas=0x7530,
-                address=0x4092B3905CFEA2485EA53222F41EB26E67587802,
+                address=addr_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -204,7 +204,7 @@ def test_sstore_gas_left(
             condition=Op.ISZERO(
                 Op.CALL(
                     gas=0x903,
-                    address=0xB0409D84AB61455CB8BEC14B94F635146AB55613,
+                    address=addr,
                     value=0x0,
                     args_offset=0x0,
                     args_size=0x0,
@@ -216,7 +216,7 @@ def test_sstore_gas_left(
         + Op.POP(
             Op.CALL(
                 gas=0x7530,
-                address=0x4092B3905CFEA2485EA53222F41EB26E67587802,
+                address=addr_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -232,7 +232,7 @@ def test_sstore_gas_left(
             condition=Op.ISZERO(
                 Op.CALLCODE(
                     gas=0x901,
-                    address=0xB0409D84AB61455CB8BEC14B94F635146AB55613,
+                    address=addr,
                     value=0x0,
                     args_offset=0x0,
                     args_size=0x0,
@@ -244,7 +244,7 @@ def test_sstore_gas_left(
         + Op.POP(
             Op.CALL(
                 gas=0x7530,
-                address=0x4092B3905CFEA2485EA53222F41EB26E67587802,
+                address=addr_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -260,7 +260,7 @@ def test_sstore_gas_left(
             condition=Op.ISZERO(
                 Op.CALLCODE(
                     gas=0x902,
-                    address=0xB0409D84AB61455CB8BEC14B94F635146AB55613,
+                    address=addr,
                     value=0x0,
                     args_offset=0x0,
                     args_size=0x0,
@@ -272,7 +272,7 @@ def test_sstore_gas_left(
         + Op.POP(
             Op.CALL(
                 gas=0x7530,
-                address=0x4092B3905CFEA2485EA53222F41EB26E67587802,
+                address=addr_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -288,7 +288,7 @@ def test_sstore_gas_left(
             condition=Op.ISZERO(
                 Op.CALLCODE(
                     gas=0x903,
-                    address=0xB0409D84AB61455CB8BEC14B94F635146AB55613,
+                    address=addr,
                     value=0x0,
                     args_offset=0x0,
                     args_size=0x0,
@@ -300,7 +300,7 @@ def test_sstore_gas_left(
         + Op.POP(
             Op.CALL(
                 gas=0x7530,
-                address=0x4092B3905CFEA2485EA53222F41EB26E67587802,
+                address=addr_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -316,7 +316,7 @@ def test_sstore_gas_left(
             condition=Op.ISZERO(
                 Op.DELEGATECALL(
                     gas=0x901,
-                    address=0xB0409D84AB61455CB8BEC14B94F635146AB55613,
+                    address=addr,
                     args_offset=0x0,
                     args_size=0x0,
                     ret_offset=0x0,
@@ -327,7 +327,7 @@ def test_sstore_gas_left(
         + Op.POP(
             Op.CALL(
                 gas=0x7530,
-                address=0x4092B3905CFEA2485EA53222F41EB26E67587802,
+                address=addr_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -343,7 +343,7 @@ def test_sstore_gas_left(
             condition=Op.ISZERO(
                 Op.DELEGATECALL(
                     gas=0x902,
-                    address=0xB0409D84AB61455CB8BEC14B94F635146AB55613,
+                    address=addr,
                     args_offset=0x0,
                     args_size=0x0,
                     ret_offset=0x0,
@@ -354,7 +354,7 @@ def test_sstore_gas_left(
         + Op.POP(
             Op.CALL(
                 gas=0x7530,
-                address=0x4092B3905CFEA2485EA53222F41EB26E67587802,
+                address=addr_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -370,7 +370,7 @@ def test_sstore_gas_left(
             condition=Op.ISZERO(
                 Op.DELEGATECALL(
                     gas=0x903,
-                    address=0xB0409D84AB61455CB8BEC14B94F635146AB55613,
+                    address=addr,
                     args_offset=0x0,
                     args_size=0x0,
                     ret_offset=0x0,
@@ -381,7 +381,7 @@ def test_sstore_gas_left(
         + Op.POP(
             Op.CALL(
                 gas=0x7530,
-                address=0x4092B3905CFEA2485EA53222F41EB26E67587802,
+                address=addr_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,

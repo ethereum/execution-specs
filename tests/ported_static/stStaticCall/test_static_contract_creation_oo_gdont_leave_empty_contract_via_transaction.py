@@ -97,7 +97,7 @@ def test_static_contract_creation_oo_gdont_leave_empty_contract_via_transaction(
         to=None,
         data=Op.STATICCALL(
             gas=0xC350,
-            address=0x2000000000000000000000000000000000000001,
+            address=contract_2,
             args_offset=0x0,
             args_size=0x40,
             ret_offset=0x0,

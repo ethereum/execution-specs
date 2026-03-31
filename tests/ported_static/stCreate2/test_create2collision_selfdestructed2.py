@@ -126,7 +126,7 @@ def test_create2collision_selfdestructed2(
         Op.POP(
             Op.CALL(
                 gas=0xC350,
-                address=0xFCE41D047B4A1D4450382DCC29EC7E5FEDC5F9A3,
+                address=contract_0,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -140,7 +140,7 @@ def test_create2collision_selfdestructed2(
         Op.POP(
             Op.CALL(
                 gas=0xC350,
-                address=0xCFF64F4C5DF8F436C4F2C1AF4B2E3F9E3004C779,
+                address=contract_1,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,

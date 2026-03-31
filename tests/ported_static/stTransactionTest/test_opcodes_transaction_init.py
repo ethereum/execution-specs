@@ -1419,7 +1419,7 @@ def test_opcodes_transaction_init(
         Op.POP(
             Op.CALL(
                 gas=0x64,
-                address=0xF572E5295C57F15886F9B263E2F6D2D6C7B5EC6,
+                address=contract_1,
                 value=0x17,
                 args_offset=0x0,
                 args_size=0x0,
@@ -1431,7 +1431,7 @@ def test_opcodes_transaction_init(
         Op.POP(
             Op.CALLCODE(
                 gas=0x64,
-                address=0xF572E5295C57F15886F9B263E2F6D2D6C7B5EC6,
+                address=contract_1,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -1444,7 +1444,7 @@ def test_opcodes_transaction_init(
         Op.POP(
             Op.DELEGATECALL(
                 gas=0x186A0,
-                address=0xF572E5295C57F15886F9B263E2F6D2D6C7B5EC6,
+                address=contract_1,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -1455,7 +1455,7 @@ def test_opcodes_transaction_init(
         Op.POP(
             Op.STATICCALL(
                 gas=0x2710,
-                address=0xF572E5295C57F15886F9B263E2F6D2D6C7B5EC6,
+                address=contract_1,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -1468,7 +1468,7 @@ def test_opcodes_transaction_init(
         Bytes("ef"),
         Op.CALL(
             gas=0xC350,
-            address=0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+            address=contract_0,
             value=Op.DUP1,
             args_offset=Op.DUP1,
             args_size=Op.DUP1,
@@ -1479,7 +1479,7 @@ def test_opcodes_transaction_init(
         Op.POP(
             Op.CALL(
                 gas=0xC350,
-                address=0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                address=contract_0,
                 value=Op.DUP1,
                 args_offset=Op.DUP1,
                 args_size=Op.DUP1,
@@ -1491,7 +1491,7 @@ def test_opcodes_transaction_init(
         Op.POP(
             Op.CALL(
                 gas=0xC350,
-                address=0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                address=contract_0,
                 value=Op.DUP1,
                 args_offset=Op.DUP1,
                 args_size=Op.DUP1,

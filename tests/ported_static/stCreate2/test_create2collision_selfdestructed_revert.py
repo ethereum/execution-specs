@@ -107,7 +107,7 @@ def test_create2collision_selfdestructed_revert(
         Op.POP(
             Op.CALL(
                 gas=0xC350,
-                address=0xE2B35478FDD26477CC576DD906E6277761246A3C,
+                address=contract_0,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -122,7 +122,7 @@ def test_create2collision_selfdestructed_revert(
         Op.POP(
             Op.CALL(
                 gas=0xC350,
-                address=0xE2B35478FDD26477CC576DD906E6277761246A3C,
+                address=contract_0,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -138,7 +138,7 @@ def test_create2collision_selfdestructed_revert(
         Op.POP(
             Op.CALL(
                 gas=0xC350,
-                address=0xE2B35478FDD26477CC576DD906E6277761246A3C,
+                address=contract_0,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,

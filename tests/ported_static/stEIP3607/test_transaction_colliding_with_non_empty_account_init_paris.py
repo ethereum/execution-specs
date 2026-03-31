@@ -120,7 +120,7 @@ def test_transaction_colliding_with_non_empty_account_init_paris(
         Op.RETURN(offset=0x0, size=0x20),
         Op.CALL(
             gas=Op.GAS,
-            address=0xCC7C3C64708397216F5F8AEB34A43F1749693FA9,
+            address=addr_2,
             value=0x2710,
             args_offset=Op.DUP1,
             args_size=Op.DUP1,
@@ -130,7 +130,7 @@ def test_transaction_colliding_with_non_empty_account_init_paris(
         + Op.STOP,
         Op.DELEGATECALL(
             gas=Op.GAS,
-            address=0xCC7C3C64708397216F5F8AEB34A43F1749693FA9,
+            address=addr_2,
             args_offset=Op.DUP1,
             args_size=Op.DUP1,
             ret_offset=Op.DUP1,

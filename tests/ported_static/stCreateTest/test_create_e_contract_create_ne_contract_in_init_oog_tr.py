@@ -119,7 +119,7 @@ def test_create_e_contract_create_ne_contract_in_init_oog_tr(
         Op.POP(
             Op.CALL(
                 gas=0xEA60,
-                address=0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                address=contract_0,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,

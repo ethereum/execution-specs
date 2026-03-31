@@ -229,7 +229,7 @@ def test_static_contract_creation_make_call_that_ask_more_gas_then_transaction_p
     tx_data = [
         Op.STATICCALL(
             gas=0xC350,
-            address=0x1000000000000000000000000000000000000001,
+            address=contract_1,
             args_offset=0x0,
             args_size=0x40,
             ret_offset=0x0,
@@ -237,7 +237,7 @@ def test_static_contract_creation_make_call_that_ask_more_gas_then_transaction_p
         ),
         Op.STATICCALL(
             gas=0xC350,
-            address=0x2000000000000000000000000000000000000001,
+            address=contract_2,
             args_offset=0x0,
             args_size=0x40,
             ret_offset=0x0,
@@ -245,7 +245,7 @@ def test_static_contract_creation_make_call_that_ask_more_gas_then_transaction_p
         ),
         Op.STATICCALL(
             gas=0xC350,
-            address=0x3000000000000000000000000000000000000001,
+            address=contract_3,
             args_offset=0x0,
             args_size=0x40,
             ret_offset=0x0,
@@ -253,7 +253,7 @@ def test_static_contract_creation_make_call_that_ask_more_gas_then_transaction_p
         ),
         Op.STATICCALL(
             gas=0xC350,
-            address=0x4000000000000000000000000000000000000001,
+            address=contract_4,
             args_offset=0x0,
             args_size=0x40,
             ret_offset=0x0,

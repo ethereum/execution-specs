@@ -298,7 +298,7 @@ def test_sstore_0to_xto_y(
         Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB000000000000000000000000000000000000000,
+                address=contract_0,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -308,7 +308,7 @@ def test_sstore_0to_xto_y(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0xDEA0000000000000000000000000000000000000,
+            address=contract_2,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -319,7 +319,7 @@ def test_sstore_0to_xto_y(
         Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB000000000000000000000000000000000000000,
+                address=contract_0,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -329,7 +329,7 @@ def test_sstore_0to_xto_y(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0xDEA0000000000000000000000000000000000000,
+            address=contract_2,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -340,7 +340,7 @@ def test_sstore_0to_xto_y(
         Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB000000000000000000000000000000000000000,
+                address=contract_0,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -349,7 +349,7 @@ def test_sstore_0to_xto_y(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0xDEA0000000000000000000000000000000000000,
+            address=contract_2,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -360,7 +360,7 @@ def test_sstore_0to_xto_y(
         Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xC000000000000000000000000000000000000000,
+                address=contract_1,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -369,7 +369,7 @@ def test_sstore_0to_xto_y(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0xDEA0000000000000000000000000000000000000,
+            address=contract_2,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -385,7 +385,7 @@ def test_sstore_0to_xto_y(
         + Op.POP(
             Op.CALL(
                 gas=0x927C0,
-                address=0xDEA0000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -402,7 +402,7 @@ def test_sstore_0to_xto_y(
         Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB000000000000000000000000000000000000000,
+                address=contract_0,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -413,7 +413,7 @@ def test_sstore_0to_xto_y(
         + Op.POP(
             Op.CALL(
                 gas=0x927C0,
-                address=0xDEA0000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -426,7 +426,7 @@ def test_sstore_0to_xto_y(
         Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB000000000000000000000000000000000000000,
+                address=contract_0,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -437,7 +437,7 @@ def test_sstore_0to_xto_y(
         + Op.POP(
             Op.CALL(
                 gas=0x927C0,
-                address=0xDEA0000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -450,7 +450,7 @@ def test_sstore_0to_xto_y(
         Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB000000000000000000000000000000000000000,
+                address=contract_0,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -460,7 +460,7 @@ def test_sstore_0to_xto_y(
         + Op.POP(
             Op.CALL(
                 gas=0x927C0,
-                address=0xDEA0000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -473,7 +473,7 @@ def test_sstore_0to_xto_y(
         Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xC000000000000000000000000000000000000000,
+                address=contract_1,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -483,7 +483,7 @@ def test_sstore_0to_xto_y(
         + Op.POP(
             Op.CALL(
                 gas=0x927C0,
-                address=0xDEA0000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -501,7 +501,7 @@ def test_sstore_0to_xto_y(
         + Op.POP(
             Op.CALL(
                 gas=0x927C0,
-                address=0xDEA0000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,

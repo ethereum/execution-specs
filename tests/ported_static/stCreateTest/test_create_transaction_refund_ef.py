@@ -65,7 +65,7 @@ def test_create_transaction_refund_ef(
         data=Op.POP(
             Op.CALL(
                 gas=0xC350,
-                address=0x5EF94D,
+                address=contract_0,
                 value=Op.DUP1,
                 args_offset=Op.DUP1,
                 args_size=Op.DUP1,

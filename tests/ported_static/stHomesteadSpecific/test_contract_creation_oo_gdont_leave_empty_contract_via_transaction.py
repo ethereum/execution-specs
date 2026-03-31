@@ -81,7 +81,7 @@ def test_contract_creation_oo_gdont_leave_empty_contract_via_transaction(
         to=None,
         data=Op.CALL(
             gas=0xC350,
-            address=0x1000000000000000000000000000000000000001,
+            address=contract_1,
             value=0x0,
             args_offset=0x0,
             args_size=0x40,

@@ -130,7 +130,7 @@ def test_contract_creation_make_call_that_ask_more_gas_then_transaction_provided
     tx_data = [
         Op.CALL(
             gas=0xC350,
-            address=0x1000000000000000000000000000000000000001,
+            address=contract_1,
             value=0x0,
             args_offset=0x0,
             args_size=0x40,

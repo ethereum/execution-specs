@@ -2697,7 +2697,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -2708,7 +2708,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -2718,7 +2718,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -2728,7 +2728,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -2738,7 +2738,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -2750,7 +2750,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -2761,7 +2761,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -2771,7 +2771,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -2781,7 +2781,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -2790,7 +2790,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -2802,7 +2802,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -2813,7 +2813,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -2823,7 +2823,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -2833,7 +2833,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -2842,7 +2842,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -2854,7 +2854,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -2865,7 +2865,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -2875,7 +2875,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -2885,7 +2885,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -2894,7 +2894,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -2906,7 +2906,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -2917,7 +2917,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -2927,7 +2927,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -2937,7 +2937,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -2946,7 +2946,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -2958,7 +2958,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -2969,7 +2969,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -2979,7 +2979,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -2989,7 +2989,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -2998,7 +2998,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -3010,7 +3010,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -3021,7 +3021,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -3031,7 +3031,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -3041,7 +3041,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -3050,7 +3050,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -3062,7 +3062,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -3073,7 +3073,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -3083,7 +3083,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -3093,7 +3093,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -3103,7 +3103,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -3115,7 +3115,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -3126,7 +3126,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -3136,7 +3136,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -3146,7 +3146,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -3156,7 +3156,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -3168,7 +3168,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -3179,7 +3179,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -3189,7 +3189,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -3199,7 +3199,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -3209,7 +3209,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -3221,7 +3221,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -3232,7 +3232,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -3242,7 +3242,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -3252,7 +3252,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -3262,7 +3262,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -3274,7 +3274,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -3285,7 +3285,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -3295,7 +3295,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -3305,7 +3305,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -3315,7 +3315,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -3327,7 +3327,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -3338,7 +3338,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -3348,7 +3348,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -3358,7 +3358,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -3368,7 +3368,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -3380,7 +3380,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -3391,7 +3391,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -3401,7 +3401,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -3411,7 +3411,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -3420,7 +3420,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -3432,7 +3432,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -3443,7 +3443,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -3453,7 +3453,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -3463,7 +3463,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -3472,7 +3472,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -3484,7 +3484,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -3495,7 +3495,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -3505,7 +3505,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -3515,7 +3515,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -3524,7 +3524,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -3536,7 +3536,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -3547,7 +3547,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -3557,7 +3557,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -3567,7 +3567,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -3576,7 +3576,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -3588,7 +3588,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -3599,7 +3599,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -3609,7 +3609,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -3619,7 +3619,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -3628,7 +3628,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -3640,7 +3640,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -3651,7 +3651,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -3661,7 +3661,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -3671,7 +3671,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -3680,7 +3680,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -3692,7 +3692,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -3703,7 +3703,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -3713,7 +3713,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -3724,7 +3724,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -3734,7 +3734,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -3746,7 +3746,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -3757,7 +3757,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -3767,7 +3767,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -3778,7 +3778,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -3788,7 +3788,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -3800,7 +3800,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -3811,7 +3811,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -3821,7 +3821,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -3832,7 +3832,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -3842,7 +3842,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -3854,7 +3854,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -3865,7 +3865,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -3875,7 +3875,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -3886,7 +3886,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -3896,7 +3896,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -3908,7 +3908,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -3919,7 +3919,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -3929,7 +3929,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -3940,7 +3940,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -3950,7 +3950,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -3962,7 +3962,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -3973,7 +3973,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -3983,7 +3983,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -3994,7 +3994,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -4004,7 +4004,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -4016,7 +4016,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4027,7 +4027,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4037,7 +4037,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4048,7 +4048,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4057,7 +4057,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -4069,7 +4069,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4080,7 +4080,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4090,7 +4090,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4101,7 +4101,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4110,7 +4110,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -4122,7 +4122,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4133,7 +4133,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4143,7 +4143,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4154,7 +4154,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4163,7 +4163,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -4175,7 +4175,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4186,7 +4186,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4196,7 +4196,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4207,7 +4207,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4216,7 +4216,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -4228,7 +4228,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4239,7 +4239,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4249,7 +4249,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4260,7 +4260,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4269,7 +4269,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -4281,7 +4281,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4292,7 +4292,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4302,7 +4302,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4313,7 +4313,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4322,7 +4322,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -4334,7 +4334,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4345,7 +4345,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4355,7 +4355,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4366,7 +4366,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -4376,7 +4376,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -4388,7 +4388,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4399,7 +4399,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4409,7 +4409,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4420,7 +4420,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -4430,7 +4430,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -4442,7 +4442,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4453,7 +4453,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4463,7 +4463,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4474,7 +4474,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -4484,7 +4484,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -4496,7 +4496,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4507,7 +4507,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4517,7 +4517,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4528,7 +4528,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -4538,7 +4538,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -4550,7 +4550,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4561,7 +4561,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4571,7 +4571,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4582,7 +4582,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -4592,7 +4592,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -4604,7 +4604,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4615,7 +4615,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4625,7 +4625,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4636,7 +4636,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -4646,7 +4646,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -4658,7 +4658,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4669,7 +4669,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4679,7 +4679,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4690,7 +4690,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4699,7 +4699,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -4711,7 +4711,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4722,7 +4722,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4732,7 +4732,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4743,7 +4743,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4752,7 +4752,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -4764,7 +4764,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4775,7 +4775,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4785,7 +4785,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4796,7 +4796,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4805,7 +4805,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -4817,7 +4817,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4828,7 +4828,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4838,7 +4838,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4849,7 +4849,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4858,7 +4858,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -4870,7 +4870,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4881,7 +4881,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4891,7 +4891,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4902,7 +4902,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4911,7 +4911,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -4923,7 +4923,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4934,7 +4934,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4944,7 +4944,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4955,7 +4955,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4964,7 +4964,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -4976,7 +4976,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -4987,7 +4987,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -4997,7 +4997,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -5007,7 +5007,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -5017,7 +5017,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -5029,7 +5029,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -5040,7 +5040,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -5050,7 +5050,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -5060,7 +5060,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -5070,7 +5070,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -5082,7 +5082,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -5093,7 +5093,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -5103,7 +5103,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -5113,7 +5113,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -5123,7 +5123,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -5135,7 +5135,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -5146,7 +5146,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -5156,7 +5156,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -5166,7 +5166,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -5176,7 +5176,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -5188,7 +5188,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -5199,7 +5199,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -5209,7 +5209,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -5219,7 +5219,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -5229,7 +5229,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -5241,7 +5241,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -5252,7 +5252,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -5262,7 +5262,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -5272,7 +5272,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -5282,7 +5282,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -5294,7 +5294,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -5305,7 +5305,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -5315,7 +5315,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -5325,7 +5325,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -5334,7 +5334,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -5346,7 +5346,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -5357,7 +5357,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -5367,7 +5367,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -5377,7 +5377,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -5386,7 +5386,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -5398,7 +5398,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -5409,7 +5409,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -5419,7 +5419,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -5429,7 +5429,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -5438,7 +5438,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -5450,7 +5450,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -5461,7 +5461,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -5471,7 +5471,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -5481,7 +5481,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -5490,7 +5490,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -5502,7 +5502,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -5513,7 +5513,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -5523,7 +5523,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -5533,7 +5533,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -5542,7 +5542,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -5554,7 +5554,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -5565,7 +5565,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -5575,7 +5575,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -5585,7 +5585,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -5594,7 +5594,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -5606,7 +5606,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -5617,7 +5617,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -5627,7 +5627,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -5637,7 +5637,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -5647,7 +5647,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -5659,7 +5659,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -5670,7 +5670,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -5680,7 +5680,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -5690,7 +5690,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -5700,7 +5700,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -5712,7 +5712,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -5723,7 +5723,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -5733,7 +5733,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -5743,7 +5743,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -5753,7 +5753,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -5765,7 +5765,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -5776,7 +5776,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -5786,7 +5786,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -5796,7 +5796,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -5806,7 +5806,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -5818,7 +5818,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -5829,7 +5829,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -5839,7 +5839,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -5849,7 +5849,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -5859,7 +5859,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -5871,7 +5871,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -5882,7 +5882,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -5892,7 +5892,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -5902,7 +5902,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -5912,7 +5912,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -5924,7 +5924,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -5935,7 +5935,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -5945,7 +5945,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -5955,7 +5955,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -5964,7 +5964,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -5976,7 +5976,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -5987,7 +5987,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -5997,7 +5997,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -6007,7 +6007,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -6016,7 +6016,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -6028,7 +6028,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6039,7 +6039,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -6049,7 +6049,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -6059,7 +6059,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -6068,7 +6068,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -6080,7 +6080,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6091,7 +6091,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -6101,7 +6101,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -6111,7 +6111,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -6120,7 +6120,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -6132,7 +6132,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6143,7 +6143,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -6153,7 +6153,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -6163,7 +6163,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -6172,7 +6172,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -6184,7 +6184,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6195,7 +6195,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -6205,7 +6205,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -6215,7 +6215,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -6224,7 +6224,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -6236,7 +6236,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6247,7 +6247,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -6257,7 +6257,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6268,7 +6268,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -6278,7 +6278,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -6290,7 +6290,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6301,7 +6301,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -6311,7 +6311,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6322,7 +6322,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -6332,7 +6332,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -6344,7 +6344,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6355,7 +6355,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -6365,7 +6365,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6376,7 +6376,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -6386,7 +6386,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -6398,7 +6398,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6409,7 +6409,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -6419,7 +6419,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6430,7 +6430,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -6440,7 +6440,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -6452,7 +6452,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6463,7 +6463,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -6473,7 +6473,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6484,7 +6484,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -6494,7 +6494,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -6506,7 +6506,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6517,7 +6517,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -6527,7 +6527,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6538,7 +6538,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -6548,7 +6548,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -6560,7 +6560,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6571,7 +6571,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -6581,7 +6581,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6592,7 +6592,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -6601,7 +6601,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -6613,7 +6613,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6624,7 +6624,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -6634,7 +6634,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6645,7 +6645,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -6654,7 +6654,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -6666,7 +6666,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6677,7 +6677,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -6687,7 +6687,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6698,7 +6698,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -6707,7 +6707,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -6719,7 +6719,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6730,7 +6730,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -6740,7 +6740,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6751,7 +6751,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -6760,7 +6760,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -6772,7 +6772,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6783,7 +6783,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -6793,7 +6793,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6804,7 +6804,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -6813,7 +6813,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -6825,7 +6825,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6836,7 +6836,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -6846,7 +6846,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6857,7 +6857,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -6866,7 +6866,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -6878,7 +6878,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6889,7 +6889,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -6899,7 +6899,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6910,7 +6910,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -6920,7 +6920,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -6932,7 +6932,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6943,7 +6943,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -6953,7 +6953,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6964,7 +6964,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -6974,7 +6974,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -6986,7 +6986,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -6997,7 +6997,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -7007,7 +7007,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -7018,7 +7018,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -7028,7 +7028,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -7040,7 +7040,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -7051,7 +7051,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -7061,7 +7061,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -7072,7 +7072,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -7082,7 +7082,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -7094,7 +7094,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -7105,7 +7105,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -7115,7 +7115,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -7126,7 +7126,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -7136,7 +7136,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -7148,7 +7148,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -7159,7 +7159,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -7169,7 +7169,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -7180,7 +7180,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -7190,7 +7190,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -7202,7 +7202,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -7213,7 +7213,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -7223,7 +7223,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -7234,7 +7234,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -7243,7 +7243,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -7255,7 +7255,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -7266,7 +7266,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -7276,7 +7276,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -7287,7 +7287,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -7296,7 +7296,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -7308,7 +7308,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -7319,7 +7319,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -7329,7 +7329,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -7340,7 +7340,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -7349,7 +7349,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -7361,7 +7361,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -7372,7 +7372,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -7382,7 +7382,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -7393,7 +7393,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -7402,7 +7402,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -7414,7 +7414,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -7425,7 +7425,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -7435,7 +7435,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -7446,7 +7446,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -7455,7 +7455,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -7467,7 +7467,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -7478,7 +7478,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -7488,7 +7488,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -7499,7 +7499,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -7508,7 +7508,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -7520,7 +7520,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -7531,7 +7531,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -7541,7 +7541,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -7551,7 +7551,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -7561,7 +7561,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -7573,7 +7573,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -7584,7 +7584,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -7594,7 +7594,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -7604,7 +7604,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -7614,7 +7614,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -7626,7 +7626,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -7637,7 +7637,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -7647,7 +7647,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -7657,7 +7657,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -7667,7 +7667,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -7679,7 +7679,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -7690,7 +7690,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -7700,7 +7700,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -7710,7 +7710,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -7720,7 +7720,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -7732,7 +7732,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -7743,7 +7743,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -7753,7 +7753,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -7763,7 +7763,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -7773,7 +7773,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -7785,7 +7785,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -7796,7 +7796,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -7806,7 +7806,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -7816,7 +7816,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -7826,7 +7826,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -7838,7 +7838,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -7849,7 +7849,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -7859,7 +7859,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -7869,7 +7869,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -7878,7 +7878,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -7890,7 +7890,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -7901,7 +7901,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -7911,7 +7911,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -7921,7 +7921,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -7930,7 +7930,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -7942,7 +7942,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -7953,7 +7953,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -7963,7 +7963,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -7973,7 +7973,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -7982,7 +7982,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -7994,7 +7994,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -8005,7 +8005,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -8015,7 +8015,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -8025,7 +8025,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -8034,7 +8034,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -8046,7 +8046,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -8057,7 +8057,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -8067,7 +8067,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -8077,7 +8077,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -8086,7 +8086,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -8098,7 +8098,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -8109,7 +8109,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -8119,7 +8119,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -8129,7 +8129,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -8138,7 +8138,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -8150,7 +8150,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -8161,7 +8161,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -8171,7 +8171,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -8181,7 +8181,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -8191,7 +8191,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -8203,7 +8203,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -8214,7 +8214,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -8224,7 +8224,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -8234,7 +8234,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -8244,7 +8244,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -8256,7 +8256,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -8267,7 +8267,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -8277,7 +8277,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -8287,7 +8287,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -8297,7 +8297,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -8309,7 +8309,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -8320,7 +8320,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -8330,7 +8330,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -8340,7 +8340,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -8350,7 +8350,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -8362,7 +8362,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -8373,7 +8373,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -8383,7 +8383,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -8393,7 +8393,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -8403,7 +8403,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -8415,7 +8415,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -8426,7 +8426,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -8436,7 +8436,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -8446,7 +8446,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -8456,7 +8456,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -8468,7 +8468,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -8479,7 +8479,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -8489,7 +8489,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -8499,7 +8499,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -8508,7 +8508,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -8520,7 +8520,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -8531,7 +8531,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -8541,7 +8541,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -8551,7 +8551,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -8560,7 +8560,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -8572,7 +8572,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -8583,7 +8583,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -8593,7 +8593,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -8603,7 +8603,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -8612,7 +8612,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -8624,7 +8624,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -8635,7 +8635,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -8645,7 +8645,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -8655,7 +8655,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -8664,7 +8664,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -8676,7 +8676,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -8687,7 +8687,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -8697,7 +8697,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -8707,7 +8707,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -8716,7 +8716,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -8728,7 +8728,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -8739,7 +8739,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -8749,7 +8749,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -8759,7 +8759,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -8768,7 +8768,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -8780,7 +8780,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -8791,7 +8791,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -8801,7 +8801,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -8812,7 +8812,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -8822,7 +8822,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -8834,7 +8834,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -8845,7 +8845,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -8855,7 +8855,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -8866,7 +8866,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -8876,7 +8876,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -8888,7 +8888,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -8899,7 +8899,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -8909,7 +8909,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -8920,7 +8920,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -8930,7 +8930,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -8942,7 +8942,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -8953,7 +8953,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -8963,7 +8963,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -8974,7 +8974,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -8984,7 +8984,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -8996,7 +8996,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9007,7 +9007,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -9017,7 +9017,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9028,7 +9028,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -9038,7 +9038,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -9050,7 +9050,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9061,7 +9061,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -9071,7 +9071,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9082,7 +9082,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -9092,7 +9092,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -9104,7 +9104,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9115,7 +9115,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -9125,7 +9125,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9136,7 +9136,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -9145,7 +9145,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -9157,7 +9157,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9168,7 +9168,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -9178,7 +9178,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9189,7 +9189,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -9198,7 +9198,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -9210,7 +9210,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9221,7 +9221,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -9231,7 +9231,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9242,7 +9242,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -9251,7 +9251,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -9263,7 +9263,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9274,7 +9274,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -9284,7 +9284,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9295,7 +9295,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -9304,7 +9304,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -9316,7 +9316,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9327,7 +9327,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -9337,7 +9337,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9348,7 +9348,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -9357,7 +9357,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -9369,7 +9369,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9380,7 +9380,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -9390,7 +9390,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9401,7 +9401,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -9410,7 +9410,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -9422,7 +9422,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9433,7 +9433,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -9443,7 +9443,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9454,7 +9454,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -9464,7 +9464,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -9476,7 +9476,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9487,7 +9487,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -9497,7 +9497,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9508,7 +9508,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -9518,7 +9518,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -9530,7 +9530,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9541,7 +9541,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -9551,7 +9551,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9562,7 +9562,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -9572,7 +9572,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -9584,7 +9584,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9595,7 +9595,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -9605,7 +9605,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9616,7 +9616,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -9626,7 +9626,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -9638,7 +9638,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9649,7 +9649,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -9659,7 +9659,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9670,7 +9670,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -9680,7 +9680,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -9692,7 +9692,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9703,7 +9703,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -9713,7 +9713,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9724,7 +9724,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -9734,7 +9734,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -9746,7 +9746,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9757,7 +9757,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -9767,7 +9767,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9778,7 +9778,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -9787,7 +9787,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -9799,7 +9799,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9810,7 +9810,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -9820,7 +9820,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9831,7 +9831,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -9840,7 +9840,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -9852,7 +9852,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9863,7 +9863,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -9873,7 +9873,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9884,7 +9884,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -9893,7 +9893,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -9905,7 +9905,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9916,7 +9916,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -9926,7 +9926,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9937,7 +9937,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -9946,7 +9946,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -9958,7 +9958,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9969,7 +9969,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -9979,7 +9979,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -9990,7 +9990,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -9999,7 +9999,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -10011,7 +10011,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -10022,7 +10022,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -10032,7 +10032,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -10043,7 +10043,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -10052,7 +10052,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -10064,7 +10064,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -10075,7 +10075,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -10085,7 +10085,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -10095,7 +10095,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -10105,7 +10105,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -10117,7 +10117,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -10128,7 +10128,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -10138,7 +10138,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -10148,7 +10148,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -10158,7 +10158,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -10170,7 +10170,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -10181,7 +10181,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -10191,7 +10191,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -10201,7 +10201,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -10211,7 +10211,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -10223,7 +10223,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -10234,7 +10234,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -10244,7 +10244,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -10254,7 +10254,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -10264,7 +10264,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -10276,7 +10276,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -10287,7 +10287,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -10297,7 +10297,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -10307,7 +10307,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -10317,7 +10317,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -10329,7 +10329,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -10340,7 +10340,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -10350,7 +10350,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -10360,7 +10360,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -10370,7 +10370,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -10382,7 +10382,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -10393,7 +10393,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -10403,7 +10403,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -10413,7 +10413,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -10422,7 +10422,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -10434,7 +10434,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -10445,7 +10445,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -10455,7 +10455,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -10465,7 +10465,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -10474,7 +10474,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -10486,7 +10486,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -10497,7 +10497,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -10507,7 +10507,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -10517,7 +10517,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -10526,7 +10526,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -10538,7 +10538,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -10549,7 +10549,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -10559,7 +10559,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -10569,7 +10569,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -10578,7 +10578,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -10590,7 +10590,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -10601,7 +10601,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -10611,7 +10611,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -10621,7 +10621,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -10630,7 +10630,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -10642,7 +10642,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -10653,7 +10653,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -10663,7 +10663,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -10673,7 +10673,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -10682,7 +10682,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -10694,7 +10694,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -10705,7 +10705,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -10716,7 +10716,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -10726,7 +10726,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -10736,7 +10736,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -10748,7 +10748,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -10759,7 +10759,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -10770,7 +10770,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -10780,7 +10780,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -10790,7 +10790,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -10802,7 +10802,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -10813,7 +10813,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -10824,7 +10824,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -10834,7 +10834,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -10844,7 +10844,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -10856,7 +10856,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -10867,7 +10867,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -10878,7 +10878,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -10888,7 +10888,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -10898,7 +10898,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -10910,7 +10910,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -10921,7 +10921,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -10932,7 +10932,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -10942,7 +10942,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -10952,7 +10952,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -10964,7 +10964,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -10975,7 +10975,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -10986,7 +10986,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -10996,7 +10996,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -11006,7 +11006,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -11018,7 +11018,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -11029,7 +11029,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -11040,7 +11040,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -11050,7 +11050,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -11059,7 +11059,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -11071,7 +11071,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -11082,7 +11082,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -11093,7 +11093,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -11103,7 +11103,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -11112,7 +11112,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -11124,7 +11124,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -11135,7 +11135,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -11146,7 +11146,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -11156,7 +11156,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -11165,7 +11165,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -11177,7 +11177,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -11188,7 +11188,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -11199,7 +11199,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -11209,7 +11209,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -11218,7 +11218,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -11230,7 +11230,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -11241,7 +11241,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -11252,7 +11252,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -11262,7 +11262,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -11271,7 +11271,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -11283,7 +11283,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -11294,7 +11294,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -11305,7 +11305,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -11315,7 +11315,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -11324,7 +11324,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -11336,7 +11336,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -11347,7 +11347,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -11358,7 +11358,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -11369,7 +11369,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -11379,7 +11379,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -11391,7 +11391,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -11402,7 +11402,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -11413,7 +11413,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -11424,7 +11424,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -11434,7 +11434,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -11446,7 +11446,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -11457,7 +11457,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -11468,7 +11468,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -11479,7 +11479,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -11489,7 +11489,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -11501,7 +11501,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -11512,7 +11512,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -11523,7 +11523,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -11534,7 +11534,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -11544,7 +11544,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -11556,7 +11556,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -11567,7 +11567,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -11578,7 +11578,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -11589,7 +11589,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -11599,7 +11599,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -11611,7 +11611,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -11622,7 +11622,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -11633,7 +11633,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -11644,7 +11644,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -11654,7 +11654,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -11666,7 +11666,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -11677,7 +11677,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -11688,7 +11688,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -11699,7 +11699,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -11708,7 +11708,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -11720,7 +11720,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -11731,7 +11731,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -11742,7 +11742,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -11753,7 +11753,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -11762,7 +11762,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -11774,7 +11774,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -11785,7 +11785,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -11796,7 +11796,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -11807,7 +11807,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -11816,7 +11816,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -11828,7 +11828,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -11839,7 +11839,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -11850,7 +11850,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -11861,7 +11861,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -11870,7 +11870,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -11882,7 +11882,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -11893,7 +11893,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -11904,7 +11904,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -11915,7 +11915,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -11924,7 +11924,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -11936,7 +11936,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -11947,7 +11947,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -11958,7 +11958,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -11969,7 +11969,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -11978,7 +11978,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -11990,7 +11990,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12001,7 +12001,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12012,7 +12012,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12023,7 +12023,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12033,7 +12033,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -12045,7 +12045,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12056,7 +12056,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12067,7 +12067,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12078,7 +12078,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12088,7 +12088,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -12100,7 +12100,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12111,7 +12111,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12122,7 +12122,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12133,7 +12133,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12143,7 +12143,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -12155,7 +12155,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12166,7 +12166,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12177,7 +12177,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12188,7 +12188,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12198,7 +12198,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -12210,7 +12210,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12221,7 +12221,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12232,7 +12232,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12243,7 +12243,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12253,7 +12253,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -12265,7 +12265,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12276,7 +12276,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12287,7 +12287,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12298,7 +12298,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12308,7 +12308,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -12320,7 +12320,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12331,7 +12331,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12342,7 +12342,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12353,7 +12353,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -12362,7 +12362,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -12374,7 +12374,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12385,7 +12385,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12396,7 +12396,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12407,7 +12407,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -12416,7 +12416,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -12428,7 +12428,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12439,7 +12439,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12450,7 +12450,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12461,7 +12461,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -12470,7 +12470,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -12482,7 +12482,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12493,7 +12493,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12504,7 +12504,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12515,7 +12515,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -12524,7 +12524,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -12536,7 +12536,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12547,7 +12547,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12558,7 +12558,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12569,7 +12569,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -12578,7 +12578,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -12590,7 +12590,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12601,7 +12601,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12612,7 +12612,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12623,7 +12623,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -12632,7 +12632,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -12644,7 +12644,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12655,7 +12655,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12666,7 +12666,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -12676,7 +12676,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12686,7 +12686,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -12698,7 +12698,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12709,7 +12709,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12720,7 +12720,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -12730,7 +12730,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12740,7 +12740,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -12752,7 +12752,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12763,7 +12763,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12774,7 +12774,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -12784,7 +12784,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12794,7 +12794,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -12806,7 +12806,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12817,7 +12817,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12828,7 +12828,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -12838,7 +12838,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12848,7 +12848,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -12860,7 +12860,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12871,7 +12871,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12882,7 +12882,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -12892,7 +12892,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12902,7 +12902,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -12914,7 +12914,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12925,7 +12925,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12936,7 +12936,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -12946,7 +12946,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12956,7 +12956,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -12968,7 +12968,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -12979,7 +12979,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -12990,7 +12990,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -13000,7 +13000,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -13009,7 +13009,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -13021,7 +13021,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -13032,7 +13032,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -13043,7 +13043,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -13053,7 +13053,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -13062,7 +13062,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -13074,7 +13074,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -13085,7 +13085,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -13096,7 +13096,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -13106,7 +13106,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -13115,7 +13115,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -13127,7 +13127,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -13138,7 +13138,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -13149,7 +13149,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -13159,7 +13159,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -13168,7 +13168,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -13180,7 +13180,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -13191,7 +13191,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -13202,7 +13202,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -13212,7 +13212,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -13221,7 +13221,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -13233,7 +13233,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -13244,7 +13244,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -13255,7 +13255,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -13265,7 +13265,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -13274,7 +13274,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -13286,7 +13286,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -13297,7 +13297,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -13308,7 +13308,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -13318,7 +13318,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -13328,7 +13328,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -13340,7 +13340,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -13351,7 +13351,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -13362,7 +13362,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -13372,7 +13372,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -13382,7 +13382,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -13394,7 +13394,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -13405,7 +13405,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -13416,7 +13416,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -13426,7 +13426,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -13436,7 +13436,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -13448,7 +13448,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -13459,7 +13459,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -13470,7 +13470,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -13480,7 +13480,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -13490,7 +13490,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -13502,7 +13502,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -13513,7 +13513,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -13524,7 +13524,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -13534,7 +13534,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -13544,7 +13544,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -13556,7 +13556,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -13567,7 +13567,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -13578,7 +13578,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -13588,7 +13588,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -13598,7 +13598,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -13610,7 +13610,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -13621,7 +13621,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -13632,7 +13632,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -13642,7 +13642,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -13651,7 +13651,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -13663,7 +13663,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -13674,7 +13674,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -13685,7 +13685,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -13695,7 +13695,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -13704,7 +13704,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -13716,7 +13716,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -13727,7 +13727,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -13738,7 +13738,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -13748,7 +13748,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -13757,7 +13757,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -13769,7 +13769,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -13780,7 +13780,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -13791,7 +13791,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -13801,7 +13801,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -13810,7 +13810,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -13822,7 +13822,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -13833,7 +13833,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -13844,7 +13844,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -13854,7 +13854,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -13863,7 +13863,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -13875,7 +13875,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -13886,7 +13886,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -13897,7 +13897,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -13907,7 +13907,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -13916,7 +13916,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -13928,7 +13928,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -13939,7 +13939,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -13950,7 +13950,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -13961,7 +13961,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -13971,7 +13971,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -13983,7 +13983,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -13994,7 +13994,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -14005,7 +14005,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14016,7 +14016,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -14026,7 +14026,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -14038,7 +14038,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14049,7 +14049,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -14060,7 +14060,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14071,7 +14071,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -14081,7 +14081,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -14093,7 +14093,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14104,7 +14104,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -14115,7 +14115,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14126,7 +14126,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -14136,7 +14136,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -14148,7 +14148,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14159,7 +14159,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -14170,7 +14170,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14181,7 +14181,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -14191,7 +14191,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -14203,7 +14203,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14214,7 +14214,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -14225,7 +14225,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14236,7 +14236,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -14246,7 +14246,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -14258,7 +14258,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14269,7 +14269,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -14280,7 +14280,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14291,7 +14291,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -14300,7 +14300,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -14312,7 +14312,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14323,7 +14323,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -14334,7 +14334,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14345,7 +14345,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -14354,7 +14354,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -14366,7 +14366,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14377,7 +14377,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -14388,7 +14388,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14399,7 +14399,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -14408,7 +14408,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -14420,7 +14420,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14431,7 +14431,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -14442,7 +14442,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14453,7 +14453,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -14462,7 +14462,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -14474,7 +14474,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14485,7 +14485,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -14496,7 +14496,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14507,7 +14507,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -14516,7 +14516,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -14528,7 +14528,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14539,7 +14539,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -14550,7 +14550,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14561,7 +14561,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -14570,7 +14570,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -14582,7 +14582,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14593,7 +14593,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -14604,7 +14604,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14615,7 +14615,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -14625,7 +14625,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -14637,7 +14637,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14648,7 +14648,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -14659,7 +14659,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14670,7 +14670,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -14680,7 +14680,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -14692,7 +14692,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14703,7 +14703,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -14714,7 +14714,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14725,7 +14725,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -14735,7 +14735,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -14747,7 +14747,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14758,7 +14758,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -14769,7 +14769,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14780,7 +14780,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -14790,7 +14790,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -14802,7 +14802,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14813,7 +14813,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -14824,7 +14824,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14835,7 +14835,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -14845,7 +14845,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -14857,7 +14857,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14868,7 +14868,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -14879,7 +14879,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14890,7 +14890,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -14900,7 +14900,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -14912,7 +14912,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14923,7 +14923,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -14934,7 +14934,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14945,7 +14945,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -14954,7 +14954,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -14966,7 +14966,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14977,7 +14977,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -14988,7 +14988,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -14999,7 +14999,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -15008,7 +15008,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -15020,7 +15020,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -15031,7 +15031,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -15042,7 +15042,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -15053,7 +15053,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -15062,7 +15062,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -15074,7 +15074,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -15085,7 +15085,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -15096,7 +15096,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -15107,7 +15107,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -15116,7 +15116,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -15128,7 +15128,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -15139,7 +15139,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -15150,7 +15150,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -15161,7 +15161,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -15170,7 +15170,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -15182,7 +15182,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -15193,7 +15193,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -15204,7 +15204,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -15215,7 +15215,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -15224,7 +15224,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -15236,7 +15236,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -15247,7 +15247,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -15258,7 +15258,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -15268,7 +15268,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -15278,7 +15278,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -15290,7 +15290,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -15301,7 +15301,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -15312,7 +15312,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -15322,7 +15322,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -15332,7 +15332,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -15344,7 +15344,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -15355,7 +15355,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -15366,7 +15366,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -15376,7 +15376,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -15386,7 +15386,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -15398,7 +15398,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -15409,7 +15409,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -15420,7 +15420,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -15430,7 +15430,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -15440,7 +15440,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -15452,7 +15452,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -15463,7 +15463,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -15474,7 +15474,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -15484,7 +15484,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -15494,7 +15494,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -15506,7 +15506,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -15517,7 +15517,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -15528,7 +15528,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -15538,7 +15538,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -15548,7 +15548,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -15560,7 +15560,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -15571,7 +15571,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -15582,7 +15582,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -15592,7 +15592,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -15601,7 +15601,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -15613,7 +15613,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -15624,7 +15624,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -15635,7 +15635,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -15645,7 +15645,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -15654,7 +15654,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -15666,7 +15666,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -15677,7 +15677,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -15688,7 +15688,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -15698,7 +15698,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -15707,7 +15707,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -15719,7 +15719,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -15730,7 +15730,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -15741,7 +15741,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -15751,7 +15751,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -15760,7 +15760,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -15772,7 +15772,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -15783,7 +15783,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -15794,7 +15794,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -15804,7 +15804,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -15813,7 +15813,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -15825,7 +15825,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -15836,7 +15836,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -15847,7 +15847,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -15857,7 +15857,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -15866,7 +15866,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -15878,7 +15878,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -15889,7 +15889,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -15900,7 +15900,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -15910,7 +15910,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -15920,7 +15920,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -15932,7 +15932,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -15943,7 +15943,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -15954,7 +15954,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -15964,7 +15964,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -15974,7 +15974,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -15986,7 +15986,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -15997,7 +15997,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -16008,7 +16008,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -16018,7 +16018,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -16028,7 +16028,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -16040,7 +16040,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -16051,7 +16051,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -16062,7 +16062,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -16072,7 +16072,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -16082,7 +16082,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -16094,7 +16094,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -16105,7 +16105,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -16116,7 +16116,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -16126,7 +16126,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -16136,7 +16136,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -16148,7 +16148,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -16159,7 +16159,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -16170,7 +16170,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -16180,7 +16180,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -16190,7 +16190,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -16202,7 +16202,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -16213,7 +16213,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -16224,7 +16224,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -16234,7 +16234,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -16243,7 +16243,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -16255,7 +16255,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -16266,7 +16266,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -16277,7 +16277,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -16287,7 +16287,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -16296,7 +16296,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -16308,7 +16308,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -16319,7 +16319,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -16330,7 +16330,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -16340,7 +16340,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -16349,7 +16349,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -16361,7 +16361,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -16372,7 +16372,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -16383,7 +16383,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -16393,7 +16393,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -16402,7 +16402,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -16414,7 +16414,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -16425,7 +16425,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -16436,7 +16436,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -16446,7 +16446,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -16455,7 +16455,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -16467,7 +16467,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -16478,7 +16478,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -16489,7 +16489,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -16499,7 +16499,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -16508,7 +16508,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -16520,7 +16520,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -16531,7 +16531,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -16542,7 +16542,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -16553,7 +16553,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -16563,7 +16563,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -16575,7 +16575,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -16586,7 +16586,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -16597,7 +16597,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -16608,7 +16608,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -16618,7 +16618,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -16630,7 +16630,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -16641,7 +16641,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -16652,7 +16652,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -16663,7 +16663,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -16673,7 +16673,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -16685,7 +16685,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -16696,7 +16696,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -16707,7 +16707,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -16718,7 +16718,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -16728,7 +16728,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -16740,7 +16740,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -16751,7 +16751,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -16762,7 +16762,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -16773,7 +16773,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -16783,7 +16783,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -16795,7 +16795,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -16806,7 +16806,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -16817,7 +16817,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -16828,7 +16828,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -16838,7 +16838,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -16850,7 +16850,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -16861,7 +16861,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -16872,7 +16872,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -16883,7 +16883,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -16892,7 +16892,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -16904,7 +16904,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -16915,7 +16915,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -16926,7 +16926,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -16937,7 +16937,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -16946,7 +16946,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -16958,7 +16958,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -16969,7 +16969,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -16980,7 +16980,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -16991,7 +16991,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -17000,7 +17000,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -17012,7 +17012,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17023,7 +17023,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -17034,7 +17034,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17045,7 +17045,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -17054,7 +17054,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -17066,7 +17066,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17077,7 +17077,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -17088,7 +17088,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17099,7 +17099,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -17108,7 +17108,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -17120,7 +17120,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17131,7 +17131,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -17142,7 +17142,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17153,7 +17153,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -17162,7 +17162,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -17174,7 +17174,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17185,7 +17185,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -17196,7 +17196,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17207,7 +17207,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -17217,7 +17217,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -17229,7 +17229,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17240,7 +17240,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -17251,7 +17251,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17262,7 +17262,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -17272,7 +17272,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -17284,7 +17284,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17295,7 +17295,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -17306,7 +17306,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17317,7 +17317,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -17327,7 +17327,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -17339,7 +17339,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17350,7 +17350,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -17361,7 +17361,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17372,7 +17372,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -17382,7 +17382,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -17394,7 +17394,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17405,7 +17405,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -17416,7 +17416,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17427,7 +17427,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -17437,7 +17437,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -17449,7 +17449,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17460,7 +17460,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -17471,7 +17471,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17482,7 +17482,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -17492,7 +17492,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -17504,7 +17504,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17515,7 +17515,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -17526,7 +17526,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17537,7 +17537,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -17546,7 +17546,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -17558,7 +17558,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17569,7 +17569,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -17580,7 +17580,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17591,7 +17591,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -17600,7 +17600,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -17612,7 +17612,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17623,7 +17623,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -17634,7 +17634,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17645,7 +17645,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -17654,7 +17654,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -17666,7 +17666,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17677,7 +17677,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -17688,7 +17688,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17699,7 +17699,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -17708,7 +17708,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -17720,7 +17720,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17731,7 +17731,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -17742,7 +17742,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17753,7 +17753,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -17762,7 +17762,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -17774,7 +17774,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17785,7 +17785,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -17796,7 +17796,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17807,7 +17807,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -17816,7 +17816,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -17828,7 +17828,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17839,7 +17839,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -17850,7 +17850,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -17860,7 +17860,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -17870,7 +17870,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -17882,7 +17882,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17893,7 +17893,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -17904,7 +17904,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -17914,7 +17914,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -17924,7 +17924,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -17936,7 +17936,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -17947,7 +17947,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -17958,7 +17958,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -17968,7 +17968,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -17978,7 +17978,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -17990,7 +17990,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -18001,7 +18001,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -18012,7 +18012,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -18022,7 +18022,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -18032,7 +18032,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -18044,7 +18044,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -18055,7 +18055,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -18066,7 +18066,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -18076,7 +18076,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -18086,7 +18086,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -18098,7 +18098,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -18109,7 +18109,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -18120,7 +18120,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -18130,7 +18130,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -18140,7 +18140,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -18152,7 +18152,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -18163,7 +18163,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -18174,7 +18174,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -18184,7 +18184,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -18193,7 +18193,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -18205,7 +18205,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -18216,7 +18216,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -18227,7 +18227,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -18237,7 +18237,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -18246,7 +18246,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -18258,7 +18258,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -18269,7 +18269,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -18280,7 +18280,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -18290,7 +18290,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -18299,7 +18299,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -18311,7 +18311,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -18322,7 +18322,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -18333,7 +18333,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -18343,7 +18343,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -18352,7 +18352,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -18364,7 +18364,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -18375,7 +18375,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -18386,7 +18386,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -18396,7 +18396,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -18405,7 +18405,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -18417,7 +18417,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -18428,7 +18428,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -18439,7 +18439,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -18449,7 +18449,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -18458,7 +18458,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -18470,7 +18470,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -18481,7 +18481,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -18492,7 +18492,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -18502,7 +18502,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -18512,7 +18512,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -18524,7 +18524,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -18535,7 +18535,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -18546,7 +18546,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -18556,7 +18556,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -18566,7 +18566,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -18578,7 +18578,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -18589,7 +18589,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -18600,7 +18600,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -18610,7 +18610,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -18620,7 +18620,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -18632,7 +18632,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -18643,7 +18643,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -18654,7 +18654,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -18664,7 +18664,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -18674,7 +18674,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -18686,7 +18686,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -18697,7 +18697,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -18708,7 +18708,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -18718,7 +18718,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -18728,7 +18728,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -18740,7 +18740,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -18751,7 +18751,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -18762,7 +18762,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -18772,7 +18772,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -18782,7 +18782,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -18794,7 +18794,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -18805,7 +18805,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -18816,7 +18816,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -18826,7 +18826,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -18835,7 +18835,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -18847,7 +18847,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -18858,7 +18858,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -18869,7 +18869,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -18879,7 +18879,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -18888,7 +18888,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -18900,7 +18900,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -18911,7 +18911,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -18922,7 +18922,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -18932,7 +18932,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -18941,7 +18941,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -18953,7 +18953,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -18964,7 +18964,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -18975,7 +18975,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -18985,7 +18985,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -18994,7 +18994,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -19006,7 +19006,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19017,7 +19017,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -19028,7 +19028,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -19038,7 +19038,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -19047,7 +19047,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -19059,7 +19059,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19070,7 +19070,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -19081,7 +19081,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -19091,7 +19091,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -19100,7 +19100,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -19112,7 +19112,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19123,7 +19123,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -19134,7 +19134,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19145,7 +19145,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -19155,7 +19155,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -19167,7 +19167,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19178,7 +19178,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -19189,7 +19189,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19200,7 +19200,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -19210,7 +19210,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -19222,7 +19222,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19233,7 +19233,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -19244,7 +19244,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19255,7 +19255,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -19265,7 +19265,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -19277,7 +19277,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19288,7 +19288,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -19299,7 +19299,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19310,7 +19310,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -19320,7 +19320,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -19332,7 +19332,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19343,7 +19343,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -19354,7 +19354,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19365,7 +19365,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -19375,7 +19375,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -19387,7 +19387,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19398,7 +19398,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -19409,7 +19409,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19420,7 +19420,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -19430,7 +19430,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -19442,7 +19442,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19453,7 +19453,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -19464,7 +19464,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19475,7 +19475,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -19484,7 +19484,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -19496,7 +19496,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19507,7 +19507,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -19518,7 +19518,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19529,7 +19529,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -19538,7 +19538,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -19550,7 +19550,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19561,7 +19561,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -19572,7 +19572,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19583,7 +19583,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -19592,7 +19592,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -19604,7 +19604,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19615,7 +19615,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -19626,7 +19626,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19637,7 +19637,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -19646,7 +19646,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -19658,7 +19658,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19669,7 +19669,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -19680,7 +19680,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19691,7 +19691,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -19700,7 +19700,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -19712,7 +19712,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19723,7 +19723,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -19734,7 +19734,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19745,7 +19745,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -19754,7 +19754,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -19766,7 +19766,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19777,7 +19777,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -19788,7 +19788,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19799,7 +19799,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -19809,7 +19809,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -19821,7 +19821,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19832,7 +19832,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -19843,7 +19843,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19854,7 +19854,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -19864,7 +19864,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -19876,7 +19876,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19887,7 +19887,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -19898,7 +19898,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19909,7 +19909,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -19919,7 +19919,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -19931,7 +19931,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19942,7 +19942,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -19953,7 +19953,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19964,7 +19964,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -19974,7 +19974,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -19986,7 +19986,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -19997,7 +19997,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -20008,7 +20008,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -20019,7 +20019,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -20029,7 +20029,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -20041,7 +20041,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -20052,7 +20052,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -20063,7 +20063,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -20074,7 +20074,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -20084,7 +20084,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -20096,7 +20096,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -20107,7 +20107,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -20118,7 +20118,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -20129,7 +20129,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -20138,7 +20138,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -20150,7 +20150,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -20161,7 +20161,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -20172,7 +20172,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -20183,7 +20183,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -20192,7 +20192,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -20204,7 +20204,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -20215,7 +20215,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -20226,7 +20226,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -20237,7 +20237,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -20246,7 +20246,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -20258,7 +20258,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -20269,7 +20269,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -20280,7 +20280,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -20291,7 +20291,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -20300,7 +20300,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -20312,7 +20312,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -20323,7 +20323,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -20334,7 +20334,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -20345,7 +20345,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -20354,7 +20354,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -20366,7 +20366,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -20377,7 +20377,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -20388,7 +20388,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -20399,7 +20399,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -20408,7 +20408,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -20420,7 +20420,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -20431,7 +20431,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -20442,7 +20442,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -20452,7 +20452,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -20462,7 +20462,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -20474,7 +20474,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -20485,7 +20485,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -20496,7 +20496,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -20506,7 +20506,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -20516,7 +20516,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -20528,7 +20528,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -20539,7 +20539,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -20550,7 +20550,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -20560,7 +20560,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -20570,7 +20570,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -20582,7 +20582,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -20593,7 +20593,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -20604,7 +20604,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -20614,7 +20614,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -20624,7 +20624,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -20636,7 +20636,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -20647,7 +20647,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -20658,7 +20658,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -20668,7 +20668,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -20678,7 +20678,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -20690,7 +20690,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -20701,7 +20701,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -20712,7 +20712,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -20722,7 +20722,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -20732,7 +20732,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -20744,7 +20744,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -20755,7 +20755,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -20766,7 +20766,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -20776,7 +20776,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -20785,7 +20785,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -20797,7 +20797,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -20808,7 +20808,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -20819,7 +20819,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -20829,7 +20829,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -20838,7 +20838,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -20850,7 +20850,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -20861,7 +20861,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -20872,7 +20872,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -20882,7 +20882,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -20891,7 +20891,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -20903,7 +20903,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -20914,7 +20914,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -20925,7 +20925,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -20935,7 +20935,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -20944,7 +20944,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -20956,7 +20956,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -20967,7 +20967,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -20978,7 +20978,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -20988,7 +20988,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -20997,7 +20997,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -21009,7 +21009,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -21020,7 +21020,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -21031,7 +21031,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -21041,7 +21041,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -21050,7 +21050,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -21062,7 +21062,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -21073,7 +21073,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -21084,7 +21084,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -21094,7 +21094,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -21104,7 +21104,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -21116,7 +21116,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -21127,7 +21127,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -21138,7 +21138,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -21148,7 +21148,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -21158,7 +21158,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -21170,7 +21170,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -21181,7 +21181,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -21192,7 +21192,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -21202,7 +21202,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -21212,7 +21212,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -21224,7 +21224,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -21235,7 +21235,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -21246,7 +21246,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -21256,7 +21256,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -21266,7 +21266,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -21278,7 +21278,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -21289,7 +21289,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -21300,7 +21300,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -21310,7 +21310,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -21320,7 +21320,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -21332,7 +21332,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -21343,7 +21343,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -21354,7 +21354,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -21364,7 +21364,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -21374,7 +21374,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -21386,7 +21386,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -21397,7 +21397,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -21408,7 +21408,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -21418,7 +21418,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -21427,7 +21427,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -21439,7 +21439,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -21450,7 +21450,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -21461,7 +21461,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -21471,7 +21471,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -21480,7 +21480,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -21492,7 +21492,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -21503,7 +21503,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -21514,7 +21514,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -21524,7 +21524,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -21533,7 +21533,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -21545,7 +21545,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -21556,7 +21556,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -21567,7 +21567,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -21577,7 +21577,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -21586,7 +21586,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -21598,7 +21598,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -21609,7 +21609,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -21620,7 +21620,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -21630,7 +21630,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -21639,7 +21639,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -21651,7 +21651,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -21662,7 +21662,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -21673,7 +21673,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -21683,7 +21683,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -21692,7 +21692,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -21704,7 +21704,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -21715,7 +21715,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -21726,7 +21726,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -21737,7 +21737,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -21747,7 +21747,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -21759,7 +21759,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -21770,7 +21770,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -21781,7 +21781,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -21792,7 +21792,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -21802,7 +21802,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -21814,7 +21814,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -21825,7 +21825,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -21836,7 +21836,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -21847,7 +21847,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -21857,7 +21857,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -21869,7 +21869,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -21880,7 +21880,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -21891,7 +21891,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -21902,7 +21902,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -21912,7 +21912,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -21924,7 +21924,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -21935,7 +21935,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -21946,7 +21946,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -21957,7 +21957,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -21967,7 +21967,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -21979,7 +21979,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -21990,7 +21990,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -22001,7 +22001,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22012,7 +22012,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -22022,7 +22022,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -22034,7 +22034,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22045,7 +22045,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -22056,7 +22056,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22067,7 +22067,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -22076,7 +22076,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -22088,7 +22088,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22099,7 +22099,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -22110,7 +22110,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22121,7 +22121,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -22130,7 +22130,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -22142,7 +22142,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22153,7 +22153,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -22164,7 +22164,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22175,7 +22175,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -22184,7 +22184,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -22196,7 +22196,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22207,7 +22207,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -22218,7 +22218,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22229,7 +22229,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -22238,7 +22238,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -22250,7 +22250,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22261,7 +22261,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -22272,7 +22272,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22283,7 +22283,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -22292,7 +22292,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -22304,7 +22304,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22315,7 +22315,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -22326,7 +22326,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22337,7 +22337,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -22346,7 +22346,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -22358,7 +22358,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22369,7 +22369,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -22380,7 +22380,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22391,7 +22391,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -22401,7 +22401,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -22413,7 +22413,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22424,7 +22424,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -22435,7 +22435,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22446,7 +22446,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -22456,7 +22456,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -22468,7 +22468,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22479,7 +22479,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -22490,7 +22490,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22501,7 +22501,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -22511,7 +22511,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -22523,7 +22523,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22534,7 +22534,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -22545,7 +22545,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22556,7 +22556,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -22566,7 +22566,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -22578,7 +22578,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22589,7 +22589,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -22600,7 +22600,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22611,7 +22611,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -22621,7 +22621,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -22633,7 +22633,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22644,7 +22644,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -22655,7 +22655,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22666,7 +22666,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -22676,7 +22676,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -22688,7 +22688,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22699,7 +22699,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -22710,7 +22710,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22721,7 +22721,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -22730,7 +22730,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -22742,7 +22742,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22753,7 +22753,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -22764,7 +22764,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22775,7 +22775,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -22784,7 +22784,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -22796,7 +22796,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22807,7 +22807,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -22818,7 +22818,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22829,7 +22829,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -22838,7 +22838,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -22850,7 +22850,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22861,7 +22861,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -22872,7 +22872,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22883,7 +22883,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -22892,7 +22892,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -22904,7 +22904,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22915,7 +22915,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -22926,7 +22926,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22937,7 +22937,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -22946,7 +22946,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -22958,7 +22958,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22969,7 +22969,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -22980,7 +22980,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -22991,7 +22991,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -23000,7 +23000,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -23012,7 +23012,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -23023,7 +23023,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -23034,7 +23034,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -23044,7 +23044,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -23054,7 +23054,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -23066,7 +23066,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -23077,7 +23077,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -23088,7 +23088,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -23098,7 +23098,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -23108,7 +23108,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -23120,7 +23120,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -23131,7 +23131,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -23142,7 +23142,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -23152,7 +23152,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -23162,7 +23162,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -23174,7 +23174,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -23185,7 +23185,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -23196,7 +23196,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -23206,7 +23206,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -23216,7 +23216,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -23228,7 +23228,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -23239,7 +23239,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -23250,7 +23250,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -23260,7 +23260,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -23270,7 +23270,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -23282,7 +23282,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -23293,7 +23293,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -23304,7 +23304,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -23314,7 +23314,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -23324,7 +23324,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -23336,7 +23336,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -23347,7 +23347,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -23358,7 +23358,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -23368,7 +23368,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -23377,7 +23377,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -23389,7 +23389,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -23400,7 +23400,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -23411,7 +23411,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -23421,7 +23421,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -23430,7 +23430,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -23442,7 +23442,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -23453,7 +23453,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -23464,7 +23464,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -23474,7 +23474,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -23483,7 +23483,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -23495,7 +23495,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -23506,7 +23506,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -23517,7 +23517,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -23527,7 +23527,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -23536,7 +23536,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -23548,7 +23548,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -23559,7 +23559,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -23570,7 +23570,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -23580,7 +23580,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -23589,7 +23589,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -23601,7 +23601,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -23612,7 +23612,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -23623,7 +23623,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -23633,7 +23633,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -23642,7 +23642,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -23654,7 +23654,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -23665,7 +23665,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -23676,7 +23676,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -23686,7 +23686,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -23696,7 +23696,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -23708,7 +23708,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -23719,7 +23719,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -23730,7 +23730,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -23740,7 +23740,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -23750,7 +23750,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -23762,7 +23762,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -23773,7 +23773,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -23784,7 +23784,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -23794,7 +23794,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -23804,7 +23804,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -23816,7 +23816,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -23827,7 +23827,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -23838,7 +23838,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -23848,7 +23848,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -23858,7 +23858,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -23870,7 +23870,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -23881,7 +23881,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -23892,7 +23892,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -23902,7 +23902,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -23912,7 +23912,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -23924,7 +23924,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -23935,7 +23935,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -23946,7 +23946,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -23956,7 +23956,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -23966,7 +23966,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -23978,7 +23978,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -23989,7 +23989,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -24000,7 +24000,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -24010,7 +24010,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -24019,7 +24019,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -24031,7 +24031,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24042,7 +24042,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -24053,7 +24053,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -24063,7 +24063,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -24072,7 +24072,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -24084,7 +24084,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24095,7 +24095,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -24106,7 +24106,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -24116,7 +24116,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -24125,7 +24125,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -24137,7 +24137,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24148,7 +24148,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -24159,7 +24159,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -24169,7 +24169,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -24178,7 +24178,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -24190,7 +24190,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24201,7 +24201,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -24212,7 +24212,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -24222,7 +24222,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -24231,7 +24231,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -24243,7 +24243,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24254,7 +24254,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -24265,7 +24265,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -24275,7 +24275,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -24284,7 +24284,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -24296,7 +24296,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24307,7 +24307,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -24318,7 +24318,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24329,7 +24329,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -24339,7 +24339,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -24351,7 +24351,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24362,7 +24362,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -24373,7 +24373,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24384,7 +24384,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -24394,7 +24394,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -24406,7 +24406,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24417,7 +24417,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -24428,7 +24428,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24439,7 +24439,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -24449,7 +24449,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -24461,7 +24461,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24472,7 +24472,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -24483,7 +24483,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24494,7 +24494,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -24504,7 +24504,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -24516,7 +24516,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24527,7 +24527,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -24538,7 +24538,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24549,7 +24549,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -24559,7 +24559,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -24571,7 +24571,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24582,7 +24582,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -24593,7 +24593,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24604,7 +24604,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -24614,7 +24614,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -24626,7 +24626,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24637,7 +24637,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -24648,7 +24648,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24659,7 +24659,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -24668,7 +24668,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -24680,7 +24680,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24691,7 +24691,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -24702,7 +24702,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24713,7 +24713,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -24722,7 +24722,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -24734,7 +24734,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24745,7 +24745,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -24756,7 +24756,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24767,7 +24767,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -24776,7 +24776,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -24788,7 +24788,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24799,7 +24799,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -24810,7 +24810,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24821,7 +24821,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -24830,7 +24830,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -24842,7 +24842,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24853,7 +24853,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -24864,7 +24864,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24875,7 +24875,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -24884,7 +24884,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -24896,7 +24896,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24907,7 +24907,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -24918,7 +24918,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24929,7 +24929,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -24938,7 +24938,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -24950,7 +24950,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24961,7 +24961,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -24972,7 +24972,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -24983,7 +24983,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -24993,7 +24993,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -25005,7 +25005,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -25016,7 +25016,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -25027,7 +25027,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -25038,7 +25038,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -25048,7 +25048,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -25060,7 +25060,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -25071,7 +25071,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -25082,7 +25082,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -25093,7 +25093,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -25103,7 +25103,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -25115,7 +25115,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -25126,7 +25126,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -25137,7 +25137,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -25148,7 +25148,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -25158,7 +25158,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -25170,7 +25170,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -25181,7 +25181,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -25192,7 +25192,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -25203,7 +25203,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -25213,7 +25213,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -25225,7 +25225,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -25236,7 +25236,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -25247,7 +25247,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -25258,7 +25258,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -25268,7 +25268,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -25280,7 +25280,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -25291,7 +25291,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -25302,7 +25302,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -25313,7 +25313,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x1000000000000000000000000000000000000000,
+                address=contract_3,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -25322,7 +25322,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -25334,7 +25334,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -25345,7 +25345,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -25356,7 +25356,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -25367,7 +25367,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x2000000000000000000000000000000000000000,
+                address=contract_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -25376,7 +25376,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -25388,7 +25388,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -25399,7 +25399,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -25410,7 +25410,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB200000000000000000000000000000000000000,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -25421,7 +25421,7 @@ def test_sstore_combinations_initial20_2_paris(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x493E0,
-                address=0x3000000000000000000000000000000000000000,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -25430,7 +25430,7 @@ def test_sstore_combinations_initial20_2_paris(
         )
         + Op.CALL(
             gas=0x927C0,
-            address=0x2000000000000000000000000000000000000000,
+            address=contract_4,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,

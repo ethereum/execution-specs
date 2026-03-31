@@ -65,7 +65,7 @@ def test_create_empty000_createin_init_code_transaction(
         data=Op.POP(
             Op.CALL(
                 gas=0xEA60,
-                address=0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                address=contract_0,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,

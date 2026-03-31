@@ -481,7 +481,7 @@ def test_create2call_precompiles(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x7A120,
-                address=0xADDF5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                address=contract_0,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x80,
@@ -519,7 +519,7 @@ def test_create2call_precompiles(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x7A120,
-                address=0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                address=contract_1,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0xE0,

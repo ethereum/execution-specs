@@ -117,7 +117,7 @@ def test_create2no_cash(
     tx_data = [
         Op.CALL(
             gas=0x249F0,
-            address=0xE2B35478FDD26477CC576DD906E6277761246A3C,
+            address=contract_0,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -127,7 +127,7 @@ def test_create2no_cash(
         + Op.STOP,
         Op.CALL(
             gas=0x249F0,
-            address=0xE2B35478FDD26477CC576DD906E6277761246A3C,
+            address=contract_0,
             value=0x1,
             args_offset=0x0,
             args_size=0x0,
@@ -137,7 +137,7 @@ def test_create2no_cash(
         + Op.STOP,
         Op.STATICCALL(
             gas=0x249F0,
-            address=0xE2B35478FDD26477CC576DD906E6277761246A3C,
+            address=contract_0,
             args_offset=0x0,
             args_size=0x0,
             ret_offset=0x0,

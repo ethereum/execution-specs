@@ -93,7 +93,7 @@ def test_static_create_contract_suicide_during_init_with_value(
         Op.POP(
             Op.STATICCALL(
                 gas=0xEA60,
-                address=0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                address=contract_0,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -101,11 +101,11 @@ def test_static_create_contract_suicide_during_init_with_value(
             )
         )
         + Op.MSTORE(offset=0x0, value=0x64600C6000556000526005601BF3)
-        + Op.SELFDESTRUCT(address=0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),
+        + Op.SELFDESTRUCT(address=contract_0),
         Op.POP(
             Op.STATICCALL(
                 gas=0xEA60,
-                address=0xD94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                address=contract_1,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -113,7 +113,7 @@ def test_static_create_contract_suicide_during_init_with_value(
             )
         )
         + Op.MSTORE(offset=0x0, value=0x64600C6000556000526005601BF3)
-        + Op.SELFDESTRUCT(address=0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),
+        + Op.SELFDESTRUCT(address=contract_0),
     ]
     tx_gas = [150000]
     tx_value = [10]

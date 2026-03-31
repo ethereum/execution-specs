@@ -111,7 +111,7 @@ def test_init_colliding_with_non_empty_account(
         Op.SSTORE(key=0x0, value=0x1)
         + Op.CALL(
             gas=Op.GAS,
-            address=0xD0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0,
+            address=contract_1,
             value=0x2710,
             args_offset=Op.DUP1,
             args_size=Op.DUP1,
@@ -128,7 +128,7 @@ def test_init_colliding_with_non_empty_account(
         Op.SSTORE(key=0x0, value=0x1)
         + Op.DELEGATECALL(
             gas=Op.GAS,
-            address=0xD0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0,
+            address=contract_1,
             args_offset=Op.DUP1,
             args_size=Op.DUP1,
             ret_offset=Op.DUP1,
