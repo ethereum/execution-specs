@@ -23,7 +23,7 @@ fix:
 
 # Run all static checks (spellcheck, lint, format, mypy, ...)
 [group('static analysis'), parallel]
-static: typecheck ethereum-spec-lint spellcheck actionlint lock-check format-check lint
+static: typecheck lint-spec spellcheck lint-actions lock-check format-check lint
 
 # Check spelling
 [group('static analysis')]
@@ -63,7 +63,7 @@ typecheck *args:
 
 # Check EELS import isolation
 [group('static analysis')]
-ethereum-spec-lint:
+lint-spec:
     uv run ethereum-spec-lint
 
 # Verify uv.lock is up to date
@@ -81,7 +81,7 @@ lock-check:
 
 # Lint GitHub Actions workflows
 [group('static analysis')]
-actionlint:
+lint-actions:
     uv run actionlint -pyflakes pyflakes -shellcheck "shellcheck -S warning"
 
 # Generate HTML coverage report from last just fill run
@@ -116,11 +116,11 @@ fill *args:
 
 # Fill the base coverage consensus tests using EELS with PyPy
 [group('integration tests')]
-pypy3 *args:
-    @mkdir -p "{{ output_dir }}/pypy3/tmp" "{{ output_dir }}/pypy3/logs"
+fill-pypy *args:
+    @mkdir -p "{{ output_dir }}/fill-pypy/tmp" "{{ output_dir }}/fill-pypy/logs"
     uv run --python pypy3.11 fill \
         --skip-index \
-        --output="{{ output_dir }}/pypy3/fixtures" \
+        --output="{{ output_dir }}/fill-pypy/fixtures" \
         --no-html \
         --tb=long \
         -ra \
@@ -129,8 +129,8 @@ pypy3 *args:
         -m "eels_base_coverage and not derived_test" \
         -n auto --maxprocesses 7 \
         --dist=loadgroup \
-        --basetemp="{{ output_dir }}/pypy3/tmp" \
-        --log-to "{{ output_dir }}/pypy3/logs" \
+        --basetemp="{{ output_dir }}/fill-pypy/tmp" \
+        --log-to "{{ output_dir }}/fill-pypy/logs" \
         --clean \
         --until "{{ latest_fork }}" \
         --ignore=tests/ported_static \
@@ -141,8 +141,8 @@ pypy3 *args:
 
 # Fill the base coverage consensus tests and run EELS against the fixtures
 [group('integration tests')]
-json_loader *args:
-    @mkdir -p "{{ output_dir }}/json_loader/tmp"
+json-loader *args:
+    @mkdir -p "{{ output_dir }}/json-loader/tmp"
     uv run fill \
         -m "eels_base_coverage and not derived_test" \
         --until "{{ latest_fork }}" \
@@ -150,38 +150,38 @@ json_loader *args:
         --skip-index \
         --clean \
         --ignore=tests/ported_static \
-        --output="{{ output_dir }}/json_loader/fixtures" \
+        --output="{{ output_dir }}/json-loader/fixtures" \
         --cov-config=pyproject.toml \
         --cov=ethereum \
         --cov-fail-under=85
     uv run pytest \
         -m "not slow" \
         -n auto --maxprocesses 6 --dist=loadfile \
-        --basetemp="{{ output_dir }}/json_loader/tmp" \
+        --basetemp="{{ output_dir }}/json-loader/tmp" \
         "$@" \
         tests/json_loader \
-        "{{ output_dir }}/json_loader/fixtures"
+        "{{ output_dir }}/json-loader/fixtures"
 
 # --- Unit Tests ---
 
 # Run the testing package unit tests (with Python)
 [group('unit tests')]
-tests_pytest_py3 *args:
-    @mkdir -p "{{ output_dir }}/tests_pytest_py3/tmp"
+test-tests *args:
+    @mkdir -p "{{ output_dir }}/test-tests/tmp"
     cd packages/testing && uv run pytest \
         -n {{ xdist_workers }} \
-        --basetemp="{{ output_dir }}/tests_pytest_py3/tmp" \
+        --basetemp="{{ output_dir }}/test-tests/tmp" \
         --ignore=src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_benchmarking.py \
         "$@" \
         src
 
 # Run the testing package unit tests (with PyPy)
 [group('unit tests')]
-tests_pytest_pypy3 *args:
-    @mkdir -p "{{ output_dir }}/tests_pytest_pypy3/tmp"
+test-tests-pypy *args:
+    @mkdir -p "{{ output_dir }}/test-tests-pypy/tmp"
     cd packages/testing && uv run --python pypy3.11 pytest \
         -n auto --maxprocesses 6 \
-        --basetemp="{{ output_dir }}/tests_pytest_pypy3/tmp" \
+        --basetemp="{{ output_dir }}/test-tests-pypy/tmp" \
         --ignore=src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_benchmarking.py \
         "$@" \
         src
@@ -189,10 +189,10 @@ tests_pytest_pypy3 *args:
 # Run benchmark framework unit tests (with Python)
 [group('unit tests')]
 [group('benchmark tests')]
-tests_benchmark_pytest_py3 *args:
-    @mkdir -p "{{ output_dir }}/tests_benchmark_pytest_py3/tmp"
+test-tests-bench *args:
+    @mkdir -p "{{ output_dir }}/test-tests-bench/tmp"
     uv run pytest \
-        --basetemp="{{ output_dir }}/tests_benchmark_pytest_py3/tmp" \
+        --basetemp="{{ output_dir }}/test-tests-bench/tmp" \
         "$@" \
         packages/testing/src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_benchmarking.py
 
@@ -200,8 +200,8 @@ tests_benchmark_pytest_py3 *args:
 
 # Fill benchmark tests with --gas-benchmark-values
 [group('benchmark tests')]
-benchmark-gas-values *args:
-    @mkdir -p "{{ output_dir }}/benchmark-gas-values/tmp" "{{ output_dir }}/benchmark-gas-values/logs"
+bench-gas *args:
+    @mkdir -p "{{ output_dir }}/bench-gas/tmp" "{{ output_dir }}/bench-gas/logs"
     uv run fill \
         --evm-bin="{{ evm_bin }}" \
         --gas-benchmark-values 1 \
@@ -209,17 +209,17 @@ benchmark-gas-values *args:
         --fork Osaka \
         -m "not slow" \
         -n auto --maxprocesses 10 --dist=loadgroup \
-        --output="{{ output_dir }}/benchmark-gas-values/fixtures" \
-        --basetemp="{{ output_dir }}/benchmark-gas-values/tmp" \
-        --log-to "{{ output_dir }}/benchmark-gas-values/logs" \
+        --output="{{ output_dir }}/bench-gas/fixtures" \
+        --basetemp="{{ output_dir }}/bench-gas/tmp" \
+        --log-to "{{ output_dir }}/bench-gas/logs" \
         --clean \
         "$@" \
         tests/benchmark/compute
 
 # Fill benchmark tests with --fixed-opcode-count 1
 [group('benchmark tests')]
-benchmark-fixed-opcode-cli *args:
-    @mkdir -p "{{ output_dir }}/benchmark-fixed-opcode-cli/tmp" "{{ output_dir }}/benchmark-fixed-opcode-cli/logs"
+bench-opcode *args:
+    @mkdir -p "{{ output_dir }}/bench-opcode/tmp" "{{ output_dir }}/bench-opcode/logs"
     uv run fill \
         --evm-bin="{{ evm_bin }}" \
         --fixed-opcode-count 1 \
@@ -227,17 +227,17 @@ benchmark-fixed-opcode-cli *args:
         -m repricing \
         -n auto --maxprocesses 10 --dist=loadgroup \
         -k "not test_alt_bn128 and not test_bls12_381 and not test_modexp" \
-        --output="{{ output_dir }}/benchmark-fixed-opcode-cli/fixtures" \
-        --basetemp="{{ output_dir }}/benchmark-fixed-opcode-cli/tmp" \
-        --log-to "{{ output_dir }}/benchmark-fixed-opcode-cli/logs" \
+        --output="{{ output_dir }}/bench-opcode/fixtures" \
+        --basetemp="{{ output_dir }}/bench-opcode/tmp" \
+        --log-to "{{ output_dir }}/bench-opcode/logs" \
         --clean \
         "$@" \
         tests/benchmark/compute
 
 # Run benchmark_parser, then fill benchmark tests using its config
 [group('benchmark tests')]
-benchmark-fixed-opcode-config *args:
-    @mkdir -p "{{ output_dir }}/benchmark-fixed-opcode-config/tmp" "{{ output_dir }}/benchmark-fixed-opcode-config/logs"
+bench-opcode-config *args:
+    @mkdir -p "{{ output_dir }}/bench-opcode-config/tmp" "{{ output_dir }}/bench-opcode-config/logs"
     uv run benchmark_parser
     uv run fill \
         --evm-bin="{{ evm_bin }}" \
@@ -246,9 +246,9 @@ benchmark-fixed-opcode-config *args:
         -m repricing \
         -n auto --maxprocesses 10 --dist=loadgroup \
         -k "not test_alt_bn128 and not test_bls12_381 and not test_modexp" \
-        --output="{{ output_dir }}/benchmark-fixed-opcode-config/fixtures" \
-        --basetemp="{{ output_dir }}/benchmark-fixed-opcode-config/tmp" \
-        --log-to "{{ output_dir }}/benchmark-fixed-opcode-config/logs" \
+        --output="{{ output_dir }}/bench-opcode-config/fixtures" \
+        --basetemp="{{ output_dir }}/bench-opcode-config/tmp" \
+        --log-to "{{ output_dir }}/bench-opcode-config/logs" \
         --clean \
         "$@" \
         tests/benchmark/compute
@@ -257,9 +257,9 @@ benchmark-fixed-opcode-config *args:
 
 # Generate documentation for EELS using docc
 [group('docs')]
-spec-docs:
-    uv run docc --output "{{ output_dir }}/spec-docs"
-    uv run python -c 'import pathlib; print("documentation available under file://{0}".format(pathlib.Path(r"{{ output_dir }}") / "spec-docs" / "index.html"))'
+docs-spec:
+    uv run docc --output "{{ output_dir }}/docs-spec"
+    uv run python -c 'import pathlib; print("documentation available under file://{0}".format(pathlib.Path(r"{{ output_dir }}") / "docs-spec" / "index.html"))'
 
 # Build HTML site documentation with mkdocs
 [group('docs')]
@@ -268,7 +268,7 @@ docs:
 
 # Build HTML site documentation with mkdocs (skip test case reference)
 [group('docs')]
-fast-docs:
+docs-fast:
     FAST_DOCS=True GEN_TEST_DOC_VERSION="local" DYLD_FALLBACK_LIBRARY_PATH="/opt/homebrew/lib" uv run mkdocs build --strict -d "{{ output_dir }}/docs/site"
 
 # Validate docs/CHANGELOG.md entries
@@ -278,7 +278,7 @@ changelog:
 
 # Lint markdown files (markdownlint)
 [group('docs')]
-markdownlint:
+lint-md:
     uv run markdownlintcli2_soft_fail
 
 # --- Housekeeping ---

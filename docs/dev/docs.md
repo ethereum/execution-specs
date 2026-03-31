@@ -20,7 +20,7 @@ Run all docs related checks:
 
 ```console
 just spellcheck
-just markdownlint
+just lint-md
 just docs
 just changelog
 ```

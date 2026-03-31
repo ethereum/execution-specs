@@ -44,7 +44,7 @@ jobs:
           type: benchmark
 
       - name: Run benchmark unit tests
-        run: just tests_benchmark_pytest_py3
+        run: just test-tests-bench
         env:
           EVM_BIN: ${{ steps.evm-builder.outputs.evm-bin }}
 
@@ -57,11 +57,11 @@ jobs:
       matrix:
         include:
           - name: Benchmark Gas Values
-            recipe: benchmark-gas-values
+            recipe: bench-gas
           - name: Fixed Opcode Count CLI
-            recipe: benchmark-fixed-opcode-cli
+            recipe: bench-opcode
           - name: Fixed Opcode Count Config
-            recipe: benchmark-fixed-opcode-config
+            recipe: bench-opcode-config
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:

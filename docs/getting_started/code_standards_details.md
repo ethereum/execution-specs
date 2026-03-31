@@ -85,7 +85,7 @@ just docs
 For faster iteration (skips the "[Test Case Reference](https://eest.ethereum.org/main/tests/)" section):
 
 ```console
-just fast-docs
+just docs-fast
 ```
 
 ## Verifying Fixture Changes
