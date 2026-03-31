@@ -113,6 +113,19 @@ def reverse_codes() -> Callable[[ExecutionWitness], ExecutionWitness]:
     return transform
 
 
+def reverse_state_nodes() -> Callable[[ExecutionWitness], ExecutionWitness]:
+    """Reverse the order of witness state nodes."""
+
+    def transform(
+        witness: ExecutionWitness,
+    ) -> ExecutionWitness:
+        return witness.model_copy(
+            update={"state": list(reversed(witness.state))}
+        )
+
+    return transform
+
+
 def clear_headers() -> Callable[[ExecutionWitness], ExecutionWitness]:
     """Remove all header entries from the witness."""
 
@@ -201,6 +214,7 @@ __all__ = [
     "remove_code",
     "remove_code_at",
     "reverse_codes",
+    "reverse_state_nodes",
     "prepend_header",
     "remove_header_at",
     "reverse_headers",

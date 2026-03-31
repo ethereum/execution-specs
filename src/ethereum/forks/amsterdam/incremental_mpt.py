@@ -950,6 +950,7 @@ def _decode_witness_node(
                 _rlp=rlp_bytes,
             )
         else:
+            assert len(nibbles) > 0, "ExtensionNode must have a non-empty path"
             child = _resolve_child_ref(node_db, decoded[1])
             assert isinstance(child, (MutableBranchNode, HashedNode)), (
                 "ExtensionNode child must be a BranchNode"
@@ -970,9 +971,10 @@ def _decode_witness_node(
             value = Bytes(value_raw)
         else:
             value = b""
-        # TODO: value is always empty in practice; refactor
         occupied = 16 - children.count(None) + (value != b"")
-        assert occupied >= 2, "BranchNode must have at least 2 children"
+        assert occupied >= 2, (
+            "BranchNode must have at least 2 occupied entries"
+        )
         return MutableBranchNode(
             children=children,
             value=value,

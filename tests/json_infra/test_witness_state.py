@@ -1,18 +1,25 @@
 """Tests for WitnessState."""
 
-from typing import Optional
+from typing import Any, Optional
 
+import pytest
+from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
+from ethereum.forks.amsterdam.fork_types import encode_account
 from ethereum.forks.amsterdam.incremental_mpt import (
     IncrementalMPT,
     build_mpt,
     mpt_get,
     mpt_root,
 )
-from ethereum.forks.amsterdam.trie import EMPTY_TRIE_ROOT
+from ethereum.forks.amsterdam.trie import (
+    EMPTY_TRIE_ROOT,
+    bytes_to_nibble_list,
+    nibble_list_to_compact,
+)
 from ethereum.forks.amsterdam.witness_state import (
     WitnessState,
     build_code_db,
@@ -79,6 +86,25 @@ def _make_ws(
     return WitnessState(
         _node_db=node_db, _state_root=state_root, _code_db=code_db or {}
     )
+
+
+def _root_witness(root_rlp: Bytes) -> tuple[Root, dict[Bytes, Bytes]]:
+    """Build a synthetic witness DB keyed by one root node."""
+    root_hash = Root(keccak256(root_rlp))
+    return root_hash, {Bytes(root_hash): root_rlp}
+
+
+def _single_account_state_witness(
+    *,
+    address: Address = _ADDR1,
+    storage_root: Root = EMPTY_TRIE_ROOT,
+) -> tuple[Root, dict[Bytes, Bytes]]:
+    """Build a valid one-account state witness with a custom storage root."""
+    account_leaf = [
+        nibble_list_to_compact(bytes_to_nibble_list(keccak256(address)), True),
+        encode_account(_acct(), storage_root),
+    ]
+    return _root_witness(Bytes(rlp.encode(account_leaf)))
 
 
 class TestBuildNodeDb:
@@ -244,3 +270,99 @@ class TestComputeStateRoot:
         )
         new_root, _ = witness_state.compute_state_root_and_trie_changes({}, {})
         assert new_root == state_root
+
+
+class TestCanonicalSecureTrieValidation:
+    """Test state/storage-trie canonicality checks in WitnessState."""
+
+    def test_account_trie_rejects_zero_length_extension_path(self) -> None:
+        """Account tries must reject empty extension segments."""
+        branch: list[Any] = [b""] * 17
+        branch[0] = [nibble_list_to_compact(Bytes(b"\x01"), True), b"left"]
+        branch[1] = [nibble_list_to_compact(Bytes(b"\x02"), True), b"right"]
+        root_rlp = Bytes(
+            rlp.encode([nibble_list_to_compact(Bytes(b""), False), branch])
+        )
+        state_root, node_db = _root_witness(root_rlp)
+        witness_state = WitnessState(
+            _node_db=node_db,
+            _state_root=state_root,
+            _code_db={},
+        )
+
+        with pytest.raises(
+            AssertionError,
+            match="ExtensionNode must have a non-empty path",
+        ):
+            witness_state.get_account_optional(_ADDR1)
+
+    def test_storage_trie_rejects_zero_length_extension_path(self) -> None:
+        """Storage tries must reject empty extension segments."""
+        branch: list[Any] = [b""] * 17
+        branch[0] = [nibble_list_to_compact(Bytes(b"\x01"), True), b"left"]
+        branch[1] = [nibble_list_to_compact(Bytes(b"\x02"), True), b"right"]
+        root_rlp = Bytes(
+            rlp.encode([nibble_list_to_compact(Bytes(b""), False), branch])
+        )
+        storage_root, storage_node_db = _root_witness(root_rlp)
+        state_root, state_node_db = _single_account_state_witness(
+            storage_root=storage_root
+        )
+        witness_state = WitnessState(
+            _node_db={**state_node_db, **storage_node_db},
+            _state_root=state_root,
+            _code_db={},
+        )
+
+        with pytest.raises(
+            AssertionError,
+            match="ExtensionNode must have a non-empty path",
+        ):
+            witness_state.get_storage(_ADDR1, _SLOT1)
+
+    def test_account_trie_rejects_unresolved_hashed_node(self) -> None:
+        """Secured account lookups must not silently pass unresolved hashes."""
+        fake_hash = Bytes(b"\x11" * 32)
+        key_nibbles = bytes_to_nibble_list(keccak256(_ADDR1))
+        root_rlp = Bytes(
+            rlp.encode(
+                [nibble_list_to_compact(key_nibbles[:1], False), fake_hash]
+            )
+        )
+        state_root, node_db = _root_witness(root_rlp)
+        witness_state = WitnessState(
+            _node_db=node_db,
+            _state_root=state_root,
+            _code_db={},
+        )
+
+        with pytest.raises(
+            AssertionError,
+            match="Encountered unresolved HashedNode during witness lookup",
+        ):
+            witness_state.get_account_optional(_ADDR1)
+
+    def test_storage_trie_rejects_unresolved_hashed_node(self) -> None:
+        """Secured storage lookups must not silently pass unresolved hashes."""
+        fake_hash = Bytes(b"\x22" * 32)
+        key_nibbles = bytes_to_nibble_list(keccak256(_SLOT1))
+        root_rlp = Bytes(
+            rlp.encode(
+                [nibble_list_to_compact(key_nibbles[:1], False), fake_hash]
+            )
+        )
+        storage_root, storage_node_db = _root_witness(root_rlp)
+        state_root, state_node_db = _single_account_state_witness(
+            storage_root=storage_root
+        )
+        witness_state = WitnessState(
+            _node_db={**state_node_db, **storage_node_db},
+            _state_root=state_root,
+            _code_db={},
+        )
+
+        with pytest.raises(
+            AssertionError,
+            match="Encountered unresolved HashedNode during witness lookup",
+        ):
+            witness_state.get_storage(_ADDR1, _SLOT1)
