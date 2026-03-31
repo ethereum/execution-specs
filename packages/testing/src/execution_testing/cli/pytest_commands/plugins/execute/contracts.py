@@ -78,6 +78,7 @@ def deploy_deterministic_factory_contract(
         fund_tx = Transaction(
             to=deploy_tx_sender,
             value=fund_amount,
+            gas_limit=200_000,
             gas_price=gas_price,
             sender=seed_key,
         )
