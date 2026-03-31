@@ -1165,6 +1165,7 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     except Exception as e:
         pytest.fail(f"Error generating tests for {test_name}: {e}")
 
+    pytest_params: List[Any]
     if not test_fork_set:
         if metafunc.config.getoption("verbose") >= 2:
             pytest_params = [
@@ -1191,7 +1192,6 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     if "fork" not in metafunc.fixturenames:
         return
 
-    pytest_params: List[Any]
     unsupported_forks: Set[Fork | TransitionFork] = (
         metafunc.config.unsupported_forks  # type: ignore
     )
