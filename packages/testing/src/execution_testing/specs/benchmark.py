@@ -45,6 +45,24 @@ from .base import BaseTest, FillResult
 from .blockchain import Block, BlockchainTest
 
 
+@dataclass(frozen=True)
+class OpcodeTarget:
+    """
+    Map a display name to an underlying opcode for count validation.
+
+    Use when the fixture metadata should show a descriptive label (e.g. a
+    precompile name) while opcode-count validation targets the real EVM
+    opcode that gets executed (e.g. STATICCALL).
+    """
+
+    name: str
+    opcode: Op
+
+    def __str__(self) -> str:
+        """Return the display name."""
+        return self.name
+
+
 @dataclass(kw_only=True)
 class BenchmarkCodeGenerator(ABC):
     """Abstract base class for generating benchmark bytecode."""
@@ -287,7 +305,7 @@ class BenchmarkTest(BaseTest):
         default_factory=lambda: int(Environment().gas_limit)
     )
     fixed_opcode_count: float | None = None
-    target_opcode: Op | None = None
+    target_opcode: Op | OpcodeTarget | None = None
     code_generator: BenchmarkCodeGenerator | None = None
     # By default, benchmark tests require neither of these
     include_full_post_state_in_output: bool = False
@@ -523,7 +541,12 @@ class BenchmarkTest(BaseTest):
         # fixed_opcode_count is in thousands units
         expected = self.fixed_opcode_count * 1000
 
-        actual = opcode_count.root.get(self.target_opcode, 0)
+        count_opcode = (
+            self.target_opcode.opcode
+            if isinstance(self.target_opcode, OpcodeTarget)
+            else self.target_opcode
+        )
+        actual = opcode_count.root.get(count_opcode, 0)
         tolerance = expected * 0.05  # 5% tolerance
 
         if abs(actual - expected) > tolerance:

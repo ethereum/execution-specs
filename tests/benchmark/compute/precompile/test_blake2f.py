@@ -12,7 +12,7 @@ from execution_testing import (
 from tests.istanbul.eip152_blake2.common import Blake2bInput
 from tests.istanbul.eip152_blake2.spec import Spec as Blake2bSpec
 
-from ..helpers import concatenate_parameters
+from ..helpers import Precompile, concatenate_parameters
 
 
 @pytest.mark.parametrize(
@@ -48,7 +48,7 @@ def test_blake2f(
     )
 
     benchmark_test(
-        target_opcode=Op.STATICCALL,
+        target_opcode=Precompile.BLAKE2F,
         code_generator=JumpLoopGenerator(
             setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
             attack_block=attack_block,
@@ -78,7 +78,7 @@ def test_blake2f_benchmark(
     )
 
     benchmark_test(
-        target_opcode=Op.STATICCALL,
+        target_opcode=Precompile.BLAKE2F,
         code_generator=JumpLoopGenerator(
             setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
             attack_block=attack_block,

@@ -10,6 +10,8 @@ from execution_testing import (
 
 from tests.byzantium.eip198_modexp_precompile.helpers import ModExpInput
 
+from ..helpers import Precompile
+
 
 def create_modexp_test_cases() -> list[ParameterSet]:
     """Create test cases for the MODEXP precompile."""
@@ -408,7 +410,7 @@ def test_modexp(
         )
     )
     benchmark_test(
-        target_opcode=Op.STATICCALL,
+        target_opcode=Precompile.MODEXP,
         code_generator=JumpLoopGenerator(
             setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
             attack_block=attack_block,

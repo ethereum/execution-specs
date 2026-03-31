@@ -9,7 +9,7 @@ from execution_testing import (
     Op,
 )
 
-from ..helpers import concatenate_parameters
+from ..helpers import Precompile, concatenate_parameters
 
 
 @pytest.mark.repricing
@@ -64,7 +64,7 @@ def test_ecrecover(
     )
 
     benchmark_test(
-        target_opcode=Op.STATICCALL,
+        target_opcode=Precompile.ECRECOVER,
         code_generator=JumpLoopGenerator(
             setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
             attack_block=attack_block,

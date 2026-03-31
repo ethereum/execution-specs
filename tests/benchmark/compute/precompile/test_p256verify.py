@@ -11,7 +11,7 @@ from execution_testing import (
 
 from tests.osaka.eip7951_p256verify_precompiles import spec as p256verify_spec
 
-from ..helpers import concatenate_parameters
+from ..helpers import Precompile, concatenate_parameters
 
 
 @pytest.mark.parametrize(
@@ -81,7 +81,7 @@ def test_p256verify(
     )
 
     benchmark_test(
-        target_opcode=Op.STATICCALL,
+        target_opcode=Precompile.P256VERIFY,
         code_generator=JumpLoopGenerator(
             setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
             attack_block=attack_block,

@@ -8,15 +8,16 @@ from execution_testing import (
     Fork,
     JumpLoopGenerator,
     Op,
+    OpcodeTarget,
 )
 
 from tests.prague.eip2537_bls_12_381_precompiles import spec as bls12381_spec
 
-from ..helpers import concatenate_parameters
+from ..helpers import Precompile, concatenate_parameters
 
 
 @pytest.mark.parametrize(
-    "precompile_address,calldata",
+    "precompile_address,calldata,target",
     [
         pytest.param(
             bls12381_spec.Spec.G1ADD,
@@ -26,6 +27,7 @@ from ..helpers import concatenate_parameters
                     bls12381_spec.Spec.P1,
                 ]
             ),
+            Precompile.BLS12_G1ADD,
             id="bls12_g1add",
             marks=pytest.mark.repricing,
         ),
@@ -40,6 +42,7 @@ from ..helpers import concatenate_parameters
                     * (len(bls12381_spec.Spec.G1MSM_DISCOUNT_TABLE) - 1),
                 ]
             ),
+            Precompile.BLS12_G1MSM,
             id="bls12_g1msm",
         ),
         pytest.param(
@@ -50,6 +53,7 @@ from ..helpers import concatenate_parameters
                     bls12381_spec.Spec.P2,
                 ]
             ),
+            Precompile.BLS12_G2ADD,
             id="bls12_g2add",
             marks=pytest.mark.repricing,
         ),
@@ -68,6 +72,7 @@ from ..helpers import concatenate_parameters
                     * (len(bls12381_spec.Spec.G2MSM_DISCOUNT_TABLE) // 2),
                 ]
             ),
+            Precompile.BLS12_G2MSM,
             id="bls12_g2msm",
         ),
         pytest.param(
@@ -78,6 +83,7 @@ from ..helpers import concatenate_parameters
                     bls12381_spec.Spec.G2,
                 ]
             ),
+            Precompile.BLS12_PAIRING,
             id="bls12_pairing_check",
         ),
         pytest.param(
@@ -87,6 +93,7 @@ from ..helpers import concatenate_parameters
                     bls12381_spec.FP(bls12381_spec.Spec.P - 1),
                 ]
             ),
+            Precompile.BLS12_MAP_FP_TO_G1,
             id="bls12_fp_to_g1",
             marks=pytest.mark.repricing,
         ),
@@ -99,6 +106,7 @@ from ..helpers import concatenate_parameters
                     ),
                 ]
             ),
+            Precompile.BLS12_MAP_FP2_TO_G2,
             id="bls12_fp_to_g2",
             marks=pytest.mark.repricing,
         ),
@@ -109,6 +117,7 @@ def test_bls12_381(
     fork: Fork,
     precompile_address: Address,
     calldata: bytes,
+    target: OpcodeTarget,
 ) -> None:
     """Benchmark BLS12_381 precompile."""
     if precompile_address not in fork.precompiles():
@@ -121,7 +130,7 @@ def test_bls12_381(
     )
 
     benchmark_test(
-        target_opcode=Op.STATICCALL,
+        target_opcode=target,
         code_generator=JumpLoopGenerator(
             setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
             attack_block=attack_block,
@@ -155,7 +164,7 @@ def test_bls12_g1_msm(
     )
 
     benchmark_test(
-        target_opcode=Op.STATICCALL,
+        target_opcode=Precompile.BLS12_G1MSM,
         code_generator=JumpLoopGenerator(
             setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
             attack_block=attack_block,
@@ -206,7 +215,7 @@ def test_bls12_g2_msm(
     )
 
     benchmark_test(
-        target_opcode=Op.STATICCALL,
+        target_opcode=Precompile.BLS12_G2MSM,
         code_generator=JumpLoopGenerator(
             setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
             attack_block=attack_block,
@@ -239,7 +248,7 @@ def test_bls12_pairing(
     )
 
     benchmark_test(
-        target_opcode=Op.STATICCALL,
+        target_opcode=Precompile.BLS12_PAIRING,
         code_generator=JumpLoopGenerator(
             setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
             attack_block=attack_block,

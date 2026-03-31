@@ -11,7 +11,7 @@ from execution_testing import (
 
 from tests.cancun.eip4844_blobs.spec import Spec as BlobsSpec
 
-from ..helpers import concatenate_parameters
+from ..helpers import Precompile, concatenate_parameters
 
 
 @pytest.mark.repricing
@@ -50,7 +50,7 @@ def test_point_evaluation(
     )
 
     benchmark_test(
-        target_opcode=Op.STATICCALL,
+        target_opcode=Precompile.POINT_EVALUATION,
         code_generator=JumpLoopGenerator(
             setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
             attack_block=attack_block,

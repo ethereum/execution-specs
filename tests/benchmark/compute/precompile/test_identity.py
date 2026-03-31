@@ -8,7 +8,7 @@ from execution_testing import (
     Op,
 )
 
-from ..helpers import calculate_optimal_input_length
+from ..helpers import Precompile, calculate_optimal_input_length
 
 
 def test_identity(
@@ -36,7 +36,7 @@ def test_identity(
     )
 
     benchmark_test(
-        target_opcode=Op.STATICCALL,
+        target_opcode=Precompile.IDENTITY,
         code_generator=JumpLoopGenerator(
             setup=Op.CODECOPY(0, 0, optimal_input_length),
             attack_block=attack_block,
@@ -55,7 +55,7 @@ def test_identity_fixed_size(
     )
 
     benchmark_test(
-        target_opcode=Op.STATICCALL,
+        target_opcode=Precompile.IDENTITY,
         code_generator=JumpLoopGenerator(
             setup=Op.CODECOPY(0, 0, size), attack_block=attack_block
         ),

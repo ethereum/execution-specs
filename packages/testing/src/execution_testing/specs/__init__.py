@@ -2,7 +2,12 @@
 
 from .base import BaseTest, TestSpec
 from .base_static import BaseStaticTest
-from .benchmark import BenchmarkTest, BenchmarkTestFiller, BenchmarkTestSpec
+from .benchmark import (
+    BenchmarkTest,
+    BenchmarkTestFiller,
+    BenchmarkTestSpec,
+    OpcodeTarget,
+)
 from .blobs import BlobsTest, BlobsTestFiller, BlobsTestSpec
 from .blockchain import (
     Block,
@@ -35,6 +40,7 @@ __all__ = (
     "BlockchainTestSpec",
     "Block",
     "Header",
+    "OpcodeTarget",
     "StateStaticTest",
     "StateTest",
     "StateTestFiller",
