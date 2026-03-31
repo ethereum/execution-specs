@@ -15,8 +15,11 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    Fork,
 )
 from execution_testing.vm import Op
+
+from execution_testing.forks import Amsterdam
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -29,6 +32,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.pre_alloc_mutable
 def test_random_statetest409(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
 ) -> None:
     """Test_random_statetest409."""
@@ -103,7 +107,7 @@ def test_random_statetest409(
         data=Bytes(
             "5b7f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7f00000000000000000000000100000000000000000000000000000000000000007f0000000000000000000000004f3f701464972e74606d6ea82d4d3080599a0e797fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f000000000000000000000001000000000000000000000000000000000000000009ff511287868833063aa3579d8e58"  # noqa: E501
         ),
-        gas_limit=100000,
+        gas_limit=2100000 if fork >= Amsterdam else 100000,
         value=0x41028C83,
     )
 
