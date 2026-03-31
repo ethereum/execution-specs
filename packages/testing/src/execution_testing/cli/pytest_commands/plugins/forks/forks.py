@@ -29,6 +29,7 @@ from execution_testing.forks import (
     ALL_FORKS,
     ALL_FORKS_WITH_TRANSITIONS,
     Fork,
+    ForkEIPSetAdapter,
     ForkSetAdapter,
     InvalidForkError,
     TransitionFork,
@@ -749,12 +750,21 @@ class ValidityMarker(ABC):
         self, *fork_args: str
     ) -> Set[Fork | TransitionFork]:
         """Process the fork arguments."""
-        fork_set = ForkSetAdapter.validate_python(fork_args)
-        if len(fork_set) != len(fork_args):
+        fork_eips_set = ForkEIPSetAdapter.validate_python(fork_args)
+        if len(fork_eips_set) != len(fork_args):
             raise Exception(
                 f"Duplicate argument specified in '{self.marker_name}'"
             )
-        return fork_set
+        forks_set: Set[Fork | TransitionFork] = set()
+        for fork_eip in fork_eips_set:
+            if fork_eip.is_transition_fork:
+                forks_set.add(fork_eip)
+            else:
+                if not fork_eip.is_eip():
+                    forks_set.add(fork_eip)
+                else:
+                    forks_set |= fork_eip.enabling_forks()
+        return forks_set
 
     @staticmethod
     def get_all_validity_markers(

@@ -247,6 +247,8 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     _fork_by_timestamp: ClassVar[bool] = False
     _blob_constants: ClassVar[Dict[str, int]] = {}
     _deployed: ClassVar[bool] = True
+    _enabled_eips: ClassVar[Set[int]] = set()
+    _enabling_forks: ClassVar[Set[Type["BaseFork"]]] = set()
 
     # Method version bumps
     _engine_new_payload_version_bump: ClassVar[bool] = False
@@ -293,13 +295,19 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
                 base_fork_class = base_class
                 break
         assert base_fork_class is not None
+        cls._enabled_eips = set()
         if base_fork_class != BaseFork:
             base_fork_class._children.add(cls)
+            cls._enabled_eips |= base_fork_class._enabled_eips
         eip_bases = [
             base_class
             for base_class in cls.__bases__
             if issubclass(base_class, BaseFork) and base_class.is_eip()
         ]
+        cls._enabling_forks = set()
+        for eip_base in eip_bases:
+            cls._enabled_eips.add(eip_base.eip())
+            eip_base._enabling_forks.add(cls)
         # Bump the versions if any of the EIPs bump the version
         if engine_new_payload_version_bump is not None:
             cls._engine_new_payload_version_bump = (
@@ -1039,7 +1047,26 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     @classmethod
     def is_eip(cls) -> bool:
         """Return whether this class is an EIP."""
-        return cls.__name__.startswith("EIP")
+        return cls.__name__.startswith("EIP") and cls.__name__[-1].isdigit()
+
+    @classmethod
+    def eip(cls) -> int:
+        """Return the number of this EIP class."""
+        if not cls.is_eip():
+            raise Exception(f"Class {cls.__name__} is not an EIP.")
+        return int(cls.__name__[3:])
+
+    @classmethod
+    def is_eip_enabled(cls, *, eip_number: int) -> bool:
+        """Return whether this class has an EIP enabled."""
+        return eip_number in cls._enabled_eips
+
+    @classmethod
+    def enabling_forks(cls) -> Set[Type["BaseFork"]]:
+        """Return the forks that enable this EIP."""
+        if not cls.is_eip():
+            raise Exception(f"Class {cls.__name__} is not an EIP.")
+        return cls._enabling_forks
 
     @classmethod
     def parent(cls) -> Type["BaseFork"] | None:

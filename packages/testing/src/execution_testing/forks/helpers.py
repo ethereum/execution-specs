@@ -1,5 +1,8 @@
 """Helper methods to resolve forks during test filling."""
 
+import importlib
+import inspect
+import pkgutil
 import re
 from typing import (
     Annotated,
@@ -24,7 +27,7 @@ from pydantic import (
 )
 
 from .base_fork import BaseFork
-from .forks import forks, transition
+from .forks import eips, forks, transition
 from .transition_base_fork import TransitionBaseClass
 
 
@@ -50,6 +53,17 @@ for fork_name in forks.__dict__:
         and not fork.is_eip()
     ):
         all_forks.append(fork)
+
+all_eips: List[Type[BaseFork]] = []
+for _importer, modname, _ispkg in pkgutil.walk_packages(
+    eips.__path__, prefix=eips.__name__ + "."
+):
+    if not re.search(r"\.eip_\d+$", modname):
+        continue
+    module = importlib.import_module(modname)
+    for name, obj in inspect.getmembers(module, inspect.isclass):
+        if name.startswith("EIP") and obj.__module__ == modname:
+            all_eips.append(obj)
 
 transition_forks: List[Type[TransitionBaseClass]] = []
 
@@ -457,6 +471,22 @@ ForkSet = Annotated[
     BeforeValidator(set_before_validator),
 ]
 ForkSetAdapter: TypeAdapter = TypeAdapter(ForkSet)
+
+ForkEIP = Annotated[
+    Type[BaseFork],
+    PlainSerializer(str),
+    PlainValidator(
+        fork_validator_generator(
+            BaseFork, all_forks + all_eips + transition_forks
+        )
+    ),
+]
+ForkEIPSet = Annotated[
+    Set[ForkEIP],
+    BeforeValidator(set_before_validator),
+]
+ForkEIPSetAdapter: TypeAdapter = TypeAdapter(ForkEIPSet)
+
 TransitionFork = Annotated[
     Type[TransitionBaseClass],
     PlainSerializer(str),

@@ -47,12 +47,47 @@ def test_case(state_test):
         ),
         pytest.param(
             generate_test(
+                valid_from='"EIP3675"',
+            ),
+            ["--until=Prague"],
+            {"passed": 4, "failed": 0, "skipped": 0, "errors": 0},
+            id="valid_from_eip",
+        ),
+        pytest.param(
+            generate_test(
                 valid_from='"Paris"',
                 valid_until='"Cancun"',
             ),
             [],
             {"passed": 3, "failed": 0, "skipped": 0, "errors": 0},
             id="valid_from_until",
+        ),
+        pytest.param(
+            generate_test(
+                valid_from='"EIP3675"',
+                valid_until='"EIP4844"',
+            ),
+            [],
+            {"passed": 3, "failed": 0, "skipped": 0, "errors": 0},
+            id="valid_from_eip_until_eip",
+        ),
+        pytest.param(
+            generate_test(
+                valid_from='"Paris"',
+                valid_until='"EIP4844"',
+            ),
+            [],
+            {"passed": 3, "failed": 0, "skipped": 0, "errors": 0},
+            id="valid_from_fork_until_eip",
+        ),
+        pytest.param(
+            generate_test(
+                valid_from='"EIP3675"',
+                valid_until='"Cancun"',
+            ),
+            [],
+            {"passed": 3, "failed": 0, "skipped": 0, "errors": 0},
+            id="valid_from_eip_until_fork",
         ),
         pytest.param(
             generate_test(
