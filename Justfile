@@ -281,6 +281,10 @@ changelog:
 lint-md:
     uv run markdownlintcli2_soft_fail
 
+[private]
+crops:
+    @uvx pycowsay==0.0.0.2 "ethereum is good"
+
 # --- Housekeeping ---
 
 # Remove caches and build artifacts (.pytest_cache, .mypy_cache, __pycache__, ...)
