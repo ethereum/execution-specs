@@ -1297,7 +1297,7 @@ class SpuriousDragon(
 
 
 class Byzantium(
-    EIP649, EIP214, EIP211, EIP140, EIP197, EIP196, EIP198, SpuriousDragon
+    EIP649, EIP214, EIP211, EIP140, EIP198, EIP196, EIP197, SpuriousDragon
 ):
     """Byzantium fork."""
 
