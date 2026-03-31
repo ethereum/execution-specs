@@ -13,19 +13,19 @@ from .spec import Spec
 @pytest.fixture
 def target_blobs_per_block(fork: Fork) -> int:
     """Return default number of target blobs per block."""
-    return fork.target_blobs_per_block()
+    return fork.transitions_to().target_blobs_per_block()
 
 
 @pytest.fixture
 def max_blobs_per_block(fork: Fork) -> int:
     """Return default number of max blobs per block."""
-    return fork.max_blobs_per_block()
+    return fork.transitions_to().max_blobs_per_block()
 
 
 @pytest.fixture
 def blob_gas_per_blob(fork: Fork) -> int:
     """Return default blob gas cost per blob."""
-    return fork.blob_gas_per_blob()
+    return fork.transitions_to().blob_gas_per_blob()
 
 
 @pytest.fixture(autouse=True)
@@ -97,12 +97,14 @@ def block_base_fee_per_gas(
     will trigger the reserve price.
     """
     blob_base_cost = Spec.BLOB_BASE_COST
-    gas_per_blob = fork.blob_gas_per_blob()
+    gas_per_blob = fork.transitions_to().blob_gas_per_blob()
     if parent_excess_blobs is None:
         blob_base_fee = 1
     else:
         parent_excess_blob_gas = parent_excess_blobs * gas_per_blob
-        blob_gas_price_calculator = fork.blob_gas_price_calculator()
+        blob_gas_price_calculator = (
+            fork.transitions_to().blob_gas_price_calculator()
+        )
         blob_base_fee = blob_gas_price_calculator(
             excess_blob_gas=parent_excess_blob_gas
         )
@@ -162,7 +164,7 @@ def excess_blob_gas(
     """
     if parent_excess_blobs is None or parent_blobs is None:
         return None
-    return fork.excess_blob_gas_calculator()(
+    return fork.transitions_to().excess_blob_gas_calculator()(
         parent_excess_blobs=parent_excess_blobs,
         parent_blob_count=parent_blobs,
         parent_base_fee_per_gas=block_base_fee_per_gas,
@@ -184,7 +186,7 @@ def correct_excess_blob_gas(
     """
     if parent_excess_blobs is None or parent_blobs is None:
         return 0
-    return fork.excess_blob_gas_calculator()(
+    return fork.transitions_to().excess_blob_gas_calculator()(
         parent_excess_blobs=parent_excess_blobs,
         parent_blob_count=parent_blobs,
         parent_base_fee_per_gas=block_base_fee_per_gas,
@@ -199,7 +201,7 @@ def blob_gas_price(
     """Return blob gas price for the block of the test."""
     if excess_blob_gas is None:
         return None
-    get_blob_gas_price = fork.blob_gas_price_calculator()
+    get_blob_gas_price = fork.transitions_to().blob_gas_price_calculator()
     return get_blob_gas_price(
         excess_blob_gas=excess_blob_gas,
     )
@@ -211,7 +213,7 @@ def correct_blob_gas_used(
     blobs_per_tx: int,
 ) -> int:
     """Correct blob gas used by the test transaction."""
-    return fork.blob_gas_per_blob() * blobs_per_tx
+    return fork.transitions_to().blob_gas_per_blob() * blobs_per_tx
 
 
 @pytest.fixture
