@@ -248,7 +248,7 @@ class Alloc(SharedAlloc):
         address_stubs: AddressStubs | None = None,
         block_number: int = 0,
         timestamp: int = 0,
-        funding_gas_limit: int = 21_000,
+        funding_gas_limit: int = 200_000,
         **kwargs: Any,
     ) -> None:
         """Initialize the pre-alloc with the given parameters."""
@@ -858,6 +858,7 @@ class Alloc(SharedAlloc):
                     target=d.address.label,
                     to=d.address,
                     value=d.amount - current_balance,
+                    gas_limit=self._funding_gas_limit,
                 )
                 new_balance = d.amount
             else:
@@ -872,6 +873,7 @@ class Alloc(SharedAlloc):
                     target=d.address.label,
                     to=d.address,
                     value=d.amount,
+                    gas_limit=self._funding_gas_limit,
                 )
                 new_balance = current_balance + d.amount
 
@@ -1030,7 +1032,7 @@ def pre(
     # Build refund transactions
     refund_txs: List[Transaction] = []
     skipped_refunds = 0
-    refund_gas_limit = 21_000
+    refund_gas_limit = sender_fund_refund_gas_limit
     tx_cost = refund_gas_limit * max_fee_per_gas
     for idx, eoa in enumerate(funded_eoas):
         account = eth_rpc.get_account(eoa, skip_code=True)
