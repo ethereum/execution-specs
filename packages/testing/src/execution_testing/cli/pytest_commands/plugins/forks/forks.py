@@ -870,14 +870,13 @@ class ValidityMarker(ABC):
             fork_set = self._process_with_marker_args(
                 *self.mark.args, **self.mark.kwargs
             )
-            if not fork_set:
-                # Test is marked for an EIP that is not yet enabled in any
-                # fork.
-                return fork_set
         if self.flag:
-            resulting_set = forks - fork_set
-        else:
-            resulting_set = forks & fork_set
+            return forks - fork_set
+        if not fork_set:
+            # Test is marked for an EIP that is not yet enabled in any
+            # fork.
+            return fork_set
+        resulting_set = forks & fork_set
         if not resulting_set:
             raise ValidityMarker.ValidityMarkerCombinationError()
         return resulting_set
