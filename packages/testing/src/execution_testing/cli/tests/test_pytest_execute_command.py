@@ -163,3 +163,51 @@ def test_execute_remote_leaks_chain_id_into_later_defaults(
 
     assert result.exit_code == 0, result.output
     assert Transaction().chain_id == DEFAULT_CHAIN_ID
+
+
+def test_execute_remote_accepts_address_stubs_with_env_rpc_endpoint(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    """Verify address stubs work when `RPC_ENDPOINT` is only set in env."""
+    inner_test = tmp_path / "test_env_rpc_endpoint_stubs.py"
+    inner_test.write_text(
+        "\n".join(
+            [
+                "from execution_testing import (",
+                "    Account,",
+                "    Environment,",
+                "    Transaction,",
+                ")",
+                "",
+                "def test_noop(state_test, pre) -> None:",
+                "    contract = pre.deploy_contract(b'', stub='STUB')",
+                "    state_test(",
+                "        env=Environment(),",
+                "        pre={contract: Account(code=b'')},",
+                "        post={},",
+                "        tx=Transaction(),",
+                "    )",
+                "",
+            ]
+        )
+    )
+
+    with patch(
+        "execution_testing.cli.pytest_commands.plugins.execute.rpc.remote.EthRPC"
+    ) as mock_eth_rpc:
+        mock_eth_rpc.return_value.chain_id.return_value = 12345
+        result = runner.invoke(
+            execute,
+            [
+                "remote",
+                "--chain-id=12345",
+                "--collect-only",
+                "-q",
+                "--address-stubs",
+                '{"STUB":"0x0000000000000000000000000000000000000001"}',
+                str(inner_test),
+            ],
+            env={"RPC_ENDPOINT": "http://localhost:12345"},
+        )
+
+    assert result.exit_code == 0, result.output
