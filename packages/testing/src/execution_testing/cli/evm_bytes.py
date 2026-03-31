@@ -27,7 +27,9 @@ class OpcodeWithOperands:
 
     opcode: Op
     operands: List[int] = field(default_factory=list)
-    args: List["OpcodeWithOperands | HexNumber"] = field(default_factory=list)
+    args: List["OpcodeWithOperands | HexNumber | str"] = field(
+        default_factory=list
+    )
     kwargs: Dict[str, "OpcodeWithOperands | HexNumber | str"] = field(
         default_factory=dict
     )
