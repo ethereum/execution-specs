@@ -6,7 +6,6 @@ silently if external tools are not available, to avoid disruption to
 external contributors.
 """
 
-import os
 import re
 import shutil
 import subprocess
@@ -15,42 +14,6 @@ from pathlib import Path
 
 import click
 import semver
-
-
-def write_github_summary(
-    title: str, recipe: str, error_message: str, fix_commands: list[str]
-) -> None:
-    """
-    Write a summary to GitHub Actions when a check fails.
-
-    Args:
-      title: The title of the check that failed
-      recipe: The just recipe name (e.g., "static")
-      error_message: Description of what went wrong
-      fix_commands: List of commands to fix the issue locally
-
-    """
-    if not os.environ.get("GITHUB_ACTIONS"):
-        return
-
-    summary_file = os.environ.get("GITHUB_STEP_SUMMARY")
-    if not summary_file:
-        return
-
-    with open(summary_file, "a") as f:
-        f.write(f"## ❌ {title}\n\n")
-        f.write(f"{error_message}\n\n")
-        f.write("### To reproduce this check locally:\n")
-        f.write("```bash\n")
-        f.write(f"just {recipe}\n")
-        f.write("```\n\n")
-
-        if fix_commands:
-            f.write("### To verify and fix the issues:\n")
-            f.write("```bash\n")
-            for cmd in fix_commands:
-                f.write(f"{cmd}\n")
-            f.write("```\n")
 
 
 def find_project_root() -> Path:
