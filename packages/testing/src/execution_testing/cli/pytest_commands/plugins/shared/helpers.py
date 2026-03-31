@@ -1,5 +1,6 @@
 """Helpers for pytest plugins."""
 
+import os
 from typing import Any, Dict, Tuple, Type
 
 import pytest
@@ -42,6 +43,13 @@ def is_help_or_collectonly_mode(config: pytest.Config) -> bool:
         or config.pluginmanager.has_plugin(
             "execution_testing.cli.pytest_commands.plugins.filler.gen_test_doc.gen_test_doc"
         )
+    )
+
+
+def get_rpc_endpoint(config: pytest.Config) -> str | None:
+    """Return the configured RPC endpoint or fall back to `RPC_ENDPOINT`."""
+    return config.getoption("rpc_endpoint", None) or os.environ.get(
+        "RPC_ENDPOINT"
     )
 
 

@@ -22,6 +22,7 @@ from execution_testing.specs.base import OpMode
 from execution_testing.test_types import EOA, Alloc, ChainConfig
 
 from ..shared.address_stubs import AddressStubs
+from ..shared.helpers import get_rpc_endpoint
 from ..shared.pre_alloc import AllocFlags
 from ..spec_version_checker.spec_version_checker import EIPSpecTestItem
 
@@ -99,7 +100,7 @@ def pytest_configure(config: pytest.Config) -> None:
        it uses the modified `htmlpath` option.
     """
     address_stubs = config.getoption("address_stubs", None)
-    rpc_endpoint = config.getoption("rpc_endpoint", None)
+    rpc_endpoint = get_rpc_endpoint(config)
     if address_stubs is not None and rpc_endpoint is None:
         pytest.exit(
             "--address-stubs requires --rpc-endpoint to fetch "
