@@ -14,8 +14,11 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    Fork,
 )
 from execution_testing.vm import Op
+
+from execution_testing.forks import Amsterdam
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -28,6 +31,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.pre_alloc_mutable
 def test_self_balance_update(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
 ) -> None:
     """Test_self_balance_update."""
@@ -72,7 +76,7 @@ def test_self_balance_update(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=200000,
+        gas_limit=2200000 if fork >= Amsterdam else 200000,
     )
 
     post = {target: Account(storage={1: 500, 2: 499, 3: 1})}

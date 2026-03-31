@@ -16,8 +16,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
     compute_create_address,
+    Fork,
 )
 from execution_testing.vm import Op
+
+from execution_testing.forks import Amsterdam
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -32,6 +35,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.pre_alloc_mutable
 def test_recursive_create_contracts_create4_contracts(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
 ) -> None:
     """Test_recursive_create_contracts_create4_contracts."""
@@ -252,7 +256,7 @@ def test_recursive_create_contracts_create4_contracts(
         sender=sender,
         to=contract_0,
         data=Bytes("a444f5e9") + Hash(0x4),
-        gas_limit=300000,
+        gas_limit=2300000 if fork >= Amsterdam else 300000,
         value=1,
     )
 
