@@ -221,6 +221,12 @@ def get_selected_fork_set(
         selected_fork_set |= get_from_until_fork_set(
             ALL_FORKS, forks_from, forks_until
         )
+        # Transition fork comparison operators resolve to
+        # transitions_to(), so an --until transition fork boundary
+        # incorrectly includes its target in the normal fork set.
+        for fork_until in forks_until:
+            if issubclass(fork_until, TransitionBaseClass):
+                selected_fork_set.discard(fork_until.transitions_to())
     selected_fork_set_with_transitions: Set[
         Type[BaseFork | TransitionBaseClass]
     ] = set() | selected_fork_set
@@ -228,6 +234,12 @@ def get_selected_fork_set(
         for normal_fork in list(selected_fork_set):
             transition_fork_set = transition_fork_to(normal_fork)
             selected_fork_set_with_transitions |= transition_fork_set
+        # Explicitly add transition fork boundaries whose target fork
+        # was removed above (transition_fork_to won't find them).
+        if not single_fork:
+            for fork in forks_from | forks_until:
+                if issubclass(fork, TransitionBaseClass):
+                    selected_fork_set_with_transitions.add(fork)
     return selected_fork_set_with_transitions
 
 
