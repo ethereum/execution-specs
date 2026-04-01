@@ -159,7 +159,7 @@ def mcopy(evm: Evm) -> None:
 
     # GAS
     words = ceil32(Uint(length)) // Uint(32)
-    copy_gas_cost = GasCosts.COPY * words
+    copy_gas_cost = GasCosts.OPCODE_COPY_BASE * words
 
     extend_memory = calculate_gas_extend_memory(
         evm.memory, [(source, length), (destination, length)]
