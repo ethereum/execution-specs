@@ -10,7 +10,6 @@ from execution_testing import (
     Fork,
     Header,
     Requests,
-    TransitionFork,
 )
 
 from .helpers import (
@@ -89,7 +88,7 @@ def timestamp() -> int:
 
 @pytest.fixture
 def blocks(
-    fork: Fork | TransitionFork,
+    fork: Fork,
     update_pre: None,  # Fixture is used for its side effects
     blocks_withdrawal_requests: List[List[WithdrawalRequestInteractionBase]],
     included_requests: List[List[WithdrawalRequest]],
