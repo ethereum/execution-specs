@@ -1050,6 +1050,26 @@ def process_transaction(
 
     tx_output = process_message_call(message)
 
+    # EIP-8037: On top-level revert or exceptional halt, restore all
+    # execution state gas to the reservoir.  State changes are fully
+    # reverted so no state was actually grown — the sender should not
+    # pay for state gas.  This mirrors incorporate_child_on_error for
+    # child frames.
+    if tx_output.error:
+        tx_output = MessageCallOutput(
+            gas_left=tx_output.gas_left,
+            state_gas_left=(
+                tx_output.state_gas_left + tx_output.state_gas_used
+            ),
+            refund_counter=tx_output.refund_counter,
+            logs=tx_output.logs,
+            accounts_to_delete=tx_output.accounts_to_delete,
+            error=tx_output.error,
+            return_data=tx_output.return_data,
+            regular_gas_used=tx_output.regular_gas_used,
+            state_gas_used=Uint(0),
+        )
+
     tx_gas_used_before_refund = (
         tx.gas - tx_output.gas_left - tx_output.state_gas_left
     )
