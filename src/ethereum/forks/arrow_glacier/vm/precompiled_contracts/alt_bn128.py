@@ -31,7 +31,7 @@ from py_ecc.optimized_bn128.optimized_pairing import pairing
 from py_ecc.typing import Optimized_Point3D as Point3D
 
 from ...vm import Evm
-from ...vm.gas import charge_gas
+from ...vm.gas import GasCosts, charge_gas
 from ...vm.memory import buffer_read
 from ..exceptions import InvalidParameter, OutOfGasError
 
@@ -149,7 +149,7 @@ def alt_bn128_add(evm: Evm) -> None:
     data = evm.message.data
 
     # GAS
-    charge_gas(evm, Uint(150))
+    charge_gas(evm, GasCosts.PRECOMPILE_ECADD)
 
     # OPERATION
     try:
@@ -177,7 +177,7 @@ def alt_bn128_mul(evm: Evm) -> None:
     data = evm.message.data
 
     # GAS
-    charge_gas(evm, Uint(6000))
+    charge_gas(evm, GasCosts.PRECOMPILE_ECMUL)
 
     # OPERATION
     try:
@@ -205,7 +205,11 @@ def alt_bn128_pairing_check(evm: Evm) -> None:
     data = evm.message.data
 
     # GAS
-    charge_gas(evm, Uint(34000 * (len(data) // 192) + 45000))
+    charge_gas(
+        evm,
+        GasCosts.PRECOMPILE_ECPAIRING_PER_POINT * Uint(len(data) // 192)
+        + GasCosts.PRECOMPILE_ECPAIRING_BASE,
+    )
 
     # OPERATION
     if len(data) % 192 != 0:
