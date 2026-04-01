@@ -13,15 +13,14 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Fork,
     Hash,
     StateTestFiller,
     Transaction,
     compute_create_address,
-    Fork,
 )
-from execution_testing.vm import Op
-
 from execution_testing.forks import Amsterdam
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
