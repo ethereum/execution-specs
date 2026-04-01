@@ -4,7 +4,14 @@ from typing import Any
 
 import click
 
+from ...forks import get_development_forks
 from .fill import FillCommand
+
+
+def _last_development_fork() -> str | None:
+    """Return the name of the last development fork, if any."""
+    dev_forks = get_development_forks()
+    return dev_forks[-1].name() if dev_forks else None
 
 
 @click.command()
@@ -38,6 +45,9 @@ def checklist(
     This command scans test files for eip_checklist markers and generates
     filled checklists showing which checklist items have been implemented.
 
+    By default, includes all development forks so that checklists for
+    upcoming EIPs are generated without needing --until.
+
     Examples:
         # Generate checklists for all EIPs
         uv run checklist
@@ -48,8 +58,8 @@ def checklist(
         # Generate checklists for specific test path
         uv run checklist tests/prague/eip7702*
 
-        # Include upcoming forks
-        uv run checklist --eip 8037 --until Amsterdam
+        # Limit to a specific fork
+        uv run checklist --until Prague
 
         # Specify output directory
         uv run checklist --output ./my-checklists
@@ -64,7 +74,10 @@ def checklist(
     for eip_num in eip:
         args.extend(["--checklist-eip", str(eip_num)])
 
-    # Add --until fork if specified
+    # Default --until to the last development fork so checklists for
+    # upcoming EIPs are generated without requiring the flag explicitly.
+    if until is None:
+        until = _last_development_fork()
     if until:
         args.extend(["--until", until])
 
