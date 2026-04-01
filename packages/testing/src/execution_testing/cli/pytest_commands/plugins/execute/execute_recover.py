@@ -24,7 +24,7 @@ def test_recover_funds(
     del index
 
     remaining_balance = eth_rpc.get_balance(eoa)
-    refund_gas_limit = 21_000
+    refund_gas_limit = 200_000
     tx_cost = refund_gas_limit * gas_price
     if remaining_balance < tx_cost:
         pytest.skip(
