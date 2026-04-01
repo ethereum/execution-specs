@@ -82,10 +82,6 @@ def generic_create(
         process_create_message,
     )
 
-    # Check static context first
-    if evm.message.is_static:
-        raise WriteInStaticContext
-
     # Check max init code size early before memory read
     if memory_size > U256(MAX_INIT_CODE_SIZE):
         raise OutOfGasError
@@ -180,6 +176,9 @@ def create(evm: Evm) -> None:
         The current EVM frame.
 
     """
+    if evm.message.is_static:
+        raise WriteInStaticContext
+
     # STACK
     endowment = pop(evm.stack)
     memory_start_position = pop(evm.stack)
@@ -226,6 +225,9 @@ def create2(evm: Evm) -> None:
         The current EVM frame.
 
     """
+    if evm.message.is_static:
+        raise WriteInStaticContext
+
     # STACK
     endowment = pop(evm.stack)
     memory_start_position = pop(evm.stack)
