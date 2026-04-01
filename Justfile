@@ -96,10 +96,35 @@ lint-actions:
 coverage:
     uv run coverage html -d "{{ output_dir }}/fill/coverage-html"
 
-# Generate EIP test checklists from eip_checklist markers                                                                         
-[group('consensus tests')] 
+# Generate EIP test checklists from eip_checklist markers
+[group('consensus tests')]
 checklist *args:
     uv run checklist --output tmp/checklist "$@"
+
+# --- Development ---
+
+# Static checks plus minimal test suite for quick validation
+[group('development')]
+smoke *args: typecheck lint-spec lock-check lint-actions format-check
+    @mkdir -p "{{ output_dir }}/smoke/tmp"
+    uv run fill \
+        -m "not slow" \
+        -x \
+        --skip-index \
+        --clean \
+        --until {{ latest_fork }} \
+        --basetemp="{{ output_dir }}/smoke/tmp" \
+        "$@" \
+        tests/frontier/opcodes/test_all_opcodes.py \
+        tests/frontier/scenarios/test_scenarios.py \
+        tests/frontier/validation/test_transaction.py \
+        tests/berlin/eip2929_gas_cost_increases/test_call.py \
+        tests/cancun/eip1153_tstore/test_tstorage.py \
+        tests/prague/eip7702_set_code_tx/test_gas.py \
+        tests/amsterdam/eip7928_block_level_access_lists/test_block_access_lists.py \
+        tests/amsterdam/eip7928_block_level_access_lists/test_block_access_lists_opcodes.py
+
+# --- Fill Tests ---
 
 # Fill the consensus tests using EELS (with Python)
 [group('consensus tests')]
