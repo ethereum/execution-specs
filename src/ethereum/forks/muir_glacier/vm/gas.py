@@ -30,15 +30,17 @@ class GasCosts:
     These values may be patched at runtime by a future gas repricing utility
     """
 
-    # General
+    # Tiers
     BASE = Uint(2)
     VERY_LOW = Uint(3)
-    SLOAD = Uint(800)
-    STORAGE_SET = Uint(20000)
-    COLD_STORAGE_WRITE = Uint(5000)
     LOW = Uint(5)
     MID = Uint(8)
     HIGH = Uint(10)
+
+    # General
+    SLOAD = Uint(800)
+    STORAGE_SET = Uint(20000)
+    COLD_STORAGE_WRITE = Uint(5000)
     EXPONENTIATION = Uint(10)
     EXPONENTIATION_PER_BYTE = Uint(50)
     MEMORY = Uint(3)
