@@ -208,7 +208,7 @@ def test_bloatnet_balance_opcode(
 #   test_bloatnet_call_value_existing:
 #   Same factory pattern as test_bloatnet_balance_opcode, but performs
 #   CALL with value=1 wei to each factory contract. The subcall fails
-#   (insufficient gas for 24KB bytecode), but GAS_CALL_VALUE (9000 gas)
+#   (insufficient gas for 24KB bytecode), but CALL_VALUE (9000 gas)
 #   is still charged on top of the cold account access cost.
 #
 #   test_bloatnet_call_value_new_account:
@@ -232,7 +232,7 @@ def test_bloatnet_call_value_existing(
     Benchmark CALL with value transfer to cold existing factory contracts.
 
     Unlike the existing CALL test which uses gas=1 and value=0, this test
-    passes value=1 wei per call, adding GAS_CALL_VALUE (9000 gas) to each
+    passes value=1 wei per call, adding CALL_VALUE (9000 gas) to each
     cold account access. The subcall fails (insufficient gas for bytecode
     execution), so value is not actually transferred, but the gas penalty
     is still charged.
@@ -332,8 +332,8 @@ def test_bloatnet_call_value_new_account(
     (via the 2300 gas stipend), transferring value and creating a new
     account in the trie. Each iteration costs ~36,600 gas:
     - GAS_COLD_ACCOUNT_ACCESS: 2,600
-    - GAS_CALL_VALUE: 9,000
-    - GAS_NEW_ACCOUNT: 25,000
+    - CALL_VALUE: 9,000
+    - NEW_ACCOUNT: 25,000
 
     This stresses trie expansion through massive new account creation.
     """

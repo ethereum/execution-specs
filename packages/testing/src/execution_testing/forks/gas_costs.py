@@ -3,64 +3,74 @@
 from dataclasses import dataclass
 
 # Common Gas Cost Tiers
-GAS_VERY_LOW = 3
-GAS_LOW = 5
-GAS_MID = 8
-GAS_HIGH = 10
+BASE = 2
+VERY_LOW = 3
+LOW = 5
+MID = 8
+HIGH = 10
 
 
 @dataclass(kw_only=True, frozen=True)
 class GasCosts:
     """Class that contains the gas cost constants for any fork."""
 
-    GAS_BASE: int
-    GAS_VERY_LOW: int
-    GAS_LOW: int
-    GAS_MID: int
-    GAS_HIGH: int
-    GAS_WARM_ACCESS: int
-    GAS_COLD_ACCOUNT_ACCESS: int
-    GAS_TX_ACCESS_LIST_ADDRESS: int
-    GAS_TX_ACCESS_LIST_STORAGE_KEY: int
-    GAS_WARM_SLOAD: int
-    GAS_COLD_STORAGE_ACCESS: int
-    GAS_STORAGE_SET: int
-    GAS_COLD_STORAGE_WRITE: int
-    GAS_STORAGE_RESET: int
+    # Tiers
+    BASE: int
+    VERY_LOW: int
+    LOW: int
+    MID: int
+    HIGH: int
 
-    GAS_SELF_DESTRUCT: int
-    GAS_CREATE: int
+    # Access Costs
+    WARM_ACCESS: int
+    COLD_ACCOUNT_ACCESS: int
+    WARM_SLOAD: int
+    COLD_STORAGE_ACCESS: int
 
-    GAS_CODE_DEPOSIT_PER_BYTE: int
-    GAS_CODE_INIT_PER_WORD: int
+    # Storage Costs
+    STORAGE_SET: int
+    COLD_STORAGE_WRITE: int
+    STORAGE_RESET: int
 
-    GAS_CALL_VALUE: int
-    GAS_CALL_STIPEND: int
-    GAS_NEW_ACCOUNT: int
+    # Call Costs
+    CALL_VALUE: int
+    CALL_STIPEND: int
+    NEW_ACCOUNT: int
 
-    GAS_EXPONENTIATION: int
-    GAS_EXPONENTIATION_PER_BYTE: int
+    # Contract Creation Costs
+    CODE_DEPOSIT_PER_BYTE: int
+    CODE_INIT_PER_WORD: int
 
-    GAS_MEMORY: int
-    GAS_TX_BASE: int
-    GAS_TX_CREATE: int
-    GAS_TX_DATA_PER_ZERO: int
-    GAS_TX_DATA_PER_NON_ZERO: int
-    GAS_TX_DATA_TOKEN_STANDARD: int
-    GAS_TX_DATA_TOKEN_FLOOR: int
+    # Authorization Costs
+    AUTH_PER_EMPTY_ACCOUNT: int
 
-    GAS_LOG: int
-    GAS_LOG_DATA_PER_BYTE: int
-    GAS_LOG_TOPIC: int
+    # Component Costs for Dynamic Opcodes
+    COPY: int
+    CREATE: int
+    MEMORY: int
+    EXPONENTIATION: int
+    EXPONENTIATION_PER_BYTE: int
+    LOG: int
+    LOG_DATA_PER_BYTE: int
+    LOG_TOPIC: int
+    KECCAK256: int
+    KECCAK256_PER_WORD: int
 
-    GAS_KECCAK256: int
-    GAS_KECCAK256_PER_WORD: int
+    # Transactions
+    TX_BASE: int
+    TX_CREATE: int
+    TX_DATA_PER_ZERO: int
+    TX_DATA_PER_NON_ZERO: int
+    TX_DATA_TOKEN_STANDARD: int
+    TX_DATA_TOKEN_FLOOR: int
+    TX_ACCESS_LIST_ADDRESS: int
+    TX_ACCESS_LIST_STORAGE_KEY: int
 
-    GAS_COPY: int
+    # Refunds
+    REFUND_STORAGE_CLEAR: int
+    REFUND_AUTH_PER_EXISTING_ACCOUNT: int
 
-    GAS_AUTH_PER_EMPTY_ACCOUNT: int
-
-    # Precompiled contract gas constants
+    # Precompiles
     PRECOMPILE_ECRECOVER: int
     PRECOMPILE_SHA256_BASE: int
     PRECOMPILE_SHA256_PER_WORD: int
@@ -68,17 +78,13 @@ class GasCosts:
     PRECOMPILE_RIPEMD160_PER_WORD: int
     PRECOMPILE_IDENTITY_BASE: int
     PRECOMPILE_IDENTITY_PER_WORD: int
-
     PRECOMPILE_ECADD: int
     PRECOMPILE_ECMUL: int
     PRECOMPILE_ECPAIRING_BASE: int
     PRECOMPILE_ECPAIRING_PER_POINT: int
-
     PRECOMPILE_BLAKE2F_BASE: int
     PRECOMPILE_BLAKE2F_PER_ROUND: int
-
     PRECOMPILE_POINT_EVALUATION: int
-
     PRECOMPILE_BLS_G1ADD: int
     PRECOMPILE_BLS_G1MUL: int
     PRECOMPILE_BLS_G1MAP: int
@@ -87,16 +93,12 @@ class GasCosts:
     PRECOMPILE_BLS_G2MAP: int
     PRECOMPILE_BLS_PAIRING_BASE: int
     PRECOMPILE_BLS_PAIRING_PER_PAIR: int
-
     PRECOMPILE_P256VERIFY: int
 
-    # Refund constants
-    REFUND_STORAGE_CLEAR: int
-    REFUND_AUTH_PER_EXISTING_ACCOUNT: int
+    # Block Access Lists
+    BLOCK_ACCESS_LIST_ITEM: int
 
-    GAS_BLOCK_ACCESS_LIST_ITEM: int
-
-    # Opcode specific gas constants for repricing
+    # Opcodes
     OPCODE_ADD: int
     OPCODE_SUB: int
     OPCODE_MUL: int
@@ -122,15 +124,19 @@ class GasCosts:
     OPCODE_JUMPI: int
     OPCODE_JUMPDEST: int
     OPCODE_CALLDATALOAD: int
-    OPCODE_CALLDATACOPY: int
-    OPCODE_CODECOPY: int
     OPCODE_BLOCKHASH: int
-    OPCODE_MLOAD: int
-    OPCODE_MSTORE: int
-    OPCODE_MSTORE8: int
+    OPCODE_COINBASE: int
     OPCODE_PUSH: int
     OPCODE_DUP: int
     OPCODE_SWAP: int
+
+    # Dynamic Opcodes
+    OPCODE_CALLDATACOPY: int
+    OPCODE_CODECOPY: int
+    OPCODE_MLOAD: int
+    OPCODE_MSTORE: int
+    OPCODE_MSTORE8: int
+    OPCODE_SELFDESTRUCT: int
 
     # Defined post-Frontier
     OPCODE_SHL: int = 0

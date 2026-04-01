@@ -97,41 +97,49 @@ class Frontier(
         Return dataclass with the defined gas costs constants for genesis.
         """
         return GasCosts(
-            GAS_BASE=2,
-            GAS_VERY_LOW=3,
-            GAS_LOW=5,
-            GAS_MID=8,
-            GAS_HIGH=10,
-            GAS_WARM_ACCESS=100,
-            GAS_COLD_ACCOUNT_ACCESS=2_600,
-            GAS_TX_ACCESS_LIST_ADDRESS=2_400,
-            GAS_TX_ACCESS_LIST_STORAGE_KEY=1_900,
-            GAS_WARM_SLOAD=100,
-            GAS_COLD_STORAGE_ACCESS=2_100,
-            GAS_STORAGE_SET=20_000,
-            GAS_COLD_STORAGE_WRITE=5_000,
-            GAS_STORAGE_RESET=2_900,
+            # Tiers
+            BASE=BASE,
+            VERY_LOW=VERY_LOW,
+            LOW=LOW,
+            MID=MID,
+            HIGH=HIGH,
+            # Access Costs
+            WARM_ACCESS=100,
+            COLD_ACCOUNT_ACCESS=2_600,
+            WARM_SLOAD=100,
+            COLD_STORAGE_ACCESS=2_100,
+            # Storage Costs
+            STORAGE_SET=20_000,
+            COLD_STORAGE_WRITE=5_000,
+            STORAGE_RESET=2_900,
+            # Call Costs
+            CALL_VALUE=9_000,
+            CALL_STIPEND=2_300,
+            NEW_ACCOUNT=25_000,
+            # Contract Creation Costs
+            CODE_DEPOSIT_PER_BYTE=200,
+            CODE_INIT_PER_WORD=2,
+            # Component Costs for Dynamic Opcodes
+            COPY=3,
+            CREATE=32_000,
+            MEMORY=3,
+            EXPONENTIATION=10,
+            EXPONENTIATION_PER_BYTE=50,
+            LOG=375,
+            LOG_DATA_PER_BYTE=8,
+            LOG_TOPIC=375,
+            KECCAK256=30,
+            KECCAK256_PER_WORD=6,
+            # Transactions
+            TX_BASE=21_000,
+            TX_ACCESS_LIST_ADDRESS=2_400,
+            TX_ACCESS_LIST_STORAGE_KEY=1_900,
+            TX_DATA_PER_ZERO=4,
+            TX_DATA_PER_NON_ZERO=68,
+            TX_CREATE=32_000,
+            # Refunds
             REFUND_STORAGE_CLEAR=4_800,
-            GAS_SELF_DESTRUCT=5_000,
-            GAS_CREATE=32_000,
-            GAS_CODE_DEPOSIT_PER_BYTE=200,
-            GAS_CODE_INIT_PER_WORD=2,
-            GAS_CALL_VALUE=9_000,
-            GAS_CALL_STIPEND=2_300,
-            GAS_NEW_ACCOUNT=25_000,
-            GAS_EXPONENTIATION=10,
-            GAS_EXPONENTIATION_PER_BYTE=50,
-            GAS_MEMORY=3,
-            GAS_TX_DATA_PER_ZERO=4,
-            GAS_TX_DATA_PER_NON_ZERO=68,
-            GAS_TX_BASE=21_000,
-            GAS_TX_CREATE=32_000,
-            GAS_LOG=375,
-            GAS_LOG_DATA_PER_BYTE=8,
-            GAS_LOG_TOPIC=375,
-            GAS_KECCAK256=30,
-            GAS_KECCAK256_PER_WORD=6,
-            GAS_COPY=3,
+            # Precompiles
             PRECOMPILE_ECRECOVER=3_000,
             PRECOMPILE_SHA256_BASE=60,
             PRECOMPILE_SHA256_PER_WORD=12,
@@ -139,11 +147,49 @@ class Frontier(
             PRECOMPILE_RIPEMD160_PER_WORD=120,
             PRECOMPILE_IDENTITY_BASE=15,
             PRECOMPILE_IDENTITY_PER_WORD=3,
+            # Static Opcodes
+            OPCODE_ADD=VERY_LOW,
+            OPCODE_SUB=VERY_LOW,
+            OPCODE_MUL=LOW,
+            OPCODE_DIV=LOW,
+            OPCODE_SDIV=LOW,
+            OPCODE_MOD=LOW,
+            OPCODE_SMOD=LOW,
+            OPCODE_ADDMOD=MID,
+            OPCODE_MULMOD=MID,
+            OPCODE_SIGNEXTEND=LOW,
+            OPCODE_LT=VERY_LOW,
+            OPCODE_GT=VERY_LOW,
+            OPCODE_SLT=VERY_LOW,
+            OPCODE_SGT=VERY_LOW,
+            OPCODE_EQ=VERY_LOW,
+            OPCODE_ISZERO=VERY_LOW,
+            OPCODE_AND=VERY_LOW,
+            OPCODE_OR=VERY_LOW,
+            OPCODE_XOR=VERY_LOW,
+            OPCODE_NOT=VERY_LOW,
+            OPCODE_BYTE=VERY_LOW,
+            OPCODE_JUMP=MID,
+            OPCODE_JUMPI=HIGH,
+            OPCODE_JUMPDEST=1,
+            OPCODE_CALLDATALOAD=VERY_LOW,
+            OPCODE_BLOCKHASH=20,
+            OPCODE_COINBASE=BASE,
+            OPCODE_PUSH=VERY_LOW,
+            OPCODE_DUP=VERY_LOW,
+            OPCODE_SWAP=VERY_LOW,
+            # Dynamic Opcodes
+            OPCODE_CALLDATACOPY=VERY_LOW,
+            OPCODE_CODECOPY=VERY_LOW,
+            OPCODE_MLOAD=VERY_LOW,
+            OPCODE_MSTORE=VERY_LOW,
+            OPCODE_MSTORE8=VERY_LOW,
+            OPCODE_SELFDESTRUCT=5_000,
             # Zero-initialized: introduced in later forks, set via
             # replace() in the fork that activates them.
-            GAS_TX_DATA_TOKEN_STANDARD=0,
-            GAS_TX_DATA_TOKEN_FLOOR=0,
-            GAS_AUTH_PER_EMPTY_ACCOUNT=0,
+            TX_DATA_TOKEN_STANDARD=0,
+            TX_DATA_TOKEN_FLOOR=0,
+            AUTH_PER_EMPTY_ACCOUNT=0,
             REFUND_AUTH_PER_EXISTING_ACCOUNT=0,
             PRECOMPILE_ECADD=0,
             PRECOMPILE_ECMUL=0,
@@ -161,42 +207,7 @@ class Frontier(
             PRECOMPILE_BLS_PAIRING_BASE=0,
             PRECOMPILE_BLS_PAIRING_PER_PAIR=0,
             PRECOMPILE_P256VERIFY=0,
-            GAS_BLOCK_ACCESS_LIST_ITEM=0,
-            # Opcode specific gas constants for repricing
-            OPCODE_ADD=GAS_VERY_LOW,
-            OPCODE_SUB=GAS_VERY_LOW,
-            OPCODE_MUL=GAS_LOW,
-            OPCODE_DIV=GAS_LOW,
-            OPCODE_SDIV=GAS_LOW,
-            OPCODE_MOD=GAS_LOW,
-            OPCODE_SMOD=GAS_LOW,
-            OPCODE_ADDMOD=GAS_MID,
-            OPCODE_MULMOD=GAS_MID,
-            OPCODE_SIGNEXTEND=GAS_LOW,
-            OPCODE_LT=GAS_VERY_LOW,
-            OPCODE_GT=GAS_VERY_LOW,
-            OPCODE_SLT=GAS_VERY_LOW,
-            OPCODE_SGT=GAS_VERY_LOW,
-            OPCODE_EQ=GAS_VERY_LOW,
-            OPCODE_ISZERO=GAS_VERY_LOW,
-            OPCODE_AND=GAS_VERY_LOW,
-            OPCODE_OR=GAS_VERY_LOW,
-            OPCODE_XOR=GAS_VERY_LOW,
-            OPCODE_NOT=GAS_VERY_LOW,
-            OPCODE_BYTE=GAS_VERY_LOW,
-            OPCODE_JUMP=GAS_MID,
-            OPCODE_JUMPI=GAS_HIGH,
-            OPCODE_JUMPDEST=1,
-            OPCODE_CALLDATALOAD=GAS_VERY_LOW,
-            OPCODE_CALLDATACOPY=GAS_VERY_LOW,
-            OPCODE_CODECOPY=GAS_VERY_LOW,
-            OPCODE_BLOCKHASH=20,
-            OPCODE_MLOAD=GAS_VERY_LOW,
-            OPCODE_MSTORE=GAS_VERY_LOW,
-            OPCODE_MSTORE8=GAS_VERY_LOW,
-            OPCODE_PUSH=GAS_VERY_LOW,
-            OPCODE_DUP=GAS_VERY_LOW,
-            OPCODE_SWAP=GAS_VERY_LOW,
+            BLOCK_ACCESS_LIST_ITEM=0,
         )
 
     @classmethod
@@ -265,9 +276,9 @@ class Frontier(
 
             # Add account access cost based on warmth
             if opcode.metadata["address_warm"]:
-                access_cost = gas_costs.GAS_WARM_ACCESS
+                access_cost = gas_costs.WARM_ACCESS
             else:
-                access_cost = gas_costs.GAS_COLD_ACCOUNT_ACCESS
+                access_cost = gas_costs.COLD_ACCOUNT_ACCESS
 
             return base_cost + access_cost
 
@@ -285,7 +296,7 @@ class Frontier(
         Args:
             base_gas: Either a constant gas cost (int) or a callable that
                       calculates it
-            gas_costs: The gas costs dataclass for accessing GAS_COPY
+            gas_costs: The gas costs dataclass for accessing COPY
 
         Returns:
             A callable that calculates base_gas + copy_cost
@@ -302,7 +313,7 @@ class Frontier(
             # Add copy cost based on data size
             data_size = opcode.metadata["data_size"]
             word_count = (data_size + 31) // 32
-            copy_cost = gas_costs.GAS_COPY * word_count
+            copy_cost = gas_costs.COPY * word_count
 
             return base_cost + copy_cost
 
@@ -340,8 +351,8 @@ class Frontier(
             Opcodes.ADDMOD: gas_costs.OPCODE_ADDMOD,
             Opcodes.MULMOD: gas_costs.OPCODE_MULMOD,
             Opcodes.EXP: lambda op: (
-                gas_costs.GAS_EXPONENTIATION
-                + gas_costs.GAS_EXPONENTIATION_PER_BYTE
+                gas_costs.EXPONENTIATION
+                + gas_costs.EXPONENTIATION_PER_BYTE
                 * ((op.metadata["exponent"].bit_length() + 7) // 8)
             ),
             Opcodes.SIGNEXTEND: gas_costs.OPCODE_SIGNEXTEND,
@@ -360,30 +371,30 @@ class Frontier(
             # SHA3
             Opcodes.SHA3: cls._with_memory_expansion(
                 lambda op: (
-                    gas_costs.GAS_KECCAK256
-                    + gas_costs.GAS_KECCAK256_PER_WORD
+                    gas_costs.KECCAK256
+                    + gas_costs.KECCAK256_PER_WORD
                     * ((op.metadata["data_size"] + 31) // 32)
                 ),
                 memory_expansion_calculator,
             ),
             # Environmental information
-            Opcodes.ADDRESS: gas_costs.GAS_BASE,
+            Opcodes.ADDRESS: gas_costs.BASE,
             Opcodes.BALANCE: cls._with_account_access(0, gas_costs),
-            Opcodes.ORIGIN: gas_costs.GAS_BASE,
-            Opcodes.CALLER: gas_costs.GAS_BASE,
-            Opcodes.CALLVALUE: gas_costs.GAS_BASE,
+            Opcodes.ORIGIN: gas_costs.BASE,
+            Opcodes.CALLER: gas_costs.BASE,
+            Opcodes.CALLVALUE: gas_costs.BASE,
             Opcodes.CALLDATALOAD: gas_costs.OPCODE_CALLDATALOAD,
-            Opcodes.CALLDATASIZE: gas_costs.GAS_BASE,
+            Opcodes.CALLDATASIZE: gas_costs.BASE,
             Opcodes.CALLDATACOPY: cls._with_memory_expansion(
                 cls._with_data_copy(gas_costs.OPCODE_CALLDATACOPY, gas_costs),
                 memory_expansion_calculator,
             ),
-            Opcodes.CODESIZE: gas_costs.GAS_BASE,
+            Opcodes.CODESIZE: gas_costs.BASE,
             Opcodes.CODECOPY: cls._with_memory_expansion(
                 cls._with_data_copy(gas_costs.OPCODE_CODECOPY, gas_costs),
                 memory_expansion_calculator,
             ),
-            Opcodes.GASPRICE: gas_costs.GAS_BASE,
+            Opcodes.GASPRICE: gas_costs.BASE,
             Opcodes.EXTCODESIZE: cls._with_account_access(0, gas_costs),
             Opcodes.EXTCODECOPY: cls._with_memory_expansion(
                 cls._with_data_copy(
@@ -394,13 +405,13 @@ class Frontier(
             ),
             # Block information
             Opcodes.BLOCKHASH: gas_costs.OPCODE_BLOCKHASH,
-            Opcodes.COINBASE: gas_costs.GAS_BASE,
-            Opcodes.TIMESTAMP: gas_costs.GAS_BASE,
-            Opcodes.NUMBER: gas_costs.GAS_BASE,
-            Opcodes.PREVRANDAO: gas_costs.GAS_BASE,
-            Opcodes.GASLIMIT: gas_costs.GAS_BASE,
+            Opcodes.COINBASE: gas_costs.OPCODE_COINBASE,
+            Opcodes.TIMESTAMP: gas_costs.BASE,
+            Opcodes.NUMBER: gas_costs.BASE,
+            Opcodes.PREVRANDAO: gas_costs.BASE,
+            Opcodes.GASLIMIT: gas_costs.BASE,
             # Stack, memory, storage and flow operations
-            Opcodes.POP: gas_costs.GAS_BASE,
+            Opcodes.POP: gas_costs.BASE,
             Opcodes.MLOAD: cls._with_memory_expansion(
                 gas_costs.OPCODE_MLOAD,
                 memory_expansion_calculator,
@@ -414,18 +425,18 @@ class Frontier(
                 memory_expansion_calculator,
             ),
             Opcodes.SLOAD: lambda op: (
-                gas_costs.GAS_WARM_SLOAD
+                gas_costs.WARM_SLOAD
                 if op.metadata["key_warm"]
-                else gas_costs.GAS_COLD_STORAGE_ACCESS
+                else gas_costs.COLD_STORAGE_ACCESS
             ),
             Opcodes.SSTORE: lambda op: cls._calculate_sstore_gas(
                 op, gas_costs
             ),
             Opcodes.JUMP: gas_costs.OPCODE_JUMP,
             Opcodes.JUMPI: gas_costs.OPCODE_JUMPI,
-            Opcodes.PC: gas_costs.GAS_BASE,
-            Opcodes.MSIZE: gas_costs.GAS_BASE,
-            Opcodes.GAS: gas_costs.GAS_BASE,
+            Opcodes.PC: gas_costs.BASE,
+            Opcodes.MSIZE: gas_costs.BASE,
+            Opcodes.GAS: gas_costs.BASE,
             Opcodes.JUMPDEST: gas_costs.OPCODE_JUMPDEST,
             # Push operations (PUSH1 through PUSH32)
             **{
@@ -445,45 +456,40 @@ class Frontier(
             # Logging operations
             Opcodes.LOG0: cls._with_memory_expansion(
                 lambda op: (
-                    gas_costs.GAS_LOG
-                    + gas_costs.GAS_LOG_DATA_PER_BYTE
-                    * op.metadata["data_size"]
+                    gas_costs.LOG
+                    + gas_costs.LOG_DATA_PER_BYTE * op.metadata["data_size"]
                 ),
                 memory_expansion_calculator,
             ),
             Opcodes.LOG1: cls._with_memory_expansion(
                 lambda op: (
-                    gas_costs.GAS_LOG
-                    + gas_costs.GAS_LOG_DATA_PER_BYTE
-                    * op.metadata["data_size"]
-                    + gas_costs.GAS_LOG_TOPIC
+                    gas_costs.LOG
+                    + gas_costs.LOG_DATA_PER_BYTE * op.metadata["data_size"]
+                    + gas_costs.LOG_TOPIC
                 ),
                 memory_expansion_calculator,
             ),
             Opcodes.LOG2: cls._with_memory_expansion(
                 lambda op: (
-                    gas_costs.GAS_LOG
-                    + gas_costs.GAS_LOG_DATA_PER_BYTE
-                    * op.metadata["data_size"]
-                    + gas_costs.GAS_LOG_TOPIC * 2
+                    gas_costs.LOG
+                    + gas_costs.LOG_DATA_PER_BYTE * op.metadata["data_size"]
+                    + gas_costs.LOG_TOPIC * 2
                 ),
                 memory_expansion_calculator,
             ),
             Opcodes.LOG3: cls._with_memory_expansion(
                 lambda op: (
-                    gas_costs.GAS_LOG
-                    + gas_costs.GAS_LOG_DATA_PER_BYTE
-                    * op.metadata["data_size"]
-                    + gas_costs.GAS_LOG_TOPIC * 3
+                    gas_costs.LOG
+                    + gas_costs.LOG_DATA_PER_BYTE * op.metadata["data_size"]
+                    + gas_costs.LOG_TOPIC * 3
                 ),
                 memory_expansion_calculator,
             ),
             Opcodes.LOG4: cls._with_memory_expansion(
                 lambda op: (
-                    gas_costs.GAS_LOG
-                    + gas_costs.GAS_LOG_DATA_PER_BYTE
-                    * op.metadata["data_size"]
-                    + gas_costs.GAS_LOG_TOPIC * 4
+                    gas_costs.LOG
+                    + gas_costs.LOG_DATA_PER_BYTE * op.metadata["data_size"]
+                    + gas_costs.LOG_TOPIC * 4
                 ),
                 memory_expansion_calculator,
             ),
@@ -606,15 +612,13 @@ class Frontier(
                 # Storage slot being restored to its original value
                 if original_value == 0:
                     # Slot was originally empty and was SET earlier
-                    refund += (
-                        gas_costs.GAS_STORAGE_SET - gas_costs.GAS_WARM_SLOAD
-                    )
+                    refund += gas_costs.STORAGE_SET - gas_costs.WARM_SLOAD
                 else:
                     # Slot was originally non-empty and was UPDATED earlier
                     refund += (
-                        gas_costs.GAS_COLD_STORAGE_WRITE
-                        - gas_costs.GAS_COLD_STORAGE_ACCESS
-                        - gas_costs.GAS_WARM_SLOAD
+                        gas_costs.COLD_STORAGE_WRITE
+                        - gas_costs.COLD_STORAGE_ACCESS
+                        - gas_costs.WARM_SLOAD
                     )
 
         return refund
@@ -632,20 +636,18 @@ class Frontier(
             current_value = original_value
         new_value = metadata["new_value"]
 
-        gas_cost = (
-            0 if metadata["key_warm"] else gas_costs.GAS_COLD_STORAGE_ACCESS
-        )
+        gas_cost = 0 if metadata["key_warm"] else gas_costs.COLD_STORAGE_ACCESS
 
         if original_value == current_value and current_value != new_value:
             if original_value == 0:
-                gas_cost += gas_costs.GAS_STORAGE_SET
+                gas_cost += gas_costs.STORAGE_SET
             else:
                 gas_cost += (
-                    gas_costs.GAS_COLD_STORAGE_WRITE
-                    - gas_costs.GAS_COLD_STORAGE_ACCESS
+                    gas_costs.COLD_STORAGE_WRITE
+                    - gas_costs.COLD_STORAGE_ACCESS
                 )
         else:
-            gas_cost += gas_costs.GAS_WARM_SLOAD
+            gas_cost += gas_costs.WARM_SLOAD
 
         return gas_cost
 
@@ -660,9 +662,9 @@ class Frontier(
 
         # Base cost depends on address warmth
         if metadata["address_warm"]:
-            base_cost = gas_costs.GAS_WARM_ACCESS
+            base_cost = gas_costs.WARM_ACCESS
         else:
-            base_cost = gas_costs.GAS_COLD_ACCOUNT_ACCESS
+            base_cost = gas_costs.COLD_ACCOUNT_ACCESS
 
         return base_cost
 
@@ -672,7 +674,7 @@ class Frontier(
     ) -> int:
         """CREATE gas is constant at Frontier."""
         del opcode
-        return gas_costs.GAS_CREATE
+        return gas_costs.CREATE
 
     @classmethod
     def _calculate_create2_gas(
@@ -694,7 +696,7 @@ class Frontier(
 
         # Code deposit cost when returning from initcode
         code_deposit_size = metadata["code_deposit_size"]
-        return gas_costs.GAS_CODE_DEPOSIT_PER_BYTE * code_deposit_size
+        return gas_costs.CODE_DEPOSIT_PER_BYTE * code_deposit_size
 
     @classmethod
     def _calculate_selfdestruct_gas(
@@ -703,15 +705,15 @@ class Frontier(
         """Calculate SELFDESTRUCT gas cost based on metadata."""
         metadata = opcode.metadata
 
-        base_cost = gas_costs.GAS_SELF_DESTRUCT
+        base_cost = gas_costs.OPCODE_SELFDESTRUCT
 
         # Check if the beneficiary is cold
         if not metadata["address_warm"]:
-            base_cost += gas_costs.GAS_COLD_ACCOUNT_ACCESS
+            base_cost += gas_costs.COLD_ACCOUNT_ACCESS
 
         # Check if creating a new account
         if metadata["account_new"]:
-            base_cost += gas_costs.GAS_NEW_ACCOUNT
+            base_cost += gas_costs.NEW_ACCOUNT
 
         return base_cost
 
@@ -730,7 +732,7 @@ class Frontier(
             previous_words = ceiling_division(previous_bytes, 32)
 
             def c(w: int) -> int:
-                return (gas_costs.GAS_MEMORY * w) + ((w * w) // 512)
+                return (gas_costs.MEMORY * w) + ((w * w) // 512)
 
             return c(new_words) - c(previous_words)
 
@@ -751,8 +753,8 @@ class Frontier(
             num_zeros = raw.count(0)
             num_non_zeros = len(raw) - num_zeros
             return (
-                num_zeros * gas_costs.GAS_TX_DATA_PER_ZERO
-                + num_non_zeros * gas_costs.GAS_TX_DATA_PER_NON_ZERO
+                num_zeros * gas_costs.TX_DATA_PER_ZERO
+                + num_non_zeros * gas_costs.TX_DATA_PER_NON_ZERO
             )
 
         return fn
@@ -830,11 +832,11 @@ class Frontier(
                 f"Authorizations are not supported in {cls.name()}"
             )
 
-            intrinsic_cost: int = gas_costs.GAS_TX_BASE
+            intrinsic_cost: int = gas_costs.TX_BASE
 
             if contract_creation:
                 intrinsic_cost += (
-                    gas_costs.GAS_CODE_INIT_PER_WORD
+                    gas_costs.CODE_INIT_PER_WORD
                     * ceiling_division(len(Bytes(calldata)), 32)
                 )
 
