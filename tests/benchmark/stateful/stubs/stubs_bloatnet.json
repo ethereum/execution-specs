@@ -36,5 +36,20 @@
   "bloatnet_factory_2kb": "0x88c159584059308C4B466bafC82c45d52De9951D",
   "bloatnet_factory_5kb": "0x3f59809dac4b33e251e518acDadf923184151334",
   "bloatnet_factory_10kb": "0xf90E8a6Ce32A949Ce5F58803BBa07476404cD89F",
-  "bloatnet_factory_24kb": "0x091988Afd81E0a2A3E20530A2510c089fF4bfAef"
+  "bloatnet_factory_24kb": "0x091988Afd81E0a2A3E20530A2510c089fF4bfAef",
+  "storage_bloated_eoa_1GB": {
+    "private_key": "0xc618d7bcd54de2f0dcf86e4ced86ccf07926619a74ee10432c3d1c60743e3427",
+    "address": "0x3f8074692982594c1936bd27433a8b6e5d77e0f0",
+    "comment": "Address is generated from key (JS): keccak_256(utf8ToBytes(\"stateBloaters0\"))"
+  },
+  "storage_bloated_eoa_10GB": {
+    "private_key": "0x4da32d29f6dcffa26e09dc4e102033f2d105de1444fb893493ae703289275e0e",
+    "address": "0x87a6314da5ac8832f6e7a176c8fb133b19f5be04",
+    "comment": "Address is generated from key (JS): keccak_256(utf8ToBytes(\"stateBloaters1\"))"
+  },
+  "storage_bloated_eoa_20GB": {
+    "private_key": "0xc025d5a1aa0f5eee1f50687901c5dc9a8e97a2be91aa381e4c938dc309105059",
+    "address": "0x772604ee92ebc9afa5b6ce561f6f6a4c4cdd214a",
+    "comment": "Address is generated from key (JS): keccak_256(utf8ToBytes(\"stateBloaters2\"))"
+  }
 }

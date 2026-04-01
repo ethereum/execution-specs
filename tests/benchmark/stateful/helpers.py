@@ -1,9 +1,12 @@
 """Shared constants and helpers for stateful benchmark tests."""
 
+import json
 from collections.abc import Callable
 from enum import Enum
+from pathlib import Path
 
 from execution_testing import (
+    EOA,
     AccessList,
     Address,
     Alloc,
@@ -13,12 +16,48 @@ from execution_testing import (
     Op,
     Transaction,
 )
+from execution_testing.base_types import Number
+from execution_testing.rpc import EthRPC
 
 # ERC20 function selectors
 BALANCEOF_SELECTOR = 0x70A08231  # balanceOf(address)
 APPROVE_SELECTOR = 0x095EA7B3  # approve(address,uint256)
 ALLOWANCE_SELECTOR = 0xDD62ED3E  # allowance(address,address)
 MINT_SELECTOR = 0x40C10F19  # mint(address,uint256)
+
+# Load token names from stubs_bloatnet.json for test parametrization
+_STUBS_FILE = Path(__file__).parent / "bloatnet" / "stubs_bloatnet.json"
+with open(_STUBS_FILE) as f:
+    _STUBS = json.load(f)
+
+# Extract storage-bloated EOA names (keyed by bloat size identifier).
+# Each entry in the JSON has {"private_key": ..., "address": ...}.
+STORAGE_BLOATED_EOAS: list[str] = []
+for _key, _entry in (
+    (k, _STUBS[k]) for k in _STUBS if k.startswith("storage_bloated_eoa_")
+):
+    _eoa = EOA(key=_entry["private_key"])
+    if Address(_eoa) != Address(_entry["address"]):
+        raise ValueError(
+            f"Address mismatch for {_key}: "
+            f"private key derives {Address(_eoa)}, "
+            f"but JSON specifies {_entry['address']}"
+        )
+    STORAGE_BLOATED_EOAS.append(_key.replace("storage_bloated_eoa_", ""))
+
+
+def get_storage_bloated_eoa(
+    name: str,
+    eth_rpc: EthRPC | None = None,
+) -> EOA:
+    """Return an EOA for a storage-bloated account with its on-chain nonce."""
+    entry = _STUBS[f"storage_bloated_eoa_{name}"]
+    eoa = EOA(key=entry["private_key"])
+    if eth_rpc is not None:
+        nonce = eth_rpc.get_transaction_count(Address(eoa))
+        eoa.nonce = Number(nonce)
+    return eoa
+
 
 # Standard While-loop decrement-and-test condition.
 #
