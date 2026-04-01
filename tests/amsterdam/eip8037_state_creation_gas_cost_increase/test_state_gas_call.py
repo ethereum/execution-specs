@@ -19,6 +19,8 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Block,
+    BlockchainTestFiller,
     Environment,
     Fork,
     Op,
@@ -866,3 +868,49 @@ def test_call_pre_charged_costs_excluded_from_forwarding(
     }
 
     state_test(pre=pre, tx=tx, post=post)
+
+
+@pytest.mark.valid_from("Amsterdam")
+def test_call_new_account_header_gas_used(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify block gas accounting for CALL creating a new account.
+
+    A contract CALLs a non-existent address with value, charging
+    GAS_NEW_ACCOUNT state gas. The block must be accepted with
+    correct 2D max(regular, state) accounting in the header.
+    """
+    gas_costs = fork.gas_costs()
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    new_account_state_gas = gas_costs.GAS_NEW_ACCOUNT
+
+    target = pre.fund_eoa(amount=0)
+
+    storage = Storage()
+    contract = pre.deploy_contract(
+        code=(
+            Op.SSTORE(
+                storage.store_next(1, "call_succeeds"),
+                Op.CALL(gas=100_000, address=target, value=1),
+            )
+        ),
+        balance=1,
+    )
+
+    tx = Transaction(
+        to=contract,
+        gas_limit=gas_limit_cap + new_account_state_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(txs=[tx]),
+        ],
+        post={contract: Account(storage=storage)},
+    )

@@ -12,11 +12,15 @@ Tests for [EIP-8037: State Creation Gas Cost Increase]
 
 import pytest
 from execution_testing import (
+    Account,
     Alloc,
+    Block,
+    BlockchainTestFiller,
     Environment,
     Fork,
     Op,
     StateTestFiller,
+    Storage,
     Transaction,
 )
 
@@ -197,3 +201,50 @@ def test_selfdestruct_to_self_in_create_tx(
     )
 
     state_test(env=env, pre=pre, post={}, tx=tx)
+
+
+@pytest.mark.valid_from("Amsterdam")
+def test_selfdestruct_new_beneficiary_header_gas_used(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify block gas accounting for SELFDESTRUCT to new beneficiary.
+
+    A contract with nonzero balance SELFDESTRUCTs to a non-existent
+    beneficiary, charging GAS_NEW_ACCOUNT state gas. The block must
+    be accepted with correct 2D gas accounting in the header.
+    """
+    gas_costs = fork.gas_costs()
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    new_account_state_gas = gas_costs.GAS_NEW_ACCOUNT
+
+    beneficiary = pre.fund_eoa(amount=0)
+
+    storage = Storage()
+    inner = pre.deploy_contract(
+        code=Op.SELFDESTRUCT(beneficiary),
+        balance=1,
+    )
+    caller = pre.deploy_contract(
+        code=(
+            Op.CALL(gas=100_000, address=inner)
+            + Op.SSTORE(storage.store_next(1, "completed"), 1)
+        ),
+    )
+
+    tx = Transaction(
+        to=caller,
+        gas_limit=gas_limit_cap + new_account_state_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(txs=[tx]),
+        ],
+        post={caller: Account(storage=storage)},
+    )
