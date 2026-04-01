@@ -40,33 +40,28 @@ class GasCosts:
     MID = Uint(8)
     HIGH = Uint(10)
 
-    # General
+    # Access Costs
+    WARM_ACCESS = Uint(100)
+    COLD_ACCOUNT_ACCESS = Uint(2600)
+    COLD_STORAGE_ACCESS = Uint(2100)
+
+    # Storage Costs
     STORAGE_SET = Uint(20000)
     COLD_STORAGE_WRITE = Uint(5000)
-    EXPONENTIATION = Uint(10)
-    EXPONENTIATION_PER_BYTE = Uint(50)
-    MEMORY = Uint(3)
-    KECCAK256 = Uint(30)
-    KECCAK256_PER_WORD = Uint(6)
-    COPY = Uint(3)
-    LOG = Uint(375)
-    LOG_DATA_PER_BYTE = Uint(8)
-    LOG_TOPIC = Uint(375)
-    CREATE = Uint(32000)
-    CODE_DEPOSIT_PER_BYTE = Uint(200)
-    ZERO = Uint(0)
-    NEW_ACCOUNT = Uint(25000)
+
+    # Call Costs
     CALL_VALUE = Uint(9000)
     CALL_STIPEND = Uint(2300)
-    SELF_DESTRUCT = Uint(5000)
-    SELF_DESTRUCT_NEW_ACCOUNT = Uint(25000)
-    RETURN_DATA_COPY = Uint(3)
-    FAST_STEP = Uint(5)
-    COLD_STORAGE_ACCESS = Uint(2100)
-    COLD_ACCOUNT_ACCESS = Uint(2600)
-    WARM_ACCESS = Uint(100)
+    NEW_ACCOUNT = Uint(25000)
+
+    # Contract Creation Costs
+    CODE_DEPOSIT_PER_BYTE = Uint(200)
     CODE_INIT_PER_WORD = Uint(2)
-    POINT_EVALUATION = Uint(50000)
+
+    # Utility
+    ZERO = Uint(0)
+    RETURN_DATA_COPY = Uint(3)  # TODO refactor to OPCODE_RETURNDATACOPY?
+    FAST_STEP = Uint(5)
 
     # Refunds
     REFUND_STORAGE_CLEAR = 4800
@@ -81,6 +76,7 @@ class GasCosts:
     PRECOMPILE_IDENTITY_BASE = Uint(15)
     PRECOMPILE_IDENTITY_PER_WORD = Uint(3)
     PRECOMPILE_BLAKE2F_PER_ROUND = Uint(1)
+    PRECOMPILE_POINT_EVALUATION = Uint(50000)
     PRECOMPILE_BLS_G1ADD = Uint(375)
     PRECOMPILE_BLS_G1MUL = Uint(12000)
     PRECOMPILE_BLS_G1MAP = Uint(5500)
@@ -104,7 +100,7 @@ class GasCosts:
     # Block Access Lists
     BLOCK_ACCESS_LIST_ITEM = Uint(2000)
 
-    # Opcodes
+    # Static Opcodes
     OPCODE_ADD = VERY_LOW
     OPCODE_SUB = VERY_LOW
     OPCODE_MUL = LOW
@@ -134,19 +130,36 @@ class GasCosts:
     OPCODE_JUMPI = HIGH
     OPCODE_JUMPDEST = Uint(1)
     OPCODE_CALLDATALOAD = VERY_LOW
-    OPCODE_CALLDATACOPY = VERY_LOW
-    OPCODE_CODECOPY = VERY_LOW
     OPCODE_RETURNDATACOPY = VERY_LOW
     OPCODE_BLOCKHASH = Uint(20)
     OPCODE_COINBASE = BASE
     OPCODE_BLOBHASH = Uint(3)
-    OPCODE_MLOAD = VERY_LOW
-    OPCODE_MSTORE = VERY_LOW
-    OPCODE_MSTORE8 = VERY_LOW
     OPCODE_MCOPY = VERY_LOW
     OPCODE_PUSH = VERY_LOW
     OPCODE_DUP = VERY_LOW
     OPCODE_SWAP = VERY_LOW
+
+    # Dynamic Opcodes
+    OPCODE_COPY_BASE = Uint(3)
+    OPCODE_CALLDATACOPY = VERY_LOW
+    OPCODE_CODECOPY = VERY_LOW
+    OPCODE_MLOAD = VERY_LOW
+    OPCODE_MSTORE = VERY_LOW
+    OPCODE_MSTORE8 = VERY_LOW
+    OPCODE_SELFDESTRUCT_BASE = Uint(5000)
+
+    # TODO
+    MEMORY = Uint(3)
+    CREATE = Uint(32000)
+    EXPONENTIATION = Uint(10)
+    EXPONENTIATION_PER_BYTE = Uint(50)
+    KECCAK256 = Uint(30)
+    KECCAK256_PER_WORD = Uint(6)
+    LOG = Uint(375)
+    LOG_DATA_PER_BYTE = Uint(8)
+    LOG_TOPIC = Uint(375)
+    SELF_DESTRUCT = Uint(5000)  # rename for above
+    SELF_DESTRUCT_NEW_ACCOUNT = Uint(25000)
 
 
 @dataclass

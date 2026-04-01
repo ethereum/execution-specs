@@ -39,28 +39,23 @@ class GasCosts:
     MID = Uint(8)
     HIGH = Uint(10)
 
-    # General
+    # Access Costs
     SLOAD = Uint(50)
+
+    # Storage Costs
     STORAGE_SET = Uint(20000)
     COLD_STORAGE_WRITE = Uint(5000)
-    EXPONENTIATION = Uint(10)
-    EXPONENTIATION_PER_BYTE = Uint(10)
-    MEMORY = Uint(3)
-    KECCAK256 = Uint(30)
-    KECCAK256_PER_WORD = Uint(6)
-    COPY = Uint(3)
-    EXTERNAL = Uint(20)
-    BALANCE = Uint(20)
-    LOG = Uint(375)
-    LOG_DATA_PER_BYTE = Uint(8)
-    LOG_TOPIC = Uint(375)
-    CREATE = Uint(32000)
-    CODE_DEPOSIT_PER_BYTE = Uint(200)
-    ZERO = Uint(0)
-    CALL = Uint(40)
-    NEW_ACCOUNT = Uint(25000)
+
+    # Call Costs
     CALL_VALUE = Uint(9000)
     CALL_STIPEND = Uint(2300)
+    NEW_ACCOUNT = Uint(25000)
+
+    # Contract Creation Costs
+    CODE_DEPOSIT_PER_BYTE = Uint(200)
+
+    # Utility
+    ZERO = Uint(0)
 
     # Refunds
     REFUND_STORAGE_CLEAR = 15000
@@ -101,16 +96,33 @@ class GasCosts:
     OPCODE_JUMPI = HIGH
     OPCODE_JUMPDEST = Uint(1)
     OPCODE_CALLDATALOAD = VERY_LOW
-    OPCODE_CALLDATACOPY = VERY_LOW
-    OPCODE_CODECOPY = VERY_LOW
     OPCODE_BLOCKHASH = Uint(20)
     OPCODE_COINBASE = BASE
-    OPCODE_MLOAD = VERY_LOW
-    OPCODE_MSTORE = VERY_LOW
-    OPCODE_MSTORE8 = VERY_LOW
     OPCODE_PUSH = VERY_LOW
     OPCODE_DUP = VERY_LOW
     OPCODE_SWAP = VERY_LOW
+
+    # Dynamic Opcodes
+    OPCODE_CALLDATACOPY = VERY_LOW
+    OPCODE_CODECOPY = VERY_LOW
+    OPCODE_MLOAD = VERY_LOW
+    OPCODE_MSTORE = VERY_LOW
+    OPCODE_MSTORE8 = VERY_LOW
+
+    # TODO
+    COPY = Uint(3)
+    MEMORY = Uint(3)
+    EXTERNAL = Uint(20)
+    BALANCE = Uint(20)
+    CREATE = Uint(32000)
+    CALL = Uint(40)
+    EXPONENTIATION = Uint(10)
+    EXPONENTIATION_PER_BYTE = Uint(10)
+    KECCAK256 = Uint(30)
+    KECCAK256_PER_WORD = Uint(6)
+    LOG = Uint(375)
+    LOG_DATA_PER_BYTE = Uint(8)
+    LOG_TOPIC = Uint(375)
 
 
 @dataclass
