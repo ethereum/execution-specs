@@ -273,12 +273,11 @@ def test_transition_fork_until_excludes_target(
     pytester: pytest.Pytester,
 ) -> None:
     """
-    Test that `--until` with a transition fork does not collect tests
-    for the transition's target fork.
+    Test that `--until` with a transition fork excludes the
+    transition's target fork from the selected fork set.
 
-    `--from OsakaToBPO1AtTime15k --until BPO2ToAmsterdamAtTime15k`
-    should include `fork_BPO1`, `fork_BPO2`, and
-    `fork_BPO2ToAmsterdamAtTime15k` but not `fork_Amsterdam`.
+    The "Generating fixtures for:" header printed by
+    `pytest_report_header` reflects `config.selected_fork_set`.
     """
     pytester.makepyfile(
         f"""
@@ -293,16 +292,28 @@ def test_transition_fork_until_excludes_target(
     result = pytester.runpytest(
         "-c",
         "pytest-fill.ini",
-        "--collect-only",
-        "-q",
+        "-v",
         "--from",
         "OsakaToBPO1AtTime15k",
         "--until",
         "BPO2ToAmsterdamAtTime15k",
     )
     stdout = "\n".join(result.stdout.lines)
-    assert f"fork_{Amsterdam}" not in stdout
-    assert f"fork_{BPO1}" in stdout
-    assert f"fork_{BPO2}" in stdout
-    assert f"fork_{BPO2ToAmsterdamAtTime15k}" in stdout
-    assert f"fork_{OsakaToBPO1AtTime15k}" in stdout
+    # The header line lists the selected fork set; parse it.
+    assert "Generating fixtures for:" in stdout
+    header_line = [
+        line
+        for line in result.stdout.lines
+        if "Generating fixtures for:" in line
+    ][0]
+    fork_names = [
+        name.strip()
+        for name in header_line.split("Generating fixtures for:")[1].split(",")
+    ]
+    # Strip ANSI codes from the last element.
+    fork_names[-1] = fork_names[-1].split("\x1b")[0]
+    assert Amsterdam.name() not in fork_names
+    assert BPO1.name() in fork_names
+    assert BPO2.name() in fork_names
+    assert BPO2ToAmsterdamAtTime15k.name() in fork_names
+    assert OsakaToBPO1AtTime15k.name() in fork_names
