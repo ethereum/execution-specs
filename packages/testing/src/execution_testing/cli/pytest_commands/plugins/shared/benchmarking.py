@@ -80,6 +80,10 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "repricing: Mark test as reference test for gas repricing analysis",
     )
+    config.addinivalue_line(
+        "markers",
+        "stub_parametrize(param, prefix): parametrize with matching stubs",
+    )
 
     # Ensure mutual exclusivity
     gas_benchmark_values = GasBenchmarkValues.from_config(config)
