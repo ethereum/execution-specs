@@ -124,16 +124,16 @@ def test_bal_sstore_and_oog(
 
     intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()()
 
-    # Full cost: PUSHes + SSTORE (GAS_COLD_STORAGE_ACCESS + GAS_STORAGE_SET)
+    # Full cost: PUSHes + SSTORE (COLD_STORAGE_ACCESS + STORAGE_SET)
     full_cost = storage_contract_code.gas_cost(fork)
 
     # Push cost for stipend boundary calculations
     push_code = Op.PUSH1(0x42) + Op.PUSH1(0x01)
     push_cost = push_code.gas_cost(fork)
 
-    # GAS_CALL_STIPEND is a threshold check, not a gas cost
+    # CALL_STIPEND is a threshold check, not a gas cost
     # Keep from gas_costs
-    stipend = fork.gas_costs().GAS_CALL_STIPEND
+    stipend = fork.gas_costs().CALL_STIPEND
 
     if out_of_gas_at == OutOfGasAt.EIP_2200_STIPEND:
         # 2300 after PUSHes (fails stipend check: 2300 <= 2300)
@@ -561,7 +561,7 @@ def test_bal_call_no_delegation_oog_after_target_access(
         - target is always empty - required for create cost
         - value=1 (greater than 0) - required for create cost
 
-    The create_cost (GAS_NEW_ACCOUNT = 25000) is charged only for value
+    The create_cost (NEW_ACCOUNT = 25000) is charged only for value
     transfers to empty accounts, creating the gap tested here.
 
     """

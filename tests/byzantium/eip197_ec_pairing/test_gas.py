@@ -106,10 +106,10 @@ def test_invalid_gas_consumption(
         address_warm=False
     ).gas_cost(fork)
 
-    # Pre-EIP-2929: fixed G_call = 700; Berlin+: warm access cost.
+    # Pre-EIP-2929: fixed call = 700; Berlin+: warm access cost.
     gas_costs = fork.gas_costs()
     if fork >= Berlin:
-        staticcall_base = gas_costs.GAS_WARM_ACCESS
+        staticcall_base = gas_costs.WARM_ACCESS
     else:
         staticcall_base = 700
 

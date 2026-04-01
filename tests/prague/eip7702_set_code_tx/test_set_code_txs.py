@@ -773,8 +773,9 @@ def test_set_code_to_contract_creator(
 )
 @pytest.mark.with_all_call_opcodes
 @pytest.mark.filter_combinations(
-    lambda call_opcode, value, **_: "value" in call_opcode.kwargs
-    or value == 0,
+    lambda call_opcode, value, **_: (
+        "value" in call_opcode.kwargs or value == 0
+    ),
     reason="opcode does not support value argument",
 )
 def test_set_code_to_self_caller(
@@ -908,8 +909,9 @@ def test_set_code_max_depth_call_stack(
     [0, 1],
 )
 @pytest.mark.filter_combinations(
-    lambda call_opcode, value, **_: "value" in call_opcode.kwargs
-    or value == 0,
+    lambda call_opcode, value, **_: (
+        "value" in call_opcode.kwargs or value == 0
+    ),
     reason="opcode does not support value argument",
 )
 @pytest.mark.eels_base_coverage
@@ -2916,8 +2918,7 @@ def test_set_code_to_precompile_not_enough_gas_for_precompile_execution(
         authorization_list_or_count=[auth],
     )
     discount = min(
-        Spec.GAS_AUTH_PER_EMPTY_ACCOUNT
-        - Spec.REFUND_AUTH_PER_EXISTING_ACCOUNT,
+        Spec.AUTH_PER_EMPTY_ACCOUNT - Spec.REFUND_AUTH_PER_EXISTING_ACCOUNT,
         intrinsic_gas // 5,  # max discount EIP-3529
     )
 
@@ -3845,7 +3846,7 @@ def test_many_delegations(
         max_gas = env.gas_limit
     gas_for_delegations = max_gas - 21_000 - 20_000 - (3 * 2)
 
-    delegation_count = gas_for_delegations // Spec.GAS_AUTH_PER_EMPTY_ACCOUNT
+    delegation_count = gas_for_delegations // Spec.AUTH_PER_EMPTY_ACCOUNT
 
     success_slot = 1
     entry_code = Op.SSTORE(success_slot, 1) + Op.STOP

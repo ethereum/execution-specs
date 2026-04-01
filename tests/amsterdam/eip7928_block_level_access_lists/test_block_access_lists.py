@@ -2670,7 +2670,7 @@ def test_bal_gas_limit_boundary(
     Test the BAL max items gas limit boundary for an empty block.
 
     The consensus rule requires
-    ``bal_items <= block_gas_limit // GAS_BLOCK_ACCESS_LIST_ITEM``.
+    ``bal_items <= block_gas_limit // BLOCK_ACCESS_LIST_ITEM``.
     The boundary gas limit is derived from the fork's system-contract
     BAL footprint.  At the boundary the check passes; one below it fails.
     """
@@ -2678,7 +2678,7 @@ def test_bal_gas_limit_boundary(
     # bal_items <= block_gas_limit // ITEM_COST
     min_gas_limit = (
         fork.empty_block_bal_item_count()
-        * fork.gas_costs().GAS_BLOCK_ACCESS_LIST_ITEM
+        * fork.gas_costs().BLOCK_ACCESS_LIST_ITEM
     )
     gas_limit = min_gas_limit + boundary_offset
 

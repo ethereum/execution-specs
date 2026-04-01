@@ -33,7 +33,7 @@ def test_call_large_offset_mstore(
 
     mem_offset = 128  # arbitrary number
 
-    # Cost of pushing args onto the stack (each PUSH costs G_VERY_LOW)
+    # Cost of pushing args onto the stack (each PUSH costs VERY_LOW)
     call_push_cost = (Op.PUSH1(0) * len(Op.CALL.kwargs)).gas_cost(fork)
     mstore_push_cost = (Op.PUSH1(0) * len(Op.MSTORE.kwargs)).gas_cost(fork)
 
@@ -101,7 +101,7 @@ def test_call_memory_expands_on_early_revert(
     # arbitrary number, greater than memory size to trigger an expansion
     ret_size = 128
 
-    # Cost of pushing args onto the stack (each PUSH costs G_VERY_LOW)
+    # Cost of pushing args onto the stack (each PUSH costs VERY_LOW)
     call_push_cost = (Op.PUSH1(0) * len(Op.CALL.kwargs)).gas_cost(fork)
     mstore_push_cost = (Op.PUSH1(0) * len(Op.MSTORE.kwargs)).gas_cost(fork)
 
@@ -137,7 +137,7 @@ def test_call_memory_expands_on_early_revert(
 
     # call cost:
     #   address_access_cost+new_acc_cost+memory_expansion_cost+value-stipend
-    # G_CALL_STIPEND is a threshold check, not a gas cost — keep from gas_costs
+    # CALL_STIPEND is a threshold check, not a gas cost — keep from gas_costs
     gsc = fork.gas_costs()
     call_cost = (
         Op.CALL(
@@ -146,7 +146,7 @@ def test_call_memory_expands_on_early_revert(
             account_new=True,
             new_memory_size=ret_size,
         ).gas_cost(fork)
-        - gsc.GAS_CALL_STIPEND
+        - gsc.CALL_STIPEND
     )
 
     # mstore cost: base cost. No memory expansion cost needed, it was expanded
@@ -186,7 +186,7 @@ def test_call_large_args_offset_size_zero(
 
     very_large_offset = 2**100
 
-    # Cost of pushing args onto the stack (each PUSH costs G_VERY_LOW)
+    # Cost of pushing args onto the stack (each PUSH costs VERY_LOW)
     push_cost = (Op.PUSH1(0) * len(call_opcode.kwargs)).gas_cost(fork)
 
     call_measure = CodeGasMeasure(
