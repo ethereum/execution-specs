@@ -61,12 +61,7 @@ START_SLOT = (
 )
 
 
-def _deploy_slot0_setter(pre: Alloc) -> Address:
-    """Deploy a contract that writes CALLDATALOAD(0) into storage slot 0."""
-    return pre.deploy_contract(code=Op.SSTORE(0, Op.CALLDATALOAD(0)))
-
-
-def _delegate_and_set_slot0(
+def delegate_and_set_slot0(
     pre: Alloc,
     authority: EOA,
     setter_address: Address,
@@ -97,7 +92,7 @@ def _delegate_and_set_slot0(
     return tx
 
 
-def _run_bloated_eoa_benchmark(
+def run_bloated_eoa_benchmark(
     *,
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
@@ -117,14 +112,14 @@ def _run_bloated_eoa_benchmark(
     """
     authority = get_storage_bloated_eoa(token_name, eth_rpc=eth_rpc)
     slot_0_value = Hash(1) if existing_slots else Hash(START_SLOT)
-    setter_address = _deploy_slot0_setter(pre)
 
+    setter_address = pre.deploy_contract(code=Op.SSTORE(0, Op.CALLDATALOAD(0)))
     runtime_address = pre.deploy_contract(code=runtime_code)
 
-    init_tx = _delegate_and_set_slot0(
+    init_tx = delegate_and_set_slot0(
         pre, authority, setter_address, slot_0_value
     )
-    runtime_tx = _delegate_and_set_slot0(
+    runtime_tx = delegate_and_set_slot0(
         pre, authority, runtime_address, Hash(0)
     )
 
@@ -186,7 +181,7 @@ def test_sload_bloated(
         + Op.SSTORE
     )
 
-    _run_bloated_eoa_benchmark(
+    run_bloated_eoa_benchmark(
         benchmark_test=benchmark_test,
         pre=pre,
         fork=fork,
@@ -251,7 +246,7 @@ def test_sstore_bloated(
         + Op.SSTORE
     )
 
-    _run_bloated_eoa_benchmark(
+    run_bloated_eoa_benchmark(
         benchmark_test=benchmark_test,
         pre=pre,
         fork=fork,

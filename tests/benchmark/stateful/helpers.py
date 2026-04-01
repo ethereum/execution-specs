@@ -1,9 +1,7 @@
 """Shared constants and helpers for stateful benchmark tests."""
 
-import json
 from collections.abc import Callable
 from enum import Enum
-from pathlib import Path
 
 from execution_testing import (
     EOA,
@@ -25,25 +23,21 @@ APPROVE_SELECTOR = 0x095EA7B3  # approve(address,uint256)
 ALLOWANCE_SELECTOR = 0xDD62ED3E  # allowance(address,address)
 MINT_SELECTOR = 0x40C10F19  # mint(address,uint256)
 
-# Load token names from stubs_bloatnet.json for test parametrization
-_STUBS_FILE = Path(__file__).parent / "bloatnet" / "stubs_bloatnet.json"
-with open(_STUBS_FILE) as f:
-    _STUBS = json.load(f)
+# Storage-bloated EOA private keys, keyed by bloat size identifier.
+# Addresses derived via: keccak256(utf8ToBytes("stateBloaters{N}"))
+_STORAGE_BLOATED_EOA_KEYS: dict[str, str] = {
+    "1GB": (
+        "0xc618d7bcd54de2f0dcf86e4ced86ccf07926619a74ee10432c3d1c60743e3427"
+    ),
+    "10GB": (
+        "0x4da32d29f6dcffa26e09dc4e102033f2d105de1444fb893493ae703289275e0e"
+    ),
+    "20GB": (
+        "0xc025d5a1aa0f5eee1f50687901c5dc9a8e97a2be91aa381e4c938dc309105059"
+    ),
+}
 
-# Extract storage-bloated EOA names (keyed by bloat size identifier).
-# Each entry in the JSON has {"private_key": ..., "address": ...}.
-STORAGE_BLOATED_EOAS: list[str] = []
-for _key, _entry in (
-    (k, _STUBS[k]) for k in _STUBS if k.startswith("storage_bloated_eoa_")
-):
-    _eoa = EOA(key=_entry["private_key"])
-    if Address(_eoa) != Address(_entry["address"]):
-        raise ValueError(
-            f"Address mismatch for {_key}: "
-            f"private key derives {Address(_eoa)}, "
-            f"but JSON specifies {_entry['address']}"
-        )
-    STORAGE_BLOATED_EOAS.append(_key.replace("storage_bloated_eoa_", ""))
+STORAGE_BLOATED_EOAS: list[str] = list(_STORAGE_BLOATED_EOA_KEYS.keys())
 
 
 def get_storage_bloated_eoa(
@@ -51,8 +45,7 @@ def get_storage_bloated_eoa(
     eth_rpc: EthRPC | None = None,
 ) -> EOA:
     """Return an EOA for a storage-bloated account with its on-chain nonce."""
-    entry = _STUBS[f"storage_bloated_eoa_{name}"]
-    eoa = EOA(key=entry["private_key"])
+    eoa = EOA(key=_STORAGE_BLOATED_EOA_KEYS[name])
     if eth_rpc is not None:
         nonce = eth_rpc.get_transaction_count(Address(eoa))
         eoa.nonce = Number(nonce)
