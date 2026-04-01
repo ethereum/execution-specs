@@ -9,11 +9,11 @@ develop:
 
 benchmark:
   evm-type: benchmark
-  fill-params: --fork=Osaka --gas-benchmark-values 1,5,10,30,60,100,150 ./tests/benchmark --maxprocesses=30 --dist=worksteal
+  fill-params: --fork=Osaka --gas-benchmark-values 1,5,10,30,60,100,150 ./tests/benchmark/compute --maxprocesses=30 --dist=worksteal
 
 benchmark_fast:
   evm-type: benchmark
-  fill-params: --fork=Osaka --gas-benchmark-values 100 ./tests/benchmark
+  fill-params: --fork=Osaka --gas-benchmark-values 100 ./tests/benchmark/compute
   feature_only: true
 
 bal:
