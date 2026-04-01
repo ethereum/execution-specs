@@ -248,6 +248,7 @@ class Alloc(SharedAlloc):
         address_stubs: AddressStubs | None = None,
         block_number: int = 0,
         timestamp: int = 0,
+        funding_gas_limit: int = 200_000,
         **kwargs: Any,
     ) -> None:
         """Initialize the pre-alloc with the given parameters."""
@@ -260,6 +261,7 @@ class Alloc(SharedAlloc):
         self._address_stubs = address_stubs or AddressStubs(root={})
         self._block_number = block_number
         self._timestamp = timestamp
+        self._funding_gas_limit = funding_gas_limit
 
     def code_pre_processor(self, code: Bytecode) -> Bytecode:
         """Pre-processes the code before setting it."""
@@ -638,6 +640,7 @@ class Alloc(SharedAlloc):
                     target=label,
                     to=eoa,
                     value=amount,
+                    gas_limit=self._funding_gas_limit,
                 )
 
         if fund_tx is not None:
@@ -855,6 +858,7 @@ class Alloc(SharedAlloc):
                     target=d.address.label,
                     to=d.address,
                     value=d.amount - current_balance,
+                    gas_limit=self._funding_gas_limit,
                 )
                 new_balance = d.amount
             else:
@@ -869,6 +873,7 @@ class Alloc(SharedAlloc):
                     target=d.address.label,
                     to=d.address,
                     value=d.amount,
+                    gas_limit=self._funding_gas_limit,
                 )
                 new_balance = current_balance + d.amount
 
@@ -977,6 +982,7 @@ def pre(
     max_fee_per_gas: int,
     max_priority_fee_per_gas: int,
     dry_run: bool,
+    sender_fund_refund_gas_limit: int,
     request: pytest.FixtureRequest,
 ) -> Generator[Alloc, None, None]:
     """Return default pre allocation for all tests (Empty alloc)."""
@@ -1000,6 +1006,7 @@ def pre(
         chain_id=chain_config.chain_id,
         node_id=request.node.nodeid,
         address_stubs=address_stubs,
+        funding_gas_limit=sender_fund_refund_gas_limit,
     )
 
     # Yield the pre-alloc for usage during the test
@@ -1025,7 +1032,7 @@ def pre(
     # Build refund transactions
     refund_txs: List[Transaction] = []
     skipped_refunds = 0
-    refund_gas_limit = 21_000
+    refund_gas_limit = sender_fund_refund_gas_limit
     tx_cost = refund_gas_limit * max_fee_per_gas
     for idx, eoa in enumerate(funded_eoas):
         account = eth_rpc.get_account(eoa, skip_code=True)
