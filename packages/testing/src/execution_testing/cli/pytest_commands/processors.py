@@ -150,6 +150,13 @@ class HiveEnvironmentProcessor(ArgumentProcessor):
                     "execution_testing.cli.pytest_commands.plugins.consume.simulators.rlp.conftest",
                 ]
             )
+        elif self.command_name == "build_block":
+            modified_args.extend(
+                [
+                    "-p",
+                    "execution_testing.cli.pytest_commands.plugins.consume.simulators.build_block.conftest",
+                ]
+            )
         else:
             raise ValueError(f"Unknown command name: {self.command_name}")
         return modified_args
