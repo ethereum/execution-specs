@@ -27,6 +27,7 @@ from ..forks.forks import (
 from ..forks.transition import (
     BerlinToLondonAt5,
     BPO1ToBPO2AtTime15k,
+    BPO2ToAmsterdamAtTime15k,
     BPO2ToBPO3AtTime15k,
     BPO3ToBPO4AtTime15k,
     CancunToPragueAtTime15k,
@@ -45,6 +46,7 @@ from ..helpers import (
     forks_from_until,
     get_deployed_forks,
     get_forks,
+    get_selected_fork_set,
     transition_fork_from_to,
     transition_fork_to,
 )
@@ -604,3 +606,77 @@ def test_fork_adapters() -> None:  # noqa: D103
     assert {Osaka} == ForkSetAdapter.validate_python("Osaka")
     assert {Osaka} == ForkSetAdapter.validate_python({Osaka})
     assert set() == ForkSetAdapter.validate_python("")
+
+
+class TestSelectedForkSetWithTransitionBoundaries:
+    """Test `get_selected_fork_set` with transition fork boundaries."""
+
+    @staticmethod
+    def _normal_forks(fork_set: set) -> set:
+        """Return the set of normal (non-transition) forks."""
+        return {f for f in fork_set if not issubclass(f, TransitionBaseClass)}
+
+    @staticmethod
+    def _transition_forks(fork_set: set) -> set:
+        """Return the set of transition forks."""
+        return {f for f in fork_set if issubclass(f, TransitionBaseClass)}
+
+    def test_transition_from_and_until(self) -> None:
+        """Test range with transition forks as both boundaries."""
+        result = get_selected_fork_set(
+            single_fork=set(),
+            forks_from={OsakaToBPO1AtTime15k},  # type: ignore[arg-type]
+            forks_until={BPO2ToAmsterdamAtTime15k},  # type: ignore[arg-type]
+        )
+        assert self._normal_forks(result) == {BPO1, BPO2}
+        assert self._transition_forks(result) == {
+            OsakaToBPO1AtTime15k,
+            BPO1ToBPO2AtTime15k,
+            BPO2ToAmsterdamAtTime15k,
+        }
+
+    def test_transition_until_excludes_target(self) -> None:
+        """Transition fork `--until` must not include `transitions_to()`."""
+        result = get_selected_fork_set(
+            single_fork=set(),
+            forks_from={OsakaToBPO1AtTime15k},  # type: ignore[arg-type]
+            forks_until={BPO2ToAmsterdamAtTime15k},  # type: ignore[arg-type]
+        )
+        assert Amsterdam not in result
+
+    def test_non_bpo_transition_boundaries(self) -> None:
+        """Test non-BPO transition fork boundaries."""
+        result = get_selected_fork_set(
+            single_fork=set(),
+            forks_from={CancunToPragueAtTime15k},  # type: ignore[arg-type]
+            forks_until={PragueToOsakaAtTime15k},  # type: ignore[arg-type]
+        )
+        assert self._normal_forks(result) == {Prague}
+        assert self._transition_forks(result) == {
+            CancunToPragueAtTime15k,
+            PragueToOsakaAtTime15k,
+        }
+        assert Osaka not in result
+
+    def test_normal_boundaries_unchanged(self) -> None:
+        """Normal fork boundaries still work as before."""
+        result = get_selected_fork_set(
+            single_fork=set(),
+            forks_from={Prague},
+            forks_until={Osaka},
+        )
+        assert self._normal_forks(result) == {Prague, Osaka}
+        assert CancunToPragueAtTime15k in result
+        assert PragueToOsakaAtTime15k in result
+
+    def test_transition_from_normal_until(self) -> None:
+        """Test transition `--from` with normal `--until`."""
+        result = get_selected_fork_set(
+            single_fork=set(),
+            forks_from={OsakaToBPO1AtTime15k},  # type: ignore[arg-type]
+            forks_until={BPO2},
+        )
+        assert self._normal_forks(result) == {BPO1, BPO2}
+        assert OsakaToBPO1AtTime15k in result
+        assert BPO1ToBPO2AtTime15k in result
+        assert BPO2ToAmsterdamAtTime15k not in result

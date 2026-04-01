@@ -7,11 +7,18 @@ from execution_testing.client_clis.clis.execution_specs import (
 )
 from execution_testing.fixtures import LabeledFixtureFormat
 from execution_testing.forks import (
+    BPO1,
+    BPO2,
+    Amsterdam,
     ArrowGlacier,
     Fork,
     forks_from_until,
     get_deployed_forks,
     get_forks,
+)
+from execution_testing.forks.forks.transition import (
+    BPO2ToAmsterdamAtTime15k,
+    OsakaToBPO1AtTime15k,
 )
 from execution_testing.specs import StateTest
 
@@ -260,3 +267,42 @@ def test_from_paris_until_paris_option_no_validity_marker(
         skipped=0,
         errors=0,
     )
+
+
+def test_transition_fork_until_excludes_target(
+    pytester: pytest.Pytester,
+) -> None:
+    """
+    Test that `--until` with a transition fork does not collect tests
+    for the transition's target fork.
+
+    `--from OsakaToBPO1AtTime15k --until BPO2ToAmsterdamAtTime15k`
+    should include `fork_BPO1`, `fork_BPO2`, and
+    `fork_BPO2ToAmsterdamAtTime15k` but not `fork_Amsterdam`.
+    """
+    pytester.makepyfile(
+        f"""
+        def test_fork_range({StateTest.pytest_parameter_name()}):
+            pass
+        """
+    )
+    pytester.copy_example(
+        name="src/execution_testing/cli/pytest_commands/"
+        "pytest_ini_files/pytest-fill.ini"
+    )
+    result = pytester.runpytest(
+        "-c",
+        "pytest-fill.ini",
+        "--collect-only",
+        "-q",
+        "--from",
+        "OsakaToBPO1AtTime15k",
+        "--until",
+        "BPO2ToAmsterdamAtTime15k",
+    )
+    stdout = "\n".join(result.stdout.lines)
+    assert f"fork_{Amsterdam}" not in stdout
+    assert f"fork_{BPO1}" in stdout
+    assert f"fork_{BPO2}" in stdout
+    assert f"fork_{BPO2ToAmsterdamAtTime15k}" in stdout
+    assert f"fork_{OsakaToBPO1AtTime15k}" in stdout
