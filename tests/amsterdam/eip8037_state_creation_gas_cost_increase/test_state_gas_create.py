@@ -38,7 +38,7 @@ REFERENCE_SPEC_VERSION = ref_spec_8037.version
 @pytest.fixture
 def nonexistent_account(pre: Alloc) -> Address:
     """Return a fresh address that does not exist in pre-state."""
-    return pre.empty_account()
+    return pre.fund_eoa(amount=0)
 
 
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
@@ -810,6 +810,9 @@ def test_create_no_double_charge_new_account(
     state_test(pre=pre, tx=tx, post=post)
 
 
+# TODO: Review for bal-devnet-4. If EIP-8037 adopts top-level state gas
+# refund (https://github.com/ethereum/EIPs/pull/11476), the expected block
+# gas accounting in these tests will change and may need updating.
 @pytest.mark.parametrize(
     "state_opcode",
     [
