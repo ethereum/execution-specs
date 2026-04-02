@@ -82,13 +82,15 @@ def generic_create(
         process_create_message,
     )
 
-    # Check static context first
-    if evm.message.is_static:
-        raise WriteInStaticContext
-
     # Check max init code size early before memory read
     if memory_size > U256(MAX_INIT_CODE_SIZE):
         raise OutOfGasError
+
+    # Charge state gas for account creation after initcode validation
+    cost_per_state_byte = state_gas_per_byte(
+        evm.message.block_env.block_gas_limit
+    )
+    charge_state_gas(evm, STATE_BYTES_PER_NEW_ACCOUNT * cost_per_state_byte)
 
     tx_state = evm.message.tx_env.state
 
@@ -173,6 +175,9 @@ def create(evm: Evm) -> None:
         The current EVM frame.
 
     """
+    if evm.message.is_static:
+        raise WriteInStaticContext
+
     # STACK
     endowment = pop(evm.stack)
     memory_start_position = pop(evm.stack)
@@ -183,11 +188,7 @@ def create(evm: Evm) -> None:
         evm.memory, [(memory_start_position, memory_size)]
     )
     init_code_gas = init_code_cost(Uint(memory_size))
-    cost_per_state_byte = state_gas_per_byte(
-        evm.message.block_env.block_gas_limit
-    )
     charge_gas(evm, REGULAR_GAS_CREATE + extend_memory.cost + init_code_gas)
-    charge_state_gas(evm, STATE_BYTES_PER_NEW_ACCOUNT * cost_per_state_byte)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -223,6 +224,9 @@ def create2(evm: Evm) -> None:
         The current EVM frame.
 
     """
+    if evm.message.is_static:
+        raise WriteInStaticContext
+
     # STACK
     endowment = pop(evm.stack)
     memory_start_position = pop(evm.stack)
@@ -235,9 +239,6 @@ def create2(evm: Evm) -> None:
     )
     call_data_words = ceil32(Uint(memory_size)) // Uint(32)
     init_code_gas = init_code_cost(Uint(memory_size))
-    cost_per_state_byte = state_gas_per_byte(
-        evm.message.block_env.block_gas_limit
-    )
     charge_gas(
         evm,
         REGULAR_GAS_CREATE
@@ -245,7 +246,6 @@ def create2(evm: Evm) -> None:
         + extend_memory.cost
         + init_code_gas,
     )
-    charge_state_gas(evm, STATE_BYTES_PER_NEW_ACCOUNT * cost_per_state_byte)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
