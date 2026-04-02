@@ -366,6 +366,16 @@ def test_measure_gas(
     expect_entries_: list[dict] = [
         {
             "indexes": {"data": [0], "gas": -1, "value": -1},
+            "network": [">=Amsterdam"],
+            "result": {contract_12: Account(storage={0: 9089})},
+        },
+        {
+            "indexes": {"data": [1], "gas": -1, "value": -1},
+            "network": [">=Amsterdam"],
+            "result": {contract_12: Account(storage={0: 9193})},
+        },
+        {
+            "indexes": {"data": [0], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {contract_12: Account(storage={0: 32089})},
         },
@@ -421,7 +431,7 @@ def test_measure_gas(
         Bytes("693c6139") + Hash(0x20),
         Bytes("693c6139") + Hash(0x3B),
     ]
-    tx_gas = [16777216]
+    tx_gas = [20000000]
 
     tx = Transaction(
         sender=sender,
