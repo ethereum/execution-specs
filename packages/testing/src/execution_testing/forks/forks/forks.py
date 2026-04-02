@@ -119,17 +119,6 @@ class Frontier(
             # Contract Creation Costs
             CODE_DEPOSIT_PER_BYTE=200,
             CODE_INIT_PER_WORD=2,
-            # Component Costs for Dynamic Opcodes
-            COPY=3,
-            CREATE=32_000,
-            MEMORY=3,
-            EXPONENTIATION=10,
-            EXPONENTIATION_PER_BYTE=50,
-            LOG=375,
-            LOG_DATA_PER_BYTE=8,
-            LOG_TOPIC=375,
-            KECCAK256=30,
-            KECCAK256_PER_WORD=6,
             # Transactions
             TX_BASE=21_000,
             TX_ACCESS_LIST_ADDRESS=2_400,
@@ -185,6 +174,17 @@ class Frontier(
             OPCODE_MSTORE=VERY_LOW,
             OPCODE_MSTORE8=VERY_LOW,
             OPCODE_SELFDESTRUCT=5_000,
+            # Dynamic Opcode Component Costs
+            COPY_PER_WORD=3,
+            CREATE=32_000,
+            MEMORY=3,
+            EXPONENTIATION=10,
+            EXPONENTIATION_PER_BYTE=50,
+            LOG=375,
+            LOG_DATA_PER_BYTE=8,
+            LOG_TOPIC=375,
+            KECCAK256=30,
+            KECCAK256_PER_WORD=6,
             # Zero-initialized: introduced in later forks, set via
             # replace() in the fork that activates them.
             TX_DATA_TOKEN_STANDARD=0,
@@ -296,7 +296,8 @@ class Frontier(
         Args:
             base_gas: Either a constant gas cost (int) or a callable that
                       calculates it
-            gas_costs: The gas costs dataclass for accessing COPY
+            gas_costs: The gas costs dataclass for accessing
+                       COPY_PER_WORD
 
         Returns:
             A callable that calculates base_gas + copy_cost
@@ -313,7 +314,7 @@ class Frontier(
             # Add copy cost based on data size
             data_size = opcode.metadata["data_size"]
             word_count = (data_size + 31) // 32
-            copy_cost = gas_costs.COPY * word_count
+            copy_cost = gas_costs.COPY_PER_WORD * word_count
 
             return base_cost + copy_cost
 

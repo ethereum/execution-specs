@@ -609,7 +609,7 @@ def test_ec_pairing(
     per_variant_gas = (
         iteration_cost
         + pair_size * 16
-        + words_per_variant * (gsc.COPY + gsc.MEMORY)
+        + words_per_variant * (gsc.COPY_PER_WORD + gsc.MEMORY)
     )
     empty_intrinsic = intrinsic_gas_calculator(
         calldata=[], return_cost_deducted_prior_execution=True
@@ -640,7 +640,7 @@ def test_ec_pairing(
             per_tx_gas
             - execution_intrinsic
             - setup_cost
-            - math.ceil(len(calldata) / 32) * gsc.COPY
+            - math.ceil(len(calldata) / 32) * gsc.COPY_PER_WORD
             - mem_exp(new_bytes=len(calldata) + 32)
         )
 
