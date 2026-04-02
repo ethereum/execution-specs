@@ -44,18 +44,6 @@ class GasCosts:
     # Authorization Costs
     AUTH_PER_EMPTY_ACCOUNT: int
 
-    # Component Costs for Dynamic Opcodes
-    COPY: int
-    CREATE: int
-    MEMORY: int
-    EXPONENTIATION: int
-    EXPONENTIATION_PER_BYTE: int
-    LOG: int
-    LOG_DATA_PER_BYTE: int
-    LOG_TOPIC: int
-    KECCAK256: int
-    KECCAK256_PER_WORD: int
-
     # Transactions
     TX_BASE: int
     TX_CREATE: int
@@ -137,6 +125,18 @@ class GasCosts:
     OPCODE_MSTORE: int
     OPCODE_MSTORE8: int
     OPCODE_SELFDESTRUCT: int
+
+    # Dynamic Opcode Component Costs
+    COPY_PER_WORD: int
+    CREATE: int
+    MEMORY: int
+    EXPONENTIATION: int
+    EXPONENTIATION_PER_BYTE: int
+    LOG: int
+    LOG_DATA_PER_BYTE: int
+    LOG_TOPIC: int
+    KECCAK256: int
+    KECCAK256_PER_WORD: int
 
     # Defined post-Frontier
     OPCODE_SHL: int = 0

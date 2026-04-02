@@ -101,6 +101,7 @@ class GasCosts:
     OPCODE_SWAP = VERY_LOW
 
     # Dynamic Opcodes
+    COPY_PER_WORD = Uint(3)
     OPCODE_CALLDATACOPY = VERY_LOW
     OPCODE_CODECOPY = VERY_LOW
     OPCODE_MLOAD = VERY_LOW
@@ -108,7 +109,6 @@ class GasCosts:
     OPCODE_MSTORE8 = VERY_LOW
 
     # TODO
-    COPY = Uint(3)
     MEMORY = Uint(3)
     EXTERNAL = Uint(700)
     BALANCE = Uint(400)

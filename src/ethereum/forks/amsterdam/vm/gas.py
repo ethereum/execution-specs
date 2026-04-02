@@ -140,7 +140,7 @@ class GasCosts:
     OPCODE_SWAP = VERY_LOW
 
     # Dynamic Opcodes
-    OPCODE_COPY_BASE = Uint(3)
+    COPY_PER_WORD = Uint(3)
     OPCODE_CALLDATACOPY = VERY_LOW
     OPCODE_CODECOPY = VERY_LOW
     OPCODE_MLOAD = VERY_LOW
