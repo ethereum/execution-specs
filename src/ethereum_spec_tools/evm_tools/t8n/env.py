@@ -326,10 +326,13 @@ class Env:
         self.inclusion_list_transactions = None
 
         if not t8n.fork.has_is_inclusion_list_satisfied:
+            print("Block does not have an 'is_inclusion_list_satisfied' field")
             return
 
         inclusion_list_transactions = []
         if "inclusionListTransactions" in data:
+            il_tx_amount = len(data["inclusionListTransactions"])
+            print(f"Detected {il_tx_amount} IL txs")
             for tx in data["inclusionListTransactions"]:
                 inclusion_list_transactions.append(hex_to_bytes(tx))
 

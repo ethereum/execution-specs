@@ -3,7 +3,7 @@
 import json
 from os.path import realpath
 from pathlib import Path
-from typing import Any, List, Mapping
+from typing import Any, List, Mapping, cast
 
 import pytest
 from click.testing import CliRunner
@@ -25,7 +25,9 @@ from execution_testing.fixtures import (
     FixtureFormat,
     StateFixture,
 )
+from execution_testing.fixtures.blockchain import FixtureBlockBase
 from execution_testing.forks import (
+    Amsterdam,
     Berlin,
     Cancun,
     Fork,
@@ -34,6 +36,7 @@ from execution_testing.forks import (
     Paris,
     Shanghai,
 )
+from execution_testing.rpc.rpc_types import PayloadStatusEnum
 from execution_testing.test_types import (
     Alloc,
     Environment,
@@ -124,6 +127,60 @@ def test_make_genesis(  # noqa: D103
 
     assert fixture.genesis.block_hash is not None
     assert fixture.genesis.block_hash.startswith(fixture_hash)
+
+
+def test_blockchain_fixtures_include_inclusion_lists(
+    default_t8n: TransitionTool,
+) -> None:
+    """Test inclusion list plumbing across classic and engine fixtures."""
+    tx = Transaction(
+        nonce=0,
+        to=Address(0x1234),
+        gas_limit=21_000,
+        gas_price=10,
+    )
+    block = Block()
+    sender = Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+    signed_il_tx = tx.with_signature_and_sender()
+
+    pre = Alloc({sender: Account(balance=10**18)})
+
+    block.inclusion_list_txs = [tx]
+
+    classic_fixture = (
+        BlockchainTest(
+            fork=Amsterdam,
+            pre=pre,
+            post={},
+            blocks=[block],
+            genesis_environment=Environment(),
+        )
+        .generate(t8n=default_t8n, fixture_format=BlockchainFixture)
+        .fixture
+    )
+    assert isinstance(classic_fixture, BlockchainFixture)
+    classic_block = cast(FixtureBlockBase, classic_fixture.blocks[0])
+    assert classic_block.inclusion_list_transactions == [signed_il_tx.rlp()]
+
+    engine_fixture = (
+        BlockchainTest(
+            fork=Amsterdam,
+            pre=pre,
+            post={},
+            blocks=[block],
+            genesis_environment=Environment(),
+        )
+        .generate(t8n=default_t8n, fixture_format=BlockchainEngineFixture)
+        .fixture
+    )
+    assert isinstance(engine_fixture, BlockchainEngineFixture)
+    assert engine_fixture.payloads[0].inclusion_list_transactions == [
+        signed_il_tx.rlp()
+    ]
+    assert (
+        engine_fixture.payloads[0].expected_status()
+        == PayloadStatusEnum.INCLUSION_LIST_UNSATISFIED.value
+    )
 
 
 @pytest.mark.parametrize(

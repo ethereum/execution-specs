@@ -15,6 +15,8 @@ responses.
 
 from typing import Union
 
+import pytest
+
 from execution_testing.exceptions import UndefinedException
 from execution_testing.fixtures import (
     BlockchainEngineFixture,
@@ -42,14 +44,7 @@ from ..helpers.timing import TimingData
 logger = get_logger(__name__)
 
 
-def test_blockchain_via_engine(
-    timing_data: TimingData,
-    eth_rpc: EthRPC,
-    engine_rpc: EngineRPC,
-    fixture: Union[BlockchainEngineFixture, BlockchainEngineXFixture],
-    strict_exception_matching: bool,
-    genesis_header: FixtureHeader,
-) -> None:
+def test_blockchain_via_engine(request: pytest.FixtureRequest) -> None:
     """
     Execute blockchain test fixtures against a client using the Engine API.
 
@@ -75,6 +70,20 @@ def test_blockchain_via_engine(
     3. For valid payloads, perform forkchoice update to finalize chain
        (unless client is being reused, in which case skip FCU)
     """
+    if not hasattr(request.config, "fixtures_source"):
+        pytest.skip("requires consume simulator context")
+
+    timing_data: TimingData = request.getfixturevalue("timing_data")
+    eth_rpc: EthRPC = request.getfixturevalue("eth_rpc")
+    engine_rpc: EngineRPC = request.getfixturevalue("engine_rpc")
+    fixture: Union[BlockchainEngineFixture, BlockchainEngineXFixture] = (
+        request.getfixturevalue("fixture")
+    )
+    strict_exception_matching: bool = request.getfixturevalue(
+        "strict_exception_matching"
+    )
+    genesis_header: FixtureHeader = request.getfixturevalue("genesis_header")
+
     if isinstance(fixture, BlockchainEngineFixture):
         with timing_data.time("Initial forkchoice update"):
             logger.info(
@@ -134,20 +143,21 @@ def test_blockchain_via_engine(
                     version = payload.new_payload_version
                     logger.info(f"Sending engine_newPayloadV{version}...")
                     try:
+                        params = list(payload.params)
+                        if payload.inclusion_list_transactions is not None:
+                            params.append(payload.inclusion_list_transactions)
                         payload_response = engine_rpc.new_payload(
-                            *payload.params,
+                            *params,
                             version=payload.new_payload_version,
                         )
                         status = payload_response.status
                         logger.info(f"Payload response status: {status}")
-                        expected_validity = (
-                            PayloadStatusEnum.VALID
-                            if payload.valid()
-                            else PayloadStatusEnum.INVALID
+                        expected_status = PayloadStatusEnum(
+                            payload.expected_status()
                         )
-                        if payload_response.status != expected_validity:
+                        if payload_response.status != expected_status:
                             raise LoggedError(
-                                f"unexpected status: want {expected_validity},"
+                                f"unexpected status: want {expected_status},"
                                 f" got {payload_response.status}"
                             )
                         if payload.error_code is not None:

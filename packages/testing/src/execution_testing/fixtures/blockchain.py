@@ -454,9 +454,23 @@ class FixtureEngineNewPayload(CamelModel):
     """
 
     params: EngineNewPayloadParameters
+    inclusion_list_transactions: List[Bytes] | None = Field(
+        None, alias="inclusionListTransactions"
+    )
     new_payload_version: Number
     forkchoice_updated_version: Number
     validation_error: ExceptionInstanceOrList | None = None
+    status: (
+        Literal[
+            "VALID",
+            "INVALID",
+            "SYNCING",
+            "ACCEPTED",
+            "INVALID_BLOCK_HASH",
+            "INCLUSION_LIST_UNSATISFIED",
+        ]
+        | None
+    ) = None
     error_code: (
         Annotated[
             EngineAPIError,
@@ -470,7 +484,13 @@ class FixtureEngineNewPayload(CamelModel):
 
     def valid(self) -> bool:
         """Return whether the payload is valid."""
-        return self.validation_error is None
+        return self.expected_status() == "VALID"
+
+    def expected_status(self) -> str:
+        """Return the expected Engine API payload status."""
+        if self.status is not None:
+            return self.status
+        return "INVALID" if self.validation_error is not None else "VALID"
 
     @classmethod
     def from_fixture_header(
@@ -480,6 +500,7 @@ class FixtureEngineNewPayload(CamelModel):
         transactions: List[Transaction],
         withdrawals: List[Withdrawal] | None,
         requests: List[Bytes] | None,
+        inclusion_list_transactions: List[Transaction] | None = None,
         block_access_list: Bytes | None = None,
         **kwargs: Any,
     ) -> Self:
@@ -531,6 +552,11 @@ class FixtureEngineNewPayload(CamelModel):
         )
         new_payload = cls(
             params=payload_params,
+            inclusion_list_transactions=(
+                [tx.rlp() for tx in inclusion_list_transactions]
+                if inclusion_list_transactions is not None
+                else None
+            ),
             new_payload_version=new_payload_version,
             forkchoice_updated_version=forkchoice_updated_version,
             **kwargs,
@@ -594,6 +620,9 @@ class FixtureBlockBase(CamelModel):
     )
     ommers: List[FixtureHeader] = Field(
         default_factory=list, alias="uncleHeaders"
+    )
+    inclusion_list_transactions: List[Bytes] | None = Field(
+        None, alias="inclusionListTransactions"
     )
     withdrawals: List[FixtureWithdrawal] | None = None
     receipts: List[FixtureTransactionReceipt] | None = None
