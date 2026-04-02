@@ -13,8 +13,8 @@ Read `.github/configs/feature.yaml` and emit a flat JSON build matrix
 suitable for ``strategy.matrix`` in GitHub Actions.
 
 Features whose ``fill-params`` contain ``--until`` are split across the
-shared ``fork-ranges`` defined at the top of the config.  Features
-using ``--fork`` (single fork) produce a single unsplit entry.
+shared fork ranges defined in `.github/configs/fork-ranges.yaml`.
+Features using ``--fork`` (single fork) produce a single unsplit entry.
 
 Fork-range builds are **deduplicated** across features that share the
 same effective fill configuration (evm-type and fill-params ignoring
@@ -30,6 +30,7 @@ from pathlib import Path
 import yaml
 
 FEATURE_CONFIG = Path(".github/configs/feature.yaml")
+FORK_RANGES_CONFIG = Path(".github/configs/fork-ranges.yaml")
 
 # Canonical fork ordering used to filter fork ranges per feature.
 FORK_ORDER = [
@@ -112,14 +113,13 @@ def applicable_ranges(fork_ranges: list[dict], until_fork: str) -> list[dict]:
 
 
 def build_matrices(
-    config: dict, names: list[str]
+    config: dict, fork_ranges: list[dict], names: list[str]
 ) -> tuple[list[dict], list[dict]]:
     """
     Build deduplicated build matrix and per-feature combine matrix.
 
     Return (build_entries, combine_entries).
     """
-    fork_ranges = config.get("fork-ranges", [])
     build: list[dict] = []
     combine: list[dict] = []
     seen_labels: set[str] = set()
@@ -203,6 +203,7 @@ def main() -> None:
         sys.exit(1)
 
     config = load_config(FEATURE_CONFIG)
+    fork_ranges = load_config(FORK_RANGES_CONFIG) or []
     name = sys.argv[1]
 
     if name not in config or not isinstance(config[name], dict):
@@ -212,7 +213,7 @@ def main() -> None:
         )
         sys.exit(1)
 
-    build, combine = build_matrices(config, [name])
+    build, combine = build_matrices(config, fork_ranges, [name])
 
     # Extract combine labels for this feature (empty if unsplit).
     labels = combine[0]["labels"] if combine else ""
