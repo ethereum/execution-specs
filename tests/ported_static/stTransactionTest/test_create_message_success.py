@@ -13,10 +13,12 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
+from execution_testing.forks import Amsterdam
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -30,6 +32,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.pre_alloc_mutable
 def test_create_message_success(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
 ) -> None:
     """Test_create_message_success."""
@@ -63,7 +66,7 @@ def test_create_message_success(
         sender=sender,
         to=contract_0,
         data=Bytes(""),
-        gas_limit=131882,
+        gas_limit=2131882 if fork >= Amsterdam else 131882,
         value=100,
     )
 

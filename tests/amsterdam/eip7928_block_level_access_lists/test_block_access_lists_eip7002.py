@@ -201,7 +201,7 @@ def test_bal_7002_clean_sweep(
         to=Address(Spec7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS),
         value=withdrawal_request.fee,
         data=withdrawal_request.calldata,
-        gas_limit=200_000,
+        gas_limit=500_000,
     )
 
     # Build queue writes and reads based on pubkey
@@ -307,7 +307,7 @@ def test_bal_7002_partial_sweep(
             to=eip7002_address,
             value=withdrawal_request.fee,
             data=withdrawal_request.calldata,
-            gas_limit=200_000,
+            gas_limit=500_000,
         )
         for sender, withdrawal_request in zip(
             senders, withdrawal_requests, strict=True
@@ -473,7 +473,7 @@ def test_bal_7002_no_withdrawal_requests(
         sender=alice,
         to=bob,
         value=value,
-        gas_limit=200_000,
+        gas_limit=500_000,
     )
 
     block = Block(

@@ -99,6 +99,7 @@ class Ops(enum.Enum):
     BASEFEE = 0x48
     BLOBHASH = 0x49
     BLOBBASEFEE = 0x4A
+    SLOTNUM = 0x4B
 
     # Control Flow Ops
     STOP = 0x00
@@ -188,6 +189,11 @@ class Ops(enum.Enum):
     SWAP15 = 0x9E
     SWAP16 = 0x9F
 
+    # EIP-8024: Stack access instructions
+    DUPN = 0xE6
+    SWAPN = 0xE7
+    EXCHANGE = 0xE8
+
     # Memory Operations
     MLOAD = 0x51
     MSTORE = 0x52
@@ -251,6 +257,7 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.PREVRANDAO: block_instructions.prev_randao,
     Ops.GASLIMIT: block_instructions.gas_limit,
     Ops.CHAINID: block_instructions.chain_id,
+    Ops.SLOTNUM: block_instructions.slot_number,
     Ops.MLOAD: memory_instructions.mload,
     Ops.MSTORE: memory_instructions.mstore,
     Ops.MSTORE8: memory_instructions.mstore8,
@@ -350,6 +357,9 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.SWAP14: stack_instructions.swap14,
     Ops.SWAP15: stack_instructions.swap15,
     Ops.SWAP16: stack_instructions.swap16,
+    Ops.DUPN: stack_instructions.dupn,
+    Ops.SWAPN: stack_instructions.swapn,
+    Ops.EXCHANGE: stack_instructions.exchange,
     Ops.LOG0: log_instructions.log0,
     Ops.LOG1: log_instructions.log1,
     Ops.LOG2: log_instructions.log2,

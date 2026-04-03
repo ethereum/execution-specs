@@ -13,10 +13,12 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
+from execution_testing.forks import Amsterdam
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +34,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.pre_alloc_mutable
 def test_call_contract_to_create_contract_oog_bonus_gas(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
 ) -> None:
     """Test_call_contract_to_create_contract_oog_bonus_gas."""
@@ -77,7 +80,7 @@ def test_call_contract_to_create_contract_oog_bonus_gas(
         sender=sender,
         to=contract_0,
         data=Bytes("00"),
-        gas_limit=200000,
+        gas_limit=2200000 if fork >= Amsterdam else 200000,
     )
 
     post = {

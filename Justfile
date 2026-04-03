@@ -196,6 +196,11 @@ test-tests-bench *args:
         "$@" \
         packages/testing/src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_benchmarking.py
 
+# Run CI release script integration tests
+[group('unit tests')]
+test-ci-scripts *args:
+    uv run pytest "$@" .github/scripts/tests/
+
 # --- Benchmarks ---
 
 # Fill benchmark tests with --gas-benchmark-values

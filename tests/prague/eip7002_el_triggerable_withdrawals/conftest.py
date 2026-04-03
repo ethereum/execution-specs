@@ -10,10 +10,12 @@ from execution_testing import (
     Fork,
     Header,
     Requests,
-    TransitionFork,
 )
 
-from .helpers import WithdrawalRequest, WithdrawalRequestInteractionBase
+from .helpers import (
+    WithdrawalRequest,
+    WithdrawalRequestInteractionBase,
+)
 from .spec import Spec
 
 
@@ -86,7 +88,7 @@ def timestamp() -> int:
 
 @pytest.fixture
 def blocks(
-    fork: Fork | TransitionFork,
+    fork: Fork,
     update_pre: None,  # Fixture is used for its side effects
     blocks_withdrawal_requests: List[List[WithdrawalRequestInteractionBase]],
     included_requests: List[List[WithdrawalRequest]],
@@ -114,7 +116,7 @@ def blocks(
             assert not block_included_requests
         blocks.append(
             Block(
-                txs=sum((r.transactions() for r in block_requests), []),
+                txs=sum((r.transactions(fork) for r in block_requests), []),
                 header_verify=header_verify,
                 timestamp=timestamp,
             )

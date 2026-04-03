@@ -63,7 +63,7 @@ def test_extcodehash_self(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=400_000,
+        gas_limit=1_000_000,
     )
 
     state_test(
@@ -110,7 +110,7 @@ def test_extcodehash_of_empty(
         sender=(pre.fund_eoa()),
         to=code_address,
         value=1,
-        gas_limit=400_000,
+        gas_limit=1_000_000,
     )
 
     state_test(
@@ -163,7 +163,7 @@ def test_extcodehash_empty_send_value(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=400_000,
+        gas_limit=1_000_000,
     )
 
     state_test(
@@ -276,7 +276,7 @@ def test_extcodehash_empty_account_variants(
         sender=pre.fund_eoa(),
         to=code_address,
         value=1,
-        gas_limit=400_000,
+        gas_limit=1_000_000,
     )
 
     state_test(
@@ -350,7 +350,7 @@ def test_extcodehash_empty_contract_creation(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=400_000,
+        gas_limit=1_000_000,
     )
 
     state_test(
@@ -540,7 +540,7 @@ def test_extcodehash_dynamic_account_overwrite(
         sender=sender,
         to=caller_address,
         data=bytes(target_address).rjust(32, b"\0"),
-        gas_limit=400_000,
+        gas_limit=1_000_000,
     )
 
     state_test(
@@ -589,7 +589,7 @@ def test_extcodehash_precompile(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=400_000,
+        gas_limit=1_000_000,
     )
 
     state_test(
@@ -660,7 +660,7 @@ def test_extcodehash_new_account(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=400_000,
+        gas_limit=1_000_000,
     )
 
     state_test(
@@ -727,7 +727,7 @@ def test_extcodehash_via_call(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=400_000,
+        gas_limit=1_000_000,
     )
 
     state_test(
@@ -832,7 +832,7 @@ def test_extcodehash_after_selfdestruct(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=400_000,
+        gas_limit=1_000_000,
     )
 
     post: dict[Address, Account | None] = {
@@ -899,7 +899,7 @@ def test_extcodehash_changed_account(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=400_000,
+        gas_limit=1_000_000,
     )
 
     state_test(
@@ -955,7 +955,7 @@ def test_extcodehash_max_code_size(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=400_000,
+        gas_limit=1_000_000,
     )
 
     state_test(
@@ -1011,7 +1011,7 @@ def test_extcodehash_in_init_code(
             sender=sender,
             to=None,
             data=initcode,
-            gas_limit=400_000,
+            gas_limit=1_000_000,
         )
         created = compute_create_address(
             address=sender,
@@ -1033,7 +1033,7 @@ def test_extcodehash_in_init_code(
             sender=pre.fund_eoa(),
             to=factory,
             data=initcode,
-            gas_limit=400_000,
+            gas_limit=1_000_000,
         )
         created = compute_create_address(
             address=factory,
@@ -1091,7 +1091,7 @@ def test_extcodehash_self_in_init(
             sender=sender,
             to=None,
             data=initcode,
-            gas_limit=400_000,
+            gas_limit=1_000_000,
         )
         created = compute_create_address(
             address=sender,
@@ -1112,7 +1112,7 @@ def test_extcodehash_self_in_init(
             sender=pre.fund_eoa(),
             to=factory,
             data=initcode,
-            gas_limit=400_000,
+            gas_limit=1_000_000,
         )
         created = compute_create_address(
             address=factory,
@@ -1197,7 +1197,7 @@ def test_extcodehash_dynamic_argument(
         sender=pre.fund_eoa(),
         to=code_address,
         data=bytes(target_address).rjust(32, b"\0"),
-        gas_limit=400_000,
+        gas_limit=1_000_000,
     )
 
     state_test(
@@ -1241,7 +1241,7 @@ def test_extcodehash_call_to_nonexistent(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=400_000,
+        gas_limit=1_000_000,
     )
 
     state_test(
@@ -1294,7 +1294,7 @@ def test_extcodehash_call_to_selfdestruct(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=400_000,
+        gas_limit=1_000_000,
     )
 
     # Pre-Cancun, CALLCODE/DELEGATECALL execute SELFDESTRUCT in the
@@ -1396,7 +1396,7 @@ def test_extcodehash_created_and_deleted(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=400_000,
+        gas_limit=1_000_000,
     )
 
     post: dict[Address, Account | None] = {
@@ -1502,7 +1502,7 @@ def test_extcodehash_created_and_deleted_recheck_outer(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=outer,
-        gas_limit=400_000,
+        gas_limit=1_000_000,
     )
 
     post: dict[Address, Account | None] = {
@@ -1617,7 +1617,7 @@ def test_extcodehash_subcall_selfdestruct(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=500_000,
+        gas_limit=1_000_000,
     )
 
     # Pre-Cancun, CALLCODE/DELEGATECALL executes SELFDESTRUCT in A's
@@ -1730,7 +1730,7 @@ def test_extcodehash_subcall_create2_oog(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=500_000,
+        gas_limit=1_000_000,
         data=created.rjust(32, b"\0"),
     )
 
@@ -1797,7 +1797,7 @@ def test_extcodecopy_zero_code(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=400_000,
+        gas_limit=1_000_000,
     )
 
     state_test(

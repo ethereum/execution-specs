@@ -258,6 +258,51 @@ def test_fill_to_tarball_directory(
     )
 
 
+def test_fill_single_fork_range(
+    pytester: pytest.Pytester,
+    minimal_test_path: Path,
+    tmp_path_factory: TempPathFactory,
+) -> None:
+    """
+    Test ``--from=FORK --until=FORK`` produces fixtures for one fork.
+
+    Verify that setting both flags to the same fork (the pattern used by
+    split release runners) works for directory and tarball output.
+    """
+    pytester.copy_example(
+        name="src/execution_testing/cli/pytest_commands/"
+        "pytest_ini_files/pytest-fill.ini"
+    )
+    common_args = [
+        "-c",
+        "pytest-fill.ini",
+        "-m",
+        "(not blockchain_test_engine) and (not eip_version_check)",
+        "--from=Cancun",
+        "--until=Cancun",
+        str(minimal_test_path),
+    ]
+
+    # Directory output
+    dir_output = tmp_path_factory.mktemp("single_fork_dir")
+    result = pytester.runpytest(*common_args, f"--output={dir_output}")
+    assert result.ret == 0, f"Fill (dir) failed:\n{result.outlines}"
+    assert any(dir_output.glob("state_tests/**/*.json")), (
+        "No state_test fixtures created (dir)"
+    )
+
+    # Tarball output
+    tarball_dir = tmp_path_factory.mktemp("single_fork_tar")
+    tarball_path = tarball_dir / "fixtures.tar.gz"
+    result = pytester.runpytest(*common_args, f"--output={tarball_path}")
+    assert result.ret == 0, f"Fill (tarball) failed:\n{result.outlines}"
+    assert tarball_path.exists(), "Tarball was not created"
+    extracted = tarball_dir / "fixtures"
+    assert any(extracted.glob("state_tests/**/*.json")), (
+        "No state_test fixtures created (tarball)"
+    )
+
+
 # New tests for the is_master functionality
 def test_create_directories_skips_when_not_master() -> None:
     """

@@ -257,6 +257,13 @@ class Header:
     [EIP-7928]: https://eips.ethereum.org/EIPS/eip-7928
     [cbalh]: ref:ethereum.forks.amsterdam.block_access_lists.hash_block_access_list
     """  # noqa: E501
+    slot_number: U64
+    """
+    The slot number of this block as provided by the consensus layer.
+    Introduced in [EIP-7843].
+
+    [EIP-7843]: https://eips.ethereum.org/EIPS/eip-7843
+    """
 
 
 @slotted_freezable
@@ -360,6 +367,7 @@ class Receipt:
     cumulative_gas_used: Uint
     """
     Total gas used in the block up to and including this transaction.
+    This is the gas used after refunds, paid by the user.
     """
 
     bloom: Bloom

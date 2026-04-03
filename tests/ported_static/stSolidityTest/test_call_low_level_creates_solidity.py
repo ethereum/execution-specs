@@ -13,9 +13,11 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Amsterdam
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,6 +31,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.pre_alloc_mutable
 def test_call_low_level_creates_solidity(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
 ) -> None:
     """Test_call_low_level_creates_solidity."""
@@ -162,7 +165,7 @@ def test_call_low_level_creates_solidity(
         sender=sender,
         to=target,
         data=Bytes("c0406226"),
-        gas_limit=350000,
+        gas_limit=2350000 if fork >= Amsterdam else 350000,
         value=1,
     )
 

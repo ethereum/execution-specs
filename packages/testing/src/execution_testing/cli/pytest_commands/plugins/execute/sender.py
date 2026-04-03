@@ -56,7 +56,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         action="store",
         dest="sender_fund_refund_gas_limit",
         type=Wei,
-        default=21_000,
+        default=200_000,
         help=(
             "Gas limit set for the funding transactions of each worker's sender key."  # noqa: E501
         ),

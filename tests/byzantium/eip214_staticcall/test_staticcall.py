@@ -146,7 +146,7 @@ def test_staticcall_reentrant_call_to_precompile(
     tx = Transaction(
         sender=alice,
         to=target,
-        gas_limit=1_000_000,
+        gas_limit=2_000_000,
         value=tx_value,
         protected=True,
     )

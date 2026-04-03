@@ -13,10 +13,12 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
+from execution_testing.forks import Amsterdam
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +34,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.pre_alloc_mutable
 def test_delegatecall_in_initcode_to_existing_contract_oog(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
 ) -> None:
     """Test_delegatecall_in_initcode_to_existing_contract_oog."""
@@ -48,7 +51,7 @@ def test_delegatecall_in_initcode_to_existing_contract_oog(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=1000000,
+        gas_limit=3000000 if fork >= Amsterdam else 1000000,
     )
 
     # Source: lll
@@ -81,7 +84,7 @@ def test_delegatecall_in_initcode_to_existing_contract_oog(
         sender=sender,
         to=contract_0,
         data=Bytes(""),
-        gas_limit=153096,
+        gas_limit=2153096 if fork >= Amsterdam else 153096,
     )
 
     post = {

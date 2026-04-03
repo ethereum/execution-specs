@@ -11,6 +11,7 @@ from execution_testing import (
     Address,
     Alloc,
     Bytecode,
+    Fork,
     Initcode,
     Op,
     StateTestFiller,
@@ -270,6 +271,7 @@ class TestTransientStorageInContractCreation:
 def test_tstore_rollback_on_failed_create(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     create_opcode: Op,
 ) -> None:
     """
@@ -279,28 +281,31 @@ def test_tstore_rollback_on_failed_create(
     https://github.com/ethereum/execution-specs/issues/917
 
     Initcode does TLOAD(1) to compute a return size, then does
-    TSTORE(1, 0x6000), then returns data of the computed size.
-    When TLOAD(1) is 0, the return size is 0x600a (exceeds max code
-    size 0x6000), so creation fails.
+    TSTORE(1, max_code_size), then returns data of the computed size.
+    When TLOAD(1) is 0, the return size is max_code_size + 0x0a
+    (exceeds max code size), so creation fails.
 
     The caller invokes CREATE/CREATE2 twice with the same initcode.
     If TSTORE from the first (failed) creation is properly rolled
     back, the second creation also sees TLOAD(1)==0 and fails the
-    same way. If not rolled back, TLOAD(1)==0x6000 and the second
-    creation succeeds.
+    same way. If not rolled back, TLOAD(1)==max_code_size and the
+    second creation succeeds.
     """
+    max_code_size = fork.max_code_size()
+    fail_size = max_code_size + 0x0A
+
     # Initcode:
-    #   return_size = 0x600a - TLOAD(1)
-    #   TSTORE(1, 0x6000)
+    #   return_size = fail_size - TLOAD(1)
+    #   TSTORE(1, max_code_size)
     #   RETURN(offset=0, size=return_size)
     #
-    # TLOAD(1)==0:     return_size = 0x600a > max code size -> fail
-    # TLOAD(1)==0x6000: return_size = 0x0a <= max code size -> succeed
+    # TLOAD(1)==0:              return_size = fail_size > max code size -> fail
+    # TLOAD(1)==max_code_size:  return_size = 0x0a <= max code size -> succeed
     initcode = (
         Op.TLOAD(1)
-        + Op.PUSH2(0x600A)
+        + Op.PUSH2(fail_size)
         + Op.SUB
-        + Op.TSTORE(1, 0x6000)
+        + Op.TSTORE(1, max_code_size)
         + Op.PUSH1(0)
         + Op.RETURN
     )
@@ -324,11 +329,21 @@ def test_tstore_rollback_on_failed_create(
     )
     caller_address = pre.deploy_contract(caller_code, storage={0: 1, 1: 1})
 
+    # Amsterdam EIP-8037 charges state gas for CREATE (new account +
+    # code deposit). Supply extra gas via reservoir.
+    gas_limit = 16_000_000
+    if fork.code_deposit_state_gas(code_size=1) > 0:
+        gas_limit_cap = fork.transaction_gas_limit_cap() or gas_limit
+        code_deposit_state = fork.code_deposit_state_gas(code_size=fail_size)
+        new_account_state = fork.gas_costs().GAS_NEW_ACCOUNT
+        state_gas = 2 * (code_deposit_state + new_account_state)
+        gas_limit = gas_limit_cap + state_gas
+
     sender = pre.fund_eoa()
     tx = Transaction(
         sender=sender,
         to=caller_address,
-        gas_limit=16_000_000,
+        gas_limit=gas_limit,
         access_list=[
             AccessList(address=caller_address, storage_keys=[0, 1]),
         ],

@@ -13,9 +13,11 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Amsterdam
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -31,6 +33,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.pre_alloc_mutable
 def test_callcodecallcall_abcb_recursive(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
 ) -> None:
     """DELEGATECALL -> CALL1 -> CALL2 -> CALL1 -> ."""
@@ -113,7 +116,7 @@ def test_callcodecallcall_abcb_recursive(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=600000,
+        gas_limit=2600000 if fork >= Amsterdam else 600000,
     )
 
     post = {

@@ -56,6 +56,7 @@ class ExecutionPayload:
     blob_gas_used: U64
     excess_blob_gas: U64
     block_access_list: Bytes
+    slot_number: U64
 
 
 @slotted_freezable

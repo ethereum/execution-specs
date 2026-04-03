@@ -12,10 +12,12 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
+from execution_testing.forks import Amsterdam
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,6 +31,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.pre_alloc_mutable
 def test_create_name_registrator_per_txs_at(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
 ) -> None:
     """Test_create_name_registrator_per_txs_at."""
@@ -66,7 +69,7 @@ def test_create_name_registrator_per_txs_at(
         + Op.SSTORE(
             key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
         ),
-        gas_limit=200000,
+        gas_limit=2200000 if fork >= Amsterdam else 200000,
         value=0x186A0,
     )
 

@@ -14,9 +14,11 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Amsterdam
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -30,6 +32,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.pre_alloc_mutable
 def test_create2_call_data(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
 ) -> None:
     """Test if calldata is empty in initcode context."""
@@ -44,7 +47,7 @@ def test_create2_call_data(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=1000000,
+        gas_limit=3000000 if fork >= Amsterdam else 1000000,
     )
 
     pre[sender] = Account(balance=0x5AF3107A4000)
@@ -87,7 +90,7 @@ def test_create2_call_data(
         sender=sender,
         to=contract_0,
         data=Bytes(""),
-        gas_limit=100000,
+        gas_limit=2100000 if fork >= Amsterdam else 100000,
     )
 
     post = {

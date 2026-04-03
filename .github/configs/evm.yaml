@@ -1,8 +1,4 @@
-stable:
-  impl: eels
-  repo: null
-  ref: null
-develop:
+eels:
   impl: eels
   repo: null
   ref: null

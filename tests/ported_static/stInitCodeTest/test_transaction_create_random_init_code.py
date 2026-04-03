@@ -12,10 +12,12 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
+from execution_testing.forks import Amsterdam
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,6 +31,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.pre_alloc_mutable
 def test_transaction_create_random_init_code(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
 ) -> None:
     """Stack underflow in init code."""
@@ -62,7 +65,7 @@ def test_transaction_create_random_init_code(
         + Op.BYTE(Op.DUP2, Op.CALLDATALOAD(offset=Op.DUP1))
         + Op.DUP2
         + Op.STOP,
-        gas_limit=64599,
+        gas_limit=2064599 if fork >= Amsterdam else 64599,
         value=1,
     )
 

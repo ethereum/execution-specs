@@ -17,9 +17,11 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Amsterdam
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -35,6 +37,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.pre_alloc_mutable
 def test_callcode_to_precompile_from_transaction(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
 ) -> None:
     """Contract B staticcalls contract A."""
@@ -578,7 +581,7 @@ def test_callcode_to_precompile_from_transaction(
         sender=sender,
         to=contract_0,
         data=Bytes(""),
-        gas_limit=4000000,
+        gas_limit=6000000 if fork >= Amsterdam else 4000000,
         value=100,
     )
 

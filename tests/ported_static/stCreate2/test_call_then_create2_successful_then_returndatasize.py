@@ -13,9 +13,11 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Amsterdam
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -31,6 +33,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.pre_alloc_mutable
 def test_call_then_create2_successful_then_returndatasize(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
 ) -> None:
     """Test_call_then_create2_successful_then_returndatasize."""
@@ -97,7 +100,7 @@ def test_call_then_create2_successful_then_returndatasize(
         sender=sender,
         to=contract_1,
         data=Bytes(""),
-        gas_limit=100000,
+        gas_limit=2100000 if fork >= Amsterdam else 100000,
     )
 
     post = {

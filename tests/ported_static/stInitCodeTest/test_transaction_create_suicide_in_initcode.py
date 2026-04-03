@@ -12,10 +12,12 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
+from execution_testing.forks import Amsterdam
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -31,6 +33,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.pre_alloc_mutable
 def test_transaction_create_suicide_in_initcode(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
 ) -> None:
     """Test_transaction_create_suicide_in_initcode."""
@@ -55,7 +58,7 @@ def test_transaction_create_suicide_in_initcode(
         sender=sender,
         to=None,
         data=Op.SELFDESTRUCT(address=Op.ADDRESS) + Op.STOP,
-        gas_limit=155000,
+        gas_limit=2155000 if fork >= Amsterdam else 155000,
         value=1,
     )
 

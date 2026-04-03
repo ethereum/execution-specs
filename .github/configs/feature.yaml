@@ -1,15 +1,36 @@
 # Unless filling for special features, all features should fill for previous forks (starting from Frontier) too
-stable:
-  evm-type: stable
-  fill-params: --until=Prague --fill-static-tests --ignore=tests/static/state_tests/stQuadraticComplexityTest
+#
+# Shared fork ranges for splitting multi-fork releases across parallel runners.
+# Features using --until are automatically split using applicable ranges.
+# Features using --fork (single fork) are never split.
+fork-ranges:
+  - label: pre-cancun
+    from: Frontier
+    until: Shanghai
+  - label: cancun
+    from: Cancun
+    until: Cancun
+  - label: prague
+    from: Prague
+    until: Prague
+  - label: osaka
+    from: Osaka
+    until: Osaka
+  - label: bpo
+    from: BPO1
+    until: BPO2
+  - label: amsterdam
+    from: Amsterdam
+    until: Amsterdam
 
-develop:
-  evm-type: develop
-  fill-params: --until=BPO4 --fill-static-tests --ignore=tests/static/state_tests/stQuadraticComplexityTest
+mainnet:
+  evm-type: eels
+  fill-params: --until=BPO2 --fill-static-tests --ignore=tests/static/state_tests/stQuadraticComplexityTest
 
 benchmark:
   evm-type: benchmark
   fill-params: --fork=Osaka --gas-benchmark-values 1,5,10,30,60,100,150 ./tests/benchmark/compute --maxprocesses=30 --dist=worksteal
+  feature_only: true
 
 benchmark_fast:
   evm-type: benchmark
@@ -17,8 +38,8 @@ benchmark_fast:
   feature_only: true
 
 bal:
-  evm-type: develop
-  fill-params: --fork=Amsterdam --fill-static-tests
+  evm-type: eels
+  fill-params: --until=Amsterdam -x
   feature_only: true
 
 zkevm:

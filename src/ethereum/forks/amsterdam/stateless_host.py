@@ -98,6 +98,7 @@ def build_stateless_input(
         blob_gas_used=header.blob_gas_used,
         excess_blob_gas=header.excess_blob_gas,
         block_access_list=bal_bytes,
+        slot_number=header.slot_number,
     )
 
     new_payload = NewPayloadRequest(

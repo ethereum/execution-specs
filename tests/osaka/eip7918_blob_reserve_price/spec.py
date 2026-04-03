@@ -40,7 +40,7 @@ class Spec(EIP4844Spec):
         """Calculate the reserve price for blob gas given the blob base fee."""
         return (
             cls.BLOB_BASE_COST * base_fee_per_gas
-        ) // fork.blob_gas_per_blob()
+        ) // fork.transitions_to().blob_gas_per_blob()
 
     @classmethod
     def is_reserve_price_active(
@@ -53,7 +53,7 @@ class Spec(EIP4844Spec):
         """Check if the reserve price mechanism should be active."""
         return (
             cls.BLOB_BASE_COST * base_fee_per_gas
-            > blob_base_fee * fork.blob_gas_per_blob()
+            > blob_base_fee * fork.transitions_to().blob_gas_per_blob()
         )
 
     @classmethod

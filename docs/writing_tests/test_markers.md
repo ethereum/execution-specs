@@ -199,6 +199,30 @@ def test_something_with_all_system_contracts(
 
 In this example, the test will be parameterized for parameter `system_contract` with value `[0x000F3DF6D732807EF1319FB7B8BB8522D0BEAC02]` for fork Cancun.
 
+### `@pytest.mark.with_all_refund_types`
+
+This marker is used to automatically parameterize a test with all types of refunds that are valid for the fork being tested.
+
+Useful to mark tests to fail if a new refund type is introduced by a future fork and the test needs to be kept up to date and maintained.
+
+```python
+import pytest
+
+from execution_testing import Address, Alloc, RefundType, StateTestFiller
+
+@pytest.mark.with_all_refund_types
+@pytest.mark.valid_from("Prague")
+def test_something_with_all_refund_types(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    refund_type: RefundTypes,
+):
+    pass
+
+```
+
+In this example, the test will be parameterized for parameter `refund_type` with value `[RefundTypes.STORAGE_CLEAR, RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY]` for fork Prague.
+
 ### Covariant Marker Keyword Arguments
 
 All fork covariant markers accept the following keyword arguments:

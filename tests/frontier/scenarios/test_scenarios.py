@@ -224,7 +224,7 @@ def test_scenarios(
         tx_max_gas = (
             7_000_000
             if test_program.id == ProgramInvalidOpcode().id
-            else 1_000_000
+            else 5_000_000
         )
         if scenario.category == "double_call_combinations":
             tx_max_gas *= 2

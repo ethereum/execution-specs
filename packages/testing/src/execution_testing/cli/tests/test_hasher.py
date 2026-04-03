@@ -767,3 +767,99 @@ class TestMergePartialIndexes:
 
             with pytest.raises(Exception, match="No partial indexes found"):
                 merge_partial_indexes(output_dir, quiet_mode=True)
+
+
+class TestIndexFileMerge:
+    """Test IndexFile.merge() for combining split fork-range indexes."""
+
+    def test_merge_combines_test_cases_and_metadata(self) -> None:
+        """Verify merge concatenates entries and unions forks/formats."""
+        import datetime
+
+        idx_a = IndexFile(
+            root_hash=None,
+            created_at=datetime.datetime(2026, 1, 1),
+            test_count=1,
+            forks=["Cancun"],
+            fixture_formats=["state_test"],
+            test_cases=[
+                _make_entry(
+                    "test_a",
+                    "state_tests/for_cancun/t.json",
+                    HASH_1,
+                    fork="Cancun",
+                    fmt="state_test",
+                ),
+            ],
+        )
+        idx_b = IndexFile(
+            root_hash=None,
+            created_at=datetime.datetime(2026, 1, 2),
+            test_count=1,
+            forks=["Prague"],
+            fixture_formats=["blockchain_test"],
+            test_cases=[
+                _make_entry(
+                    "test_b",
+                    "blockchain_tests/for_prague/t.json",
+                    HASH_2,
+                    fork="Prague",
+                    fmt="blockchain_test",
+                ),
+            ],
+        )
+
+        merged = IndexFile.merge([idx_a, idx_b])
+
+        assert merged.test_count == 2
+        assert len(merged.test_cases) == 2
+        assert merged.forks is not None
+        assert set(f.name() for f in merged.forks) == {"Cancun", "Prague"}
+        assert merged.fixture_formats is not None
+        assert set(merged.fixture_formats) == {
+            "state_test",
+            "blockchain_test",
+        }
+        assert merged.root_hash is not None
+
+    def test_merge_root_hash_matches_from_index_entries(self) -> None:
+        """Verify merged root_hash matches independent computation."""
+        import datetime
+
+        cases = [
+            _make_entry(
+                "test_a",
+                "state_tests/for_cancun/t.json",
+                HASH_1,
+                fork="Cancun",
+                fmt="state_test",
+            ),
+            _make_entry(
+                "test_b",
+                "blockchain_tests/for_prague/t.json",
+                HASH_2,
+                fork="Prague",
+                fmt="blockchain_test",
+            ),
+        ]
+
+        idx_a = IndexFile(
+            root_hash=None,
+            created_at=datetime.datetime(2026, 1, 1),
+            test_count=1,
+            forks=["Cancun"],
+            fixture_formats=["state_test"],
+            test_cases=cases[:1],
+        )
+        idx_b = IndexFile(
+            root_hash=None,
+            created_at=datetime.datetime(2026, 1, 1),
+            test_count=1,
+            forks=["Prague"],
+            fixture_formats=["blockchain_test"],
+            test_cases=cases[1:],
+        )
+
+        merged = IndexFile.merge([idx_a, idx_b])
+        expected_hash = HashableItem.from_index_entries(cases).hash()
+        assert merged.root_hash == HexNumber(expected_hash)

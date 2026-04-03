@@ -4,6 +4,15 @@ inputs:
   release_name:
     description: "Name of the fixture release"
     required: true
+  from_fork:
+    description: "Fill from this fork (inclusive). Empty for unsplit builds."
+    default: ""
+  until_fork:
+    description: "Fill until this fork (inclusive). Empty for unsplit builds."
+    default: ""
+  split_label:
+    description: "Label for this fork-range split. Empty for unsplit builds."
+    default: ""
 runs:
   using: "composite"
   steps:
@@ -25,28 +34,53 @@ runs:
       with:
         type: ${{ steps.properties.outputs.evm-type }}
     - name: Install pigz for parallel tarball compression
+      if: inputs.split_label == ''
       shell: bash
       run: sudo apt-get install -y pigz
     - name: Generate fixtures using fill
       shell: bash
       run: |
-        if [ "${{ steps.evm-builder.outputs.impl }}" = "eels" ]; then
-          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} ${{ steps.properties.outputs.fill-params }} --output=fixtures_${{ inputs.release_name }}.tar.gz --build-name ${{ inputs.release_name }} --no-html --durations=100 --log-level=DEBUG
+        IS_SPLIT="${{ inputs.split_label }}"
+
+        if [ -n "$IS_SPLIT" ]; then
+          OUTPUT_ARG="--output=fixtures_${{ inputs.release_name }}"
+          FORK_ARGS="--generate-all-formats --from=${{ inputs.from_fork }} --until=${{ inputs.until_fork }}"
         else
-          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} --evm-bin=${{ steps.evm-builder.outputs.evm-bin }} ${{ steps.properties.outputs.fill-params }} --output=fixtures_${{ inputs.release_name }}.tar.gz --build-name ${{ inputs.release_name }} --no-html --durations=100 --log-level=DEBUG
+          OUTPUT_ARG="--output=fixtures_${{ inputs.release_name }}.tar.gz"
+          FORK_ARGS=""
+        fi
+
+        # Allow exit code 5 (NO_TESTS_COLLECTED) for fork ranges with no tests.
+        EXIT_CODE=0
+        if [ "${{ steps.evm-builder.outputs.impl }}" = "eels" ]; then
+          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} ${{ steps.properties.outputs.fill-params }} $FORK_ARGS $OUTPUT_ARG --build-name ${{ inputs.release_name }} --no-html --durations=100 --log-level=DEBUG || EXIT_CODE=$?
+        else
+          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} --evm-bin=${{ steps.evm-builder.outputs.evm-bin }} ${{ steps.properties.outputs.fill-params }} $FORK_ARGS $OUTPUT_ARG --build-name ${{ inputs.release_name }} --no-html --durations=100 --log-level=DEBUG || EXIT_CODE=$?
+        fi
+        if [ "$EXIT_CODE" -ne 0 ] && [ "$EXIT_CODE" -ne 5 ]; then
+          exit "$EXIT_CODE"
         fi
     - name: Generate Benchmark Genesis Files
-      if: contains(inputs.release_name, 'benchmark')
+      if: inputs.split_label == '' && contains(inputs.release_name, 'benchmark')
       uses: ./.github/actions/build-benchmark-genesis
       with:
         fixtures_path: fixtures_${{ inputs.release_name }}.tar.gz
     - name: Upload Benchmark Genesis Artifact
-      if: contains(inputs.release_name, 'benchmark')
+      if: inputs.split_label == '' && contains(inputs.release_name, 'benchmark')
       uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
       with:
         name: benchmark_genesis_${{ inputs.release_name }}
         path: benchmark_genesis.tar.gz
-    - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+    - name: Upload fixture tarball (unsplit)
+      if: inputs.split_label == ''
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
       with:
         name: fixtures_${{ inputs.release_name }}
         path: fixtures_${{ inputs.release_name }}.tar.gz
+    - name: Upload fixture directory (split)
+      if: inputs.split_label != ''
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+      with:
+        name: fixtures__${{ inputs.split_label }}
+        path: fixtures_${{ inputs.release_name }}/
+        if-no-files-found: ignore
