@@ -85,6 +85,7 @@ check_eip_versions = "execution_testing.cli.pytest_commands.check_eip_versions:c
 consume = "execution_testing.cli.pytest_commands.consume:consume"
 protec = "execution_testing.cli.pytest_commands.consume:consume"
 build-block = "execution_testing.cli.pytest_commands.build_block:build_block"
+fill-stateful = "execution_testing.cli.pytest_commands.fill_stateful:fill_stateful"
 checklist = "execution_testing.cli.pytest_commands.checklist:checklist"
 generate_checklist_stubs = "execution_testing.cli.generate_checklist_stubs:generate_checklist_stubs"
 genindex = "execution_testing.cli.gen_index:generate_fixtures_index_cli"
