@@ -395,7 +395,6 @@ class TransitionTool(EthereumCLI):
             temp_dir_path / "input", **model_dump_config
         )
 
-
         output_paths = {
             "result": os.path.join("output", "result.json"),
         }
@@ -521,7 +520,9 @@ class TransitionTool(EthereumCLI):
         if result.returncode != 0:
             raise Exception("failed to evaluate: " + result.stderr.decode())
 
-        alloc_filename = "state-diff.json" if self.use_state_db else "alloc.json"
+        alloc_filename = (
+            "state-diff.json" if self.use_state_db else "alloc.json"
+        )
         output = TransitionToolOutput.model_validate_files(
             temp_dir_path / "output",
             alloc_filename=alloc_filename,
