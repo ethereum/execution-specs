@@ -16,6 +16,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Amsterdam, Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -30,6 +31,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_sstore_gas(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
@@ -172,10 +174,17 @@ def test_sstore_gas(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=16777216,
+        gas_limit=20000000,
         nonce=1,
     )
 
+    # Cold zero-to-nonzero (key 4102) includes 20000 SSTORE_SET in Cancun,
+    # but in Amsterdam SSTORE_SET is state gas (charged from reservoir),
+    # so GAS opcode only sees the 5000 regular gas cost.
+    # In Amsterdam, SSTORE_SET (20000) is state gas charged from the
+    # reservoir, so GAS opcode only sees the regular gas portion.
+    cold_zero_to_nonzero = 5000 if fork >= Amsterdam else 22100
+    warm_zero_to_nonzero = 2900 if fork >= Amsterdam else 20000
     post = {
         target: Account(
             storage={
@@ -185,9 +194,9 @@ def test_sstore_gas(
                 4099: 100,
                 4100: 100,
                 4101: 5000,
-                4102: 22100,
+                4102: cold_zero_to_nonzero,
                 4103: 2200,
-                4104: 20000,
+                4104: warm_zero_to_nonzero,
             },
         ),
     }
