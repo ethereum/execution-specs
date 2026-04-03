@@ -45,6 +45,7 @@ from execution_testing.test_types import Alloc, Environment, Transaction
 
 from .cli_types import (
     LazyAlloc,
+    LazyAllocStr,
     OpcodeCount,
     Traces,
     TransactionReceipt,
@@ -192,6 +193,9 @@ class TransitionTool(EthereumCLI):
     debug_dump_dir: Path | None = None
     call_counter: int = 0
     opcode_count: OpcodeCount | None = None
+    state_db_path: Path | None = None
+    state_db_root: str | None = None
+    _state_diffs: list[LazyAlloc] | None = None
 
     supports_opcode_count: ClassVar[bool] = False
     supports_xdist: ClassVar[bool] = True
@@ -383,10 +387,17 @@ class TransitionTool(EthereumCLI):
             temp_dir_path / "input", **model_dump_config
         )
 
+        use_state_db = self.state_db_path is not None
+
         output_paths = {
-            output: os.path.join("output", f"{output}.json")
-            for output in ["alloc", "result"]
+            "result": os.path.join("output", "result.json"),
         }
+        if use_state_db:
+            output_paths["state_diff"] = os.path.join(
+                "output", "state-diff.json"
+            )
+        else:
+            output_paths["alloc"] = os.path.join("output", "alloc.json")
         output_paths["body"] = os.path.join("output", "txs.rlp")
 
         # Get fork name and apply any tool-specific mapping
@@ -402,8 +413,6 @@ class TransitionTool(EthereumCLI):
             str(self.binary),
             "--state.fork",
             fork_name,
-            "--input.alloc",
-            input_paths["alloc"],
             "--input.env",
             input_paths["env"],
             "--input.txs",
@@ -412,8 +421,6 @@ class TransitionTool(EthereumCLI):
             temp_dir.name,
             "--output.result",
             output_paths["result"],
-            "--output.alloc",
-            output_paths["alloc"],
             "--output.body",
             output_paths["body"],
             "--state.reward",
@@ -421,6 +428,36 @@ class TransitionTool(EthereumCLI):
             "--state.chainid",
             str(t8n_data.chain_id),
         ]
+
+        if use_state_db:
+            args.extend(["--input.state-db", str(self.state_db_path)])
+            for i, diff in enumerate(self._state_diffs):
+                diff_path = temp_dir_path / "input" / f"state-diff-{i}.json"
+                if isinstance(diff, LazyAllocStr):
+                    diff_path.write_text(diff.raw)
+                else:
+                    diff_path.write_text(
+                        diff.model_dump_json(**model_dump_config)
+                    )
+                args.extend(
+                    ["--input.state-diff", str(diff_path)]
+                )
+            args.extend(
+                ["--output.state-diff", output_paths["state_diff"]]
+            )
+            if self.state_db_root is not None and len(self._state_diffs) == 0:
+                args.extend(
+                    ["--input.state-db-root", self.state_db_root]
+                )
+        else:
+            args.extend(
+                [
+                    "--input.alloc",
+                    input_paths["alloc"],
+                    "--output.alloc",
+                    output_paths["alloc"],
+                ]
+            )
         if self.supports_opcode_count and self.opcode_count is not None:
             args.extend(
                 [
@@ -487,10 +524,16 @@ class TransitionTool(EthereumCLI):
         if result.returncode != 0:
             raise Exception("failed to evaluate: " + result.stderr.decode())
 
+        alloc_filename = (
+            "state-diff.json" if use_state_db else "alloc.json"
+        )
         output = TransitionToolOutput.model_validate_files(
             temp_dir_path / "output",
+            alloc_filename=alloc_filename,
             context={"exception_mapper": self.exception_mapper},
         )
+        if use_state_db:
+            self._state_diffs.append(output.alloc)
         if self.supports_opcode_count and self.opcode_count is not None:
             opcode_count_file_path = Path(temp_dir.name) / "opcodes.json"
             if opcode_count_file_path.exists():

@@ -64,7 +64,32 @@ def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
         default=None,
     )
     t8n_parser.add_argument(
+        "--input.state-db",
+        dest="input_state_db",
+        type=str,
+        default=None,
+    )
+    t8n_parser.add_argument(
+        "--input.state-diff",
+        dest="input_state_diff",
+        type=str,
+        action="append",
+        default=None,
+    )
+    t8n_parser.add_argument(
+        "--input.state-db-root",
+        dest="input_state_db_root",
+        type=str,
+        default=None,
+    )
+    t8n_parser.add_argument(
         "--output.alloc", dest="output_alloc", type=str, default="alloc.json"
+    )
+    t8n_parser.add_argument(
+        "--output.state-diff",
+        dest="output_state_diff",
+        type=str,
+        default=None,
     )
     t8n_parser.add_argument(
         "--output.basedir", dest="output_basedir", type=str, default="."
@@ -266,6 +291,21 @@ class T8N(Load):
         super().__init__(fork)
 
         self.chain_id = parse_hex_or_int(self.options.state_chainid, U64)
+
+        if (
+            self.options.input_state_diff is not None
+            and self.options.input_state_db is None
+        ):
+            raise ValueError(
+                "--input.state-diff requires --input.state-db."
+            )
+
+        if self.options.input_state_db is not None:
+            raise NotImplementedError(
+                "--input.state-db is not supported by the Python t8n. "
+                "Use a client t8n implementation (geth, nethermind, etc.)."
+            )
+
         self.alloc = Alloc(self, stdin)
         self.env = Env(self, stdin)
         self.txs = Txs(self, stdin)

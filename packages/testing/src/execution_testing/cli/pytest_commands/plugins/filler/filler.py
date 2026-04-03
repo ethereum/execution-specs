@@ -627,6 +627,20 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "Default: The first (geth) 'evm' entry in PATH."
         ),
     )
+    evm_group.addoption(
+        "--state-db",
+        action="store",
+        dest="state_db",
+        type=Path,
+        default=None,
+        help=(
+            "Path to a client state database directory. When provided, "
+            "t8n reads initial state from this DB (read-only) instead of "
+            "--input.alloc. Requires a snapshot env metadata file at "
+            "<state-db>/env.json containing the head block's env and "
+            "a stateRoot field for verification."
+        ),
+    )
 
     test_group = parser.getgroup(
         "tests", "Arguments defining filler location and output"
@@ -930,6 +944,36 @@ def pytest_configure(config: pytest.Config) -> None:
             "with the xdist plugin; use -n=0.",
             returncode=pytest.ExitCode.USAGE_ERROR,
         )
+    state_db_path = config.getoption("state_db")
+    if state_db_path is not None:
+        if not state_db_path.exists():
+            pytest.exit(
+                f"State database path does not exist: {state_db_path}",
+                returncode=pytest.ExitCode.USAGE_ERROR,
+            )
+        env_meta_path = state_db_path / "env.json"
+        if not env_meta_path.exists():
+            pytest.exit(
+                f"Snapshot env metadata not found: {env_meta_path}. "
+                "Expected a valid env JSON file with a stateRoot field.",
+                returncode=pytest.ExitCode.USAGE_ERROR,
+            )
+        env_meta = json.loads(env_meta_path.read_text())
+        state_db_root = env_meta.get("stateRoot")
+        if state_db_root is None:
+            pytest.exit(
+                f"Snapshot env metadata missing stateRoot: {env_meta_path}",
+                returncode=pytest.ExitCode.USAGE_ERROR,
+            )
+        if t8n.t8n_use_server or t8n.t8n_use_stream:
+            pytest.exit(
+                "--state-db is only supported in filesystem mode, "
+                "not server or stream mode.",
+                returncode=pytest.ExitCode.USAGE_ERROR,
+            )
+        t8n.state_db_path = state_db_path
+        t8n.state_db_root = state_db_root
+
     config.t8n = t8n  # type: ignore[attr-defined]
 
     if "Tools" not in config.stash[metadata_key]:
@@ -1286,8 +1330,9 @@ def t8n(
     else:
         # Test cannot use output cache, remove it
         session_t8n.remove_cache()
-    # Reset the traces
+    # Reset the traces and per-block state-diffs
     session_t8n.reset_traces()
+    session_t8n._state_diffs = [] if session_t8n.state_db_path else None
     session_t8n.call_counter = 0
     session_t8n.debug_dump_dir = dump_dir_parameter_level
     # TODO: Configure the transition tool to count opcodes only when required.
@@ -1674,7 +1719,11 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
             __is_base_test_wrapper__ = True
 
             def __init__(self, *args: Any, **kwargs: Any) -> None:
-                if "pre" not in kwargs:
+                if t8n.state_db_path is not None:
+                    # With state-db, the pre-state is in the DB,
+                    # not in the test's pre allocation.
+                    kwargs["pre"] = pre.__class__()
+                elif "pre" not in kwargs:
                     kwargs["pre"] = pre
                 if "expected_benchmark_gas_used" not in kwargs:
                     kwargs["expected_benchmark_gas_used"] = gas_benchmark_value
@@ -1800,17 +1849,29 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     # TODO: This should be handled by the `generate` method
                     # of the spec.
                     assert isinstance(fixture, BlockchainEngineXFixture)
-                    fixture.pre_hash = pre_alloc_hash
 
-                    # Calculate state diff for efficiency
+                    if t8n.state_db_path is not None:
+                        fixture.pre_hash = t8n.state_db_root
+                    else:
+                        fixture.pre_hash = pre_alloc_hash
+
                     if (
                         hasattr(fixture, "post_state")
                         and fixture.post_state is not None
                     ):
-                        group = session.get_pre_alloc_group(pre_alloc_hash)
-                        fixture.post_state_diff = calculate_post_state_diff(
-                            fixture.post_state, group.pre
-                        )
+                        if t8n.state_db_path is not None:
+                            # In state-db mode, post_state contains only
+                            # accounts modified during execution.
+                            fixture.post_state_diff = fixture.post_state
+                        else:
+                            group = session.get_pre_alloc_group(
+                                pre_alloc_hash
+                            )
+                            fixture.post_state_diff = (
+                                calculate_post_state_diff(
+                                    fixture.post_state, group.pre
+                                )
+                            )
 
                 fill_metadata: Dict[str, Any] = {}
                 if t8n.opcode_count is not None:

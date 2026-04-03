@@ -470,13 +470,17 @@ class TransitionToolOutput:
 
     @classmethod
     def model_validate_files(
-        cls, directory_path: Path, *, context: Any | None = None
+        cls,
+        directory_path: Path,
+        *,
+        alloc_filename: str = "alloc.json",
+        context: Any | None = None,
     ) -> "Self":
         """
         Validate the model from the file system where each key is a
         different JSON file.
         """
-        alloc_data = (directory_path / "alloc.json").read_text()
+        alloc_data = (directory_path / alloc_filename).read_text()
         result_data = (directory_path / "result.json").read_text()
         result = Result.model_validate_json(
             json_data=result_data, context=context
