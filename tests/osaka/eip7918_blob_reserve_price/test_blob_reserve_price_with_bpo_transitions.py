@@ -17,6 +17,7 @@ from execution_testing import (
     Op,
     ParameterSet,
     Transaction,
+    TransitionFork,
     add_kzg_version,
 )
 from execution_testing.forks import BPO2ToBPO3AtTime15k
@@ -70,45 +71,46 @@ def blob_hashes_per_tx(blobs_per_tx: int) -> List[Hash]:
 
 
 @pytest.fixture
-def source_fork_target_blobs(fork: Fork) -> int:
+def source_fork_target_blobs(fork: TransitionFork) -> int:
     """Transition-from fork target blobs."""
-    return fork.target_blobs_per_block(timestamp=0)
+    return fork.transitions_from().target_blobs_per_block()
 
 
 @pytest.fixture
-def source_fork_gas_per_blob(fork: Fork) -> int:
+def source_fork_gas_per_blob(fork: TransitionFork) -> int:
     """Transition-from fork gas per blob."""
-    return fork.blob_gas_per_blob(timestamp=0)
+    return fork.transitions_from().blob_gas_per_blob()
 
 
 @pytest.fixture
-def transition_fork_target_blobs(fork: Fork) -> int:
+def transition_fork_target_blobs(fork: TransitionFork) -> int:
     """Transition-to fork target blobs."""
-    return fork.target_blobs_per_block(timestamp=15_000)
+    return fork.transitions_to().target_blobs_per_block()
 
 
 @pytest.fixture
-def transition_fork_gas_per_blob(fork: Fork) -> int:
+def transition_fork_gas_per_blob(fork: TransitionFork) -> int:
     """Transition-to fork gas per blob."""
-    return fork.blob_gas_per_blob(timestamp=15_000)
+    return fork.transitions_to().blob_gas_per_blob()
 
 
 @pytest.fixture
 def genesis_base_fee_per_gas(
-    fork: Fork,
+    fork: TransitionFork,
     parent_base_fee_per_gas: int,
 ) -> int:
     """Genesis base fee per gas."""
     # Base fee always drops from genesis to block 1 because the genesis block
     # never uses any tx gas.
     return (
-        parent_base_fee_per_gas * fork.base_fee_max_change_denominator()
+        parent_base_fee_per_gas
+        * fork.transitions_from().base_fee_max_change_denominator()
     ) // 7
 
 
 @pytest.fixture
 def genesis_excess_blob_gas(
-    fork: Fork,
+    fork: TransitionFork,
     genesis_base_fee_per_gas: int,
     parent_excess_blob_gas: int,
     source_fork_target_blobs: int,
@@ -118,7 +120,9 @@ def genesis_excess_blob_gas(
     genesis_excess_blob_gas = parent_excess_blob_gas + (
         source_fork_target_blobs * source_fork_gas_per_blob
     )
-    excess_blob_gas_calculator = fork.excess_blob_gas_calculator(timestamp=0)
+    excess_blob_gas_calculator = (
+        fork.transitions_from().excess_blob_gas_calculator()
+    )
     current_excess_blob_gas = excess_blob_gas_calculator(
         parent_excess_blob_gas=genesis_excess_blob_gas,
         parent_blob_count=0,
@@ -217,14 +221,14 @@ def tx_max_fee_per_blob_gas() -> int:
 
 
 @pytest.fixture
-def blob_cap_per_transaction(fork: Fork) -> int:
+def blob_cap_per_transaction(fork: TransitionFork) -> int:
     """Max blobs that a single transaction can contain."""
-    return fork.max_blobs_per_tx()
+    return fork.transitions_from().max_blobs_per_tx()
 
 
 @pytest.fixture
 def parent_block_txs(
-    fork: Fork,
+    fork: TransitionFork,
     sender: EOA,
     destination_account: Address,
     gas_spender_contract: Address,
@@ -253,7 +257,7 @@ def parent_block_txs(
         block_base_fee_per_gas=parent_base_fee_per_gas * 10,
         tx_max_fee_per_blob_gas=tx_max_fee_per_blob_gas,
     )
-    required_gas_used = fork.base_fee_change_calculator()(
+    required_gas_used = fork.transitions_from().base_fee_change_calculator()(
         parent_gas_limit=env.gas_limit,
         parent_base_fee_per_gas=parent_base_fee_per_gas,
         required_base_fee_per_gas=transition_block_base_fee_per_gas,
@@ -356,35 +360,32 @@ class BlobSchedule:
     """Blob schedule for a fork."""
 
     fork: Fork
-    timestamp: int
 
     @property
     def max(self) -> int:
         """Return the max blobs per block."""
-        return self.fork.max_blobs_per_block(timestamp=self.timestamp)
+        return self.fork.max_blobs_per_block()
 
     @property
     def target(self) -> int:
         """Return the target blobs per block."""
-        return self.fork.target_blobs_per_block(timestamp=self.timestamp)
+        return self.fork.target_blobs_per_block()
 
     @property
     def base_fee_update_fraction(self) -> int:
         """Return the base fee update fraction."""
-        return self.fork.blob_base_fee_update_fraction(
-            timestamp=self.timestamp
-        )
+        return self.fork.blob_base_fee_update_fraction()
 
     @property
     def blob_gas_per_blob(self) -> int:
         """Return the blob gas per blob."""
-        return self.fork.blob_gas_per_blob(timestamp=self.timestamp)
+        return self.fork.blob_gas_per_blob()
 
     @property
     def blob_base_cost(self) -> int | None:
         """Return the blob base cost."""
-        if self.fork.blob_reserve_price_active(timestamp=self.timestamp):
-            return self.fork.blob_base_cost(timestamp=self.timestamp)
+        if self.fork.blob_reserve_price_active():
+            return self.fork.blob_base_cost()
         return None
 
     @property
@@ -397,9 +398,7 @@ class BlobSchedule:
         Calculate the excess blob gas for the current block based on the gas
         used in the parent block.
         """
-        excess_blob_gas_calculator = self.fork.excess_blob_gas_calculator(
-            timestamp=self.timestamp
-        )
+        excess_blob_gas_calculator = self.fork.excess_blob_gas_calculator()
         return excess_blob_gas_calculator(
             parent_excess_blob_gas=parent_header.excess_blob_gas,
             parent_blob_count=parent_header.blob_gas_used,
@@ -416,9 +415,7 @@ class BlobSchedule:
         if self.blob_base_cost is None:
             return None
         target_blob_gas_price = self.blob_gas_per_blob
-        blob_gas_price_calculator = self.fork.blob_gas_price_calculator(
-            timestamp=self.timestamp
-        )
+        blob_gas_price_calculator = self.fork.blob_gas_price_calculator()
         target_blob_gas_price *= blob_gas_price_calculator(
             excess_blob_gas=excess_blob_gas
         )
@@ -426,13 +423,15 @@ class BlobSchedule:
         return (base_blob_tx_price // self.blob_base_cost) + 1
 
 
-def get_fork_scenarios(fork: Fork) -> Iterator[ParameterSet]:
+def get_fork_scenarios(fork: TransitionFork) -> Iterator[ParameterSet]:
     """
     Return the list of scenarios at the fork boundary depending on the source
     fork and transition fork properties.
     """
-    source_blob_schedule = BlobSchedule(fork=fork, timestamp=0)
-    transition_blob_schedule = BlobSchedule(fork=fork, timestamp=15_000)
+    source_blob_schedule = BlobSchedule(fork=fork.fork_at(timestamp=0))
+    transition_blob_schedule = BlobSchedule(
+        fork=fork.fork_at(timestamp=15_000)
+    )
 
     excess_blobs_combinations = [0, 1, 10, 100]
 

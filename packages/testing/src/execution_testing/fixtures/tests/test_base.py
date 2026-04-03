@@ -149,7 +149,6 @@ def test_base_fixtures_parsing(fixture: BaseFixture) -> None:
         "t8n-version",
         "test_case_description",
         fixture_source_url="fixture_source_url",
-        opcode_count=None,
         ref_spec=None,
         _info_metadata={},
     )

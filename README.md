@@ -79,14 +79,18 @@ The execution specification is a python implementation of Ethereum that prioriti
 
 The Ethereum specification is maintained as a Python library, for better integration with tooling and testing.
 
-Requires Python 3.11+
+Requires:
+
+* Python 3.11+,
+* [`uv`](https://docs.astral.sh/uv/) package manager,
+* [`just`](https://just.systems/) command runner (install via your package manager, [`uv tool install just-bin`](https://pypi.org/project/just-bin/), or [pre-built binaries](https://just.systems/man/en/pre-built-binaries.html)).
 
 ### Building Specification Documentation
 
-Building the spec documentation is most easily done through [`tox`](https://tox.readthedocs.io/en/latest/):
+Building the spec documentation:
 
 ```bash
-uvx --with=tox-uv tox -e spec-docs
+just docs-spec
 ```
 
 The path to the generated HTML will be printed to the console.

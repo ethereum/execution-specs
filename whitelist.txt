@@ -477,6 +477,7 @@ encodings
 endian
 endianness
 EngineAPI
+enginex
 enum
 env
 envvar

@@ -48,6 +48,7 @@ fork_set = set(get_deployed_forks())
 fork_set.add(Prague)
 
 
+@pytest.mark.xfail(reason="Known issue: geth evm not built in CI, see #2557")
 def test_ci_multi_t8n_support(
     installed_transition_tool_instances: Dict[str, TransitionTool | Exception],
     running_in_ci: bool,

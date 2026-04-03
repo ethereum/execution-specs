@@ -368,6 +368,7 @@ def post(  # noqa: D103
 
 
 @CallContextTestCases.parametrize()
+@pytest.mark.eels_base_coverage
 def test_subcall(
     state_test: StateTestFiller,
     env: Environment,
@@ -384,3 +385,51 @@ def test_subcall(
     - `STATICCALL`
     """
     state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.ported_from(
+    [
+        "https://github.com/holiman/goevmlab/blob/master/examples/tstore_bug/main.go",
+    ],
+)
+def test_tstore_rollback_on_callcode_revert(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test TSTORE is rolled back after CALLCODE sub-call reverts.
+
+    Regression test for
+    https://github.com/ethereum/execution-specs/issues/911
+
+    Contract `callee` does TSTORE(4, 1), calls a precompile, then
+    REVERTs. Contract `caller` uses CALLCODE to invoke `callee`, then
+    checks TLOAD(4). Because CALLCODE executes in the caller's context
+    and the sub-call reverted, TLOAD(4) must return 0.
+    """
+    callee_code = (
+        Op.TSTORE(4, 1)
+        + Op.CALL(address=0x06)  # call identity precompile
+        + Op.POP
+        + Op.REVERT(0, 0)
+    )
+    callee_address = pre.deploy_contract(callee_code)
+
+    caller_code = Op.SSTORE(
+        0, Op.CALLCODE(address=callee_address)
+    ) + Op.SSTORE(1, Op.TLOAD(4))
+    caller_address = pre.deploy_contract(caller_code)
+
+    sender = pre.fund_eoa()
+    tx = Transaction(
+        sender=sender,
+        to=caller_address,
+        gas_limit=1_000_000,
+    )
+
+    post = {
+        # CALLCODE returns 0 (reverted), TLOAD(4) = 0 (rolled back)
+        caller_address: Account(storage={0: 0, 1: 0}),
+    }
+
+    state_test(pre=pre, post=post, tx=tx)

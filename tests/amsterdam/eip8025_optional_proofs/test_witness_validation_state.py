@@ -249,7 +249,7 @@ def test_validation_state_missing_absent_account_proof_node(
 ) -> None:
     """Removing a recipient-only absent-account proof node should fail."""
     sender = pre.fund_eoa()
-    recipient = pre.empty_account()
+    recipient = pre.fund_eoa(amount=0)
     # Add one untouched sibling under the recipient's secured-trie prefix so
     # the absence proof extends below the shared root node.
     sibling = find_account_with_shared_secured_nibble(

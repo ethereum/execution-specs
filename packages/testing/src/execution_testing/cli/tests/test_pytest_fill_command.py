@@ -1,5 +1,7 @@
 """Tests for pytest commands (e.g., fill) click CLI."""
 
+import json
+import shutil
 from pathlib import Path
 from typing import Callable
 
@@ -12,12 +14,11 @@ import execution_testing.cli.pytest_commands.plugins.filler.filler
 from ..pytest_commands.fill import fill
 
 MINIMAL_TEST_FILE_NAME = "test_example.py"
-MINIMAL_TEST_CONTENTS = """
-from execution_testing import Transaction
-def test_function(state_test, pre):
-    tx = Transaction(to=0, gas_limit=21_000, sender=pre.fund_eoa())
-    state_test(pre=pre, post={}, tx=tx)
-"""
+VECTORS_DIR = Path(__file__).parent / "vectors"
+MINIMAL_TEST_SOURCE = VECTORS_DIR / "vector_pytest_fill_command_example.py"
+VALID_FROM_PRAGUE_BLOCKCHAIN_TEST_SOURCE = (
+    VECTORS_DIR / "vector_pytest_fill_command_valid_from_prague.py"
+)
 
 
 @pytest.fixture
@@ -102,7 +103,7 @@ class TestFillPytester:
         """
         tests_dir = pytester.mkdir("tests")
         test_file = tests_dir / MINIMAL_TEST_FILE_NAME
-        test_file.write_text(MINIMAL_TEST_CONTENTS)
+        shutil.copyfile(MINIMAL_TEST_SOURCE, test_file)
         return test_file
 
     @pytest.fixture
@@ -207,6 +208,65 @@ class TestFillPytester:
         fill_args += ["--no-html"]
         run_fill(*fill_args)
         assert not default_html_path.exists()
+
+    def test_fill_pytest_help_does_not_create_empty_log_file(
+        self, pytester: Pytester
+    ) -> None:
+        """Help-mode startup should not leave behind an empty log file."""
+        log_dir = pytester.path / "logs"
+        pytester.copy_example(
+            name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+        )
+
+        result = pytester.runpytest(
+            "-c",
+            "pytest-fill.ini",
+            "--help",
+            "--log-to",
+            str(log_dir),
+        )
+
+        assert result.ret == pytest.ExitCode.OK
+        assert not list(log_dir.glob("*.log"))
+
+    def test_generate_pre_alloc_groups_preserves_chain_id_for_valid_from(
+        self,
+        pytester: Pytester,
+        default_fixtures_output: Path,
+    ) -> None:
+        """
+        Custom chain ID should be preserved for valid_from-selected forks.
+        """
+        tests_dir = pytester.mkdir("tests")
+        prague_tests_dir = tests_dir / "prague"
+        prague_tests_dir.mkdir()
+        test_file = prague_tests_dir / "test_chain_id_pre_alloc.py"
+        shutil.copyfile(VALID_FROM_PRAGUE_BLOCKCHAIN_TEST_SOURCE, test_file)
+
+        pytester.copy_example(
+            name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+        )
+        result = pytester.runpytest(
+            "-c",
+            "pytest-fill.ini",
+            "--generate-pre-alloc-groups",
+            "--chain-id",
+            "12345",
+            f"--output={default_fixtures_output}",
+            str(test_file),
+            "-q",
+        )
+        assert result.ret == pytest.ExitCode.OK, "\n".join(result.outlines)
+
+        pre_alloc_dir = (
+            default_fixtures_output / "blockchain_tests_engine_x" / "pre_alloc"
+        )
+        pre_alloc_files = sorted(pre_alloc_dir.glob("*.json"))
+        assert pre_alloc_files, f"No pre-alloc files found in {pre_alloc_dir}"
+
+        for pre_alloc_file in pre_alloc_files:
+            payload = json.loads(pre_alloc_file.read_text())
+            assert payload["chainId"] == 12345, pre_alloc_file
 
     def test_fill_html_option(
         self,

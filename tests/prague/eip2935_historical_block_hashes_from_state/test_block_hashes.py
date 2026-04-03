@@ -243,6 +243,7 @@ def test_block_hashes_history_at_transition(
     ],
 )
 @pytest.mark.valid_from("Prague")
+@pytest.mark.eels_base_coverage
 def test_block_hashes_history(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

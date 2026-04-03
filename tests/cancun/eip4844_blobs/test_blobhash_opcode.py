@@ -306,6 +306,7 @@ def test_blobhash_scenarios(
         "invalid_calls",
     ],
 )
+@pytest.mark.eels_base_coverage
 def test_blobhash_invalid_blob_index(
     pre: Alloc,
     fork: Fork,

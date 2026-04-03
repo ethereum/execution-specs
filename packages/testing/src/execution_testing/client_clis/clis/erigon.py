@@ -112,8 +112,11 @@ class ErigonExceptionMapper(ExceptionMapper):
             r"invalid block access list"
         ),
         BlockException.INCORRECT_BLOCK_FORMAT: (r"invalid block access list"),
+        BlockException.BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED: (
+            r"block access list too large"
+        ),
         TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
-            r"invalid block, txnIdx=\d+,.*gas limit too high"
+            r"gas limit too high"
         ),
         BlockException.INCORRECT_BLOB_GAS_USED: (
             r"blobGasUsed by execution: \d+, in header: \d+"

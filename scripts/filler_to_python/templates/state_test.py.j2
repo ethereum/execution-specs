@@ -1,0 +1,390 @@
+{#-
+    Jinja2 template for generating Python test files from static fillers.
+
+    Parametrize approach: always (d, g, v).
+    Transaction fields are looked up from module-level arrays:
+        tx_data[d], tx_gas[g], tx_value[v]
+    Post-state and exceptions are resolved at runtime:
+        resolve_expect_post(expect_entries_, d, g, v, fork)
+
+    Context variables (from IntermediateTestModel via render.py):
+
+        docstring           str       Module docstring (from _info.comment)
+        filler_path         str       Relative path to filler file
+        test_name           str       Python function name (test_xxx)
+        short_docstring     str       One-line docstring for the function
+        valid_from          str       Fork name (e.g., "Cancun")
+        valid_until         str|None  Fork name or None
+        is_slow             bool      Mark @pytest.mark.slow
+        is_multi_case       bool      len(parameters) > 1
+        has_exceptions      bool      Any case has an exception
+
+        needs_op            bool      Import Op
+        needs_tx_exception  bool      Import TransactionException
+        needs_access_list   bool      Import AccessList
+        needs_hash          bool      Import Hash
+
+        env                 EnvironmentIR
+        accounts            list[AccountIR]
+        transaction         TransactionIR
+
+        -- Module-level arrays (from filler transaction) --
+
+        tx_data             list[str]   Compiled data hex per d index
+        tx_gas              list[int]   Gas limit per g index
+        tx_value            list[int]   Value per v index
+
+        -- Expect entries (from filler expect sections) --
+
+        expect_entries      list[ExpectEntryIR]
+                            Each has: .indexes (dict), .network (list[str]),
+                            .result (dict: var_name -> Account assertion),
+                            .expect_exception (dict | None)
+                            Resolved from expect.result.resolve(tags).
+                            Used at runtime by resolve_expect_post().
+
+        -- Parametrize (d, g, v) combos --
+
+        parameters          list[ParameterCaseIR]
+                            Each has: .d, .g, .v, .has_exception, .label
+                            Built from data x gasLimit x value matrix.
+
+        -- Single-case data (when not is_multi_case) --
+
+        single_post         str|None    Formatted post dict, or None if empty
+        single_error        str|None    Formatted error, or None
+
+        -- Sender --
+
+        sender              SenderIR    .is_tagged, .key, .balance
+        address_constants   list        Non-tagged address variables
+                                        [{var_name, hex}]
+
+    Custom filters:
+        format_int(v)           Hex vs decimal heuristic
+        format_storage(d)       Format {slot: value} dict
+        format_account(a)       Format Account(storage=..., code=...)
+        format_post(post)       Format post dict {addr: Account(...)}
+        wrap_op_chain(s, ind)   Split Op chain at + for 79-char lines
+-#}
+"""
+{{ docstring }}
+
+Ported from:
+{{ filler_path }}
+"""
+
+import pytest
+from execution_testing import (
+    EOA,
+    Account,
+    Address,
+    Alloc,
+{% if needs_bytes %}
+    Bytes,
+{% endif %}
+    Environment,
+    StateTestFiller,
+    Transaction,
+{% if needs_tx_exception %}
+    TransactionException,
+{% endif %}
+{% if needs_access_list %}
+    AccessList,
+{% endif %}
+{% if needs_hash %}
+    Hash,
+{% endif %}
+{% if needs_storage_any %}
+    Storage,
+{% endif %}
+{% if needs_compute_create_address %}
+    compute_create_address,
+{% endif %}
+)
+{% if needs_op %}
+from execution_testing.vm import Op
+{% endif %}
+{% if is_multi_case %}
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
+{% elif is_fork_dependent %}
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post_fork,
+)
+{% endif %}
+
+REFERENCE_SPEC_GIT_PATH = "N/A"
+REFERENCE_SPEC_VERSION = "N/A"
+
+{% if needs_storage_any %}
+def _storage_with_any(base: dict, any_keys: list) -> Storage:
+    """Create Storage with set_expect_any for specified keys."""
+    s = Storage(base)
+    for k in any_keys:
+        s.set_expect_any(k)
+    return s
+
+{% endif %}
+
+@pytest.mark.ported_from(
+    ["{{ filler_path }}"],
+)
+@pytest.mark.valid_from("{{ valid_from }}")
+{% if valid_until %}
+@pytest.mark.valid_until("{{ valid_until }}")
+{% endif %}
+{% if is_slow %}
+@pytest.mark.slow
+{% endif %}
+{% if is_multi_case %}
+@pytest.mark.parametrize(
+    "d, g, v",
+    [
+{% for case in parameters %}
+        pytest.param(
+            {{ case.d }}, {{ case.g }}, {{ case.v }},
+            id="{{ case.id }}",
+{% if case.marks %}
+            marks={{ case.marks }},
+{% endif %}
+        ),
+{% endfor %}
+    ],
+)
+{% endif %}
+{% if has_exceptions and not is_multi_case %}
+@pytest.mark.exception_test
+{% endif %}
+@pytest.mark.pre_alloc_mutable
+def {{ test_name }}(
+    state_test: StateTestFiller,
+    pre: Alloc,
+{% if is_multi_case %}
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
+{% elif is_fork_dependent %}
+    fork: Fork,
+{% endif %}
+) -> None:
+    """{{ short_docstring }}"""
+{% for addr in address_constants %}
+    {{ addr.var_name }} = Address({{ addr.hex }})
+{% endfor %}
+{% if sender.not_in_pre %}
+    sender = pre.fund_eoa(amount=0)
+{% else %}
+    sender = EOA(
+        key={{ sender.key | format_int }}
+    )
+{% endif %}
+
+    env = Environment(
+        fee_recipient={{ env.coinbase_var }},
+        number={{ env.number }},
+        timestamp={{ env.timestamp }},
+{% if env.prev_randao is not none %}
+        prev_randao={{ env.prev_randao | format_int }},
+{% endif %}
+{% if env.difficulty is not none and env.prev_randao is none %}
+        difficulty={{ env.difficulty | format_int }},
+{% endif %}
+{% if env.base_fee_per_gas is not none %}
+        base_fee_per_gas={{ env.base_fee_per_gas }},
+{% endif %}
+{% if env.excess_blob_gas is not none %}
+        excess_blob_gas={{ env.excess_blob_gas | format_int }},
+{% endif %}
+        gas_limit={{ env.gas_limit }},
+    )
+
+{# Pre-state account setup #}
+{% for account in accounts %}
+{% if account.is_sender %}
+    pre[sender] = Account(balance={{ account.balance | format_int }}{{ ", nonce=%d" | format(account.nonce) if account.nonce }}{{ ", storage=%s" | format(account.storage | format_storage) if account.storage }}{{ ", code=%s" | format(account.code_expr | wrap_op_chain(indent=8)) if account.code_expr }})
+{% elif account.is_eoa %}
+    pre[{{ account.var_name }}] = Account(balance={{ account.balance | format_int }}{{ ", nonce=%d" | format(account.nonce) if account.nonce }}{{ ", storage=%s" | format(account.storage | format_storage) if account.storage }}{{ ", code=%s" | format(account.code_expr | wrap_op_chain(indent=8)) if account.code_expr }})
+{% else %}
+{# Contract: source comment + deploy #}
+{{ account.source_comment }}
+{% if account.oversized_code %}
+    {{ account.var_name }} = Address({{ account.address }})
+    pre[{{ account.var_name }}] = Account(
+        code={{ account.code_expr | wrap_op_chain(indent=8) }},
+{% if account.storage %}
+        storage={{ account.storage | format_storage }},
+{% endif %}
+{% if account.balance %}
+        balance={{ account.balance | format_int }},
+{% endif %}
+{% if account.nonce is not none %}
+        nonce={{ account.nonce }},
+{% endif %}
+    )
+{% else %}
+    {{ account.var_name }} = pre.deploy_contract(
+        code={{ account.code_expr | wrap_op_chain(indent=8) }},
+{% if account.storage %}
+        storage={{ account.storage | format_storage }},
+{% endif %}
+{% if account.balance %}
+        balance={{ account.balance | format_int }},
+{% endif %}
+{% if account.nonce is not none %}
+        nonce={{ account.nonce }},
+{% endif %}
+        address=Address({{ account.address }}),  # noqa: E501
+    )
+{% endif %}
+{% endif %}
+{% endfor %}
+
+{# Expect entries (used by resolve_expect_post at runtime) #}
+{% if single_post %}
+{# Post will be assigned below #}
+{% elif is_multi_case or is_fork_dependent %}
+    expect_entries_: list[dict] = [
+{% for entry in expect_entries %}
+        {
+{% if is_multi_case %}
+            "indexes": {{ entry.indexes }},
+{% endif %}
+            "network": {{ entry.network }},
+            "result": {{ entry.result | format_post }},
+{% if entry.expect_exception %}
+            "expect_exception": {{ entry.expect_exception | format_expect_exception }},
+{% endif %}
+        },
+{% endfor %}
+    ]
+
+{% if is_multi_case %}
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+{% else %}
+    post, _exc = resolve_expect_post_fork(expect_entries_, fork)
+{% endif %}
+{% endif %}
+
+{% if is_multi_case %}
+{# Case value arrays: tx fields indexed by d, g, v #}
+    tx_data = [
+    {% for d in tx_data %}
+        {{ d }},
+    {% endfor %}
+    ]
+    tx_gas = [{{ tx_gas | join(", ") }}]
+{% if tx_value != [0] %}
+    tx_value = [{{ tx_value | join(", ") }}]
+{% endif %}
+{% if tx.per_data_access_lists %}
+    tx_access_lists: dict[int, list] = {
+    {% for d_idx, al_entries in tx.per_data_access_lists.items() %}
+        {{ d_idx }}: [
+    {% for al in al_entries %}
+            AccessList(
+                address=Address({{ al.address }}),
+                storage_keys=[
+    {% for sk in al.storage_keys %}
+                    Hash("{{ sk }}"),  # noqa: E501
+    {% endfor %}
+                ],
+            ),
+    {% endfor %}
+        ],
+    {% endfor %}
+    }
+{% endif %}
+
+{% endif %}
+
+{# Transaction #}
+    tx = Transaction(
+        sender=sender,
+{% if tx.to_var is not none %}
+        to={{ tx.to_var }},
+{% elif tx.to_is_none %}
+        to=None,
+{% endif %}
+{% if is_multi_case %}
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
+{% if tx_value != [0] %}
+        value=tx_value[v],
+{% endif %}
+{% else %}
+{% if tx.data_inline and tx.data_inline != "b''" %}
+        data={{ tx.data_inline }},
+{% endif %}
+{% if tx.gas_limit is not none and tx.gas_limit != 21000 %}
+        gas_limit={{ tx.gas_limit }},
+{% endif %}
+{% if tx.value %}
+        value={{ tx.value | format_int }},
+{% endif %}
+{% endif %}
+{% if tx.max_fee_per_gas is not none %}
+        max_fee_per_gas={{ tx.max_fee_per_gas }},
+{% endif %}
+{% if tx.max_priority_fee_per_gas is not none %}
+        max_priority_fee_per_gas={{ tx.max_priority_fee_per_gas }},
+{% endif %}
+{% if tx.nonce is not none and tx.nonce != 0 %}
+        nonce={{ tx.nonce }},
+{% endif %}
+{% if tx.gas_price is not none and tx.gas_price != 10 %}
+        gas_price={{ tx.gas_price }},
+{% endif %}
+{% if tx.max_fee_per_blob_gas is not none %}
+        max_fee_per_blob_gas={{ tx.max_fee_per_blob_gas | format_int }},
+{% endif %}
+{% if tx.blob_versioned_hashes is not none %}
+        blob_versioned_hashes=[
+{% for h in tx.blob_versioned_hashes %}
+            Hash(
+                "{{ h }}"  # noqa: E501
+            ),
+{% endfor %}
+        ],
+{% endif %}
+{% if tx.per_data_access_lists and is_multi_case %}
+        access_list=tx_access_lists.get(d),
+{% elif tx.access_list is not none %}
+        access_list=[
+{% for al in tx.access_list %}
+            AccessList(
+                address=Address({{ al.address }}),
+                storage_keys=[
+{% for sk in al.storage_keys %}
+                    Hash(
+                        "{{ sk }}"  # noqa: E501
+                    ),
+{% endfor %}
+                ],
+            ),
+{% endfor %}
+        ],
+{% endif %}
+{% if single_error %}
+        error={{ single_error }},
+{% elif single_post %}
+    {# Single post without error #}
+{% elif is_multi_case or is_fork_dependent %}
+        error=_exc,
+{% endif %}
+    )
+
+{# Post-state #}
+{% if single_post %}
+    post = {{ single_post | format_post }}
+{% elif is_multi_case or is_fork_dependent %}
+{# Post resolved above via resolve_expect_post / resolve_expect_post_fork #}
+{% else %}
+    post: dict = {}
+{% endif %}
+
+    state_test(env=env, pre=pre, post=post, tx=tx)

@@ -12,7 +12,7 @@ jobs:
     outputs:
       names: ${{ steps.feature-name.outputs.names }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           submodules: false
 
@@ -34,7 +34,7 @@ jobs:
       matrix:
         feature: ${{ fromJSON(needs.feature-names.outputs.names) }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           submodules: true
 
@@ -66,10 +66,13 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     if: startsWith(github.ref, 'refs/tags/tests-')
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           submodules: false
+          fetch-depth: 0
 
       - name: Download all artifacts
         run: |
@@ -77,17 +80,34 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - name: Draft Pre-release to EEST Repository
+      - name: Draft pre-release on EELS (canonical)
         run: |
-          # Strip "tests-" prefix from tag for EEST
-          TAG_NAME="${{ github.ref_name }}"
-          RELEASE_TAG="${TAG_NAME#tests-}"
+          # Find previous tag scoped to this feature (e.g., tests-bal@v*)
+          FEATURE_PREFIX="${TAG_NAME%%@*}"
+          PREV_TAG=$(
+            git tag --list "${FEATURE_PREFIX}@v*" --sort=-v:refname \
+              | grep -v "^${TAG_NAME}$" \
+              | head -n 1 \
+            || true
+          )
+          NOTES_ARGS=()
+          if [ -n "$PREV_TAG" ]; then
+            NOTES_ARGS=(--notes-start-tag "$PREV_TAG")
+          fi
+          gh release create "$TAG_NAME" --draft --prerelease --generate-notes "${NOTES_ARGS[@]}" ./artifacts/**/*
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
 
-          gh release create "$RELEASE_TAG" \
+      - name: Draft pre-release on EEST (mirror)
+        run: |
+          EEST_TAG="${TAG_NAME#tests-}"
+          gh release create "$EEST_TAG" \
             --repo ethereum/execution-spec-tests \
             --draft \
             --prerelease \
-            --generate-notes \
+            --notes "This release is mirrored from [ethereum/execution-specs ${TAG_NAME}](https://github.com/ethereum/execution-specs/releases/tag/${TAG_NAME})." \
             ./artifacts/**/*
         env:
+          TAG_NAME: ${{ github.ref_name }}
           GH_TOKEN: ${{ secrets.EEST_RELEASE_TOKEN }}

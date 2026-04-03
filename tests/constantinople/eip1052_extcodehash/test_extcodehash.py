@@ -17,6 +17,9 @@ from execution_testing import (
     compute_create2_address,
     compute_create_address,
 )
+from execution_testing import (
+    Macros as Om,
+)
 from execution_testing.forks import Cancun
 from execution_testing.forks.helpers import Fork
 
@@ -36,6 +39,7 @@ pytestmark = [
     ],
     pr=["https://github.com/ethereum/execution-specs/pull/2249"],
 )
+@pytest.mark.eels_base_coverage
 def test_extcodehash_self(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -86,7 +90,7 @@ def test_extcodehash_of_empty(
     Test EXTCODEHASH/EXTCODESIZE for non-existent and empty accounts.
     """
     storage = Storage()
-    target_address = pre.empty_account()
+    target_address = pre.nonexistent_account()
 
     if target_exists:
         pre.fund_address(target_address, 1)
@@ -135,7 +139,7 @@ def test_extcodehash_empty_send_value(
     the account receives value within the same transaction.
     """
     storage = Storage()
-    target_address = pre.empty_account()
+    target_address = pre.nonexistent_account()
 
     code = (
         # EXTCODEHASH before sending value: expect 0 (non-existent).
@@ -239,7 +243,7 @@ def test_extcodehash_empty_account_variants(
     Test EXTCODEHASH/EXTCODESIZE/EXTCODECOPY for empty-account variants.
     """
     storage = Storage()
-    target_address = pre.empty_account()
+    target_address = pre.nonexistent_account()
     pre[target_address] = account
 
     code = Op.JUMPDEST + (
@@ -387,7 +391,7 @@ def test_extcodehash_codeless_with_storage(
     so EXTCODEHASH returns keccak256("") and EXTCODESIZE returns 0.
     Storage is not part of the EIP-161 emptiness check.
     """
-    target_address = pre.empty_account()
+    target_address = pre.nonexistent_account()
     pre[target_address] = Account(balance=balance, nonce=nonce, storage={1: 1})
 
     storage = Storage()
@@ -1222,7 +1226,7 @@ def test_extcodehash_call_to_nonexistent(
     EXTCODEHASH — it returns 0 because the account does not exist.
     """
     storage = Storage()
-    nonexistent = pre.empty_account()
+    nonexistent = pre.nonexistent_account()
 
     code = Op.SSTORE(
         storage.store_next(1),
@@ -1271,7 +1275,7 @@ def test_extcodehash_call_to_selfdestruct(
     contract at end of transaction.
     """
     storage = Storage()
-    beneficiary = pre.empty_account()
+    beneficiary = pre.nonexistent_account()
     target_code = Op.SELFDESTRUCT(beneficiary)
     target = pre.deploy_contract(target_code, balance=5_555_555_555)
 
@@ -1404,3 +1408,491 @@ def test_extcodehash_created_and_deleted(
         post[created] = Account(code=runtime)
 
     state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashCreatedAndDeletedAccountRecheckInOuterCallFiller.json",  # noqa: E501
+    ],
+    pr=["https://github.com/ethereum/execution-specs/pull/2428"],
+)
+def test_extcodehash_created_and_deleted_recheck_outer(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test EXTCODEHASH of a created-and-selfdestructed account rechecked
+    from an outer call frame.
+
+    Outer contract CALLs inner, which CREATE2s a contract with
+    SELFDESTRUCT code then triggers it. After inner returns, outer
+    re-checks EXTCODEHASH and EXTCODESIZE of the created address.
+    Within the transaction all checks return the original code hash
+    and size. The created contract is deleted at end of transaction.
+    """
+    inner_storage = Storage()
+    outer_storage = Storage()
+
+    runtime = Op.SELFDESTRUCT(0)
+    initcode = Initcode(deploy_code=runtime)
+    salt = 0x10
+    expected_hash = runtime.keccak256()
+    expected_size = len(runtime)
+
+    # Inner contract: CREATE2, check, trigger SELFDESTRUCT, re-check.
+    created_slot = inner_storage.store_next(0)
+    inner_code = Bytecode()
+    inner_code += Om.MSTORE(initcode, 0) + Op.SSTORE(
+        created_slot,
+        Op.CREATE2(value=0, offset=0, size=len(initcode), salt=salt),
+    )
+
+    target = Op.SLOAD(created_slot)
+    expected_code = bytes(runtime).ljust(32, b"\0")
+
+    def inner_extcode_checks() -> Bytecode:
+        return (
+            Op.SSTORE(
+                inner_storage.store_next(expected_hash),
+                Op.EXTCODEHASH(target),
+            )
+            + Op.SSTORE(
+                inner_storage.store_next(expected_size),
+                Op.EXTCODESIZE(target),
+            )
+            + Op.EXTCODECOPY(target, 0, 0, 32)
+            + Op.SSTORE(
+                inner_storage.store_next(expected_code),
+                Op.MLOAD(0),
+            )
+        )
+
+    inner_code += inner_extcode_checks()
+    inner_code += Op.CALL(address=target, gas=Op.GAS) + Op.POP
+    inner_code += inner_extcode_checks()
+    inner = pre.deploy_contract(inner_code, storage=inner_storage.canary())
+
+    created = compute_create2_address(
+        address=inner,
+        salt=salt,
+        initcode=initcode,
+    )
+    inner_storage[created_slot] = created
+
+    # Outer contract: CALL inner, then re-check the created address.
+    outer_code = (
+        Op.CALL(address=inner, gas=Op.GAS)
+        + Op.POP
+        + Op.SSTORE(
+            outer_storage.store_next(expected_hash),
+            Op.EXTCODEHASH(created),
+        )
+        + Op.SSTORE(
+            outer_storage.store_next(expected_size),
+            Op.EXTCODESIZE(created),
+        )
+        + Op.EXTCODECOPY(created, 0, 0, 32)
+        + Op.SSTORE(
+            outer_storage.store_next(expected_code),
+            Op.MLOAD(0),
+        )
+    )
+    outer = pre.deploy_contract(outer_code, storage=outer_storage.canary())
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=outer,
+        gas_limit=400_000,
+    )
+
+    post: dict[Address, Account | None] = {
+        inner: Account(storage=inner_storage),
+        outer: Account(storage=outer_storage),
+        created: Account.NONEXISTENT,
+    }
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashSubcallSuicideFiller.yml",  # noqa: E501
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashSubcallSuicideCancunFiller.yml",  # noqa: E501
+    ],
+    pr=["https://github.com/ethereum/execution-specs/pull/2418"],
+)
+@pytest.mark.parametrize(
+    "call_opcode",
+    [
+        pytest.param(Op.CALLCODE, id="callcode"),
+        pytest.param(Op.DELEGATECALL, id="delegatecall"),
+    ],
+)
+@pytest.mark.parametrize(
+    "dynamic_a",
+    [
+        pytest.param(False, id="pre_existing"),
+        pytest.param(True, id="dynamic"),
+    ],
+)
+def test_extcodehash_subcall_selfdestruct(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    call_opcode: Opcodes,
+    dynamic_a: bool,
+) -> None:
+    """
+    Test EXTCODEHASH after subcall with CALLCODE/DELEGATECALL to SELFDESTRUCT.
+
+    B calls A, which uses CALLCODE or DELEGATECALL to invoke a contract C
+    containing SELFDESTRUCT, executing it in A's context. B checks
+    EXTCODEHASH, EXTCODESIZE, and EXTCODECOPY of A before and after.
+    Within the transaction, A's code properties are unchanged. Pre-Cancun,
+    A is deleted at end of transaction. In Cancun, A survives only if
+    pre-existing; a dynamically created A is still deleted (EIP-6780).
+    """
+    storage = Storage()
+    beneficiary = pre.nonexistent_account()
+    selfdestruct_code = Op.SELFDESTRUCT(beneficiary)
+    target_c = pre.deploy_contract(selfdestruct_code)
+
+    # A: executes C's code in A's context via CALLCODE/DELEGATECALL
+    a_code = call_opcode(
+        gas=350_000,
+        address=target_c,
+        ret_size=32,
+    )
+
+    if not dynamic_a:
+        a = pre.deploy_contract(a_code, balance=1)
+
+    a_hash = a_code.keccak256()
+    a_size = len(a_code)
+    a_code_word0 = bytes(a_code)[:32].ljust(32, b"\0")
+
+    def extcode_checks(target: Address | Bytecode) -> Bytecode:
+        """Check EXTCODEHASH, EXTCODESIZE, and EXTCODECOPY of A."""
+        return (
+            Op.SSTORE(storage.store_next(a_hash), Op.EXTCODEHASH(target))
+            + Op.SSTORE(storage.store_next(a_size), Op.EXTCODESIZE(target))
+            + Op.EXTCODECOPY(target, 0, 0, 32)
+            + Op.SSTORE(
+                storage.store_next(a_code_word0),
+                Op.MLOAD(0),
+            )
+        )
+
+    code = Bytecode()
+
+    if dynamic_a:
+        initcode = Initcode(deploy_code=a_code)
+        code += Om.MSTORE(initcode)
+        created_slot = storage.store_next(0)
+        code += Op.SSTORE(
+            created_slot,
+            Op.CREATE(value=0, offset=0, size=len(initcode)),
+        )
+        a_target: Address | Bytecode = Op.SLOAD(created_slot)
+    else:
+        a_target = a
+
+    code += extcode_checks(a_target)
+    code += Op.SSTORE(
+        storage.store_next(1),
+        Op.CALL(gas=350_000, address=a_target),
+    )
+    code += extcode_checks(a_target)
+    code += Op.SSTORE(
+        storage.store_next(1),
+        Op.CALL(gas=350_000, address=a_target),
+    )
+
+    code_address = pre.deploy_contract(code, storage=storage.canary())
+
+    if dynamic_a:
+        a = compute_create_address(address=code_address, nonce=1)
+        storage[created_slot] = a
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=code_address,
+        gas_limit=500_000,
+    )
+
+    # Pre-Cancun, CALLCODE/DELEGATECALL executes SELFDESTRUCT in A's
+    # context, deleting A at end of transaction.
+    # In Cancun, pre-existing A survives (EIP-6780); dynamic A is deleted.
+    post: dict[Address, Account | None] = {
+        code_address: Account(storage=storage),
+    }
+    if fork >= Cancun and not dynamic_a:
+        post[a] = Account(code=a_code, balance=0)
+    else:
+        post[a] = Account.NONEXISTENT
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashSubcallOOGFiller.yml",  # noqa: E501
+    ],
+    pr=[
+        "https://github.com/ethereum/execution-specs/pull/2458",
+    ],
+)
+@pytest.mark.parametrize(
+    "call_opcode",
+    [
+        pytest.param(Op.CALL, id="call"),
+        pytest.param(Op.CALLCODE, id="callcode"),
+        pytest.param(Op.DELEGATECALL, id="delegatecall"),
+    ],
+)
+@pytest.mark.parametrize("oog", [False, True], ids=["success", "oog"])
+def test_extcodehash_subcall_create2_oog(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    call_opcode: Opcodes,
+    oog: bool,
+) -> None:
+    """
+    Test EXTCODEHASH after CREATE2 in a subcall that goes out of gas.
+
+    A factory contract creates a contract via CREATE2, then either
+    returns normally or consumes all remaining gas. When the subcall
+    OOGs, the entire frame reverts — including the CREATE2 — so the
+    created contract should not exist. The caller checks
+    EXTCODEHASH/EXTCODESIZE/EXTCODECOPY of the expected CREATE2 address.
+    """
+    storage = Storage()
+    deploy_code = Op.SSTORE(0x20, 0x20)
+    deploy_code_bytes = bytes(deploy_code)
+    initcode = Initcode(deploy_code=deploy_code)
+
+    # Factory: CREATE2, optionally consume all gas to trigger OOG.
+    factory_code = Om.MSTORE(initcode, 0) + Op.MSTORE(
+        0, Op.CREATE2(value=0, offset=0, size=len(initcode), salt=0)
+    )
+    if oog:
+        factory_code += Om.OOG
+    factory_code += Op.RETURN(0, 32)
+
+    factory = pre.deploy_contract(factory_code)
+
+    # Pass the pre-computed CREATE2 address as calldata so the test
+    # does not depend on return data from a potentially OOG'd subcall.
+    hash_slot = storage.store_next(0, "extcodehash")
+    size_slot = storage.store_next(0, "extcodesize")
+    code_slot = storage.store_next(0, "extcodecopy")
+    code = (
+        Op.SSTORE(
+            storage.store_next(int(not oog), "call_result"),
+            call_opcode(
+                address=factory,
+                gas=200_000,
+                ret_offset=0,
+                ret_size=32,
+            ),
+        )
+        + Op.SSTORE(hash_slot, Op.EXTCODEHASH(Op.CALLDATALOAD(0)))
+        + Op.SSTORE(size_slot, Op.EXTCODESIZE(Op.CALLDATALOAD(0)))
+        + Op.EXTCODECOPY(Op.CALLDATALOAD(0), 0, 0, 32)
+        + Op.SSTORE(code_slot, Op.MLOAD(0))
+    )
+
+    code_address = pre.deploy_contract(code, storage=storage.canary())
+
+    # Compute the CREATE2 address to verify existence in post-state.
+    if call_opcode == Op.CALL:
+        deployer = factory
+    else:
+        # CALLCODE/DELEGATECALL: factory code runs in caller's context.
+        deployer = code_address
+    created = compute_create2_address(
+        address=deployer, salt=0, initcode=initcode
+    )
+
+    if not oog:
+        storage[hash_slot] = keccak256(deploy_code_bytes)
+        storage[size_slot] = len(deploy_code)
+        storage[code_slot] = deploy_code_bytes.ljust(32, b"\0")
+
+    post: dict[Address, Account | None] = {
+        code_address: Account(storage=storage),
+    }
+    if oog:
+        post[created] = Account.NONEXISTENT
+    else:
+        post[created] = Account(nonce=1, code=deploy_code)
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=code_address,
+        gas_limit=500_000,
+        data=created.rjust(32, b"\0"),
+    )
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/codeCopyZero_ParisFiller.yml",  # noqa: E501
+    ],
+)
+@pytest.mark.parametrize(
+    "target_type",
+    [
+        "nonexistent",
+        "existing",
+    ],
+)
+def test_extcodecopy_zero_code(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    target_type: str,
+) -> None:
+    """
+    Test EXTCODECOPY/EXTCODESIZE/EXTCODEHASH of accounts with no code.
+
+    Two account types: nonexistent (no state at all) and existing
+    (EOA with balance, no code). EXTCODECOPY writes nothing to memory
+    (stays zero). EXTCODEHASH is zero for nonexistent, keccak256("")
+    for existing accounts.
+
+    TODO: The original test also intended to cover empty accounts
+    (zero nonce, zero balance, no code), but such accounts cannot
+    exist in post-Paris forks due to EIP-161 cleanup.
+    """
+    storage = Storage()
+
+    if target_type == "nonexistent":
+        target = pre.nonexistent_account()
+        expected_hash: int | bytes = 0
+    else:  # existing
+        target = pre.fund_eoa(amount=1)
+        expected_hash = keccak256(b"")
+
+    code = (
+        Op.EXTCODECOPY(target, 0, 0, 32)
+        + Op.SSTORE(storage.store_next(0, "extcodecopy"), Op.MLOAD(0))
+        + Op.SSTORE(
+            storage.store_next(0, "extcodesize"),
+            Op.EXTCODESIZE(target),
+        )
+        + Op.SSTORE(
+            storage.store_next(expected_hash, "extcodehash"),
+            Op.EXTCODEHASH(target),
+        )
+        + Op.SSTORE(
+            storage.store_next(1, "callcode_result"),
+            Op.CALLCODE(50_000, target, 0, 0, 0, 0, 0),
+        )
+    )
+
+    code_address = pre.deploy_contract(code, storage=storage.canary())
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=code_address,
+        gas_limit=400_000,
+    )
+
+    state_test(
+        pre=pre,
+        post={code_address: Account(storage=storage)},
+        tx=tx,
+    )
+
+
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/codeCopyZero_ParisFiller.yml",  # noqa: E501
+    ],
+)
+def test_codecopy_zero_in_create2(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test CODECOPY inside CREATE2 initcode that deploys empty code.
+
+    The initcode does CODECOPY(0,0,32) which copies the first 32 bytes
+    of the initcode itself (not the deployed code). It then checks
+    EXTCODESIZE(ADDRESS) and EXTCODEHASH(ADDRESS) of self during init,
+    which see the account as having empty code. The deployed contract
+    retains the storage set during init.
+    """
+    storage = Storage()
+
+    # Build the initcode that queries itself and deploys empty code.
+    # During init: CODECOPY copies the initcode, EXTCODESIZE(self)=0,
+    # EXTCODEHASH(self)=keccak256("").
+    initcode = (
+        Op.CODECOPY(0, 0, 32)
+        + Op.SSTORE(0x50, Op.MLOAD(0))
+        + Op.SSTORE(0x51, Op.EXTCODESIZE(Op.ADDRESS))
+        + Op.SSTORE(0x52, Op.EXTCODEHASH(Op.ADDRESS))
+        + Op.SSTORE(
+            0x53,
+            Op.EXTCODESIZE(Op.CALLCODE(50_000, Op.ADDRESS, 0, 0, 0, 0, 0)),
+        )
+        + Op.EXTCODECOPY(Op.ADDRESS, 0, 0, 32)
+        + Op.SSTORE(0x54, Op.MLOAD(0))
+        # Return empty code (size 0).
+        + Op.RETURN(0, 0)
+    )
+
+    # Factory: CREATE2 and return the created address.
+    factory_code = (
+        Om.MSTORE(initcode, 0)
+        + Op.MSTORE(
+            0,
+            Op.CREATE2(value=0, offset=0, size=len(initcode), salt=0),
+        )
+        + Op.RETURN(0, 32)
+    )
+
+    factory = pre.deploy_contract(factory_code, balance=10**18)
+
+    # Caller: invoke factory and store created address.
+    caller_code = Op.CALL(550_000, factory, 0, 0, 0, 0, 32) + Op.SSTORE(
+        storage.store_next(0, "created_address"), Op.MLOAD(0)
+    )
+
+    caller = pre.deploy_contract(caller_code, storage=storage.canary())
+
+    created = compute_create2_address(
+        address=factory, salt=0, initcode=initcode
+    )
+    storage[0] = created
+
+    # First 32 bytes of initcode — what CODECOPY(0,0,32) returns.
+    initcode_word0 = bytes(initcode)[:32]
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=caller,
+        gas_limit=1_400_000,
+    )
+
+    state_test(
+        pre=pre,
+        post={
+            caller: Account(storage=storage),
+            created: Account(
+                nonce=1,
+                code=b"",
+                storage={
+                    0x50: initcode_word0,
+                    0x51: 0,
+                    0x52: keccak256(b""),
+                    0x53: 0,
+                    0x54: 0,
+                },
+            ),
+        },
+        tx=tx,
+    )

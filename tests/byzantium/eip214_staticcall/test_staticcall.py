@@ -105,6 +105,7 @@ def bal_expectation_for_contract_with_markers(
     "stStaticFlagEnabled/StaticcallForPrecompilesIssue683Filler.yml"
 )
 @pytest.mark.valid_from("Byzantium")
+@pytest.mark.eels_base_coverage
 def test_staticcall_reentrant_call_to_precompile(
     pre: Alloc,
     state_test: StateTestFiller,

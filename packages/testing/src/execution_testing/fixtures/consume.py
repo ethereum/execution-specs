@@ -8,7 +8,7 @@ from typing import Iterator, List, Optional, TextIO
 from pydantic import BaseModel, RootModel
 
 from execution_testing.base_types import HexNumber
-from execution_testing.forks import Fork
+from execution_testing.forks import Fork, TransitionFork
 
 from .base import BaseFixture, FixtureFormat
 from .file import Fixtures
@@ -48,7 +48,7 @@ class TestCaseBase(BaseModel):
 
     id: str
     fixture_hash: HexNumber | None = None
-    fork: Fork | None = None
+    fork: Fork | TransitionFork | None = None
     format: FixtureFormat
     pre_hash: str | None = None
     __test__ = False  # stop pytest from collecting this class as a test

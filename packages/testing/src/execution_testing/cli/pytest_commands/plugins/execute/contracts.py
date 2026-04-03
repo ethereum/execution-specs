@@ -1,7 +1,7 @@
 """Methods to deploy required contracts for execute command."""
 
 from execution_testing.base_types import Address
-from execution_testing.forks import Fork
+from execution_testing.forks import Fork, TransitionFork
 from execution_testing.logging import get_logger
 from execution_testing.rpc import EthRPC
 from execution_testing.test_types import (
@@ -18,11 +18,11 @@ logger = get_logger(__name__)
 def check_deterministic_factory_deployment(
     *,
     eth_rpc: EthRPC,
-    fork: Fork,
+    fork: Fork | TransitionFork,
 ) -> Address | None:
     """Check if the deterministic deployment contract is deployed."""
     fork_deterministic_factory_predeploy_address = (
-        fork.deterministic_factory_predeploy_address()
+        fork.transitions_from().deterministic_factory_predeploy_address()
     )
     if fork_deterministic_factory_predeploy_address is not None:
         return fork_deterministic_factory_predeploy_address

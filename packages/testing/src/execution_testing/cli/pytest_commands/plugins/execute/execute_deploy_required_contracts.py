@@ -3,7 +3,7 @@
 import pytest
 
 from execution_testing.base_types import Bytes
-from execution_testing.forks import Fork
+from execution_testing.forks import Fork, TransitionFork
 from execution_testing.logging import get_logger
 from execution_testing.rpc import EthRPC
 from execution_testing.test_types import (
@@ -25,7 +25,7 @@ def test_deploy_deterministic_deployment_contract(
     gas_price: int,
     eth_rpc: EthRPC,
     check_only: bool,
-    session_fork: Fork,
+    session_fork: Fork | TransitionFork,
 ) -> None:
     """Deploy the deterministic deployment contract to the network."""
     # Check if contract already deployed

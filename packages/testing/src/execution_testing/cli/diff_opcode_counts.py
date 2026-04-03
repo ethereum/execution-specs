@@ -55,17 +55,16 @@ def load_fixtures_from_file(
 def extract_opcode_counts_from_fixtures(
     fixtures: Fixtures,
 ) -> Dict[str, OpcodeCount]:
-    """Extract opcode_count from info field for each fixture."""
+    """Extract opcode_count from the metadata field for each fixture."""
     opcode_counts = {}
     for fixture_name, fixture in fixtures.items():
-        if (
-            hasattr(fixture, "info")
-            and fixture.info
-            and "opcode_count" in fixture.info
-        ):
+        if not (hasattr(fixture, "info") and fixture.info):
+            continue
+        metadata = fixture.info.get("metadata")
+        if isinstance(metadata, dict) and "opcode_count" in metadata:
             try:
                 opcode_count = OpcodeCount.model_validate(
-                    fixture.info["opcode_count"]
+                    metadata["opcode_count"]
                 )
                 opcode_counts[fixture_name] = opcode_count
             except Exception as e:

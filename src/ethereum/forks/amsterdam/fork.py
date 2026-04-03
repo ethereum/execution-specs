@@ -78,7 +78,6 @@ from .state_tracker import (
     track_ancestor_access,
 )
 from .transactions import (
-    AccessListTransaction,
     BlobTransaction,
     FeeMarketTransaction,
     LegacyTransaction,
@@ -87,6 +86,7 @@ from .transactions import (
     decode_transaction,
     encode_transaction,
     get_transaction_hash,
+    has_access_list,
     recover_sender,
     validate_transaction,
 )
@@ -1009,15 +1009,7 @@ def process_transaction(
     access_list_addresses = set()
     access_list_storage_keys = set()
     access_list_addresses.add(block_env.coinbase)
-    if isinstance(
-        tx,
-        (
-            AccessListTransaction,
-            FeeMarketTransaction,
-            BlobTransaction,
-            SetCodeTransaction,
-        ),
-    ):
+    if has_access_list(tx):
         for access in tx.access_list:
             access_list_addresses.add(access.account)
             for slot in access.slots:

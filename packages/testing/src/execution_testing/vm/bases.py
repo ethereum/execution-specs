@@ -33,9 +33,7 @@ class ForkOpcodeInterface(ABC):
 
     @classmethod
     @abstractmethod
-    def opcode_gas_calculator(
-        cls, *, block_number: int = 0, timestamp: int = 0
-    ) -> OpcodeGasCalculator:
+    def opcode_gas_calculator(cls) -> OpcodeGasCalculator:
         """
         Return callable that calculates the gas cost of a single opcode.
         """
@@ -43,9 +41,7 @@ class ForkOpcodeInterface(ABC):
 
     @classmethod
     @abstractmethod
-    def opcode_refund_calculator(
-        cls, *, block_number: int = 0, timestamp: int = 0
-    ) -> OpcodeGasCalculator:
+    def opcode_refund_calculator(cls) -> OpcodeGasCalculator:
         """
         Return callable that calculates the gas refund of a single opcode.
         """

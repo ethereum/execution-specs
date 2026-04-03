@@ -123,6 +123,7 @@ def initcode(fork: Fork, initcode_name: str) -> Initcode:
         pytest.param("over_limit_ones", marks=pytest.mark.exception_test),
     ],
 )
+@pytest.mark.eels_base_coverage
 def test_contract_creating_tx(
     state_test: StateTestFiller,
     env: Environment,
@@ -587,3 +588,56 @@ class TestCreateInitcode:
             post=post,
             tx=tx,
         )
+
+
+@pytest.mark.ported_from(
+    [
+        "https://github.com/holiman/goevmlab/blob/master/examples/create2_bug/main.go",
+    ],
+)
+@pytest.mark.parametrize(
+    "initcode_oversize,expected_storage_1",
+    [
+        pytest.param(True, 0, id="initcode_oversize"),
+        pytest.param(False, 1, id="initcode_within_limit"),
+    ],
+)
+def test_create2_oversized_initcode_with_insufficient_balance(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    initcode_oversize: bool,
+    expected_storage_1: int,
+) -> None:
+    """
+    Test CREATE2 with oversized initcode and insufficient balance.
+
+    Regression test for
+    https://github.com/ethereum/execution-specs/issues/914
+
+    CREATE2 is called with an endowment of 1123123123 (exceeds the
+    contract's zero balance). The initcode size check must take
+    priority over the balance check:
+
+    - Initcode too large: consumes all gas, exits scope, SSTORE(1, 1)
+      is never reached, so storage slot 1 remains 0.
+    - Initcode within limit: insufficient balance pushes 0, execution
+      continues, SSTORE(1, 1) executes, so storage slot 1 becomes 1.
+    """
+    initcode_size = 0x20000 if initcode_oversize else 0x100
+    caller_code = (
+        Op.CREATE2(1123123123, 0, initcode_size, 0) + Op.POP + Op.SSTORE(1, 1)
+    )
+    caller_address = pre.deploy_contract(caller_code)
+
+    sender = pre.fund_eoa()
+    tx = Transaction(
+        sender=sender,
+        to=caller_address,
+        gas_limit=10_000_000,
+    )
+
+    post = {
+        caller_address: Account(storage={1: expected_storage_1}),
+    }
+
+    state_test(pre=pre, post=post, tx=tx)

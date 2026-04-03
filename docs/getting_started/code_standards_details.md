@@ -2,56 +2,21 @@
 
 This page provides in-depth information about the code standards and verification processes in @ethereum/execution-spec-tests.
 
-## Running Tox Environments
+## Running Checks
 
-### Execution Options
-
-Run all `tox` environments in parallel:
+Run all static checks:
 
 ```console
-uvx tox run-parallel
+just static
 ```
 
-Run environments sequentially with verbose output:
+Run `just` to list all available recipes. Individual checks can be run directly, for example:
 
 ```console
-uvx tox -v
+just lint
+just typecheck
+just spellcheck
 ```
-
-List all available environments:
-
-```console
-uvx tox -av
-```
-
-### Specific Environment Commands
-
-Run specific environments using the `-e` flag:
-
-```console
-uvx tox -e lint,typecheck,spellcheck
-```
-
-#### For Test Case Changes (`./tests/`)
-
-```console
-uvx tox -e lint,typecheck,spellcheck,tests-deployed
-```
-
-#### For Framework and Library Changes (`./src/`)
-
-```console
-uvx tox -e lint,typecheck,spellcheck,pytest
-```
-
-#### For Documentation Changes (`./docs/`)
-
-```console
-uvx tox -e spellcheck,markdownlint,mkdocs,changelog
-```
-
-!!! note "Tox Virtual Environment"
-Checks performed by `tox` are sandboxed in their own virtual environments (created automatically in the `.tox/` subdirectory). These can be used to debug errors encountered during `tox` execution.
 
 ### Additional Dependencies
 
@@ -64,7 +29,7 @@ The spellcheck environment uses **codespell**, which is automatically installed 
 To fix spelling errors found by codespell:
 
 ```console
-uv run codespell *.md *.ini .github/ src/ tests/ docs/ --write-changes
+uv run codespell --write-changes
 ```
 
 !!! note "VS Code Integration"
@@ -81,7 +46,7 @@ Or use a specific node version using `nvm`.
 
 ## Pre-commit Hooks
 
-Certain `tox` environments can be run automatically as git pre-commit hooks to ensure that your changes meet the project's standards before committing.
+Certain checks can be run automatically as git pre-commit hooks to ensure that your changes meet the project's standards before committing.
 
 ### Installation
 
@@ -91,43 +56,31 @@ uvx pre-commit install
 
 For more information, see [Pre-commit Hooks Documentation](../dev/precommit.md).
 
-## Formatting and Line Length
+## Testing Framework Plugins with Pytester
 
-The Python code in @ethereum/execution-spec-tests is formatted with `ruff` with a line length of 100 characters.
+Use pytest's `pytester` fixture when writing tests for our pytest plugins and CLI commands.
 
-### Ignoring Bulk Change Commits
+`runpytest()` is the default. It runs the inner session in-process, is fast, and gives access to helpers like `assert_outcomes()` and `fnmatch_lines()`.
 
-The maximum line length was changed from 80 to 100 in Q2 2023. To ignore this bulk change commit in git blame output, use the `.git-blame-ignore-revs` file:
+`runpytest_subprocess()` runs the inner session in a separate process. Use it only when in-process mode causes state leakage (e.g., Pydantic `ModelMetaclass` cache pollution or global mutation in `pytest_configure`). Subprocess isolation masks these bugs rather than fixing them, so prefer fixing the root cause and use subprocess mode as defense-in-depth.
 
-```console
-git blame --ignore-revs-file .git-blame-ignore-revs docs/gen_test_case_reference.py
-```
+Don't use raw `subprocess.run()` in pytester-based tests. If you need process isolation, use `runpytest_subprocess()`.
 
-To use the revs file persistently with `git blame`:
-
-```console
-git config blame.ignoreRevsFile .git-blame-ignore-revs
-```
+Both methods return a `RunResult` with `.ret`, `.outlines`, `.errlines`, `assert_outcomes()`, and `fnmatch_lines()`. When the inner test is expected to fail, use `capsys.readouterr()` after `runpytest_subprocess()` to suppress the inner failure output that pytester replays to stdout.
 
 ## Building and Verifying Docs Locally
 
-To quickly build and browse the HTML documentation locally run:
+Build the full HTML documentation:
 
-=== "bash"
+```console
+just docs
+```
 
-    ```console
-    export FAST_DOCS=True
-    uv run mkdocs serve
-    ```
+For faster iteration (skips the "[Test Case Reference](https://eest.ethereum.org/main/tests/)" section):
 
-=== "fish"
-
-    ```console
-    set -x FAST_DOCS True
-    uv run mkdocs serve
-    ```
-
-Setting `FAST_DOCS` to `False` additionally builds the "[Test Case Reference](https://eest.ethereum.org/main/tests/)" Section.
+```console
+just docs-fast
+```
 
 ## Verifying Fixture Changes
 
@@ -170,7 +123,7 @@ The `hasher compare` subcommand directly compares two fixture directories
 and shows only the differences:
 
 ```console
-hasher compare fixtures/ fixtures_new/
+uv run hasher compare fixtures/ fixtures_new/
 ```
 
 | Flag                | Description                                               |

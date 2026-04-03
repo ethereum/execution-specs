@@ -15,6 +15,7 @@ from execution_testing import (
     BlockchainTestFiller,
     EIPChecklist,
     Transaction,
+    TransitionFork,
 )
 
 from .spec import Spec, ref_spec_7951
@@ -23,6 +24,39 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_7951.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7951.version
 
 pytestmark = pytest.mark.valid_at_transition_to("Osaka")
+
+
+@pytest.fixture
+def precompile_gas(vector_gas_value: int | None, fork: TransitionFork) -> int:
+    """Gas cost for the precompile."""
+    gas = fork.transitions_to().gas_costs().GAS_PRECOMPILE_P256VERIFY
+    if vector_gas_value is not None:
+        assert vector_gas_value == gas, (
+            f"Calculated gas {vector_gas_value} != Vector gas {gas}"
+        )
+    return gas
+
+
+@pytest.fixture
+def tx_gas_limit(
+    fork: TransitionFork, input_data: bytes, precompile_gas: int
+) -> int:
+    """
+    Transaction gas limit used for the test (Can be overridden in the test).
+    """
+    intrinsic_gas_cost_calculator = (
+        fork.transitions_from().transaction_intrinsic_cost_calculator()
+    )
+    memory_expansion_gas_calculator = (
+        fork.transitions_from().memory_expansion_gas_calculator()
+    )
+    extra_gas = 100_000
+    return (
+        extra_gas
+        + intrinsic_gas_cost_calculator(calldata=input_data)
+        + memory_expansion_gas_calculator(new_bytes=len(input_data))
+        + precompile_gas
+    )
 
 
 @pytest.mark.parametrize(

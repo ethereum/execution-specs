@@ -424,11 +424,13 @@ class BesuExceptionMapper(ExceptionMapper):
             r"exceeds transaction sender account balance 0x[0-9a-f]+"
         ),
         TransactionException.INTRINSIC_GAS_TOO_LOW: (
-            r"transaction invalid intrinsic gas cost \d+ "
+            r"transaction invalid intrinsic gas cost \d+"
+            r"(?: \(regular \d+ \+ state \d+\))? "
             r"exceeds gas limit \d+"
         ),
         TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
-            r"transaction invalid intrinsic gas cost \d+ "
+            r"transaction invalid intrinsic gas cost \d+"
+            r"(?: \(regular \d+ \+ state \d+\))? "
             r"exceeds gas limit \d+"
         ),
         TransactionException.SENDER_NOT_EOA: (

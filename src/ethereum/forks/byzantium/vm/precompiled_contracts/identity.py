@@ -16,7 +16,11 @@ from ethereum_types.numeric import Uint
 from ethereum.utils.numeric import ceil32
 
 from ...vm import Evm
-from ...vm.gas import GAS_IDENTITY, GAS_IDENTITY_WORD, charge_gas
+from ...vm.gas import (
+    GAS_PRECOMPILE_IDENTITY_BASE,
+    GAS_PRECOMPILE_IDENTITY_PER_WORD,
+    charge_gas,
+)
 
 
 def identity(evm: Evm) -> None:
@@ -33,7 +37,11 @@ def identity(evm: Evm) -> None:
 
     # GAS
     word_count = ceil32(Uint(len(data))) // Uint(32)
-    charge_gas(evm, GAS_IDENTITY + GAS_IDENTITY_WORD * word_count)
+    charge_gas(
+        evm,
+        GAS_PRECOMPILE_IDENTITY_BASE
+        + GAS_PRECOMPILE_IDENTITY_PER_WORD * word_count,
+    )
 
     # OPERATION
     evm.output = data

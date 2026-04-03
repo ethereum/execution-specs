@@ -12,7 +12,7 @@ import click
     "--all",
     "all_files",
     is_flag=True,
-    help="Remove the virtual environment and .tox directory as well.",
+    help="Remove the virtual environment and .just directories as well.",
 )
 @click.option(
     "--dry-run",
@@ -24,18 +24,18 @@ def clean(all_files: bool, dry_run: bool, verbose: bool) -> None:
     """
     Remove all generated files and directories from the repository.
 
-    If `--all` is specified, the virtual environment and .tox directory will
-    also be removed.
+    If `--all` is specified, the virtual environment and .just directory
+    will also be removed.
 
     Args:
-        all_files (bool): Remove the virtual environment and .tox directory
+        all_files (bool): Remove the virtual environment and .just directory
                           as well.
 
         dry_run (bool): Simulate the cleanup without removing files.
 
         verbose (bool): Show verbose output.
 
-    Note: The virtual environment and .tox directory are not removed by
+    Note: The virtual environment and .just directory are not removed by
     default.
 
     Example: Cleaning all generated files and directories and show the deleted
@@ -46,7 +46,7 @@ def clean(all_files: bool, dry_run: bool, verbose: bool) -> None:
     Output:
 
         \b
-        🗑️  Deleted: .tox
+        🗑️  Deleted: .just
         🗑️  Deleted: .venv
         🗑️  Deleted: src/cli/et/__pycache__
         🗑️  Deleted: src/cli/et/commands/__pycache__
@@ -75,7 +75,7 @@ def clean(all_files: bool, dry_run: bool, verbose: bool) -> None:
         items_to_remove.extend(matching_files)
 
     if all_files:
-        items_to_remove.extend([".tox", ".venv"])
+        items_to_remove.extend([".just", ".venv"])
 
     # Perform dry run or actual deletion
     for item in items_to_remove:

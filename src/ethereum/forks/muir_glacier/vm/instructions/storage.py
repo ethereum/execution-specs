@@ -18,9 +18,9 @@ from .. import Evm
 from ..exceptions import OutOfGasError, WriteInStaticContext
 from ..gas import (
     GAS_CALL_STIPEND,
+    GAS_COLD_STORAGE_WRITE,
     GAS_SLOAD,
     GAS_STORAGE_SET,
-    GAS_STORAGE_UPDATE,
     REFUND_STORAGE_CLEAR,
     charge_gas,
 )
@@ -81,7 +81,7 @@ def sstore(evm: Evm) -> None:
         if original_value == 0:
             gas_cost = GAS_STORAGE_SET
         else:
-            gas_cost = GAS_STORAGE_UPDATE
+            gas_cost = GAS_COLD_STORAGE_WRITE
     else:
         gas_cost = GAS_SLOAD
 
@@ -102,7 +102,7 @@ def sstore(evm: Evm) -> None:
                 evm.refund_counter += int(GAS_STORAGE_SET - GAS_SLOAD)
             else:
                 # Slot was originally non-empty and was UPDATED earlier
-                evm.refund_counter += int(GAS_STORAGE_UPDATE - GAS_SLOAD)
+                evm.refund_counter += int(GAS_COLD_STORAGE_WRITE - GAS_SLOAD)
 
     charge_gas(evm, gas_cost)
     if evm.message.is_static:

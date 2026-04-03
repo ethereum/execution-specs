@@ -6,6 +6,8 @@ Configures the hive back-end & EL clients for each individual test execution.
 
 import io
 import json
+import logging
+import time
 from typing import Dict, Generator, Mapping, cast
 
 import pytest
@@ -24,6 +26,7 @@ pytest_plugins = (
     "execution_testing.cli.pytest_commands.plugins.consume.simulators.test_case_description",
     "execution_testing.cli.pytest_commands.plugins.consume.simulators.timing_data",
     "execution_testing.cli.pytest_commands.plugins.consume.simulators.exceptions",
+    "execution_testing.cli.pytest_commands.plugins.consume.simulators.engine_api",
 )
 
 
@@ -105,21 +108,6 @@ def pytest_collection_modifyitems(
 
 
 @pytest.fixture(scope="function")
-def engine_rpc(
-    client: Client, client_exception_mapper: ExceptionMapper | None
-) -> EngineRPC:
-    """Initialize engine RPC client for the execution client under test."""
-    if client_exception_mapper:
-        return EngineRPC(
-            f"http://{client.ip}:8551",
-            response_validation_context={
-                "exception_mapper": client_exception_mapper,
-            },
-        )
-    return EngineRPC(f"http://{client.ip}:8551")
-
-
-@pytest.fixture(scope="function")
 def eth_rpc(client: Client) -> EthRPC:
     """Initialize eth RPC client for the execution client under test."""
     return EthRPC(f"http://{client.ip}:8545")
@@ -188,6 +176,7 @@ def client_enode_url(client: Client) -> str:
 
 @pytest.fixture(scope="function")
 def sync_client(
+    request: pytest.FixtureRequest,
     hive_test: HiveTest,
     sync_client_files: Dict,
     environment: Dict,
@@ -195,8 +184,6 @@ def sync_client(
     client_enode_url: str,  # Get the enode URL from fixture
 ) -> Generator[Client, None, None]:
     """Start a sync client that will sync from the client under test."""
-    import logging
-
     logger = logging.getLogger(__name__)
     logger.info(f"Starting sync client setup for {sync_client_type.name}")
 
@@ -253,6 +240,10 @@ def sync_client(
     yield sync_client
 
     # Cleanup
+    # Allow the client to flush logs before stopping on failure.
+    result_call = getattr(request.node, "result_call", None)
+    if result_call is not None and result_call.failed:
+        time.sleep(1)
     sync_client.stop()
 
 

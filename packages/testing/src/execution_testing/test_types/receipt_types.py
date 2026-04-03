@@ -45,9 +45,18 @@ class TransactionReceipt(CamelModel):
     def strip_extra_fields(cls, data: Any) -> Any:
         """Strip extra fields from t8n tool output not part of model."""
         if isinstance(data, dict):
+            data = dict(data)
             # geth (1.16+) returns extra fields in receipts
             data.pop("type", None)
             data.pop("blockNumber", None)
+            root = data.get("root")
+            root_is_empty = root in (None, "", "0x", b"", bytearray())
+            if not root_is_empty:
+                # geth's t8n JSON uses `root` for pre-Byzantium receipts while
+                # also populating `status`. For fixture re-encoding, a
+                # non-empty root must take precedence over status.
+                data.setdefault("post_state", root)
+                data.pop("status", None)
         return data
 
     transaction_hash: Hash | None = None

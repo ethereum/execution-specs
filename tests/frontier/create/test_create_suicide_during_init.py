@@ -44,6 +44,13 @@ class Operation(Enum):
     "operation",
     [Operation.SUICIDE, Operation.SUICIDE_TO_ITSELF],
 )
+@pytest.mark.filter_combinations(
+    lambda create_opcode, transaction_create, **_: (
+        create_opcode == Op.CREATE or not transaction_create
+    ),
+    reason="transaction_create only valid with CREATE",
+)
+@pytest.mark.eels_base_coverage
 def test_create_suicide_during_transaction_create(
     state_test: StateTestFiller,
     fork: Fork,
@@ -53,9 +60,6 @@ def test_create_suicide_during_transaction_create(
     transaction_create: bool,
 ) -> None:
     """Contract init code calls suicide then measures different metrics."""
-    if create_opcode != Op.CREATE and transaction_create:
-        pytest.skip(f"Excluded: {create_opcode} with transaction_create=True")
-
     sender = pre.fund_eoa()
     contract_deploy = pre.deploy_contract(
         code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)

@@ -215,7 +215,9 @@ def configure_logging(
         log_path = Path(log_file)
         log_path.parent.mkdir(exist_ok=True, parents=True)
 
-        file_handler_instance = logging.FileHandler(log_path, mode="w")
+        file_handler_instance = logging.FileHandler(
+            log_path, mode="w", delay=True
+        )
         file_handler_instance.setFormatter(UTCFormatter(fmt=log_format))
         root_logger.addHandler(file_handler_instance)
 

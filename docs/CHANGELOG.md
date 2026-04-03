@@ -15,6 +15,8 @@ Test fixtures for use by clients are available for each release on the [Github r
 
 #### `fill`
 
+- ✨ Allow command to customize `--chain-id` used for filling ([#2016](https://github.com/ethereum/execution-specs/pull/2016)).
+
 #### `consume`
 
 - ✨ Add Besu `evmtool` support for `consume direct` via `state-test` and `block-test` subcommands ([#2219](https://github.com/ethereum/execution-specs/pull/2219)).

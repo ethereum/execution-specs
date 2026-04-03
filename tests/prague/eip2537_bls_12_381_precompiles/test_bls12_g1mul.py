@@ -425,6 +425,7 @@ def test_gas(
         ),
     ],
 )
+@pytest.mark.eels_base_coverage
 def test_call_types(
     state_test: StateTestFiller,
     pre: Alloc,

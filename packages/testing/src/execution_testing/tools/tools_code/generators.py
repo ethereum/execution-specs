@@ -108,39 +108,19 @@ class Initcode(Bytecode):
 
         return instance
 
-    def execution_gas(
-        self,
-        fork: Type[ForkOpcodeInterface],
-        *,
-        block_number: int = 0,
-        timestamp: int = 0,
-    ) -> int:
+    def execution_gas(self, fork: Type[ForkOpcodeInterface]) -> int:
         """
         Gas cost of executing the initcode, charged before the code
         deposit fee.
         """
-        return self.gas_cost(
-            fork,
-            block_number=block_number,
-            timestamp=timestamp,
-        ) - self.deployment_gas(
-            fork,
-            block_number=block_number,
-            timestamp=timestamp,
-        )
+        return self.gas_cost(fork) - self.deployment_gas(fork)
 
-    def deployment_gas(
-        self,
-        fork: Type[ForkOpcodeInterface],
-        *,
-        block_number: int = 0,
-        timestamp: int = 0,
-    ) -> int:
+    def deployment_gas(self, fork: Type[ForkOpcodeInterface]) -> int:
         """
         Gas cost of deploying the contract.
         """
         return Op.RETURN(code_deposit_size=len(self.deploy_code)).gas_cost(
-            fork, block_number=block_number, timestamp=timestamp
+            fork
         )
 
 
@@ -1328,15 +1308,8 @@ class FixedIterationsBytecode(IteratingBytecode):
         instance.iteration_count = iteration_count
         return instance
 
-    def gas_cost(
-        self,
-        fork: Type[ForkOpcodeInterface],
-        *,
-        block_number: int = 0,
-        timestamp: int = 0,
-    ) -> int:
+    def gas_cost(self, fork: Type[ForkOpcodeInterface]) -> int:
         """Return the cost of iterating through the bytecode N times."""
-        del block_number, timestamp
         return self.gas_cost_by_iteration_count(
             fork=fork,
             iteration_count=self.iteration_count,

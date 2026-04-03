@@ -21,6 +21,7 @@ from ..block_types import (
     Environment,
     Withdrawal,
 )
+from ..receipt_types import TransactionReceipt
 from ..transaction_types import (
     AuthorizationTuple,
     Transaction,
@@ -91,6 +92,31 @@ def test_storage() -> None:
         "0x01": ("0x0200"),
         "0x02": ("0x0300"),
     }
+
+
+def test_transaction_receipt_maps_non_empty_root_to_post_state() -> None:
+    """Non-empty `root` from geth should be treated as pre-Byzantium state."""
+    receipt = TransactionReceipt.model_validate(
+        {
+            "root": "0x" + "11" * 32,
+            "status": "0x1",
+        }
+    )
+    assert str(receipt.post_state) == "0x" + "11" * 32
+    assert receipt.status is None
+
+
+def test_transaction_receipt_keeps_status_when_root_is_empty() -> None:
+    """Empty `root` should not override Byzantium-style receipt status."""
+    receipt = TransactionReceipt.model_validate(
+        {
+            "root": "0x",
+            "status": "0x1",
+        }
+    )
+    assert receipt.post_state is None
+    assert receipt.status is not None
+    assert int(receipt.status) == 1
 
 
 @pytest.mark.parametrize(
@@ -692,20 +718,37 @@ class TestPydanticModelConversion:
         pytest.param(
             {"gas_price": 1, "max_fee_per_gas": 2},
             Transaction.InvalidFeePaymentError,
-            "only one type of fee payment field can be used",
+            "'gas_price' (legacy/type-1), 'max_fee_per_gas' (type-2+)",
             id="gas-price-and-max-fee-per-gas",
         ),
         pytest.param(
             {"gas_price": 1, "max_priority_fee_per_gas": 2},
             Transaction.InvalidFeePaymentError,
-            "only one type of fee payment field can be used",
+            (
+                "'gas_price' (legacy/type-1), "
+                "'max_priority_fee_per_gas' (type-2+)"
+            ),
             id="gas-price-and-max-priority-fee-per-gas",
         ),
         pytest.param(
             {"gas_price": 1, "max_fee_per_blob_gas": 2},
             Transaction.InvalidFeePaymentError,
-            "only one type of fee payment field can be used",
+            "'gas_price' (legacy/type-1), 'max_fee_per_blob_gas' (type-3+)",
             id="gas-price-and-max-fee-per-blob-gas",
+        ),
+        pytest.param(
+            {
+                "gas_price": 1,
+                "max_fee_per_gas": 2,
+                "max_priority_fee_per_gas": 3,
+            },
+            Transaction.InvalidFeePaymentError,
+            (
+                "'gas_price' (legacy/type-1), "
+                "'max_fee_per_gas' (type-2+), "
+                "'max_priority_fee_per_gas' (type-2+)"
+            ),
+            id="gas-price-and-multiple-dynamic-fee-fields",
         ),
         pytest.param(
             {"ty": 0, "v": 1, "secret_key": 2},
@@ -727,6 +770,17 @@ def test_transaction_post_init_invalid_arg_combinations(  # noqa: D103
     with pytest.raises(expected_exception) as exc_info:
         Transaction(**invalid_tx_args)
     assert expected_exception_substring in str(exc_info.value)
+
+
+def test_invalid_fee_payment_error_message() -> None:
+    """Test the exact error message for mixed legacy and type-2+ fee fields."""
+    with pytest.raises(Transaction.InvalidFeePaymentError) as exc_info:
+        Transaction(gas_price=1, max_fee_per_gas=2)
+
+    error_msg = f"\n\t{str(exc_info.value)}"
+    print(error_msg)
+
+    assert "cannot mix" in error_msg
 
 
 @pytest.mark.parametrize(

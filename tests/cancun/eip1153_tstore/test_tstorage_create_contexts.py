@@ -6,17 +6,18 @@ from enum import unique
 
 import pytest
 from execution_testing import (
+    AccessList,
     Account,
     Address,
     Alloc,
     Bytecode,
-    Environment,
     Initcode,
     Op,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
+from execution_testing import Macros as Om
 
 from . import CreateOpcodeParams, PytestParameterEnum
 from .spec import ref_spec_1153
@@ -257,9 +258,86 @@ class TestTransientStorageInContractCreation:
             ),
         }
 
-        state_test(
-            env=Environment(),
-            pre=pre,
-            post=post,
-            tx=tx,
+        state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.ported_from(
+    [
+        "https://github.com/holiman/goevmlab/blob/master/examples/tstore_bug-2/main.go",
+    ],
+)
+@pytest.mark.parametrize("create_opcode", [Op.CREATE, Op.CREATE2])
+def test_tstore_rollback_on_failed_create(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    create_opcode: Op,
+) -> None:
+    """
+    Test TSTORE is rolled back after failed CREATE/CREATE2 initcode.
+
+    Regression test for
+    https://github.com/ethereum/execution-specs/issues/917
+
+    Initcode does TLOAD(1) to compute a return size, then does
+    TSTORE(1, 0x6000), then returns data of the computed size.
+    When TLOAD(1) is 0, the return size is 0x600a (exceeds max code
+    size 0x6000), so creation fails.
+
+    The caller invokes CREATE/CREATE2 twice with the same initcode.
+    If TSTORE from the first (failed) creation is properly rolled
+    back, the second creation also sees TLOAD(1)==0 and fails the
+    same way. If not rolled back, TLOAD(1)==0x6000 and the second
+    creation succeeds.
+    """
+    # Initcode:
+    #   return_size = 0x600a - TLOAD(1)
+    #   TSTORE(1, 0x6000)
+    #   RETURN(offset=0, size=return_size)
+    #
+    # TLOAD(1)==0:     return_size = 0x600a > max code size -> fail
+    # TLOAD(1)==0x6000: return_size = 0x0a <= max code size -> succeed
+    initcode = (
+        Op.TLOAD(1)
+        + Op.PUSH2(0x600A)
+        + Op.SUB
+        + Op.TSTORE(1, 0x6000)
+        + Op.PUSH1(0)
+        + Op.RETURN
+    )
+    initcode_bytes = bytes(initcode)
+    initcode_len = len(initcode_bytes)
+
+    caller_code = (
+        Om.MSTORE(initcode_bytes, 0)
+        + Op.SSTORE(
+            0,
+            create_opcode(0, 0, initcode_len, 0)
+            if create_opcode == Op.CREATE2
+            else create_opcode(0, 0, initcode_len),
         )
+        + Op.SSTORE(
+            1,
+            create_opcode(0, 0, initcode_len, 0)
+            if create_opcode == Op.CREATE2
+            else create_opcode(0, 0, initcode_len),
+        )
+    )
+    caller_address = pre.deploy_contract(caller_code, storage={0: 1, 1: 1})
+
+    sender = pre.fund_eoa()
+    tx = Transaction(
+        sender=sender,
+        to=caller_address,
+        gas_limit=16_000_000,
+        access_list=[
+            AccessList(address=caller_address, storage_keys=[0, 1]),
+        ],
+    )
+
+    post = {
+        # Both creations fail because TSTORE is rolled back;
+        # initial storage {0: 1, 1: 1} is overwritten to zeros
+        caller_address: Account(storage={0: 0, 1: 0}),
+    }
+
+    state_test(pre=pre, post=post, tx=tx)

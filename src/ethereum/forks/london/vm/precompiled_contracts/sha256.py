@@ -18,7 +18,11 @@ from ethereum_types.numeric import Uint
 from ethereum.utils.numeric import ceil32
 
 from ...vm import Evm
-from ...vm.gas import GAS_SHA256, GAS_SHA256_WORD, charge_gas
+from ...vm.gas import (
+    GAS_PRECOMPILE_SHA256_BASE,
+    GAS_PRECOMPILE_SHA256_PER_WORD,
+    charge_gas,
+)
 
 
 def sha256(evm: Evm) -> None:
@@ -35,7 +39,11 @@ def sha256(evm: Evm) -> None:
 
     # GAS
     word_count = ceil32(Uint(len(data))) // Uint(32)
-    charge_gas(evm, GAS_SHA256 + GAS_SHA256_WORD * word_count)
+    charge_gas(
+        evm,
+        GAS_PRECOMPILE_SHA256_BASE
+        + GAS_PRECOMPILE_SHA256_PER_WORD * word_count,
+    )
 
     # OPERATION
     evm.output = hashlib.sha256(data).digest()

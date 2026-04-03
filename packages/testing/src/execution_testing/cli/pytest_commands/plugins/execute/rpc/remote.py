@@ -1,17 +1,16 @@
 """Pytest plugin to run the execute in remote-rpc-mode."""
 
-import os
 from pathlib import Path
 
 import pytest
 
-from execution_testing.forks import Fork
+from execution_testing.forks import Fork, TransitionFork
 from execution_testing.rpc import EngineRPC, EthRPC
 from execution_testing.test_types.chain_config_types import (
     ChainConfigDefaults,
 )
 
-from ..pre_alloc import AddressStubs
+from ...shared.helpers import get_rpc_endpoint
 from .chain_builder_eth_rpc import ChainBuilderEthRPC, TestingRPC
 
 
@@ -25,7 +24,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         required=False,
         action="store",
         dest="rpc_endpoint",
-        help="RPC endpoint to an execution client",
+        default=None,
+        help="RPC endpoint to an execution client.",
     )
     remote_rpc_group.addoption(
         "--tx-wait-timeout",
@@ -36,18 +36,6 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help=(
             "Maximum time in seconds to wait for a transaction to be "
             "included in a block"
-        ),
-    )
-    remote_rpc_group.addoption(
-        "--address-stubs",
-        action="store",
-        dest="address_stubs",
-        default=AddressStubs(root={}),
-        type=AddressStubs.model_validate_json_or_file,
-        help=(
-            "The address stubs for contracts that have already been placed "
-            "in the chain and to use for the test. Can be a JSON formatted "
-            "string or a path to a YAML or JSON file."
         ),
     )
 
@@ -92,14 +80,22 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "only the JWT secret as a hex string."
         ),
     )
+    engine_rpc_group.addoption(
+        "--session-sync-folder",
+        required=False,
+        action="store",
+        default=None,
+        dest="session_sync_folder",
+        help=(
+            "Folder used to sync multiple instances of the execute command."
+        ),
+    )
 
 
 def pytest_configure(config: pytest.Config) -> None:
     """Check if a chain ID configuration is provided."""
     # Verify chain ID config is consistent with the remote RPC endpoint
-    rpc_endpoint = config.getoption("rpc_endpoint") or os.environ.get(
-        "RPC_ENDPOINT"
-    )
+    rpc_endpoint = get_rpc_endpoint(config)
     if rpc_endpoint is None:
         pytest.fail(
             "RPC endpoint must be provided with the --rpc-endpoint flag or "
@@ -164,9 +160,7 @@ def rpc_endpoint(request: pytest.FixtureRequest) -> str:
     Return remote RPC endpoint to be used to make requests to the execution
     client.
     """
-    rpc_endpoint = request.config.getoption("rpc_endpoint") or os.environ.get(
-        "RPC_ENDPOINT"
-    )
+    rpc_endpoint = get_rpc_endpoint(request.config)
     assert rpc_endpoint is not None
     return rpc_endpoint
 
@@ -176,7 +170,7 @@ def eth_rpc(
     request: pytest.FixtureRequest,
     rpc_endpoint: str,
     engine_rpc: EngineRPC | None,
-    session_fork: Fork,
+    session_fork: Fork | TransitionFork,
     session_temp_folder: Path,
     max_transactions_per_batch: int | None,
     use_testing_build_block: bool,
@@ -198,11 +192,14 @@ def eth_rpc(
     testing_rpc = None
     if use_testing_build_block:
         testing_rpc = TestingRPC(rpc_endpoint)
+    session_sync_folder = request.config.getoption("session_sync_folder")
     return ChainBuilderEthRPC(
         rpc_endpoint=rpc_endpoint,
         fork=session_fork,
         engine_rpc=engine_rpc,
-        session_temp_folder=session_temp_folder,
+        session_temp_folder=Path(session_sync_folder)
+        if session_sync_folder is not None
+        else session_temp_folder,
         get_payload_wait_time=get_payload_wait_time,
         transaction_wait_timeout=tx_wait_timeout,
         max_transactions_per_batch=max_transactions_per_batch,

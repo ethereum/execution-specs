@@ -343,11 +343,26 @@ class Transaction(
     class InvalidFeePaymentError(Exception):
         """Transaction described more than one fee payment type."""
 
+        FEE_FIELD_LABELS = {
+            "gas_price": "legacy/type-1",
+            "max_fee_per_gas": "type-2+",
+            "max_priority_fee_per_gas": "type-2+",
+            "max_fee_per_blob_gas": "type-3+",
+        }
+
+        def __init__(self, *conflicting_fields: str) -> None:
+            """Store the conflicting fee fields used in the transaction."""
+            self.conflicting_fields = conflicting_fields
+
         def __str__(self) -> str:
             """Print exception string."""
-            return (
-                "only one type of fee payment field can be used in a single tx"
+            if not self.conflicting_fields:
+                return "cannot mix fee fields in a single tx"
+            labels = ", ".join(
+                f"'{f}' ({self.FEE_FIELD_LABELS[f]})"
+                for f in self.conflicting_fields
             )
+            return f"cannot mix fee fields in a single tx: {labels}"
 
     class InvalidSignaturePrivateKeyError(Exception):
         """
@@ -363,12 +378,18 @@ class Transaction(
         """Ensure transaction has no conflicting properties."""
         super().model_post_init(__context)
 
-        if self.gas_price is not None and (
-            self.max_fee_per_gas is not None
-            or self.max_priority_fee_per_gas is not None
-            or self.max_fee_per_blob_gas is not None
-        ):
-            raise Transaction.InvalidFeePaymentError()
+        conflicting_fee_fields = [
+            field_name
+            for field_name in (
+                "gas_price",
+                "max_fee_per_gas",
+                "max_priority_fee_per_gas",
+                "max_fee_per_blob_gas",
+            )
+            if getattr(self, field_name) is not None
+        ]
+        if self.gas_price is not None and len(conflicting_fee_fields) > 1:
+            raise Transaction.InvalidFeePaymentError(*conflicting_fee_fields)
 
         if "ty" not in self.model_fields_set:
             # Try to deduce transaction type from included fields

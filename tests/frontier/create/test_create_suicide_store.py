@@ -41,6 +41,7 @@ class Operation(IntEnum):
 )
 @pytest.mark.valid_from("Frontier")
 @pytest.mark.with_all_create_opcodes
+@pytest.mark.eels_base_coverage
 def test_create_suicide_store(
     state_test: StateTestFiller,
     fork: Fork,
@@ -58,7 +59,7 @@ def test_create_suicide_store(
             cases=[
                 CalldataCase(
                     value=Operation.SUICIDE,
-                    action=Op.SELFDESTRUCT(pre.empty_account()),
+                    action=Op.SELFDESTRUCT(pre.nonexistent_account()),
                 ),
                 CalldataCase(
                     value=Operation.ADD_STORAGE,

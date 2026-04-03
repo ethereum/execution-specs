@@ -102,6 +102,7 @@ def test_collision_with_create2_revert_in_initcode(
         ),
     ],
 )
+@pytest.mark.eels_base_coverage
 def test_create2_collision_storage(
     state_test: StateTestFiller,
     pre: Alloc,

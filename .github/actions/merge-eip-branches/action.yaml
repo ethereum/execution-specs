@@ -9,7 +9,7 @@ inputs:
     description: 'Devnet name (e.g., amsterdam/1, bal/2, eip-1234/3). Created branch will be `devnets/$devnet_name`'
     required: true
   eip_numbers:
-    description: 'Comma-separated list of EIP numbers (e.g., 1234,2345,3456)'
+    description: 'List of EIP numbers (e.g., 1234,2345+3456 for eip-1234 and combined eip-2345+3456)'
     required: true
 
 runs:
@@ -50,8 +50,8 @@ runs:
         for raw in "${RAW_EIPS[@]}"; do
           eip="$(echo "$raw" | xargs)"   # trims leading/trailing whitespace
           if [[ -n "$eip" ]]; then
-            # Optional: ensure it looks numeric
-            if [[ ! "$eip" =~ ^[0-9]+$ ]]; then
+            # Ensure it looks like EIP number(s) - digits optionally joined by +
+            if [[ ! "$eip" =~ ^[0-9]+(\+[0-9]+)*$ ]]; then
               echo "Error: Invalid EIP number ${eip}"
               exit 1
             fi
@@ -114,7 +114,7 @@ runs:
         done
 
         echo "Running static checks on merged branch"
-        uvx --with=tox-uv tox -e static
+        just static
 
         echo "All EIP branches merged successfully"
 

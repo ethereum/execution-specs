@@ -5,6 +5,7 @@ MD034: false # no-bare-urls - We use pymdownx.magiclink which allows bare urls
 MD046: false # code-block-style - This doesn't play well with material's admonitions)
 MD024: false # no-duplicate-heading - We use duplicate headings in the changelog.
 MD033: false # no-inline-html - Too strict.
+MD060: false # table-column-style - New in markdownlint v0.40.0; too strict for existing tables.
 ul-indent:
   indent: 4
   start_indent: 4

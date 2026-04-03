@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, RootModel
 from execution_testing.test_types import Environment, EnvironmentDefaults
 from execution_testing.tools import ParameterSet
 
+from .address_stubs import AddressStubs
 from .execute_fill import OpMode
 from .fixture_output import (
     FORK_SUBDIR_PREFIX,
@@ -59,6 +60,17 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             f"Cannot be used with {GasBenchmarkValues.flag}."
         ),
     )
+    benchmark_group.addoption(
+        "--address-stubs",
+        action="store",
+        dest="address_stubs",
+        default=None,
+        type=AddressStubs.model_validate_json_or_file,
+        help=(
+            "Address stubs mapping stub names to on-chain addresses. "
+            "Can be a JSON string or path to a JSON file."
+        ),
+    )
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -67,6 +79,10 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers",
         "repricing: Mark test as reference test for gas repricing analysis",
+    )
+    config.addinivalue_line(
+        "markers",
+        "stub_parametrize(param, prefix): parametrize with matching stubs",
     )
 
     # Ensure mutual exclusivity
@@ -514,25 +530,26 @@ def fixed_opcode_count(request: pytest.FixtureRequest) -> int | None:
 
 
 BENCHMARKING_MAX_GAS = 1_000_000_000_000
+BENCHMARK_DIR = Path("tests") / "benchmark"
+
+
+def _is_benchmark_test(request: pytest.FixtureRequest) -> bool:
+    """Check if the test is under the benchmark directory."""
+    benchmark_path = Path(request.config.rootpath) / BENCHMARK_DIR
+    return benchmark_path in Path(request.node.fspath).parents
 
 
 @pytest.fixture
-def genesis_environment(request: pytest.FixtureRequest) -> Environment:  # noqa: D103
-    """
-    Return an Environment instance with appropriate gas limit based on test
-    type.
-    """
-    if request.node.get_closest_marker("benchmark") is not None:
+def genesis_environment(request: pytest.FixtureRequest) -> Environment:
+    """Return an Environment with appropriate gas limit."""
+    if _is_benchmark_test(request):
         return Environment(gas_limit=BENCHMARKING_MAX_GAS)
     return Environment()
 
 
 @pytest.fixture
-def env(request: pytest.FixtureRequest) -> Environment:  # noqa: D103
-    """
-    Return an Environment instance with appropriate gas limit based on test
-    type.
-    """
-    if request.node.get_closest_marker("benchmark") is not None:
+def env(request: pytest.FixtureRequest) -> Environment:
+    """Return an Environment with appropriate gas limit."""
+    if _is_benchmark_test(request):
         return Environment(gas_limit=BENCHMARKING_MAX_GAS)
     return Environment()

@@ -19,7 +19,11 @@ from ethereum.utils.byte import left_pad_zero_bytes
 from ethereum.utils.numeric import ceil32
 
 from ...vm import Evm
-from ...vm.gas import GAS_RIPEMD160, GAS_RIPEMD160_WORD, charge_gas
+from ...vm.gas import (
+    GAS_PRECOMPILE_RIPEMD160_BASE,
+    GAS_PRECOMPILE_RIPEMD160_PER_WORD,
+    charge_gas,
+)
 
 
 def ripemd160(evm: Evm) -> None:
@@ -36,7 +40,11 @@ def ripemd160(evm: Evm) -> None:
 
     # GAS
     word_count = ceil32(Uint(len(data))) // Uint(32)
-    charge_gas(evm, GAS_RIPEMD160 + GAS_RIPEMD160_WORD * word_count)
+    charge_gas(
+        evm,
+        GAS_PRECOMPILE_RIPEMD160_BASE
+        + GAS_PRECOMPILE_RIPEMD160_PER_WORD * word_count,
+    )
 
     # OPERATION
     hash_bytes = hashlib.new("ripemd160", data).digest()

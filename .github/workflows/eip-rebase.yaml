@@ -7,13 +7,14 @@ on:
         description: 'Fork name (e.g., amsterdam)'
         required: true
         type: string
-      eip_number:
-        description: 'EIP number'
+        default: 'amsterdam'
+      eip_numbers:
+        description: 'List of EIP numbers (e.g., 1234,2345+3456 for eip-1234 and combined eip-2345+3456)'
         required: true
         type: string
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.inputs.fork }}-${{ github.event.inputs.eip_number }}
+  group: ${{ github.workflow }}-${{ github.event.inputs.fork }}-${{ github.event.inputs.eip_numbers }}
   cancel-in-progress: false
 
 permissions:
@@ -24,16 +25,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@eac588ad8def6316056a12d4907a9d4d84ff7a3b # v7.3.0
+        uses: astral-sh/setup-uv@e06108dd0aef18192324c70427afc47652e63a82 # v7.5.0
 
-      - name: Rebase EIP branch onto fork
+      - name: Rebase EIP branches onto fork
         uses: ./.github/actions/rebase-eip-branch
         with:
           fork: ${{ github.event.inputs.fork }}
-          eip_number: ${{ github.event.inputs.eip_number }}
+          eip_numbers: ${{ github.event.inputs.eip_numbers }}

@@ -22,6 +22,7 @@ from .benchmark import (
     BenchmarkCodeGenerator,
     ExtCallGenerator,
     JumpLoopGenerator,
+    StubConfig,
 )
 from .checklists import EIPChecklist
 from .exceptions import (
@@ -30,7 +31,7 @@ from .exceptions import (
     TransactionException,
 )
 from .fixtures import BaseFixture, FixtureCollector
-from .forks import Fork, GasCosts
+from .forks import Fork, GasCosts, TransitionFork
 from .specs import (
     BaseTest,
     BenchmarkTest,
@@ -192,6 +193,7 @@ __all__ = (
     "StateTest",
     "StateTestFiller",
     "Storage",
+    "StubConfig",
     "Switch",
     "TestAddress",
     "TestAddress2",
@@ -207,6 +209,7 @@ __all__ = (
     "TransactionTestFiller",
     "TransactionType",
     "TransactionWithCost",
+    "TransitionFork",
     "While",
     "CoerceBytes",
     "Withdrawal",

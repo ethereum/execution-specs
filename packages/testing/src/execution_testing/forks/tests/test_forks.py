@@ -1,6 +1,6 @@
 """Test fork utilities."""
 
-from typing import Dict, cast
+from typing import Dict
 
 import pytest
 from pydantic import BaseModel
@@ -27,6 +27,7 @@ from ..forks.forks import (
 from ..forks.transition import (
     BerlinToLondonAt5,
     BPO1ToBPO2AtTime15k,
+    BPO2ToAmsterdamAtTime15k,
     BPO2ToBPO3AtTime15k,
     BPO3ToBPO4AtTime15k,
     CancunToPragueAtTime15k,
@@ -40,14 +41,16 @@ from ..helpers import (
     ForkAdapter,
     ForkOrNoneAdapter,
     ForkSetAdapter,
+    TransitionFork,
     forks_from,
     forks_from_until,
     get_deployed_forks,
     get_forks,
+    get_selected_fork_set,
     transition_fork_from_to,
     transition_fork_to,
 )
-from ..transition_base_fork import transition_fork
+from ..transition_base_fork import TransitionBaseClass, transition_fork
 
 FIRST_DEPLOYED = Frontier
 LAST_DEPLOYED = Osaka
@@ -62,85 +65,90 @@ def test_transition_forks() -> None:
     assert transition_fork_to(Shanghai) == {ParisToShanghaiAtTime15k}
 
     # Test forks transitioned to and from
-    assert BerlinToLondonAt5.transitions_to() == London  # type: ignore
-    assert BerlinToLondonAt5.transitions_from() == Berlin  # type: ignore
+    assert BerlinToLondonAt5.transitions_to() == London
+    assert BerlinToLondonAt5.transitions_from() == Berlin
 
     assert (
-        BerlinToLondonAt5.transition_tool_name(block_number=4, timestamp=0)
+        BerlinToLondonAt5.fork_at(
+            block_number=4, timestamp=0
+        ).transition_tool_name()
         == "Berlin"
     )
     assert (
-        BerlinToLondonAt5.transition_tool_name(block_number=5, timestamp=0)
+        BerlinToLondonAt5.fork_at(
+            block_number=5, timestamp=0
+        ).transition_tool_name()
         == "London"
     )
-    # Default values of transition forks is the transition block
-    assert BerlinToLondonAt5.transition_tool_name() == "London"
 
     assert (
-        ParisToShanghaiAtTime15k.transition_tool_name(
+        ParisToShanghaiAtTime15k.fork_at(
             block_number=0, timestamp=14_999
-        )
+        ).transition_tool_name()
         == "Merge"
     )
     assert (
-        ParisToShanghaiAtTime15k.transition_tool_name(
+        ParisToShanghaiAtTime15k.fork_at(
             block_number=0, timestamp=15_000
-        )
+        ).transition_tool_name()
         == "Shanghai"
     )
-    assert ParisToShanghaiAtTime15k.transition_tool_name() == "Shanghai"
 
     assert (
-        BerlinToLondonAt5.header_base_fee_required(block_number=4, timestamp=0)
+        BerlinToLondonAt5.fork_at(
+            block_number=4, timestamp=0
+        ).header_base_fee_required()
         is False
     )
     assert (
-        BerlinToLondonAt5.header_base_fee_required(block_number=5, timestamp=0)
+        BerlinToLondonAt5.fork_at(
+            block_number=5, timestamp=0
+        ).header_base_fee_required()
         is True
     )
 
     assert (
-        ParisToShanghaiAtTime15k.header_withdrawals_required(
+        ParisToShanghaiAtTime15k.fork_at(
             block_number=0, timestamp=14_999
-        )
+        ).header_withdrawals_required()
         is False
     )
     assert (
-        ParisToShanghaiAtTime15k.header_withdrawals_required(
+        ParisToShanghaiAtTime15k.fork_at(
             block_number=0, timestamp=15_000
-        )
+        ).header_withdrawals_required()
         is True
     )
 
     assert (
-        ParisToShanghaiAtTime15k.engine_new_payload_version(
+        ParisToShanghaiAtTime15k.fork_at(
             block_number=0, timestamp=14_999
-        )
+        ).engine_new_payload_version()
         == 1
     )
     assert (
-        ParisToShanghaiAtTime15k.engine_new_payload_version(
+        ParisToShanghaiAtTime15k.fork_at(
             block_number=0, timestamp=15_000
-        )
+        ).engine_new_payload_version()
         == 2
     )
 
-    assert BerlinToLondonAt5.fork_at(block_number=4, timestamp=0) == Berlin
-    assert BerlinToLondonAt5.fork_at(block_number=5, timestamp=0) == London
+    assert BerlinToLondonAt5.fork_at(block_number=4, timestamp=0) is Berlin
+    assert BerlinToLondonAt5.fork_at(block_number=5, timestamp=0) is London
     assert (
         ParisToShanghaiAtTime15k.fork_at(block_number=0, timestamp=14_999)
-        == Paris
+        is Paris
     )
     assert (
         ParisToShanghaiAtTime15k.fork_at(block_number=0, timestamp=15_000)
-        == Shanghai
+        is Shanghai
     )
-    assert ParisToShanghaiAtTime15k.fork_at() == Paris
+    assert ParisToShanghaiAtTime15k.fork_at() is Paris
     assert (
         ParisToShanghaiAtTime15k.fork_at(
             block_number=10_000_000, timestamp=14_999
         )
-        == Paris
+        is Paris
     )
 
 
@@ -179,42 +187,40 @@ def test_forks() -> None:
     assert f"{ParisToShanghaiAtTime15k}" == "ParisToShanghaiAtTime15k"
 
     # Test some fork properties
-    assert (
-        Berlin.header_base_fee_required(block_number=0, timestamp=0) is False
-    )
-    assert London.header_base_fee_required(block_number=0, timestamp=0) is True
-    assert Paris.header_base_fee_required(block_number=0, timestamp=0) is True
+    assert Berlin.header_base_fee_required() is False
+    assert London.header_base_fee_required() is True
+    assert Paris.header_base_fee_required() is True
     # Default values of normal forks if the genesis block
     assert Paris.header_base_fee_required() is True
 
     # Transition forks too
     assert (
-        cast(Fork, BerlinToLondonAt5).header_base_fee_required(
+        BerlinToLondonAt5.fork_at(
             block_number=4, timestamp=0
-        )
+        ).header_base_fee_required()
         is False
     )
     assert (
-        cast(Fork, BerlinToLondonAt5).header_base_fee_required(
+        BerlinToLondonAt5.fork_at(
             block_number=5, timestamp=0
-        )
+        ).header_base_fee_required()
         is True
     )
     assert (
-        cast(Fork, ParisToShanghaiAtTime15k).header_withdrawals_required(
+        ParisToShanghaiAtTime15k.fork_at(
             block_number=0, timestamp=14_999
-        )
+        ).header_withdrawals_required()
         is False
     )
     assert (
-        cast(Fork, ParisToShanghaiAtTime15k).header_withdrawals_required(
+        ParisToShanghaiAtTime15k.fork_at(
             block_number=0, timestamp=15_000
-        )
+        ).header_withdrawals_required()
         is True
     )
     assert (
-        cast(Fork, ParisToShanghaiAtTime15k).header_withdrawals_required()
-        is True
+        ParisToShanghaiAtTime15k.fork_at().header_withdrawals_required()
+        is False
     )
 
 
@@ -237,9 +243,9 @@ def test_amsterdam_execution_witness_implicit_code_addresses() -> None:
 class ForkInPydanticModel(BaseModel):
     """Fork in pydantic model."""
 
-    fork_1: Fork
-    fork_2: Fork
-    fork_3: Fork | None
+    fork_1: Fork | TransitionFork
+    fork_2: Fork | TransitionFork
+    fork_3: Fork | TransitionFork | None
 
 
 def test_fork_in_pydantic_model() -> None:
@@ -259,8 +265,8 @@ def test_fork_in_pydantic_model() -> None:
         '{"fork_1": "Paris", "fork_2": "ParisToShanghaiAtTime15k", '
         '"fork_3": null}'
     )
-    assert model.fork_1 == Paris
-    assert model.fork_2 == ParisToShanghaiAtTime15k
+    assert model.fork_1 is Paris
+    assert model.fork_2 is ParisToShanghaiAtTime15k
     assert model.fork_3 is None
 
 
@@ -363,11 +369,8 @@ class PrePreAllocFork(Shanghai):
     """Dummy fork used for testing."""
 
     @classmethod
-    def pre_allocation(
-        cls, *, block_number: int = 0, timestamp: int = 0
-    ) -> Dict:
+    def pre_allocation(cls) -> Dict:
         """Return some starting point for allocation."""
-        del block_number, timestamp
         return {"test": "test"}
 
 
@@ -375,16 +378,15 @@ class PreAllocFork(PrePreAllocFork):
     """Dummy fork used for testing."""
 
     @classmethod
-    def pre_allocation(
-        cls, *, block_number: int = 0, timestamp: int = 0
-    ) -> Dict:
+    def pre_allocation(cls) -> Dict:
         """Add allocation to the pre-existing one from previous fork."""
-        del block_number, timestamp
         return {"test2": "test2"} | super(PreAllocFork, cls).pre_allocation()
 
 
-@transition_fork(to_fork=PreAllocFork, at_timestamp=15_000)
-class PreAllocTransitionFork(PrePreAllocFork):
+@transition_fork(
+    to_fork=PreAllocFork, from_fork=PrePreAllocFork, at_timestamp=15_000
+)
+class PreAllocTransitionFork(TransitionBaseClass):
     """PrePreAllocFork to PreAllocFork transition at Timestamp 15k."""
 
     pass
@@ -393,22 +395,21 @@ class PreAllocTransitionFork(PrePreAllocFork):
 def test_pre_alloc() -> None:  # noqa: D103
     assert PrePreAllocFork.pre_allocation() == {"test": "test"}
     assert PreAllocFork.pre_allocation() == {"test": "test", "test2": "test2"}
-    assert PreAllocTransitionFork.pre_allocation() == {
+    assert PreAllocTransitionFork.transitions_to().pre_allocation() == {
         "test": "test",
         "test2": "test2",
     }
-    assert PreAllocTransitionFork.pre_allocation() == {
+    assert PreAllocTransitionFork.transitions_from().pre_allocation() == {
         "test": "test",
-        "test2": "test2",
     }
 
 
 def test_precompiles() -> None:  # noqa: D103
-    Cancun.precompiles() == list(range(11))[1:]  # noqa: B015
+    assert sorted(Cancun.precompiles()) == list(range(1, 11))
 
 
 def test_tx_types() -> None:  # noqa: D103
-    Cancun.tx_types() == list(range(4))  # noqa: B015
+    assert Cancun.tx_types() == list(reversed(range(4)))
 
 
 @pytest.mark.parametrize(
@@ -585,12 +586,16 @@ class FutureFork(Osaka):
         ),
     ],
 )
-def test_blob_schedules(fork: Fork, expected_schedule: Dict | None) -> None:
+def test_blob_schedules(
+    fork: Fork | TransitionFork, expected_schedule: Dict | None
+) -> None:
     """Test blob schedules for different forks."""
     if expected_schedule is None:
-        assert fork.blob_schedule() is None
+        assert fork.transitions_to().blob_schedule() is None
     else:
-        assert fork.blob_schedule() == BlobSchedule(**expected_schedule)
+        assert fork.transitions_to().blob_schedule() == BlobSchedule(
+            **expected_schedule
+        )
 
 
 def test_bpo_fork() -> None:  # noqa: D103
@@ -599,10 +604,10 @@ def test_bpo_fork() -> None:  # noqa: D103
     assert BPO2.bpo_fork() is True
     assert BPO3.bpo_fork() is True
     assert BPO4.bpo_fork() is True
-    assert OsakaToBPO1AtTime15k.bpo_fork() is True
-    assert BPO1ToBPO2AtTime15k.bpo_fork() is True
-    assert BPO2ToBPO3AtTime15k.bpo_fork() is True
-    assert BPO3ToBPO4AtTime15k.bpo_fork() is True
+    assert OsakaToBPO1AtTime15k.fork_at().bpo_fork() is False
+    assert BPO1ToBPO2AtTime15k.fork_at().bpo_fork() is True
+    assert BPO2ToBPO3AtTime15k.fork_at().bpo_fork() is True
+    assert BPO3ToBPO4AtTime15k.fork_at().bpo_fork() is True
 
 
 def test_fork_adapters() -> None:  # noqa: D103
@@ -617,3 +622,77 @@ def test_fork_adapters() -> None:  # noqa: D103
     assert {Osaka} == ForkSetAdapter.validate_python("Osaka")
     assert {Osaka} == ForkSetAdapter.validate_python({Osaka})
     assert set() == ForkSetAdapter.validate_python("")
+
+
+class TestSelectedForkSetWithTransitionBoundaries:
+    """Test `get_selected_fork_set` with transition fork boundaries."""
+
+    @staticmethod
+    def _normal_forks(fork_set: set) -> set:
+        """Return the set of normal (non-transition) forks."""
+        return {f for f in fork_set if not issubclass(f, TransitionBaseClass)}
+
+    @staticmethod
+    def _transition_forks(fork_set: set) -> set:
+        """Return the set of transition forks."""
+        return {f for f in fork_set if issubclass(f, TransitionBaseClass)}
+
+    def test_transition_from_and_until(self) -> None:
+        """Test range with transition forks as both boundaries."""
+        result = get_selected_fork_set(
+            single_fork=set(),
+            forks_from={OsakaToBPO1AtTime15k},  # type: ignore[arg-type]
+            forks_until={BPO2ToAmsterdamAtTime15k},  # type: ignore[arg-type]
+        )
+        assert self._normal_forks(result) == {BPO1, BPO2}
+        assert self._transition_forks(result) == {
+            OsakaToBPO1AtTime15k,
+            BPO1ToBPO2AtTime15k,
+            BPO2ToAmsterdamAtTime15k,
+        }
+
+    def test_transition_until_excludes_target(self) -> None:
+        """Transition fork `--until` must not include `transitions_to()`."""
+        result = get_selected_fork_set(
+            single_fork=set(),
+            forks_from={OsakaToBPO1AtTime15k},  # type: ignore[arg-type]
+            forks_until={BPO2ToAmsterdamAtTime15k},  # type: ignore[arg-type]
+        )
+        assert Amsterdam not in result
+
+    def test_non_bpo_transition_boundaries(self) -> None:
+        """Test non-BPO transition fork boundaries."""
+        result = get_selected_fork_set(
+            single_fork=set(),
+            forks_from={CancunToPragueAtTime15k},  # type: ignore[arg-type]
+            forks_until={PragueToOsakaAtTime15k},  # type: ignore[arg-type]
+        )
+        assert self._normal_forks(result) == {Prague}
+        assert self._transition_forks(result) == {
+            CancunToPragueAtTime15k,
+            PragueToOsakaAtTime15k,
+        }
+        assert Osaka not in result
+
+    def test_normal_boundaries_unchanged(self) -> None:
+        """Normal fork boundaries still work as before."""
+        result = get_selected_fork_set(
+            single_fork=set(),
+            forks_from={Prague},
+            forks_until={Osaka},
+        )
+        assert self._normal_forks(result) == {Prague, Osaka}
+        assert CancunToPragueAtTime15k in result
+        assert PragueToOsakaAtTime15k in result
+
+    def test_transition_from_normal_until(self) -> None:
+        """Test transition `--from` with normal `--until`."""
+        result = get_selected_fork_set(
+            single_fork=set(),
+            forks_from={OsakaToBPO1AtTime15k},  # type: ignore[arg-type]
+            forks_until={BPO2},
+        )
+        assert self._normal_forks(result) == {BPO1, BPO2}
+        assert OsakaToBPO1AtTime15k in result
+        assert BPO1ToBPO2AtTime15k in result
+        assert BPO2ToAmsterdamAtTime15k not in result

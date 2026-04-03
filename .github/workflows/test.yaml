@@ -12,7 +12,7 @@ on:
       - ".gitignore"
       - ".vscode/**"
       - "whitelist.txt"
-      - "docs/**"                                                                                                                     
+      - "docs/**"
       - "mkdocs.yml"
   workflow_dispatch:
   pull_request:
@@ -22,7 +22,7 @@ on:
       - ".gitignore"
       - ".vscode/**"
       - "whitelist.txt"
-      - "docs/**"                                                                                                                     
+      - "docs/**"
       - "mkdocs.yml"
 
 concurrency:
@@ -33,17 +33,35 @@ jobs:
   static:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           submodules: recursive
       - name: Ensure SHA pinned actions
-        uses: zgosalvez/github-actions-ensure-sha-pinned-actions@6124774845927d14c601359ab8138699fa5b70c3 # v4.0.1
+        uses: zgosalvez/github-actions-ensure-sha-pinned-actions@70c4af2ed5282c51ba40566d026d6647852ffa3e # v5.0.1
       - uses: ./.github/actions/setup-uv
       - name: Install build dependencies
         shell: bash
         run: sudo DEBIAN_FRONTEND=noninteractive apt-get install --yes --force-yes build-essential pkg-config
+      - name: Detect Python version
+        id: python
+        shell: bash
+        run: echo "version=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')" >> "$GITHUB_OUTPUT"
+      - name: Restore mypy cache
+        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: .mypy_cache
+          key: mypy-${{ runner.os }}-py${{ steps.python.outputs.version }}-${{ hashFiles('uv.lock') }}-${{ github.sha }}
+          restore-keys: |
+            mypy-${{ runner.os }}-py${{ steps.python.outputs.version }}-${{ hashFiles('uv.lock') }}-
+            mypy-${{ runner.os }}-py${{ steps.python.outputs.version }}-
       - name: Run static checks
-        run: tox -e static
+        run: just static
+      - name: Save mypy cache
+        if: always()
+        uses: actions/cache/save@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: .mypy_cache
+          key: mypy-${{ runner.os }}-py${{ steps.python.outputs.version }}-${{ hashFiles('uv.lock') }}-${{ github.sha }}
       - name: Validate workflow config variables
         run: |
           cat >> .github/actionlint.yaml << 'EOF'
@@ -55,83 +73,99 @@ jobs:
           EOF
           uvx --from actionlint-py actionlint
 
-  py3:
+  fill:
+    name: fill (${{ matrix.label }})
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: pre-cancun
+            from_fork: Frontier
+            until_fork: Shanghai
+          - label: cancun
+            from_fork: Cancun
+            until_fork: Cancun
+          - label: prague
+            from_fork: Prague
+            until_fork: Prague
+          - label: osaka
+            from_fork: Osaka
+            until_fork: Osaka
+          - label: amsterdam
+            from_fork: Amsterdam
+            until_fork: Amsterdam
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           submodules: recursive
       - uses: ./.github/actions/setup-uv
         with:
           python-version: "3.14"
       - uses: ./.github/actions/setup-env
-      - name: Run py3 tests
-        run: tox -e py3
+      - name: Run fill (${{ matrix.label }})
+        run: just fill --from ${{ matrix.from_fork }} --until ${{ matrix.until_fork }}
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
         with:
-          files: .tox/coverage.xml
+          files: .just/fill/coverage.xml
           flags: unittests
           token: ${{ secrets.CODECOV_TOKEN }}
 
-  pypy3:
+  fill-pypy:
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           submodules: recursive
       - uses: ./.github/actions/setup-uv
         with:
           python-version: "pypy3.11"
       - uses: ./.github/actions/setup-env
-      - name: Run pypy3 tests
-        run: tox -e pypy3
+      - name: Run fill-pypy tests
+        run: just fill-pypy
         env:
           PYPY_GC_MAX: "2G"
           PYPY_GC_MIN: "1G"
 
-  json_infra:
+  json-loader:
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           submodules: recursive
-          fetch-depth: 0  # Fetch full history for commit comparison
       - uses: ./.github/actions/setup-uv
-        with:
-          python-version: "3.11"
       - uses: ./.github/actions/setup-env
-      - uses: ./.github/actions/setup-geth
-      - uses: ./.github/actions/get-changed-files
-        id: get-changed-files
-      - name: Run json infra tests
-        run: tox -e json_infra -- --file-list="${{ steps.get-changed-files.outputs.file_list }}"
+      - name: Fill and run json-loader tests
+        run: just json-loader
+        env:
+          PYTEST_XDIST_AUTO_NUM_WORKERS: auto
 
-  tests_pytest_py3:
+  test-tests:
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           submodules: recursive
       - uses: ./.github/actions/setup-uv
       - uses: ./.github/actions/setup-env
       - uses: ./.github/actions/build-evmone
-      - name: Run py3 tests
-        run: tox -e tests_pytest_py3
+      - name: Run test-tests
+        run: just test-tests
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
 
-  tests_pytest_pypy3:
+  test-tests-pypy:
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           submodules: recursive
       - uses: ./.github/actions/setup-uv
@@ -139,8 +173,8 @@ jobs:
           python-version: "pypy3.11"
       - uses: ./.github/actions/setup-env
       - uses: ./.github/actions/build-evmone
-      - name: Run pypy3 tests
-        run: tox -e tests_pytest_pypy3
+      - name: Run test-tests-pypy
+        run: just test-tests-pypy
         env:
           PYPY_GC_MAX: "2G"
           PYPY_GC_MIN: "1G"

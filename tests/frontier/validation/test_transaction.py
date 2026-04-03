@@ -15,6 +15,7 @@ from execution_testing.test_types.transaction_types import TransactionDefaults
 
 
 @pytest.mark.exception_test
+@pytest.mark.eels_base_coverage
 def test_tx_gas_limit(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -65,6 +66,7 @@ def test_tx_gas_limit(
     ],
 )
 @pytest.mark.pre_alloc_mutable
+@pytest.mark.eels_base_coverage
 def test_tx_nonce(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -106,6 +108,7 @@ def test_tx_nonce(
         (1, None),
     ],
 )
+@pytest.mark.eels_base_coverage
 def test_sender_balance(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

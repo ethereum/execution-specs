@@ -36,12 +36,8 @@ class Bytecode:
     _keccak_256_: Hash | None = None
     _gas_cost_: int | None = None
     _gas_cost_fork_: Type[ForkOpcodeInterface] | None = None
-    _gas_cost_block_number_: int | None = None
-    _gas_cost_timestamp_: int | None = None
     _refund_: int | None = None
     _refund_fork_: Type[ForkOpcodeInterface] | None = None
-    _refund_block_number_: int | None = None
-    _refund_timestamp_: int | None = None
 
     popped_stack_items: int
     pushed_stack_items: int
@@ -227,7 +223,7 @@ class Bytecode:
         )
 
         return Bytecode(
-            bytes(self) + bytes(other),
+            self._bytes_ + other._bytes_,
             popped_stack_items=c_pop,
             pushed_stack_items=c_push,
             min_stack_height=c_min,
@@ -238,7 +234,7 @@ class Bytecode:
 
     def __radd__(self, other: "Bytecode | int | None") -> "Bytecode":
         """
-        Concatenate the opcode byte representation with another bytes object.
+        Repeat the bytecode a given number of times.
         """
         if other is None or (isinstance(other, int) and other == 0):
             # Edge case for sum() function
@@ -256,10 +252,32 @@ class Bytecode:
             raise ValueError("Cannot multiply by a negative number")
         if other == 0:
             return Bytecode()
-        output = self
-        for _ in range(other - 1):
-            output += self
-        return output
+        if other == 1:
+            return Bytecode(self)
+
+        result_bytes = self._bytes_ * other
+
+        a_pop = self.popped_stack_items
+        a_push = self.pushed_stack_items
+        a_min = self.min_stack_height
+        a_max = self.max_stack_height
+        net = a_push - a_pop
+        repeats = other - 1
+
+        c_pop = a_pop + max(0, -net) * repeats
+        c_push = a_push + max(0, net) * repeats
+        c_min = a_min + max(0, -net) * repeats
+        c_max = a_max + abs(net) * repeats
+
+        return Bytecode(
+            result_bytes,
+            popped_stack_items=c_pop,
+            pushed_stack_items=c_push,
+            min_stack_height=c_min,
+            max_stack_height=c_max,
+            terminating=self.terminating,
+            opcode_list=self.opcode_list * other,
+        )
 
     def hex(self) -> str:
         """
@@ -274,51 +292,21 @@ class Bytecode:
             self._keccak_256_ = Bytes(self._bytes_).keccak256()
         return self._keccak_256_
 
-    def gas_cost(
-        self,
-        fork: Type[ForkOpcodeInterface],
-        *,
-        block_number: int = 0,
-        timestamp: int = 0,
-    ) -> int:
+    def gas_cost(self, fork: Type[ForkOpcodeInterface]) -> int:
         """Use a fork object to calculate the gas used by this bytecode."""
-        if (
-            self._gas_cost_ is None
-            or self._gas_cost_fork_ != fork
-            or self._gas_cost_block_number_ != block_number
-            or self._gas_cost_timestamp_ != timestamp
-        ):
+        if self._gas_cost_ is None or self._gas_cost_fork_ != fork:
             self._gas_cost_fork_ = fork
-            self._gas_cost_block_number_ = block_number
-            self._gas_cost_timestamp_ = timestamp
-            opcode_gas_calculator = fork.opcode_gas_calculator(
-                block_number=block_number, timestamp=timestamp
-            )
+            opcode_gas_calculator = fork.opcode_gas_calculator()
             self._gas_cost_ = 0
             for opcode in self.opcode_list:
                 self._gas_cost_ += opcode_gas_calculator(opcode)
         return self._gas_cost_
 
-    def refund(
-        self,
-        fork: Type[ForkOpcodeInterface],
-        *,
-        block_number: int = 0,
-        timestamp: int = 0,
-    ) -> int:
+    def refund(self, fork: Type[ForkOpcodeInterface]) -> int:
         """Use a fork object to calculate the gas refund from this bytecode."""
-        if (
-            self._refund_ is None
-            or self._refund_fork_ != fork
-            or self._refund_block_number_ != block_number
-            or self._refund_timestamp_ != timestamp
-        ):
+        if self._refund_ is None or self._refund_fork_ != fork:
             self._refund_fork_ = fork
-            self._refund_block_number_ = block_number
-            self._refund_timestamp_ = timestamp
-            opcode_refund_calculator = fork.opcode_refund_calculator(
-                block_number=block_number, timestamp=timestamp
-            )
+            opcode_refund_calculator = fork.opcode_refund_calculator()
             self._refund_ = 0
             for opcode in self.opcode_list:
                 self._refund_ += opcode_refund_calculator(opcode)

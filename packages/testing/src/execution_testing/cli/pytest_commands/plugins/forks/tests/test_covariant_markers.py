@@ -482,6 +482,148 @@ def test_fork_covariant_markers(
     )
     result = pytester.runpytest("-c", "pytest-fill.ini")
     result.assert_outcomes(**outcomes)
-    if outcomes["errors"]:
+    if outcomes.get("errors"):
         assert error_string is not None
         assert error_string in "\n".join(result.stdout.lines)
+
+
+# -- filter_combinations marker tests --
+
+
+@pytest.mark.parametrize(
+    "test_function,expected_outcomes,error_string",
+    [
+        pytest.param(
+            """
+            import pytest
+            from execution_testing import Op
+
+            @pytest.mark.with_all_call_opcodes()
+            @pytest.mark.parametrize("value", [0, 1])
+            @pytest.mark.filter_combinations(
+                lambda call_opcode, value, **_: (
+                    "value" in call_opcode.kwargs or value == 0
+                ),
+                reason="opcode does not support value argument",
+            )
+            @pytest.mark.valid_from("Cancun")
+            @pytest.mark.valid_until("Cancun")
+            @pytest.mark.state_test_only
+            def test_case(state_test, call_opcode, value):
+                pass
+            """,
+            # 4 opcodes × 2 values = 8; STATICCALL and DELEGATECALL
+            # lack "value" kwarg → 2 deselected (value=1 for each).
+            {"passed": 6, "failed": 0, "deselected": 2},
+            None,
+            id="filter_combinations_covariant_cross_parametrize",
+        ),
+        pytest.param(
+            """
+            import pytest
+
+            @pytest.mark.parametrize("a", [1, 2, 3])
+            @pytest.mark.parametrize("b", [10, 20])
+            @pytest.mark.filter_combinations(
+                lambda a, b, **_: a + b != 12,
+                reason="a + b must not equal 12",
+            )
+            @pytest.mark.valid_from("Cancun")
+            @pytest.mark.valid_until("Cancun")
+            @pytest.mark.state_test_only
+            def test_case(state_test, a, b):
+                pass
+            """,
+            # 3 × 2 = 6; (2, 10) rejected → 5 passed, 1 deselected.
+            {"passed": 5, "failed": 0, "deselected": 1},
+            None,
+            id="filter_combinations_regular_parametrize_only",
+        ),
+        pytest.param(
+            """
+            import pytest
+
+            @pytest.mark.parametrize("a", [1, 2, 3])
+            @pytest.mark.filter_combinations(
+                lambda a, **_: True,
+                reason="keep all",
+            )
+            @pytest.mark.valid_from("Cancun")
+            @pytest.mark.valid_until("Cancun")
+            @pytest.mark.state_test_only
+            def test_case(state_test, a):
+                pass
+            """,
+            {"passed": 3, "failed": 0, "deselected": 0},
+            None,
+            id="filter_combinations_keeps_all",
+        ),
+        pytest.param(
+            """
+            import pytest
+
+            @pytest.mark.parametrize("a", [1, 2, 3])
+            @pytest.mark.parametrize("b", [10, 20])
+            @pytest.mark.filter_combinations(
+                lambda a, **_: a != 3,
+                reason="exclude a=3",
+            )
+            @pytest.mark.filter_combinations(
+                lambda b, **_: b != 20,
+                reason="exclude b=20",
+            )
+            @pytest.mark.valid_from("Cancun")
+            @pytest.mark.valid_until("Cancun")
+            @pytest.mark.state_test_only
+            def test_case(state_test, a, b):
+                pass
+            """,
+            # 3 × 2 = 6; first marker removes a=3 (2 items),
+            # second removes b=20 (2 of the remaining 4) → 2 passed.
+            {"passed": 2, "failed": 0, "deselected": 4},
+            None,
+            id="filter_combinations_stacked_and_logic",
+        ),
+        pytest.param(
+            """
+            import pytest
+
+            @pytest.mark.parametrize("a", [1, 2])
+            @pytest.mark.filter_combinations(
+                lambda a, **_: False,
+                reason="reject everything",
+            )
+            @pytest.mark.valid_from("Cancun")
+            @pytest.mark.valid_until("Cancun")
+            @pytest.mark.state_test_only
+            def test_case(state_test, a):
+                pass
+            """,
+            {},
+            "filter_combinations deselected all",
+            id="filter_combinations_empty_set_error",
+        ),
+    ],
+)
+def test_filter_combinations(
+    pytester: pytest.Pytester,
+    test_function: str,
+    expected_outcomes: dict,
+    error_string: str | None,
+) -> None:
+    """Test the ``filter_combinations`` marker in an isolated fill session."""
+    pytester.makepyfile(test_function)
+    pytester.copy_example(
+        name="src/execution_testing/cli/pytest_commands/"
+        "pytest_ini_files/pytest-fill.ini"
+    )
+    result = pytester.runpytest("-c", "pytest-fill.ini")
+    if error_string is not None:
+        assert result.ret == pytest.ExitCode.USAGE_ERROR
+        assert error_string in "\n".join(result.stdout.lines)
+        return
+    outcomes = result.parseoutcomes()
+    for key, expected in expected_outcomes.items():
+        assert outcomes.get(key, 0) == expected, (
+            f"{key}: expected {expected}, got {outcomes.get(key, 0)}"
+        )

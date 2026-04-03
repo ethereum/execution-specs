@@ -38,13 +38,28 @@ def test_ecrecover(
     precompile_address: Address,
     calldata: bytes,
 ) -> None:
-    """Benchmark ECRECOVER precompile."""
+    """
+    Benchmark ECRECOVER precompile with unique input per call.
+
+    Each loop iteration increments the hash at memory[0] by
+    the STATICCALL success flag (1) so every call receives a
+    distinct input, avoiding precompile result caching in
+    clients.
+    """
     if precompile_address not in fork.precompiles():
         pytest.skip("Precompile not enabled")
 
-    attack_block = Op.POP(
-        Op.STATICCALL(
-            gas=Op.GAS, address=precompile_address, args_size=Op.CALLDATASIZE
+    attack_block = Op.MSTORE(
+        0,
+        Op.ADD(
+            Op.MLOAD(0),
+            Op.STATICCALL(
+                gas=Op.GAS,
+                address=precompile_address,
+                args_size=Op.CALLDATASIZE,
+                ret_offset=0x80,
+                ret_size=0x20,
+            ),
         ),
     )
 

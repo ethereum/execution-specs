@@ -24,9 +24,9 @@ from .. import Evm
 from ..exceptions import OutOfGasError, WriteInStaticContext
 from ..gas import (
     GAS_CALL_STIPEND,
-    GAS_COLD_SLOAD,
+    GAS_COLD_STORAGE_ACCESS,
+    GAS_COLD_STORAGE_WRITE,
     GAS_STORAGE_SET,
-    GAS_STORAGE_UPDATE,
     GAS_WARM_ACCESS,
     REFUND_STORAGE_CLEAR,
     charge_gas,
@@ -53,7 +53,7 @@ def sload(evm: Evm) -> None:
         charge_gas(evm, GAS_WARM_ACCESS)
     else:
         evm.accessed_storage_keys.add((evm.message.current_target, key))
-        charge_gas(evm, GAS_COLD_SLOAD)
+        charge_gas(evm, GAS_COLD_STORAGE_ACCESS)
 
     # OPERATION
     value = get_storage(
@@ -92,13 +92,13 @@ def sstore(evm: Evm) -> None:
 
     if (evm.message.current_target, key) not in evm.accessed_storage_keys:
         evm.accessed_storage_keys.add((evm.message.current_target, key))
-        gas_cost += GAS_COLD_SLOAD
+        gas_cost += GAS_COLD_STORAGE_ACCESS
 
     if original_value == current_value and current_value != new_value:
         if original_value == 0:
             gas_cost += GAS_STORAGE_SET
         else:
-            gas_cost += GAS_STORAGE_UPDATE - GAS_COLD_SLOAD
+            gas_cost += GAS_COLD_STORAGE_WRITE - GAS_COLD_STORAGE_ACCESS
     else:
         gas_cost += GAS_WARM_ACCESS
 
@@ -120,7 +120,9 @@ def sstore(evm: Evm) -> None:
             else:
                 # Slot was originally non-empty and was UPDATED earlier
                 evm.refund_counter += int(
-                    GAS_STORAGE_UPDATE - GAS_COLD_SLOAD - GAS_WARM_ACCESS
+                    GAS_COLD_STORAGE_WRITE
+                    - GAS_COLD_STORAGE_ACCESS
+                    - GAS_WARM_ACCESS
                 )
 
     charge_gas(evm, gas_cost)

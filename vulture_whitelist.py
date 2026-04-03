@@ -137,3 +137,8 @@ CommentReplaceCommand
 CommentReplaceCommand.transform_module_impl
 
 _children  # unused attribute (src/ethereum_spec_tools/docc.py:751)
+
+# enginex/conftest.py - pytest fixtures (not direct calls)
+_configure_client_manager  # autouse fixture
+test_suite_name  # hive test suite name fixture
+genesis_header  # genesis header fixture

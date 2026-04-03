@@ -43,7 +43,7 @@ uv run execute remote \\
   --rpc-seed-key <SEED_KEY> \\
   --rpc-chain-id 1337 \\
   --address-stubs tests/benchmark/stateful/bloatnet/stubs.json \\
-  -- -m stateful --gas-benchmark-values 60 \\
+  -- --gas-benchmark-values 60 \\
   tests/benchmark/stateful/bloatnet/test_extcodesize_bytecode_sizes.py \\
   -k '24KB' -v
 ```
@@ -57,7 +57,7 @@ uv run execute remote \\
   --rpc-seed-key <SEED_KEY> \\
   --rpc-chain-id 1337 \\
   --address-stubs tests/benchmark/stateful/bloatnet/stubs.json \\
-  -- -m stateful --gas-benchmark-values 60 \\
+  -- --gas-benchmark-values 60 \\
   tests/benchmark/stateful/bloatnet/test_extcodesize_bytecode_sizes.py -v
 ```
 """

@@ -38,6 +38,7 @@ from execution_testing.fixtures import (
     StateFixture,
 )
 from execution_testing.fixtures.common import FixtureBlobSchedule
+from execution_testing.fixtures.post_verifications import PostVerifications
 from execution_testing.fixtures.state import (
     FixtureConfig,
     FixtureEnvironment,
@@ -45,7 +46,7 @@ from execution_testing.fixtures.state import (
     FixtureTransaction,
     FixtureTransactionReceipt,
 )
-from execution_testing.forks import Fork
+from execution_testing.forks import Fork, TransitionFork
 from execution_testing.logging import (
     get_logger,
 )
@@ -244,7 +245,7 @@ class StateTest(BaseTest):
     def discard_fixture_format_by_marks(
         cls,
         fixture_format: FixtureFormat,
-        fork: Fork,
+        fork: Fork | TransitionFork,
         markers: List[pytest.Mark],
     ) -> bool:
         """
@@ -278,9 +279,14 @@ class StateTest(BaseTest):
         # - Base Fee Per Gas: Block's base fee depends on the parent's value
         # - Excess Blob Gas: Block's excess blob gas value depends on
         #                    the parent's value
+        genesis_block_number = self.env.number - 1
+        genesis_timestamp = 0
+        genesis_fork = self.fork.fork_at(
+            block_number=genesis_block_number, timestamp=genesis_timestamp
+        )
         kwargs: Dict[str, Any] = {
-            "number": self.env.number - 1,
-            "timestamp": 0,
+            "number": genesis_block_number,
+            "timestamp": genesis_timestamp,
         }
 
         if "gas_limit" in self.env.model_fields_set:
@@ -301,8 +307,8 @@ class StateTest(BaseTest):
             # will be subtracted from the excess blob gas when the first block
             # is mined.
             kwargs["excess_blob_gas"] = self.env.excess_blob_gas + (
-                self.fork.target_blobs_per_block()
-                * self.fork.blob_gas_per_blob()
+                genesis_fork.target_blobs_per_block()
+                * genesis_fork.blob_gas_per_blob()
             )
 
         return Environment(**kwargs)
@@ -312,6 +318,9 @@ class StateTest(BaseTest):
         Generate the single block that represents this state test in a
         BlockchainTest format.
         """
+        number = self.env.number
+        timestamp = self.env.timestamp
+        fork = self.fork.fork_at(block_number=number, timestamp=timestamp)
         kwargs = {
             "number": self.env.number,
             "timestamp": self.env.timestamp,
@@ -336,7 +345,7 @@ class StateTest(BaseTest):
                 self.expected_execution_witness_headers
             ),
         }
-        if not self.fork.header_prev_randao_required():
+        if not fork.header_prev_randao_required():
             kwargs["difficulty"] = self.env.difficulty
         if "block_exception" in self.model_fields_set:
             kwargs["exception"] = self.block_exception  # type: ignore
@@ -524,6 +533,7 @@ class StateTest(BaseTest):
             gas_optimization=gas_optimization,
             benchmark_gas_used=transition_tool_output.result.gas_used,
             benchmark_opcode_count=transition_tool_output.result.opcode_count,
+            post_verifications=PostVerifications.from_alloc(self.post),
         )
 
     def get_genesis_environment(self) -> Environment:

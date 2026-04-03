@@ -1,10 +1,14 @@
 # Using and Extending Fork Methods
 
-This document describes the Fork class in the Ethereum execution spec tests framework, which provides a standardized way to define properties of Ethereum forks. Understanding how to use and extend these fork methods is essential for writing flexible tests that can automatically adapt to different forks.
+This document describes the Fork class in the Ethereum execution spec tests framework, which provides a standardized way
+to define properties of Ethereum forks. Understanding how to use and extend these fork methods is essential for writing
+flexible tests that can automatically adapt to different forks.
 
 ## Overview
 
-The `BaseFork` class is an abstract base class that defines the interface for all Ethereum forks. Each implemented fork (like Frontier, Homestead, etc.) extends this class and implements its abstract methods to provide fork-specific behavior.
+The `BaseFork` class is an abstract base class that defines the interface for all Ethereum forks. Each implemented
+fork (like Frontier, Homestead, etc.) extends this class and implements its abstract methods to provide fork-specific
+behavior.
 
 The fork system allows:
 
@@ -15,13 +19,14 @@ The fork system allows:
 
 ## Using Fork Methods in Tests
 
-Fork methods are powerful tools that allow your tests to adapt to different Ethereum forks automatically. Here are common patterns for using them:
+Fork methods are powerful tools that allow your tests to adapt to different Ethereum forks automatically. Here are
+common patterns for using them:
 
 ### 1. Check Fork Support for Features
 
 ```python
 def test_some_feature(fork):
-    if fork.supports_blobs(block_number=0, timestamp=0):
+    if fork.supports_blobs():
         # Test blob-related functionality
         ...
     else:
@@ -33,14 +38,14 @@ def test_some_feature(fork):
 
 ```python
 def test_transaction_gas(fork, state_test):
-    gas_cost = fork.gas_costs(block_number=0, timestamp=0).GAS_TX_BASE
-    
+    gas_cost = fork.gas_costs().GAS_TX_BASE
+
     # Create a transaction with the correct gas parameters for this fork
     tx = Transaction(
         gas_limit=gas_cost + 10000,
         # ...
     )
-    
+
     state_test(
         env=Environment(),
         pre=pre,
@@ -53,9 +58,10 @@ def test_transaction_gas(fork, state_test):
 
 ```python
 def test_transaction_types(fork, state_test):
-    for tx_type in fork.tx_types(block_number=0, timestamp=0):
+    for tx_type in fork.tx_types():
         # Test each transaction type supported by this fork
         # ...
+        pass
 ```
 
 ### 4. Determine Valid Opcodes
@@ -64,7 +70,7 @@ def test_transaction_types(fork, state_test):
 def test_opcodes(fork, state_test):
     # Create bytecode using only opcodes valid for this fork
     valid_opcodes = fork.valid_opcodes()
-    
+
     # Use these opcodes to create test bytecode
     # ...
 ```
@@ -77,7 +83,7 @@ def test_fork_transition(transition_fork, blockchain_test):
     # based on block number or timestamp
     fork_before = transition_fork.fork_at(block_number=4, timestamp=0)
     fork_after = transition_fork.fork_at(block_number=5, timestamp=0)
-    
+
     # Test behavior before and after transition
     # ...
 ```
@@ -89,13 +95,13 @@ def test_fork_transition(transition_fork, blockchain_test):
 These methods determine what fields are required in block headers for a given fork:
 
 ```python
-fork.header_base_fee_required(block_number=0, timestamp=0)  # Added in London
-fork.header_prev_randao_required(block_number=0, timestamp=0)  # Added in Paris
-fork.header_withdrawals_required(block_number=0, timestamp=0)  # Added in Shanghai
-fork.header_excess_blob_gas_required(block_number=0, timestamp=0)  # Added in Cancun
-fork.header_blob_gas_used_required(block_number=0, timestamp=0)  # Added in Cancun
-fork.header_beacon_root_required(block_number=0, timestamp=0)  # Added in Cancun
-fork.header_requests_required(block_number=0, timestamp=0)  # Added in Prague
+fork.header_base_fee_required()  # Added in London
+fork.header_prev_randao_required()  # Added in Paris
+fork.header_withdrawals_required()  # Added in Shanghai
+fork.header_excess_blob_gas_required()  # Added in Cancun
+fork.header_blob_gas_used_required()  # Added in Cancun
+fork.header_beacon_root_required()  # Added in Cancun
+fork.header_requests_required()  # Added in Prague
 ```
 
 ### Gas Parameters
@@ -103,9 +109,9 @@ fork.header_requests_required(block_number=0, timestamp=0)  # Added in Prague
 Methods for determining gas costs and calculations:
 
 ```python
-fork.gas_costs(block_number=0, timestamp=0)  # Returns a GasCosts dataclass
-fork.memory_expansion_gas_calculator(block_number=0, timestamp=0)  # Returns a callable
-fork.transaction_intrinsic_cost_calculator(block_number=0, timestamp=0)  # Returns a callable
+fork.gas_costs()  # Returns a GasCosts dataclass
+fork.memory_expansion_gas_calculator()  # Returns a callable
+fork.transaction_intrinsic_cost_calculator()  # Returns a callable
 ```
 
 ### Transaction Types
@@ -113,10 +119,10 @@ fork.transaction_intrinsic_cost_calculator(block_number=0, timestamp=0)  # Retur
 Methods for determining valid transaction types:
 
 ```python
-fork.tx_types(block_number=0, timestamp=0)  # Returns list of supported transaction types
-fork.contract_creating_tx_types(block_number=0, timestamp=0)  # Returns list of tx types that can create contracts 
-fork.precompiles(block_number=0, timestamp=0)  # Returns list of precompile addresses
-fork.system_contracts(block_number=0, timestamp=0)  # Returns list of system contract addresses
+fork.tx_types()  # Returns list of supported transaction types
+fork.contract_creating_tx_types()  # Returns list of tx types that can create contracts 
+fork.precompiles()  # Returns list of precompile addresses
+fork.system_contracts()  # Returns list of system contract addresses
 ```
 
 ### EVM Features
@@ -125,8 +131,8 @@ Methods for determining EVM features and valid opcodes:
 
 ```python
 fork.valid_opcodes()  # Returns list of valid opcodes for this fork
-fork.call_opcodes(block_number=0, timestamp=0)  # Returns list of call opcodes
-fork.create_opcodes(block_number=0, timestamp=0)  # Returns list of create opcodes
+fork.call_opcodes()  # Returns list of call opcodes
+fork.create_opcodes()  # Returns list of create opcodes
 ```
 
 ### Blob-related Methods (Cancun+)
@@ -134,13 +140,13 @@ fork.create_opcodes(block_number=0, timestamp=0)  # Returns list of create opcod
 Methods for blob transaction support:
 
 ```python
-fork.supports_blobs(block_number=0, timestamp=0)  # Returns whether blobs are supported
-fork.blob_gas_price_calculator(block_number=0, timestamp=0)  # Returns a callable
-fork.excess_blob_gas_calculator(block_number=0, timestamp=0)  # Returns a callable
-fork.min_base_fee_per_blob_gas(block_number=0, timestamp=0)  # Returns minimum base fee per blob gas
-fork.blob_gas_per_blob(block_number=0, timestamp=0)  # Returns blob gas per blob
-fork.target_blobs_per_block(block_number=0, timestamp=0)  # Returns target blobs per block
-fork.max_blobs_per_block(block_number=0, timestamp=0)  # Returns max blobs per block
+fork.supports_blobs()  # Returns whether blobs are supported
+fork.blob_gas_price_calculator()  # Returns a callable
+fork.excess_blob_gas_calculator()  # Returns a callable
+fork.min_base_fee_per_blob_gas()  # Returns minimum base fee per blob gas
+fork.blob_gas_per_blob()  # Returns blob gas per blob
+fork.target_blobs_per_block()  # Returns target blobs per block
+fork.max_blobs_per_block()  # Returns max blobs per block
 ```
 
 ### Meta Information
@@ -149,7 +155,7 @@ Methods for fork identification and comparison:
 
 ```python
 fork.name()  # Returns the name of the fork
-fork.transition_tool_name(block_number=0, timestamp=0)  # Returns name for transition tools
+fork.transition_tool_name()  # Returns name for transition tools
 fork.is_deployed()  # Returns whether the fork is deployed to mainnet
 ```
 
@@ -158,19 +164,70 @@ fork.is_deployed()  # Returns whether the fork is deployed to mainnet
 The framework supports creating transition forks that change behavior at specific block numbers or timestamps:
 
 ```python
-@transition_fork(to_fork=Shanghai, at_timestamp=15_000)
-class ParisToShanghaiAtTime15k(Paris):
+@transition_fork(to_fork=Shanghai, from_fork=Paris, at_timestamp=15_000)
+class ParisToShanghaiAtTime15k(TransitionBaseClass):
     """Paris to Shanghai transition at Timestamp 15k."""
     pass
 ```
+
+### The `TransitionFork` Type
+
+Tests that use the `valid_at_transition_to` marker must type their `fork` parameter as `TransitionFork` instead of the
+regular `Fork` type:
+
+```python
+from execution_testing.forks import TransitionFork
+
+
+@pytest.mark.valid_at_transition_to("London")
+def test_transition_behavior(
+        blockchain_test: BlockchainTestFiller,
+        fork: TransitionFork,
+        pre: Alloc,
+):
+    pass
+```
+
+The `TransitionFork` type provides the following methods:
+
+- `fork.transitions_from()` — returns the fork before the transition
+- `fork.transitions_to()` — returns the fork after the transition
+- `fork.fork_at(block_number=N, timestamp=T)` — returns the active `Fork` at the given block number and timestamp
+
+### Transition Fork Comparisons
+
+Transition forks support comparison operators. A transition fork compares based on its `transitions_to()` fork. For a
+transition `A -> B`:
+
+| Expression  | Result  | Reason                                |
+|-------------|---------|---------------------------------------|
+| `A->B >= A` | `True`  | B is newer than or equal to A         |
+| `A->B <= A` | `False` | B is newer than A, not older or equal |
+| `A->B >= B` | `True`  | B is equal to B                       |
+| `A->B <= B` | `True`  | B is equal to B                       |
+
+This logic mirrors how the test framework determines whether a transition fork is included when evaluating
+`valid_from` / `valid_until` markers:
+
+| Marker    | Comparison  | Transition Included? |
+|-----------|-------------|----------------------|
+| `From A`  | `fork >= A` | Yes                  |
+| `Until A` | `fork <= A` | No                   |
+| `From B`  | `fork >= B` | Yes                  |
+| `Until B` | `fork <= B` | Yes                  |
+
+Comparisons between two transition forks also use their respective `transitions_to()` forks, which enables correct
+sorting of transition forks.
+
+### Testing Behavior Across Transitions
 
 With transition forks, you can test how behavior changes across fork boundaries:
 
 ```python
 # Behavior changes at block 5
 fork = BerlinToLondonAt5
-assert not fork.header_base_fee_required(block_number=4)  # Berlin doesn't require base fee
-assert fork.header_base_fee_required(block_number=5)      # London requires base fee
+assert not fork.fork_at(block_number=4).header_base_fee_required()  # Berlin doesn't require base fee
+assert fork.fork_at(block_number=5).header_base_fee_required()  # London requires base fee
 ```
 
 ## Adding New Fork Methods
@@ -178,16 +235,16 @@ assert fork.header_base_fee_required(block_number=5)      # London requires base
 When adding new fork methods, follow these guidelines:
 
 1. **Abstract Method Definition**: Add the new abstract method to `BaseFork` in `base_fork.py`
-2. **Consistent Parameter Pattern**: Use `block_number` and `timestamp` parameters with default values
-3. **Method Documentation**: Add docstrings explaining the purpose and behavior
-4. **Implementation in Subsequent Forks**: Implement the method in every subsequent fork class **only** if the fork updates the value from previous forks.
+2. **Method Documentation**: Add docstrings explaining the purpose and behavior
+3. **Implementation in Subsequent Forks**: Implement the method in every subsequent fork class **only** if the fork
+   updates the value from previous forks.
 
 Example of adding a new method:
 
 ```python
 @classmethod
 @abstractmethod
-def supports_new_feature(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+def supports_new_feature(cls) -> bool:
     """Return whether the given fork supports the new feature."""
     pass
 ```
@@ -196,7 +253,7 @@ Implementation in a fork class:
 
 ```python
 @classmethod
-def supports_new_feature(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+def supports_new_feature(cls) -> bool:
     """Return whether the given fork supports the new feature."""
     return False  # Frontier doesn't support this feature
 ```
@@ -205,7 +262,7 @@ Implementation in a newer fork class:
 
 ```python
 @classmethod
-def supports_new_feature(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+def supports_new_feature(cls) -> bool:
     """Return whether the given fork supports the new feature."""
     return True  # This fork does support the feature
 ```
@@ -242,16 +299,16 @@ def test_transaction_with_fork_adaptability(fork, state_test):
     # Prepare pre-state
     pre = Alloc()
     sender = pre.fund_eoa()
-    
+
     # Define transaction based on fork capabilities
     tx_params = {
         "gas_limit": 1_000_000,
         "sender": sender,
     }
-    
+
     # Add appropriate transaction type based on fork
-    tx_types = fork.tx_types(block_number=0, timestamp=0)
-    if 3 in tx_types and fork.supports_blobs(block_number=0, timestamp=0):
+    tx_types = fork.tx_types()
+    if 3 in tx_types and fork.supports_blobs():
         # EIP-4844 blob transaction (type 3)
         tx_params["blob_versioned_hashes"] = [Hash.generate_zero_hashes(1)[0]]
     elif 2 in tx_types:
@@ -261,10 +318,10 @@ def test_transaction_with_fork_adaptability(fork, state_test):
     elif 1 in tx_types:
         # EIP-2930 transaction (type 1)
         tx_params["access_list"] = []
-        
+
     # Create and run the test
     tx = Transaction(**tx_params)
-    
+
     state_test(
         env=Environment(),
         pre=pre,
@@ -277,6 +334,9 @@ def test_transaction_with_fork_adaptability(fork, state_test):
 
 ## Conclusion
 
-The Fork class is a powerful abstraction that allows tests to adapt to different Ethereum forks. By using fork methods consistently, you can write tests that automatically handle fork-specific behavior, making your tests more maintainable and future-proof.
+The Fork class is a powerful abstraction that allows tests to adapt to different Ethereum forks. By using fork methods
+consistently, you can write tests that automatically handle fork-specific behavior, making your tests more maintainable
+and future-proof.
 
-When adding new fork methods, keep them focused, well-documented, and implement them across all forks. This will ensure that all tests can benefit from the information and that transitions between forks are handled correctly.
+When adding new fork methods, keep them focused, well-documented, and implement them across all forks. This will ensure
+that all tests can benefit from the information and that transitions between forks are handled correctly.

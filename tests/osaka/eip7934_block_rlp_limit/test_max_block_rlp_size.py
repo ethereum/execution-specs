@@ -19,6 +19,7 @@ from execution_testing import (
     Fork,
     Op,
     Transaction,
+    TransitionFork,
     Withdrawal,
 )
 from execution_testing.base_types import (
@@ -133,7 +134,6 @@ def _max_zero_calldata_bytes_for_gas(
 @lru_cache(maxsize=128)
 def calibrated_block_gas_limit(
     fork: Fork,
-    block_size_limit: int,
     requested_gas_limit: int,
 ) -> int:
     """
@@ -142,6 +142,8 @@ def calibrated_block_gas_limit(
     """
     calculator = fork.transaction_intrinsic_cost_calculator()
     tx_gas_limit_cap = fork.transaction_gas_limit_cap()
+    block_size_limit = fork.block_rlp_size_limit()
+    assert block_size_limit is not None
 
     # Estimate calldata bytes required to approach the RLP limit and reserve a
     # small margin for RLP overhead variability.
@@ -181,17 +183,30 @@ def calibrated_block_gas_limit(
 
 
 @pytest.fixture(autouse=True)
-def calibrate_gas_limit(
+def calibrate_genesis_gas_limit(
     env: Environment,
-    fork: Fork,
-    block_size_limit: int,
+    fork: Fork | TransitionFork,
 ) -> None:
-    """Calibrate block gas limit for fork-specific calldata pricing."""
-    env.gas_limit = ZeroPaddedHexNumber(
-        calibrated_block_gas_limit(
-            fork=fork,
-            block_size_limit=block_size_limit,
+    """
+    Calibrate block gas limit at genesis for fork-specific calldata pricing.
+
+    Take pre-fork and post-fork in the case of transition fork tests.
+    """
+    post_fork_calibrated_block_gas_limit = calibrated_block_gas_limit(
+        fork=fork.transitions_to(),
+        requested_gas_limit=env.gas_limit,
+    )
+    if fork.transitions_from().block_rlp_size_limit() is not None:
+        pre_fork_calibrated_block_gas_limit = calibrated_block_gas_limit(
+            fork=fork.transitions_from(),
             requested_gas_limit=env.gas_limit,
+        )
+    else:
+        pre_fork_calibrated_block_gas_limit = 0
+    env.gas_limit = ZeroPaddedHexNumber(
+        max(
+            post_fork_calibrated_block_gas_limit,
+            pre_fork_calibrated_block_gas_limit,
         )
     )
 
@@ -243,7 +258,6 @@ def get_block_rlp_size(
 
 def exact_size_transactions(
     sender: EOA,
-    block_size_limit: int,
     fork: Fork,
     pre: Alloc,
     gas_limit: int,
@@ -263,7 +277,6 @@ def exact_size_transactions(
 
     Args:
         sender: The sender account
-        block_size_limit: The target block RLP size limit
         fork: The fork to generate transactions for
         pre: Required if emit_logs is True, used to deploy the log contract
         gas_limit: The gas limit for the block
@@ -280,7 +293,6 @@ def exact_size_transactions(
     """
     effective_block_gas_limit = calibrated_block_gas_limit(
         fork=fork,
-        block_size_limit=block_size_limit,
         requested_gas_limit=gas_limit,
     )
 
@@ -312,7 +324,6 @@ def exact_size_transactions(
     if not specific_transaction_to_include and not withdrawals:
         # use cached version when possible for performance
         transactions, extra_data_len = _exact_size_transactions_cached(
-            block_size_limit,
             fork,
             effective_block_gas_limit,
             sender,
@@ -322,7 +333,6 @@ def exact_size_transactions(
         # Direct calculation, no cache, since `Transaction` / `Withdrawal`
         # are not hashable
         transactions, extra_data_len = _exact_size_transactions_impl(
-            block_size_limit,
             fork,
             effective_block_gas_limit,
             sender,
@@ -336,7 +346,6 @@ def exact_size_transactions(
 
 @lru_cache(maxsize=128)
 def _exact_size_transactions_cached(
-    block_size_limit: int,
     fork: Fork,
     gas_limit: int,
     sender: EOA,
@@ -353,7 +362,6 @@ def _exact_size_transactions_cached(
 
     """
     return _exact_size_transactions_impl(
-        block_size_limit,
         fork,
         gas_limit,
         sender,
@@ -364,7 +372,6 @@ def _exact_size_transactions_cached(
 
 
 def _exact_size_transactions_impl(
-    block_size_limit: int,
     fork: Fork,
     block_gas_limit: int,
     sender: EOA,
@@ -379,6 +386,8 @@ def _exact_size_transactions_impl(
     transactions = []
     nonce = 0
     total_gas_used = 0
+    block_size_limit = fork.block_rlp_size_limit()
+    assert block_size_limit is not None
 
     calculator = fork.transaction_intrinsic_cost_calculator()
     tx_gas_limit_cap = fork.transaction_gas_limit_cap()
@@ -664,7 +673,6 @@ def test_block_at_rlp_size_limit_boundary(
     """
     transactions, extra_data_len = exact_size_transactions(
         sender,
-        block_size_limit,
         fork,
         pre,
         env.gas_limit,
@@ -693,6 +701,7 @@ def test_block_at_rlp_size_limit_boundary(
 @pytest.mark.with_all_typed_transactions
 @pytest.mark.verify_sync
 @pytest.mark.valid_from("Osaka")
+@pytest.mark.eels_base_coverage
 def test_block_rlp_size_at_limit_with_all_typed_transactions(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -706,7 +715,6 @@ def test_block_rlp_size_at_limit_with_all_typed_transactions(
     """Test the block RLP size limit with all transaction types."""
     transactions, extra_data_len = exact_size_transactions(
         sender,
-        block_size_limit,
         fork,
         pre,
         env.gas_limit,
@@ -743,7 +751,6 @@ def test_block_at_rlp_limit_with_logs(
     """
     transactions, extra_data_len = exact_size_transactions(
         sender,
-        block_size_limit,
         fork,
         pre,
         env.gas_limit,
@@ -795,7 +802,6 @@ def test_block_at_rlp_limit_with_withdrawals(
 
     transactions, extra_data_len = exact_size_transactions(
         sender,
-        block_size_limit,
         fork,
         pre,
         env.gas_limit,
@@ -834,9 +840,8 @@ def test_fork_transition_block_rlp_limit(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     env: Environment,
-    fork: Fork,
+    fork: TransitionFork,
     exceeds_limit_at_fork: bool,
-    block_size_limit: int,
 ) -> None:
     """
     Test block RLP size limit at fork transition boundary.
@@ -850,16 +855,16 @@ def test_fork_transition_block_rlp_limit(
 
     transactions_before, extra_data_len_before = exact_size_transactions(
         sender_before_fork,
-        block_size_limit,
-        fork,
+        fork.transitions_to()
+        if fork.transitions_from().block_rlp_size_limit() is None
+        else fork.transitions_from(),
         pre,
         env.gas_limit,
     )
 
     transactions_at_fork, extra_data_len_at_fork = exact_size_transactions(
         sender_at_fork,
-        block_size_limit,
-        fork,
+        fork.transitions_to(),
         pre,
         env.gas_limit,
     )

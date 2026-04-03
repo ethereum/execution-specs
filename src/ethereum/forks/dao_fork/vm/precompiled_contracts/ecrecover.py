@@ -19,7 +19,7 @@ from ethereum.exceptions import InvalidSignatureError
 from ethereum.utils.byte import left_pad_zero_bytes
 
 from ...vm import Evm
-from ...vm.gas import GAS_ECRECOVER, charge_gas
+from ...vm.gas import GAS_PRECOMPILE_ECRECOVER, charge_gas
 from ...vm.memory import buffer_read
 
 
@@ -37,7 +37,7 @@ def ecrecover(evm: Evm) -> None:
     data = evm.message.data
 
     # GAS
-    charge_gas(evm, GAS_ECRECOVER)
+    charge_gas(evm, GAS_PRECOMPILE_ECRECOVER)
 
     # OPERATION
     message_hash_bytes = buffer_read(data, U256(0), U256(32))

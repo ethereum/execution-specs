@@ -1,6 +1,6 @@
 """Define an entry point wrapper for pytest."""
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
 import click
@@ -27,8 +27,10 @@ class OpcodeWithOperands:
 
     opcode: Op
     operands: List[int] = field(default_factory=list)
-    args: List["OpcodeWithOperands | HexNumber"] = field(default_factory=list)
-    kwargs: Dict[str, "OpcodeWithOperands | HexNumber"] = field(
+    args: List["OpcodeWithOperands | HexNumber | str"] = field(
+        default_factory=list
+    )
+    kwargs: Dict[str, "OpcodeWithOperands | HexNumber | str"] = field(
         default_factory=dict
     )
 
@@ -49,7 +51,9 @@ class OpcodeWithOperands:
             output = f"{output}({', '.join(args)})"
         return output
 
-    def opcode_or_int(self) -> "OpcodeWithOperands | HexNumber":
+    def opcode_or_int(
+        self, int_definitions: dict[int, str] | None = None
+    ) -> "OpcodeWithOperands | HexNumber | str":
         """
         Return self or an HexNumber if the opcode is a PUSH opcode and can be
         seamlessly converted to int when used as a stack argument or keyword
@@ -69,8 +73,23 @@ class OpcodeWithOperands:
             value = self.operands[0]
             min_bytes = max(1, (value.bit_length() + 7) // 8)
             if self.opcode.data_portion_length == min_bytes:
+                if int_definitions and value in int_definitions:
+                    return int_definitions[value]
                 return HexNumber(value)
         return self
+
+    def __eq__(self, other: Any) -> bool:
+        """Compare two opcodes with operands."""
+        if not isinstance(other, OpcodeWithOperands):
+            return False
+        if (
+            self.opcode == other.opcode
+            and self.operands == other.operands
+            and self.args == other.args
+            and self.kwargs == other.kwargs
+        ):
+            return True
+        return False
 
 
 @dataclass(kw_only=True)
@@ -90,7 +109,9 @@ class OpcodeWithOperandsAssembly(OpcodeWithOperands):
 
 
 def process_evm_bytes(  # noqa: D103
-    evm_bytes: bytes, assembly: bool
+    evm_bytes: bytes,
+    assembly: bool = False,
+    int_definitions: dict[int, str] | None = None,
 ) -> List[OpcodeWithOperands]:
     evm_bytes_array = bytearray(evm_bytes)
 
@@ -130,7 +151,10 @@ def process_evm_bytes(  # noqa: D103
                 reversed(opcodes[-opcode.popped_stack_items :])
             )
             if all(arg.opcode.pushed_stack_items == 1 for arg in args):
-                args_with_int = [arg.opcode_or_int() for arg in args]
+                args_with_int = [
+                    arg.opcode_or_int(int_definitions=int_definitions)
+                    for arg in args
+                ]
                 opcodes = opcodes[: -opcode.popped_stack_items]
                 if opcode.kwargs and len(opcode.kwargs) == len(args_with_int):
                     opcode_with_operands.kwargs = dict(
@@ -144,8 +168,25 @@ def process_evm_bytes(  # noqa: D103
     return opcodes
 
 
+@dataclass(kw_only=True)
+class RepeatingOpcodeWithOperands:
+    """Opcode that can be repeated `count` times."""
+
+    opcode: OpcodeWithOperands
+    count: int = 1
+
+    def __str__(self) -> str:
+        """Format into a string."""
+        assert self.count > 0
+        if self.count == 1:
+            return f"{self.opcode}"
+        return f"{self.opcode} * {self.count}"
+
+
 def format_opcodes(  # noqa: D103
-    opcodes: List[OpcodeWithOperands], assembly: bool = False
+    opcodes: List[OpcodeWithOperands],
+    assembly: bool = False,
+    skip_simplify: bool = False,
 ) -> str:
     if assembly:
         opcodes_with_empty_lines: List[OpcodeWithOperandsAssembly | str] = []
@@ -157,7 +198,12 @@ def format_opcodes(  # noqa: D103
             ):
                 opcodes_with_empty_lines.append("")
             opcodes_with_empty_lines.append(
-                OpcodeWithOperandsAssembly(**asdict(op_with_operands))
+                OpcodeWithOperandsAssembly(
+                    opcode=op_with_operands.opcode,
+                    operands=list(op_with_operands.operands),
+                    args=list(op_with_operands.args),
+                    kwargs=dict(op_with_operands.kwargs),
+                )
             )
             if (
                 op_with_operands.opcode in OPCODES_WITH_EMPTY_LINES_AFTER
@@ -165,11 +211,25 @@ def format_opcodes(  # noqa: D103
             ):
                 opcodes_with_empty_lines.append("")
         return "\n".join(f"{op}" for op in opcodes_with_empty_lines)
-    return " + ".join(f"{op}" for op in opcodes)
+    if skip_simplify or len(opcodes) < 2:
+        return " + ".join(f"{op}" for op in opcodes)
+    previous_opcode = RepeatingOpcodeWithOperands(opcode=opcodes[0])
+    opcodes_with_multiply: List[RepeatingOpcodeWithOperands] = []
+    for op in opcodes[1:]:
+        if op == previous_opcode.opcode:
+            previous_opcode.count += 1
+        else:
+            opcodes_with_multiply.append(previous_opcode)
+            previous_opcode = RepeatingOpcodeWithOperands(opcode=op)
+    opcodes_with_multiply.append(previous_opcode)
+    return " + ".join(f"{op}" for op in opcodes_with_multiply)
 
 
 def process_evm_bytes_string(
-    evm_bytes_hex_string: str, assembly: bool = False
+    evm_bytes_hex_string: str,
+    assembly: bool = False,
+    skip_simplify: bool = False,
+    int_definitions: dict[int, str] | None = None,
 ) -> str:
     """Process the given EVM bytes hex string."""
     if evm_bytes_hex_string.startswith("0x"):
@@ -177,7 +237,13 @@ def process_evm_bytes_string(
 
     evm_bytes = bytes.fromhex(evm_bytes_hex_string)
     return format_opcodes(
-        process_evm_bytes(evm_bytes, assembly=assembly), assembly=assembly
+        process_evm_bytes(
+            evm_bytes,
+            assembly=assembly,
+            int_definitions=int_definitions,
+        ),
+        assembly=assembly,
+        skip_simplify=skip_simplify,
     )
 
 

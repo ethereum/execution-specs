@@ -43,12 +43,13 @@ def create_consume_command(
 def get_command_logic_test_paths(command_name: str) -> List[Path]:
     """Determine the command paths based on the command name and hive flag."""
     base_path = Path("cli/pytest_commands/plugins/consume")
-    if command_name in ["engine", "rlp"]:
+    if command_name in ["engine", "enginex", "rlp"]:
+        test_command = "engine" if command_name == "enginex" else command_name
         command_logic_test_paths = [
             base_path
             / "simulators"
             / "simulator_logic"
-            / f"test_via_{command_name}.py"
+            / f"test_via_{test_command}.py"
         ]
     elif command_name == "sync":
         command_logic_test_paths = [
@@ -116,6 +117,12 @@ def rlp() -> None:
 @consume_command(is_hive=True)
 def engine() -> None:
     """Client consumes via the Engine API."""
+    pass
+
+
+@consume_command(is_hive=True)
+def enginex() -> None:
+    """Consume via Engine API with pre-alloc optimization."""
     pass
 
 

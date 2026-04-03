@@ -16,7 +16,7 @@ from execution_testing import (
     Transaction,
     generate_system_contract_deploy_test,
 )
-from execution_testing.forks import Fork, Prague
+from execution_testing.forks import Prague, TransitionFork
 
 from .spec import Spec, ref_spec_2935
 
@@ -32,7 +32,7 @@ REFERENCE_SPEC_VERSION = ref_spec_2935.version
 )
 def test_system_contract_deployment(
     *,
-    fork: Fork,
+    fork: TransitionFork,
     pre: Alloc,
     post: Alloc,
     test_type: DeploymentTestType,

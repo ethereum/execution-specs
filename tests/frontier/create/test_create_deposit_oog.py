@@ -21,6 +21,7 @@ SLOT_CREATE_RESULT_PRE = 0xDEADBEEF
 @pytest.mark.valid_from("Frontier")
 @pytest.mark.parametrize("enough_gas", [True, False])
 @pytest.mark.with_all_create_opcodes
+@pytest.mark.eels_base_coverage
 def test_create_deposit_oog(
     state_test: StateTestFiller,
     fork: Fork,

@@ -13,7 +13,7 @@ from pytest_metadata.plugin import metadata_key
 from execution_testing.base_types import Account
 from execution_testing.base_types import Alloc as BaseAlloc
 from execution_testing.execution import BaseExecute
-from execution_testing.forks import Fork
+from execution_testing.forks import Fork, TransitionFork
 from execution_testing.logging import get_logger
 from execution_testing.rpc import EngineRPC, EthRPC
 from execution_testing.specs import BaseTest
@@ -26,6 +26,7 @@ from ..shared.helpers import (
     get_spec_format_for_item,
     is_help_or_collectonly_mode,
     labeled_format_parameter_set,
+    option_was_explicitly_set,
 )
 from ..spec_version_checker.spec_version_checker import EIPSpecTestItem
 from .pre_alloc import Alloc
@@ -200,8 +201,9 @@ def pytest_configure(config: pytest.Config) -> None:
        called before the pytest-html plugin's pytest_configure to ensure that
        it uses the modified `htmlpath` option.
     """
-    # Modify the block gas limit if specified.
-    if config.getoption("transaction_gas_limit"):
+    # Keep execute-mode overrides working, but avoid rewriting the global
+    # default when this plugin is merely imported into nested pytest sessions.
+    if option_was_explicitly_set(config, "--transaction-gas-limit"):
         EnvironmentDefaults.gas_limit = config.getoption(
             "transaction_gas_limit"
         )
@@ -632,7 +634,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
     )
     def base_test_parametrizer_func(
         request: Any,
-        fork: Fork,
+        fork: Fork | TransitionFork,
         pre: Alloc,
         eth_rpc: EthRPC,
         engine_rpc: EngineRPC | None,
@@ -692,6 +694,10 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     if p not in kwargs
                 }
 
+                # TODO: get values from network
+                timestamp = 0
+                block_number = 0
+
                 request.node.config.sender_address = str(pre._sender)
 
                 super(BaseTestWrapper, self).__init__(*args, **kwargs)
@@ -703,8 +709,12 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     max_fee_per_gas=max_fee_per_gas,
                     max_priority_fee_per_gas=max_priority_fee_per_gas,
                     max_fee_per_blob_gas=max_fee_per_blob_gas,
-                    fork=fork,
+                    fork=fork.fork_at(
+                        block_number=block_number, timestamp=timestamp
+                    ),
                 )
+
+                pre.resolve_deferred_checks()
 
                 minimum_balance, gas_consumption = (
                     pre.minimum_balance_for_pending_transactions(
@@ -768,7 +778,9 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 )
 
                 execute_result = execute.execute(
-                    fork=fork,
+                    fork=fork.fork_at(
+                        block_number=block_number, timestamp=timestamp
+                    ),
                     eth_rpc=eth_rpc,
                     engine_rpc=engine_rpc,
                     request=request,
@@ -842,7 +854,7 @@ def pytest_collection_modifyitems(
         if "fork" not in params or params["fork"] is None:
             items_for_removal.append(i)
             continue
-        fork: Fork = params["fork"]
+        fork: Fork | TransitionFork = params["fork"]
         spec_type, execute_format = get_spec_format_for_item(params)
         assert issubclass(execute_format, BaseExecute)
         markers = list(item.iter_markers())

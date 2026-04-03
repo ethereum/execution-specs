@@ -2,13 +2,23 @@
 
 import pytest
 
+from execution_testing.client_clis.clis.execution_specs import (
+    ExecutionSpecsTransitionTool,
+)
 from execution_testing.fixtures import LabeledFixtureFormat
 from execution_testing.forks import (
+    BPO1,
+    BPO2,
+    Amsterdam,
     ArrowGlacier,
     Fork,
     forks_from_until,
     get_deployed_forks,
     get_forks,
+)
+from execution_testing.forks.forks.transition import (
+    BPO2ToAmsterdamAtTime15k,
+    OsakaToBPO1AtTime15k,
 )
 from execution_testing.specs import StateTest
 
@@ -38,21 +48,17 @@ def test_no_options_no_validity_marker(pytester: pytest.Pytester) -> None:
     )
     result = pytester.runpytest("-c", "pytest-fill.ini", "-v")
     all_forks = get_deployed_forks()
+    t8n = ExecutionSpecsTransitionTool()
     forks_under_test = [
         f
         for f in forks_from_until(all_forks[0], all_forks[-1])
-        if not f.ignore()
+        if not f.ignore() and t8n.is_fork_supported(f)
     ]
-    expected_skipped = 2  # eels doesn't support Constantinople
-    expected_passed = (
-        len([f for f in forks_under_test if not f.ignore()])
-        * len(StateTest.supported_fixture_formats)
-        - expected_skipped
+    expected_passed = len(forks_under_test) * len(
+        StateTest.supported_fixture_formats
     )
     stdout = "\n".join(result.stdout.lines)
     for test_fork in forks_under_test:
-        if test_fork.ignore():
-            continue
         for fixture_format in StateTest.supported_fixture_formats:
             if isinstance(fixture_format, LabeledFixtureFormat):
                 fixture_format_label = fixture_format.label
@@ -77,7 +83,7 @@ def test_no_options_no_validity_marker(pytester: pytest.Pytester) -> None:
     result.assert_outcomes(
         passed=expected_passed,
         failed=0,
-        skipped=expected_skipped,
+        skipped=0,
         errors=0,
     )
 
@@ -261,3 +267,53 @@ def test_from_paris_until_paris_option_no_validity_marker(
         skipped=0,
         errors=0,
     )
+
+
+def test_transition_fork_until_excludes_target(
+    pytester: pytest.Pytester,
+) -> None:
+    """
+    Test that `--until` with a transition fork excludes the
+    transition's target fork from the selected fork set.
+
+    The "Generating fixtures for:" header printed by
+    `pytest_report_header` reflects `config.selected_fork_set`.
+    """
+    pytester.makepyfile(
+        f"""
+        def test_fork_range({StateTest.pytest_parameter_name()}):
+            pass
+        """
+    )
+    pytester.copy_example(
+        name="src/execution_testing/cli/pytest_commands/"
+        "pytest_ini_files/pytest-fill.ini"
+    )
+    result = pytester.runpytest(
+        "-c",
+        "pytest-fill.ini",
+        "-v",
+        "--from",
+        "OsakaToBPO1AtTime15k",
+        "--until",
+        "BPO2ToAmsterdamAtTime15k",
+    )
+    stdout = "\n".join(result.stdout.lines)
+    # The header line lists the selected fork set; parse it.
+    assert "Generating fixtures for:" in stdout
+    header_line = [
+        line
+        for line in result.stdout.lines
+        if "Generating fixtures for:" in line
+    ][0]
+    fork_names = [
+        name.strip()
+        for name in header_line.split("Generating fixtures for:")[1].split(",")
+    ]
+    # Strip ANSI codes from the last element.
+    fork_names[-1] = fork_names[-1].split("\x1b")[0]
+    assert Amsterdam.name() not in fork_names
+    assert BPO1.name() in fork_names
+    assert BPO2.name() in fork_names
+    assert BPO2ToAmsterdamAtTime15k.name() in fork_names
+    assert OsakaToBPO1AtTime15k.name() in fork_names

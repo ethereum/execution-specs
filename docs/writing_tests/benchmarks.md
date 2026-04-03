@@ -19,19 +19,24 @@ tests/benchmark/
 
 There are multiple files under `instruction/`, users can check each file's docstring to understand which opcodes are covered in the file.
 
+Benchmark tests are not collected by `fill` and `execute remote`  by default, in order to run them, their path must explicitly be provided to these command:
+
+```bash
+fill -v tests/benchmark/
+execute remote -v tests/benchmark
+```
+
 ### Stateful Benchmarks
 
 A subset of benchmark test cases run on top of stateful environments (such as bloatnet or mainnet-like setups), in order to analyze how state size, structure, and access patterns influence performance. These tests may (1) pre-deploy contracts (2) construct initial storage state (3) Interact with pre-deployed contracts via stub addresses.
 
-Such tests are located under `./tests/benchmark/stateful`. When running these tests, users should specify the `stateful` flag as `-m stateful`, or the test would be ignored, even the path is specified correctly.
+These tests are located under `./tests/benchmark/stateful`.
 
 ### Compute Benchmarks
 
 Other benchmark tests do not require any pre-state configuration. These benchmarks could be run even without pre-deployed contracts or initialized storage.
 
-These tests are located under `./tests/benchmark/compute.` When running these cases, users should specify the `benchmark` marker like `-m benchmark`, or the test would be ignored, even the path is specified correctly.
-
-**Note:** Using `-m benchmark` under `tests/benchmark/stateful`, or `-m stateful` under `tests/benchmark/compute`, will cause the tests to be ignored. Make sure the user-provided flag matches the directory of the test being executed.
+These tests are located under `./tests/benchmark/compute`.
 
 **Note:** Benchmark tests are now only available starting from the `Prague` fork. Tests targeting earlier forks (`Cancun` or prior) are not supported in benchmark mode.
 

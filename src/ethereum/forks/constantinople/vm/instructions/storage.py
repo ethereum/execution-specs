@@ -17,9 +17,9 @@ from ...state import get_storage, set_storage
 from .. import Evm
 from ..exceptions import WriteInStaticContext
 from ..gas import (
+    GAS_COLD_STORAGE_WRITE,
     GAS_SLOAD,
     GAS_STORAGE_SET,
-    GAS_STORAGE_UPDATE,
     REFUND_STORAGE_CLEAR,
     charge_gas,
 )
@@ -74,7 +74,7 @@ def sstore(evm: Evm) -> None:
     if new_value != 0 and current_value == 0:
         gas_cost = GAS_STORAGE_SET
     else:
-        gas_cost = GAS_STORAGE_UPDATE
+        gas_cost = GAS_COLD_STORAGE_WRITE
 
     if new_value == 0 and current_value != 0:
         evm.refund_counter += REFUND_STORAGE_CLEAR

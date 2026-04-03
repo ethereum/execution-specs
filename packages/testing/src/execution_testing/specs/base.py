@@ -17,7 +17,7 @@ from typing import (
 )
 
 import pytest
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import Self
 
 from execution_testing.base_types import to_hex
@@ -33,9 +33,13 @@ from execution_testing.fixtures import (
     FixtureFormat,
     LabeledFixtureFormat,
 )
-from execution_testing.forks import Fork
+from execution_testing.fixtures.post_verifications import PostVerifications
+from execution_testing.forks import Fork, TransitionFork
 from execution_testing.forks.base_fork import BaseFork
 from execution_testing.test_types import Environment, Withdrawal
+from execution_testing.test_types.receipt_types import (
+    TransactionReceipt,
+)
 
 
 class HashMismatchExceptionError(Exception):
@@ -91,6 +95,8 @@ class FillResult(BaseModel):
     gas_optimization: int | None
     benchmark_gas_used: int | None = None
     benchmark_opcode_count: OpcodeCount | None = None
+    post_verifications: PostVerifications | None = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 class BaseTest(BaseModel):
@@ -100,8 +106,8 @@ class BaseTest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    fork: Fork = (
-        BaseFork  # type: ignore[type-abstract]
+    fork: Fork | TransitionFork = (
+        BaseFork
         # default to BaseFork to allow the filler to set it,
         # instead of each test having to set it
     )
@@ -109,6 +115,7 @@ class BaseTest(BaseModel):
     gas_optimization_max_gas_limit: int | None = None
     expected_benchmark_gas_used: int | None = None
     skip_gas_used_validation: bool = False
+    expected_receipt_status: int | None = None
     is_tx_gas_heavy_test: bool = False
     is_exception_test: bool = False
 
@@ -135,7 +142,7 @@ class BaseTest(BaseModel):
     def discard_fixture_format_by_marks(
         cls,
         fixture_format: FixtureFormat,
-        fork: Fork,
+        fork: Fork | TransitionFork,
         markers: List[pytest.Mark],
     ) -> bool:
         """
@@ -170,7 +177,7 @@ class BaseTest(BaseModel):
     ) -> Self:
         """Create a test in a different format from a base test."""
         for k in BaseTest.model_fields.keys():
-            if k not in kwargs:
+            if k not in kwargs and k in base_test.model_fields_set:
                 kwargs[k] = getattr(base_test, k)
         return cls(**kwargs)
 
@@ -178,7 +185,7 @@ class BaseTest(BaseModel):
     def discard_execute_format_by_marks(
         cls,
         execute_format: ExecuteFormat,
-        fork: Fork,
+        fork: Fork | TransitionFork,
         markers: List[pytest.Mark],
     ) -> bool:
         """
@@ -287,6 +294,33 @@ class BaseTest(BaseModel):
             "benchmark gas allowed for this configuration: "
             f"{gas_benchmark_value}"
         )
+
+    def validate_receipt_status(
+        self,
+        *,
+        receipts: List[TransactionReceipt],
+        block_number: int,
+    ) -> None:
+        """
+        Validate receipt status for every transaction in a block.
+
+        When expected_receipt_status is set, verify that all
+        receipts match. Catches silent OOG failures that roll
+        back state and invalidate benchmarks.
+        """
+        if "expected_receipt_status" not in self.model_fields_set:
+            return
+        for i, receipt in enumerate(receipts):
+            if receipt.status is not None and (
+                int(receipt.status) != self.expected_receipt_status
+            ):
+                raise Exception(
+                    f"Transaction {i} in block "
+                    f"{block_number} has receipt "
+                    f"status {int(receipt.status)}, "
+                    f"expected "
+                    f"{self.expected_receipt_status}."
+                )
 
 
 TestSpec = Callable[[Fork], Generator[BaseTest, None, None]]

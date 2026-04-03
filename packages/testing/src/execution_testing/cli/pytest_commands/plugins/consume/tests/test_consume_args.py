@@ -13,7 +13,9 @@ MINIMAL_TEST_FILE_NAME = "test_example.py"
 MINIMAL_TEST_CONTENTS = """
 from execution_testing import Transaction
 def test_function(state_test, pre):
-    tx = Transaction(to=0, gas_limit=21_000, sender=pre.fund_eoa())
+    tx = Transaction(
+        to=0, gas_limit=21_000, sender=pre.fund_eoa()
+    ).with_signature_and_sender()
     state_test(pre=pre, post={}, tx=tx)
 """
 

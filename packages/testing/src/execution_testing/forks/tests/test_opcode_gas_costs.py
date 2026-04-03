@@ -22,7 +22,7 @@ from ..helpers import Fork
             Osaka,
             Op.SSTORE,
             Osaka.gas_costs().GAS_STORAGE_SET
-            + Osaka.gas_costs().GAS_COLD_SLOAD,
+            + Osaka.gas_costs().GAS_COLD_STORAGE_ACCESS,
             id="sstore_defaults",
         ),
         pytest.param(
@@ -77,7 +77,7 @@ from ..helpers import Fork
         pytest.param(
             Osaka,
             Op.BALANCE(address_warm=True),
-            Osaka.gas_costs().GAS_WARM_ACCOUNT_ACCESS,
+            Osaka.gas_costs().GAS_WARM_ACCESS,
             id="balance_warm_address",
         ),
         # CALLDATACOPY tests
@@ -120,7 +120,7 @@ from ..helpers import Fork
         pytest.param(
             Osaka,
             Op.EXTCODESIZE(address_warm=True),
-            Osaka.gas_costs().GAS_WARM_ACCOUNT_ACCESS,
+            Osaka.gas_costs().GAS_WARM_ACCESS,
             id="extcodesize_warm",
         ),
         # EXTCODECOPY tests
@@ -129,7 +129,7 @@ from ..helpers import Fork
             Op.EXTCODECOPY(
                 address_warm=True, data_size=32, new_memory_size=32
             ),
-            Osaka.gas_costs().GAS_WARM_ACCOUNT_ACCESS
+            Osaka.gas_costs().GAS_WARM_ACCESS
             + Osaka.gas_costs().GAS_COPY * 1
             + Osaka.memory_expansion_gas_calculator()(new_bytes=32),
             id="extcodecopy_warm",
@@ -154,7 +154,7 @@ from ..helpers import Fork
         pytest.param(
             Osaka,
             Op.EXTCODEHASH(address_warm=True),
-            Osaka.gas_costs().GAS_WARM_ACCOUNT_ACCESS,
+            Osaka.gas_costs().GAS_WARM_ACCESS,
             id="extcodehash_warm",
         ),
         # RETURNDATACOPY tests
@@ -186,7 +186,7 @@ from ..helpers import Fork
         pytest.param(
             Osaka,
             Op.SLOAD(key_warm=False),
-            Osaka.gas_costs().GAS_COLD_SLOAD,
+            Osaka.gas_costs().GAS_COLD_STORAGE_ACCESS,
             id="sload_cold",
         ),
         pytest.param(
@@ -289,7 +289,7 @@ from ..helpers import Fork
             Op.CALL(
                 address_warm=True, value_transfer=False, new_memory_size=64
             ),
-            Osaka.gas_costs().GAS_WARM_ACCOUNT_ACCESS
+            Osaka.gas_costs().GAS_WARM_ACCESS
             + Osaka.memory_expansion_gas_calculator()(new_bytes=64),
             id="call_warm_no_value",
         ),
@@ -308,7 +308,7 @@ from ..helpers import Fork
                 delegated_address_warm=True,
             ),
             Osaka.gas_costs().GAS_COLD_ACCOUNT_ACCESS
-            + Osaka.gas_costs().GAS_WARM_ACCOUNT_ACCESS,
+            + Osaka.gas_costs().GAS_WARM_ACCESS,
             id="call_warm_delegated_address",
         ),
         pytest.param(
@@ -358,7 +358,7 @@ from ..helpers import Fork
             Op.CALLCODE(
                 address_warm=True, value_transfer=False, new_memory_size=32
             ),
-            Osaka.gas_costs().GAS_WARM_ACCOUNT_ACCESS
+            Osaka.gas_costs().GAS_WARM_ACCESS
             + Osaka.memory_expansion_gas_calculator()(new_bytes=32),
             id="callcode_warm",
         ),
@@ -366,7 +366,7 @@ from ..helpers import Fork
         pytest.param(
             Osaka,
             Op.DELEGATECALL(address_warm=True, new_memory_size=32),
-            Osaka.gas_costs().GAS_WARM_ACCOUNT_ACCESS
+            Osaka.gas_costs().GAS_WARM_ACCESS
             + Osaka.memory_expansion_gas_calculator()(new_bytes=32),
             id="delegatecall_warm",
         ),
@@ -381,7 +381,7 @@ from ..helpers import Fork
         pytest.param(
             Osaka,
             Op.STATICCALL(address_warm=True, new_memory_size=32),
-            Osaka.gas_costs().GAS_WARM_ACCOUNT_ACCESS
+            Osaka.gas_costs().GAS_WARM_ACCESS
             + Osaka.memory_expansion_gas_calculator()(new_bytes=32),
             id="staticcall_warm",
         ),
@@ -546,7 +546,7 @@ def test_bytecode_refunds(  # noqa: D103
         pytest.param(
             Osaka,
             Op.SSTORE(key_warm=False, original_value=0, new_value=0),
-            Osaka.gas_costs().GAS_COLD_SLOAD
+            Osaka.gas_costs().GAS_COLD_STORAGE_ACCESS
             + Osaka.gas_costs().GAS_WARM_SLOAD,
             id="sstore_noop_zero_cold",  # 0 → 0
         ),
@@ -559,7 +559,7 @@ def test_bytecode_refunds(  # noqa: D103
         pytest.param(
             Osaka,
             Op.SSTORE(key_warm=False, original_value=5, new_value=5),
-            Osaka.gas_costs().GAS_COLD_SLOAD
+            Osaka.gas_costs().GAS_COLD_STORAGE_ACCESS
             + Osaka.gas_costs().GAS_WARM_SLOAD,
             id="sstore_noop_nonzero_cold",  # 5 → 5
         ),
@@ -573,7 +573,7 @@ def test_bytecode_refunds(  # noqa: D103
         pytest.param(
             Osaka,
             Op.SSTORE(key_warm=False, new_value=5),
-            Osaka.gas_costs().GAS_COLD_SLOAD
+            Osaka.gas_costs().GAS_COLD_STORAGE_ACCESS
             + Osaka.gas_costs().GAS_STORAGE_SET,
             id="sstore_create_cold",  # 0 → 5
         ),
@@ -587,7 +587,7 @@ def test_bytecode_refunds(  # noqa: D103
         pytest.param(
             Osaka,
             Op.SSTORE(key_warm=False, original_value=5, new_value=7),
-            Osaka.gas_costs().GAS_COLD_SLOAD
+            Osaka.gas_costs().GAS_COLD_STORAGE_ACCESS
             + Osaka.gas_costs().GAS_STORAGE_RESET,
             id="sstore_modify_cold",  # 5 → 7
         ),
@@ -601,7 +601,7 @@ def test_bytecode_refunds(  # noqa: D103
         pytest.param(
             Osaka,
             Op.SSTORE(key_warm=False, original_value=5, new_value=0),
-            Osaka.gas_costs().GAS_COLD_SLOAD
+            Osaka.gas_costs().GAS_COLD_STORAGE_ACCESS
             + Osaka.gas_costs().GAS_STORAGE_RESET,
             id="sstore_clear_cold",  # 5 → 0
         ),

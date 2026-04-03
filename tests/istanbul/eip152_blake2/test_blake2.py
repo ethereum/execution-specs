@@ -508,6 +508,7 @@ def test_blake2b(
         ),
     ],
 )
+@pytest.mark.eels_base_coverage
 def test_blake2b_invalid_gas(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -632,6 +633,7 @@ def tx_gas_limits(fork: Fork) -> List[int]:
         ),
     ],
 )
+@pytest.mark.eels_base_coverage
 def test_blake2b_gas_limit(
     state_test: StateTestFiller,
     pre: Alloc,

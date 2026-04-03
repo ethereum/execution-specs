@@ -18,7 +18,7 @@ from execution_testing.base_types.conversions import (
     FixedSizeBytesConvertible,
     NumberConvertible,
 )
-from execution_testing.forks import Fork
+from execution_testing.forks import Fork, TransitionFork
 from execution_testing.test_types import EOA
 from execution_testing.test_types import Alloc as BaseAlloc
 
@@ -35,7 +35,7 @@ class Alloc(BaseAlloc):
     Allocation subclass that enforces rules set by the allocation flags.
     """
 
-    _fork: Fork = PrivateAttr()
+    _fork: Fork | TransitionFork = PrivateAttr()
     _flags: AllocFlags = PrivateAttr(AllocFlags.NONE)
     _set_addresses: Set[Address] = PrivateAttr(default_factory=set)
     _deleted_addresses: Set[Address] = PrivateAttr(default_factory=set)
@@ -317,19 +317,19 @@ class Alloc(BaseAlloc):
             "_fund_address is not implemented in the base class"
         )
 
-    def empty_account(self) -> Address:
+    def nonexistent_account(self) -> Address:
         """
-        Return a previously unused account guaranteed to be empty.
+        Return the address of a previously unused nonexistent account.
 
-        This ensures the account has zero balance, zero nonce, no code, and no
-        storage. The account is not a precompile or a system contract.
+        The address is guaranteed to not be a precompile or a system contract.
+        No account is created — it remains nonexistent in the pre-state.
         """
-        return self._empty_account()
+        return self._nonexistent_account()
 
-    def _empty_account(self) -> Address:
+    def _nonexistent_account(self) -> Address:
         """
-        Sub-class implementation of empty_account.
+        Sub-class implementation of nonexistent_account.
         """
         raise NotImplementedError(
-            "_empty_account is not implemented in the base class"
+            "_nonexistent_account is not implemented in the base class"
         )

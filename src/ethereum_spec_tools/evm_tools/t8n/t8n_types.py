@@ -4,7 +4,7 @@ Define the types used by the t8n tool.
 
 import json
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from ethereum_rlp import Simple, rlp
 from ethereum_types.bytes import Bytes, Bytes8
@@ -91,7 +91,7 @@ class Txs:
     def __init__(self, t8n: "T8N", stdin: Optional[Dict] = None):
         self.t8n = t8n
         self.successfully_parsed: List[int] = []
-        self.transactions: List[Tuple[Uint, Any]] = []
+        self.transactions: List[Any] = []
         self.rejected_txs = {}
         self.rlp_input = False
         self.all_txs = []
@@ -121,12 +121,14 @@ class Txs:
                     self.successfully_parsed.append(idx)
             except UnsupportedTxError as e:
                 self.t8n.logger.warning(
-                    f"Unsupported transaction type {idx}: {e.error_message}"
+                    f"Unsupported transaction at index {idx}: "
+                    f"{e.error_message}"
                 )
                 self.rejected_txs[idx] = (
                     f"Unsupported transaction type: {e.error_message}"
                 )
-                self.all_txs.append(e.encoded_params)
+                if e.encoded_params is not None:
+                    self.all_txs.append(e.encoded_params)
             except Exception as e:
                 msg = f"Failed to parse transaction {idx}: {str(e)}"
                 self.t8n.logger.warning(msg, exc_info=e)
@@ -217,9 +219,10 @@ class Txs:
             if t8n.fork.has_signing_hash_155:
                 if protected:
                     signing_hash = t8n.fork.signing_hash_155(
-                        tx_decoded, U64(1)
+                        tx_decoded, self.t8n.chain_id
                     )
-                    v_addend = U256(37)  # Assuming chain_id = 1
+                    # EIP-155: CHAIN_ID * 2 + 35
+                    v_addend = U256(self.t8n.chain_id) * U256(2) + U256(35)
                 else:
                     signing_hash = t8n.fork.signing_hash_pre155(tx_decoded)
                     v_addend = U256(27)
@@ -441,72 +444,6 @@ class Result:
             self.stateless_input_bytes = bytes(stateless_input_bytes)
             self.stateless_output_bytes = bytes(stateless_output_bytes)
 
-    @staticmethod
-    def _block_access_list_to_json(account_changes: Any) -> Any:
-        """
-        Convert BlockAccessList to JSON format matching the Pydantic models.
-        """
-        json_account_changes = []
-        for account in account_changes:
-            account_data: Dict[str, Any] = {
-                "address": "0x" + account.address.hex()
-            }
-
-            if account.storage_changes:
-                storage_changes = []
-                for slot_change in account.storage_changes:
-                    slot_data: Dict[str, Any] = {
-                        "slot": int(slot_change.slot),
-                        "slotChanges": [],
-                    }
-                    for change in slot_change.changes:
-                        slot_data["slotChanges"].append(
-                            {
-                                "blockAccessIndex": int(
-                                    change.block_access_index
-                                ),
-                                "postValue": int(change.new_value),
-                            }
-                        )
-                    storage_changes.append(slot_data)
-                account_data["storageChanges"] = storage_changes
-
-            if account.storage_reads:
-                account_data["storageReads"] = [
-                    int(slot) for slot in account.storage_reads
-                ]
-
-            if account.balance_changes:
-                account_data["balanceChanges"] = [
-                    {
-                        "blockAccessIndex": int(change.block_access_index),
-                        "postBalance": int(change.post_balance),
-                    }
-                    for change in account.balance_changes
-                ]
-
-            if account.nonce_changes:
-                account_data["nonceChanges"] = [
-                    {
-                        "blockAccessIndex": int(change.block_access_index),
-                        "postNonce": int(change.new_nonce),
-                    }
-                    for change in account.nonce_changes
-                ]
-
-            if account.code_changes:
-                account_data["codeChanges"] = [
-                    {
-                        "blockAccessIndex": int(change.block_access_index),
-                        "newCode": "0x" + change.new_code.hex(),
-                    }
-                    for change in account.code_changes
-                ]
-
-            json_account_changes.append(account_data)
-
-        return json_account_changes
-
     def json_encode_receipts(self) -> Any:
         """
         Encode receipts to JSON.
@@ -588,9 +525,10 @@ class Result:
             data["blockException"] = self.block_exception
 
         if self.block_access_list is not None:
-            # Convert BAL to JSON format
-            data["blockAccessList"] = self._block_access_list_to_json(
-                self.block_access_list
+            # Output BAL as RLP-encoded hex bytes; the testing framework
+            # handles JSON serialization.
+            data["blockAccessList"] = encode_to_hex(
+                rlp.encode(self.block_access_list)
             )
 
         if self.block_access_list_hash is not None:

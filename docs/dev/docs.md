@@ -13,13 +13,16 @@ uv sync
 One time build in strict mode:
 
 ```console
-uv run mkdocs build --strict
+just docs
 ```
 
-Perform all docs related checks via `tox` in parallel:
+Run all docs related checks:
 
 ```console
-uvx tox -e spellcheck,markdownlint,mkdocs --parallel
+just spellcheck
+just lint-md
+just docs
+just changelog
 ```
 
 ### Local Deployment and Test

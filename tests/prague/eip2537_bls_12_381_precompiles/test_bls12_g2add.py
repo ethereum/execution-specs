@@ -218,6 +218,7 @@ pytestmark = [
         ),
     ],
 )
+@pytest.mark.eels_base_coverage
 def test_valid(
     state_test: StateTestFiller,
     pre: Alloc,

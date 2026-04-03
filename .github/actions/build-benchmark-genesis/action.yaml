@@ -12,14 +12,14 @@ runs:
   using: "composite"
   steps:
     - name: Checkout Hive
-      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       with:
         repository: ethereum/hive
         ref: master
         path: hive
 
     - name: Setup Go for Hive
-      uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+      uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
       with:
         go-version: ">=1.24"
         cache-dependency-path: hive/go.sum
@@ -37,12 +37,25 @@ runs:
         tar -xzf "${{ inputs.fixtures_path }}"
         echo "Fixtures extracted successfully"
 
+    - name: Remove stale client Docker images
+      shell: bash
+      run: |
+        echo "Removing stale Hive client images to force fresh builds..."
+        images_to_remove=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -E '^(hive/clients/|.*/(client-go|besu|nethermind))' || true)
+        if [ -n "$images_to_remove" ]; then
+          echo "Found the following images to remove:"
+          echo "$images_to_remove"
+          echo "$images_to_remove" | xargs docker rmi -f
+        else
+          echo "No matching Hive client images found to remove."
+        fi
+
     - name: Start Hive in dev mode
       id: start-hive
       uses: ./.github/actions/start-hive-dev
       with:
         clients: besu,go-ethereum,nethermind
-        client-file: .github/configs/hive/latest.yaml
+        client-file: .github/configs/hive/master.yaml
         hive-path: hive
 
     - name: Extract genesis configs

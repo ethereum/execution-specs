@@ -34,6 +34,7 @@ from execution_testing import (
     While,
     keccak256,
 )
+from execution_testing.base_types.base_types import Number
 
 from tests.benchmark.stateful.helpers import (
     ALLOWANCE_SELECTOR,
@@ -41,15 +42,108 @@ from tests.benchmark.stateful.helpers import (
     BALANCEOF_SELECTOR,
     DECREMENT_COUNTER_CONDITION,
     MINT_SELECTOR,
-    SLOAD_TOKENS,
-    SSTORE_MINT_TOKENS,
-    SSTORE_TOKENS,
     CacheStrategy,
     build_cache_strategy_blocks,
 )
 
 REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
 REFERENCE_SPEC_VERSION = "1.0"
+
+# keccak256("random") for non-existing slots, masked as address,
+# Solidity does input checks on the size and throws if we input
+# something different than an address
+START_SLOT = (
+    0xA4896A3F93BF4BF58378E579F3CF193BB4AF1022AF7D2089F37D8BAE7157B85F
+    % (2**160)
+)
+
+
+@pytest.mark.stub_parametrize(
+    "erc20_stub", "test_sload_empty_erc20_balanceof_"
+)
+def test_sload_erc20_generic(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_benchmark_value: int,
+    tx_gas_limit: int,
+    erc20_stub: str,
+) -> None:
+    """Benchmark SLOAD using ERC20 balanceOf on bloatnet."""
+    # Stub Account
+    erc20_address = pre.deploy_contract(
+        code=Bytecode(),
+        stub=erc20_stub,
+    )
+    threshold = 100000
+
+    # MEM[0] = function selector
+    # MEM[32] = starting address offset
+    setup = Op.MSTORE(
+        0,
+        BALANCEOF_SELECTOR,
+        # gas accounting
+        old_memory_size=0,
+        new_memory_size=32,
+    ) + Op.MSTORE(
+        32,
+        Op.SLOAD(0),  # Address Offset
+        # gas accounting
+        old_memory_size=32,
+        new_memory_size=64,
+    )
+
+    call_balance_of = Op.POP(
+        Op.CALL(
+            address=erc20_address,
+            args_offset=32 - 4,
+            args_size=32 + 4,
+        )
+    )
+
+    loop = While(
+        body=call_balance_of + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
+        condition=Op.GT(Op.GAS, threshold),
+    )
+
+    teardown = Op.SSTORE(0, Op.MLOAD(32))
+
+    # Contract Deployment
+    code = setup + loop + teardown
+    attack_contract_address = pre.deploy_contract(code=code)
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
+
+    # Transaction Loops
+    txs = []
+    gas_remaining = gas_benchmark_value
+
+    sender = pre.fund_eoa()
+
+    while gas_remaining > intrinsic_gas:
+        gas_available = min(gas_remaining, tx_gas_limit)
+
+        if gas_available < intrinsic_gas:
+            break
+
+        with TestPhaseManager.execution():
+            txs.append(
+                Transaction(
+                    gas_limit=gas_available,
+                    to=attack_contract_address,
+                    sender=sender,
+                )
+            )
+
+        gas_remaining -= gas_available
+
+    blocks = [Block(txs=txs)]
+    benchmark_test(
+        pre=pre,
+        blocks=blocks,
+        skip_gas_used_validation=True,
+        expected_receipt_status=True,
+    )
 
 
 # SLOAD BENCHMARK ARCHITECTURE:
@@ -97,7 +191,10 @@ REFERENCE_SPEC_VERSION = "1.0"
 #   - Simulates real-world contract state accumulation over time
 
 
-@pytest.mark.parametrize("token_name", SLOAD_TOKENS)
+@pytest.mark.repricing
+@pytest.mark.stub_parametrize(
+    "erc20_stub", "test_sload_empty_erc20_balanceof_"
+)
 @pytest.mark.parametrize("existing_slots", [False, True])
 @pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
 def test_sload_erc20_balanceof(
@@ -106,7 +203,7 @@ def test_sload_erc20_balanceof(
     fork: Fork,
     gas_benchmark_value: int,
     tx_gas_limit: int,
-    token_name: str,
+    erc20_stub: str,
     existing_slots: bool,
     cache_strategy: CacheStrategy,
 ) -> None:
@@ -114,7 +211,7 @@ def test_sload_erc20_balanceof(
     # Stub Account
     erc20_address = pre.deploy_contract(
         code=Bytecode(),
-        stub=f"test_sload_empty_erc20_balanceof_{token_name}",
+        stub=erc20_stub,
     )
 
     # MEM[0] = function selector
@@ -212,16 +309,8 @@ def test_sload_erc20_balanceof(
     txs = []
     cache_txs = []
     gas_remaining = gas_benchmark_value
-    # Start at 1 (ERC20 bloater writes the balance of address to the slot)
-    # or start at keccak256("random") for non-existing slots
-    slot_offset = (
-        1
-        if existing_slots
-        else (
-            0xA4896A3F93BF4BF58378E579F3CF193BB4AF1022AF7D2089F37D8BAE7157B85F
-        )
-        % (2**160)  # Mask it as address otherwise Solidity rejects the input
-    )
+    # Start offset
+    slot_offset = 1 if existing_slots else START_SLOT
 
     while gas_remaining > intrinsic_gas_with_access_list:
         gas_available = min(gas_remaining, tx_gas_limit)
@@ -272,22 +361,128 @@ def test_sload_erc20_balanceof(
     benchmark_test(pre=pre, blocks=blocks, skip_gas_used_validation=True)
 
 
+@pytest.mark.stub_parametrize("erc20_stub", "test_sstore_erc20_approve_")
+def test_sstore_erc20_generic(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_benchmark_value: int,
+    tx_gas_limit: int,
+    erc20_stub: str,
+) -> None:
+    """Benchmark SSTORE using ERC20 approve."""
+    sender = pre.fund_eoa()
+
+    threshold = 100_000
+
+    # Stub Account
+    erc20_address = pre.deploy_contract(
+        code=Bytecode(),
+        stub=erc20_stub,
+    )
+
+    # MEM[0] = function selector
+    # MEM[32] = starting address offset
+    setup = Op.MSTORE(
+        0,
+        APPROVE_SELECTOR,
+    ) + Op.MSTORE(
+        32,
+        Op.SLOAD(0),  # Address Offset
+    )
+
+    call_approve = Op.MSTORE(
+        64,
+        Op.ADD(1, Op.MLOAD(32)),
+    ) + Op.POP(
+        Op.CALL(
+            address=erc20_address,
+            args_offset=28,
+            args_size=68,
+        )
+    )
+
+    loop = While(
+        body=call_approve + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
+        condition=Op.GT(Op.GAS, threshold),
+    )
+
+    teardown = Op.SSTORE(0, Op.MLOAD(32))
+
+    # Contract Deployment
+    code = setup + loop + teardown
+    attack_contract_address = pre.deploy_contract(code=code)
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
+
+    # Transaction Loops
+    gas_remaining = gas_benchmark_value
+
+    # Collect tx params first, then build Transaction objects
+    # so that nonces are allocated contiguously per block.
+    tx_gas: list[int] = []
+    while gas_remaining > intrinsic_gas:
+        gas_available = min(gas_remaining, tx_gas_limit)
+
+        if gas_available < intrinsic_gas:
+            break
+
+        tx_gas.append(gas_available)
+
+        gas_remaining -= gas_available
+
+    txs = []
+    with TestPhaseManager.execution():
+        for gas_available in tx_gas:
+            txs.append(
+                Transaction(
+                    gas_limit=gas_available,
+                    to=attack_contract_address,
+                    sender=sender,
+                )
+            )
+
+    blocks = [Block(txs=txs)]
+
+    benchmark_test(
+        pre=pre,
+        blocks=blocks,
+        skip_gas_used_validation=True,
+        expected_receipt_status=True,
+    )
+
+
+@pytest.mark.repricing
 @pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
-@pytest.mark.parametrize("token_name", SSTORE_TOKENS)
+@pytest.mark.stub_parametrize("erc20_stub", "test_sstore_erc20_approve_")
+@pytest.mark.parametrize("write_new_value", [False, True])
+@pytest.mark.parametrize("existing_slot", [True, False])
 def test_sstore_erc20_approve(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     fork: Fork,
     gas_benchmark_value: int,
     tx_gas_limit: int,
-    token_name: str,
+    erc20_stub: str,
+    write_new_value: bool,
+    existing_slot: bool,
     cache_strategy: CacheStrategy,
 ) -> None:
     """Benchmark SSTORE using ERC20 approve on bloatnet."""
+    sender = EOA(
+        key=0x90655B60A56E01389173510C3DDF1B969803A9F41844BF344CBF3D1AC3A80845,
+        # nonce fetched from the pre-deployed state on the network
+        nonce=45344,
+    )
+    pre.fund_address(address=sender, amount=10**9)
+    assert Address(sender) == Address(
+        0x6C2624662DC514A69955E9A6A195ECE23ACED5A0
+    ), "EOA address mismatch"
+
     # Stub Account
     erc20_address = pre.deploy_contract(
         code=Bytecode(),
-        stub=f"test_sstore_erc20_approve_{token_name}",
+        stub=erc20_stub,
     )
 
     # MEM[0] = function selector
@@ -310,7 +505,14 @@ def test_sstore_erc20_approve(
         + Op.CALLDATALOAD(0)  # [num_calls]
     )
 
-    call_approve = Op.MSTORE(64, Op.MLOAD(32)) + Op.POP(
+    value_to_write: Bytecode | int
+    if write_new_value:
+        # non-zero, avoids refund and always differs from existing values
+        value_to_write = 1
+    else:
+        value_to_write = Op.MLOAD(32) if existing_slot else 0
+
+    call_approve = Op.MSTORE(64, value_to_write) + Op.POP(
         Op.CALL(
             address=erc20_address,
             value=0,
@@ -323,6 +525,7 @@ def test_sstore_erc20_approve(
         )
     )
 
+    cache_warmup = Bytecode()
     if cache_strategy == CacheStrategy.CACHE_TX:
         # Call allowance(ADDRESS, spender) to warm the allowance
         # storage slot that approve will later write to.
@@ -347,8 +550,6 @@ def test_sstore_erc20_approve(
             + Op.MSTORE(0, APPROVE_SELECTOR)
             + Op.MSTORE(32, Op.MLOAD(64))
         )
-    else:
-        cache_warmup = Bytecode()
 
     loop = While(
         body=cache_warmup
@@ -365,6 +566,22 @@ def test_sstore_erc20_approve(
     setup_cost = setup.gas_cost(fork)
     loop_cost = loop.gas_cost(fork)
     access_list = [AccessList(address=erc20_address, storage_keys=[])]
+    # Delegate sender to attack_contract_address once in setup
+    delegation_tx = Transaction(
+        gas_limit=100_000,
+        to=sender,
+        value=0,
+        sender=pre.fund_eoa(),
+        authorization_list=[
+            AuthorizationTuple(
+                chain_id=0,
+                address=attack_contract_address,
+                nonce=sender.nonce,
+                signer=sender,
+            ),
+        ],
+    )
+    sender.nonce = Number(sender.nonce + 1)
     intrinsic_gas_with_access_list = (
         fork.transaction_intrinsic_cost_calculator()(
             access_list=access_list,
@@ -421,6 +638,9 @@ def test_sstore_erc20_approve(
 
     function_dispatch_cost = function_dispatch.gas_cost(fork)
 
+    with TestPhaseManager.setup():
+        delegation_block = Block(txs=[delegation_tx])
+
     if cache_strategy == CacheStrategy.CACHE_TX:
         # Add allowance dispatch cost for the warmup call.
         # allowance(owner, spender) computes the same double-
@@ -460,11 +680,15 @@ def test_sstore_erc20_approve(
         function_dispatch_cost += function_dispatch_allowance.gas_cost(fork)
 
     # Transaction Loops
-    txs = []
-    cache_txs = []
     gas_remaining = gas_benchmark_value
-    slot_offset = 0
+    # This sender is a stub account, the first initialized
+    # slot is 371 on perfnet. The initialized slots range
+    # is 371-45139; existing slots fall within that range.
+    slot_offset = 371 if existing_slot else START_SLOT
 
+    # Collect tx params first, then build Transaction objects
+    # so that nonces are allocated contiguously per block.
+    tx_params: list[tuple[int, bytes]] = []
     while gas_remaining > intrinsic_gas_with_access_list:
         gas_available = min(gas_remaining, tx_gas_limit)
 
@@ -479,34 +703,41 @@ def test_sstore_erc20_approve(
             break
 
         calldata = Hash(num_calls) + Hash(slot_offset)
-
-        if cache_strategy == CacheStrategy.CACHE_PREVIOUS_BLOCK:
-            with TestPhaseManager.setup():
-                cache_txs.append(
-                    Transaction(
-                        gas_limit=gas_available,
-                        data=calldata,
-                        to=attack_contract_address,
-                        sender=pre.fund_eoa(),
-                        access_list=access_list,
-                    )
-                )
-
-        with TestPhaseManager.execution():
-            txs.append(
-                Transaction(
-                    gas_limit=gas_available,
-                    data=calldata,
-                    to=attack_contract_address,
-                    sender=pre.fund_eoa(),
-                    access_list=access_list,
-                )
-            )
+        tx_params.append((gas_available, calldata))
 
         gas_remaining -= gas_available
         slot_offset += num_calls
 
-    blocks = build_cache_strategy_blocks(cache_strategy, txs, cache_txs)
+    cache_txs = []
+    if cache_strategy == CacheStrategy.CACHE_PREVIOUS_BLOCK:
+        with TestPhaseManager.setup():
+            for gas_available, calldata in tx_params:
+                cache_txs.append(
+                    Transaction(
+                        gas_limit=gas_available,
+                        data=calldata,
+                        to=sender,
+                        sender=sender,
+                        access_list=access_list,
+                    )
+                )
+
+    txs = []
+    with TestPhaseManager.execution():
+        for gas_available, calldata in tx_params:
+            txs.append(
+                Transaction(
+                    gas_limit=gas_available,
+                    data=calldata,
+                    to=sender,
+                    sender=sender,
+                    access_list=access_list,
+                )
+            )
+
+    blocks = [delegation_block] + build_cache_strategy_blocks(
+        cache_strategy, txs, cache_txs
+    )
     # TODO: this test can currently not estimate the gas used
     # It will also overestimate the num_calls it can make to an unknown
     # ERC20 contract and will therefore OOG
@@ -574,7 +805,8 @@ def build_external_call(
     )
 
 
-@pytest.mark.parametrize("token_name", SSTORE_MINT_TOKENS)
+@pytest.mark.repricing
+@pytest.mark.stub_parametrize("erc20_stub", "test_sstore_erc20_mint_")
 @pytest.mark.parametrize("existing_slots", [False, True])
 @pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
 @pytest.mark.parametrize("no_change", [False, True])
@@ -584,7 +816,7 @@ def test_sstore_erc20_mint(
     fork: Fork,
     gas_benchmark_value: int,
     tx_gas_limit: int,
-    token_name: str,
+    erc20_stub: str,
     existing_slots: bool,
     cache_strategy: CacheStrategy,
     no_change: bool,
@@ -613,18 +845,13 @@ def test_sstore_erc20_mint(
     # Storage key to read and write address pointer to
     slot_offset = 0
 
-    # Start at 1 for existing balance slots,
-    # or at keccak256("random") for non-existing slots
-    start_slot = (
-        1
-        if existing_slots
-        else 0xA4896A3F93BF4BF58378E579F3CF193BB4AF1022AF7D2089F37D8BAE7157B85F
-    )
+    # Start slot
+    start_slot = 1 if existing_slots else START_SLOT
 
     # Stub Account
     erc20_address = pre.deploy_contract(
         code=Bytecode(),
-        stub=f"test_sstore_erc20_mint_{token_name}",
+        stub=erc20_stub,
     )
 
     mint_amount = 0 if no_change else 1
@@ -1483,6 +1710,7 @@ def test_storage_sload_benchmark(
     )
 
 
+@pytest.mark.repricing
 @pytest.mark.parametrize("storage_keys_pre_set", [False, True])
 def test_storage_sload_same_key_benchmark(
     benchmark_test: BenchmarkTestFiller,
@@ -1556,12 +1784,19 @@ def test_account_access(
 ) -> None:
     """Benchmark account access with caching strategies."""
     address_retriever: Bytecode
+    # Read start_iteration from calldata so that when transactions are
+    # split across gas limits, each transaction continues from where
+    # the previous one left off instead of re-targeting the same accounts.
+    calldataload_start = Op.CALLDATALOAD(0)
     if account_mode == AccountMode.EXISTING_CONTRACT:
-        # Use ENS registry as target
-        target_address = Address(0x6090A6E47849629B7245DFA1CA21D94CD15878EF)
+        # Use Bittrex Controller as target. Created 1586350 contracts,
+        # which cannot selfdestruct, so guaranteed to be on-chain.
+        # This is safe for a gas benchmark up to 300M. (300_000_000 / 2000)
+        # (2000 is the min cost to target a cold address)
+        target_address = Address(0xA3C1E324CA1CE40DB73ED6026C4A177F099B5770)
         address_retriever = CreatePreimageLayout(
             sender_address=target_address,
-            nonce=1,
+            nonce=Op.ADD(1, calldataload_start),
         )
         increment_op = address_retriever.increment_nonce_op()
     elif account_mode == AccountMode.EXISTING_EOA:
@@ -1569,12 +1804,14 @@ def test_account_access(
         # created these accounts on bloatnet with these values (are also the
         # defaults of SequentialAddressLayout)
         address_retriever = SequentialAddressLayout(
-            starting_address=0x1000, increment=1
+            starting_address=Op.ADD(0x1000, calldataload_start),
+            increment=1,
         )
         increment_op = address_retriever.increment_address_op()
     else:
         address_retriever = SequentialAddressLayout(
-            starting_address=keccak256(b"random"), increment=1
+            starting_address=Op.ADD(keccak256(b"random"), calldataload_start),
+            increment=1,
         )
         increment_op = address_retriever.increment_address_op()
 
@@ -1609,6 +1846,9 @@ def test_account_access(
                 value=value_sent,
                 # Gas accounting
                 address_warm=access_warm,
+                value_transfer=value_sent > 0,
+                account_new=value_sent > 0
+                and account_mode == AccountMode.NON_EXISTING_ACCOUNT,
             )
         )
     elif opcode in (Op.STATICCALL, Op.DELEGATECALL):

@@ -27,7 +27,6 @@ test_module_dummy = textwrap.dedent(
     from execution_testing import BenchmarkTestFiller, JumpLoopGenerator, Op
 
     @pytest.mark.valid_at("Prague")
-    @pytest.mark.benchmark
     def test_dummy_benchmark_test(benchmark_test: BenchmarkTestFiller) -> None:
         benchmark_test(
             target_opcode=Op.JUMPDEST,
@@ -42,7 +41,6 @@ test_module_without_fixture = textwrap.dedent(
     from execution_testing import BenchmarkTestFiller, JumpLoopGenerator, Op
 
     @pytest.mark.valid_at("Prague")
-    @pytest.mark.benchmark
     def test_dummy_no_benchmark_test(benchmark_test: BenchmarkTestFiller) -> None:
         benchmark_test(
             target_opcode=Op.JUMPDEST,
@@ -57,7 +55,6 @@ test_module_with_repricing = textwrap.dedent(
     from execution_testing import BenchmarkTestFiller, JumpLoopGenerator, Op
 
     @pytest.mark.valid_at("Prague")
-    @pytest.mark.benchmark
     @pytest.mark.repricing
     def test_benchmark_with_repricing(benchmark_test: BenchmarkTestFiller) -> None:
         benchmark_test(
@@ -66,7 +63,6 @@ test_module_with_repricing = textwrap.dedent(
         )
 
     @pytest.mark.valid_at("Prague")
-    @pytest.mark.benchmark
     def test_benchmark_without_repricing(benchmark_test: BenchmarkTestFiller) -> None:
         benchmark_test(
             target_opcode=Op.JUMPDEST,
@@ -81,14 +77,12 @@ test_module_without_benchmark_test_fixture = textwrap.dedent(
     from execution_testing import BenchmarkTestFiller, JumpLoopGenerator, Op
 
     @pytest.mark.valid_at("Prague")
-    @pytest.mark.benchmark
     def test_with_gas_benchmark_value(state_test, gas_benchmark_value: int) -> None:
         # This test intentionally uses state_test instead of benchmark_test
         # to verify that --fixed-opcode-count filters it out
         state_test(pre={}, post={}, tx=None)
 
     @pytest.mark.valid_at("Prague")
-    @pytest.mark.benchmark
     def test_with_benchmark_test(benchmark_test: BenchmarkTestFiller) -> None:
         benchmark_test(
             target_opcode=Op.JUMPDEST,
@@ -103,7 +97,6 @@ test_module_with_repricing_kwargs = textwrap.dedent(
     from execution_testing import BenchmarkTestFiller, JumpLoopGenerator, Op
 
     @pytest.mark.valid_at("Prague")
-    @pytest.mark.benchmark
     @pytest.mark.repricing(opcode=Op.ADD)
     @pytest.mark.parametrize("opcode", [Op.ADD, Op.SUB, Op.MUL])
     def test_parametrized_with_repricing_kwargs(
@@ -116,7 +109,6 @@ test_module_with_repricing_kwargs = textwrap.dedent(
         )
 
     @pytest.mark.valid_at("Prague")
-    @pytest.mark.benchmark
     @pytest.mark.repricing
     @pytest.mark.parametrize("opcode", [Op.ADD, Op.SUB])
     def test_parametrized_with_repricing_no_kwargs(
@@ -222,7 +214,6 @@ def test_benchmark_gas_values_split_into_subdirs(
         )
 
         @pytest.mark.valid_at("Prague")
-        @pytest.mark.benchmark
         def test_dummy_benchmark_test(
             benchmark_test: BenchmarkTestFiller,
         ) -> None:
@@ -245,7 +236,7 @@ def test_benchmark_gas_values_split_into_subdirs(
         "--gas-benchmark-values",
         "1,2",
         "-m",
-        "benchmark and blockchain_test and not derived_test",
+        "blockchain_test and not derived_test",
         "--no-html",
         "--skip-index",
         f"--output={output_dir}",
@@ -326,7 +317,7 @@ def test_fixed_opcode_count_split_into_subdirs(
         "Prague",
         "--fixed-opcode-count=1,2",
         "-m",
-        "benchmark and blockchain_test and not derived_test",
+        "blockchain_test and not derived_test",
         "--no-html",
         "--skip-index",
         f"--output={output_dir}",
@@ -966,7 +957,6 @@ test_module_parametrized = textwrap.dedent(
     from execution_testing import BenchmarkTestFiller, JumpLoopGenerator, Op
 
     @pytest.mark.valid_at("Prague")
-    @pytest.mark.benchmark
     @pytest.mark.parametrize("size", [0, 32, 256, 1024])
     def test_parametrized_benchmark(
         benchmark_test: BenchmarkTestFiller, size: int
@@ -1147,7 +1137,9 @@ def test_consensus_fixtures_split_by_fork(
 
         @pytest.mark.valid_from("Prague")
         def test_fork_split_example(state_test, pre) -> None:
-            tx = Transaction(to=0, gas_limit=21_000, sender=pre.fund_eoa())
+            tx = Transaction(
+                to=0, gas_limit=21_000, sender=pre.fund_eoa()
+            ).with_signature_and_sender()
             state_test(pre=pre, post={}, tx=tx)
         """
     )

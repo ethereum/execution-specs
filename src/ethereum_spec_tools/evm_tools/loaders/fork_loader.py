@@ -25,6 +25,26 @@ class ForkLoad:
         """Imports a module from the fork."""
         return self.hardfork.module(name)
 
+    def tx_types(self) -> list[int]:
+        """Return the transaction types supported by the given fork."""
+        transactions = self._module("transactions")
+        tx_types = [0]
+
+        for tx_type, attribute in (
+            (1, "AccessListTransaction"),
+            (2, "FeeMarketTransaction"),
+            (3, "BlobTransaction"),
+            (4, "SetCodeTransaction"),
+        ):
+            if hasattr(transactions, attribute):
+                tx_types.append(tx_type)
+
+        return tx_types
+
+    def supports_tx_type(self, tx_type: int) -> bool:
+        """Return whether the given fork supports the provided tx type."""
+        return tx_type in self.tx_types()
+
     @property
     def proof_of_stake(self) -> bool:
         """Whether the fork is proof of stake."""

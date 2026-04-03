@@ -10,7 +10,7 @@ on:
       - ".gitignore"
       - ".vscode/**"
       - "whitelist.txt"
-      - "docs/**"                                                                                                                     
+      - "docs/**"
       - "mkdocs.yml"
   pull_request:
     paths:
@@ -31,6 +31,14 @@ on:
         description: "Space-separated list of Docker images to cache"
         required: false
         default: "docker.io/ethereum/client-go:latest docker.io/alpine:latest docker.io/library/golang:1-alpine"
+      client:
+        description: "Hive client to test (e.g., go-ethereum, besu)"
+        required: false
+        default: "go-ethereum"
+      client_file:
+        description: "Client config file name under .github/configs/hive/ (e.g., latest.yaml, master.yaml)"
+        required: false
+        default: "latest.yaml"
   workflow_call:
     inputs:
       docker_images:
@@ -38,6 +46,16 @@ on:
         required: false
         type: string
         default: "docker.io/ethereum/client-go:latest docker.io/alpine:latest docker.io/library/golang:1-alpine"
+      client:
+        description: "Hive client to test (e.g., go-ethereum, besu)"
+        required: false
+        type: string
+        default: "go-ethereum"
+      client_file:
+        description: "Client config file name under .github/configs/hive/ (e.g., latest.yaml, master.yaml)"
+        required: false
+        type: string
+        default: "latest.yaml"
 
 concurrency:
   group: hive-consume-${{ github.workflow }}-${{ github.ref || github.run_id }}
@@ -53,7 +71,7 @@ jobs:
     runs-on: [self-hosted-ghr, size-l-x64]
     steps:
       - name: Checkout execution-specs
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Cache Docker images
         uses: ./.github/actions/cache-docker-images
@@ -64,6 +82,9 @@ jobs:
     name: ${{ matrix.name }}
     needs: cache-docker-images
     runs-on: [self-hosted-ghr, size-l-x64]
+    env:
+      CLIENT: ${{ inputs.client || 'go-ethereum' }}
+      CLIENT_FILE: ${{ inputs.client_file || 'latest.yaml' }}
     strategy:
       fail-fast: true
       matrix:
@@ -71,30 +92,44 @@ jobs:
           - name: Engine
             mode: simulator
             simulator: ethereum/eels/consume-engine
+            sim_limit: ".*test_block_at_rlp_limit_with_logs.*Osaka.*"
+          # TODO: Enable once eels/consume-enginex simulator is added to Hive
+          # - name: consume-enginex
+          #   mode: simulator
+          #   simulator: ethereum/eels/consume-enginex
+          #   sim_limit: ".*push0.*(Shanghai|Cancun).*"
           - name: RLP
             mode: simulator
             simulator: ethereum/eels/consume-rlp
+            sim_limit: ".*test_block_at_rlp_limit_with_logs.*Osaka.*"
           - name: Sync
             mode: simulator
             simulator: ethereum/eels/consume-sync
+            sim_limit: ".*test_block_at_rlp_limit_with_logs.*Osaka.*"
           - name: Dev Mode
             mode: dev
             consume_command: engine
+            test_filter: "Osaka and test_block_at_rlp_limit_with_logs"
+          # TODO: Enable once we have a release with the pre-alloc builder format cf #2140
+          # - name: dev-mode-enginex
+          #   mode: dev
+          #   consume_command: enginex
+          #   test_filter: "(fork_shanghai or fork_cancun) and push0"
     steps:
       - name: Checkout execution-specs
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           path: execution-specs
 
       - name: Checkout Hive
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: ethereum/hive
           ref: master
           path: hive
 
       - name: Setup go env and cache
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
         with:
           go-version: ">=1.24"
           cache-dependency-path: hive/go.sum
@@ -119,21 +154,33 @@ jobs:
           cd hive
           ./hive --sim '${{ matrix.simulator }}' \
             --sim.parallelism=1 \
-            --client go-ethereum \
-            --client-file ../execution-specs/.github/configs/hive/latest.yaml \
+            --client ${{ env.CLIENT }} \
+            --client-file ../execution-specs/.github/configs/hive/${{ env.CLIENT_FILE }} \
             --sim.buildarg fixtures=${{ env.FIXTURES_URL }} \
-            --sim.limit=".*test_block_at_rlp_limit_with_logs.*Osaka.*" \
+            --sim.limit="${{ matrix.sim_limit }}" \
+            --sim.loglevel=5 \
+            --docker.buildoutput \
             --docker.output
+
+      - name: Build Hive client images
+        if: matrix.mode == 'dev'
+        run: |
+          cd hive
+          ./hive \
+            --client ${{ env.CLIENT }} \
+            --client-file ../execution-specs/.github/configs/hive/${{ env.CLIENT_FILE }} \
+            --docker.buildoutput
+        timeout-minutes: 10
 
       - name: Start Hive in dev mode
         if: matrix.mode == 'dev'
         id: start-hive
         uses: ./execution-specs/.github/actions/start-hive-dev
         with:
-          clients: go-ethereum
-          client-file: execution-specs/.github/configs/hive/latest.yaml
+          clients: ${{ env.CLIENT }}
+          client-file: execution-specs/.github/configs/hive/${{ env.CLIENT_FILE }}
           hive-path: hive
-          timeout: "120"
+          timeout: "30"
 
       - name: Run consume in dev mode
         if: matrix.mode == 'dev'
@@ -142,5 +189,12 @@ jobs:
           HIVE_SIMULATOR: ${{ steps.start-hive.outputs.hive-url }}
         run: |
           uv sync --all-extras
-          uv run consume ${{ matrix.consume_command }} --input ${{ env.FIXTURES_URL }} -k "Osaka and test_block_at_rlp_limit_with_logs"
+          uv run consume ${{ matrix.consume_command }} --input ${{ env.FIXTURES_URL }} -k "${{ matrix.test_filter }}"
 
+      - name: Upload Hive logs
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: hive-logs-${{ matrix.name }}
+          path: hive/workspace/
+          retention-days: 7

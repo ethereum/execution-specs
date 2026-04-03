@@ -45,12 +45,6 @@ def test_address_stubs(input_value: Any, expected: AddressStubs) -> None:
             id="empty_address_stubs_json",
         ),
         pytest.param(
-            "empty.yaml",
-            "",
-            AddressStubs({}),
-            id="empty_address_stubs_yaml",
-        ),
-        pytest.param(
             "one_address.json",
             '{"DEPOSIT_CONTRACT_ADDRESS": "0x00000000219ab540356cbb839cbe05303d7705fa"}',  # noqa: E501
             AddressStubs(
@@ -61,18 +55,6 @@ def test_address_stubs(input_value: Any, expected: AddressStubs) -> None:
                 }
             ),
             id="single_address_json",
-        ),
-        pytest.param(
-            "one_address.yaml",
-            "DEPOSIT_CONTRACT_ADDRESS: 0x00000000219ab540356cbb839cbe05303d7705fa",  # noqa: E501
-            AddressStubs(
-                {
-                    "DEPOSIT_CONTRACT_ADDRESS": Address(
-                        "0x00000000219ab540356cbb839cbe05303d7705fa"
-                    ),
-                }
-            ),
-            id="single_address_yaml",
         ),
     ],
 )
@@ -87,3 +69,10 @@ def test_address_stubs_from_files(
     filename.write_text(file_contents)
 
     assert AddressStubs.model_validate_json_or_file(str(filename)) == expected
+
+
+def test_address_stubs_file_not_found(pytester: pytest.Pytester) -> None:
+    """Test that a missing JSON file raises FileNotFoundError."""
+    missing_test = pytester.path.joinpath("nonexistent.json")
+    with pytest.raises(FileNotFoundError):
+        AddressStubs.model_validate_json_or_file(str(missing_test))

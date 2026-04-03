@@ -150,6 +150,7 @@ This saves you having to apply code review feedback repeatedly for each fork.
 Running the tests necessary to merge into the repository requires:
 
 - [`uv`](https://docs.astral.sh/uv/) package manager,
+- [`just`](https://just.systems/) command runner (install via your package manager, [`uv tool install just-bin`](https://pypi.org/project/just-bin/), or [pre-built binaries](https://just.systems/man/en/pre-built-binaries.html)),
 - Python 3.11.x,
 - [PyPy](https://www.pypy.org/) [7.3.19](https://downloads.python.org/pypy/) or later.
 - `geth` installed and present in `$PATH`.
@@ -166,22 +167,59 @@ Or, if you've already cloned the repository, you can fetch the submodules with:
 git submodule update --init --recursive
 ```
 
-The tests can be run with:
+The static checks can be run with:
 
 ```bash
-tox
+just static
 ```
 
-The development tools can also be run outside of `tox`, and can automatically reformat the code:
+Individual checks and auto-fix are also available as recipes:
 
 ```bash
-uv run ruff check        # Detects code issues and produces a report to STDOUT.
-uv run ruff check --fix  # Fixes minor code issues (like unsorted imports).
-uv run ruff format       # Formats code.
-uv run mypy              # Verifies type annotations.
+just fix           # Auto-fix formatting and lint issues.
+just lint          # Lint with ruff.
+just format-check  # Check formatting with ruff.
+just typecheck     # Run type checking with mypy.
+just spellcheck    # Check spelling with codespell.
 ```
 
-It is recommended to use a [virtual environment](https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment) to keep your system Python installation clean.
+Run `just` to see all available recipes. Recipes that accept arguments can be passed extra flags, for example:
+
+```bash
+just typecheck --warn-unreachable
+```
+
+> [!TIP]
+> If you use multiple git worktrees, set `MYPY_CACHE_DIR` to share a single
+> mypy cache across all of them and avoid cold-start delays:
+>
+> ```bash
+> export MYPY_CACHE_DIR=~/path/to/execution-specs/.mypy_cache
+> ```
+
+### Shell Auto-Completion
+
+`just` provides tab-completion for recipe names and arguments. To enable it for your shell:
+
+**Bash** — add to `~/.bashrc`:
+
+```bash
+eval "$(just --completions bash)"
+```
+
+**Zsh** — add to `~/.zshrc`:
+
+```bash
+eval "$(just --completions zsh)"
+```
+
+**Fish** — run once (fish auto-loads completions from this directory):
+
+```bash
+just --completions fish > ~/.config/fish/completions/just.fish
+```
+
+After restarting your shell (or sourcing the config), `just <Tab>` will complete recipe names.
 
 A trace of the EVM execution for any test case can be obtained by providing the `--evm-trace` argument to pytest.
 Note: Make sure to run the EVM trace on a small number of tests at a time. The log might otherwise get very big.
@@ -189,7 +227,7 @@ Below is an example.
 
 ```bash
 uv run pytest \
-    'tests/json_infra/test_state_tests.py::test_state_tests_frontier[stAttackTest - ContractCreationSpam - 0]' \
+    'tests/json_loader/test_state_tests.py::test_state_tests_frontier[stAttackTest - ContractCreationSpam - 0]' \
     --evm_trace
 ```
 
@@ -211,7 +249,7 @@ The command takes 4 arguments, 2 of which are optional
 As an example, if one wants to create baseline code for the `Spurious Dragon` fork from the `Tangerine Whistle` one
 
 ```bash
-ethereum-spec-new-fork --from_fork="Tangerine Whistle" --to_fork="Spurious Dragon" --from_test=EIP150 --to_test=EIP158
+uv run ethereum-spec-new-fork --from_fork="Tangerine Whistle" --to_fork="Spurious Dragon" --from_test=EIP150 --to_test=EIP158
 ```
 
 The following will have to however, be updated manually
@@ -258,7 +296,7 @@ The tool takes the following command line arguments
 As an example, if one wants to apply changes made in `Frontier` fork to `Homestead` and `Tangerine Whistle`
 
 ```bash
-python src/ethereum_spec_tools/patch_tool.py frontier homestead tangerine_whistle
+uv run python src/ethereum_spec_tools/patch_tool.py frontier homestead tangerine_whistle
 ```
 
 ### Lint Tool
@@ -271,4 +309,4 @@ The tool currently performs the following checks
 - The order of the identifiers between each hardfork is consistent.
 - Import statements follow the relevant import rules in modules.
 
-The command to run the tool is `ethereum-spec-lint`
+The command to run the tool is `just lint-spec` (or `uv run ethereum-spec-lint`).

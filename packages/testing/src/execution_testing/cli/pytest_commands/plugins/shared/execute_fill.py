@@ -2,21 +2,33 @@
 Shared pytest fixtures and hooks for EEST generation modes (fill and execute).
 """
 
-from typing import List
+from pathlib import Path
+from typing import Dict, List
 
 import pytest
+from pytest import StashKey
 
+from execution_testing.base_types import Account
+from execution_testing.base_types import Alloc as BaseAlloc
 from execution_testing.execution import (
     BaseExecute,
     LabeledExecuteFormat,
 )
 from execution_testing.fixtures import BaseFixture, LabeledFixtureFormat
+from execution_testing.logging import get_logger
+from execution_testing.rpc import EthRPC
 from execution_testing.specs import BaseTest
 from execution_testing.specs.base import OpMode
 from execution_testing.test_types import EOA, Alloc, ChainConfig
 
+from ..shared.address_stubs import AddressStubs
+from ..shared.helpers import get_rpc_endpoint
 from ..shared.pre_alloc import AllocFlags
 from ..spec_version_checker.spec_version_checker import EIPSpecTestItem
+
+logger = get_logger(__name__)
+
+stub_accounts_key: StashKey[Dict[str, Account]] = StashKey()
 
 ALL_FIXTURE_PARAMETERS = {
     "gas_benchmark_value",
@@ -32,6 +44,43 @@ when calling from the test function.
 All parameter names included in this list must define a fixture in one of the
 plugins.
 """
+
+
+def _validate_and_cache_address_stubs(
+    address_stubs: AddressStubs, rpc_endpoint: str
+) -> Dict[str, Account]:
+    """
+    Validate that every stub address has code on-chain and return a cache.
+
+    Perform a single batched RPC call to fetch the full account state
+    (nonce, balance, code) for every stub address. Exit the session if
+    any address has no deployed code. The returned cache maps stub names
+    to their on-chain ``Account``.
+    """
+    eth_rpc = EthRPC(rpc_endpoint)
+    labels = list(address_stubs.root.keys())
+    addresses = list(address_stubs.root.values())
+    query = BaseAlloc(root={addr: Account() for addr in addresses})
+    alloc = eth_rpc.get_alloc(query)
+    empty: list[str] = []
+    accounts: list[Account] = []
+    for i, addr in enumerate(addresses):
+        account = alloc.root.get(addr)
+        if account is None or not account.code:
+            empty.append(f"  '{labels[i]}' at {addr}")
+        else:
+            accounts.append(account)
+    if empty:
+        pytest.exit(
+            "The following address stubs have no code on-chain:\n"
+            + "\n".join(empty)
+            + "\nPlease verify the addresses in --address-stubs."
+        )
+    cache: Dict[str, Account] = dict(zip(labels, accounts, strict=True))
+    logger.info(
+        f"Validated {len(cache)} address stubs: all have code on-chain"
+    )
+    return cache
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -50,6 +99,21 @@ def pytest_configure(config: pytest.Config) -> None:
        called before the pytest-html plugin's pytest_configure to ensure that
        it uses the modified `htmlpath` option.
     """
+    address_stubs = config.getoption("address_stubs", None)
+    rpc_endpoint = get_rpc_endpoint(config)
+    if address_stubs is not None and rpc_endpoint is None:
+        pytest.exit(
+            "--address-stubs requires --rpc-endpoint to fetch "
+            "contract code from the network."
+        )
+    if (
+        address_stubs is not None
+        and rpc_endpoint is not None
+        and not config.getoption("collectonly", default=False)
+    ):
+        config.stash[stub_accounts_key] = _validate_and_cache_address_stubs(
+            address_stubs, rpc_endpoint
+        )
     if config.pluginmanager.has_plugin(
         "execution_testing.cli.pytest_commands.plugins.filler.filler"
     ):
@@ -112,14 +176,6 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
-        "benchmark: Tests relevant to benchmarking EVMs.",
-    )
-    config.addinivalue_line(
-        "markers",
-        "stateful: Tests for stateful benchmarking scenarios.",
-    )
-    config.addinivalue_line(
-        "markers",
         "exception_test: Negative tests that include an invalid block or "
         "transaction.",
     )
@@ -172,8 +228,7 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
-        "mainnet: Specialty tests crafted for running on mainnet and sanity "
-        "checking.",
+        "mainnet: Tests crafted for running on mainnet and sanity checking.",
     )
     config.addinivalue_line(
         "markers",
@@ -197,6 +252,11 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "fixture_subfolder(level, prefix): "
         "Signal that fixtures should be placed in a subfolder",
+    )
+    config.addinivalue_line(
+        "markers",
+        "eels_base_coverage: Minimized subset selected to preserve high "
+        "EELS line-coverage parity.",
     )
 
 
@@ -315,10 +375,10 @@ def is_tx_gas_heavy_test(request: pytest.FixtureRequest) -> bool:
     Check, given the test node properties, whether the test is gas-heavy
     for transaction execution.
     """
-    node = request.node
-    has_slow_marker = node.get_closest_marker("slow") is not None
-    has_benchmark_marker = node.get_closest_marker("benchmark") is not None
-    return has_slow_marker or has_benchmark_marker
+    has_slow_marker = request.node.get_closest_marker("slow") is not None
+    benchmark_dir = Path(request.config.rootpath) / "tests" / "benchmark"
+    is_benchmark = benchmark_dir in Path(request.node.fspath).parents
+    return has_slow_marker or is_benchmark
 
 
 @pytest.fixture(scope="function")

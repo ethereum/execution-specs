@@ -314,36 +314,25 @@ class TransitionTool(EthereumCLI):
         @property
         def fork_name(self) -> str:
             """Return the fork name."""
-            return self.fork.transition_tool_name(
-                block_number=self.env.number,
-                timestamp=self.env.timestamp,
-            )
+            return self.fork.transition_tool_name()
 
         @property
         def fork_name_if_supports_blob_params(self) -> str:
             """Return the fork name."""
-            fork = self.fork.fork_at(
-                block_number=self.env.number,
-                timestamp=self.env.timestamp,
-            )
+            fork = self.fork()
 
             # For tools that support blob_params, return base fork for BPO
             # forks.
             if fork.bpo_fork():
                 return fork.non_bpo_ancestor().transition_tool_name()
             else:
-                return self.fork.transition_tool_name(
-                    block_number=self.env.number,
-                    timestamp=self.env.timestamp,
-                )
+                return self.fork.transition_tool_name()
 
         @property
         def blob_params(self) -> ForkBlobSchedule | None:
             """Return the blob parameters for the current fork."""
             if self.blob_schedule:
-                fork_name = self.fork.fork_at(
-                    block_number=self.env.number, timestamp=self.env.timestamp
-                ).name()
+                fork_name = self.fork.name()
                 # Only return blob params if this fork has them
                 if fork_name in self.blob_schedule.root:
                     return self.blob_schedule[fork_name]

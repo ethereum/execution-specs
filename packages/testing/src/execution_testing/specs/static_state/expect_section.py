@@ -293,10 +293,9 @@ class ResultInFiller(EthereumTestRootModel, TagDependentData):
             else:
                 resolved_address = Address(address)
 
-            if account is None:
-                continue
-
-            post[resolved_address] = account.resolve(tags)
+            post[resolved_address] = (
+                account.resolve(tags) if account is not None else account
+            )
         return post
 
     def __contains__(self, address: Address) -> bool:
@@ -392,3 +391,100 @@ class ExpectSectionInStateTestFiller(CamelModel):
             v_match = True if self.indexes.value.count(v) else False
 
         return d_match and g_match and v_match
+
+
+def _match_index(idx: int | list, val: int) -> bool:
+    """Check if an index specification matches a value."""
+    if isinstance(idx, int):
+        return idx == -1 or idx == val
+    if isinstance(idx, list):
+        return val in idx
+    return False
+
+
+def resolve_expect_post(
+    expect_entries: list[dict],
+    d: int,
+    g: int,
+    v: int,
+    fork: Fork,
+) -> tuple[dict, TransactionExceptionInstanceOrList | None]:
+    """
+    Resolve expected post-state for given d, g, v and fork.
+
+    Used by generated Python tests at runtime. The expect_entries are
+    materialized Python dicts with resolved addresses and Account objects.
+    """
+    for entry in expect_entries:
+        indexes = entry["indexes"]
+        if not _match_index(indexes.get("data", -1), d):
+            continue
+        if not _match_index(indexes.get("gas", -1), g):
+            continue
+        if not _match_index(indexes.get("value", -1), v):
+            continue
+
+        # Match fork against network constraints
+        network = entry["network"]
+        fork_set = ForkSet.model_validate(network)
+        if fork not in fork_set:
+            continue
+
+        # Found matching entry
+        result = entry.get("result", {})
+
+        # Resolve exception
+        exception: TransactionExceptionInstanceOrList | None = None
+        expect_exc = entry.get("expect_exception")
+        if expect_exc:
+            for constraint_str, exc_value in expect_exc.items():
+                exc_fork_set = ForkSet.model_validate(
+                    constraint_str.split(",")
+                )
+                if fork in exc_fork_set:
+                    exception = exc_value
+                    break
+
+        return result, exception
+
+    raise ValueError(
+        f"No matching expect entry for d={d}, g={g}, v={v}, fork={fork}"
+    )
+
+
+def resolve_expect_post_fork(
+    expect_entries: list[dict],
+    fork: Fork,
+) -> tuple[dict, TransactionExceptionInstanceOrList | None]:
+    """
+    Resolve expected post-state for a given fork only (no d/g/v matching).
+
+    Used by single-case generated Python tests that have fork-dependent
+    post-state (multiple expect sections with different networks but only
+    one (d, g, v) combo).
+    """
+    for entry in expect_entries:
+        # Match fork against network constraints
+        network = entry["network"]
+        fork_set = ForkSet.model_validate(network)
+        if fork not in fork_set:
+            continue
+
+        # Found matching entry
+        result = entry.get("result", {})
+
+        # Resolve exception
+        exception: TransactionExceptionInstanceOrList | None = None
+        expect_exc = entry.get("expect_exception")
+        if expect_exc:
+            for constraint_str, exc_value in expect_exc.items():
+                exc_fork_set = ForkSet.model_validate(
+                    constraint_str.split(",")
+                )
+                if fork in exc_fork_set:
+                    exception = exc_value
+                    break
+
+        return result, exception
+
+    raise ValueError(f"No matching expect entry for fork={fork}")

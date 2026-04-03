@@ -17,11 +17,11 @@ from execution_testing import (
     BlockException,
     EngineAPIError,
     Environment,
-    Fork,
     Hash,
     Header,
     Op,
     Transaction,
+    TransitionFork,
     add_kzg_version,
 )
 
@@ -36,9 +36,9 @@ BASE_FEE_MAX_CHANGE_DENOMINATOR = 8
 
 
 @pytest.fixture
-def block_gas_limit(fork: Fork) -> int:  # noqa: D103
+def block_gas_limit(fork: TransitionFork) -> int:  # noqa: D103
     gas_limit = int(Environment().gas_limit)
-    tx_gas_limit_cap = fork.transaction_gas_limit_cap()
+    tx_gas_limit_cap = fork.transitions_from().transaction_gas_limit_cap()
     if tx_gas_limit_cap is not None:
         # Below transaction gas limit cap to reach gas limit easily
         gas_limit = min(gas_limit, tx_gas_limit_cap * 2)
@@ -63,17 +63,17 @@ def genesis_environment(
 
 
 @pytest.fixture
-def pre_fork_blobs_per_block(fork: Fork) -> int:
+def pre_fork_blobs_per_block(fork: TransitionFork) -> int:
     """Amount of blobs to produce with the pre-fork rules."""
-    if fork.supports_blobs(timestamp=0):
-        return fork.max_blobs_per_block(timestamp=0)
+    if fork.transitions_from().supports_blobs():
+        return fork.transitions_from().max_blobs_per_block()
     return 0
 
 
 @pytest.fixture
-def post_fork_blobs_per_block(fork: Fork) -> int:
+def post_fork_blobs_per_block(fork: TransitionFork) -> int:
     """Amount of blobs to produce with the post-fork rules."""
-    return fork.target_blobs_per_block(timestamp=FORK_TIMESTAMP) + 1
+    return fork.transitions_to().target_blobs_per_block() + 1
 
 
 @pytest.fixture
@@ -82,7 +82,7 @@ def pre_fork_blocks(
     destination_account: Address,
     gas_spender_account: Address,
     sender: EOA,
-    fork: Fork,
+    fork: TransitionFork,
     block_base_fee_per_gas: int,
     block_gas_limit: int,
 ) -> List[Block]:
@@ -113,7 +113,7 @@ def pre_fork_blocks(
         txs = []
         blob_index = 0
         remaining_blobs = pre_fork_blobs_per_block
-        max_blobs_per_tx = fork.max_blobs_per_tx(timestamp=0)
+        max_blobs_per_tx = fork.transitions_from().max_blobs_per_tx()
 
         while remaining_blobs > 0:
             tx_blobs = min(remaining_blobs, max_blobs_per_tx)
@@ -159,7 +159,7 @@ def pre_fork_blocks(
 
 @pytest.fixture
 def pre_fork_excess_blob_gas(
-    fork: Fork,
+    fork: TransitionFork,
     pre_fork_blobs_per_block: int,
     pre_fork_blocks: List[Block],
     block_base_fee_per_gas: int,
@@ -171,10 +171,10 @@ def pre_fork_excess_blob_gas(
     blocks using the fork's calculator, which handles EIP-7918 reserve price
     for >=Osaka.
     """
-    if not fork.supports_blobs(timestamp=0):
+    if not fork.transitions_from().supports_blobs():
         return 0
 
-    calc_excess_blob_gas = fork.excess_blob_gas_calculator(timestamp=0)
+    calc_excess_blob_gas = fork.transitions_from().excess_blob_gas_calculator()
     excess_blob_gas = 0
 
     # Calculate excess accumulation for each pre-fork block
@@ -191,13 +191,13 @@ def pre_fork_excess_blob_gas(
 
 
 @pytest.fixture
-def post_fork_block_count(fork: Fork) -> int:
+def post_fork_block_count(fork: TransitionFork) -> int:
     """Amount of blocks to produce with the post-fork rules."""
     return SpecHelpers.get_min_excess_blobs_for_blob_gas_price(
-        fork=fork, blob_gas_price=2
+        fork=fork.transitions_to(), blob_gas_price=2
     ) // (
-        fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP)
-        - fork.target_blobs_per_block(timestamp=FORK_TIMESTAMP)
+        fork.transitions_to().max_blobs_per_block()
+        - fork.transitions_to().target_blobs_per_block()
     )
 
 
@@ -215,7 +215,7 @@ def gas_spender_account(pre: Alloc) -> Address:  # noqa: D103
 
 @pytest.fixture
 def fork_block_excess_blob_gas(
-    fork: Fork,
+    fork: TransitionFork,
     pre_fork_excess_blob_gas: int,
     pre_fork_blobs_per_block: int,
     block_base_fee_per_gas: int,
@@ -223,8 +223,8 @@ def fork_block_excess_blob_gas(
     """Calculate the expected excess blob gas for the fork block."""
     if pre_fork_blobs_per_block == 0:
         return 0
-    calc_excess_blob_gas_post_fork = fork.excess_blob_gas_calculator(
-        timestamp=FORK_TIMESTAMP
+    calc_excess_blob_gas_post_fork = (
+        fork.transitions_to().excess_blob_gas_calculator()
     )
     return calc_excess_blob_gas_post_fork(
         parent_excess_blob_gas=pre_fork_excess_blob_gas,
@@ -241,7 +241,7 @@ def post_fork_blocks(
     fork_block_excess_blob_gas: int,
     sender: EOA,
     pre_fork_blocks: List[Block],
-    fork: Fork,
+    fork: TransitionFork,
 ) -> list[Block]:
     """Generate blocks after the fork."""
     blocks = []
@@ -265,7 +265,7 @@ def post_fork_blocks(
         txs = []
         blob_index = 0
         remaining_blobs = post_fork_blobs_per_block
-        max_blobs_per_tx = fork.max_blobs_per_tx(timestamp=FORK_TIMESTAMP)
+        max_blobs_per_tx = fork.transitions_to().max_blobs_per_tx()
         while remaining_blobs > 0:
             tx_blobs = min(remaining_blobs, max_blobs_per_tx)
             txs.append(
@@ -309,18 +309,18 @@ def post(  # noqa: D103
     post_fork_block_count: int,
     post_fork_blobs_per_block: int,
     destination_account: Address,
-    fork: Fork,
+    fork: TransitionFork,
 ) -> Mapping[Address, Account]:
     pre_fork_tx_count_per_block = 0
     if pre_fork_blobs_per_block > 0:
-        max_blobs_per_tx_pre = fork.max_blobs_per_tx(timestamp=0)
+        max_blobs_per_tx_pre = fork.transitions_from().max_blobs_per_tx()
         pre_fork_tx_count_per_block = (
             pre_fork_blobs_per_block + max_blobs_per_tx_pre - 1
         ) // max_blobs_per_tx_pre
 
     post_fork_tx_count_per_block = 0
     if post_fork_blobs_per_block > 0:
-        max_blobs_per_tx_post = fork.max_blobs_per_tx(timestamp=FORK_TIMESTAMP)
+        max_blobs_per_tx_post = fork.transitions_to().max_blobs_per_tx()
         post_fork_tx_count_per_block = (
             post_fork_blobs_per_block + max_blobs_per_tx_post - 1
         ) // max_blobs_per_tx_post
@@ -435,24 +435,25 @@ def test_invalid_post_fork_block_without_blob_fields(
     lambda fork: [
         pytest.param(
             SpecHelpers.get_min_excess_blobs_for_blob_gas_price(
-                fork=fork, blob_gas_price=2
+                fork=fork.transitions_to(), blob_gas_price=2
             )
             // (
-                fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP)
-                - fork.target_blobs_per_block(timestamp=FORK_TIMESTAMP)
+                fork.transitions_to().max_blobs_per_block()
+                - fork.transitions_to().target_blobs_per_block()
             )
             + 2,
-            fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP),
+            fork.transitions_to().max_blobs_per_block(),
             id="max_blobs",
         ),
         pytest.param(10, 0, id="no_blobs"),
         pytest.param(
             10,
-            fork.target_blobs_per_block(timestamp=FORK_TIMESTAMP),
+            fork.transitions_to().target_blobs_per_block(),
             id="target_blobs",
         ),
     ],
 )
+@pytest.mark.eels_base_coverage
 def test_fork_transition_excess_blob_gas_at_blob_genesis(
     blockchain_test: BlockchainTestFiller,
     genesis_environment: Environment,
@@ -482,44 +483,44 @@ def test_fork_transition_excess_blob_gas_at_blob_genesis(
     lambda fork: [
         pytest.param(
             SpecHelpers.get_min_excess_blobs_for_blob_gas_price(
-                fork=fork, blob_gas_price=2
+                fork=fork.transitions_from(), blob_gas_price=2
             )
             // (
-                fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP)
-                - fork.target_blobs_per_block(timestamp=FORK_TIMESTAMP)
+                fork.transitions_to().max_blobs_per_block()
+                - fork.transitions_to().target_blobs_per_block()
             )
             + 2,
-            fork.max_blobs_per_block(timestamp=0),
-            fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP),
+            fork.transitions_from().max_blobs_per_block(),
+            fork.transitions_to().max_blobs_per_block(),
             id="max_blobs_before_and_after",
         ),
         pytest.param(
             10,
             0,
-            fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP),
+            fork.transitions_to().max_blobs_per_block(),
             id="no_blobs_before_and_max_blobs_after",
         ),
         pytest.param(
             10,
-            fork.max_blobs_per_block(timestamp=0),
+            fork.transitions_from().max_blobs_per_block(),
             0,
             id="max_blobs_before_and_no_blobs_after",
         ),
         pytest.param(
             10,
-            fork.target_blobs_per_block(timestamp=0),
-            fork.target_blobs_per_block(timestamp=FORK_TIMESTAMP),
+            fork.transitions_from().target_blobs_per_block(),
+            fork.transitions_to().target_blobs_per_block(),
             id="target_blobs_before_and_after",
         ),
         pytest.param(
             10,
             1,
-            fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP),
+            fork.transitions_to().max_blobs_per_block(),
             id="single_blob_before_and_max_blobs_after",
         ),
         pytest.param(
             10,
-            fork.max_blobs_per_block(timestamp=0),
+            fork.transitions_from().max_blobs_per_block(),
             1,
             id="max_blobs_before_and_single_blob_after",
         ),

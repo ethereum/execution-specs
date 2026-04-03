@@ -54,7 +54,6 @@ export RPC_CHAIN_ID=<RPC chain ID>
 uv run execute remote \
   --gas-benchmark-values 60 \
   --fork Prague \
-  -m stateful \
   tests/benchmark/stateful/bloatnet/depth_benchmarks/test_deep_branch.py
 ```
 

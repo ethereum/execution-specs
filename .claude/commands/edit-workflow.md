@@ -15,4 +15,4 @@ uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
 ## Validation
 
-Run `uvx tox -e static` before committing — this runs `actionlint` to validate YAML syntax and structure.
+Run `just lint-actions` before committing to validate YAML syntax and structure.

@@ -232,6 +232,7 @@ def get_boundary_scenarios(fork: Fork) -> Iterator[Any]:
     "parent_excess_blobs,block_base_fee_per_gas_delta",
     get_boundary_scenarios,
 )
+@pytest.mark.eels_base_coverage
 def test_reserve_price_boundary(
     blockchain_test: BlockchainTestFiller,
     env: Environment,
