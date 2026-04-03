@@ -439,16 +439,10 @@ class TransitionTool(EthereumCLI):
                     diff_path.write_text(
                         diff.model_dump_json(**model_dump_config)
                     )
-                args.extend(
-                    ["--input.state-diff", str(diff_path)]
-                )
-            args.extend(
-                ["--output.state-diff", output_paths["state_diff"]]
-            )
+                args.extend(["--input.state-diff", str(diff_path)])
+            args.extend(["--output.state-diff", output_paths["state_diff"]])
             if self.state_db_root is not None and len(self._state_diffs) == 0:
-                args.extend(
-                    ["--input.state-db-root", self.state_db_root]
-                )
+                args.extend(["--input.state-db-root", self.state_db_root])
         else:
             args.extend(
                 [
@@ -524,9 +518,7 @@ class TransitionTool(EthereumCLI):
         if result.returncode != 0:
             raise Exception("failed to evaluate: " + result.stderr.decode())
 
-        alloc_filename = (
-            "state-diff.json" if use_state_db else "alloc.json"
-        )
+        alloc_filename = "state-diff.json" if use_state_db else "alloc.json"
         output = TransitionToolOutput.model_validate_files(
             temp_dir_path / "output",
             alloc_filename=alloc_filename,

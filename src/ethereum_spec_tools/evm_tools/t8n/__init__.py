@@ -296,9 +296,7 @@ class T8N(Load):
             self.options.input_state_diff is not None
             and self.options.input_state_db is None
         ):
-            raise ValueError(
-                "--input.state-diff requires --input.state-db."
-            )
+            raise ValueError("--input.state-diff requires --input.state-db.")
 
         if self.options.input_state_db is not None:
             raise NotImplementedError(

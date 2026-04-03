@@ -1864,9 +1864,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                             # accounts modified during execution.
                             fixture.post_state_diff = fixture.post_state
                         else:
-                            group = session.get_pre_alloc_group(
-                                pre_alloc_hash
-                            )
+                            group = session.get_pre_alloc_group(pre_alloc_hash)
                             fixture.post_state_diff = (
                                 calculate_post_state_diff(
                                     fixture.post_state, group.pre
