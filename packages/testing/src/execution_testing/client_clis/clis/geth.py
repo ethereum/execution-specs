@@ -17,6 +17,7 @@ from execution_testing.exceptions import (
     TransactionException,
 )
 from execution_testing.fixtures import (
+    BlockchainEngineFixture,
     BlockchainFixture,
     FixtureFormat,
     StateFixture,
@@ -300,7 +301,7 @@ class GethTransitionTool(GethEvm, TransitionTool):
 class GethFixtureConsumer(
     GethEvm,
     FixtureConsumerTool,
-    fixture_formats=[StateFixture, BlockchainFixture],
+    fixture_formats=[StateFixture, BlockchainFixture, BlockchainEngineFixture],
 ):
     """Geth's implementation of the fixture consumer."""
 
@@ -355,6 +356,63 @@ class GethFixtureConsumer(
 
         if any(not test_result["pass"] for test_result in result_json):
             exception_text = "Blockchain test failed: \n" + "\n".join(
+                f"{test_result['name']}: " + test_result["error"]
+                for test_result in result_json
+                if not test_result["pass"]
+            )
+            raise Exception(exception_text)
+
+    def consume_engine_test(
+        self,
+        fixture_path: Path,
+        fixture_name: Optional[str] = None,
+        debug_output_path: Optional[Path] = None,
+    ) -> None:
+        """
+        Consume a single engine test.
+
+        The `evm enginetest` command takes the `--run` argument which can
+        be used to select a specific fixture from the fixture file.
+        """
+        subcommand = "enginetest"
+        global_options = []
+        subcommand_options = []
+        if debug_output_path:
+            global_options += ["--verbosity", "100"]
+            subcommand_options += ["--trace"]
+
+        if fixture_name:
+            subcommand_options += ["--run", re.escape(fixture_name)]
+
+        command = (
+            [str(self.binary)]
+            + global_options
+            + [subcommand]
+            + subcommand_options
+            + [str(fixture_path)]
+        )
+
+        result = self._run_command(command)
+
+        if debug_output_path:
+            self._consume_debug_dump(
+                command, result, fixture_path, debug_output_path
+            )
+
+        if result.returncode != 0:
+            raise Exception(
+                f"Unexpected exit code:\n{' '.join(command)}\n\n"
+                f"Error:\n{result.stderr}"
+            )
+
+        result_json = json.loads(result.stdout)
+        if not isinstance(result_json, list):
+            raise Exception(
+                f"Unexpected result from evm enginetest: {result_json}"
+            )
+
+        if any(not test_result["pass"] for test_result in result_json):
+            exception_text = "Engine test failed: \n" + "\n".join(
                 f"{test_result['name']}: " + test_result["error"]
                 for test_result in result_json
                 if not test_result["pass"]
@@ -462,6 +520,12 @@ class GethFixtureConsumer(
         """
         if fixture_format == BlockchainFixture:
             self.consume_blockchain_test(
+                fixture_path=fixture_path,
+                fixture_name=fixture_name,
+                debug_output_path=debug_output_path,
+            )
+        elif fixture_format == BlockchainEngineFixture:
+            self.consume_engine_test(
                 fixture_path=fixture_path,
                 fixture_name=fixture_name,
                 debug_output_path=debug_output_path,

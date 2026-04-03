@@ -23,6 +23,7 @@ from execution_testing.client_clis.fixture_consumer_tool import (
 )
 from execution_testing.fixtures import (
     BaseFixture,
+    BlockchainEngineFixture,
     BlockchainFixture,
     StateFixture,
 )
@@ -64,9 +65,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
         type=Path,
         default=[],
         help=(
-            "Path to a geth evm executable that provides `blocktest` or "
-            "`statetest`. Flag can be used multiple times to specify "
-            "multiple fixture consumer binaries."
+            "Path to a geth evm executable that provides `blocktest`, "
+            "`statetest`, or `enginetest`. Flag can be used multiple "
+            "times to specify multiple fixture consumer binaries."
         ),
     )
     consume_group.addoption(
@@ -94,6 +95,7 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
     config.supported_fixture_formats = [  # type: ignore[attr-defined]
         StateFixture,
         BlockchainFixture,
+        BlockchainEngineFixture,
     ]
     fixture_consumers = []
     for fixture_consumer_bin_path in config.getoption("fixture_consumer_bin"):
