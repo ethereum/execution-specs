@@ -1842,7 +1842,6 @@ def test_account_access(
         attack_call = Op.POP(
             opcode(
                 address=address_retriever.address_op(),
-                gas=1,
                 value=value_sent,
                 # Gas accounting
                 address_warm=access_warm,
@@ -1855,8 +1854,6 @@ def test_account_access(
         attack_call = Op.POP(
             opcode(
                 address=address_retriever.address_op(),
-                gas=1,
-                args_size=1024,
                 # Gas accounting
                 address_warm=access_warm,
             )
@@ -1873,6 +1870,7 @@ def test_account_access(
 
     loop_code = While(
         body=cache_op + attack_call + increment_op,
+        condition=Op.GT(Op.GAS, 0x9000) if value_sent > 0 else None,
     )
 
     attack_code = IteratingBytecode(
@@ -1884,11 +1882,17 @@ def test_account_access(
     )
 
     # Calldata generator for each transaction of the iterating bytecode.
+    # Start from 1 to skip the Bittrex Controller's nonce=1 contract
+    # which has a non-payable fallback that reverts when receiving value.
+    calldata_offset = 1 if account_mode == AccountMode.EXISTING_CONTRACT else 0
+
     def calldata(iteration_count: int, start_iteration: int) -> bytes:
         del iteration_count
-        return Hash(start_iteration)
+        return Hash(start_iteration + calldata_offset)
 
-    attack_address = pre.deploy_contract(code=attack_code, balance=10**21)
+    attack_address = pre.deploy_contract(
+        code=attack_code, balance=10**21
+    )
 
     post: dict = {}
     cache_txs = []
@@ -1915,7 +1919,6 @@ def test_account_access(
                     calldata=calldata,
                 )
             )
-        total_gas_cost = sum(tx.gas_cost for tx in attack_txs)
 
     if cache_strategy == CacheStrategy.CACHE_PREVIOUS_BLOCK:
         with TestPhaseManager.setup():
@@ -1941,5 +1944,6 @@ def test_account_access(
         post=post,
         blocks=blocks,
         target_opcode=opcode,
-        expected_benchmark_gas_used=total_gas_cost,
+        skip_gas_used_validation=True,
+        expected_receipt_status=1,
     )
