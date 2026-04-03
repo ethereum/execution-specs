@@ -14,6 +14,7 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    Bytecode,
     Op,
     Storage,
     Transaction,
@@ -29,7 +30,7 @@ pytestmark = pytest.mark.valid_from("Amsterdam")
 HISTORY_RET_OFFSET = 32
 
 
-def history_staticcall(query_block: int):
+def history_staticcall(query_block: int) -> Bytecode:
     """Return bytecode that queries the history contract for a block hash."""
     return Op.MSTORE(0, query_block) + Op.STATICCALL(
         Op.GAS,
