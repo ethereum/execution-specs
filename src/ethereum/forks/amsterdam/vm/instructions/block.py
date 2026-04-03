@@ -45,6 +45,15 @@ def block_hash(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
+    Raises
+    ------
+    :py:class:`~ethereum.forks.amsterdam.vm.exceptions.StackUnderflowError`
+        If `len(stack)` is less than `1`.
+    :py:class:`~ethereum.forks.amsterdam.vm.exceptions.OutOfGasError`
+        If `evm.gas_left` is less than the gas required for `BLOCKHASH`:
+        the base opcode cost, plus cold or warm history-slot access cost
+        for valid in-range queries.
+
     """
     # STACK
     block_number = Uint(pop(evm.stack))
