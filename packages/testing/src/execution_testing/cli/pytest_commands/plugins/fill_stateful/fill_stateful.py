@@ -30,10 +30,7 @@ from execution_testing.rpc.rpc_types import (
     PayloadAttributes,
     TransactionProtocol,
 )
-from execution_testing.test_types.phase_manager import (
-    TestPhase,
-    TestPhaseManager,
-)
+from execution_testing.test_types.phase_manager import TestPhase
 
 from ..shared.helpers import is_help_or_collectonly_mode
 
@@ -92,7 +89,7 @@ class RecordingTestingRPC:
 
         self.captured.append(
             CapturedPayload(
-                phase=TestPhaseManager.get_current_phase(),
+                phase=self._resolve_phase(transactions),
                 response=response,
                 payload_attributes=payload_attributes,
                 new_payload_version=np_version,
@@ -100,6 +97,29 @@ class RecordingTestingRPC:
             )
         )
         return response
+
+    @staticmethod
+    def _resolve_phase(
+        transactions: Sequence[TransactionProtocol] | None,
+    ) -> TestPhase | None:
+        """
+        Derive the block phase from transactions.
+
+        Each transaction records its ``test_phase`` at creation time
+        (inside a ``TestPhaseManager`` context manager).  Use that
+        stored value so the phase is correct even when the actual RPC
+        call happens outside the original context manager.
+
+        Returns ``None`` when transactions are unavailable, carry no
+        phase, or contain mixed phases.  A ``None`` phase is treated
+        as execution by the fixture collector.
+        """
+        if transactions:
+            phases = {getattr(tx, "test_phase", None) for tx in transactions}
+            phases.discard(None)
+            if len(phases) == 1:
+                return phases.pop()
+        return None
 
     def clear(self) -> None:
         """Clear captured payloads between tests."""
