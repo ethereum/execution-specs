@@ -1332,7 +1332,7 @@ def t8n(
         session_t8n.remove_cache()
     # Reset the traces and per-block state-diffs
     session_t8n.reset_traces()
-    session_t8n._state_diffs = [] if session_t8n.state_db_path else None
+    session_t8n.reset_state_diffs()
     session_t8n.call_counter = 0
     session_t8n.debug_dump_dir = dump_dir_parameter_level
     # TODO: Configure the transition tool to count opcodes only when required.
@@ -1719,7 +1719,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
             __is_base_test_wrapper__ = True
 
             def __init__(self, *args: Any, **kwargs: Any) -> None:
-                if t8n.state_db_path is not None:
+                if t8n.use_state_db:
                     # With state-db, the pre-state is in the DB,
                     # not in the test's pre allocation.
                     kwargs["pre"] = pre.__class__(
@@ -1853,7 +1853,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     # of the spec.
                     assert isinstance(fixture, BlockchainEngineXFixture)
 
-                    if t8n.state_db_path is not None:
+                    if t8n.use_state_db:
                         assert t8n.state_db_root is not None
                         fixture.pre_hash = t8n.state_db_root
                     else:
@@ -1863,7 +1863,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                         hasattr(fixture, "post_state")
                         and fixture.post_state is not None
                     ):
-                        if t8n.state_db_path is not None:
+                        if t8n.use_state_db:
                             # In state-db mode, post_state contains only
                             # accounts modified during execution.
                             fixture.post_state_diff = fixture.post_state

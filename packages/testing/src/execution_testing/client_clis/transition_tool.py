@@ -45,7 +45,6 @@ from execution_testing.test_types import Alloc, Environment, Transaction
 
 from .cli_types import (
     LazyAlloc,
-    LazyAllocStr,
     OpcodeCount,
     Traces,
     TransactionReceipt,
@@ -195,7 +194,7 @@ class TransitionTool(EthereumCLI):
     opcode_count: OpcodeCount | None = None
     state_db_path: Path | None = None
     state_db_root: str | None = None
-    _state_diffs: list[LazyAlloc] | None = None
+    _state_diff_jsons: list[str] | None = None
 
     supports_opcode_count: ClassVar[bool] = False
     supports_xdist: ClassVar[bool] = True
@@ -242,6 +241,15 @@ class TransitionTool(EthereumCLI):
     def reset_traces(self) -> None:
         """Reset the internal trace storage for a new test to begin."""
         self.traces = []
+
+    @property
+    def use_state_db(self) -> bool:
+        """Return whether state-db mode is active."""
+        return self.state_db_path is not None
+
+    def reset_state_diffs(self) -> None:
+        """Reset per-block state-diffs for a new test."""
+        self._state_diff_jsons = [] if self.use_state_db else None
 
     def append_traces(self, new_traces: Traces) -> None:
         """
@@ -387,12 +395,11 @@ class TransitionTool(EthereumCLI):
             temp_dir_path / "input", **model_dump_config
         )
 
-        use_state_db = self.state_db_path is not None
 
         output_paths = {
             "result": os.path.join("output", "result.json"),
         }
-        if use_state_db:
+        if self.use_state_db:
             output_paths["state_diff"] = os.path.join(
                 "output", "state-diff.json"
             )
@@ -429,19 +436,15 @@ class TransitionTool(EthereumCLI):
             str(t8n_data.chain_id),
         ]
 
-        if use_state_db:
+        if self.use_state_db:
             args.extend(["--input.state-db", str(self.state_db_path)])
-            for i, diff in enumerate(self._state_diffs or []):
+            assert self._state_diff_jsons is not None
+            for i, diff_json in enumerate(self._state_diff_jsons):
                 diff_path = temp_dir_path / "input" / f"state-diff-{i}.json"
-                if isinstance(diff, LazyAllocStr):
-                    diff_path.write_text(diff.raw)
-                else:
-                    diff_path.write_text(
-                        diff.get().model_dump_json(**model_dump_config)
-                    )
+                diff_path.write_text(diff_json)
                 args.extend(["--input.state-diff", str(diff_path)])
             args.extend(["--output.state-diff", output_paths["state_diff"]])
-            if self.state_db_root is not None and not self._state_diffs:
+            if self.state_db_root and not self._state_diff_jsons:
                 args.extend(["--input.state-db-root", self.state_db_root])
         else:
             args.extend(
@@ -518,16 +521,16 @@ class TransitionTool(EthereumCLI):
         if result.returncode != 0:
             raise Exception("failed to evaluate: " + result.stderr.decode())
 
-        alloc_filename = "state-diff.json" if use_state_db else "alloc.json"
+        alloc_filename = "state-diff.json" if self.use_state_db else "alloc.json"
         output = TransitionToolOutput.model_validate_files(
             temp_dir_path / "output",
             alloc_filename=alloc_filename,
             context={"exception_mapper": self.exception_mapper},
         )
-        if use_state_db:
-            if self._state_diffs is None:
-                self._state_diffs = []
-            self._state_diffs.append(output.alloc)
+        if self.use_state_db:
+            assert self._state_diff_jsons is not None
+            diff_raw = (temp_dir_path / "output" / alloc_filename).read_text()
+            self._state_diff_jsons.append(diff_raw)
         if self.supports_opcode_count and self.opcode_count is not None:
             opcode_count_file_path = Path(temp_dir.name) / "opcodes.json"
             if opcode_count_file_path.exists():
