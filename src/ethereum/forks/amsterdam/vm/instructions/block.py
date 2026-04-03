@@ -13,9 +13,23 @@ Implementations of the EVM block instructions.
 
 from ethereum_types.numeric import U256, Uint
 
+from ...utils.hexadecimal import hex_to_address
+
+from ...state_tracker import get_storage
 from .. import Evm
-from ..gas import GAS_BASE, GAS_BLOCK_HASH, charge_gas
+from ..gas import (
+    GAS_BASE,
+    GAS_COLD_STORAGE_ACCESS,
+    GAS_WARM_ACCESS,
+    charge_gas,
+)
 from ..stack import pop, push
+
+HISTORY_STORAGE_ADDRESS = hex_to_address(
+    "0x0000F90827F1C53a10cb7A02335B175320002935"
+)
+HISTORY_SERVE_WINDOW = Uint(8191)
+BLOCKHASH_SERVE_WINDOW = Uint(256)
 
 
 def block_hash(evm: Evm) -> None:
@@ -23,42 +37,47 @@ def block_hash(evm: Evm) -> None:
     Push the hash of one of the 256 most recent complete blocks onto the
     stack. The block number to hash is present at the top of the stack.
 
+    The hash is read from the history storage contract using SLOAD
+    semantics for gas accounting and storage slot warming.
+
     Parameters
     ----------
     evm :
         The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.forks.amsterdam.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.forks.amsterdam.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `20`.
 
     """
     # STACK
     block_number = Uint(pop(evm.stack))
 
     # GAS
-    charge_gas(evm, GAS_BLOCK_HASH)
+    storage_slot = U256(block_number % HISTORY_SERVE_WINDOW)
+    storage_key = storage_slot.to_be_bytes32()
+    if (
+        HISTORY_STORAGE_ADDRESS,
+        storage_key,
+    ) in evm.accessed_storage_keys:
+        charge_gas(evm, GAS_WARM_ACCESS)
+    else:
+        evm.accessed_storage_keys.add((HISTORY_STORAGE_ADDRESS, storage_key))
+        charge_gas(evm, GAS_COLD_STORAGE_ACCESS)
 
     # OPERATION
-    max_block_number = block_number + Uint(256)
     current_block_number = evm.message.block_env.number
+    max_block_number = block_number + BLOCKHASH_SERVE_WINDOW
     if (
         current_block_number <= block_number
         or current_block_number > max_block_number
     ):
-        # Default hash to 0, if the block of interest is not yet on the chain
-        # (including the block which has the current executing transaction),
-        # or if the block's age is more than 256.
-        current_block_hash = b"\x00"
+        hash_value = U256(0)
     else:
-        current_block_hash = evm.message.block_env.block_hashes[
-            -(current_block_number - block_number)
-        ]
+        tx_state = evm.message.tx_env.state
+        hash_value = get_storage(
+            tx_state,
+            HISTORY_STORAGE_ADDRESS,
+            storage_key,
+        )
 
-    push(evm.stack, U256.from_be_bytes(current_block_hash))
+    push(evm.stack, hash_value)
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
