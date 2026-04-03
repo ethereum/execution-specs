@@ -1890,9 +1890,7 @@ def test_account_access(
         del iteration_count
         return Hash(start_iteration + calldata_offset)
 
-    attack_address = pre.deploy_contract(
-        code=attack_code, balance=10**21
-    )
+    attack_address = pre.deploy_contract(code=attack_code, balance=10**21)
 
     post: dict = {}
     cache_txs = []
