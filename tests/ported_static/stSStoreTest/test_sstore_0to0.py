@@ -179,7 +179,7 @@ def test_sstore_0to0(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=10000000,
+        gas_limit=100000000,
     )
 
     pre[sender] = Account(balance=0xE8D4A51000)
@@ -511,7 +511,7 @@ def test_sstore_0to0(
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
     ]
-    tx_gas = [1000000, 400000]
+    tx_gas = [20000000, 400000]
     tx_value = [1]
 
     tx = Transaction(
