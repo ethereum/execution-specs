@@ -89,12 +89,12 @@ from execution_testing.test_types.block_access_list import (
     BlockAccessList,
     BlockAccessListExpectation,
 )
+from execution_testing.test_types.chain_config_types import ChainConfigDefaults
 from execution_testing.test_types.execution_witness import (
     ExecutionWitnessCodesExpectation,
     ExecutionWitnessHeadersExpectation,
     ExecutionWitnessStateExpectation,
 )
-from execution_testing.test_types.chain_config_types import ChainConfigDefaults
 
 from .base import BaseTest, FillResult, OpMode, verify_result
 from .debugging import print_traces
@@ -989,7 +989,7 @@ class BlockchainTest(BaseTest):
             effective_codes_expectation = (
                 with_execution_witness_implicit_codes(
                     expectation=block.expected_execution_witness_codes,
-                    fork=self.fork,
+                    fork=fork,
                     alloc=previous_alloc,
                     block_number=env.number,
                     timestamp=env.timestamp,
@@ -1008,7 +1008,7 @@ class BlockchainTest(BaseTest):
             headers_expectation.verify_against(
                 execution_witness,
                 parent_hash=header.parent_hash,
-                fork=self.fork,
+                fork=fork,
             )
             execution_witness = headers_expectation.modify_if_invalid_test(
                 execution_witness
@@ -1054,7 +1054,7 @@ class BlockchainTest(BaseTest):
                 )
             canonical_successful_validation = (
                 deserialize_amsterdam_stateless_output_success(
-                    fork=self.fork,
+                    fork=fork,
                     block_number=int(env.number),
                     timestamp=int(env.timestamp),
                     stateless_output_bytes=stateless_output_bytes,
@@ -1073,7 +1073,7 @@ class BlockchainTest(BaseTest):
                 stateless_output_bytes,
                 successful_validation,
             ) = rerun_amsterdam_stateless_guest_with_witness(
-                fork=self.fork,
+                fork=fork,
                 block_number=int(env.number),
                 timestamp=int(env.timestamp),
                 original_stateless_input_bytes=stateless_input_bytes,

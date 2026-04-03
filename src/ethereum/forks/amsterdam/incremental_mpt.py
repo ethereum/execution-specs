@@ -449,6 +449,8 @@ def mpt_set(
         assert get_storage_root is not None
         address = Address(key)
         encoded_value = encode_node(value, get_storage_root(address))
+    elif value is None:
+        raise AssertionError("cannot encode `None`")
     else:
         encoded_value = encode_node(value)
 
