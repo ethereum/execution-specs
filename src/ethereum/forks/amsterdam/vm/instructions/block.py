@@ -13,12 +13,12 @@ Implementations of the EVM block instructions.
 
 from ethereum_types.numeric import U256, Uint
 
-from ...utils.hexadecimal import hex_to_address
-
 from ...state_tracker import get_storage
+from ...utils.hexadecimal import hex_to_address
 from .. import Evm
 from ..gas import (
     GAS_BASE,
+    GAS_BLOCK_HASH,
     GAS_COLD_STORAGE_ACCESS,
     GAS_WARM_ACCESS,
     charge_gas,
@@ -50,6 +50,19 @@ def block_hash(evm: Evm) -> None:
     block_number = Uint(pop(evm.stack))
 
     # GAS
+    charge_gas(evm, GAS_BLOCK_HASH)
+
+    # OPERATION
+    current_block_number = evm.message.block_env.number
+    max_block_number = block_number + BLOCKHASH_SERVE_WINDOW
+    if (
+        current_block_number <= block_number
+        or current_block_number > max_block_number
+    ):
+        push(evm.stack, U256(0))
+        evm.pc += Uint(1)
+        return
+
     storage_slot = U256(block_number % HISTORY_SERVE_WINDOW)
     storage_key = storage_slot.to_be_bytes32()
     if (
@@ -61,21 +74,12 @@ def block_hash(evm: Evm) -> None:
         evm.accessed_storage_keys.add((HISTORY_STORAGE_ADDRESS, storage_key))
         charge_gas(evm, GAS_COLD_STORAGE_ACCESS)
 
-    # OPERATION
-    current_block_number = evm.message.block_env.number
-    max_block_number = block_number + BLOCKHASH_SERVE_WINDOW
-    if (
-        current_block_number <= block_number
-        or current_block_number > max_block_number
-    ):
-        hash_value = U256(0)
-    else:
-        tx_state = evm.message.tx_env.state
-        hash_value = get_storage(
-            tx_state,
-            HISTORY_STORAGE_ADDRESS,
-            storage_key,
-        )
+    tx_state = evm.message.tx_env.state
+    hash_value = get_storage(
+        tx_state,
+        HISTORY_STORAGE_ADDRESS,
+        storage_key,
+    )
 
     push(evm.stack, hash_value)
 
