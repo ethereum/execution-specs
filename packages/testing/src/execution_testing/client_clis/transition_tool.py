@@ -431,17 +431,17 @@ class TransitionTool(EthereumCLI):
 
         if use_state_db:
             args.extend(["--input.state-db", str(self.state_db_path)])
-            for i, diff in enumerate(self._state_diffs):
+            for i, diff in enumerate(self._state_diffs or []):
                 diff_path = temp_dir_path / "input" / f"state-diff-{i}.json"
                 if isinstance(diff, LazyAllocStr):
                     diff_path.write_text(diff.raw)
                 else:
                     diff_path.write_text(
-                        diff.model_dump_json(**model_dump_config)
+                        diff.get().model_dump_json(**model_dump_config)
                     )
                 args.extend(["--input.state-diff", str(diff_path)])
             args.extend(["--output.state-diff", output_paths["state_diff"]])
-            if self.state_db_root is not None and len(self._state_diffs) == 0:
+            if self.state_db_root is not None and not self._state_diffs:
                 args.extend(["--input.state-db-root", self.state_db_root])
         else:
             args.extend(
@@ -525,6 +525,8 @@ class TransitionTool(EthereumCLI):
             context={"exception_mapper": self.exception_mapper},
         )
         if use_state_db:
+            if self._state_diffs is None:
+                self._state_diffs = []
             self._state_diffs.append(output.alloc)
         if self.supports_opcode_count and self.opcode_count is not None:
             opcode_count_file_path = Path(temp_dir.name) / "opcodes.json"

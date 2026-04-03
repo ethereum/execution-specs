@@ -1722,7 +1722,10 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 if t8n.state_db_path is not None:
                     # With state-db, the pre-state is in the DB,
                     # not in the test's pre allocation.
-                    kwargs["pre"] = pre.__class__()
+                    kwargs["pre"] = pre.__class__(
+                        fork=pre._fork,  # type: ignore[arg-type]
+                        flags=pre._flags,
+                    )
                 elif "pre" not in kwargs:
                     kwargs["pre"] = pre
                 if "expected_benchmark_gas_used" not in kwargs:
@@ -1851,6 +1854,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     assert isinstance(fixture, BlockchainEngineXFixture)
 
                     if t8n.state_db_path is not None:
+                        assert t8n.state_db_root is not None
                         fixture.pre_hash = t8n.state_db_root
                     else:
                         fixture.pre_hash = pre_alloc_hash
