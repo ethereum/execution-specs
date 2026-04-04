@@ -138,6 +138,8 @@ def test_sstore_change_from_external_call_in_init_code(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    state_gas_headroom,
+    block_gas_limit,
     d: int,
     g: int,
     v: int,
@@ -156,7 +158,7 @@ def test_sstore_change_from_external_call_in_init_code(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=100000000,
+        gas_limit=block_gas_limit(10000000),
     )
 
     pre[sender] = Account(balance=0xE8D4A51000)
@@ -542,7 +544,7 @@ def test_sstore_change_from_external_call_in_init_code(
         )
         + Op.STOP,
     ]
-    tx_gas = [20000000]
+    tx_gas = [state_gas_headroom(200000)]
 
     tx = Transaction(
         sender=sender,

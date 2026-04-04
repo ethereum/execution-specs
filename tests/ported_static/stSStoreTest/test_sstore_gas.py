@@ -32,6 +32,7 @@ def test_sstore_gas(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    state_gas_headroom,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
@@ -174,7 +175,7 @@ def test_sstore_gas(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=20000000,
+        gas_limit=state_gas_headroom(16777216),
         nonce=1,
     )
 
