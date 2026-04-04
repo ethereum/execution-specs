@@ -23,7 +23,7 @@ fix:
 
 # Run all static checks (spellcheck, lint, format, mypy, ...)
 [group('static analysis'), parallel]
-static: typecheck lint-spec spellcheck lint-actions lock-check format-check lint
+static: typecheck lint-spec spellcheck lint-actions lock-check format-check lint deadcode
 
 # Check spelling
 [group('static analysis')]
@@ -50,6 +50,11 @@ whitelist *words:
 [group('static analysis')]
 lint *args:
     uv run ruff check "$@"
+
+# Check for dead code with vulture
+[group('static analysis')]
+deadcode:
+    uv run vulture src/ vulture_whitelist.py
 
 # Check formatting with ruff
 [group('static analysis')]

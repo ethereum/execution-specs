@@ -138,6 +138,36 @@ CommentReplaceCommand.transform_module_impl
 
 _children  # unused attribute (src/ethereum_spec_tools/docc.py:751)
 
+# src/ethereum/forks/amsterdam/vm/__init__.py - dataclass field
+from ethereum.forks.amsterdam.vm import Message
+Message.is_create
+
+# src/ethereum_spec_tools/evm_tools/loaders/fixture_loader.py - abstract methods
+from ethereum_spec_tools.evm_tools.loaders.fixture_loader import BaseLoad
+BaseLoad.json_to_header
+BaseLoad.json_to_state
+BaseLoad.json_to_block
+json_data  # abstract method parameter used by concrete implementations
+
+# src/ethereum_spec_tools/evm_tools/loaders/fork_loader.py - internal attribute
+from ethereum_spec_tools.evm_tools.loaders.fork_loader import ForkLoad
+ForkLoad._forks
+
+# src/ethereum_spec_tools/lint/lints/patch_hygiene.py - discovered dynamically
+from ethereum_spec_tools.lint.lints.patch_hygiene import PatchHygiene
+PatchHygiene
+
+# src/ethereum_spec_tools/new_fork/codemod/constant.py - libcst visitor hooks
+SetConstantCommand.visit_AnnAssign_target
+SetConstantCommand.leave_AnnAssign_target
+SetConstantCommand.leave_AnnAssign
+
+# src/ethereum_spec_tools/new_fork/codemod/remove_docstring.py - codemod class
+from ethereum_spec_tools.new_fork.codemod.remove_docstring import (
+    RemoveDocstringCommand,
+)
+RemoveDocstringCommand
+
 # enginex/conftest.py - pytest fixtures (not direct calls)
 _configure_client_manager  # autouse fixture
 test_suite_name  # hive test suite name fixture
