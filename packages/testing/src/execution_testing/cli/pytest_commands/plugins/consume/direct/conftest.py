@@ -80,6 +80,18 @@ def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
             "consumer tool."
         ),
     )
+    consume_group.addoption(
+        "--type",
+        action="store",
+        dest="fixture_type",
+        type=str,
+        default=None,
+        choices=["state", "block", "engine", "all"],
+        help=(
+            "Fixture type to run. "
+            "One of: state, block, engine, all."
+        ),
+    )
     debug_group = parser.getgroup("debug", "Arguments defining debug behavior")
     debug_group.addoption(
         "--dump-dir",
@@ -92,11 +104,20 @@ def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
 
 
 def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
-    config.supported_fixture_formats = [  # type: ignore[attr-defined]
-        StateFixture,
-        BlockchainFixture,
-        BlockchainEngineFixture,
-    ]
+    fixture_type = config.getoption("fixture_type", None)
+    type_to_formats = {
+        "state": [StateFixture],
+        "block": [BlockchainFixture],
+        "engine": [BlockchainEngineFixture],
+    }
+    if fixture_type and fixture_type != "all":
+        config.supported_fixture_formats = type_to_formats[fixture_type]  # type: ignore[attr-defined]
+    else:
+        config.supported_fixture_formats = [  # type: ignore[attr-defined]
+            StateFixture,
+            BlockchainFixture,
+            BlockchainEngineFixture,
+        ]
     fixture_consumers = []
     for fixture_consumer_bin_path in config.getoption("fixture_consumer_bin"):
         fixture_consumers.append(
