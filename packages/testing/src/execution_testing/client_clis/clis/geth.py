@@ -306,6 +306,65 @@ class GethFixtureConsumer(
 ):
     """Geth's implementation of the fixture consumer."""
 
+    _block_dir_cache: Dict[str, Dict[str, Dict[str, Any]]] = {}
+
+    def _get_blockchain_test_dir_results(
+        self,
+        fixture_path: Path,
+        debug_output_path: Optional[Path] = None,
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Run blocktest once per fixture directory and cache all results by name.
+        """
+        dir_path = fixture_path if fixture_path.is_dir() else fixture_path.parent
+        cache_key = str(dir_path)
+
+        if cache_key not in self._block_dir_cache:
+            subcommand = "blocktest"
+            workers = getattr(self, "workers", 1)
+            global_options: List[str] = []
+            subcommand_options: List[str] = ["--workers", str(workers)]
+            if debug_output_path:
+                global_options += ["--verbosity", "100"]
+                subcommand_options += ["--trace"]
+
+            command = (
+                [str(self.binary)]
+                + global_options
+                + [subcommand]
+                + subcommand_options
+                + [str(dir_path)]
+            )
+            result = self._run_command(command)
+
+            if debug_output_path:
+                self._consume_debug_dump(
+                    command, result, fixture_path, debug_output_path
+                )
+
+            if result.returncode != 0:
+                raise Exception(
+                    f"Unexpected exit code:\n{' '.join(command)}\n\n"
+                    f"Error:\n{result.stderr}"
+                )
+
+            result_json = json.loads(result.stdout)
+            if not isinstance(result_json, list):
+                raise Exception(
+                    f"Unexpected result from evm blocktest: {result_json}"
+                )
+
+            indexed: Dict[str, Dict[str, Any]] = {}
+            for r in result_json:
+                validated = FixtureTestResult.model_validate(r).model_dump(
+                    by_alias=True
+                )
+                indexed[validated["name"]] = validated
+
+            self._block_dir_cache[cache_key] = indexed
+
+        return self._block_dir_cache[cache_key]
+
     def consume_blockchain_test(
         self,
         fixture_path: Path,
@@ -315,53 +374,30 @@ class GethFixtureConsumer(
         """
         Consume a single blockchain test.
 
-        The `evm blocktest` command takes the `--run` argument which can be
-        used to select a specific fixture from the fixture file when executing.
+        Uses directory-level cache: one subprocess for all tests in the
+        parent directory.
         """
-        subcommand = "blocktest"
-        global_options = []
-        subcommand_options = []
-        if debug_output_path:
-            global_options += ["--verbosity", "100"]
-            subcommand_options += ["--trace"]
-
-        if fixture_name:
-            subcommand_options += ["--run", re.escape(fixture_name)]
-
-        command = (
-            [str(self.binary)]
-            + global_options
-            + [subcommand]
-            + subcommand_options
-            + [str(fixture_path)]
+        dir_results = self._get_blockchain_test_dir_results(
+            fixture_path=fixture_path,
+            debug_output_path=debug_output_path,
         )
-
-        result = self._run_command(command)
-
-        if debug_output_path:
-            self._consume_debug_dump(
-                command, result, fixture_path, debug_output_path
+        if fixture_name:
+            assert fixture_name in dir_results, (
+                f"Test result for {fixture_name} missing"
             )
-
-        if result.returncode != 0:
-            raise Exception(
-                f"Unexpected exit code:\n{' '.join(command)}\n\n"
-                f"Error:\n{result.stderr}"
+            result = dir_results[fixture_name]
+            assert result["pass"], (
+                f"Blockchain test failed: {result['error']}"
             )
-
-        result_json = json.loads(result.stdout)
-        if not isinstance(result_json, list):
-            raise Exception(
-                f"Unexpected result from evm blocktest: {result_json}"
-            )
-
-        if any(not test_result["pass"] for test_result in result_json):
-            exception_text = "Blockchain test failed: \n" + "\n".join(
-                f"{test_result['name']}: " + test_result["error"]
-                for test_result in result_json
-                if not test_result["pass"]
-            )
-            raise Exception(exception_text)
+        else:
+            failures = [
+                r for r in dir_results.values() if not r["pass"]
+            ]
+            if failures:
+                exception_text = "Blockchain test failed: \n" + "\n".join(
+                    f"{r['name']}: {r['error']}" for r in failures
+                )
+                raise Exception(exception_text)
 
     @cache  # noqa
     def consume_engine_test_file(
