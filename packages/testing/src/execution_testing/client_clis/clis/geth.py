@@ -399,53 +399,64 @@ class GethFixtureConsumer(
                 )
                 raise Exception(exception_text)
 
-    @cache  # noqa
-    def consume_engine_test_file(
+    _engine_dir_cache: Dict[str, Dict[str, Dict[str, Any]]] = {}
+
+    def _get_engine_test_dir_results(
         self,
         fixture_path: Path,
         debug_output_path: Optional[Path] = None,
-    ) -> List[Dict[str, Any]]:
+    ) -> Dict[str, Dict[str, Any]]:
         """
-        Consume an entire engine test file.
-
-        The `evm enginetest` command executes all tests in a file at once.
-        This function is cached so that each file is only executed once;
-        `consume_engine_test` selects individual results from the cache.
+        Run enginetest once per fixture directory and cache all results by name.
         """
-        subcommand = "enginetest"
-        global_options: List[str] = []
-        subcommand_options: List[str] = []
-        if debug_output_path:
-            global_options += ["--verbosity", "100"]
-            subcommand_options += ["--trace"]
+        dir_path = fixture_path if fixture_path.is_dir() else fixture_path.parent
+        cache_key = str(dir_path)
 
-        command = (
-            [str(self.binary)]
-            + global_options
-            + [subcommand]
-            + subcommand_options
-            + [str(fixture_path)]
-        )
+        if cache_key not in self._engine_dir_cache:
+            subcommand = "enginetest"
+            workers = getattr(self, "workers", 1)
+            global_options: List[str] = []
+            subcommand_options: List[str] = ["--workers", str(workers)]
+            if debug_output_path:
+                global_options += ["--verbosity", "100"]
+                subcommand_options += ["--trace"]
 
-        result = self._run_command(command)
-
-        if debug_output_path:
-            self._consume_debug_dump(
-                command, result, fixture_path, debug_output_path
+            command = (
+                [str(self.binary)]
+                + global_options
+                + [subcommand]
+                + subcommand_options
+                + [str(dir_path)]
             )
+            result = self._run_command(command)
 
-        if result.returncode != 0:
-            raise Exception(
-                f"Unexpected exit code:\n{' '.join(command)}\n\n"
-                f"Error:\n{result.stderr}"
-            )
+            if debug_output_path:
+                self._consume_debug_dump(
+                    command, result, fixture_path, debug_output_path
+                )
 
-        result_json = json.loads(result.stdout)
-        if not isinstance(result_json, list):
-            raise Exception(
-                f"Unexpected result from evm enginetest: {result_json}"
-            )
-        return result_json
+            if result.returncode != 0:
+                raise Exception(
+                    f"Unexpected exit code:\n{' '.join(command)}\n\n"
+                    f"Error:\n{result.stderr}"
+                )
+
+            result_json = json.loads(result.stdout)
+            if not isinstance(result_json, list):
+                raise Exception(
+                    f"Unexpected result from evm enginetest: {result_json}"
+                )
+
+            indexed: Dict[str, Dict[str, Any]] = {}
+            for r in result_json:
+                validated = FixtureTestResult.model_validate(r).model_dump(
+                    by_alias=True
+                )
+                indexed[validated["name"]] = validated
+
+            self._engine_dir_cache[cache_key] = indexed
+
+        return self._engine_dir_cache[cache_key]
 
     def consume_engine_test(
         self,
@@ -456,35 +467,28 @@ class GethFixtureConsumer(
         """
         Consume a single engine test.
 
-        Uses the cached result from `consume_engine_test_file` in order
-        to only call the command once per file and select individual
-        results from there.
+        Uses directory-level cache: one subprocess for all tests in the
+        parent directory.
         """
-        file_results = self.consume_engine_test_file(
+        dir_results = self._get_engine_test_dir_results(
             fixture_path=fixture_path,
             debug_output_path=debug_output_path,
         )
         if fixture_name:
-            test_result = [
-                test_result
-                for test_result in file_results
-                if test_result["name"] == fixture_name
-            ]
-            assert len(test_result) < 2, (
-                f"Multiple test results for {fixture_name}"
-            )
-            assert len(test_result) == 1, (
+            assert fixture_name in dir_results, (
                 f"Test result for {fixture_name} missing"
             )
-            assert test_result[0]["pass"], (
-                f"Engine test failed: {test_result[0]['error']}"
+            result = dir_results[fixture_name]
+            assert result["pass"], (
+                f"Engine test failed: {result['error']}"
             )
         else:
-            if any(not test_result["pass"] for test_result in file_results):
+            failures = [
+                r for r in dir_results.values() if not r["pass"]
+            ]
+            if failures:
                 exception_text = "Engine test failed: \n" + "\n".join(
-                    f"{test_result['name']}: " + test_result["error"]
-                    for test_result in file_results
-                    if not test_result["pass"]
+                    f"{r['name']}: {r['error']}" for r in failures
                 )
                 raise Exception(exception_text)
 
