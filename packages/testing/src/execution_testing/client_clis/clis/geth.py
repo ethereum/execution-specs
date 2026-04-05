@@ -472,7 +472,8 @@ class GethFixtureConsumer(
         if cache_key not in self._dir_cache:
             subcommand = "statetest"
             global_options: List[str] = []
-            subcommand_options: List[str] = ["--workers", "8"]
+            workers = getattr(self, "workers", 1)
+            subcommand_options: List[str] = ["--workers", str(workers)]
             if debug_output_path:
                 global_options += ["--verbosity", "100"]
                 subcommand_options += ["--trace"]

@@ -92,6 +92,14 @@ def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
             "One of: state, block, engine, all."
         ),
     )
+    consume_group.addoption(
+        "--bin-workers",
+        action="store",
+        dest="num_workers",
+        type=int,
+        default=1,
+        help="Number of parallel workers passed to the client binary's --workers flag.",
+    )
     debug_group = parser.getgroup("debug", "Arguments defining debug behavior")
     debug_group.addoption(
         "--dump-dir",
@@ -118,14 +126,15 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
             BlockchainFixture,
             BlockchainEngineFixture,
         ]
+    num_workers = config.getoption("num_workers", 1)
     fixture_consumers = []
     for fixture_consumer_bin_path in config.getoption("fixture_consumer_bin"):
-        fixture_consumers.append(
-            FixtureConsumerTool.from_binary_path(
-                binary_path=Path(fixture_consumer_bin_path),
-                trace=config.getoption("consumer_collect_traces"),
-            )
+        consumer = FixtureConsumerTool.from_binary_path(
+            binary_path=Path(fixture_consumer_bin_path),
+            trace=config.getoption("consumer_collect_traces"),
         )
+        consumer.workers = num_workers  # type: ignore[attr-defined]
+        fixture_consumers.append(consumer)
     if config.option.markers:
         return
     elif not fixture_consumers and config.option.collectonly:
