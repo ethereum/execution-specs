@@ -39,6 +39,31 @@ from execution_testing.vm import Opcode, Opcodes
 logger = get_logger(__name__)
 
 
+class FixtureTestResult(CamelModel):
+    """
+    Standard result from a client's fixture test runner (statetest, blocktest, enginetest).
+
+    All clients must output JSON matching this schema. Used by consume direct
+    to parse results uniformly across geth, erigon, besu, nethermind, reth,
+    revm, ethrex, and nimbus.
+    """
+
+    name: str
+    """Full fixture key as it appears in the JSON file."""
+
+    pass_field: bool = Field(..., alias="pass")
+    """Whether the test passed."""
+
+    fork: str
+    """Fork name (e.g. 'Prague', 'Cancun')."""
+
+    state_root: str = Field(default="", alias="stateRoot")
+    """Hex-encoded final state root. May be empty for engine/block tests."""
+
+    error: str = ""
+    """Error message on failure. Empty string on pass."""
+
+
 class TransactionExceptionWithMessage(
     ExceptionWithMessage[TransactionException]
 ):

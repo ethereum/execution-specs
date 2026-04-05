@@ -24,6 +24,7 @@ from execution_testing.fixtures import (
 )
 from execution_testing.forks import Fork
 
+from ..cli_types import FixtureTestResult
 from ..ethereum_cli import EthereumCLI
 from ..fixture_consumer_tool import FixtureConsumerTool
 from ..transition_tool import TransitionTool, dump_files_to_directory
@@ -362,27 +363,25 @@ class GethFixtureConsumer(
             )
             raise Exception(exception_text)
 
-    def consume_engine_test(
+    @cache  # noqa
+    def consume_engine_test_file(
         self,
         fixture_path: Path,
-        fixture_name: Optional[str] = None,
         debug_output_path: Optional[Path] = None,
-    ) -> None:
+    ) -> List[Dict[str, Any]]:
         """
-        Consume a single engine test.
+        Consume an entire engine test file.
 
-        The `evm enginetest` command takes the `--run` argument which can
-        be used to select a specific fixture from the fixture file.
+        The `evm enginetest` command executes all tests in a file at once.
+        This function is cached so that each file is only executed once;
+        `consume_engine_test` selects individual results from the cache.
         """
         subcommand = "enginetest"
-        global_options = []
-        subcommand_options = []
+        global_options: List[str] = []
+        subcommand_options: List[str] = []
         if debug_output_path:
             global_options += ["--verbosity", "100"]
             subcommand_options += ["--trace"]
-
-        if fixture_name:
-            subcommand_options += ["--run", re.escape(fixture_name)]
 
         command = (
             [str(self.binary)]
@@ -410,14 +409,48 @@ class GethFixtureConsumer(
             raise Exception(
                 f"Unexpected result from evm enginetest: {result_json}"
             )
+        return result_json
 
-        if any(not test_result["pass"] for test_result in result_json):
-            exception_text = "Engine test failed: \n" + "\n".join(
-                f"{test_result['name']}: " + test_result["error"]
-                for test_result in result_json
-                if not test_result["pass"]
+    def consume_engine_test(
+        self,
+        fixture_path: Path,
+        fixture_name: Optional[str] = None,
+        debug_output_path: Optional[Path] = None,
+    ) -> None:
+        """
+        Consume a single engine test.
+
+        Uses the cached result from `consume_engine_test_file` in order
+        to only call the command once per file and select individual
+        results from there.
+        """
+        file_results = self.consume_engine_test_file(
+            fixture_path=fixture_path,
+            debug_output_path=debug_output_path,
+        )
+        if fixture_name:
+            test_result = [
+                test_result
+                for test_result in file_results
+                if test_result["name"] == fixture_name
+            ]
+            assert len(test_result) < 2, (
+                f"Multiple test results for {fixture_name}"
             )
-            raise Exception(exception_text)
+            assert len(test_result) == 1, (
+                f"Test result for {fixture_name} missing"
+            )
+            assert test_result[0]["pass"], (
+                f"Engine test failed: {test_result[0]['error']}"
+            )
+        else:
+            if any(not test_result["pass"] for test_result in file_results):
+                exception_text = "Engine test failed: \n" + "\n".join(
+                    f"{test_result['name']}: " + test_result["error"]
+                    for test_result in file_results
+                    if not test_result["pass"]
+                )
+                raise Exception(exception_text)
 
     @cache  # noqa
     def consume_state_test_file(
@@ -465,7 +498,11 @@ class GethFixtureConsumer(
             raise Exception(
                 f"Unexpected result from evm statetest: {result_json}"
             )
-        return result_json
+        # Validate each result against the standard schema
+        return [
+            FixtureTestResult.model_validate(r).model_dump(by_alias=True)
+            for r in result_json
+        ]
 
     def consume_state_test(
         self,
