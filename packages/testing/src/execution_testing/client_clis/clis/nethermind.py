@@ -291,9 +291,11 @@ class NethtestFixtureConsumer(
             debug_output_path=debug_output_path,
         )
         if fixture_name:
-            assert fixture_name in dir_results, (
-                f"Test result for {fixture_name} missing"
-            )
+            if fixture_name not in dir_results:
+                raise Exception(
+                    f"{label} test result missing: {fixture_name} "
+                    f"(client may have skipped or crashed on this test)"
+                )
             result = dir_results[fixture_name]
             assert result["pass"], (
                 f"{label} test failed: {result['error']}"
