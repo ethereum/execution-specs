@@ -216,7 +216,14 @@ class EthereumCLI:
             f"Trying to match {binary_output} against this "
             f"pattern: {cls.detect_binary_pattern}"
         )
+        # Try matching each line (some binaries output extra info before version)
         match_result = cls.detect_binary_pattern.match(binary_output)
+        if match_result is None:
+            for line in binary_output.splitlines():
+                line = line.strip()
+                if line and cls.detect_binary_pattern.match(line):
+                    match_result = cls.detect_binary_pattern.match(line)
+                    break
         match_successful: bool = match_result is not None
 
         return match_successful
