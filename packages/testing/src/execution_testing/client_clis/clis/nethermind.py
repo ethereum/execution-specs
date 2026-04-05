@@ -15,11 +15,13 @@ from execution_testing.exceptions import (
     TransactionException,
 )
 from execution_testing.fixtures import (
+    BlockchainEngineFixture,
     BlockchainFixture,
     FixtureFormat,
     StateFixture,
 )
 
+from ..cli_types import FixtureTestResult
 from ..ethereum_cli import EthereumCLI
 from ..file_utils import dump_files_to_directory
 from ..fixture_consumer_tool import FixtureConsumerTool
@@ -106,161 +108,105 @@ class Nethtest(EthereumCLI):
 class NethtestFixtureConsumer(
     Nethtest,
     FixtureConsumerTool,
-    fixture_formats=[StateFixture, BlockchainFixture],
+    fixture_formats=[StateFixture, BlockchainFixture, BlockchainEngineFixture],
 ):
     """Nethermind implementation of the fixture consumer."""
 
-    def _build_command_with_options(
+    # Map fixture format to nethtest subcommand flags
+    _format_to_flags: Dict[type, List[str]] = {
+        StateFixture: ["--stateTest"],
+        BlockchainFixture: ["--blockTest"],
+        BlockchainEngineFixture: ["--engineTest"],
+    }
+
+    _dir_cache: Dict[str, Dict[str, Dict[str, Any]]] = {}
+
+    def _get_dir_results(
         self,
         fixture_format: FixtureFormat,
         fixture_path: Path,
-        fixture_name: Optional[str] = None,
         debug_output_path: Optional[Path] = None,
-    ) -> Tuple[str, ...]:
-        assert fixture_name, "Fixture name must be provided for nethtest."
-        command = [str(self.binary)]
-        if fixture_format is BlockchainFixture:
-            command += [
-                "--blockTest",
-                "--filter",
-                f"{re.escape(fixture_name)}",
-            ]
-        elif fixture_format is StateFixture:
-            # TODO: consider using `--filter` here to readily access traces
-            # from the output
-            pass  # no additional options needed
-        else:
-            raise Exception(
-                f"Fixture format {fixture_format.format_name} "
-                f"not supported by {self.binary}"
-            )
-        command += ["--input", str(fixture_path)]
-        if debug_output_path:
-            command += ["--trace"]
-        return tuple(command)
-
-    @cache  # noqa
-    def consume_state_test_file(
-        self,
-        fixture_path: Path,
-        command: Tuple[str, ...],
-        debug_output_path: Optional[Path] = None,
-    ) -> Tuple[List[Dict[str, Any]], str]:
+    ) -> Dict[str, Dict[str, Any]]:
         """
-        Consume an entire state test file.
-
-        The `evm statetest` will always execute all the tests contained in a
-        file without the possibility of selecting a single test, so this
-        function is cached in order to only call the command once and
-        `consume_state_test` can simply select the result that was requested.
+        Run nethtest once per fixture directory and cache all results
+        indexed by test name.
         """
-        del fixture_path
-        result = subprocess.run(
-            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-        )
+        dir_path = fixture_path if fixture_path.is_dir() else fixture_path.parent
+        flags = self._format_to_flags[type(fixture_format) if not isinstance(fixture_format, type) else fixture_format]
+        cache_key = f"{flags[0]}:{dir_path}"
 
-        if debug_output_path:
-            self._consume_debug_dump(command, result, debug_output_path)
+        if cache_key not in self._dir_cache:
+            workers = getattr(self, "workers", 1)
+            command = [str(self.binary)] + flags
+            command += ["--workers", str(workers)]
+            command += ["--input", str(dir_path)]
+            if debug_output_path:
+                command += ["--trace"]
 
-        if result.returncode != 0:
-            raise Exception(
-                f"Unexpected exit code:\n{' '.join(command)}\n\n"
-                f"Error:\n{result.stderr}"
-            )
+            result = self._run_command(command)
 
-        try:
-            result_json = json.loads(result.stdout)
-        except json.JSONDecodeError as e:
-            raise Exception(
-                f"Failed to parse JSON output on stdout from nethtest:\n"
-                f"{result.stdout}"
-            ) from e
+            if debug_output_path:
+                self._consume_debug_dump(command, result, debug_output_path)
 
-        if not isinstance(result_json, list):
-            raise Exception(
-                f"Unexpected result from evm statetest: {result_json}"
-            )
-        return result_json, result.stderr
+            if result.returncode != 0:
+                raise Exception(
+                    f"Unexpected exit code:\n{' '.join(command)}\n\n"
+                    f"Error:\n{result.stderr}"
+                )
 
-    def consume_state_test(
+            # nethtest may output non-JSON lines before the array
+            stdout = result.stdout
+            json_start = stdout.find("[")
+            if json_start < 0:
+                raise Exception(
+                    f"No JSON array in nethtest output:\n{stdout[:500]}"
+                )
+            result_json = json.loads(stdout[json_start:])
+            if not isinstance(result_json, list):
+                raise Exception(
+                    f"Unexpected result from nethtest: {result_json}"
+                )
+
+            indexed: Dict[str, Dict[str, Any]] = {}
+            for r in result_json:
+                validated = FixtureTestResult.model_validate(r).model_dump(
+                    by_alias=True
+                )
+                indexed[validated["name"]] = validated
+
+            self._dir_cache[cache_key] = indexed
+
+        return self._dir_cache[cache_key]
+
+    def _consume_test(
         self,
-        command: Tuple[str, ...],
+        fixture_format: FixtureFormat,
+        label: str,
         fixture_path: Path,
         fixture_name: Optional[str] = None,
         debug_output_path: Optional[Path] = None,
     ) -> None:
-        """
-        Consume a single state test.
-
-        Uses the cached result from `consume_state_test_file` in order to not
-        call the command every time and select a single result from there.
-        """
-        file_results, stderr = self.consume_state_test_file(
+        """Generic consume method using directory-level cache."""
+        dir_results = self._get_dir_results(
+            fixture_format=fixture_format,
             fixture_path=fixture_path,
-            command=command,
             debug_output_path=debug_output_path,
         )
-
         if fixture_name:
-            # TODO: this check is too fragile; extend for ethereum/tests?
-            nethtest_suffix = "_d0g0v0_"
-            assert all(
-                test_result["name"].endswith(nethtest_suffix)
-                for test_result in file_results
-            ), (
-                "consume direct with nethtest doesn't support the "
-                "multi-data statetest format used in ethereum/tests (yet)"
-            )
-            test_result = [
-                test_result
-                for test_result in file_results
-                if test_result["name"].removesuffix(nethtest_suffix)
-                == f"{fixture_name.split('/')[-1]}"
-            ]
-            assert len(test_result) < 2, (
-                f"Multiple test results for {fixture_name}"
-            )
-            assert len(test_result) == 1, (
+            assert fixture_name in dir_results, (
                 f"Test result for {fixture_name} missing"
             )
-            assert test_result[0]["pass"], (
-                f"State test '{fixture_name}' failed, "
-                f"available stderr:\n {stderr}"
+            result = dir_results[fixture_name]
+            assert result["pass"], (
+                f"{label} test failed: {result['error']}"
             )
         else:
-            if any(not test_result["pass"] for test_result in file_results):
-                exception_text = "State test failed: \n" + "\n".join(
-                    f"{test_result['name']}: " + test_result["error"]
-                    for test_result in file_results
-                    if not test_result["pass"]
+            failures = [r for r in dir_results.values() if not r["pass"]]
+            if failures:
+                raise Exception(
+                    f"{label} test failed: \n"
+                    + "\n".join(f"{r['name']}: {r['error']}" for r in failures)
                 )
-                raise Exception(exception_text)
-
-    def consume_blockchain_test(
-        self,
-        command: Tuple[str, ...],
-        fixture_path: Path,
-        fixture_name: Optional[str] = None,
-        debug_output_path: Optional[Path] = None,
-    ) -> None:
-        """Execute the the fixture at `fixture_path` via `nethtest`."""
-        del fixture_path
-        del fixture_name
-        result = subprocess.run(
-            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-        )
-
-        if debug_output_path:
-            self._consume_debug_dump(command, result, debug_output_path)
-
-        if result.returncode != 0:
-            raise Exception(
-                f"nethtest exited with non-zero exit code "
-                f"({result.returncode}).\n"
-                f"stdout:\n{result.stdout}\n"
-                f"stderr:\n{result.stderr}\n"
-                f"{' '.join(command)}"
-            )
 
     def consume_fixture(
         self,
@@ -269,32 +215,14 @@ class NethtestFixtureConsumer(
         fixture_name: Optional[str] = None,
         debug_output_path: Optional[Path] = None,
     ) -> None:
-        """
-        Execute the appropriate geth fixture consumer for the fixture at
-        `fixture_path`.
-        """
-        command = self._build_command_with_options(
-            fixture_format, fixture_path, fixture_name, debug_output_path
-        )
-        if fixture_format == BlockchainFixture:
-            self.consume_blockchain_test(
-                command=command,
-                fixture_path=fixture_path,
-                fixture_name=fixture_name,
-                debug_output_path=debug_output_path,
-            )
-        elif fixture_format == StateFixture:
-            self.consume_state_test(
-                command=command,
-                fixture_path=fixture_path,
-                fixture_name=fixture_name,
-                debug_output_path=debug_output_path,
-            )
-        else:
-            raise Exception(
-                f"Fixture format {fixture_format.format_name} "
-                f"not supported by {self.binary}"
-            )
+        """Execute the appropriate nethtest fixture consumer."""
+        labels = {
+            StateFixture: "State",
+            BlockchainFixture: "Blockchain",
+            BlockchainEngineFixture: "Engine",
+        }
+        label = labels.get(fixture_format, "Unknown")
+        self._consume_test(fixture_format, label, fixture_path, fixture_name, debug_output_path)
 
 
 class NethermindExceptionMapper(ExceptionMapper):
