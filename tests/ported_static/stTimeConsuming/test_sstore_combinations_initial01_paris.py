@@ -25296,6 +25296,52 @@ def test_sstore_combinations_initial01_paris(
         )
         + Op.STOP,
     ]
+
+    # Combinatorial structure: 1728 entries = 3 × 12 × 4 × 12
+    # The full enumeration starts at MSTORE=0x1 (after the base case at 0x0).
+    # This file covers MSTORE 0x352..0x4FB (global 4-call indices 849..1274).
+    #
+    # Dimensions (outer to inner):
+    #   dim0: 1st change call type (3) — CALL, CALLCODE, DELEGATECALL
+    #   dim1: middle action 1 (12) — {CALL,CALLCODE,DELEGATECALL,STATICCALL} × {c3,c4,c5}
+    #   dim2: 2nd change call type (4) — STATICCALL, CALL, CALLCODE, DELEGATECALL
+    #   dim3: middle action 2 (12) — {CALL,CALLCODE,DELEGATECALL,STATICCALL} × {c3,c4,c5}
+    gas = 0x493E0
+    dim0_types = [Op.CALL, Op.CALLCODE, Op.DELEGATECALL]
+    dim2_types = [Op.STATICCALL, Op.CALL, Op.CALLCODE, Op.DELEGATECALL]
+    call_types = [Op.CALL, Op.CALLCODE, Op.DELEGATECALL, Op.STATICCALL]
+    contracts = [contract_3, contract_4, contract_5]
+
+    idx = 0x352 + d - 1  # 4-call index (MSTORE value minus 1 for base case)
+
+    dim0_idx = idx // 576
+    dim1_idx = (idx // 48) % 12
+    dim2_idx = (idx // 12) % 4
+    dim3_idx = idx % 12
+
+    call_1_op = dim0_types[dim0_idx]
+    call_1_contract = contract_0
+
+    call_2_op = call_types[dim1_idx // 3]
+    call_2_contract = contracts[dim1_idx % 3]
+
+    call_3_op = dim2_types[dim2_idx]
+    call_3_contract = contract_0
+
+    call_4_op = call_types[dim3_idx // 3]
+    call_4_contract = contracts[dim3_idx % 3]
+
+    initcode = (
+        Op.MSTORE(offset=0x64, value=0x352 + d)
+        + Op.POP(call_1_op(gas=gas, address=call_1_contract, args_size=0x20))
+        + Op.POP(call_2_op(gas=gas, address=call_2_contract))
+        + Op.POP(call_3_op(gas=gas, address=call_3_contract, args_size=0x20))
+        + Op.POP(call_4_op(gas=gas, address=call_4_contract))
+        + Op.CALL(gas=gas * 2, address=contract_4)
+        + Op.STOP
+    )
+
+    assert initcode == tx_data[d]
     tx_gas = [2000000]
     tx_value = [1]
 
