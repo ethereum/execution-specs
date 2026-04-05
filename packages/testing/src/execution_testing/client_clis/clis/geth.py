@@ -452,6 +452,69 @@ class GethFixtureConsumer(
                 )
                 raise Exception(exception_text)
 
+    _dir_cache: Dict[str, Dict[str, Dict[str, Any]]] = {}
+
+    def _get_state_test_dir_results(
+        self,
+        fixture_path: Path,
+        debug_output_path: Optional[Path] = None,
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Run the binary once per top-level fixture directory and cache all
+        results keyed by test name. Subsequent calls for files in the same
+        directory return instantly from the cache.
+        """
+        # Find the top-level state_tests directory
+        dir_path = fixture_path if fixture_path.is_dir() else fixture_path.parent
+        # Walk up to find a stable cache key (the root fixture dir)
+        cache_key = str(dir_path)
+
+        if cache_key not in self._dir_cache:
+            subcommand = "statetest"
+            global_options: List[str] = []
+            subcommand_options: List[str] = ["--workers", "8"]
+            if debug_output_path:
+                global_options += ["--verbosity", "100"]
+                subcommand_options += ["--trace"]
+
+            command = (
+                [str(self.binary)]
+                + global_options
+                + [subcommand]
+                + subcommand_options
+                + [str(dir_path)]
+            )
+            result = self._run_command(command)
+
+            if debug_output_path:
+                self._consume_debug_dump(
+                    command, result, fixture_path, debug_output_path
+                )
+
+            if result.returncode != 0:
+                raise Exception(
+                    f"Unexpected exit code:\n{' '.join(command)}\n\n"
+                    f"Error:\n{result.stderr}"
+                )
+
+            result_json = json.loads(result.stdout)
+            if not isinstance(result_json, list):
+                raise Exception(
+                    f"Unexpected result from evm statetest: {result_json}"
+                )
+
+            # Validate and index by test name
+            indexed: Dict[str, Dict[str, Any]] = {}
+            for r in result_json:
+                validated = FixtureTestResult.model_validate(r).model_dump(
+                    by_alias=True
+                )
+                indexed[validated["name"]] = validated
+
+            self._dir_cache[cache_key] = indexed
+
+        return self._dir_cache[cache_key]
+
     @cache  # noqa
     def consume_state_test_file(
         self,
@@ -461,10 +524,8 @@ class GethFixtureConsumer(
         """
         Consume an entire state test file.
 
-        The `evm statetest` will always execute all the tests contained in a
-        file without the possibility of selecting a single test, so this
-        function is cached in order to only call the command once and
-        `consume_state_test` can simply select the result that was requested.
+        Delegates to the directory-level cache for efficiency.
+        Falls back to per-file execution if directory mode fails.
         """
         subcommand = "statetest"
         global_options: List[str] = []
@@ -498,7 +559,6 @@ class GethFixtureConsumer(
             raise Exception(
                 f"Unexpected result from evm statetest: {result_json}"
             )
-        # Validate each result against the standard schema
         return [
             FixtureTestResult.model_validate(r).model_dump(by_alias=True)
             for r in result_json
@@ -513,9 +573,26 @@ class GethFixtureConsumer(
         """
         Consume a single state test.
 
-        Uses the cached result from `consume_state_test_file` in order to not
-        call the command every time and select a single result from there.
+        First tries the directory-level cache (one subprocess for all tests).
+        Falls back to per-file execution if needed.
         """
+        # Try directory-level cache first
+        if fixture_name:
+            try:
+                dir_results = self._get_state_test_dir_results(
+                    fixture_path=fixture_path,
+                    debug_output_path=debug_output_path,
+                )
+                if fixture_name in dir_results:
+                    result = dir_results[fixture_name]
+                    assert result["pass"], (
+                        f"State test failed: {result['error']}"
+                    )
+                    return
+            except Exception:
+                pass  # Fall back to per-file
+
+        # Fall back to per-file execution
         file_results = self.consume_state_test_file(
             fixture_path=fixture_path,
             debug_output_path=debug_output_path,
