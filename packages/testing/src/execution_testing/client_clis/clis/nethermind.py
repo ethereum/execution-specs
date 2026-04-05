@@ -47,8 +47,45 @@ class Nethtest(EthereumCLI):
         """Initialize the Nethtest class."""
         self.binary = binary
         self.trace = trace
-        # TODO: Implement NethermindExceptionMapper
         self.exception_mapper = exception_mapper if exception_mapper else None
+        # Detect if binary needs dotnet to run (.csproj, .dll, or directory with .csproj)
+        self._needs_dotnet = self._detect_dotnet(binary)
+
+    @staticmethod
+    def _detect_dotnet(binary: Path) -> bool:
+        """Check if the binary needs dotnet to run."""
+        if binary.suffix in (".csproj", ".dll"):
+            return True
+        # Check if it's a directory containing a .csproj
+        if binary.is_dir() and list(binary.glob("*.csproj")):
+            return True
+        # Check if the binary fails to run directly (needs .NET runtime)
+        try:
+            result = subprocess.run(
+                [str(binary), "--version"],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                timeout=5,
+            )
+            if "must install .NET" in result.stdout or "must install .NET" in result.stderr:
+                return True
+        except Exception:
+            pass
+        return False
+
+    def _build_base_command(self, args: List[str]) -> List[str]:
+        """Build a command, wrapping with dotnet if needed."""
+        if self._needs_dotnet:
+            # Find the .csproj file
+            binary_path = self.binary
+            if binary_path.is_dir():
+                csproj = list(binary_path.glob("*.csproj"))
+                if csproj:
+                    binary_path = csproj[0]
+            return [
+                "dotnet", "run", "--no-build", "-c", "Release",
+                "--project", str(binary_path), "--",
+            ] + args
+        return [str(self.binary)] + args
 
     def _run_command(self, command: List[str]) -> subprocess.CompletedProcess:
         try:
@@ -137,11 +174,10 @@ class NethtestFixtureConsumer(
 
         if cache_key not in self._dir_cache:
             workers = getattr(self, "workers", 1)
-            command = [str(self.binary)] + flags
-            command += ["--workers", str(workers)]
-            command += ["--input", str(dir_path)]
+            extra_args = flags + ["--workers", str(workers), "--input", str(dir_path)]
             if debug_output_path:
-                command += ["--trace"]
+                extra_args += ["--trace"]
+            command = self._build_base_command(extra_args)
 
             result = self._run_command(command)
 
