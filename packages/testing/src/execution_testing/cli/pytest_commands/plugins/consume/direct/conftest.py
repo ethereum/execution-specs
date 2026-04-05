@@ -85,10 +85,10 @@ def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
         action="store",
         dest="fixture_type",
         type=str,
-        default=None,
+        required=True,
         choices=["state", "block", "engine", "all"],
         help=(
-            "Fixture type to run. "
+            "Fixture type to run. Required. "
             "One of: state, block, engine, all."
         ),
     )
