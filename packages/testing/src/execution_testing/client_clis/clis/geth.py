@@ -348,7 +348,14 @@ class GethFixtureConsumer(
                     f"Error:\n{result.stderr}"
                 )
 
-            result_json = json.loads(result.stdout)
+            # geth may output debug info before the JSON array; find the array start
+            stdout = result.stdout
+            json_start = stdout.find("[")
+            if json_start < 0:
+                raise Exception(
+                    f"No JSON array in evm blocktest output:\n{stdout[:500]}"
+                )
+            result_json = json.loads(stdout[json_start:])
             if not isinstance(result_json, list):
                 raise Exception(
                     f"Unexpected result from evm blocktest: {result_json}"
