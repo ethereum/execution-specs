@@ -306,21 +306,23 @@ class GethFixtureConsumer(
 ):
     """Geth's implementation of the fixture consumer."""
 
-    _block_dir_cache: Dict[str, Dict[str, Dict[str, Any]]] = {}
+    _dir_cache: Dict[str, Dict[str, Dict[str, Any]]] = {}
 
-    def _get_blockchain_test_dir_results(
+    def _get_dir_results(
         self,
+        subcommand: str,
         fixture_path: Path,
         debug_output_path: Optional[Path] = None,
     ) -> Dict[str, Dict[str, Any]]:
         """
-        Run blocktest once per fixture directory and cache all results by name.
+        Run a subcommand once per fixture directory and cache all results
+        indexed by test name. Subsequent calls for the same directory
+        return from cache instantly.
         """
         dir_path = fixture_path if fixture_path.is_dir() else fixture_path.parent
-        cache_key = str(dir_path)
+        cache_key = f"{subcommand}:{dir_path}"
 
-        if cache_key not in self._block_dir_cache:
-            subcommand = "blocktest"
+        if cache_key not in self._dir_cache:
             workers = getattr(self, "workers", 1)
             global_options: List[str] = []
             subcommand_options: List[str] = ["--workers", str(workers)]
@@ -348,210 +350,19 @@ class GethFixtureConsumer(
                     f"Error:\n{result.stderr}"
                 )
 
-            # geth may output debug info before the JSON array; find the array start
+            # Find JSON array start (geth may output debug info before it)
             stdout = result.stdout
             json_start = stdout.find("[")
             if json_start < 0:
                 raise Exception(
-                    f"No JSON array in evm blocktest output:\n{stdout[:500]}"
+                    f"No JSON array in evm {subcommand} output:\n{stdout[:500]}"
                 )
             result_json = json.loads(stdout[json_start:])
             if not isinstance(result_json, list):
                 raise Exception(
-                    f"Unexpected result from evm blocktest: {result_json}"
+                    f"Unexpected result from evm {subcommand}: {result_json}"
                 )
 
-            indexed: Dict[str, Dict[str, Any]] = {}
-            for r in result_json:
-                validated = FixtureTestResult.model_validate(r).model_dump(
-                    by_alias=True
-                )
-                indexed[validated["name"]] = validated
-
-            self._block_dir_cache[cache_key] = indexed
-
-        return self._block_dir_cache[cache_key]
-
-    def consume_blockchain_test(
-        self,
-        fixture_path: Path,
-        fixture_name: Optional[str] = None,
-        debug_output_path: Optional[Path] = None,
-    ) -> None:
-        """
-        Consume a single blockchain test.
-
-        Uses directory-level cache: one subprocess for all tests in the
-        parent directory.
-        """
-        dir_results = self._get_blockchain_test_dir_results(
-            fixture_path=fixture_path,
-            debug_output_path=debug_output_path,
-        )
-        if fixture_name:
-            assert fixture_name in dir_results, (
-                f"Test result for {fixture_name} missing"
-            )
-            result = dir_results[fixture_name]
-            assert result["pass"], (
-                f"Blockchain test failed: {result['error']}"
-            )
-        else:
-            failures = [
-                r for r in dir_results.values() if not r["pass"]
-            ]
-            if failures:
-                exception_text = "Blockchain test failed: \n" + "\n".join(
-                    f"{r['name']}: {r['error']}" for r in failures
-                )
-                raise Exception(exception_text)
-
-    _engine_dir_cache: Dict[str, Dict[str, Dict[str, Any]]] = {}
-
-    def _get_engine_test_dir_results(
-        self,
-        fixture_path: Path,
-        debug_output_path: Optional[Path] = None,
-    ) -> Dict[str, Dict[str, Any]]:
-        """
-        Run enginetest once per fixture directory and cache all results by name.
-        """
-        dir_path = fixture_path if fixture_path.is_dir() else fixture_path.parent
-        cache_key = str(dir_path)
-
-        if cache_key not in self._engine_dir_cache:
-            subcommand = "enginetest"
-            workers = getattr(self, "workers", 1)
-            global_options: List[str] = []
-            subcommand_options: List[str] = ["--workers", str(workers)]
-            if debug_output_path:
-                global_options += ["--verbosity", "100"]
-                subcommand_options += ["--trace"]
-
-            command = (
-                [str(self.binary)]
-                + global_options
-                + [subcommand]
-                + subcommand_options
-                + [str(dir_path)]
-            )
-            result = self._run_command(command)
-
-            if debug_output_path:
-                self._consume_debug_dump(
-                    command, result, fixture_path, debug_output_path
-                )
-
-            if result.returncode != 0:
-                raise Exception(
-                    f"Unexpected exit code:\n{' '.join(command)}\n\n"
-                    f"Error:\n{result.stderr}"
-                )
-
-            result_json = json.loads(result.stdout)
-            if not isinstance(result_json, list):
-                raise Exception(
-                    f"Unexpected result from evm enginetest: {result_json}"
-                )
-
-            indexed: Dict[str, Dict[str, Any]] = {}
-            for r in result_json:
-                validated = FixtureTestResult.model_validate(r).model_dump(
-                    by_alias=True
-                )
-                indexed[validated["name"]] = validated
-
-            self._engine_dir_cache[cache_key] = indexed
-
-        return self._engine_dir_cache[cache_key]
-
-    def consume_engine_test(
-        self,
-        fixture_path: Path,
-        fixture_name: Optional[str] = None,
-        debug_output_path: Optional[Path] = None,
-    ) -> None:
-        """
-        Consume a single engine test.
-
-        Uses directory-level cache: one subprocess for all tests in the
-        parent directory.
-        """
-        dir_results = self._get_engine_test_dir_results(
-            fixture_path=fixture_path,
-            debug_output_path=debug_output_path,
-        )
-        if fixture_name:
-            assert fixture_name in dir_results, (
-                f"Test result for {fixture_name} missing"
-            )
-            result = dir_results[fixture_name]
-            assert result["pass"], (
-                f"Engine test failed: {result['error']}"
-            )
-        else:
-            failures = [
-                r for r in dir_results.values() if not r["pass"]
-            ]
-            if failures:
-                exception_text = "Engine test failed: \n" + "\n".join(
-                    f"{r['name']}: {r['error']}" for r in failures
-                )
-                raise Exception(exception_text)
-
-    _dir_cache: Dict[str, Dict[str, Dict[str, Any]]] = {}
-
-    def _get_state_test_dir_results(
-        self,
-        fixture_path: Path,
-        debug_output_path: Optional[Path] = None,
-    ) -> Dict[str, Dict[str, Any]]:
-        """
-        Run the binary once per top-level fixture directory and cache all
-        results keyed by test name. Subsequent calls for files in the same
-        directory return instantly from the cache.
-        """
-        # Find the top-level state_tests directory
-        dir_path = fixture_path if fixture_path.is_dir() else fixture_path.parent
-        # Walk up to find a stable cache key (the root fixture dir)
-        cache_key = str(dir_path)
-
-        if cache_key not in self._dir_cache:
-            subcommand = "statetest"
-            global_options: List[str] = []
-            workers = getattr(self, "workers", 1)
-            subcommand_options: List[str] = ["--workers", str(workers)]
-            if debug_output_path:
-                global_options += ["--verbosity", "100"]
-                subcommand_options += ["--trace"]
-
-            command = (
-                [str(self.binary)]
-                + global_options
-                + [subcommand]
-                + subcommand_options
-                + [str(dir_path)]
-            )
-            result = self._run_command(command)
-
-            if debug_output_path:
-                self._consume_debug_dump(
-                    command, result, fixture_path, debug_output_path
-                )
-
-            if result.returncode != 0:
-                raise Exception(
-                    f"Unexpected exit code:\n{' '.join(command)}\n\n"
-                    f"Error:\n{result.stderr}"
-                )
-
-            result_json = json.loads(result.stdout)
-            if not isinstance(result_json, list):
-                raise Exception(
-                    f"Unexpected result from evm statetest: {result_json}"
-                )
-
-            # Validate and index by test name
             indexed: Dict[str, Dict[str, Any]] = {}
             for r in result_json:
                 validated = FixtureTestResult.model_validate(r).model_dump(
@@ -563,68 +374,17 @@ class GethFixtureConsumer(
 
         return self._dir_cache[cache_key]
 
-    @cache  # noqa
-    def consume_state_test_file(
+    def _consume_test(
         self,
-        fixture_path: Path,
-        debug_output_path: Optional[Path] = None,
-    ) -> List[Dict[str, Any]]:
-        """
-        Consume an entire state test file.
-
-        Delegates to the directory-level cache for efficiency.
-        Falls back to per-file execution if directory mode fails.
-        """
-        subcommand = "statetest"
-        global_options: List[str] = []
-        subcommand_options: List[str] = []
-        if debug_output_path:
-            global_options += ["--verbosity", "100"]
-            subcommand_options += ["--trace"]
-
-        command = (
-            [str(self.binary)]
-            + global_options
-            + [subcommand]
-            + subcommand_options
-            + [str(fixture_path)]
-        )
-        result = self._run_command(command)
-
-        if debug_output_path:
-            self._consume_debug_dump(
-                command, result, fixture_path, debug_output_path
-            )
-
-        if result.returncode != 0:
-            raise Exception(
-                f"Unexpected exit code:\n{' '.join(command)}\n\n"
-                f"Error:\n{result.stderr}"
-            )
-
-        result_json = json.loads(result.stdout)
-        if not isinstance(result_json, list):
-            raise Exception(
-                f"Unexpected result from evm statetest: {result_json}"
-            )
-        return [
-            FixtureTestResult.model_validate(r).model_dump(by_alias=True)
-            for r in result_json
-        ]
-
-    def consume_state_test(
-        self,
+        subcommand: str,
+        label: str,
         fixture_path: Path,
         fixture_name: Optional[str] = None,
         debug_output_path: Optional[Path] = None,
     ) -> None:
-        """
-        Consume a single state test.
-
-        Uses directory-level cache: one subprocess for all tests in the
-        parent directory. Individual results are looked up by name.
-        """
-        dir_results = self._get_state_test_dir_results(
+        """Generic consume method using directory-level cache."""
+        dir_results = self._get_dir_results(
+            subcommand=subcommand,
             fixture_path=fixture_path,
             debug_output_path=debug_output_path,
         )
@@ -634,17 +394,42 @@ class GethFixtureConsumer(
             )
             result = dir_results[fixture_name]
             assert result["pass"], (
-                f"State test failed: {result['error']}"
+                f"{label} test failed: {result['error']}"
             )
         else:
-            failures = [
-                r for r in dir_results.values() if not r["pass"]
-            ]
+            failures = [r for r in dir_results.values() if not r["pass"]]
             if failures:
-                exception_text = "State test failed: \n" + "\n".join(
-                    f"{r['name']}: {r['error']}" for r in failures
+                raise Exception(
+                    f"{label} test failed: \n"
+                    + "\n".join(f"{r['name']}: {r['error']}" for r in failures)
                 )
-                raise Exception(exception_text)
+
+    def consume_state_test(
+        self,
+        fixture_path: Path,
+        fixture_name: Optional[str] = None,
+        debug_output_path: Optional[Path] = None,
+    ) -> None:
+        """Consume a single state test."""
+        self._consume_test("statetest", "State", fixture_path, fixture_name, debug_output_path)
+
+    def consume_blockchain_test(
+        self,
+        fixture_path: Path,
+        fixture_name: Optional[str] = None,
+        debug_output_path: Optional[Path] = None,
+    ) -> None:
+        """Consume a single blockchain test."""
+        self._consume_test("blocktest", "Blockchain", fixture_path, fixture_name, debug_output_path)
+
+    def consume_engine_test(
+        self,
+        fixture_path: Path,
+        fixture_name: Optional[str] = None,
+        debug_output_path: Optional[Path] = None,
+    ) -> None:
+        """Consume a single engine test."""
+        self._consume_test("enginetest", "Engine", fixture_path, fixture_name, debug_output_path)
 
     def consume_fixture(
         self,
