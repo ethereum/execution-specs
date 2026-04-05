@@ -574,51 +574,28 @@ class GethFixtureConsumer(
         """
         Consume a single state test.
 
-        First tries the directory-level cache (one subprocess for all tests).
-        Falls back to per-file execution if needed.
+        Uses directory-level cache: one subprocess for all tests in the
+        parent directory. Individual results are looked up by name.
         """
-        # Try directory-level cache first
-        if fixture_name:
-            try:
-                dir_results = self._get_state_test_dir_results(
-                    fixture_path=fixture_path,
-                    debug_output_path=debug_output_path,
-                )
-                if fixture_name in dir_results:
-                    result = dir_results[fixture_name]
-                    assert result["pass"], (
-                        f"State test failed: {result['error']}"
-                    )
-                    return
-            except Exception:
-                pass  # Fall back to per-file
-
-        # Fall back to per-file execution
-        file_results = self.consume_state_test_file(
+        dir_results = self._get_state_test_dir_results(
             fixture_path=fixture_path,
             debug_output_path=debug_output_path,
         )
         if fixture_name:
-            test_result = [
-                test_result
-                for test_result in file_results
-                if test_result["name"] == fixture_name
-            ]
-            assert len(test_result) < 2, (
-                f"Multiple test results for {fixture_name}"
-            )
-            assert len(test_result) == 1, (
+            assert fixture_name in dir_results, (
                 f"Test result for {fixture_name} missing"
             )
-            assert test_result[0]["pass"], (
-                f"State test failed: {test_result[0]['error']}"
+            result = dir_results[fixture_name]
+            assert result["pass"], (
+                f"State test failed: {result['error']}"
             )
         else:
-            if any(not test_result["pass"] for test_result in file_results):
+            failures = [
+                r for r in dir_results.values() if not r["pass"]
+            ]
+            if failures:
                 exception_text = "State test failed: \n" + "\n".join(
-                    f"{test_result['name']}: " + test_result["error"]
-                    for test_result in file_results
-                    if not test_result["pass"]
+                    f"{r['name']}: {r['error']}" for r in failures
                 )
                 raise Exception(exception_text)
 
