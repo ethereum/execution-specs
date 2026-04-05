@@ -129,10 +129,27 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
     num_workers = config.getoption("num_workers", 1)
     fixture_consumers = []
     for fixture_consumer_bin_path in config.getoption("fixture_consumer_bin"):
-        consumer = FixtureConsumerTool.from_binary_path(
-            binary_path=Path(fixture_consumer_bin_path),
-            trace=config.getoption("consumer_collect_traces"),
-        )
+        bin_path = Path(fixture_consumer_bin_path)
+        try:
+            consumer = FixtureConsumerTool.from_binary_path(
+                binary_path=bin_path,
+                trace=config.getoption("consumer_collect_traces"),
+            )
+        except Exception:
+            # Try dotnet project detection for .csproj/.dll paths
+            from execution_testing.client_clis.clis.nethermind import (
+                NethtestFixtureConsumer,
+            )
+            try:
+                consumer = NethtestFixtureConsumer.from_binary_path(
+                    binary_path=bin_path,
+                    trace=config.getoption("consumer_collect_traces"),
+                )
+            except Exception:
+                raise Exception(
+                    f"Unknown CLI binary: {bin_path}. "
+                    f"Could not detect as native binary or dotnet project."
+                )
         consumer.workers = num_workers  # type: ignore[attr-defined]
         fixture_consumers.append(consumer)
     if config.option.markers:

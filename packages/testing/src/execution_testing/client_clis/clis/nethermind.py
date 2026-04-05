@@ -38,6 +38,68 @@ class Nethtest(EthereumCLI):
     version_flag: str = "--version"
     cached_version: Optional[str] = None
 
+    @classmethod
+    def detect_binary(cls, binary_output: str) -> bool:
+        """
+        Detect nethtest from version output, checking each line.
+        Handles the 'Using launch settings...' prefix from dotnet run.
+        """
+        for line in binary_output.splitlines():
+            line = line.strip()
+            if line and cls.detect_binary_pattern.match(line):
+                return True
+        return False
+
+    @classmethod
+    def from_binary_path(
+        cls,
+        binary_path: Path,
+        **kwargs: Any,
+    ) -> "Nethtest":
+        """
+        Create a Nethtest instance, handling .csproj/.dll paths that need
+        dotnet to run.
+        """
+        binary = binary_path
+        suffix = binary.suffix.lower()
+
+        # Try dotnet run for .csproj or .dll files
+        if suffix in (".csproj", ".dll") or (
+            binary.is_dir() and list(binary.glob("*.csproj"))
+        ):
+            try:
+                if binary.is_dir():
+                    csproj = list(binary.glob("*.csproj"))[0]
+                else:
+                    csproj = binary
+                result = subprocess.run(
+                    ["dotnet", "run", "--no-build", "-c", "Release",
+                     "--project", str(csproj), "--", "--version"],
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                    timeout=30,
+                )
+                if result.returncode == 0 and cls.detect_binary(result.stdout):
+                    instance = cls(binary=binary, **kwargs)
+                    instance._needs_dotnet = True
+                    return instance
+            except Exception:
+                pass
+
+        # Fall back to direct execution
+        try:
+            result = subprocess.run(
+                [str(binary), "--version"],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                timeout=10,
+            )
+            output = result.stdout.strip()
+            if cls.detect_binary(output):
+                return cls(binary=binary, **kwargs)
+        except Exception:
+            pass
+
+        raise Exception(f"Could not detect nethtest at {binary}")
+
     def __init__(
         self,
         binary: Path,
