@@ -15,6 +15,7 @@ from execution_testing.exceptions import (
     ExceptionBase,
     ExceptionMapper,
     TransactionException,
+    UndefinedException,
 )
 from execution_testing.fixtures import (
     BlockchainEngineFixture,
@@ -24,7 +25,12 @@ from execution_testing.fixtures import (
 )
 from execution_testing.forks import Fork
 
-from ..cli_types import FixtureTestResult
+from ..cli_types import (
+    BlockTestResult,
+    EngineTestResult,
+    FixtureTestResult,
+    StateTestResult,
+)
 from ..ethereum_cli import EthereumCLI
 from ..fixture_consumer_tool import FixtureConsumerTool
 from ..transition_tool import TransitionTool, dump_files_to_directory
@@ -307,6 +313,7 @@ class GethFixtureConsumer(
     """Geth's implementation of the fixture consumer."""
 
     _dir_cache: Dict[str, Dict[str, Dict[str, Any]]] = {}
+    exception_mapper: ExceptionMapper = GethExceptionMapper()
 
     def _get_dir_results(
         self,
@@ -363,9 +370,15 @@ class GethFixtureConsumer(
                     f"Unexpected result from evm {subcommand}: {result_json}"
                 )
 
+            result_model: type[FixtureTestResult] = {
+                "statetest": StateTestResult,
+                "blocktest": BlockTestResult,
+                "enginetest": EngineTestResult,
+            }.get(subcommand, FixtureTestResult)
+
             indexed: Dict[str, Dict[str, Any]] = {}
             for r in result_json:
-                validated = FixtureTestResult.model_validate(r).model_dump(
+                validated = result_model.model_validate(r).model_dump(
                     by_alias=True
                 )
                 indexed[validated["name"]] = validated
@@ -373,6 +386,72 @@ class GethFixtureConsumer(
             self._dir_cache[cache_key] = indexed
 
         return self._dir_cache[cache_key]
+
+    _fixture_cache: Dict[str, Dict[str, Any]] = {}
+
+    def _get_fixture_json(self, fixture_path: Path) -> Dict[str, Any]:
+        """Load and cache fixture JSON keyed by file path."""
+        key = str(fixture_path)
+        if key not in self._fixture_cache:
+            file_path = fixture_path if fixture_path.is_file() else None
+            if file_path is None:
+                return {}
+            self._fixture_cache[key] = json.loads(file_path.read_text())
+        return self._fixture_cache[key]
+
+    def _get_expected_exceptions(
+        self,
+        fixture_path: Path,
+        fixture_name: str,
+        subcommand: str,
+    ) -> List[ExceptionBase]:
+        """Extract expected exceptions from a fixture for a given test case."""
+        fixture_json = self._get_fixture_json(fixture_path)
+        test_data = fixture_json.get(fixture_name, {})
+        exceptions: List[ExceptionBase] = []
+
+        if subcommand == "enginetest":
+            for payload in test_data.get("engineNewPayloads", []):
+                ve = payload.get("validationError")
+                if ve:
+                    exceptions.append(ExceptionBase.from_str(ve))
+        elif subcommand == "blocktest":
+            for block in test_data.get("blocks", []):
+                ee = block.get("expectException")
+                if ee:
+                    exceptions.append(ExceptionBase.from_str(ee))
+        elif subcommand == "statetest":
+            for fork_posts in test_data.get("post", {}).values():
+                for post in fork_posts:
+                    ee = post.get("expectException")
+                    if ee:
+                        exceptions.append(ExceptionBase.from_str(ee))
+
+        return exceptions
+
+    def _check_exception(
+        self,
+        label: str,
+        fixture_name: str,
+        error: str,
+        expected: List[ExceptionBase],
+    ) -> None:
+        """Map client error through ExceptionMapper and compare to expected."""
+        mapped = self.exception_mapper.message_to_exception(error)
+        if isinstance(mapped, UndefinedException):
+            raise AssertionError(
+                f"{label} test: unmapped error for {fixture_name}:\n"
+                f"  expected: {expected}\n"
+                f"  error: {error}\n"
+                f"  mapper: {mapped.mapper_name}"
+            )
+        if not any(exc in expected for exc in mapped):
+            raise AssertionError(
+                f"{label} test: wrong exception for {fixture_name}:\n"
+                f"  expected: {expected}\n"
+                f"  got: {mapped}\n"
+                f"  error: {error}"
+            )
 
     def _consume_test(
         self,
@@ -395,9 +474,24 @@ class GethFixtureConsumer(
                     f"(client may have skipped or crashed on this test)"
                 )
             result = dir_results[fixture_name]
-            assert result["pass"], (
-                f"{label} test failed: {result['error']}"
+            expected = self._get_expected_exceptions(
+                fixture_path, fixture_name, subcommand,
             )
+            error = result.get("error", "")
+
+            if expected and error:
+                self._check_exception(
+                    label, fixture_name, error, expected,
+                )
+            elif expected and not error:
+                raise AssertionError(
+                    f"{label} test: expected exception {expected} "
+                    f"but no error returned for {fixture_name}"
+                )
+            elif not expected and not result["pass"]:
+                raise AssertionError(
+                    f"{label} test failed: {error}"
+                )
         else:
             failures = [r for r in dir_results.values() if not r["pass"]]
             if failures:
