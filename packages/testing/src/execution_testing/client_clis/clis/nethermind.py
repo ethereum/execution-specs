@@ -236,7 +236,7 @@ class NethtestFixtureConsumer(
 
         if cache_key not in self._dir_cache:
             workers = getattr(self, "workers", 1)
-            extra_args = flags + ["--workers", str(workers), "--input", str(dir_path)]
+            extra_args = flags + ["--jsonout", "--workers", str(workers), "--input", str(dir_path)]
             if debug_output_path:
                 extra_args += ["--trace"]
             command = self._build_base_command(extra_args)
