@@ -5,6 +5,8 @@ Ported from:
 state_tests/stBadOpcode/measureGasFiller.yml
 """
 
+from typing import Callable
+
 import pytest
 from execution_testing import (
     EOA,
@@ -107,6 +109,8 @@ def test_measure_gas(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    state_gas_headroom: Callable[[int], int],
+    block_gas_limit: Callable[[int], int],
     d: int,
     g: int,
     v: int,
@@ -136,7 +140,7 @@ def test_measure_gas(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=100000000,
+        gas_limit=block_gas_limit(100000000),
     )
 
     # Source: yul
@@ -431,7 +435,7 @@ def test_measure_gas(
         Bytes("693c6139") + Hash(0x20),
         Bytes("693c6139") + Hash(0x3B),
     ]
-    tx_gas = [20000000]
+    tx_gas = [state_gas_headroom(16777216)]
 
     tx = Transaction(
         sender=sender,
