@@ -5,6 +5,8 @@ Ported from:
 state_tests/stSStoreTest/sstoreGasFiller.yml
 """
 
+from typing import Callable
+
 import pytest
 from execution_testing import (
     EOA,
@@ -32,7 +34,7 @@ def test_sstore_gas(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    state_gas_headroom,
+    state_gas_headroom: Callable[[int], int],
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)

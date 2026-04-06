@@ -1,5 +1,7 @@
 """Shared helpers for ported static tests."""
 
+from typing import Callable
+
 import pytest
 from execution_testing.forks import Amsterdam, Fork
 
@@ -32,16 +34,20 @@ def block_gas_limit_for_fork(fork: Fork, gas_limit: int) -> int:
 
 
 @pytest.fixture
-def state_gas_headroom(fork: Fork):
+def state_gas_headroom(fork: Fork) -> Callable[[int], int]:
     """Fixture that returns a gas adjustment function for the current fork."""
+
     def adjust(gas: int) -> int:
         return gas_with_state_headroom(fork, gas)
+
     return adjust
 
 
 @pytest.fixture
-def block_gas_limit(fork: Fork):
+def block_gas_limit(fork: Fork) -> Callable[[int], int]:
     """Fixture that returns a block gas limit function for the current fork."""
+
     def adjust(gas_limit: int) -> int:
         return block_gas_limit_for_fork(fork, gas_limit)
+
     return adjust

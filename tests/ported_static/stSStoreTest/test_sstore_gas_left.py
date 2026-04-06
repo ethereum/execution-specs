@@ -5,6 +5,8 @@ Ported from:
 state_tests/stSStoreTest/sstore_gasLeftFiller.json
 """
 
+from typing import Callable
+
 import pytest
 from execution_testing import (
     EOA,
@@ -93,8 +95,8 @@ def test_sstore_gas_left(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    state_gas_headroom,
-    block_gas_limit,
+    state_gas_headroom: Callable[[int], int],
+    block_gas_limit: Callable[[int], int],
     d: int,
     g: int,
     v: int,
