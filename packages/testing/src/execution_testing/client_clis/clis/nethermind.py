@@ -457,15 +457,6 @@ class NethermindExceptionMapper(ExceptionMapper):
         TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS: (
             "InsufficientMaxFeePerBlobGas: Not enough to cover blob gas fee"
         ),
-        TransactionException.TYPE_1_TX_PRE_FORK: (
-            "InvalidTxType: Transaction type in"
-        ),
-        TransactionException.TYPE_2_TX_PRE_FORK: (
-            "InvalidTxType: Transaction type in"
-        ),
-        TransactionException.TYPE_3_TX_PRE_FORK: (
-            "InvalidTxType: Transaction type in"
-        ),
         TransactionException.TYPE_3_TX_ZERO_BLOBS: (
             "blob transaction must have at least 1 blob"
         ),
@@ -480,9 +471,6 @@ class NethermindExceptionMapper(ExceptionMapper):
         ),
         TransactionException.TYPE_4_TX_CONTRACT_CREATION: (
             "NotAllowedCreateTransaction: To must be set"
-        ),
-        TransactionException.TYPE_4_TX_PRE_FORK: (
-            "InvalidTxType: Transaction type in"
         ),
         BlockException.INCORRECT_BLOB_GAS_USED: (
             "HeaderBlobGasMismatch: "
@@ -531,6 +519,18 @@ class NethermindExceptionMapper(ExceptionMapper):
         ),
     }
     mapping_regex = {
+        TransactionException.TYPE_1_TX_PRE_FORK: (
+            r"InvalidTxType: Transaction type in \w+ is not supported"
+        ),
+        TransactionException.TYPE_2_TX_PRE_FORK: (
+            r"InvalidTxType: Transaction type in \w+ is not supported"
+        ),
+        TransactionException.TYPE_3_TX_PRE_FORK: (
+            r"InvalidTxType: Transaction type in \w+ is not supported"
+        ),
+        TransactionException.TYPE_4_TX_PRE_FORK: (
+            r"InvalidTxType: Transaction type in \w+ is not supported"
+        ),
         TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
             r"insufficient sender balance|"
             r"insufficient MaxFeePerGas for sender balance"
