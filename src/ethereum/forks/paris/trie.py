@@ -174,8 +174,6 @@ def encode_internal_node(node: Optional[InternalNode]) -> Extended:
 def encode_node(node: Node, storage_root: Optional[Bytes] = None) -> Bytes:
     """
     Encode a Node for storage in the Merkle Trie.
-
-    Currently mostly an unimplemented stub.
     """
     if isinstance(node, Account):
         assert storage_root is not None
