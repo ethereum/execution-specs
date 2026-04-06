@@ -46,10 +46,6 @@ CLIENT_REGISTRY: Dict[str, Dict[str, Any]] = {
         "default_bin": "ef_tests",
         "types": ["state", "block", "engine"],
     },
-    "revm": {
-        "default_bin": "revme",
-        "types": ["state", "block"],
-    },
     "nimbus": {
         "default_bin": "evmstate",
         "types": ["state"],
@@ -61,7 +57,9 @@ CONFIG_FILE = "consume-direct.toml"
 TEMPLATE = """\
 # Consume direct client binary configuration.
 # Set the path to each client's EVM test binary.
-# Run `consume direct-health` to verify.
+# Run `consume direct health` to verify.
+#
+# Use state-bin to override the binary for state tests only (e.g. reth uses revm).
 
 # [geth]
 # bin = "~/ethereum/clients/go-ethereum/build/bin/evm"
@@ -77,12 +75,10 @@ TEMPLATE = """\
 
 # [reth]
 # bin = "~/ethereum/clients/reth/target/release/ef-test-runner"
+# state-bin = "~/ethereum/clients/revm/target/release/revme"
 
 # [ethrex]
 # bin = "~/ethereum/clients/ethrex/target/release/ef_tests"
-
-# [revm]
-# bin = "~/ethereum/clients/revm/target/release/revme"
 
 # [nimbus]
 # bin = "~/ethereum/clients/nimbus-eth1/build/evmstate"
