@@ -1,39 +1,80 @@
 """
 Address stubs model shared by the filler and execute plugins.
-This model maps stub labels to on-chain contract addresses.
+
+This model maps stub labels to on-chain addresses, optionally
+carrying a private key for EOA stubs that need signing capability.
 """
 
 from pathlib import Path
 from typing import Dict, Self
 
-from execution_testing.base_types import Address, EthereumTestRootModel
+from pydantic import model_validator
+
+from execution_testing.base_types import (
+    Address,
+    EthereumTestBaseModel,
+    EthereumTestRootModel,
+    Hash,
+)
+from execution_testing.test_types import EOA
 
 
-class AddressStubs(EthereumTestRootModel[Dict[str, Address]]):
+class StubEntry(EthereumTestBaseModel):
+    """
+    A single stub entry with an address and optional private key.
+
+    When pkey is provided, the derived address is validated
+    against addr to ensure consistency.
+    """
+
+    addr: Address
+    pkey: Hash | None = None
+
+    @model_validator(mode="after")
+    def _validate_key_matches_address(self) -> Self:
+        """Verify the private key derives the declared address."""
+        if self.pkey is not None:
+            derived = Address(EOA(key=self.pkey))
+            if derived != self.addr:
+                raise ValueError(
+                    f"pkey derives address {derived}, but addr is {self.addr}"
+                )
+        return self
+
+
+class AddressStubs(EthereumTestRootModel[Dict[str, StubEntry]]):
     """
     Address stubs class.
 
-    The key represents the label that is used in the test to tag the contract,
-    and the value is the address where the contract is already located at in
-    the current network.
+    The key represents the label that is used in the test to tag the
+    account, and the value is a StubEntry containing the on-chain
+    address and an optional private key.
     """
 
-    root: Dict[str, Address]
+    root: Dict[str, StubEntry]
 
     def __contains__(self, item: str) -> bool:
         """Check if an item is in the address stubs."""
         return item in self.root
 
     def __getitem__(self, item: str) -> Address:
-        """Get an item from the address stubs."""
+        """Get the address for a stub label."""
+        return self.root[item].addr
+
+    def get_entry(self, item: str) -> StubEntry:
+        """Get the full stub entry for a label."""
         return self.root[item]
+
+    def is_eoa(self, item: str) -> bool:
+        """Check if a stub entry is an EOA (has a private key)."""
+        return item in self.root and self.root[item].pkey is not None
 
     @classmethod
     def model_validate_json_or_file(cls, json_data_or_path: str) -> Self:
         """
         Parse a JSON string or load from a JSON file.
 
-        If the value ends with `.json` and the file exists, the file
+        If the value ends with ``.json`` and the file exists, the file
         contents are loaded; otherwise the value is parsed as inline JSON.
         """
         if json_data_or_path.lower().endswith(".json"):

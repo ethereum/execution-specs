@@ -5,8 +5,10 @@ import warnings
 from pathlib import Path
 
 from execution_testing.base_types import (
-    Address,
     EthereumTestBaseModel,
+)
+from execution_testing.cli.pytest_commands.plugins.shared.address_stubs import (  # noqa: E501
+    StubEntry,
 )
 
 
@@ -19,7 +21,7 @@ class StubConfig(EthereumTestBaseModel):
     lists for any prefix — no hardcoded categories required.
     """
 
-    stubs: dict[str, Address]
+    stubs: dict[str, StubEntry]
 
     def extract_tokens(self, prefix: str) -> list[str]:
         """Return stub keys matching *prefix*."""
@@ -46,7 +48,21 @@ class StubConfig(EthereumTestBaseModel):
             )
         return values, ids
 
+    def is_eoa(self, label: str) -> bool:
+        """Return whether the stub is an EOA (has a private key)."""
+        return label in self.stubs and self.stubs[label].pkey is not None
+
     @classmethod
     def from_file(cls, path: Path) -> "StubConfig":
         """Load stubs from a JSON file."""
-        return cls(stubs=json.loads(path.read_text()))
+        raw = json.loads(path.read_text())
+        stubs: dict[str, StubEntry] = {}
+        for label, value in raw.items():
+            if isinstance(value, dict):
+                stubs[label] = StubEntry(**value)
+            else:
+                raise ValueError(
+                    f"Invalid stub entry '{label}': "
+                    f"expected object with 'addr' field"
+                )
+        return cls(stubs=stubs)

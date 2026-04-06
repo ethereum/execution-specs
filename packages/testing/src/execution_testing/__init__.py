@@ -23,6 +23,7 @@ from .benchmark import (
     ExtCallGenerator,
     JumpLoopGenerator,
     StubConfig,
+    StubEntry,
 )
 from .checklists import EIPChecklist
 from .exceptions import (
@@ -190,6 +191,7 @@ __all__ = (
     "StateTestFiller",
     "Storage",
     "StubConfig",
+    "StubEntry",
     "Switch",
     "TestAddress",
     "TestAddress2",

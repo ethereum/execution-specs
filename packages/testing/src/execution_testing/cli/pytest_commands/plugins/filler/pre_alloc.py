@@ -38,7 +38,7 @@ from execution_testing.test_types import (
 )
 from execution_testing.tools import Initcode
 
-from ..shared.execute_fill import stub_accounts_key
+from ..shared.execute_fill import stub_accounts_key, stub_eoas_key
 from ..shared.pre_alloc import Alloc as SharedAlloc
 from ..shared.pre_alloc import AllocFlags
 
@@ -475,6 +475,14 @@ def stub_accounts(
 ) -> Dict[str, Account]:
     """Return stub accounts pre-populated during configuration."""
     return request.config.stash.get(stub_accounts_key, {})
+
+
+@pytest.fixture(scope="session")
+def stub_eoas(
+    request: pytest.FixtureRequest,
+) -> Dict[str, EOA]:
+    """Return stub EOAs pre-populated during configuration."""
+    return request.config.stash.get(stub_eoas_key, {})
 
 
 @pytest.fixture(scope="function")

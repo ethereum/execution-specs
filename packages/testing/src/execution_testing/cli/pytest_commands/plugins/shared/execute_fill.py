@@ -3,12 +3,12 @@ Shared pytest fixtures and hooks for EEST generation modes (fill and execute).
 """
 
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import pytest
 from pytest import StashKey
 
-from execution_testing.base_types import Account
+from execution_testing.base_types import Account, Number
 from execution_testing.base_types import Alloc as BaseAlloc
 from execution_testing.execution import (
     BaseExecute,
@@ -29,6 +29,7 @@ from ..spec_version_checker.spec_version_checker import EIPSpecTestItem
 logger = get_logger(__name__)
 
 stub_accounts_key: StashKey[Dict[str, Account]] = StashKey()
+stub_eoas_key: StashKey[Dict[str, EOA]] = StashKey()
 
 ALL_FIXTURE_PARAMETERS = {
     "gas_benchmark_value",
@@ -48,39 +49,50 @@ plugins.
 
 def _validate_and_cache_address_stubs(
     address_stubs: AddressStubs, rpc_endpoint: str
-) -> Dict[str, Account]:
+) -> Tuple[Dict[str, Account], Dict[str, EOA]]:
     """
-    Validate that every stub address has code on-chain and return a cache.
+    Validate stub addresses on-chain and return caches.
 
-    Perform a single batched RPC call to fetch the full account state
-    (nonce, balance, code) for every stub address. Exit the session if
-    any address has no deployed code. The returned cache maps stub names
-    to their on-chain ``Account``.
+    For stubs without a private key (contract stubs), validate that
+    the address has deployed code.  For stubs with a private key
+    (EOA stubs), create an ``EOA`` with the on-chain nonce.
+    Exit the session if any contract stub has no deployed code.
+
+    Return ``(accounts, eoas)`` where *accounts* maps contract stub
+    labels to their on-chain ``Account`` and *eoas* maps EOA stub
+    labels to ``EOA`` instances with on-chain nonces.
     """
     eth_rpc = EthRPC(rpc_endpoint)
     labels = list(address_stubs.root.keys())
-    addresses = list(address_stubs.root.values())
+    addresses = [address_stubs.root[k].addr for k in labels]
     query = BaseAlloc(root={addr: Account() for addr in addresses})
     alloc = eth_rpc.get_alloc(query)
     empty: list[str] = []
-    accounts: list[Account] = []
-    for i, addr in enumerate(addresses):
-        account = alloc.root.get(addr)
-        if account is None or not account.code:
-            empty.append(f"  '{labels[i]}' at {addr}")
+    accounts: Dict[str, Account] = {}
+    eoas: Dict[str, EOA] = {}
+    for label, addr in zip(labels, addresses, strict=True):
+        entry = address_stubs.get_entry(label)
+        account = alloc.root.get(addr) or Account()
+        if entry.pkey is not None:
+            eoa = EOA(key=entry.pkey)
+            eoa.nonce = Number(account.nonce)
+            eoas[label] = eoa
+            accounts[label] = account
+        elif not account.code:
+            empty.append(f"  '{label}' at {addr}")
         else:
-            accounts.append(account)
+            accounts[label] = account
     if empty:
         pytest.exit(
             "The following address stubs have no code on-chain:\n"
             + "\n".join(empty)
             + "\nPlease verify the addresses in --address-stubs."
         )
-    cache: Dict[str, Account] = dict(zip(labels, accounts, strict=True))
     logger.info(
-        f"Validated {len(cache)} address stubs: all have code on-chain"
+        f"Validated {len(accounts) + len(eoas)} address stubs: "
+        f"{len(accounts)} contracts, {len(eoas)} EOAs"
     )
-    return cache
+    return accounts, eoas
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -111,9 +123,11 @@ def pytest_configure(config: pytest.Config) -> None:
         and rpc_endpoint is not None
         and not config.getoption("collectonly", default=False)
     ):
-        config.stash[stub_accounts_key] = _validate_and_cache_address_stubs(
+        accounts, eoas = _validate_and_cache_address_stubs(
             address_stubs, rpc_endpoint
         )
+        config.stash[stub_accounts_key] = accounts
+        config.stash[stub_eoas_key] = eoas
     if config.pluginmanager.has_plugin(
         "execution_testing.cli.pytest_commands.plugins.filler.filler"
     ):
