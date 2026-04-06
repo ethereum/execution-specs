@@ -43,6 +43,6 @@ bal:
   feature_only: true
 
 zkevm:
-  evm-type: develop
+  evm-type: eels
   fill-params: -m "blockchain_test" --fork=Amsterdam ./tests/
   feature_only: true
