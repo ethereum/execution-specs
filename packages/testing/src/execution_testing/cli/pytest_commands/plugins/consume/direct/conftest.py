@@ -256,29 +256,50 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
     config.fixture_consumers = fixture_consumers  # type: ignore[attr-defined]
 
 
+NAME_MAP = {
+    "GethFixtureConsumer": "geth",
+    "BesuFixtureConsumer": "besu",
+    "NethtestFixtureConsumer": "nethermind",
+}
+
+RECOMMENDED_WORKERS = {
+    "GethFixtureConsumer": 8,
+    "BesuFixtureConsumer": 8,
+    "NethtestFixtureConsumer": 4,
+}
+
+
 def pytest_report_header(
     config: pytest.Config,
 ) -> list[str]:
-    """Add client and worker info to the report header."""
+    """Add client, worker info, and tips to report header."""
     if "health" in sys.argv:
         return []
     lines = []
     consumers = getattr(config, "fixture_consumers", [])
     num_workers = config.getoption("num_workers", 1)
-    # Map class names to friendly client names
-    name_map = {
-        "GethFixtureConsumer": "geth",
-        "BesuFixtureConsumer": "besu",
-        "NethtestFixtureConsumer": "nethermind",
-    }
+
     for consumer in consumers:
         cls_name = type(consumer).__name__
-        friendly = name_map.get(cls_name, cls_name)
+        friendly = NAME_MAP.get(cls_name, cls_name)
         lines.append(f"client: {friendly}")
+
     lines.append(f"bin-workers: {num_workers}")
+
     n_workers = config.getoption("numprocesses", None)
     if n_workers:
         lines.append(f"xdist workers: {n_workers}")
+
+    if num_workers == 1:
+        for consumer in consumers:
+            rec = RECOMMENDED_WORKERS.get(type(consumer).__name__)
+            if rec:
+                friendly = NAME_MAP.get(type(consumer).__name__, "")
+                lines.append(
+                    f"Tip: recommended for {friendly}: "
+                    f"--bin-workers {rec}"
+                )
+
     lines.append(
         "Note: initial binary startup may take a moment "
         "(especially JVM/dotnet clients)"
