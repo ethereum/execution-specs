@@ -233,7 +233,6 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
                     f"Unknown CLI binary: {bin_path}. "
                     f"Could not detect as native binary or dotnet project."
                 )
-        consumer.workers = num_workers  # type: ignore[attr-defined]
         fixture_consumers.append(consumer)
     if config.option.markers:
         return
@@ -253,6 +252,34 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
             "No fixture consumer binaries provided; please specify a binary "
             "path via `--bin`."
         )
+    # Block -n for clients with top-level caching (besu/nethermind)
+    no_xdist_reasons = {
+        "BesuFixtureConsumer": "JVM startup is expensive per xdist worker",
+        "NethtestFixtureConsumer": "dotnet startup is expensive per xdist worker",
+    }
+    n_workers = config.getoption("numprocesses", None)
+    if n_workers and n_workers > 0:
+        for consumer in fixture_consumers:
+            cls_name = type(consumer).__name__
+            reason = no_xdist_reasons.get(cls_name)
+            if reason:
+                friendly = NAME_MAP.get(cls_name, cls_name)
+                rec = RECOMMENDED_WORKERS.get(cls_name, 4)
+                pytest.exit(
+                    f"{friendly} does not support -n (xdist): {reason}. "
+                    f"Use --bin-workers instead. Recommended: --bin-workers {rec}."
+                )
+
+    # Auto-set recommended --bin-workers if using default (1)
+    if num_workers == 1:
+        for consumer in fixture_consumers:
+            rec = RECOMMENDED_WORKERS.get(type(consumer).__name__)
+            if rec:
+                num_workers = rec
+                break
+    for consumer in fixture_consumers:
+        consumer.workers = num_workers  # type: ignore[attr-defined]
+
     config.fixture_consumers = fixture_consumers  # type: ignore[attr-defined]
 
 
@@ -275,36 +302,28 @@ def pytest_report_header(
     """Add client, worker info, and tips to report header."""
     if "health" in sys.argv:
         return []
-    lines = []
+
     consumers = getattr(config, "fixture_consumers", [])
-    num_workers = config.getoption("num_workers", 1)
+    cli_workers = config.getoption("num_workers", 1)
+    tw = config.get_terminal_writer()
 
     for consumer in consumers:
         cls_name = type(consumer).__name__
         friendly = NAME_MAP.get(cls_name, cls_name)
-        lines.append(f"client: {friendly}")
-
-    lines.append(f"bin-workers: {num_workers}")
+        actual_workers = getattr(consumer, "workers", cli_workers)
+        auto = " (auto)" if cli_workers == 1 and actual_workers != 1 else ""
+        tw.write(f"client: {friendly} (bin-workers: {actual_workers}{auto})\n", yellow=True)
 
     n_workers = config.getoption("numprocesses", None)
     if n_workers:
-        lines.append(f"xdist workers: {n_workers}")
+        tw.write(f"xdist workers: {n_workers}\n", yellow=True)
 
-    if num_workers == 1:
-        for consumer in consumers:
-            rec = RECOMMENDED_WORKERS.get(type(consumer).__name__)
-            if rec:
-                friendly = NAME_MAP.get(type(consumer).__name__, "")
-                lines.append(
-                    f"Tip: recommended for {friendly}: "
-                    f"--bin-workers {rec}"
-                )
-
-    lines.append(
+    tw.write(
         "Note: initial binary startup may take a moment "
-        "(especially JVM/dotnet clients)"
+        "(especially JVM/dotnet clients)\n",
+        yellow=True,
     )
-    return lines
+    return []
 
 
 @pytest.fixture(scope="function")

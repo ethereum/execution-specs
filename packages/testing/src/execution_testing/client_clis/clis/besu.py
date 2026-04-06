@@ -523,11 +523,10 @@ class BesuFixtureConsumer(
         """Run evmtool once per type directory and cache results.
 
         Uses the top-level type directory (e.g. blockchain_tests_engine/)
-        instead of per-EIP subdirectories to avoid repeated JVM startup.
+        to avoid repeated JVM startup per subdirectory.
         """
         fmt = type(fixture_format) if not isinstance(fixture_format, type) else fixture_format
         subcommand = self._subcommands[fmt]
-        # Walk up to the type-level directory to run one binary call
         type_dirs = {"state_tests", "blockchain_tests", "blockchain_tests_engine"}
         dir_path = fixture_path if fixture_path.is_dir() else fixture_path.parent
         while dir_path.name not in type_dirs and dir_path.parent != dir_path:
