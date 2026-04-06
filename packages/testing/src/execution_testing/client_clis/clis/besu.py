@@ -21,13 +21,23 @@ from execution_testing.exceptions import (
     TransactionException,
 )
 from execution_testing.fixtures import (
+    BlockchainEngineFixture,
     BlockchainFixture,
     FixtureFormat,
     StateFixture,
 )
 from execution_testing.forks import Fork
 
-from ..cli_types import TransitionToolOutput
+from ..cli_types import (
+    BlockTestResult,
+    EngineTestResult,
+    FixtureTestResult,
+    StateTestResult,
+    TransitionToolOutput,
+)
+from execution_testing.exceptions import (  # noqa: E402
+    UndefinedException,
+)
 from ..ethereum_cli import EthereumCLI
 from ..fixture_consumer_tool import FixtureConsumerTool
 from ..transition_tool import (
@@ -490,155 +500,196 @@ class BesuExceptionMapper(ExceptionMapper):
 class BesuFixtureConsumer(
     BesuEvmTool,
     FixtureConsumerTool,
-    fixture_formats=[StateFixture, BlockchainFixture],
+    fixture_formats=[StateFixture, BlockchainFixture, BlockchainEngineFixture],
 ):
     """Besu's implementation of the fixture consumer."""
 
-    def consume_blockchain_test(
+    _subcommands: Dict[type, str] = {
+        StateFixture: "state-test",
+        BlockchainFixture: "block-test",
+        BlockchainEngineFixture: "engine-test",
+    }
+
+    _dir_cache: Dict[str, Dict[str, Dict[str, Any]]] = {}
+    _fixture_cache: Dict[str, Dict[str, Any]] = {}
+    exception_mapper: ExceptionMapper = BesuExceptionMapper()
+
+    def _get_dir_results(
         self,
+        fixture_format: FixtureFormat,
         fixture_path: Path,
-        fixture_name: Optional[str] = None,
         debug_output_path: Optional[Path] = None,
-    ) -> None:
-        """
-        Consume a single blockchain test.
+    ) -> Dict[str, Dict[str, Any]]:
+        """Run evmtool once per directory and cache results by test name."""
+        fmt = type(fixture_format) if not isinstance(fixture_format, type) else fixture_format
+        subcommand = self._subcommands[fmt]
+        dir_path = fixture_path if fixture_path.is_dir() else fixture_path.parent
+        cache_key = f"{subcommand}:{dir_path}"
 
-        Besu's ``evmtool block-test`` accepts ``--test-name`` to
-        select a specific fixture from the file.
-        """
-        subcommand = "block-test"
-        subcommand_options: List[str] = []
-        if debug_output_path:
-            subcommand_options += ["--json"]
-
-        if fixture_name:
-            subcommand_options += [
-                "--test-name",
-                fixture_name,
+        if cache_key not in self._dir_cache:
+            workers = getattr(self, "workers", 1)
+            command = [
+                str(self.binary), subcommand,
+                "--json-array", "--workers", str(workers),
+                str(dir_path),
             ]
+            if debug_output_path:
+                command.insert(-1, "--json")
 
-        command = (
-            [str(self.binary)]
-            + [subcommand]
-            + subcommand_options
-            + [str(fixture_path)]
-        )
+            result = self._run_command(command)
 
-        result = self._run_command(command)
+            if debug_output_path:
+                self._consume_debug_dump(
+                    command, result, fixture_path, debug_output_path
+                )
 
-        if debug_output_path:
-            self._consume_debug_dump(
-                command, result, fixture_path, debug_output_path
-            )
+            if result.returncode != 0:
+                raise Exception(
+                    f"Unexpected exit code:\n{' '.join(command)}\n\n"
+                    f"Error:\n{result.stderr}"
+                )
 
-        if result.returncode != 0:
-            raise Exception(
-                f"Unexpected exit code:\n{' '.join(command)}\n\n"
-                f"Error:\n{result.stderr}"
-            )
+            # Besu mixes text output with JSON — find JSON array via '[{'
+            stdout = result.stdout
+            json_start = stdout.rfind("[{")
+            if json_start < 0:
+                json_start = stdout.rfind("[")
+            if json_start < 0:
+                raise Exception(
+                    f"No JSON array in evmtool {subcommand} output:\n"
+                    f"{stdout[:500]}"
+                )
+            result_json = json.loads(stdout[json_start:])
 
-        # Parse text output for failures
-        stdout = result.stdout
-        if "Failed:" in stdout:
-            failed_match = re.search(r"Failed:\s+(\d+)", stdout)
-            if failed_match and int(failed_match.group(1)) > 0:
-                raise Exception(f"Blockchain test failed:\n{stdout}")
+            result_model: type[FixtureTestResult] = {
+                StateFixture: StateTestResult,
+                BlockchainFixture: BlockTestResult,
+                BlockchainEngineFixture: EngineTestResult,
+            }.get(fmt, FixtureTestResult)
 
-    @cache  # noqa
-    def consume_state_test_file(
+            indexed: Dict[str, Dict[str, Any]] = {}
+            for r in result_json:
+                validated = result_model.model_validate(r).model_dump(
+                    by_alias=True
+                )
+                indexed[validated["name"]] = validated
+
+            self._dir_cache[cache_key] = indexed
+
+        return self._dir_cache[cache_key]
+
+    def _get_fixture_json(self, fixture_path: Path) -> Dict[str, Any]:
+        """Load and cache fixture JSON."""
+        key = str(fixture_path)
+        if key not in self._fixture_cache:
+            file_path = fixture_path if fixture_path.is_file() else None
+            if file_path is None:
+                return {}
+            self._fixture_cache[key] = json.loads(file_path.read_text())
+        return self._fixture_cache[key]
+
+    def _get_expected_exceptions(
         self,
         fixture_path: Path,
-        debug_output_path: Optional[Path] = None,
-    ) -> List[Dict[str, Any]]:
-        """
-        Consume an entire state test file.
+        fixture_name: str,
+        fixture_format: FixtureFormat,
+    ) -> List[ExceptionBase]:
+        """Extract expected exceptions from fixture."""
+        fixture_json = self._get_fixture_json(fixture_path)
+        test_data = fixture_json.get(fixture_name, {})
+        exceptions: List[ExceptionBase] = []
 
-        Besu's ``evmtool state-test`` outputs one JSON object per
-        line (NDJSON) with a ``test`` field instead of ``name``.
-        This method normalizes the output to match the expected
-        format.
-        """
-        subcommand = "state-test"
-        subcommand_options: List[str] = []
-        if debug_output_path:
-            subcommand_options += ["--json"]
+        if fixture_format == BlockchainEngineFixture:
+            for payload in test_data.get("engineNewPayloads", []):
+                ve = payload.get("validationError")
+                if ve:
+                    exceptions.append(ExceptionBase.from_str(ve))
+        elif fixture_format == BlockchainFixture:
+            for block in test_data.get("blocks", []):
+                ee = block.get("expectException")
+                if ee:
+                    exceptions.append(ExceptionBase.from_str(ee))
+        elif fixture_format == StateFixture:
+            for fork_posts in test_data.get("post", {}).values():
+                for post in fork_posts:
+                    ee = post.get("expectException")
+                    if ee:
+                        exceptions.append(ExceptionBase.from_str(ee))
 
-        command = (
-            [str(self.binary)]
-            + [subcommand]
-            + subcommand_options
-            + [str(fixture_path)]
-        )
-        result = self._run_command(command)
+        return exceptions
 
-        if debug_output_path:
-            self._consume_debug_dump(
-                command, result, fixture_path, debug_output_path
-            )
-
-        if result.returncode != 0:
-            raise Exception(
-                f"Unexpected exit code:\n{' '.join(command)}\n\n"
-                f"Error:\n{result.stderr}"
-            )
-
-        # Parse NDJSON output, normalize "test" -> "name"
-        results: List[Dict[str, Any]] = []
-        for line in result.stdout.strip().splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                entry = json.loads(line)
-                if "test" in entry and "name" not in entry:
-                    entry["name"] = entry["test"]
-                results.append(entry)
-            except json.JSONDecodeError as e:
-                raise Exception(
-                    f"Failed to parse Besu state-test output as JSON.\n"
-                    f"Offending line:\n{line}\n\n"
-                    f"Error: {e}"
-                ) from e
-        return results
-
-    def consume_state_test(
+    def _check_exception(
         self,
+        label: str,
+        fixture_name: str,
+        error: str,
+        expected: List[ExceptionBase],
+    ) -> None:
+        """Map client error through ExceptionMapper and compare."""
+        mapped = self.exception_mapper.message_to_exception(error)
+        if isinstance(mapped, UndefinedException):
+            raise AssertionError(
+                f"{label} test: unmapped error for {fixture_name}:\n"
+                f"  expected: {expected}\n"
+                f"  error: {error}\n"
+                f"  mapper: {mapped.mapper_name}"
+            )
+        if not any(exc in expected for exc in mapped):
+            raise AssertionError(
+                f"{label} test: wrong exception for {fixture_name}:\n"
+                f"  expected: {expected}\n"
+                f"  got: {mapped}\n"
+                f"  error: {error}"
+            )
+
+    def _consume_test(
+        self,
+        fixture_format: FixtureFormat,
+        label: str,
         fixture_path: Path,
         fixture_name: Optional[str] = None,
         debug_output_path: Optional[Path] = None,
     ) -> None:
-        """
-        Consume a single state test.
-
-        Uses the cached result from ``consume_state_test_file``
-        and selects the requested fixture by name.
-        """
-        file_results = self.consume_state_test_file(
+        """Generic consume method with directory cache and exception matching."""
+        dir_results = self._get_dir_results(
+            fixture_format=fixture_format,
             fixture_path=fixture_path,
             debug_output_path=debug_output_path,
         )
         if fixture_name:
-            test_result = [
-                r for r in file_results if r["name"] == fixture_name
-            ]
-            assert len(test_result) < 2, (
-                f"Multiple test results for {fixture_name}"
-            )
-            assert len(test_result) == 1, (
-                f"Test result for {fixture_name} missing"
-            )
-            assert test_result[0]["pass"], (
-                f"State test failed: "
-                f"{test_result[0].get('error', 'unknown error')}"
-            )
-        else:
-            if any(not r["pass"] for r in file_results):
-                exception_text = "State test failed: \n" + "\n".join(
-                    f"{r['name']}: " + r.get("error", "unknown error")
-                    for r in file_results
-                    if not r["pass"]
+            if fixture_name not in dir_results:
+                raise Exception(
+                    f"{label} test result missing: {fixture_name} "
+                    f"(client may have skipped or crashed on this test)"
                 )
-                raise Exception(exception_text)
+            result = dir_results[fixture_name]
+            expected = self._get_expected_exceptions(
+                fixture_path, fixture_name, fixture_format,
+            )
+            error = result.get("error", "")
+
+            if expected and error:
+                self._check_exception(
+                    label, fixture_name, error, expected,
+                )
+            elif expected and not error:
+                raise AssertionError(
+                    f"{label} test: expected exception {expected} "
+                    f"but no error returned for {fixture_name}"
+                )
+            elif not expected and not result["pass"]:
+                raise AssertionError(
+                    f"{label} test failed: {error}"
+                )
+        else:
+            failures = [r for r in dir_results.values() if not r["pass"]]
+            if failures:
+                raise Exception(
+                    f"{label} test failed: \n"
+                    + "\n".join(
+                        f"{r['name']}: {r['error']}" for r in failures
+                    )
+                )
 
     def consume_fixture(
         self,
@@ -647,24 +698,14 @@ class BesuFixtureConsumer(
         fixture_name: Optional[str] = None,
         debug_output_path: Optional[Path] = None,
     ) -> None:
-        """
-        Execute the appropriate Besu fixture consumer for the
-        fixture at ``fixture_path``.
-        """
-        if fixture_format == BlockchainFixture:
-            self.consume_blockchain_test(
-                fixture_path=fixture_path,
-                fixture_name=fixture_name,
-                debug_output_path=debug_output_path,
-            )
-        elif fixture_format == StateFixture:
-            self.consume_state_test(
-                fixture_path=fixture_path,
-                fixture_name=fixture_name,
-                debug_output_path=debug_output_path,
-            )
-        else:
-            raise Exception(
-                f"Fixture format {fixture_format.format_name} "
-                f"not supported by {self.binary}"
-            )
+        """Execute the appropriate Besu fixture consumer."""
+        labels = {
+            StateFixture: "State",
+            BlockchainFixture: "Blockchain",
+            BlockchainEngineFixture: "Engine",
+        }
+        label = labels.get(fixture_format, "Unknown")
+        self._consume_test(
+            fixture_format, label, fixture_path, fixture_name,
+            debug_output_path,
+        )
