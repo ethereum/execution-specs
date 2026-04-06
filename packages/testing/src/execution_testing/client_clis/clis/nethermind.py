@@ -242,10 +242,15 @@ class NethtestFixtureConsumer(
         debug_output_path: Optional[Path] = None,
     ) -> Dict[str, Dict[str, Any]]:
         """
-        Run nethtest once per fixture directory and cache all results
-        indexed by test name.
+        Run nethtest once per type directory and cache all results.
+
+        Uses the top-level type directory (e.g. blockchain_tests_engine/)
+        to avoid repeated dotnet startup per subdirectory.
         """
+        type_dirs = {"state_tests", "blockchain_tests", "blockchain_tests_engine"}
         dir_path = fixture_path if fixture_path.is_dir() else fixture_path.parent
+        while dir_path.name not in type_dirs and dir_path.parent != dir_path:
+            dir_path = dir_path.parent
         flags = self._format_to_flags[type(fixture_format) if not isinstance(fixture_format, type) else fixture_format]
         cache_key = f"{flags[0]}:{dir_path}"
 
