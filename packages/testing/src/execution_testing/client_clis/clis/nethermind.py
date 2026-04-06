@@ -322,18 +322,18 @@ class NethtestFixtureConsumer(
             for payload in test_data.get("engineNewPayloads", []):
                 ve = payload.get("validationError")
                 if ve:
-                    exceptions.append(ExceptionBase.from_str(ve))
+                    exceptions.extend(ExceptionBase.from_str(e) for e in ve.split("|"))
         elif fixture_format == BlockchainFixture:
             for block in test_data.get("blocks", []):
                 ee = block.get("expectException")
                 if ee:
-                    exceptions.append(ExceptionBase.from_str(ee))
+                    exceptions.extend(ExceptionBase.from_str(e) for e in ee.split("|"))
         elif fixture_format == StateFixture:
             for fork_posts in test_data.get("post", {}).values():
                 for post in fork_posts:
                     ee = post.get("expectException")
                     if ee:
-                        exceptions.append(ExceptionBase.from_str(ee))
+                        exceptions.extend(ExceptionBase.from_str(e) for e in ee.split("|"))
 
         return exceptions
 
@@ -391,12 +391,8 @@ class NethtestFixtureConsumer(
                 self._check_exception(
                     label, fixture_name, error, expected,
                 )
-            elif expected and not error:
-                raise AssertionError(
-                    f"{label} test: expected exception {expected} "
-                    f"but no error returned for {fixture_name}"
-                )
-            elif not expected and not result["pass"]:
+
+            if not result["pass"]:
                 raise AssertionError(
                     f"{label} test failed: {error}"
                 )

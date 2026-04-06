@@ -55,9 +55,13 @@ def get_command_logic_test_paths(command_name: str) -> List[Path]:
         command_logic_test_paths = [
             base_path / "simulators" / "simulator_logic" / "test_via_sync.py"
         ]
-    elif command_name == "direct":
+    elif command_name in ("direct", "direct_run"):
         command_logic_test_paths = [
             base_path / "direct" / "test_via_direct.py"
+        ]
+    elif command_name == "direct_health":
+        command_logic_test_paths = [
+            base_path / "health" / "test_health.py"
         ]
     else:
         raise ValueError(f"Unexpected command: {command_name}.")
@@ -68,6 +72,8 @@ def get_command_logic_test_paths(command_name: str) -> List[Path]:
 def consume() -> None:
     """Consume command to aid client consumption of test fixtures."""
     pass
+
+
 
 
 def consume_command(
@@ -102,10 +108,36 @@ def consume_command(
     return decorator
 
 
-@consume_command(is_hive=False)
-def direct() -> None:
-    """Clients consume directly via the `blocktest` interface."""
-    pass
+@consume.command(
+    name="direct",
+    context_settings={"ignore_unknown_options": True},
+)
+@common_pytest_options
+def direct(pytest_args: List[str], **kwargs: Any) -> None:
+    """Clients consume directly via the `blocktest` interface.
+
+    Use `consume direct health` to run health checks.
+    """
+    del kwargs
+    args = list(pytest_args)
+    if args and args[0] == "health":
+        args.pop(0)
+        if "-v" not in args and "--verbose" not in args:
+            args.insert(0, "-v")
+        consume_cmd = create_consume_command(
+            command_logic_test_paths=get_command_logic_test_paths(
+                "direct_health"
+            ),
+            is_hive=False,
+            command_name="direct_health",
+        )
+    else:
+        consume_cmd = create_consume_command(
+            command_logic_test_paths=get_command_logic_test_paths("direct"),
+            is_hive=False,
+            command_name="direct",
+        )
+    consume_cmd.execute(args)
 
 
 @consume_command(is_hive=True)
@@ -144,3 +176,5 @@ def cache(pytest_args: List[str], **kwargs: Any) -> None:
         command_logic_test_paths=[], is_hive=False
     )
     cache_cmd.execute(list(pytest_args))
+
+

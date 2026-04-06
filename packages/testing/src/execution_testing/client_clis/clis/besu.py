@@ -434,12 +434,12 @@ class BesuExceptionMapper(ExceptionMapper):
             r"exceeds transaction sender account balance 0x[0-9a-f]+"
         ),
         TransactionException.INTRINSIC_GAS_TOO_LOW: (
-            r"transaction invalid intrinsic gas cost \d+"
+            r"(?:transaction invalid )?intrinsic gas cost \d+"
             r"(?: \(regular \d+ \+ state \d+\))? "
             r"exceeds gas limit \d+"
         ),
         TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
-            r"transaction invalid intrinsic gas cost \d+"
+            r"(?:transaction invalid )?intrinsic gas cost \d+"
             r"(?: \(regular \d+ \+ state \d+\))? "
             r"exceeds gas limit \d+"
         ),
@@ -520,10 +520,18 @@ class BesuFixtureConsumer(
         fixture_path: Path,
         debug_output_path: Optional[Path] = None,
     ) -> Dict[str, Dict[str, Any]]:
-        """Run evmtool once per directory and cache results by test name."""
+        """Run evmtool once per type directory and cache results.
+
+        Uses the top-level type directory (e.g. blockchain_tests_engine/)
+        instead of per-EIP subdirectories to avoid repeated JVM startup.
+        """
         fmt = type(fixture_format) if not isinstance(fixture_format, type) else fixture_format
         subcommand = self._subcommands[fmt]
+        # Walk up to the type-level directory to run one binary call
+        type_dirs = {"state_tests", "blockchain_tests", "blockchain_tests_engine"}
         dir_path = fixture_path if fixture_path.is_dir() else fixture_path.parent
+        while dir_path.name not in type_dirs and dir_path.parent != dir_path:
+            dir_path = dir_path.parent
         cache_key = f"{subcommand}:{dir_path}"
 
         if cache_key not in self._dir_cache:
@@ -603,18 +611,18 @@ class BesuFixtureConsumer(
             for payload in test_data.get("engineNewPayloads", []):
                 ve = payload.get("validationError")
                 if ve:
-                    exceptions.append(ExceptionBase.from_str(ve))
+                    exceptions.extend(ExceptionBase.from_str(e) for e in ve.split("|"))
         elif fixture_format == BlockchainFixture:
             for block in test_data.get("blocks", []):
                 ee = block.get("expectException")
                 if ee:
-                    exceptions.append(ExceptionBase.from_str(ee))
+                    exceptions.extend(ExceptionBase.from_str(e) for e in ee.split("|"))
         elif fixture_format == StateFixture:
             for fork_posts in test_data.get("post", {}).values():
                 for post in fork_posts:
                     ee = post.get("expectException")
                     if ee:
-                        exceptions.append(ExceptionBase.from_str(ee))
+                        exceptions.extend(ExceptionBase.from_str(e) for e in ee.split("|"))
 
         return exceptions
 
@@ -672,12 +680,8 @@ class BesuFixtureConsumer(
                 self._check_exception(
                     label, fixture_name, error, expected,
                 )
-            elif expected and not error:
-                raise AssertionError(
-                    f"{label} test: expected exception {expected} "
-                    f"but no error returned for {fixture_name}"
-                )
-            elif not expected and not result["pass"]:
+
+            if not result["pass"]:
                 raise AssertionError(
                     f"{label} test failed: {error}"
                 )

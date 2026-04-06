@@ -6,6 +6,7 @@ For example, via go-ethereum's `evm blocktest` or `evm statetest` commands.
 """
 
 import json
+import sys
 import tempfile
 import warnings
 from pathlib import Path
@@ -65,9 +66,18 @@ def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
         type=Path,
         default=[],
         help=(
-            "Path to a geth evm executable that provides `blocktest`, "
-            "`statetest`, or `enginetest`. Flag can be used multiple "
-            "times to specify multiple fixture consumer binaries."
+            "Path to a client binary. Can be used multiple times. "
+            "Mutually exclusive with --client."
+        ),
+    )
+    consume_group.addoption(
+        "--client",
+        action="append",
+        dest="client_names",
+        default=[],
+        help=(
+            "Client name (e.g. geth, besu, nethermind). Resolves binary "
+            "path from consume-direct.toml. Can be used multiple times."
         ),
     )
     consume_group.addoption(
@@ -85,10 +95,10 @@ def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
         action="store",
         dest="fixture_type",
         type=str,
-        required=True,
+        default=None,
         choices=["state", "block", "engine", "all"],
         help=(
-            "Fixture type to run. Required. "
+            "Fixture type to run. Required for `consume direct`. "
             "One of: state, block, engine, all."
         ),
     )
@@ -112,7 +122,80 @@ def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
 
 
 def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
+    if "health" in sys.argv:
+        return
+
+    # Hint about consume-direct.toml if missing
+    config_path = Path.cwd() / "consume-direct.toml"
+    if not config_path.exists() and not config.option.collectonly:
+        warnings.warn(
+            "No consume-direct.toml found. "
+            "Run `consume direct health` to set up client binaries.",
+            stacklevel=1,
+        )
+
+    # Resolve --client names to bin paths from consume-direct.toml
+    client_names = config.getoption("client_names", [])
+    bin_paths = list(config.getoption("fixture_consumer_bin", []))
+
+    if client_names and bin_paths:
+        pytest.exit(
+            "Cannot use both --client and --bin. Use one or the other."
+        )
+
+    if client_names:
+        config_path = Path.cwd() / "consume-direct.toml"
+        if not config_path.exists():
+            pytest.exit(
+                f"consume-direct.toml not found. "
+                f"Run `consume direct health` to create it."
+            )
+        try:
+            import tomllib
+        except ModuleNotFoundError:
+            import tomli as tomllib  # type: ignore[no-redef]
+        with open(config_path, "rb") as f:
+            client_config = tomllib.load(f)
+        for name in client_names:
+            entry = client_config.get(name, {})
+            bin_str = entry.get("bin", "")
+            if not bin_str:
+                pytest.exit(
+                    f"Client '{name}' not configured in "
+                    f"consume-direct.toml."
+                )
+            bin_paths.append(Path(bin_str).expanduser())
+
+    # Replace the option so downstream code sees the resolved paths
+    config.option.fixture_consumer_bin = bin_paths
+
+    # Validate required options
+    if not bin_paths and not config.option.collectonly:
+        config_path = Path.cwd() / "consume-direct.toml"
+        available = ""
+        if config_path.exists():
+            try:
+                import tomllib
+            except ModuleNotFoundError:
+                import tomli as tomllib  # type: ignore[no-redef]
+            with open(config_path, "rb") as f:
+                available_clients = list(tomllib.load(f).keys())
+            if available_clients:
+                available = (
+                    f"\nConfigured clients: {', '.join(available_clients)}"
+                )
+        pytest.exit(
+            "No client binary provided. Use --bin <path> or "
+            "--client <name> to specify a fixture consumer, "
+            "or run `consume direct health` to check available clients."
+            + available
+        )
+
     fixture_type = config.getoption("fixture_type", None)
+    if fixture_type is None and not config.option.collectonly:
+        pytest.exit(
+            "No fixture type specified. Use --type <state|block|engine|all>."
+        )
     type_to_formats = {
         "state": [StateFixture],
         "block": [BlockchainFixture],
