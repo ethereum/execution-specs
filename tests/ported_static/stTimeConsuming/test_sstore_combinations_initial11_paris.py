@@ -3,6 +3,9 @@ Sstore 1 -> {calltype} -> change to {0, 1, 2} |-> {calltype} -> {non,...
 
 Ported from:
 state_tests/stTimeConsuming/sstore_combinations_initial11_ParisFiller.json
+
+@manually-enhanced: Do not overwrite. This test has been manually reviewed and
+enhanced.
 """
 
 import pytest
@@ -11,7 +14,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Environment,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -43,7 +45,6 @@ def test_sstore_combinations_initial11_paris(
     d: int,
 ) -> None:
     """Sstore 1 -> {calltype} -> change to {0, 1, 2} |-> {calltype} ->..."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xB000000000000000000000000000000000000000)
     contract_1 = Address(0xB100000000000000000000000000000000000000)
     contract_2 = Address(0xB200000000000000000000000000000000000000)
@@ -52,15 +53,6 @@ def test_sstore_combinations_initial11_paris(
     contract_5 = Address(0x3000000000000000000000000000000000000000)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
     )
 
     pre[sender] = Account(balance=0xE8D4A51000)
@@ -100,38 +92,10 @@ def test_sstore_combinations_initial11_paris(
     # Source: lll
     # { [[1]] 1 [[1]] 0 [[2]] 1 [[2]] 0 [[3]] 1 [[3]] 0 [[4]] 1 [[4]] 0 [[5]] 1 [[5]] 0 [[6]] 1 [[6]] 0 [[7]] 1 [[7]] 0 [[8]] 1 [[8]] 0 [[9]] 1 [[9]] 0 [[10]] 1 [[10]] 0 [[11]] 1 [[11]] 0 [[12]] 1 [[12]] 0 [[13]] 1 [[13]] 0 [[14]] 1 [[14]] 0 [[15]] 1 [[15]] 0 [[16]] 1 [[16]] 0  [[1]] 1 }  # noqa: E501
     contract_4 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x1, value=0x1)
-        + Op.SSTORE(key=0x1, value=0x0)
-        + Op.SSTORE(key=0x2, value=0x1)
-        + Op.SSTORE(key=0x2, value=0x0)
-        + Op.SSTORE(key=0x3, value=0x1)
-        + Op.SSTORE(key=0x3, value=0x0)
-        + Op.SSTORE(key=0x4, value=0x1)
-        + Op.SSTORE(key=0x4, value=0x0)
-        + Op.SSTORE(key=0x5, value=0x1)
-        + Op.SSTORE(key=0x5, value=0x0)
-        + Op.SSTORE(key=0x6, value=0x1)
-        + Op.SSTORE(key=0x6, value=0x0)
-        + Op.SSTORE(key=0x7, value=0x1)
-        + Op.SSTORE(key=0x7, value=0x0)
-        + Op.SSTORE(key=0x8, value=0x1)
-        + Op.SSTORE(key=0x8, value=0x0)
-        + Op.SSTORE(key=0x9, value=0x1)
-        + Op.SSTORE(key=0x9, value=0x0)
-        + Op.SSTORE(key=0xA, value=0x1)
-        + Op.SSTORE(key=0xA, value=0x0)
-        + Op.SSTORE(key=0xB, value=0x1)
-        + Op.SSTORE(key=0xB, value=0x0)
-        + Op.SSTORE(key=0xC, value=0x1)
-        + Op.SSTORE(key=0xC, value=0x0)
-        + Op.SSTORE(key=0xD, value=0x1)
-        + Op.SSTORE(key=0xD, value=0x0)
-        + Op.SSTORE(key=0xE, value=0x1)
-        + Op.SSTORE(key=0xE, value=0x0)
-        + Op.SSTORE(key=0xF, value=0x1)
-        + Op.SSTORE(key=0xF, value=0x0)
-        + Op.SSTORE(key=0x10, value=0x1)
-        + Op.SSTORE(key=0x10, value=0x0)
+        code=sum(
+            Op.SSTORE(key=i, value=0x1) + Op.SSTORE(key=i, value=0x0)
+            for i in range(0x1, 0x10 + 1)
+        )
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
         nonce=0,
@@ -149,9 +113,9 @@ def test_sstore_combinations_initial11_paris(
     # Combinatorial initcode generator
     # 1728 entries = 3 x 12 x 4 x 12 (dims: outer to inner)
     #   dim0: 1st change call type (3) - CALL, CALLCODE, DELEGATECALL
-    #   dim1: middle action 1 (12) - {CALL,CALLCODE,DELEGATECALL,STATICCALL} x {c3,c4,c5}
-    #   dim2: 2nd change call type (4) - STATICCALL, CALL, CALLCODE, DELEGATECALL
-    #   dim3: middle action 2 (12) - {CALL,CALLCODE,DELEGATECALL,STATICCALL} x {c3,c4,c5}
+    #   dim1: middle action 1 (12) - {CALL,CALLCODE,DELEGATECALL,STATICCALL} x {c3,c4,c5}  # noqa: E501
+    #   dim2: 2nd change call type (4) - STATICCALL, CALL, CALLCODE, DELEGATECALL  # noqa: E501
+    #   dim3: middle action 2 (12) - {CALL,CALLCODE,DELEGATECALL,STATICCALL} x {c3,c4,c5}  # noqa: E501
     gas = 0x493E0
     dim0_types = [Op.CALL, Op.CALLCODE, Op.DELEGATECALL]
     dim2_types = [Op.STATICCALL, Op.CALL, Op.CALLCODE, Op.DELEGATECALL]
@@ -191,4 +155,4 @@ def test_sstore_combinations_initial11_paris(
         compute_create_address(address=sender, nonce=0): Account(nonce=1),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
