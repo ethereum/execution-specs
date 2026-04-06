@@ -10,10 +10,9 @@ enhanced.
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
+    Bytecode,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -37,7 +36,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     range(426),
     ids=lambda d: f"d{d}",
 )
-@pytest.mark.pre_alloc_mutable
 def test_sstore_combinations_initial00_paris(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -45,17 +43,7 @@ def test_sstore_combinations_initial00_paris(
     d: int,
 ) -> None:
     """Sstore 0 -> {calltype} -> change to {0, 1, 2} |-> {calltype} ->..."""
-    contract_0 = Address(0xB000000000000000000000000000000000000000)
-    contract_1 = Address(0xB100000000000000000000000000000000000000)
-    contract_2 = Address(0xB200000000000000000000000000000000000000)
-    contract_3 = Address(0x1000000000000000000000000000000000000000)
-    contract_4 = Address(0x2000000000000000000000000000000000000000)
-    contract_5 = Address(0x3000000000000000000000000000000000000000)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
-
-    pre[sender] = Account(balance=0xE8D4A51000)
+    sender = pre.fund_eoa()
     # Source: lll
     # { [[0]] 0  [[1]] 1  [[2]] 2 }
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -63,8 +51,6 @@ def test_sstore_combinations_initial00_paris(
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.SSTORE(key=0x2, value=0x2)
         + Op.STOP,
-        nonce=0,
-        address=Address(0xB000000000000000000000000000000000000000),
     )
     # Source: lll
     # { [[0]] 0  [[1]] 1  [[2]] 2 }
@@ -74,8 +60,6 @@ def test_sstore_combinations_initial00_paris(
         + Op.SSTORE(key=0x2, value=0x2)
         + Op.STOP,
         storage={0: 1, 1: 1, 2: 1},
-        nonce=0,
-        address=Address(0xB100000000000000000000000000000000000000),
     )
     # Source: lll
     # { [[0]] 0  [[1]] 1  [[2]] 2 }
@@ -85,10 +69,12 @@ def test_sstore_combinations_initial00_paris(
         + Op.SSTORE(key=0x2, value=0x2)
         + Op.STOP,
         storage={0: 2, 1: 2, 2: 2},
-        nonce=0,
-        address=Address(0xB200000000000000000000000000000000000000),
     )
-    pre[contract_3] = Account(balance=10, storage={0: 1, 1: 1, 2: 1})
+    contract_3 = pre.deploy_contract(
+        Bytecode(),
+        balance=10,
+        storage={0: 1, 1: 1, 2: 1},
+    )
     # Source: lll
     # { [[1]] 1 [[1]] 0 [[2]] 1 [[2]] 0 [[3]] 1 [[3]] 0 [[4]] 1 [[4]] 0 [[5]] 1 [[5]] 0 [[6]] 1 [[6]] 0 [[7]] 1 [[7]] 0 [[8]] 1 [[8]] 0 [[9]] 1 [[9]] 0 [[10]] 1 [[10]] 0 [[11]] 1 [[11]] 0 [[12]] 1 [[12]] 0 [[13]] 1 [[13]] 0 [[14]] 1 [[14]] 0 [[15]] 1 [[15]] 0 [[16]] 1 [[16]] 0  [[1]] 1 }  # noqa: E501
     contract_4 = pre.deploy_contract(  # noqa: F841
@@ -98,16 +84,12 @@ def test_sstore_combinations_initial00_paris(
         )
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
-        nonce=0,
-        address=Address(0x2000000000000000000000000000000000000000),
     )
     # Source: lll
     # { (REVERT 0 32) }
     contract_5 = pre.deploy_contract(  # noqa: F841
         code=Op.REVERT(offset=0x0, size=0x20) + Op.STOP,
         storage={0: 2, 1: 2, 2: 2},
-        nonce=0,
-        address=Address(0x3000000000000000000000000000000000000000),
     )
 
     # Combinatorial initcode generator
