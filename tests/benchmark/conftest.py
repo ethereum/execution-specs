@@ -5,6 +5,7 @@ from typing import Any
 
 import pytest
 from execution_testing import Fork, StubConfig
+from execution_testing.rpc import EthRPC
 
 DEFAULT_BENCHMARK_FORK = "Prague"
 
@@ -74,3 +75,18 @@ def pytest_ignore_collect(collection_path: Path, config: Any) -> bool | None:
 def tx_gas_limit(fork: Fork, gas_benchmark_value: int) -> int:
     """Return the transaction gas limit cap."""
     return fork.transaction_gas_limit_cap() or gas_benchmark_value
+
+
+@pytest.fixture
+def live_eth_rpc(request: pytest.FixtureRequest) -> EthRPC | None:
+    """
+    Resolve `eth_rpc` from the current session.
+
+    In execute mode the fixture is provided by the execute plugin and
+    points to a live network; in fill mode no such fixture exists and
+    this returns ``None``.
+    """
+    try:
+        return request.getfixturevalue("eth_rpc")
+    except pytest.FixtureLookupError:
+        return None

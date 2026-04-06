@@ -102,7 +102,7 @@ def run_bloated_eoa_benchmark(
     token_name: str,
     existing_slots: bool,
     runtime_code: Bytecode,
-    eth_rpc: EthRPC | None = None,
+    live_eth_rpc: EthRPC | None = None,
 ) -> None:
     """
     Run a bloated-EOA benchmark with the given runtime delegation code.
@@ -110,7 +110,7 @@ def run_bloated_eoa_benchmark(
     Handles authority setup, slot 0 initialization, delegation to
     runtime code, benchmark tx generation, and test invocation.
     """
-    authority = get_storage_bloated_eoa(token_name, eth_rpc=eth_rpc)
+    authority = get_storage_bloated_eoa(token_name, eth_rpc=live_eth_rpc)
     slot_0_value = Hash(1) if existing_slots else Hash(START_SLOT)
 
     setter_address = pre.deploy_contract(code=Op.SSTORE(0, Op.CALLDATALOAD(0)))
@@ -161,7 +161,7 @@ def test_sload_bloated(
     tx_gas_limit: int,
     token_name: str,
     existing_slots: bool,
-    eth_rpc: EthRPC | None = None,
+    live_eth_rpc: EthRPC | None,
 ) -> None:
     """
     Benchmark SLOAD opcodes targeting an EOA with storage bloated.
@@ -190,7 +190,7 @@ def test_sload_bloated(
         token_name=token_name,
         existing_slots=existing_slots,
         runtime_code=runtime_code,
-        eth_rpc=eth_rpc,
+        live_eth_rpc=live_eth_rpc,
     )
 
 
@@ -207,7 +207,7 @@ def test_sstore_bloated(
     token_name: str,
     write_new_value: bool,
     existing_slots: bool,
-    eth_rpc: EthRPC | None = None,
+    live_eth_rpc: EthRPC | None,
 ) -> None:
     """
     Benchmark SSTORE opcodes targeting an EOA with storage bloated.
@@ -255,7 +255,7 @@ def test_sstore_bloated(
         token_name=token_name,
         existing_slots=existing_slots,
         runtime_code=runtime_code,
-        eth_rpc=eth_rpc,
+        live_eth_rpc=live_eth_rpc,
     )
 
 
