@@ -29,7 +29,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         "state_tests/stTimeConsuming/sstore_combinations_initial20_2_ParisFiller.json"  # noqa: E501
     ],
 )
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Byzantium")
 @pytest.mark.slow
 @pytest.mark.parametrize(
     "d",
@@ -130,6 +130,7 @@ def test_sstore_combinations_initial20_2_paris(
         data=initcode,
         gas_limit=2_000_000,
         value=1,
+        protected=fork.supports_protected_txs(),
     )
 
     post = {

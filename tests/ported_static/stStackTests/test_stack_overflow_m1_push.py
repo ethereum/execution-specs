@@ -84,6 +84,7 @@ def test_stack_overflow_m1_push(
         data=initcode,
         gas_limit=6_000_000,
         value=value,
+        protected=fork.supports_protected_txs(),
     )
 
     post = {
