@@ -143,6 +143,9 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
             "Cannot use both --client and --bin. Use one or the other."
         )
 
+    # Store per-client TOML config entries for extra options (e.g. state-bin)
+    client_configs: dict[str, dict[str, str]] = {}
+
     if client_names:
         config_path = Path.cwd() / "consume-direct.toml"
         if not config_path.exists():
@@ -164,7 +167,9 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
                     f"Client '{name}' not configured in "
                     f"consume-direct.toml."
                 )
-            bin_paths.append(Path(bin_str).expanduser())
+            resolved = Path(bin_str).expanduser()
+            bin_paths.append(resolved)
+            client_configs[str(resolved)] = entry
 
     # Replace the option so downstream code sees the resolved paths
     config.option.fixture_consumer_bin = bin_paths
@@ -213,10 +218,21 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
     fixture_consumers = []
     for fixture_consumer_bin_path in config.getoption("fixture_consumer_bin"):
         bin_path = Path(fixture_consumer_bin_path)
+        entry = client_configs.get(str(bin_path), {})
+
+        # Resolve state-bin override (e.g. reth uses revm for state tests)
+        state_bin_str = entry.get("state-bin", "")
+        extra_kwargs: dict[str, Any] = {}
+        if state_bin_str:
+            extra_kwargs["state_binary"] = (
+                Path(state_bin_str).expanduser()
+            )
+
         try:
             consumer = FixtureConsumerTool.from_binary_path(
                 binary_path=bin_path,
                 trace=config.getoption("consumer_collect_traces"),
+                **extra_kwargs,
             )
         except Exception:
             # Try dotnet project detection for .csproj/.dll paths
@@ -231,7 +247,8 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
             except Exception:
                 raise Exception(
                     f"Unknown CLI binary: {bin_path}. "
-                    f"Could not detect as native binary or dotnet project."
+                    f"Could not detect as native binary "
+                    f"or dotnet project."
                 )
         fixture_consumers.append(consumer)
     if config.option.markers:
@@ -287,12 +304,14 @@ NAME_MAP = {
     "GethFixtureConsumer": "geth",
     "BesuFixtureConsumer": "besu",
     "NethtestFixtureConsumer": "nethermind",
+    "RethFixtureConsumer": "reth",
 }
 
 RECOMMENDED_WORKERS = {
     "GethFixtureConsumer": 8,
     "BesuFixtureConsumer": 8,
     "NethtestFixtureConsumer": 4,
+    "RethFixtureConsumer": 8,
 }
 
 

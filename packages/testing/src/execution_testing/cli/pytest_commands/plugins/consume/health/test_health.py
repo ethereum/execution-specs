@@ -88,10 +88,20 @@ def detect_version(bin_path: Path) -> Optional[str]:
     return None
 
 
-def get_consumer(bin_path: Path) -> Any:
+def get_consumer(client: str, bin_path: Path) -> Any:
+    """Detect and create consumer, passing extra config like state-bin."""
+    config = load_config()
+    client_config = config.get(client, {})
+    extra_kwargs: Dict[str, Any] = {}
+
+    # Pass state-bin if configured (e.g. reth uses revm for state)
+    state_bin_str = client_config.get("state-bin", "")
+    if state_bin_str:
+        extra_kwargs["state_binary"] = Path(state_bin_str).expanduser().resolve()
+
     try:
         return FixtureConsumerTool.from_binary_path(
-            binary_path=bin_path, trace=False
+            binary_path=bin_path, trace=False, **extra_kwargs
         )
     except Exception:
         from execution_testing.client_clis.clis.nethermind import (
@@ -135,8 +145,12 @@ def run_version(client: str) -> None:
 
 def run_health(client: str, test_type: str) -> None:
     """Run a sanity fixture for a client + test type."""
-    bin_path = get_bin_path(client, test_type)
-    consumer = get_consumer(bin_path)
+    # Always detect consumer from main binary, not type-specific override
+    main_bin = get_bin_path(client)
+    consumer = get_consumer(client, main_bin)
+    # Verify type-specific binary exists if configured
+    type_bin = get_bin_path(client, test_type)
+    _ = type_bin  # just check it exists (get_bin_path asserts)
 
     fixture_format = FORMAT_MAP[test_type]
     assert fixture_format in consumer.fixture_formats, (
