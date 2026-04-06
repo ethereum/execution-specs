@@ -4,7 +4,6 @@ from collections.abc import Callable
 from enum import Enum
 
 from execution_testing import (
-    EOA,
     AccessList,
     Address,
     Alloc,
@@ -14,42 +13,12 @@ from execution_testing import (
     Op,
     Transaction,
 )
-from execution_testing.base_types import Number
-from execution_testing.rpc import EthRPC
 
 # ERC20 function selectors
 BALANCEOF_SELECTOR = 0x70A08231  # balanceOf(address)
 APPROVE_SELECTOR = 0x095EA7B3  # approve(address,uint256)
 ALLOWANCE_SELECTOR = 0xDD62ED3E  # allowance(address,address)
 MINT_SELECTOR = 0x40C10F19  # mint(address,uint256)
-
-# Storage-bloated EOA private keys, keyed by bloat size identifier.
-# Addresses derived via: keccak256(utf8ToBytes("stateBloaters{N}"))
-_STORAGE_BLOATED_EOA_KEYS: dict[str, str] = {
-    "1GB": (
-        "0xc618d7bcd54de2f0dcf86e4ced86ccf07926619a74ee10432c3d1c60743e3427"
-    ),
-    "10GB": (
-        "0x4da32d29f6dcffa26e09dc4e102033f2d105de1444fb893493ae703289275e0e"
-    ),
-    "20GB": (
-        "0xc025d5a1aa0f5eee1f50687901c5dc9a8e97a2be91aa381e4c938dc309105059"
-    ),
-}
-
-STORAGE_BLOATED_EOAS: list[str] = list(_STORAGE_BLOATED_EOA_KEYS.keys())
-
-
-def get_storage_bloated_eoa(
-    name: str,
-    eth_rpc: EthRPC | None = None,
-) -> EOA:
-    """Return an EOA for a storage-bloated account with its on-chain nonce."""
-    eoa = EOA(key=_STORAGE_BLOATED_EOA_KEYS[name])
-    if eth_rpc is not None:
-        nonce = eth_rpc.get_transaction_count(Address(eoa))
-        eoa.nonce = Number(nonce)
-    return eoa
 
 
 # Standard While-loop decrement-and-test condition.

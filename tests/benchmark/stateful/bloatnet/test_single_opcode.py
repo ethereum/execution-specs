@@ -35,7 +35,6 @@ from execution_testing import (
     keccak256,
 )
 from execution_testing.base_types.base_types import Number
-from execution_testing.rpc import EthRPC
 
 from tests.benchmark.stateful.helpers import (
     ALLOWANCE_SELECTOR,
@@ -43,10 +42,8 @@ from tests.benchmark.stateful.helpers import (
     BALANCEOF_SELECTOR,
     DECREMENT_COUNTER_CONDITION,
     MINT_SELECTOR,
-    STORAGE_BLOATED_EOAS,
     CacheStrategy,
     build_cache_strategy_blocks,
-    get_storage_bloated_eoa,
 )
 
 REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
@@ -99,10 +96,9 @@ def run_bloated_eoa_benchmark(
     fork: Fork,
     gas_benchmark_value: int,
     tx_gas_limit: int,
-    token_name: str,
+    authority: EOA,
     existing_slots: bool,
     runtime_code: Bytecode,
-    eth_rpc: EthRPC | None = None,
 ) -> None:
     """
     Run a bloated-EOA benchmark with the given runtime delegation code.
@@ -110,7 +106,6 @@ def run_bloated_eoa_benchmark(
     Handles authority setup, slot 0 initialization, delegation to
     runtime code, benchmark tx generation, and test invocation.
     """
-    authority = get_storage_bloated_eoa(token_name, eth_rpc=eth_rpc)
     slot_0_value = Hash(1) if existing_slots else Hash(START_SLOT)
 
     setter_address = pre.deploy_contract(code=Op.SSTORE(0, Op.CALLDATALOAD(0)))
@@ -151,7 +146,7 @@ def run_bloated_eoa_benchmark(
 
 
 @pytest.mark.repricing
-@pytest.mark.parametrize("token_name", STORAGE_BLOATED_EOAS)
+@pytest.mark.stub_parametrize("token_name", "bloated_eoa_")
 @pytest.mark.parametrize("existing_slots", [False, True])
 def test_sload_bloated(
     benchmark_test: BenchmarkTestFiller,
@@ -161,7 +156,6 @@ def test_sload_bloated(
     tx_gas_limit: int,
     token_name: str,
     existing_slots: bool,
-    eth_rpc: EthRPC | None = None,
 ) -> None:
     """
     Benchmark SLOAD opcodes targeting an EOA with storage bloated.
@@ -187,15 +181,14 @@ def test_sload_bloated(
         fork=fork,
         gas_benchmark_value=gas_benchmark_value,
         tx_gas_limit=tx_gas_limit,
-        token_name=token_name,
+        authority=pre.stub_eoa(token_name),
         existing_slots=existing_slots,
         runtime_code=runtime_code,
-        eth_rpc=eth_rpc,
     )
 
 
 @pytest.mark.repricing
-@pytest.mark.parametrize("token_name", STORAGE_BLOATED_EOAS)
+@pytest.mark.stub_parametrize("token_name", "bloated_eoa_")
 @pytest.mark.parametrize("write_new_value", [False, True])
 @pytest.mark.parametrize("existing_slots", [True, False])
 def test_sstore_bloated(
@@ -207,7 +200,6 @@ def test_sstore_bloated(
     token_name: str,
     write_new_value: bool,
     existing_slots: bool,
-    eth_rpc: EthRPC | None = None,
 ) -> None:
     """
     Benchmark SSTORE opcodes targeting an EOA with storage bloated.
@@ -252,10 +244,9 @@ def test_sstore_bloated(
         fork=fork,
         gas_benchmark_value=gas_benchmark_value,
         tx_gas_limit=tx_gas_limit,
-        token_name=token_name,
+        authority=pre.stub_eoa(token_name),
         existing_slots=existing_slots,
         runtime_code=runtime_code,
-        eth_rpc=eth_rpc,
     )
 
 

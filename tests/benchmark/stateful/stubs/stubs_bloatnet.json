@@ -112,5 +112,17 @@
   },
   "bloatnet_factory_24kb": {
     "addr": "0x091988Afd81E0a2A3E20530A2510c089fF4bfAef"
+  },
+  "bloated_eoa_1GB": {
+    "addr": "0x3f8074692982594c1936bd27433a8b6e5d77e0f0",
+    "pkey": "0xc618d7bcd54de2f0dcf86e4ced86ccf07926619a74ee10432c3d1c60743e3427"
+  },
+  "bloated_eoa_10GB": {
+    "addr": "0x87a6314da5ac8832f6e7a176c8fb133b19f5be04",
+    "pkey": "0x4da32d29f6dcffa26e09dc4e102033f2d105de1444fb893493ae703289275e0e"
+  },
+  "bloated_eoa_20GB": {
+    "addr": "0x772604ee92ebc9afa5b6ce561f6f6a4c4cdd214a",
+    "pkey": "0xc025d5a1aa0f5eee1f50687901c5dc9a8e97a2be91aa381e4c938dc309105059"
   }
 }
