@@ -458,13 +458,13 @@ class NethermindExceptionMapper(ExceptionMapper):
             "InsufficientMaxFeePerBlobGas: Not enough to cover blob gas fee"
         ),
         TransactionException.TYPE_1_TX_PRE_FORK: (
-            "InvalidTxType: Transaction type in Custom is not supported"
+            "InvalidTxType: Transaction type in"
         ),
         TransactionException.TYPE_2_TX_PRE_FORK: (
-            "InvalidTxType: Transaction type in Custom is not supported"
+            "InvalidTxType: Transaction type in"
         ),
         TransactionException.TYPE_3_TX_PRE_FORK: (
-            "InvalidTxType: Transaction type in Custom is not supported"
+            "InvalidTxType: Transaction type in"
         ),
         TransactionException.TYPE_3_TX_ZERO_BLOBS: (
             "blob transaction must have at least 1 blob"
@@ -482,7 +482,7 @@ class NethermindExceptionMapper(ExceptionMapper):
             "NotAllowedCreateTransaction: To must be set"
         ),
         TransactionException.TYPE_4_TX_PRE_FORK: (
-            "InvalidTxType: Transaction type in Custom is not supported"
+            "InvalidTxType: Transaction type in"
         ),
         BlockException.INCORRECT_BLOB_GAS_USED: (
             "HeaderBlobGasMismatch: "
