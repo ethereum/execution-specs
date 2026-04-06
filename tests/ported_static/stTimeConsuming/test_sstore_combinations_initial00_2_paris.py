@@ -128,7 +128,7 @@ def test_sstore_combinations_initial00_2_paris(
         sender=sender,
         to=None,
         data=initcode,
-        gas_limit=2000000,
+        gas_limit=2_000_000,
         value=1,
     )
 
