@@ -345,7 +345,9 @@ class RethFixtureConsumer(
             # Find JSON array start (binary may output info
             # before it)
             stdout = result.stdout
-            json_start = stdout.find("[")
+            json_start = stdout.rfind("[{")
+            if json_start < 0:
+                json_start = stdout.rfind("[")
             if json_start < 0:
                 raise Exception(
                     f"No JSON array in {subcommand} output:\n"
