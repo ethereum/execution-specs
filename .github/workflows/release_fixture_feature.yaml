@@ -5,6 +5,16 @@ on:
     tags:
       - "tests-*@v*"
   workflow_dispatch:
+    inputs:
+      feature_name:
+        description: "Feature to build (e.g. mainnet). Required for dispatch."
+        required: true
+        type: string
+      store_durations:
+        description: "Store pytest-split durations for future load balancing."
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   setup:
@@ -23,8 +33,12 @@ jobs:
         id: matrix
         shell: bash
         run: |
-          FEATURE_PREFIX="${GITHUB_REF_NAME//@*/}"
-          FEATURE_NAME="${FEATURE_PREFIX#tests-}"
+          if [ -n "${{ inputs.feature_name }}" ]; then
+            FEATURE_NAME="${{ inputs.feature_name }}"
+          else
+            FEATURE_PREFIX="${GITHUB_REF_NAME//@*/}"
+            FEATURE_NAME="${FEATURE_PREFIX#tests-}"
+          fi
           uv run -q .github/scripts/generate_build_matrix.py "$FEATURE_NAME" >> "$GITHUB_OUTPUT"
 
   build:
@@ -67,6 +81,7 @@ jobs:
           from_fork: ${{ matrix.from_fork }}
           until_fork: ${{ matrix.until_fork }}
           split_label: ${{ matrix.label }}
+          store_durations: ${{ inputs.store_durations && 'true' || 'false' }}
 
   combine:
     name: combine (${{ needs.setup.outputs.feature_name }})
@@ -109,6 +124,31 @@ jobs:
           if [ ${#SPLIT_DIRS[@]} -gt 0 ]; then
             uv run python .github/scripts/merge_index_files.py combined/.meta/index.json "${SPLIT_DIRS[@]}"
           fi
+      - name: Download and merge split durations
+        if: inputs.store_durations
+        shell: bash
+        run: |
+          DURATIONS_FILES=()
+          for label in ${{ needs.setup.outputs.combine_labels }}; do
+            echo "Downloading: durations__${label}"
+            if gh run download ${{ github.run_id }} -n "durations__${label}" --dir "durations_artifacts/${label}"; then
+              DURATIONS_FILES+=("durations_artifacts/${label}/.test_durations")
+            else
+              echo "No durations for ${label} (skipping)"
+            fi
+          done
+          if [ ${#DURATIONS_FILES[@]} -gt 0 ]; then
+            uv run python .github/scripts/merge_durations_files.py .test_durations "${DURATIONS_FILES[@]}"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Upload merged durations
+        if: inputs.store_durations
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: durations_${{ needs.setup.outputs.feature_name }}
+          include-hidden-files: true
+          path: .test_durations
       - name: Free disk space
         run: rm -rf split_artifacts/
       - name: Create release tarball
