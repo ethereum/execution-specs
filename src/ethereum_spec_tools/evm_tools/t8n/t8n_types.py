@@ -276,6 +276,7 @@ class Result:
     block_exception: Optional[str] = None
     block_access_list: Optional[Any] = None
     block_access_list_hash: Optional[Hash32] = None
+    is_inclusion_list_satisfied: Optional[bool] = None
 
     def get_receipts_from_output(
         self,
@@ -346,6 +347,11 @@ class Result:
             self.block_access_list = block_output.block_access_list
             self.block_access_list_hash = t8n.fork.hash_block_access_list(
                 block_output.block_access_list
+            )
+
+        if hasattr(block_output, "is_inclusion_list_satisfied"):
+            self.is_inclusion_list_satisfied = (
+                block_output.is_inclusion_list_satisfied
             )
 
     def json_encode_receipts(self) -> Any:
@@ -439,5 +445,8 @@ class Result:
             data["blockAccessListHash"] = encode_to_hex(
                 self.block_access_list_hash
             )
+
+        if self.is_inclusion_list_satisfied is not None:
+            data["isInclusionListSatisfied"] = self.is_inclusion_list_satisfied
 
         return data

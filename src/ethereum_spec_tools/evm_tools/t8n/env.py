@@ -4,7 +4,7 @@ Define t8n Env class.
 
 import json
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes8, Bytes20, Bytes32, Bytes256
@@ -55,6 +55,7 @@ class Env:
     excess_blob_gas: Optional[U64]
     slot_number: Optional[U64]
     requests: Any
+    inclusion_list_transactions: Optional[Tuple[Any, ...]]
 
     def __init__(self, t8n: "T8N", stdin: Optional[Dict] = None):
         if t8n.options.input_env == "stdin":
@@ -75,6 +76,7 @@ class Env:
         self.read_block_hashes(data)
         self.read_ommers(data, t8n)
         self.read_withdrawals(data, t8n)
+        self.read_inclusion_list_transactions(data, t8n)
 
         self.parent_beacon_block_root = None
         if t8n.fork.has_beacon_roots_address:
@@ -331,3 +333,19 @@ class Env:
                     )
                 )
         self.ommers = ommers
+
+    def read_inclusion_list_transactions(self, data: Any, t8n: "T8N") -> None:
+        """
+        Read the inclusion list transactions.
+        """
+        self.inclusion_list_transactions = None
+
+        if not t8n.fork.has_is_inclusion_list_satisfied:
+            return
+
+        inclusion_list_transactions = []
+        if "inclusionListTransactions" in data:
+            for tx in data["inclusionListTransactions"]:
+                inclusion_list_transactions.append(hex_to_bytes(tx))
+
+        self.inclusion_list_transactions = tuple(inclusion_list_transactions)
