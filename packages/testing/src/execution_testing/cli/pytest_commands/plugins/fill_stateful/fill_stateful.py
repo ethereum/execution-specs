@@ -11,11 +11,13 @@ from typing import Any, Generator, List, Sequence
 
 import pytest
 
-from execution_testing.base_types import Bytes, Hash, HexNumber
+from execution_testing.base_types import Bytes, Hash, HexNumber, Number
+from execution_testing.test_types import EOA
 from execution_testing.fixtures.blockchain import (
     BlockchainEngineStatefulFixture,
     FixtureConfig,
     FixtureEngineNewPayload,
+    StatefulPreRunFixture,
 )
 from execution_testing.fixtures.collector import (
     FixtureCollector,
@@ -190,6 +192,13 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         type=str,
         help="Output directory for generated fixtures.",
     )
+    fill_group.addoption(
+        "--rpc-seed-key",
+        action="store",
+        dest="rpc_seed_key",
+        type=str,
+        help="Private key of a funded account on the target network.",
+    )
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -223,21 +232,110 @@ def fixture_collector(
     return request.config.fixture_collector  # type: ignore[attr-defined]
 
 
-@pytest.fixture(scope="session")
-def snapshot_block(
-    eth_rpc: Any,
-    execute_required_contracts: None,  # noqa: ARG001
-) -> dict:
-    """
-    Capture the client's current head as the snapshot reference.
+# Replacements for dropped plugins (sender, concurrency, remote_seed_sender).
 
-    Depends on ``execute_required_contracts`` to ensure the
-    deterministic factory is already deployed before we record
-    the snapshot — otherwise the factory deployment block would
-    sit between the snapshot and the first test payload.
+
+@pytest.fixture(scope="session", autouse=True)
+def execute_required_contracts(
+    snapshot_block: dict,  # noqa: ARG001 — force snapshot first
+    recording_rpc: RecordingTestingRPC | None,  # noqa: ARG001 — force recorder first
+    session_fork: Any,
+    session_worker_key: EOA,
+    eth_rpc: Any,
+    sender_funding_transactions_gas_price: int,
+    session_temp_folder: Path,
+) -> None:
+    """Deploy required contracts AFTER snapshot_block is captured.
+
+    Overrides pre_alloc's version to guarantee ordering: the raw
+    snapshot is recorded before any blocks are built.
+    """
+    from filelock import FileLock
+
+    from execution_testing.cli.pytest_commands.plugins.execute.contracts import (
+        check_deterministic_factory_deployment,
+        deploy_deterministic_factory_contract,
+    )
+
+    base_lock_file = session_temp_folder / "execute_required_contracts.lock"
+    with FileLock(base_lock_file):
+        if (
+            check_deterministic_factory_deployment(
+                eth_rpc=eth_rpc, fork=session_fork
+            )
+            is None
+        ):
+            deploy_deterministic_factory_contract(
+                eth_rpc=eth_rpc,
+                seed_key=session_worker_key,
+                gas_price=sender_funding_transactions_gas_price,
+                tx_index=0,
+            )
+
+
+@pytest.fixture(scope="session")
+def session_temp_folder(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Provide a session-scoped temp folder (replaces concurrency plugin)."""
+    return tmp_path_factory.mktemp("fill_stateful")
+
+
+@pytest.fixture(scope="session")
+def worker_count() -> int:
+    """Always single-worker for stateful filling."""
+    return 1
+
+
+@pytest.fixture(scope="session")
+def seed_key(eth_rpc: Any, request: pytest.FixtureRequest) -> EOA:
+    """Load the seed key from --rpc-seed-key (replaces remote_seed_sender)."""
+    key_str = request.config.getoption("rpc_seed_key")
+    assert key_str, "--rpc-seed-key is required for fill-stateful"
+    eoa = EOA(key=int(key_str, 16), nonce=0)
+    account = eth_rpc.get_account(eoa, skip_code=True)
+    eoa.nonce = Number(account.nonce)
+    return eoa
+
+
+@pytest.fixture(scope="session")
+def session_worker_key(seed_key: EOA) -> EOA:
+    """Use the seed key directly as the worker key (replaces sender)."""
+    return seed_key
+
+
+@pytest.fixture(scope="function")
+def worker_key(eth_rpc: Any, session_worker_key: EOA) -> EOA:
+    """Sync the worker key nonce before each test (replaces sender)."""
+    account = eth_rpc.get_account(session_worker_key, skip_code=True)
+    session_worker_key.nonce = Number(account.nonce)
+    return session_worker_key
+
+
+@pytest.fixture(scope="session")
+def sender_funding_transactions_gas_price(eth_rpc: Any) -> int:
+    """Gas price for funding transactions (replaces sender)."""
+    return eth_rpc.gas_price()
+
+
+@pytest.fixture(scope="session")
+def sender_fund_refund_gas_limit() -> int:
+    """Gas limit for fund/refund transactions (replaces sender)."""
+    return 21_000
+
+
+@pytest.fixture(scope="session")
+def snapshot_block(eth_rpc: Any) -> dict:
+    """Capture the client's current head as the snapshot reference.
+
+    With ``execute_required_contracts`` overridden as a no-op, this
+    captures the raw datadir head — the true snapshot that
+    benchmarkoor will load.
     """
     block = eth_rpc.get_block_by_number("latest")
     assert block is not None, "Could not fetch snapshot block"
+    logger.info(
+        f"Snapshot block {block['number']} "
+        f"hash={block['hash'][:20]}..."
+    )
     return block
 
 
@@ -255,24 +353,95 @@ def recording_rpc(
     return recorder
 
 
+@pytest.fixture(scope="session")
+def start_block(
+    eth_rpc: Any,
+    execute_required_contracts: None,  # noqa: ARG001
+) -> dict:
+    """Capture the head after global setup (factory deploy etc.).
+
+    Each test's ``setupEngineNewPayloads`` chain from this block.
+    ``debug_setHead`` rewinds to this block between tests.
+    """
+    block = eth_rpc.get_block_by_number("latest")
+    assert block is not None, "Could not fetch start block"
+    logger.info(
+        f"Start block {block['number']} "
+        f"hash={block['hash'][:20]}..."
+    )
+    return block
+
+
+_pre_run_written = False
+
+
+def _maybe_write_pre_run(
+    recording_rpc: RecordingTestingRPC,
+    snapshot_block: dict,
+    start_block: dict,
+    session_fork: Fork | TransitionFork,
+    config: Any,
+) -> None:
+    """Write global setup blocks to ``pre_run/global_setup.json`` once."""
+    global _pre_run_written  # noqa: PLW0603
+    if _pre_run_written:
+        return
+    _pre_run_written = True
+
+    snapshot_num = int(HexNumber(snapshot_block["number"]))
+    start_num = int(HexNumber(start_block["number"]))
+    pre_run_captured = [
+        c for c in recording_rpc.captured
+        if snapshot_num < c.response.execution_payload.number <= start_num
+    ]
+    payloads = [_to_fixture_payload(c) for c in pre_run_captured]
+    if not payloads:
+        return
+
+    output_dir = Path(config.getoption("output"))
+    pre_run_dir = output_dir / "blockchain_tests_stateful_engine" / "pre_run"
+    pre_run_dir.mkdir(parents=True, exist_ok=True)
+
+    fork = session_fork.fork_at(block_number=0, timestamp=0)
+    fixture = StatefulPreRunFixture(
+        network=str(fork),
+        snapshot_block_number=HexNumber(snapshot_block["number"]),
+        snapshot_block_hash=Hash(snapshot_block["hash"]),
+        payloads=payloads,
+    )
+
+    pre_run_file = pre_run_dir / "global_setup.json"
+    pre_run_file.write_text(
+        fixture.model_dump_json(by_alias=True, indent=2, exclude_none=True)
+    )
+    logger.info(f"Wrote {len(payloads)} pre-run payloads to {pre_run_file}")
+
+
 @pytest.fixture(autouse=True, scope="function")
 def capture_stateful_fixture(
     request: pytest.FixtureRequest,
     recording_rpc: RecordingTestingRPC | None,
     snapshot_block: dict,
+    start_block: dict,
     fixture_collector: FixtureCollector,
     session_fork: Fork | TransitionFork,
     eth_rpc: Any,
 ) -> Generator[None, None, None]:
-    """
-    Clear recorder before test, package fixture after.
+    """Clear recorder before test, package fixture after.
 
-    After each test, resets the chain to the snapshot block via
-    ``debug_setHead`` so the next test starts from identical state.
+    On the first test, saves global setup blocks (between snapshot
+    and start) to ``pre_run/global_setup.json``.  After each test,
+    resets the chain to ``start_block`` via ``debug_setHead``.
     """
     if recording_rpc is None:
         yield
         return
+
+    # On first test, write global setup blocks as pre-run fixture.
+    _maybe_write_pre_run(
+        recording_rpc, snapshot_block, start_block,
+        session_fork, request.config,
+    )
 
     recording_rpc.clear()
     yield
@@ -301,6 +470,8 @@ def capture_stateful_fixture(
         config=FixtureConfig(fork=fork),
         snapshot_block_number=HexNumber(snapshot_block["number"]),
         snapshot_block_hash=Hash(snapshot_block["hash"]),
+        start_block_number=HexNumber(start_block["number"]),
+        start_block_hash=Hash(start_block["hash"]),
         setup_payloads=setup_payloads,
         payloads=execution_payloads,
     )
@@ -309,20 +480,18 @@ def capture_stateful_fixture(
     fixture_collector.add_fixture(info, fixture)
     logger.info(f"Captured stateful fixture for {request.node.nodeid}")
 
-    # Reset chain to snapshot so the next test starts from identical
-    # state.  This uses debug_setHead which rewinds the chain without
-    # restarting the client process.
-    snapshot_hex = snapshot_block["number"]
-    logger.info(f"Resetting chain to snapshot block {snapshot_hex}")
-    # Use a raw RPC call to avoid eth_ namespace prefixing.
-    import requests as http_requests
+    # Reset chain to start block so the next test begins from
+    # identical post-global-setup state.
+    start_hex = start_block["number"]
+    logger.info(f"Resetting chain to start block {start_hex}")
+    import requests as http_requests  # noqa: PLC0415
 
     http_requests.post(
         eth_rpc.url,
         json={
             "jsonrpc": "2.0",
             "method": "debug_setHead",
-            "params": [snapshot_hex],
+            "params": [start_hex],
             "id": 1,
         },
     ).raise_for_status()

@@ -907,10 +907,28 @@ class BlockchainEngineStatefulFixture(BlockchainEngineFixtureCommon):
 
     snapshot_block_number: HexNumber
     snapshot_block_hash: Hash
+    start_block_number: HexNumber
+    start_block_hash: Hash
 
     setup_payloads: List[FixtureEngineNewPayload] = Field(
         ..., alias="setupEngineNewPayloads"
     )
+    payloads: List[FixtureEngineNewPayload] = Field(
+        ..., alias="engineNewPayloads"
+    )
+
+
+class StatefulPreRunFixture(CamelModel):
+    """Pre-run payloads for stateful benchmark fixtures.
+
+    Contains session-scoped blocks (e.g. deterministic factory
+    deploy) that must be replayed once before any per-test
+    fixtures.
+    """
+
+    network: str
+    snapshot_block_number: HexNumber
+    snapshot_block_hash: Hash
     payloads: List[FixtureEngineNewPayload] = Field(
         ..., alias="engineNewPayloads"
     )
