@@ -89,27 +89,34 @@ def detect_version(bin_path: Path) -> Optional[str]:
 
 
 def get_consumer(client: str, bin_path: Path) -> Any:
-    """Detect and create consumer, passing extra config like state-bin."""
+    """Create consumer for a client, passing extra config like state-bin."""
+    from execution_testing.client_clis.clis.besu import BesuFixtureConsumer
+    from execution_testing.client_clis.clis.geth import GethFixtureConsumer
+    from execution_testing.client_clis.clis.nethermind import NethtestFixtureConsumer
+    from execution_testing.client_clis.clis.reth import RethFixtureConsumer
+
+    class_map: Dict[str, type] = {
+        "geth": GethFixtureConsumer,
+        "besu": BesuFixtureConsumer,
+        "nethermind": NethtestFixtureConsumer,
+        "reth": RethFixtureConsumer,
+    }
+
     config = load_config()
     client_config = config.get(client, {})
-    extra_kwargs: Dict[str, Any] = {}
+    kwargs: Dict[str, Any] = {"binary": bin_path, "trace": False}
 
-    # Pass state-bin if configured (e.g. reth uses revm for state)
     state_bin_str = client_config.get("state-bin", "")
     if state_bin_str:
-        extra_kwargs["state_binary"] = Path(state_bin_str).expanduser().resolve()
+        kwargs["state_binary"] = Path(state_bin_str).expanduser().resolve()
 
-    try:
-        return FixtureConsumerTool.from_binary_path(
-            binary_path=bin_path, trace=False, **extra_kwargs
-        )
-    except Exception:
-        from execution_testing.client_clis.clis.nethermind import (
-            NethtestFixtureConsumer,
-        )
-        return NethtestFixtureConsumer.from_binary_path(
-            binary_path=bin_path, trace=False
-        )
+    cls = class_map.get(client)
+    if cls:
+        return cls(**kwargs)
+
+    return FixtureConsumerTool.from_binary_path(
+        binary_path=bin_path, trace=False
+    )
 
 
 def get_bin_path(client: str, test_type: str | None = None) -> Path:
@@ -274,11 +281,6 @@ def test_reth_version() -> None:
 def test_reth_state() -> None:
     """Reth state test sanity check."""
     run_health("reth", "state")
-
-
-def test_reth_block() -> None:
-    """Reth block test sanity check."""
-    run_health("reth", "block")
 
 
 def test_reth_engine() -> None:

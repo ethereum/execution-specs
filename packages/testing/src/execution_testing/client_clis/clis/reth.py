@@ -285,7 +285,6 @@ class RethFixtureConsumer(
     FixtureConsumerTool,
     fixture_formats=[
         StateFixture,
-        BlockchainFixture,
         BlockchainEngineFixture,
     ],
 ):
