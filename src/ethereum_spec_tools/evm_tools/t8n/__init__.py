@@ -447,6 +447,19 @@ class T8N(Load):
                     U256(self.options.state_reward), block_env
                 )
 
+        if self.fork.has_is_inclusion_list_satisfied:
+            block_output.is_inclusion_list_satisfied = (
+                self.fork.check_inclusion_list_transactions(
+                    block_env,
+                    block_output,
+                    tuple(
+                        self.fork.encode_transaction(tx)
+                        for tx in self.txs.transactions
+                    ),
+                    self.env.inclusion_list_transactions,
+                )
+            )
+
         if self.fork.has_withdrawal:
             self.fork.process_withdrawals(
                 block_env, block_output, self.env.withdrawals
