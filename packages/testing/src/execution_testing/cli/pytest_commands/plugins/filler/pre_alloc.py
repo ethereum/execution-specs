@@ -85,7 +85,7 @@ class Alloc(SharedAlloc):
         if stub_accounts is not None:
             self._stub_accounts = stub_accounts
         if stub_eoas is not None:
-            self._stub_eoas = {k: v.copy() for k, v in stub_eoas.items()}
+            self._stub_eoas = stub_eoas
 
     def stub_eoa(self, label: str) -> EOA:
         """Return the EOA for a key-bearing stub."""
