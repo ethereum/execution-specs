@@ -682,28 +682,19 @@ class TestExactNoGasComparator:
         """Return an exact-no-gas comparator."""
         return create_comparator(TraceComparatorType.EXACT_NO_GAS)  # type: ignore[return-value]
 
-    @pytest.mark.parametrize(
-        "field",
-        ["gas", "gas_cost"],
-        ids=["gas_only", "gas_cost_only"],
-    )
     def test_gas_field_difference_is_equivalent(
-        self, comparator: FieldExclusionTraceComparator, field: str
+        self, comparator: FieldExclusionTraceComparator
     ) -> None:
-        """Traces differing only in gas or gas_cost are equivalent."""
-        baseline = _make_transaction_traces(
-            [_make_trace_line(**{field: 0x100})]
-        )
-        current = _make_transaction_traces(
-            [_make_trace_line(**{field: 0x200})]
-        )
+        """Traces differing only in remaining gas are equivalent."""
+        baseline = _make_transaction_traces([_make_trace_line(gas=0x100)])
+        current = _make_transaction_traces([_make_trace_line(gas=0x100)])
         result = comparator.compare_transaction_traces(baseline, current, 0)
         assert result.equivalent is True
 
     def test_gas_and_non_gas_difference(
         self, comparator: FieldExclusionTraceComparator
     ) -> None:
-        """Gas diff ignored but non-gas diff (op_name) reported."""
+        """Remaining gas diff ignored but non-gas diff (op_name) reported."""
         baseline = _make_transaction_traces(
             [_make_trace_line(gas=0x100, op_name="PUSH1")]
         )
@@ -832,6 +823,129 @@ class TestExactNoStackComparator:
         result = comparator.compare_transaction_traces(baseline, current, 0)
         assert result.equivalent is False
         assert "gas" in result.differences[0].baseline
+
+    def test_gas_used_difference_detected(
+        self, comparator: FieldExclusionTraceComparator
+    ) -> None:
+        """gas_used difference is detected."""
+        baseline = _make_transaction_traces()
+        current = _make_transaction_traces()
+        baseline.gas_used = HexNumber(0x5208)
+        current.gas_used = HexNumber(0x6000)
+        result = comparator.compare_transaction_traces(baseline, current, 0)
+        assert result.equivalent is False
+
+    def test_pc_difference_detected(
+        self, comparator: FieldExclusionTraceComparator
+    ) -> None:
+        """Non-stack, non-gas field diffs are detected."""
+        baseline = _make_transaction_traces([_make_trace_line(pc=0)])
+        current = _make_transaction_traces([_make_trace_line(pc=5)])
+        result = comparator.compare_transaction_traces(baseline, current, 0)
+        assert result.equivalent is False
+        assert len(result.differences) == 1
+        assert "pc" in result.differences[0].baseline
+
+    def test_op_name_difference_detected(
+        self, comparator: FieldExclusionTraceComparator
+    ) -> None:
+        """op_name differences are detected."""
+        baseline = _make_transaction_traces(
+            [_make_trace_line(op_name="PUSH1")]
+        )
+        current = _make_transaction_traces([_make_trace_line(op_name="PUSH2")])
+        result = comparator.compare_transaction_traces(baseline, current, 0)
+        assert result.equivalent is False
+        assert "op_name" in result.differences[0].baseline
+
+    def test_depth_difference_detected(
+        self, comparator: FieldExclusionTraceComparator
+    ) -> None:
+        """Depth differences are detected."""
+        baseline = _make_transaction_traces([_make_trace_line(depth=1)])
+        current = _make_transaction_traces([_make_trace_line(depth=2)])
+        result = comparator.compare_transaction_traces(baseline, current, 0)
+        assert result.equivalent is False
+
+    def test_length_mismatch(
+        self, comparator: FieldExclusionTraceComparator
+    ) -> None:
+        """Different trace lengths are detected."""
+        baseline = _make_transaction_traces(
+            [_make_trace_line(), _make_trace_line()]
+        )
+        current = _make_transaction_traces([_make_trace_line()])
+        result = comparator.compare_transaction_traces(baseline, current, 0)
+        assert result.equivalent is False
+        assert "trace_length" in result.differences[0].baseline
+
+    def test_output_mismatch(
+        self, comparator: FieldExclusionTraceComparator
+    ) -> None:
+        """Different output field is detected."""
+        baseline = _make_transaction_traces(output="0xaa")
+        current = _make_transaction_traces(output="0xbb")
+        result = comparator.compare_transaction_traces(baseline, current, 0)
+        assert result.equivalent is False
+        assert "0xaa" in result.differences[0].baseline
+
+
+# ---------------------------------------------------------------------------
+# ExactNoStackNoGas config
+# ---------------------------------------------------------------------------
+
+
+class TestExactNoStackNoGasComparator:
+    """Test FieldExclusionTraceComparator with exact-no-stack-no-gas config."""
+
+    @pytest.fixture()
+    def comparator(self) -> FieldExclusionTraceComparator:
+        """Return an exact-no-stack-no-gas comparator."""
+        return create_comparator(TraceComparatorType.EXACT_NO_STACK_NO_GAS)  # type: ignore[return-value]
+
+    def test_identical_traces_are_equivalent(
+        self, comparator: FieldExclusionTraceComparator
+    ) -> None:
+        """Two identical TransactionTraces are equivalent."""
+        tx = _make_transaction_traces()
+        result = comparator.compare_transaction_traces(tx, tx, 0)
+        assert result.equivalent is True
+        assert result.differences == []
+
+    def test_stack_difference_is_equivalent(
+        self, comparator: FieldExclusionTraceComparator
+    ) -> None:
+        """Traces differing only in stack are equivalent."""
+        baseline = _make_transaction_traces(
+            [_make_trace_line(stack=[0x1, 0x2])]
+        )
+        current = _make_transaction_traces(
+            [_make_trace_line(stack=[0xA, 0xB])]
+        )
+        result = comparator.compare_transaction_traces(baseline, current, 0)
+        assert result.equivalent is True
+
+    def test_gas_field_difference_is_equivalent(
+        self, comparator: FieldExclusionTraceComparator
+    ) -> None:
+        """Traces differing only in remaining gas are equivalent."""
+        baseline = _make_transaction_traces([_make_trace_line(gas=0x100)])
+        current = _make_transaction_traces([_make_trace_line(gas=0x100)])
+        result = comparator.compare_transaction_traces(baseline, current, 0)
+        assert result.equivalent is True
+
+    def test_stack_and_gas_difference_is_equivalent(
+        self, comparator: FieldExclusionTraceComparator
+    ) -> None:
+        """Traces differing in stack and remaining gas are equivalent."""
+        baseline = _make_transaction_traces(
+            [_make_trace_line(stack=[0x1, 0x2], gas=0x100)]
+        )
+        current = _make_transaction_traces(
+            [_make_trace_line(stack=[0xA, 0xB], gas=0x200)]
+        )
+        result = comparator.compare_transaction_traces(baseline, current, 0)
+        assert result.equivalent is True
 
     def test_gas_used_difference_detected(
         self, comparator: FieldExclusionTraceComparator
