@@ -16,6 +16,9 @@ inputs:
   store_durations:
     description: "Store pytest-split durations for future load balancing."
     default: "false"
+  use_pre_alloc_groups:
+    description: "Use pre-existing pre-alloc groups (skip phase 1)."
+    default: "false"
 runs:
   using: "composite"
   steps:
@@ -58,12 +61,17 @@ runs:
           DURATIONS_ARG="--store-durations"
         fi
 
+        PRE_ALLOC_ARG=""
+        if [ "${{ inputs.use_pre_alloc_groups }}" = "true" ]; then
+          PRE_ALLOC_ARG="--use-pre-alloc-groups"
+        fi
+
         # Allow exit code 5 (NO_TESTS_COLLECTED) for fork ranges with no tests.
         EXIT_CODE=0
         if [ "${{ steps.evm-builder.outputs.impl }}" = "eels" ]; then
-          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} ${{ steps.properties.outputs.fill-params }} $FORK_ARGS $OUTPUT_ARG --build-name ${{ inputs.release_name }} --no-html --durations=100 --log-level=DEBUG $DURATIONS_ARG || EXIT_CODE=$?
+          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} ${{ steps.properties.outputs.fill-params }} $FORK_ARGS $OUTPUT_ARG --build-name ${{ inputs.release_name }} --no-html --durations=100 --log-level=DEBUG $DURATIONS_ARG $PRE_ALLOC_ARG || EXIT_CODE=$?
         else
-          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} --evm-bin=${{ steps.evm-builder.outputs.evm-bin }} ${{ steps.properties.outputs.fill-params }} $FORK_ARGS $OUTPUT_ARG --build-name ${{ inputs.release_name }} --no-html --durations=100 --log-level=DEBUG $DURATIONS_ARG || EXIT_CODE=$?
+          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} --evm-bin=${{ steps.evm-builder.outputs.evm-bin }} ${{ steps.properties.outputs.fill-params }} $FORK_ARGS $OUTPUT_ARG --build-name ${{ inputs.release_name }} --no-html --durations=100 --log-level=DEBUG $DURATIONS_ARG $PRE_ALLOC_ARG || EXIT_CODE=$?
         fi
         if [ "$EXIT_CODE" -ne 0 ] && [ "$EXIT_CODE" -ne 5 ]; then
           exit "$EXIT_CODE"

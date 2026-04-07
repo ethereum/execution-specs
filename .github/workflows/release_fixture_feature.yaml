@@ -41,9 +41,81 @@ jobs:
           fi
           uv run -q .github/scripts/generate_build_matrix.py "$FEATURE_NAME" >> "$GITHUB_OUTPUT"
 
+  generate-pre-alloc:
+    name: pre-alloc (${{ needs.setup.outputs.feature_name }})
+    needs: setup
+    if: needs.setup.outputs.combine_labels != ''
+    runs-on: [self-hosted-ghr, size-gigachungus-x64]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: true
+
+      - name: Fetch lllc
+        uses: ./.github/actions/fetch-binary
+        with:
+          version: v1.0.0
+          repo_owner: felix314159
+          repo_name: lllc-custom
+          remote_name: lllc
+          binary_name: lllc
+          expected_sha256: 865a0d5379acb3b5471337b5dcf686a2dd71587c6b65b9da6c963de627e0b300
+
+      - name: Fetch Solidity
+        uses: ./.github/actions/fetch-binary
+        with:
+          version: v0.8.24
+          repo_owner: ethereum
+          repo_name: solidity
+          remote_name: solc-static-linux
+          binary_name: solc
+          expected_sha256: fb03a29a517452b9f12bcf459ef37d0a543765bb3bbc911e70a87d6a37c30d5f
+
+      - uses: ./.github/actions/setup-uv
+        with:
+          enable-cache: "false"
+      - uses: ./.github/actions/setup-env
+      - name: Install EEST
+        shell: bash
+        run: uv sync --no-progress
+
+      - name: Extract fixture release properties from config
+        id: properties
+        shell: bash
+        run: |
+          uv run -q .github/scripts/get_release_props.py ${{ needs.setup.outputs.feature_name }} >> "$GITHUB_OUTPUT"
+
+      - uses: ./.github/actions/build-evm-base
+        id: evm-builder
+        with:
+          type: ${{ steps.properties.outputs.evm-type }}
+
+      - name: Generate pre-alloc groups (phase 1 only)
+        shell: bash
+        run: |
+          FEATURE_NAME="${{ needs.setup.outputs.feature_name }}"
+          EXIT_CODE=0
+          if [ "${{ steps.evm-builder.outputs.impl }}" = "eels" ]; then
+            uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} ${{ steps.properties.outputs.fill-params }} --generate-pre-alloc-groups --output=fixtures_${FEATURE_NAME} --build-name ${FEATURE_NAME} --no-html -qq || EXIT_CODE=$?
+          else
+            uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} --evm-bin=${{ steps.evm-builder.outputs.evm-bin }} ${{ steps.properties.outputs.fill-params }} --generate-pre-alloc-groups --output=fixtures_${FEATURE_NAME} --build-name ${FEATURE_NAME} --no-html -qq || EXIT_CODE=$?
+          fi
+          if [ "$EXIT_CODE" -ne 0 ] && [ "$EXIT_CODE" -ne 5 ]; then
+            exit "$EXIT_CODE"
+          fi
+
+      - name: Upload pre-alloc groups
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: pre-alloc-groups
+          path: fixtures_${{ needs.setup.outputs.feature_name }}/
+          retention-days: 1
+
   build:
     name: fill (${{ matrix.label || matrix.feature }})
-    needs: setup
+    needs: [setup, generate-pre-alloc]
+    if: always() && needs.setup.result == 'success' && (needs.generate-pre-alloc.result == 'success' || needs.generate-pre-alloc.result == 'skipped')
     runs-on: [self-hosted-ghr, size-gigachungus-x64]
     timeout-minutes: 1440
     strategy:
@@ -75,6 +147,14 @@ jobs:
           binary_name: solc
           expected_sha256: fb03a29a517452b9f12bcf459ef37d0a543765bb3bbc911e70a87d6a37c30d5f
 
+      - name: Download pre-alloc groups
+        if: matrix.label != ''
+        shell: bash
+        run: |
+          gh run download ${{ github.run_id }} -n "pre-alloc-groups" --dir "fixtures_${{ matrix.feature }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - uses: ./.github/actions/build-fixtures
         with:
           release_name: ${{ matrix.feature }}
@@ -82,6 +162,7 @@ jobs:
           until_fork: ${{ matrix.until_fork }}
           split_label: ${{ matrix.label }}
           store_durations: ${{ inputs.store_durations && 'true' || 'false' }}
+          use_pre_alloc_groups: ${{ matrix.label != '' && 'true' || 'false' }}
 
   combine:
     name: combine (${{ needs.setup.outputs.feature_name }})
