@@ -32,7 +32,7 @@ class EthrexExceptionMapper(ExceptionMapper):
             "World State Root does not match the one in "
             "the header after executing"
         ),
-        BlockException.GAS_USED_OVERFLOW: "Block gas used overflow",
+        BlockException.GAS_USED_OVERFLOW: "Gas allowance exceeded",
         BlockException.INVALID_BLOCK_ACCESS_LIST: (
             "Block access list hash does not match the one in "
             "the header after executing"
@@ -142,7 +142,7 @@ class EthrexExceptionMapper(ExceptionMapper):
         TransactionException.GAS_ALLOWANCE_EXCEEDED: (
             r"Gas allowance exceeded.*"
         ),
-        BlockException.GAS_USED_OVERFLOW: (r"Block gas used overflow.*"),
+        BlockException.GAS_USED_OVERFLOW: (r"Gas allowance exceeded.*"),
         TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: (
             r"Blob count exceeded.*"
         ),
