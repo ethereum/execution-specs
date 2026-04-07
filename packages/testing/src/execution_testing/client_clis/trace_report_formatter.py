@@ -1,6 +1,9 @@
 """Report formatters for trace comparison results."""
 
+import json
 from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import Any
 
 from execution_testing.client_clis.trace_comparators import (
     TraceComparisonResult,
@@ -91,3 +94,45 @@ class TextTracesDiffReportFormatter(TracesDiffReportFormatter):
             f"Summary: {total} tests verified, {with_diffs} with differences"
         )
         return "\n".join(lines)
+
+
+class JsonTracesDiffReportFormatter:
+    """Write trace comparison results to a JSON file."""
+
+    def __init__(self, output_path: Path) -> None:
+        """Initialize with the output file path."""
+        self.output_path = output_path
+
+    @staticmethod
+    def _result_to_dict(
+        result: TraceComparisonResult,
+    ) -> dict[str, Any]:
+        """Convert a TraceComparisonResult to a JSON-serializable dict."""
+        return {
+            "equivalent": result.equivalent,
+            "differences": [
+                {
+                    "transaction_index": d.transaction_index,
+                    "trace_line_index": d.trace_line_index,
+                    "baseline": d.baseline,
+                    "current": d.current,
+                }
+                for d in result.differences
+            ],
+        }
+
+    def write(
+        self,
+        all_results: dict[str, dict[str, TraceComparisonResult]],
+    ) -> None:
+        """Write the full report to the JSON file."""
+        report: dict[str, Any] = {}
+        for test_id, comparator_results in all_results.items():
+            report[test_id] = {
+                name: self._result_to_dict(result)
+                for name, result in comparator_results.items()
+            }
+        self.output_path.parent.mkdir(parents=True, exist_ok=True)
+        self.output_path.write_text(
+            json.dumps(report, indent=2) + "\n"
+        )

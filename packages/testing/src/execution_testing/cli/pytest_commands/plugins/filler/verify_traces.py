@@ -22,6 +22,7 @@ from execution_testing.client_clis.trace_comparators import (
     create_comparator,
 )
 from execution_testing.client_clis.trace_report_formatter import (
+    JsonTracesDiffReportFormatter,
     TextTracesDiffReportFormatter,
     TracesDiffReportFormatter,
 )
@@ -80,6 +81,14 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             f"Default: {all_comparators}."
         ),
     )
+    group.addoption(
+        "--verify-traces-json",
+        action="store",
+        dest="verify_traces_json",
+        type=Path,
+        default=None,
+        help="Write the trace verification report to a JSON file.",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -105,6 +114,13 @@ def pytest_configure(config: pytest.Config) -> None:
 
     formatter = TextTracesDiffReportFormatter()
 
+    json_path = config.getoption("verify_traces_json", None)
+    json_formatter = (
+        JsonTracesDiffReportFormatter(Path(json_path))
+        if json_path is not None
+        else None
+    )
+
     filler_path = Path(config.getoption("filler_path"))
 
     config.pluginmanager.register(
@@ -112,6 +128,7 @@ def pytest_configure(config: pytest.Config) -> None:
             config=config,
             comparators=comparators,
             formatter=formatter,
+            json_formatter=json_formatter,
             baseline_dir=Path(verify_traces_dir),
             filler_path=filler_path,
         ),
@@ -134,11 +151,13 @@ class TraceVerifier:
         formatter: TracesDiffReportFormatter,
         baseline_dir: Path,
         filler_path: Path,
+        json_formatter: JsonTracesDiffReportFormatter | None = None,
     ) -> None:
         """Initialize with comparators, formatter, and baseline path."""
         self.config = config
         self.comparators = comparators
         self.formatter = formatter
+        self.json_formatter = json_formatter
         self.baseline_dir = baseline_dir
         self.filler_path = filler_path
         self.test_results: dict[str, dict[str, TraceComparisonResult]] = {}
@@ -242,3 +261,9 @@ class TraceVerifier:
         terminalreporter.write_sep("=", "trace verification report")
         for line in output.splitlines():
             terminalreporter.write_line(line)
+
+        if self.json_formatter is not None:
+            self.json_formatter.write(self.test_results)
+            terminalreporter.write_line(
+                f"JSON report written to: {self.json_formatter.output_path}"
+            )
