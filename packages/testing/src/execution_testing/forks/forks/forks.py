@@ -176,7 +176,7 @@ class Frontier(
             OPCODE_MLOAD=VERY_LOW,
             OPCODE_MSTORE=VERY_LOW,
             OPCODE_MSTORE8=VERY_LOW,
-            OPCODE_SELFDESTRUCT=5_000,
+            OPCODE_SELFDESTRUCT_BASE=5_000,
             OPCODE_COPY_PER_WORD=3,
             OPCODE_CREATE_BASE=32_000,
             OPCODE_EXP_BASE=10,
@@ -716,7 +716,7 @@ class Frontier(
         """Calculate SELFDESTRUCT gas cost based on metadata."""
         metadata = opcode.metadata
 
-        base_cost = gas_costs.OPCODE_SELFDESTRUCT
+        base_cost = gas_costs.OPCODE_SELFDESTRUCT_BASE
 
         # Check if the beneficiary is cold
         if not metadata["address_warm"]:

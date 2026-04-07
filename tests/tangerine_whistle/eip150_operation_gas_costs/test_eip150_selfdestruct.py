@@ -1,7 +1,7 @@
 """
 Tests for EIP-150 SELFDESTRUCT operation gas costs.
 
-EIP-150 introduced SELF_DESTRUCT for SELFDESTRUCT and precise gas
+EIP-150 introduced a gas cost for the SELFDESTRUCT opcode and precise gas
 boundaries for state access during the operation.
 """
 

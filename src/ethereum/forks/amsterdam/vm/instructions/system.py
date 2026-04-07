@@ -578,7 +578,7 @@ def selfdestruct(evm: Evm) -> None:
     beneficiary = to_address_masked(pop(evm.stack))
 
     # GAS
-    gas_cost = GasCosts.SELF_DESTRUCT
+    gas_cost = GasCosts.OPCODE_SELFDESTRUCT_BASE
 
     is_cold_access = beneficiary not in evm.accessed_addresses
     if is_cold_access:
@@ -596,7 +596,7 @@ def selfdestruct(evm: Evm) -> None:
         not is_account_alive(tx_state, beneficiary)
         and get_account(tx_state, evm.message.current_target).balance != 0
     ):
-        gas_cost += GasCosts.SELF_DESTRUCT_NEW_ACCOUNT
+        gas_cost += GasCosts.OPCODE_SELFDESTRUCT_NEW_ACCOUNT
 
     charge_gas(evm, gas_cost)
 
