@@ -188,7 +188,7 @@ def test_sload_bloated(
         + Op.SLOAD  # [s[index], index]
         + Op.POP  # [index]
     )
-    # CACHE_TX: access each slot twice so the second hit is unchached
+    # CACHE_TX: access each slot twice so the second hit is uncached
     if cache_strategy == CacheStrategy.CACHE_TX:
         slot_access *= 2
 
@@ -275,7 +275,8 @@ def test_sstore_bloated(
     # The cache mechanism touches the slot before SSTORE
 
     runtime_code = (
-        +While(
+        setup
+        + While(
             body=(
                 cache_op  # [slot, value]
                 + Op.DUP2  # [value, slot, value]
