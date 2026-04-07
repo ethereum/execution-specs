@@ -7,7 +7,7 @@ carrying a private key for EOA stubs that need signing capability.
 
 import warnings
 from pathlib import Path
-from typing import Dict, Self, Union
+from typing import Dict, Self
 
 from pydantic import model_validator
 
@@ -43,10 +43,7 @@ class StubEOA(EthereumTestBaseModel):
         return self
 
 
-StubEntry = Union[StubAddress, StubEOA]
-
-
-class AddressStubs(EthereumTestRootModel[Dict[str, StubEntry]]):
+class AddressStubs(EthereumTestRootModel[Dict[str, StubAddress | StubEOA]]):
     """
     Address stubs class.
 
@@ -55,7 +52,7 @@ class AddressStubs(EthereumTestRootModel[Dict[str, StubEntry]]):
     the on-chain address and an optional private key.
     """
 
-    root: Dict[str, StubEntry]
+    root: Dict[str, StubAddress | StubEOA]
 
     def __contains__(self, item: str) -> bool:
         """Check if an item is in the address stubs."""
@@ -65,7 +62,7 @@ class AddressStubs(EthereumTestRootModel[Dict[str, StubEntry]]):
         """Get the address for a stub label."""
         return self.root[item].addr
 
-    def get_entry(self, item: str) -> StubEntry:
+    def get_entry(self, item: str) -> StubAddress | StubEOA:
         """Get the full stub entry for a label."""
         return self.root[item]
 
