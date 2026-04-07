@@ -1,0 +1,21 @@
+# Shared fork ranges for splitting pre-alloc generation across parallel runners.
+# Pre-alloc groups must be generated with complete fork coverage, so they are
+# split by fork range rather than by pytest-split groups.
+- label: pre-cancun
+  from: Frontier
+  until: Shanghai
+- label: cancun
+  from: Cancun
+  until: Cancun
+- label: prague
+  from: Prague
+  until: Prague
+- label: osaka
+  from: Osaka
+  until: Osaka
+- label: bpo
+  from: BPO1
+  until: BPO2
+- label: amsterdam
+  from: Amsterdam
+  until: Amsterdam

@@ -54,6 +54,17 @@ class TestGenerateBuildMatrix:
         assert all(e["splits"] == 5 for e in matrix)
         assert all(e["label"] == str(e["group"]) for e in matrix)
 
+    def test_split_feature_produces_pre_alloc_matrix(self):
+        """Verify pre-alloc matrix uses fork ranges."""
+        result = run_script(BUILD_MATRIX_SCRIPT, "mainnet")
+        assert result.returncode == 0
+        out = parse_matrix_output(result.stdout)
+        pa_matrix = json.loads(out["pre_alloc_matrix"])
+        assert len(pa_matrix) > 1
+        assert all(e["from_fork"] != "" for e in pa_matrix)
+        assert all(e["until_fork"] != "" for e in pa_matrix)
+        assert out["pre_alloc_labels"] != ""
+
     def test_unsplit_feature_produces_single_entry(self):
         """Verify a single-fork feature produces one unsplit entry."""
         result = run_script(BUILD_MATRIX_SCRIPT, "benchmark")
@@ -94,10 +105,15 @@ class TestGenerateBuildMatrix:
         result = run_script(BUILD_MATRIX_SCRIPT, "mainnet")
         assert result.returncode == 0
         lines = result.stdout.strip().splitlines()
-        assert len(lines) == 3
-        assert lines[0].startswith("build_matrix=")
-        assert lines[1].startswith("feature_name=")
-        assert lines[2].startswith("combine_labels=")
+        assert len(lines) == 5
+        keys = [line.split("=", 1)[0] for line in lines]
+        assert keys == [
+            "build_matrix",
+            "pre_alloc_matrix",
+            "pre_alloc_labels",
+            "feature_name",
+            "combine_labels",
+        ]
 
 
 class TestCreateReleaseTarball:
