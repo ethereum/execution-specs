@@ -56,13 +56,13 @@ from ..helpers import Fork
         pytest.param(
             Osaka,
             Op.SHA3(data_size=0),
-            Osaka.gas_costs().KECCAK256,
+            Osaka.gas_costs().OPCODE_KECCAK256_BASE,
             id="sha3_zero_data",
         ),
         pytest.param(
             Osaka,
             Op.SHA3(data_size=64, new_memory_size=96),
-            Osaka.gas_costs().KECCAK256
+            Osaka.gas_costs().OPCODE_KECCAK256_BASE
             + Osaka.gas_costs().OPCODE_KECCACK256_PER_WORD * 2
             + Osaka.memory_expansion_gas_calculator()(new_bytes=96),
             id="sha3_with_data_and_memory",
@@ -218,7 +218,7 @@ from ..helpers import Fork
         pytest.param(
             Osaka,
             Op.LOG0(data_size=32, new_memory_size=32),
-            Osaka.gas_costs().LOG
+            Osaka.gas_costs().OPCODE_LOG_BASE
             + Osaka.gas_costs().OPCODE_LOG_DATA_PER_BYTE * 32
             + Osaka.memory_expansion_gas_calculator()(new_bytes=32),
             id="log0",
@@ -227,7 +227,7 @@ from ..helpers import Fork
         pytest.param(
             Osaka,
             Op.LOG1(data_size=64, new_memory_size=64),
-            Osaka.gas_costs().LOG
+            Osaka.gas_costs().OPCODE_LOG_BASE
             + Osaka.gas_costs().OPCODE_LOG_DATA_PER_BYTE * 64
             + Osaka.gas_costs().OPCODE_LOG_TOPIC
             + Osaka.memory_expansion_gas_calculator()(new_bytes=64),
@@ -237,7 +237,7 @@ from ..helpers import Fork
         pytest.param(
             Osaka,
             Op.LOG2(data_size=128, new_memory_size=128),
-            Osaka.gas_costs().LOG
+            Osaka.gas_costs().OPCODE_LOG_BASE
             + Osaka.gas_costs().OPCODE_LOG_DATA_PER_BYTE * 128
             + Osaka.gas_costs().OPCODE_LOG_TOPIC * 2
             + Osaka.memory_expansion_gas_calculator()(new_bytes=128),
@@ -247,7 +247,7 @@ from ..helpers import Fork
         pytest.param(
             Osaka,
             Op.LOG3(data_size=256, new_memory_size=256),
-            Osaka.gas_costs().LOG
+            Osaka.gas_costs().OPCODE_LOG_BASE
             + Osaka.gas_costs().OPCODE_LOG_DATA_PER_BYTE * 256
             + Osaka.gas_costs().OPCODE_LOG_TOPIC * 3
             + Osaka.memory_expansion_gas_calculator()(new_bytes=256),
@@ -257,7 +257,7 @@ from ..helpers import Fork
         pytest.param(
             Osaka,
             Op.LOG4(data_size=512, new_memory_size=512),
-            Osaka.gas_costs().LOG
+            Osaka.gas_costs().OPCODE_LOG_BASE
             + Osaka.gas_costs().OPCODE_LOG_DATA_PER_BYTE * 512
             + Osaka.gas_costs().OPCODE_LOG_TOPIC * 4
             + Osaka.memory_expansion_gas_calculator()(new_bytes=512),
