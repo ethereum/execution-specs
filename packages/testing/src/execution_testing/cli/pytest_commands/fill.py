@@ -43,17 +43,23 @@ class FillCommand(PytestCommand):
         processed_args = self.process_arguments(pytest_args)
         processed_args = self._add_default_ignores(processed_args)
 
-        # Check if we need two-phase execution
-        if self._should_use_two_phase_execution(processed_args):
-            processed_args = self._ensure_generate_all_formats_for_tarball(
-                processed_args
-            )
-            return self._create_two_phase_executions(processed_args)
-        elif "--use-pre-alloc-groups" in processed_args:
-            # Only phase 2: using existing pre-allocation groups
+        # When pre-alloc groups already exist, always use single-phase
+        # execution — even if --generate-all-formats is also present.
+        if "--use-pre-alloc-groups" in processed_args:
             return self._create_single_phase_with_pre_alloc_groups(
                 processed_args
             )
+        elif self._should_use_two_phase_execution(processed_args):
+            processed_args = self._ensure_generate_all_formats_for_tarball(
+                processed_args
+            )
+            # Phase 1 only: generate pre-alloc groups without filling.
+            if (
+                "--generate-pre-alloc-groups" in processed_args
+                and "--generate-all-formats" not in processed_args
+            ):
+                return [self._create_two_phase_executions(processed_args)[0]]
+            return self._create_two_phase_executions(processed_args)
         else:
             # Normal single-phase execution
             return [
