@@ -219,7 +219,7 @@ from ..helpers import Fork
             Osaka,
             Op.LOG0(data_size=32, new_memory_size=32),
             Osaka.gas_costs().LOG
-            + Osaka.gas_costs().LOG_DATA_PER_BYTE * 32
+            + Osaka.gas_costs().OPCODE_LOG_DATA_PER_BYTE * 32
             + Osaka.memory_expansion_gas_calculator()(new_bytes=32),
             id="log0",
         ),
@@ -228,8 +228,8 @@ from ..helpers import Fork
             Osaka,
             Op.LOG1(data_size=64, new_memory_size=64),
             Osaka.gas_costs().LOG
-            + Osaka.gas_costs().LOG_DATA_PER_BYTE * 64
-            + Osaka.gas_costs().LOG_TOPIC
+            + Osaka.gas_costs().OPCODE_LOG_DATA_PER_BYTE * 64
+            + Osaka.gas_costs().OPCODE_LOG_TOPIC
             + Osaka.memory_expansion_gas_calculator()(new_bytes=64),
             id="log1",
         ),
@@ -238,8 +238,8 @@ from ..helpers import Fork
             Osaka,
             Op.LOG2(data_size=128, new_memory_size=128),
             Osaka.gas_costs().LOG
-            + Osaka.gas_costs().LOG_DATA_PER_BYTE * 128
-            + Osaka.gas_costs().LOG_TOPIC * 2
+            + Osaka.gas_costs().OPCODE_LOG_DATA_PER_BYTE * 128
+            + Osaka.gas_costs().OPCODE_LOG_TOPIC * 2
             + Osaka.memory_expansion_gas_calculator()(new_bytes=128),
             id="log2",
         ),
@@ -248,8 +248,8 @@ from ..helpers import Fork
             Osaka,
             Op.LOG3(data_size=256, new_memory_size=256),
             Osaka.gas_costs().LOG
-            + Osaka.gas_costs().LOG_DATA_PER_BYTE * 256
-            + Osaka.gas_costs().LOG_TOPIC * 3
+            + Osaka.gas_costs().OPCODE_LOG_DATA_PER_BYTE * 256
+            + Osaka.gas_costs().OPCODE_LOG_TOPIC * 3
             + Osaka.memory_expansion_gas_calculator()(new_bytes=256),
             id="log3",
         ),
@@ -258,8 +258,8 @@ from ..helpers import Fork
             Osaka,
             Op.LOG4(data_size=512, new_memory_size=512),
             Osaka.gas_costs().LOG
-            + Osaka.gas_costs().LOG_DATA_PER_BYTE * 512
-            + Osaka.gas_costs().LOG_TOPIC * 4
+            + Osaka.gas_costs().OPCODE_LOG_DATA_PER_BYTE * 512
+            + Osaka.gas_costs().OPCODE_LOG_TOPIC * 4
             + Osaka.memory_expansion_gas_calculator()(new_bytes=512),
             id="log4",
         ),
