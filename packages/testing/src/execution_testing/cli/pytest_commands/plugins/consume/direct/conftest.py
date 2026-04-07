@@ -352,6 +352,18 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
                     f"Use -n instead. Recommended: -n 2."
                 )
 
+    # Auto-set -n for clients that use xdist instead of --bin-workers
+    RECOMMENDED_N: Dict[str, int] = {
+        "RethFixtureConsumer": 2,
+    }
+    user_set_n = "-n" in sys.argv
+    if not user_set_n:
+        for consumer in fixture_consumers:
+            rec_n = RECOMMENDED_N.get(type(consumer).__name__)
+            if rec_n:
+                config.option.numprocesses = rec_n
+                break
+
     # Auto-set recommended --bin-workers only if user didn't pass it
     if not user_set_workers and num_workers == 1:
         for consumer in fixture_consumers:
@@ -429,8 +441,10 @@ def pytest_report_header(
         tw.write(f"client: {friendly} (bin-workers: {actual_workers}{auto})\n", yellow=True)
 
     n_workers = config.getoption("numprocesses", None)
+    user_set_n = "-n" in sys.argv
     if n_workers:
-        tw.write(f"xdist workers: {n_workers}\n", yellow=True)
+        auto_n = " (auto)" if not user_set_n else ""
+        tw.write(f"xdist workers: {n_workers}{auto_n}\n", yellow=True)
 
     tw.write(
         "Note: initial binary startup may take a moment "
