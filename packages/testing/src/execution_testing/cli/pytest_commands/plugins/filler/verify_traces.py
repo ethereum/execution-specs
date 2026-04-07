@@ -67,16 +67,17 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "Implies --traces."
         ),
     )
+    all_comparators = ",".join(c.value for c in TraceComparatorType)
     group.addoption(
         "--verify-traces-comparator",
         action="store",
         dest="verify_traces_comparator",
         type=str,
-        default="exact-no-gas",
+        default=all_comparators,
         help=(
             "Comma-separated comparator names. "
-            "Choices: exact, exact-no-gas. "
-            "Default: exact-no-gas."
+            f"Choices: {all_comparators}. "
+            f"Default: {all_comparators}."
         ),
     )
 
@@ -175,9 +176,20 @@ class TraceVerifier:
         if not current_traces_list:
             return  # No traces collected (e.g. t8n cache hit)
 
-        # Compare each pair of Traces objects (one per t8n call)
+        # Compare each pair of Traces objects (one per t8n call).
+        # Run "exact" last and skip it if any other comparator failed,
+        # since exact is strictly stricter than the others.
+        exact_comparator = None
+        other_comparators = []
+        for c in self.comparators:
+            if c.name == TraceComparatorType.EXACT:
+                exact_comparator = c
+            else:
+                other_comparators.append(c)
+
         results: dict[str, TraceComparisonResult] = {}
-        for comparator in self.comparators:
+        any_failed = False
+        for comparator in other_comparators:
             all_diffs = []
             all_equivalent = True
             for baseline, current in zip(
@@ -191,6 +203,33 @@ class TraceVerifier:
                 equivalent=all_equivalent,
                 differences=all_diffs,
             )
+            if not all_equivalent:
+                any_failed = True
+
+        if exact_comparator is not None:
+            if any_failed:
+                results[exact_comparator.name] = TraceComparisonResult(
+                    equivalent=False,
+                    differences=[],
+                )
+            else:
+                all_diffs = []
+                all_equivalent = True
+                for baseline, current in zip(
+                    baseline_traces_list,
+                    current_traces_list,
+                    strict=False,
+                ):
+                    result = exact_comparator.compare_traces(
+                        baseline, current
+                    )
+                    all_diffs.extend(result.differences)
+                    if not result.equivalent:
+                        all_equivalent = False
+                results[exact_comparator.name] = TraceComparisonResult(
+                    equivalent=all_equivalent,
+                    differences=all_diffs,
+                )
 
         if results:
             self.test_results[item.nodeid] = results
