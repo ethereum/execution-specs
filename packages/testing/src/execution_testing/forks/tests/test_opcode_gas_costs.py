@@ -35,21 +35,21 @@ from ..helpers import Fork
         pytest.param(
             Osaka,
             Op.EXP(exponent=0),
-            Osaka.gas_costs().EXPONENTIATION,
+            Osaka.gas_costs().OPCODE_EXP_BASE,
             id="exp_zero_exponent",
         ),
         pytest.param(
             Osaka,
             Op.EXP(exponent=0xFFFFFF),  # 3 bytes
-            Osaka.gas_costs().EXPONENTIATION
-            + Osaka.gas_costs().EXPONENTIATION_PER_BYTE * 3,
+            Osaka.gas_costs().OPCODE_EXP_BASE
+            + Osaka.gas_costs().OPCODE_EXP_PER_BYTE * 3,
             id="exp_three_bytes",
         ),
         pytest.param(
             Osaka,
             Op.EXP(exponent=0x1FFFFFF),  # 3 bytes
-            Osaka.gas_costs().EXPONENTIATION
-            + Osaka.gas_costs().EXPONENTIATION_PER_BYTE * 4,
+            Osaka.gas_costs().OPCODE_EXP_BASE
+            + Osaka.gas_costs().OPCODE_EXP_PER_BYTE * 4,
             id="exp_three_bytes_plus_one_bit",
         ),
         # SHA3 tests

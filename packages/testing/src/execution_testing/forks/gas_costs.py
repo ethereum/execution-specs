@@ -130,9 +130,9 @@ class GasCosts:
     OPCODE_SELFDESTRUCT: int
     OPCODE_COPY_PER_WORD: int
     OPCODE_CREATE_BASE: int
+    OPCODE_EXP_BASE: int
+    OPCODE_EXP_PER_BYTE: int
     # TODO
-    EXPONENTIATION: int
-    EXPONENTIATION_PER_BYTE: int
     LOG: int
     LOG_DATA_PER_BYTE: int
     LOG_TOPIC: int
