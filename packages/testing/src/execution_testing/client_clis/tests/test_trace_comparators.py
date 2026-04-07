@@ -589,7 +589,9 @@ class TestExactComparator:
         assert result.differences[0].transaction_index == 0
         assert result.differences[0].trace_line_index == 0
 
-    def test_differing_stack(self, comparator: FieldExclusionTraceComparator) -> None:
+    def test_differing_stack(
+        self, comparator: FieldExclusionTraceComparator
+    ) -> None:
         """Different stack values are detected."""
         baseline = _make_transaction_traces(
             [_make_trace_line(stack=[0x1, 0x2])]
@@ -615,7 +617,9 @@ class TestExactComparator:
         assert "trace_length" in diff.baseline
         assert "trace_length" in diff.current
 
-    def test_different_output(self, comparator: FieldExclusionTraceComparator) -> None:
+    def test_different_output(
+        self, comparator: FieldExclusionTraceComparator
+    ) -> None:
         """Different output field is detected."""
         baseline = _make_transaction_traces(output="0xaa")
         current = _make_transaction_traces(output="0xbb")
@@ -816,24 +820,16 @@ class TestExactNoStackComparator:
         current = _make_transaction_traces(
             [_make_trace_line(stack=[0xA, 0xB])]
         )
-        result = comparator.compare_transaction_traces(
-            baseline, current, 0
-        )
+        result = comparator.compare_transaction_traces(baseline, current, 0)
         assert result.equivalent is True
 
     def test_gas_difference_detected(
         self, comparator: FieldExclusionTraceComparator
     ) -> None:
         """Traces differing in gas are detected."""
-        baseline = _make_transaction_traces(
-            [_make_trace_line(gas=0x100)]
-        )
-        current = _make_transaction_traces(
-            [_make_trace_line(gas=0x200)]
-        )
-        result = comparator.compare_transaction_traces(
-            baseline, current, 0
-        )
+        baseline = _make_transaction_traces([_make_trace_line(gas=0x100)])
+        current = _make_transaction_traces([_make_trace_line(gas=0x200)])
+        result = comparator.compare_transaction_traces(baseline, current, 0)
         assert result.equivalent is False
         assert "gas" in result.differences[0].baseline
 
@@ -845,9 +841,7 @@ class TestExactNoStackComparator:
         current = _make_transaction_traces()
         baseline.gas_used = HexNumber(0x5208)
         current.gas_used = HexNumber(0x6000)
-        result = comparator.compare_transaction_traces(
-            baseline, current, 0
-        )
+        result = comparator.compare_transaction_traces(baseline, current, 0)
         assert result.equivalent is False
 
     def test_pc_difference_detected(
@@ -856,9 +850,7 @@ class TestExactNoStackComparator:
         """Non-stack, non-gas field diffs are detected."""
         baseline = _make_transaction_traces([_make_trace_line(pc=0)])
         current = _make_transaction_traces([_make_trace_line(pc=5)])
-        result = comparator.compare_transaction_traces(
-            baseline, current, 0
-        )
+        result = comparator.compare_transaction_traces(baseline, current, 0)
         assert result.equivalent is False
         assert len(result.differences) == 1
         assert "pc" in result.differences[0].baseline
@@ -870,12 +862,8 @@ class TestExactNoStackComparator:
         baseline = _make_transaction_traces(
             [_make_trace_line(op_name="PUSH1")]
         )
-        current = _make_transaction_traces(
-            [_make_trace_line(op_name="PUSH2")]
-        )
-        result = comparator.compare_transaction_traces(
-            baseline, current, 0
-        )
+        current = _make_transaction_traces([_make_trace_line(op_name="PUSH2")])
+        result = comparator.compare_transaction_traces(baseline, current, 0)
         assert result.equivalent is False
         assert "op_name" in result.differences[0].baseline
 
@@ -883,15 +871,9 @@ class TestExactNoStackComparator:
         self, comparator: FieldExclusionTraceComparator
     ) -> None:
         """Depth differences are detected."""
-        baseline = _make_transaction_traces(
-            [_make_trace_line(depth=1)]
-        )
-        current = _make_transaction_traces(
-            [_make_trace_line(depth=2)]
-        )
-        result = comparator.compare_transaction_traces(
-            baseline, current, 0
-        )
+        baseline = _make_transaction_traces([_make_trace_line(depth=1)])
+        current = _make_transaction_traces([_make_trace_line(depth=2)])
+        result = comparator.compare_transaction_traces(baseline, current, 0)
         assert result.equivalent is False
 
     def test_length_mismatch(
@@ -902,9 +884,7 @@ class TestExactNoStackComparator:
             [_make_trace_line(), _make_trace_line()]
         )
         current = _make_transaction_traces([_make_trace_line()])
-        result = comparator.compare_transaction_traces(
-            baseline, current, 0
-        )
+        result = comparator.compare_transaction_traces(baseline, current, 0)
         assert result.equivalent is False
         assert "trace_length" in result.differences[0].baseline
 
@@ -914,9 +894,7 @@ class TestExactNoStackComparator:
         """Different output field is detected."""
         baseline = _make_transaction_traces(output="0xaa")
         current = _make_transaction_traces(output="0xbb")
-        result = comparator.compare_transaction_traces(
-            baseline, current, 0
-        )
+        result = comparator.compare_transaction_traces(baseline, current, 0)
         assert result.equivalent is False
         assert "0xaa" in result.differences[0].baseline
 
@@ -948,15 +926,9 @@ class TestGasExhaustionTraceComparator:
     ) -> None:
         """Both sides with OOG at the same line are equivalent."""
         oog_line = _make_trace_line(error="out of gas")
-        baseline = _make_transaction_traces(
-            [_make_trace_line(), oog_line]
-        )
-        current = _make_transaction_traces(
-            [_make_trace_line(), oog_line]
-        )
-        result = comparator.compare_transaction_traces(
-            baseline, current, 0
-        )
+        baseline = _make_transaction_traces([_make_trace_line(), oog_line])
+        current = _make_transaction_traces([_make_trace_line(), oog_line])
+        result = comparator.compare_transaction_traces(baseline, current, 0)
         assert result.equivalent is True
 
     def test_baseline_oog_current_no_oog(
@@ -964,15 +936,11 @@ class TestGasExhaustionTraceComparator:
     ) -> None:
         """Baseline has out-of-gas but current does not — different."""
         oog_line = _make_trace_line(error="out of gas")
-        baseline = _make_transaction_traces(
-            [_make_trace_line(), oog_line]
-        )
+        baseline = _make_transaction_traces([_make_trace_line(), oog_line])
         current = _make_transaction_traces(
             [_make_trace_line(), _make_trace_line()]
         )
-        result = comparator.compare_transaction_traces(
-            baseline, current, 0
-        )
+        result = comparator.compare_transaction_traces(baseline, current, 0)
         assert result.equivalent is False
         assert len(result.differences) == 1
         diff = result.differences[0]
@@ -987,9 +955,7 @@ class TestGasExhaustionTraceComparator:
         oog_line = _make_trace_line(error="out of gas")
         baseline = _make_transaction_traces([_make_trace_line()])
         current = _make_transaction_traces([oog_line])
-        result = comparator.compare_transaction_traces(
-            baseline, current, 0
-        )
+        result = comparator.compare_transaction_traces(baseline, current, 0)
         assert result.equivalent is False
         diff = result.differences[0]
         assert diff.trace_line_index == 0
@@ -1014,9 +980,7 @@ class TestGasExhaustionTraceComparator:
                 _make_trace_line(error="out of gas"),
             ]
         )
-        result = comparator.compare_transaction_traces(
-            baseline, current, 0
-        )
+        result = comparator.compare_transaction_traces(baseline, current, 0)
         assert result.equivalent is False
 
     def test_case_insensitive_oog_detection(
@@ -1029,9 +993,7 @@ class TestGasExhaustionTraceComparator:
         current = _make_transaction_traces(
             [_make_trace_line(error="out of gas")]
         )
-        result = comparator.compare_transaction_traces(
-            baseline, current, 0
-        )
+        result = comparator.compare_transaction_traces(baseline, current, 0)
         assert result.equivalent is True
 
     def test_multiple_oog_points_same(
@@ -1052,9 +1014,7 @@ class TestGasExhaustionTraceComparator:
                 _make_trace_line(error="out of gas"),
             ]
         )
-        result = comparator.compare_transaction_traces(
-            baseline, current, 0
-        )
+        result = comparator.compare_transaction_traces(baseline, current, 0)
         assert result.equivalent is True
 
     def test_multiple_oog_points_different(
@@ -1073,9 +1033,7 @@ class TestGasExhaustionTraceComparator:
                 _make_trace_line(error="out of gas"),
             ]
         )
-        result = comparator.compare_transaction_traces(
-            baseline, current, 0
-        )
+        result = comparator.compare_transaction_traces(baseline, current, 0)
         assert result.equivalent is False
         assert len(result.differences) == 2
         # Line 0: baseline out-of-gas, current not
@@ -1097,9 +1055,7 @@ class TestGasExhaustionTraceComparator:
         current = _make_transaction_traces(
             [_make_trace_line(error="stack underflow")]
         )
-        result = comparator.compare_transaction_traces(
-            baseline, current, 0
-        )
+        result = comparator.compare_transaction_traces(baseline, current, 0)
         assert result.equivalent is True
 
     def test_transaction_index_in_difference(
@@ -1110,9 +1066,7 @@ class TestGasExhaustionTraceComparator:
             [_make_trace_line(error="out of gas")]
         )
         current = _make_transaction_traces([_make_trace_line()])
-        result = comparator.compare_transaction_traces(
-            baseline, current, 3
-        )
+        result = comparator.compare_transaction_traces(baseline, current, 3)
         assert result.differences[0].transaction_index == 3
 
     def test_multi_transaction_via_compare_traces(

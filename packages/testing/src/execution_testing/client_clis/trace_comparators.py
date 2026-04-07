@@ -141,12 +141,8 @@ def _build_result_from_compare(
     # lines will mostly differ too.
     diff = raw_diffs[0]
     if diff.line_index is None:
-        b_str = ", ".join(
-            f"{k}={v}" for k, v in diff.baseline_fields.items()
-        )
-        c_str = ", ".join(
-            f"{k}={v}" for k, v in diff.current_fields.items()
-        )
+        b_str = ", ".join(f"{k}={v}" for k, v in diff.baseline_fields.items())
+        c_str = ", ".join(f"{k}={v}" for k, v in diff.current_fields.items())
         trace_diff = TraceDifference(
             transaction_index=transaction_index,
             trace_line_index=-1,
@@ -159,12 +155,8 @@ def _build_result_from_compare(
         trace_diff = TraceDifference(
             transaction_index=transaction_index,
             trace_line_index=diff.line_index,
-            baseline=_format_trace_line_diff(
-                b_line, diff.baseline_fields
-            ),
-            current=_format_trace_line_diff(
-                c_line, diff.current_fields
-            ),
+            baseline=_format_trace_line_diff(b_line, diff.baseline_fields),
+            current=_format_trace_line_diff(c_line, diff.current_fields),
         )
     return TraceComparisonResult(
         equivalent=False,
@@ -236,7 +228,8 @@ def _format_oog_trace_line(
 
 
 class GasExhaustionTraceComparator(TraceComparator):
-    """Detect differences in gas exhaustion between traces.
+    """
+    Detect differences in gas exhaustion between traces.
 
     Equivalent when both sides have no out-of-gas errors or when
     both run out of gas at the same trace line(s). Different when
@@ -267,9 +260,7 @@ class GasExhaustionTraceComparator(TraceComparator):
                 TraceDifference(
                     transaction_index=transaction_index,
                     trace_line_index=line_index,
-                    baseline=_format_oog_trace_line(
-                        baseline, line_index
-                    ),
+                    baseline=_format_oog_trace_line(baseline, line_index),
                     current="no out-of-gas",
                 )
             )
@@ -279,9 +270,7 @@ class GasExhaustionTraceComparator(TraceComparator):
                     transaction_index=transaction_index,
                     trace_line_index=line_index,
                     baseline="no out-of-gas",
-                    current=_format_oog_trace_line(
-                        current, line_index
-                    ),
+                    current=_format_oog_trace_line(current, line_index),
                 )
             )
 

@@ -172,15 +172,17 @@ class TestJsonTracesDiffReportFormatter:
         """Report is written as valid JSON."""
         out = tmp_path / "report.json"  # type: ignore[operator]
         fmt = JsonTracesDiffReportFormatter(out)
-        fmt.write({
-            "test_a": {
-                "exact": _make_result(
-                    equivalent=False,
-                    differences=[_make_diff(tx=0, line=3)],
-                ),
-            },
-        })
-        data = json.loads(out.read_text())  # type: ignore[union-attr]
+        fmt.write(
+            {
+                "test_a": {
+                    "exact": _make_result(
+                        equivalent=False,
+                        differences=[_make_diff(tx=0, line=3)],
+                    ),
+                },
+            }
+        )
+        data = json.loads(out.read_text())
         assert "test_a" in data
         assert data["test_a"]["exact"]["equivalent"] is False
         diffs = data["test_a"]["exact"]["differences"]
@@ -194,10 +196,12 @@ class TestJsonTracesDiffReportFormatter:
         """Equivalent tests are included in JSON (unlike text report)."""
         out = tmp_path / "report.json"  # type: ignore[operator]
         fmt = JsonTracesDiffReportFormatter(out)
-        fmt.write({
-            "test_a": {"exact": _make_result(equivalent=True)},
-        })
-        data = json.loads(out.read_text())  # type: ignore[union-attr]
+        fmt.write(
+            {
+                "test_a": {"exact": _make_result(equivalent=True)},
+            }
+        )
+        data = json.loads(out.read_text())
         assert data["test_a"]["exact"]["equivalent"] is True
         assert data["test_a"]["exact"]["differences"] == []
 
@@ -208,4 +212,4 @@ class TestJsonTracesDiffReportFormatter:
         out = tmp_path / "sub" / "dir" / "report.json"  # type: ignore[operator]
         fmt = JsonTracesDiffReportFormatter(out)
         fmt.write({"test_a": {"exact": _make_result(equivalent=True)}})
-        assert out.exists()  # type: ignore[union-attr]
+        assert out.exists()

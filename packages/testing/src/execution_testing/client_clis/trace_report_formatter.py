@@ -19,7 +19,8 @@ class TracesDiffReportFormatter(ABC):
         test_id: str,
         results: dict[str, TraceComparisonResult],
     ) -> str | None:
-        """Format one test's comparison results.
+        """
+        Format one test's comparison results.
 
         Return None if there is nothing to report (e.g. all equivalent).
         """
@@ -46,7 +47,8 @@ class TextTracesDiffReportFormatter(TracesDiffReportFormatter):
         test_id: str,
         results: dict[str, TraceComparisonResult],
     ) -> str | None:
-        """Format one test's comparison results.
+        """
+        Format one test's comparison results.
 
         Return None if all comparators are equivalent.
         """
@@ -62,12 +64,8 @@ class TextTracesDiffReportFormatter(TracesDiffReportFormatter):
                     f"tx[{diff.transaction_index}] "
                     f"line[{diff.trace_line_index}]"
                 )
-                diff_lines.append(
-                    f"    {loc} baseline: {diff.baseline}"
-                )
-                diff_lines.append(
-                    f"    {loc} current:  {diff.current}"
-                )
+                diff_lines.append(f"    {loc} baseline: {diff.baseline}")
+                diff_lines.append(f"    {loc} current:  {diff.current}")
             remaining = count - len(shown)
             if remaining > 0:
                 diff_lines.append(f"    ... ({remaining} more)")
@@ -133,6 +131,4 @@ class JsonTracesDiffReportFormatter:
                 for name, result in comparator_results.items()
             }
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
-        self.output_path.write_text(
-            json.dumps(report, indent=2) + "\n"
-        )
+        self.output_path.write_text(json.dumps(report, indent=2) + "\n")

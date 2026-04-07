@@ -233,9 +233,7 @@ class TraceVerifier:
                 current_traces_list,
                 strict=False,
             ):
-                result = exact_comparator.compare_traces(
-                    baseline, current
-                )
+                result = exact_comparator.compare_traces(baseline, current)
                 all_diffs.extend(result.differences)
                 if not result.equivalent:
                     all_equivalent = False
