@@ -5,7 +5,8 @@ import pytest
 from execution_testing.base_types import Address, Hash
 from execution_testing.cli.pytest_commands.plugins.shared.address_stubs import (  # noqa: E501
     AddressStubs,
-    StubEntry,
+    StubAddress,
+    StubEOA,
 )
 
 ADDR = Address("0x398324972FcE0e89E048c2104f1298031d1931fc")
@@ -16,14 +17,14 @@ TEST_PKEY = Hash(
 TEST_ADDR = Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
 
 
-def _stubs(mapping: dict[str, StubEntry]) -> AddressStubs:
+def _stubs(mapping: dict[str, StubAddress]) -> AddressStubs:
     """Create an AddressStubs instance from a plain dict."""
     return AddressStubs(root=mapping)
 
 
-def _entry(addr: Address = ADDR) -> StubEntry:
-    """Create an address-only StubEntry."""
-    return StubEntry(addr=addr)
+def _entry(addr: Address = ADDR) -> StubAddress:
+    """Create an address-only StubAddress."""
+    return StubAddress(addr=addr)
 
 
 def test_extract_tokens_returns_full_keys() -> None:
@@ -106,7 +107,7 @@ def test_parametrize_args_empty_warns() -> None:
     assert ids == []
 
 
-def test_stub_entry_pkey_mismatch_raises() -> None:
+def test_stub_eoa_pkey_mismatch_raises() -> None:
     """Raise when private key derives a different address."""
     with pytest.raises(ValueError, match="pkey derives address"):
-        StubEntry(addr=ADDR, pkey=TEST_PKEY)
+        StubEOA(addr=ADDR, pkey=TEST_PKEY)

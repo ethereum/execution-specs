@@ -21,7 +21,7 @@ from execution_testing.specs import BaseTest
 from execution_testing.specs.base import OpMode
 from execution_testing.test_types import EOA, Alloc, ChainConfig
 
-from ..shared.address_stubs import AddressStubs
+from ..shared.address_stubs import AddressStubs, StubEOA
 from ..shared.helpers import get_rpc_endpoint
 from ..shared.pre_alloc import AllocFlags
 from ..spec_version_checker.spec_version_checker import EIPSpecTestItem
@@ -73,7 +73,7 @@ def _validate_and_cache_address_stubs(
     for label, addr in zip(labels, addresses, strict=True):
         entry = address_stubs.get_entry(label)
         account = alloc.root.get(addr) or Account()
-        if entry.pkey is not None:
+        if isinstance(entry, StubEOA):
             eoa = EOA(key=entry.pkey)
             eoa.nonce = Number(account.nonce)
             eoas[label] = eoa

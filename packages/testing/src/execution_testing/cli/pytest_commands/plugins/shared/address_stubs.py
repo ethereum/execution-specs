@@ -7,7 +7,7 @@ carrying a private key for EOA stubs that need signing capability.
 
 import warnings
 from pathlib import Path
-from typing import Dict, Self
+from typing import Dict, Self, Union
 
 from pydantic import model_validator
 
@@ -20,27 +20,30 @@ from execution_testing.base_types import (
 from execution_testing.test_types import EOA
 
 
-class StubEntry(EthereumTestBaseModel):
-    """
-    A single stub entry with an address and optional private key.
-
-    When pkey is provided, the derived address is validated
-    against addr to ensure consistency.
-    """
+class StubAddress(EthereumTestBaseModel):
+    """A single stub entry with an address."""
 
     addr: Address
-    pkey: Hash | None = None
+
+
+class StubEOA(EthereumTestBaseModel):
+    """A single stub EOA entry with an address and a private key."""
+
+    addr: Address
+    pkey: Hash
 
     @model_validator(mode="after")
     def _validate_key_matches_address(self) -> Self:
         """Verify the private key derives the declared address."""
-        if self.pkey is not None:
-            derived = Address(EOA(key=self.pkey))
-            if derived != self.addr:
-                raise ValueError(
-                    f"pkey derives address {derived}, but addr is {self.addr}"
-                )
+        derived = Address(EOA(key=self.pkey))
+        if derived != self.addr:
+            raise ValueError(
+                f"pkey derives address {derived}, but addr is {self.addr}"
+            )
         return self
+
+
+StubEntry = Union[StubAddress, StubEOA]
 
 
 class AddressStubs(EthereumTestRootModel[Dict[str, StubEntry]]):
@@ -48,8 +51,8 @@ class AddressStubs(EthereumTestRootModel[Dict[str, StubEntry]]):
     Address stubs class.
 
     The key represents the label that is used in the test to tag the
-    account, and the value is a StubEntry containing the on-chain
-    address and an optional private key.
+    account, and the value is a StubAddress or StubEOA containing
+    the on-chain address and an optional private key.
     """
 
     root: Dict[str, StubEntry]
@@ -68,7 +71,7 @@ class AddressStubs(EthereumTestRootModel[Dict[str, StubEntry]]):
 
     def is_eoa(self, item: str) -> bool:
         """Check if a stub entry is an EOA (has a private key)."""
-        return item in self.root and self.root[item].pkey is not None
+        return item in self.root and isinstance(self.root[item], StubEOA)
 
     def extract_tokens(self, prefix: str) -> list[str]:
         """Return stub keys matching *prefix*."""
