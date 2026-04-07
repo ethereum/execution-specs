@@ -67,7 +67,7 @@ def create(evm: Evm) -> None:
         evm.memory, [(memory_start_position, memory_size)]
     )
 
-    charge_gas(evm, GasCosts.CREATE + extend_memory.cost)
+    charge_gas(evm, GasCosts.OPCODE_CREATE_BASE + extend_memory.cost)
 
     create_message_gas = max_message_call_gas(Uint(evm.gas_left))
     evm.gas_left -= create_message_gas

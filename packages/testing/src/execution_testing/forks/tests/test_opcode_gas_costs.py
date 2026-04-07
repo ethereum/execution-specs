@@ -85,7 +85,7 @@ from ..helpers import Fork
             Osaka,
             Op.CALLDATACOPY(data_size=32, new_memory_size=32),
             Osaka.gas_costs().VERY_LOW
-            + Osaka.gas_costs().COPY_PER_WORD * 1
+            + Osaka.gas_costs().OPCODE_COPY_PER_WORD * 1
             + Osaka.memory_expansion_gas_calculator()(new_bytes=32),
             id="calldatacopy_one_word",
         ),
@@ -95,7 +95,7 @@ from ..helpers import Fork
                 data_size=64, new_memory_size=64, old_memory_size=32
             ),
             Osaka.gas_costs().VERY_LOW
-            + Osaka.gas_costs().COPY_PER_WORD * 2
+            + Osaka.gas_costs().OPCODE_COPY_PER_WORD * 2
             + Osaka.memory_expansion_gas_calculator()(
                 new_bytes=64, previous_bytes=32
             ),
@@ -106,7 +106,7 @@ from ..helpers import Fork
             Osaka,
             Op.CODECOPY(data_size=96, new_memory_size=96),
             Osaka.gas_costs().VERY_LOW
-            + Osaka.gas_costs().COPY_PER_WORD * 3
+            + Osaka.gas_costs().OPCODE_COPY_PER_WORD * 3
             + Osaka.memory_expansion_gas_calculator()(new_bytes=96),
             id="codecopy_three_words",
         ),
@@ -130,7 +130,7 @@ from ..helpers import Fork
                 address_warm=True, data_size=32, new_memory_size=32
             ),
             Osaka.gas_costs().WARM_ACCESS
-            + Osaka.gas_costs().COPY_PER_WORD * 1
+            + Osaka.gas_costs().OPCODE_COPY_PER_WORD * 1
             + Osaka.memory_expansion_gas_calculator()(new_bytes=32),
             id="extcodecopy_warm",
         ),
@@ -140,7 +140,7 @@ from ..helpers import Fork
                 address_warm=False, data_size=64, new_memory_size=64
             ),
             Osaka.gas_costs().COLD_ACCOUNT_ACCESS
-            + Osaka.gas_costs().COPY_PER_WORD * 2
+            + Osaka.gas_costs().OPCODE_COPY_PER_WORD * 2
             + Osaka.memory_expansion_gas_calculator()(new_bytes=64),
             id="extcodecopy_cold",
         ),
@@ -162,7 +162,7 @@ from ..helpers import Fork
             Osaka,
             Op.RETURNDATACOPY(data_size=32, new_memory_size=32),
             Osaka.gas_costs().VERY_LOW
-            + Osaka.gas_costs().COPY_PER_WORD * 1
+            + Osaka.gas_costs().OPCODE_COPY_PER_WORD * 1
             + Osaka.memory_expansion_gas_calculator()(new_bytes=32),
             id="returndatacopy",
         ),
@@ -200,7 +200,7 @@ from ..helpers import Fork
             Osaka,
             Op.MCOPY(data_size=32, new_memory_size=32),
             Osaka.gas_costs().VERY_LOW
-            + Osaka.gas_costs().COPY_PER_WORD * 1
+            + Osaka.gas_costs().OPCODE_COPY_PER_WORD * 1
             + Osaka.memory_expansion_gas_calculator()(new_bytes=32),
             id="mcopy_one_word",
         ),
@@ -208,7 +208,7 @@ from ..helpers import Fork
             Osaka,
             Op.MCOPY(data_size=96, new_memory_size=128, old_memory_size=64),
             Osaka.gas_costs().VERY_LOW
-            + Osaka.gas_costs().COPY_PER_WORD * 3
+            + Osaka.gas_costs().OPCODE_COPY_PER_WORD * 3
             + Osaka.memory_expansion_gas_calculator()(
                 new_bytes=128, previous_bytes=64
             ),
@@ -267,7 +267,7 @@ from ..helpers import Fork
         pytest.param(
             Osaka,
             Op.CREATE(init_code_size=100, new_memory_size=100),
-            Osaka.gas_costs().CREATE
+            Osaka.gas_costs().OPCODE_CREATE_BASE
             # (100 + 31) // 32 = 4
             + Osaka.gas_costs().CODE_INIT_PER_WORD * 4
             + Osaka.memory_expansion_gas_calculator()(new_bytes=100),
@@ -277,7 +277,7 @@ from ..helpers import Fork
         pytest.param(
             Osaka,
             Op.CREATE2(init_code_size=64, new_memory_size=64),
-            Osaka.gas_costs().CREATE
+            Osaka.gas_costs().OPCODE_CREATE_BASE
             + Osaka.gas_costs().CODE_INIT_PER_WORD * 2
             + Osaka.gas_costs().KECCAK256_PER_WORD * 2
             + Osaka.memory_expansion_gas_calculator()(new_bytes=64),

@@ -103,22 +103,24 @@ class Frontier(
             LOW=LOW,
             MID=MID,
             HIGH=HIGH,
-            # Access Costs
+            # Access
             WARM_ACCESS=100,
             COLD_ACCOUNT_ACCESS=2_600,
             WARM_SLOAD=100,
             COLD_STORAGE_ACCESS=2_100,
-            # Storage Costs
+            # Storage
             STORAGE_SET=20_000,
             COLD_STORAGE_WRITE=5_000,
             STORAGE_RESET=2_900,
-            # Call Costs
+            # Call
             CALL_VALUE=9_000,
             CALL_STIPEND=2_300,
             NEW_ACCOUNT=25_000,
-            # Contract Creation Costs
+            # Contract Creation
             CODE_DEPOSIT_PER_BYTE=200,
             CODE_INIT_PER_WORD=2,
+            # Utility
+            MEMORY_PER_WORD=3,
             # Transactions
             TX_BASE=21_000,
             TX_ACCESS_LIST_ADDRESS=2_400,
@@ -167,17 +169,16 @@ class Frontier(
             OPCODE_PUSH=VERY_LOW,
             OPCODE_DUP=VERY_LOW,
             OPCODE_SWAP=VERY_LOW,
-            # Dynamic Opcodes
+            # Dynamic Opcode Component
             OPCODE_CALLDATACOPY=VERY_LOW,
             OPCODE_CODECOPY=VERY_LOW,
             OPCODE_MLOAD=VERY_LOW,
             OPCODE_MSTORE=VERY_LOW,
             OPCODE_MSTORE8=VERY_LOW,
             OPCODE_SELFDESTRUCT=5_000,
-            # Dynamic Opcode Component Costs
-            COPY_PER_WORD=3,
-            CREATE=32_000,
-            MEMORY_PER_WORD=3,
+            OPCODE_COPY_PER_WORD=3,
+            OPCODE_CREATE_BASE=32_000,
+            # TODO
             EXPONENTIATION=10,
             EXPONENTIATION_PER_BYTE=50,
             LOG=375,
@@ -297,7 +298,7 @@ class Frontier(
             base_gas: Either a constant gas cost (int) or a callable that
                       calculates it
             gas_costs: The gas costs dataclass for accessing
-                       COPY_PER_WORD
+                       OPCODE_COPY_PER_WORD
 
         Returns:
             A callable that calculates base_gas + copy_cost
@@ -314,7 +315,7 @@ class Frontier(
             # Add copy cost based on data size
             data_size = opcode.metadata["data_size"]
             word_count = (data_size + 31) // 32
-            copy_cost = gas_costs.COPY_PER_WORD * word_count
+            copy_cost = gas_costs.OPCODE_COPY_PER_WORD * word_count
 
             return base_cost + copy_cost
 
@@ -675,7 +676,7 @@ class Frontier(
     ) -> int:
         """CREATE gas is constant at Frontier."""
         del opcode
-        return gas_costs.CREATE
+        return gas_costs.OPCODE_CREATE_BASE
 
     @classmethod
     def _calculate_create2_gas(

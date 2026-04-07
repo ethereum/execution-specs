@@ -21,28 +21,31 @@ class GasCosts:
     MID: int
     HIGH: int
 
-    # Access Costs
+    # Access
     WARM_ACCESS: int
     COLD_ACCOUNT_ACCESS: int
     WARM_SLOAD: int
     COLD_STORAGE_ACCESS: int
 
-    # Storage Costs
+    # Storage
     STORAGE_SET: int
     COLD_STORAGE_WRITE: int
     STORAGE_RESET: int
 
-    # Call Costs
+    # Call
     CALL_VALUE: int
     CALL_STIPEND: int
     NEW_ACCOUNT: int
 
-    # Contract Creation Costs
+    # Contract Creation
     CODE_DEPOSIT_PER_BYTE: int
     CODE_INIT_PER_WORD: int
 
-    # Authorization Costs
+    # Authorization
     AUTH_PER_EMPTY_ACCOUNT: int
+
+    # Utility
+    MEMORY_PER_WORD: int
 
     # Transactions
     TX_BASE: int
@@ -118,18 +121,16 @@ class GasCosts:
     OPCODE_DUP: int
     OPCODE_SWAP: int
 
-    # Dynamic Opcodes
+    # Dynamic Opcode Components
     OPCODE_CALLDATACOPY: int
     OPCODE_CODECOPY: int
     OPCODE_MLOAD: int
     OPCODE_MSTORE: int
     OPCODE_MSTORE8: int
     OPCODE_SELFDESTRUCT: int
-
-    # Dynamic Opcode Component Costs
-    COPY_PER_WORD: int
-    CREATE: int
-    MEMORY_PER_WORD: int
+    OPCODE_COPY_PER_WORD: int
+    OPCODE_CREATE_BASE: int
+    # TODO
     EXPONENTIATION: int
     EXPONENTIATION_PER_BYTE: int
     LOG: int
