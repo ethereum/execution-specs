@@ -178,7 +178,7 @@ class Frontier(
             # Dynamic Opcode Component Costs
             COPY_PER_WORD=3,
             CREATE=32_000,
-            MEMORY=3,
+            MEMORY_PER_WORD=3,
             EXPONENTIATION=10,
             EXPONENTIATION_PER_BYTE=50,
             LOG=375,
@@ -737,7 +737,7 @@ class Frontier(
             previous_words = ceiling_division(previous_bytes, 32)
 
             def c(w: int) -> int:
-                return (gas_costs.MEMORY * w) + ((w * w) // 512)
+                return (gas_costs.MEMORY_PER_WORD * w) + ((w * w) // 512)
 
             return c(new_words) - c(previous_words)
 
