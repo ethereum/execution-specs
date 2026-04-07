@@ -62,8 +62,18 @@ def merge_partial_fixture_files(output_dir: Path) -> None:
 
     # Merge each group into its target file
     for target_path, partials in partials_by_target.items():
-        # Read partials sequentially into dict (one at a time)
+        # Seed from existing target file (if any) so that
+        # repeated single-test sessions accumulate into one file.
         entries: Dict[str, str] = {}
+        if target_path.exists():
+            with open(target_path) as existing:
+                try:
+                    existing_data = json.load(existing)
+                    for k, v in existing_data.items():
+                        entries[k] = json.dumps(v, separators=(",", ":"))
+                except json.JSONDecodeError:
+                    pass
+
         for partial in partials:
             with open(partial) as f:
                 for line in f:

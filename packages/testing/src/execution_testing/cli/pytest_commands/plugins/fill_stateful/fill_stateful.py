@@ -103,22 +103,37 @@ class RecordingTestingRPC:
         transactions: Sequence[TransactionProtocol] | None,
     ) -> TestPhase | None:
         """
-        Derive the block phase from transactions.
+        Derive the block phase from transaction metadata.
 
-        Each transaction records its ``test_phase`` at creation time
-        (inside a ``TestPhaseManager`` context manager).  Use that
-        stored value so the phase is correct even when the actual RPC
-        call happens outside the original context manager.
+        Checks two sources on each transaction, in order:
 
-        Returns ``None`` when transactions are unavailable, carry no
-        phase, or contain mixed phases.  A ``None`` phase is treated
-        as execution by the fixture collector.
+        1. ``test_phase`` — set at creation time by
+           ``TestPhaseManager`` context managers.
+        2. ``metadata.phase`` — set explicitly by the pre-alloc
+           and execute plugins (e.g. ``"setup"`` for funding).
+
+        Returns ``None`` when transactions are unavailable, carry
+        no phase, or contain mixed phases.
         """
-        if transactions:
-            phases = {getattr(tx, "test_phase", None) for tx in transactions}
-            phases.discard(None)
-            if len(phases) == 1:
-                return phases.pop()
+        if not transactions:
+            return None
+
+        phases: set[TestPhase | None] = set()
+        for tx in transactions:
+            phase = getattr(tx, "test_phase", None)
+            if phase is None:
+                meta = getattr(tx, "metadata", None)
+                if meta is not None:
+                    phase = getattr(meta, "phase", None)
+            phases.add(phase)
+
+        phases.discard(None)
+        if len(phases) == 1:
+            return phases.pop()
+        # Mixed phases: SETUP takes precedence (a block containing
+        # any setup transaction is considered part of the setup).
+        if TestPhase.SETUP in phases:
+            return TestPhase.SETUP
         return None
 
     def clear(self) -> None:
@@ -181,6 +196,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 def pytest_configure(config: pytest.Config) -> None:
     """Configure the stateful fill plugin."""
     config.option.use_testing_build_block = True
+    config.option.skip_cleanup = True
     config.engine_rpc_supported = True  # type: ignore[attr-defined]
     config.skip_transition_forks = True  # type: ignore[attr-defined]
     config.single_fork_mode = True  # type: ignore[attr-defined]
@@ -208,8 +224,18 @@ def fixture_collector(
 
 
 @pytest.fixture(scope="session")
-def snapshot_block(eth_rpc: Any) -> dict:
-    """Capture the client's current head as the snapshot reference."""
+def snapshot_block(
+    eth_rpc: Any,
+    execute_required_contracts: None,  # noqa: ARG001
+) -> dict:
+    """
+    Capture the client's current head as the snapshot reference.
+
+    Depends on ``execute_required_contracts`` to ensure the
+    deterministic factory is already deployed before we record
+    the snapshot — otherwise the factory deployment block would
+    sit between the snapshot and the first test payload.
+    """
     block = eth_rpc.get_block_by_number("latest")
     assert block is not None, "Could not fetch snapshot block"
     return block
@@ -236,8 +262,14 @@ def capture_stateful_fixture(
     snapshot_block: dict,
     fixture_collector: FixtureCollector,
     session_fork: Fork | TransitionFork,
+    eth_rpc: Any,
 ) -> Generator[None, None, None]:
-    """Clear recorder before test, package fixture after."""
+    """
+    Clear recorder before test, package fixture after.
+
+    After each test, resets the chain to the snapshot block via
+    ``debug_setHead`` so the next test starts from identical state.
+    """
     if recording_rpc is None:
         yield
         return
@@ -276,6 +308,24 @@ def capture_stateful_fixture(
     info = _node_to_test_info(request.node)
     fixture_collector.add_fixture(info, fixture)
     logger.info(f"Captured stateful fixture for {request.node.nodeid}")
+
+    # Reset chain to snapshot so the next test starts from identical
+    # state.  This uses debug_setHead which rewinds the chain without
+    # restarting the client process.
+    snapshot_hex = snapshot_block["number"]
+    logger.info(f"Resetting chain to snapshot block {snapshot_hex}")
+    # Use a raw RPC call to avoid eth_ namespace prefixing.
+    import requests as http_requests
+
+    http_requests.post(
+        eth_rpc.url,
+        json={
+            "jsonrpc": "2.0",
+            "method": "debug_setHead",
+            "params": [snapshot_hex],
+            "id": 1,
+        },
+    ).raise_for_status()
 
 
 def pytest_sessionfinish(
