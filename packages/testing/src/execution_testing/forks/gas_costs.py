@@ -134,8 +134,8 @@ class GasCosts:
     OPCODE_EXP_PER_BYTE: int
     # TODO
     LOG: int
-    LOG_DATA_PER_BYTE: int
-    LOG_TOPIC: int
+    OPCODE_LOG_DATA_PER_BYTE: int
+    OPCODE_LOG_TOPIC: int
     KECCAK256: int
     OPCODE_KECCACK256_PER_WORD: int
 

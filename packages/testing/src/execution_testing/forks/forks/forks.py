@@ -183,8 +183,8 @@ class Frontier(
             OPCODE_EXP_PER_BYTE=50,
             # TODO
             LOG=375,
-            LOG_DATA_PER_BYTE=8,
-            LOG_TOPIC=375,
+            OPCODE_LOG_DATA_PER_BYTE=8,
+            OPCODE_LOG_TOPIC=375,
             KECCAK256=30,
             OPCODE_KECCACK256_PER_WORD=6,
             # Zero-initialized: introduced in later forks, set via
@@ -460,39 +460,44 @@ class Frontier(
             Opcodes.LOG0: cls._with_memory_expansion(
                 lambda op: (
                     gas_costs.LOG
-                    + gas_costs.LOG_DATA_PER_BYTE * op.metadata["data_size"]
+                    + gas_costs.OPCODE_LOG_DATA_PER_BYTE
+                    * op.metadata["data_size"]
                 ),
                 memory_expansion_calculator,
             ),
             Opcodes.LOG1: cls._with_memory_expansion(
                 lambda op: (
                     gas_costs.LOG
-                    + gas_costs.LOG_DATA_PER_BYTE * op.metadata["data_size"]
-                    + gas_costs.LOG_TOPIC
+                    + gas_costs.OPCODE_LOG_DATA_PER_BYTE
+                    * op.metadata["data_size"]
+                    + gas_costs.OPCODE_LOG_TOPIC
                 ),
                 memory_expansion_calculator,
             ),
             Opcodes.LOG2: cls._with_memory_expansion(
                 lambda op: (
                     gas_costs.LOG
-                    + gas_costs.LOG_DATA_PER_BYTE * op.metadata["data_size"]
-                    + gas_costs.LOG_TOPIC * 2
+                    + gas_costs.OPCODE_LOG_DATA_PER_BYTE
+                    * op.metadata["data_size"]
+                    + gas_costs.OPCODE_LOG_TOPIC * 2
                 ),
                 memory_expansion_calculator,
             ),
             Opcodes.LOG3: cls._with_memory_expansion(
                 lambda op: (
                     gas_costs.LOG
-                    + gas_costs.LOG_DATA_PER_BYTE * op.metadata["data_size"]
-                    + gas_costs.LOG_TOPIC * 3
+                    + gas_costs.OPCODE_LOG_DATA_PER_BYTE
+                    * op.metadata["data_size"]
+                    + gas_costs.OPCODE_LOG_TOPIC * 3
                 ),
                 memory_expansion_calculator,
             ),
             Opcodes.LOG4: cls._with_memory_expansion(
                 lambda op: (
                     gas_costs.LOG
-                    + gas_costs.LOG_DATA_PER_BYTE * op.metadata["data_size"]
-                    + gas_costs.LOG_TOPIC * 4
+                    + gas_costs.OPCODE_LOG_DATA_PER_BYTE
+                    * op.metadata["data_size"]
+                    + gas_costs.OPCODE_LOG_TOPIC * 4
                 ),
                 memory_expansion_calculator,
             ),

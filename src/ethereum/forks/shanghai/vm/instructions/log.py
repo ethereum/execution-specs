@@ -57,9 +57,9 @@ def log_n(evm: Evm, num_topics: int) -> None:
     )
     charge_gas(
         evm,
-        GasCosts.LOG
-        + GasCosts.LOG_DATA_PER_BYTE * Uint(size)
-        + GasCosts.LOG_TOPIC * Uint(num_topics)
+        GasCosts.OPCODE_LOG_BASE
+        + GasCosts.OPCODE_LOG_DATA_PER_BYTE * Uint(size)
+        + GasCosts.OPCODE_LOG_TOPIC * Uint(num_topics)
         + extend_memory.cost,
     )
 

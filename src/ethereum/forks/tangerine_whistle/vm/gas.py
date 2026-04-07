@@ -113,13 +113,13 @@ class GasCosts:
     OPCODE_EXP_PER_BYTE = Uint(10)
     OPCODE_KECCAK256_BASE = Uint(30)
     OPCODE_KECCACK256_PER_WORD = Uint(6)
+    OPCODE_LOG_BASE = Uint(375)
+    OPCODE_LOG_DATA_PER_BYTE = Uint(8)
+    OPCODE_LOG_TOPIC = Uint(375)
     # TODO
     EXTERNAL = Uint(700)
     BALANCE = Uint(400)
     CALL = Uint(700)
-    LOG = Uint(375)
-    LOG_DATA_PER_BYTE = Uint(8)
-    LOG_TOPIC = Uint(375)
     SELF_DESTRUCT = Uint(5000)
     SELF_DESTRUCT_NEW_ACCOUNT = Uint(25000)
 
