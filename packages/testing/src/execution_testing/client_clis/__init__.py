@@ -23,6 +23,7 @@ from .clis.execution_specs import ExecutionSpecsTransitionTool
 from .clis.geth import GethFixtureConsumer, GethTransitionTool
 from .clis.nethermind import Nethtest, NethtestFixtureConsumer
 from .clis.nimbus import NimbusTransitionTool
+from .clis.reth import RethFixtureConsumer
 from .ethereum_cli import CLINotFoundInPathError, UnknownCLIError
 from .fixture_consumer_tool import FixtureConsumerTool
 from .transition_tool import TransitionTool
@@ -48,6 +49,7 @@ __all__ = (
     "Nethtest",
     "NethtestFixtureConsumer",
     "NimbusTransitionTool",
+    "RethFixtureConsumer",
     "Result",
     "Traces",
     "TransactionExceptionWithMessage",

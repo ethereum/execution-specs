@@ -447,6 +447,9 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
     called before the pytest-html plugin's pytest_configure to ensure that it
     uses the modified `htmlpath` option.
     """
+    if "health" in sys.argv or "direct_health" in sys.argv:
+        return
+
     # Validate --extract-to usage
     if config.option.extract_to_folder is not None and "cache" not in sys.argv:
         pytest.exit(
@@ -565,7 +568,9 @@ def pytest_html_report_title(report: Any) -> None:
 
 def pytest_report_header(config: pytest.Config) -> List[str]:
     """Add the consume version and fixtures source to the report header."""
-    source = config.fixtures_source  # type: ignore[attr-defined]
+    source = getattr(config, "fixtures_source", None)
+    if source is None:
+        return [f"consume ref: {get_current_commit_hash_or_tag()}"]
     lines = [
         f"consume ref: {get_current_commit_hash_or_tag()}",
         f"fixtures: {source.path}",
@@ -593,7 +598,10 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     within the specified fixtures directory, or read from stdin if the
     directory is 'stdin'.
     """
-    if "cache" in sys.argv:
+    if "cache" in sys.argv or "health" in sys.argv or "direct_health" in sys.argv:
+        return
+
+    if "test_case" not in metafunc.fixturenames:
         return
 
     test_cases = metafunc.config.test_cases  # type: ignore[attr-defined]

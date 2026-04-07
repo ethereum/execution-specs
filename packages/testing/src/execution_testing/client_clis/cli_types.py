@@ -39,6 +39,43 @@ from execution_testing.vm import Opcode, Opcodes
 logger = get_logger(__name__)
 
 
+class FixtureTestResult(CamelModel):
+    """Base result fields shared by all fixture test types."""
+
+    name: str
+    """Full fixture key as it appears in the JSON file."""
+
+    pass_field: bool = Field(..., alias="pass")
+    """Whether the test passed."""
+
+    fork: str
+    """Fork name (e.g. 'Prague', 'CancunToPragueAtTime15k')."""
+
+    error: str = ""
+    """Error or validation error string. Populated even on pass for invalid tests."""
+
+
+class StateTestResult(FixtureTestResult):
+    """Result from a client's statetest runner."""
+
+    state_root: str = Field(default="", alias="stateRoot")
+    """Hex-encoded final state root."""
+
+
+class BlockTestResult(FixtureTestResult):
+    """Result from a client's blocktest runner."""
+
+    last_block_hash: str = Field(default="", alias="lastBlockHash")
+    """Hex-encoded hash of the last block in the chain."""
+
+
+class EngineTestResult(BlockTestResult):
+    """Result from a client's enginetest runner."""
+
+    last_payload_status: str = Field(default="", alias="lastPayloadStatus")
+    """Payload status of the last newPayload call (VALID/INVALID/SYNCING)."""
+
+
 class TransactionExceptionWithMessage(
     ExceptionWithMessage[TransactionException]
 ):

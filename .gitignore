@@ -89,4 +89,7 @@ logs/
 
 env.yaml
 
+# Consume direct client config (user-specific binary paths)
+consume-direct.toml
+
 site/
