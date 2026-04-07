@@ -4,15 +4,15 @@ inputs:
   release_name:
     description: "Name of the fixture release"
     required: true
-  from_fork:
-    description: "Fill from this fork (inclusive). Empty for unsplit builds."
-    default: ""
-  until_fork:
-    description: "Fill until this fork (inclusive). Empty for unsplit builds."
-    default: ""
   split_label:
-    description: "Label for this fork-range split. Empty for unsplit builds."
+    description: "Label for this split. Empty for unsplit builds."
     default: ""
+  splits:
+    description: "Total number of pytest-split groups (0 = unsplit)."
+    default: "0"
+  group:
+    description: "Which pytest-split group to run (1-indexed, 0 = unsplit)."
+    default: "0"
   store_durations:
     description: "Store pytest-split durations for future load balancing."
     default: "false"
@@ -50,10 +50,10 @@ runs:
 
         if [ -n "$IS_SPLIT" ]; then
           OUTPUT_ARG="--output=fixtures_${{ inputs.release_name }}"
-          FORK_ARGS="--generate-all-formats --from=${{ inputs.from_fork }} --until=${{ inputs.until_fork }}"
+          SPLIT_ARGS="--generate-all-formats --splits=${{ inputs.splits }} --group=${{ inputs.group }} --splitting-algorithm=grouped_least_duration"
         else
           OUTPUT_ARG="--output=fixtures_${{ inputs.release_name }}.tar.gz"
-          FORK_ARGS=""
+          SPLIT_ARGS=""
         fi
 
         DURATIONS_ARG=""
@@ -66,12 +66,12 @@ runs:
           PRE_ALLOC_ARG="--use-pre-alloc-groups"
         fi
 
-        # Allow exit code 5 (NO_TESTS_COLLECTED) for fork ranges with no tests.
+        # Allow exit code 5 (NO_TESTS_COLLECTED) for groups with no tests.
         EXIT_CODE=0
         if [ "${{ steps.evm-builder.outputs.impl }}" = "eels" ]; then
-          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} ${{ steps.properties.outputs.fill-params }} $FORK_ARGS $OUTPUT_ARG --build-name ${{ inputs.release_name }} --no-html --durations=100 --log-level=DEBUG $DURATIONS_ARG $PRE_ALLOC_ARG || EXIT_CODE=$?
+          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} ${{ steps.properties.outputs.fill-params }} $SPLIT_ARGS $OUTPUT_ARG --build-name ${{ inputs.release_name }} --no-html --durations=100 --log-level=DEBUG $DURATIONS_ARG $PRE_ALLOC_ARG || EXIT_CODE=$?
         else
-          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} --evm-bin=${{ steps.evm-builder.outputs.evm-bin }} ${{ steps.properties.outputs.fill-params }} $FORK_ARGS $OUTPUT_ARG --build-name ${{ inputs.release_name }} --no-html --durations=100 --log-level=DEBUG $DURATIONS_ARG $PRE_ALLOC_ARG || EXIT_CODE=$?
+          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} --evm-bin=${{ steps.evm-builder.outputs.evm-bin }} ${{ steps.properties.outputs.fill-params }} $SPLIT_ARGS $OUTPUT_ARG --build-name ${{ inputs.release_name }} --no-html --durations=100 --log-level=DEBUG $DURATIONS_ARG $PRE_ALLOC_ARG || EXIT_CODE=$?
         fi
         if [ "$EXIT_CODE" -ne 0 ] && [ "$EXIT_CODE" -ne 5 ]; then
           exit "$EXIT_CODE"

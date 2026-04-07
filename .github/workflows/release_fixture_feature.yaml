@@ -158,9 +158,9 @@ jobs:
       - uses: ./.github/actions/build-fixtures
         with:
           release_name: ${{ matrix.feature }}
-          from_fork: ${{ matrix.from_fork }}
-          until_fork: ${{ matrix.until_fork }}
           split_label: ${{ matrix.label }}
+          splits: ${{ matrix.splits }}
+          group: ${{ matrix.group }}
           store_durations: ${{ inputs.store_durations && 'true' || 'false' }}
           use_pre_alloc_groups: ${{ matrix.label != '' && 'true' || 'false' }}
 
