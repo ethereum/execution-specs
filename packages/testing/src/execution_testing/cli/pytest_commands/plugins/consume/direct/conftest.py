@@ -25,6 +25,7 @@ from execution_testing.client_clis.fixture_consumer_tool import (
 from execution_testing.fixtures import (
     BaseFixture,
     BlockchainEngineFixture,
+    BlockchainEngineXFixture,
     BlockchainFixture,
     StateFixture,
 )
@@ -96,10 +97,10 @@ def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
         dest="fixture_type",
         type=str,
         default=None,
-        choices=["state", "block", "engine", "all"],
+        choices=["state", "block", "engine", "enginex"],
         help=(
             "Fixture type to run. Required for `consume direct`. "
-            "One of: state, block, engine, all."
+            "One of: state, block, engine, enginex."
         ),
     )
     consume_group.addoption(
@@ -144,6 +145,8 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
         )
 
     # Store per-client TOML config entries for extra options (e.g. state-bin)
+    # The entry dict includes a "_client_name" key when resolved from --client
+    # so we can bypass auto-detection and instantiate the right class directly.
     client_configs: dict[str, dict[str, str]] = {}
 
     if client_names:
@@ -169,7 +172,10 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
                 )
             resolved = Path(bin_str).expanduser()
             bin_paths.append(resolved)
-            client_configs[str(resolved)] = entry
+            client_configs[str(resolved)] = {
+                **entry,
+                "_client_name": name,
+            }
 
     # Replace the option so downstream code sees the resolved paths
     config.option.fixture_consumer_bin = bin_paths
@@ -199,21 +205,21 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
     fixture_type = config.getoption("fixture_type", None)
     if fixture_type is None and not config.option.collectonly:
         pytest.exit(
-            "No fixture type specified. Use --type <state|block|engine|all>."
+            "No fixture type specified. "
+            "Use --type <state|block|engine|enginex>."
         )
     type_to_formats = {
         "state": [StateFixture],
         "block": [BlockchainFixture],
         "engine": [BlockchainEngineFixture],
+        "enginex": [BlockchainEngineXFixture],
     }
-    if fixture_type and fixture_type != "all":
+    if fixture_type:
         config.supported_fixture_formats = type_to_formats[fixture_type]  # type: ignore[attr-defined]
     else:
-        config.supported_fixture_formats = [  # type: ignore[attr-defined]
-            StateFixture,
-            BlockchainFixture,
-            BlockchainEngineFixture,
-        ]
+        config.supported_fixture_formats = list(  # type: ignore[attr-defined]
+            BaseFixture.formats.values()
+        )
     num_workers = config.getoption("num_workers", 1)
     fixture_consumers = []
     for fixture_consumer_bin_path in config.getoption("fixture_consumer_bin"):
@@ -228,28 +234,67 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
                 Path(state_bin_str).expanduser()
             )
 
-        try:
-            consumer = FixtureConsumerTool.from_binary_path(
-                binary_path=bin_path,
-                trace=config.getoption("consumer_collect_traces"),
-                **extra_kwargs,
-            )
-        except Exception:
-            # Try dotnet project detection for .csproj/.dll paths
-            from execution_testing.client_clis.clis.nethermind import (
-                NethtestFixtureConsumer,
-            )
+        client_name = entry.get("_client_name", "")
+        consumer = None
+
+        # When --client is used, directly instantiate the right class
+        # to avoid ambiguous auto-detection (e.g. erigon and geth both
+        # use the `evm` binary).
+        if client_name and client_name in CLIENT_CLASS_MAP:
+            cls = CLIENT_CLASS_MAP[client_name]
             try:
-                consumer = NethtestFixtureConsumer.from_binary_path(
-                    binary_path=bin_path,
+                consumer = cls(
+                    binary=bin_path,
                     trace=config.getoption("consumer_collect_traces"),
+                    **extra_kwargs,
                 )
             except Exception:
-                raise Exception(
-                    f"Unknown CLI binary: {bin_path}. "
-                    f"Could not detect as native binary "
-                    f"or dotnet project."
+                pass
+
+        if consumer is None:
+            try:
+                consumer = FixtureConsumerTool.from_binary_path(
+                    binary_path=bin_path,
+                    trace=config.getoption("consumer_collect_traces"),
+                    **extra_kwargs,
                 )
+            except Exception:
+                # Try dotnet project detection for .csproj/.dll paths
+                from execution_testing.client_clis.clis.nethermind import (
+                    NethtestFixtureConsumer,
+                )
+                try:
+                    consumer = NethtestFixtureConsumer.from_binary_path(
+                        binary_path=bin_path,
+                        trace=config.getoption("consumer_collect_traces"),
+                    )
+                except Exception:
+                    raise Exception(
+                        f"Unknown CLI binary: {bin_path}. "
+                        f"Could not detect as native binary "
+                        f"or dotnet project."
+                    )
+        # Check that the consumer supports the requested fixture format(s)
+        supported = set(getattr(consumer, "fixture_formats", []))
+        requested = set(config.supported_fixture_formats)  # type: ignore[attr-defined]
+        unsupported = requested - supported
+        if unsupported:
+            friendly = NAME_MAP.get(type(consumer).__name__, type(consumer).__name__)
+            unsupported_names = ", ".join(f.format_name for f in unsupported)
+            supported_names = ", ".join(f.format_name for f in supported)
+            hints = []
+            if BlockchainEngineFixture in unsupported and BlockchainEngineXFixture in supported:
+                hints.append(
+                    f"Use --type enginex instead of --type engine "
+                    f"({friendly} needs enginex as engine is too slow)."
+                )
+            if BlockchainEngineXFixture in unsupported and BlockchainEngineFixture in supported:
+                hints.append("Use --type engine instead of --type enginex.")
+            hint_str = " " + " ".join(hints) if hints else ""
+            pytest.exit(
+                f"{friendly} does not support: {unsupported_names}. "
+                f"Supported: {supported_names}.{hint_str}"
+            )
         fixture_consumers.append(consumer)
     if config.option.markers:
         return
@@ -288,8 +333,21 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
                     f"Use --bin-workers instead. Recommended: --bin-workers {rec}."
                 )
 
-    # Auto-set recommended --bin-workers if using default (1)
-    if num_workers == 1:
+    # Reject --bin-workers for clients that don't support it
+    no_workers_clients = {"RethFixtureConsumer"}
+    user_set_workers = "--bin-workers" in sys.argv
+    if user_set_workers and num_workers != 1:
+        for consumer in fixture_consumers:
+            cls_name = type(consumer).__name__
+            if cls_name in no_workers_clients:
+                friendly = NAME_MAP.get(cls_name, cls_name)
+                pytest.exit(
+                    f"{friendly} does not support --bin-workers "
+                    f"(parallelism is handled internally by rayon)."
+                )
+
+    # Auto-set recommended --bin-workers only if user didn't pass it
+    if not user_set_workers and num_workers == 1:
         for consumer in fixture_consumers:
             rec = RECOMMENDED_WORKERS.get(type(consumer).__name__)
             if rec:
@@ -303,6 +361,7 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
 
 NAME_MAP = {
     "GethFixtureConsumer": "geth",
+    "ErigonFixtureConsumer": "erigon",
     "BesuFixtureConsumer": "besu",
     "NethtestFixtureConsumer": "nethermind",
     "RethFixtureConsumer": "reth",
@@ -310,10 +369,39 @@ NAME_MAP = {
 
 RECOMMENDED_WORKERS = {
     "GethFixtureConsumer": 8,
+    "ErigonFixtureConsumer": 8,
     "BesuFixtureConsumer": 8,
     "NethtestFixtureConsumer": 4,
-    "RethFixtureConsumer": 8,
 }
+
+# Direct mapping from --client name to consumer class.
+# Bypasses auto-detection for clients that share a binary name
+# (e.g. erigon and geth both use `evm`).
+def _build_client_class_map() -> dict[str, type]:
+    from execution_testing.client_clis.clis.besu import (
+        BesuFixtureConsumer,
+    )
+    from execution_testing.client_clis.clis.erigon import (
+        ErigonFixtureConsumer,
+    )
+    from execution_testing.client_clis.clis.geth import (
+        GethFixtureConsumer,
+    )
+    from execution_testing.client_clis.clis.nethermind import (
+        NethtestFixtureConsumer,
+    )
+    from execution_testing.client_clis.clis.reth import (
+        RethFixtureConsumer,
+    )
+    return {
+        "geth": GethFixtureConsumer,
+        "erigon": ErigonFixtureConsumer,
+        "besu": BesuFixtureConsumer,
+        "nethermind": NethtestFixtureConsumer,
+        "reth": RethFixtureConsumer,
+    }
+
+CLIENT_CLASS_MAP: dict[str, type] = _build_client_class_map()
 
 
 def pytest_report_header(
