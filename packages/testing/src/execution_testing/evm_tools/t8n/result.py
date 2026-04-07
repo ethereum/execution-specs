@@ -116,6 +116,10 @@ def build_result(
         arguments["block_access_list_hash"] = t8n.fork.hash_block_access_list(
             block_output.block_access_list
         )
+    if hasattr(block_output, "is_inclusion_list_satisfied"):
+        arguments["is_inclusion_list_satisfied"] = (
+            block_output.is_inclusion_list_satisfied
+        )
 
     context: Optional[Dict[str, Any]] = None
     if t8n.exception_mapper is not None:
