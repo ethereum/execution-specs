@@ -91,6 +91,7 @@ def detect_version(bin_path: Path) -> Optional[str]:
 def get_consumer(client: str, bin_path: Path) -> Any:
     """Create consumer for a client, passing extra config like state-bin."""
     from execution_testing.client_clis.clis.besu import BesuFixtureConsumer
+    from execution_testing.client_clis.clis.ethrex import EthrexFixtureConsumer
     from execution_testing.client_clis.clis.geth import GethFixtureConsumer
     from execution_testing.client_clis.clis.nethermind import NethtestFixtureConsumer
     from execution_testing.client_clis.clis.reth import RethFixtureConsumer
@@ -100,6 +101,7 @@ def get_consumer(client: str, bin_path: Path) -> Any:
         "besu": BesuFixtureConsumer,
         "nethermind": NethtestFixtureConsumer,
         "reth": RethFixtureConsumer,
+        "ethrex": EthrexFixtureConsumer,
     }
 
     config = load_config()
