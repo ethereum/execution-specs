@@ -17,6 +17,7 @@ class TraceComparatorType(StrEnum):
     EXACT = "exact"
     EXACT_NO_GAS = "exact-no-gas"
     EXACT_NO_STACK = "exact-no-stack"
+    EXACT_NO_STACK_NO_GAS = "exact-no-stack-no-gas"
     GAS_EXHAUSTION = "gas-exhaustion"
 
 
@@ -285,8 +286,9 @@ _FIELD_EXCLUSION_CONFIGS: dict[
     tuple[set[str] | None, bool],
 ] = {
     TraceComparatorType.EXACT: (None, False),
-    TraceComparatorType.EXACT_NO_GAS: ({"gas", "gas_cost"}, True),
+    TraceComparatorType.EXACT_NO_GAS: ({"gas"}, True),
     TraceComparatorType.EXACT_NO_STACK: ({"stack"}, False),
+    TraceComparatorType.EXACT_NO_STACK_NO_GAS: ({"gas", "stack"}, False),
 }
 
 
