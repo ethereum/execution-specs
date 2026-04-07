@@ -4,18 +4,12 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from execution_testing import Fork, StubConfig
+from execution_testing import Fork
+from execution_testing.cli.pytest_commands.plugins.shared.address_stubs import (  # noqa: E501
+    AddressStubs,
+)
 
 DEFAULT_BENCHMARK_FORK = "Prague"
-
-_stub_config_key = pytest.StashKey[StubConfig]()
-
-
-def pytest_configure(config: pytest.Config) -> None:
-    """Build StubConfig from ``--address-stubs``."""
-    address_stubs = config.getoption("address_stubs", default=None)
-    stubs = address_stubs.root if address_stubs else {}
-    config.stash[_stub_config_key] = StubConfig(stubs=stubs)
 
 
 def pytest_generate_tests(metafunc: Any) -> None:
@@ -42,17 +36,17 @@ def pytest_generate_tests(metafunc: Any) -> None:
             benchmark_marker = pytest.mark.valid_from(DEFAULT_BENCHMARK_FORK)
             metafunc.definition.add_marker(benchmark_marker)
 
-    # Inject parametrization from StubConfig for stub_parametrize markers
-    stub_config = metafunc.config.stash.get(_stub_config_key, None)
-    if stub_config is not None:
-        for marker in metafunc.definition.iter_markers("stub_parametrize"):
-            param_name, prefix = marker.args
-            kwargs = dict(marker.kwargs)
-            values, ids = stub_config.parametrize_args(
-                prefix, caller=metafunc.function.__name__
-            )
-            kwargs.setdefault("ids", ids)
-            metafunc.parametrize(param_name, values, **kwargs)
+    # Inject parametrization from AddressStubs for stub_parametrize markers
+    address_stubs = metafunc.config.getoption("address_stubs", default=None)
+    for marker in metafunc.definition.iter_markers("stub_parametrize"):
+        param_name, prefix = marker.args
+        kwargs = dict(marker.kwargs)
+        stubs = address_stubs or AddressStubs(root={})
+        values, ids = stubs.parametrize_args(
+            prefix, caller=metafunc.function.__name__
+        )
+        kwargs.setdefault("ids", ids)
+        metafunc.parametrize(param_name, values, **kwargs)
 
 
 def pytest_ignore_collect(collection_path: Path, config: Any) -> bool | None:

@@ -5,6 +5,7 @@ This model maps stub labels to on-chain addresses, optionally
 carrying a private key for EOA stubs that need signing capability.
 """
 
+import warnings
 from pathlib import Path
 from typing import Dict, Self
 
@@ -68,6 +69,31 @@ class AddressStubs(EthereumTestRootModel[Dict[str, StubEntry]]):
     def is_eoa(self, item: str) -> bool:
         """Check if a stub entry is an EOA (has a private key)."""
         return item in self.root and self.root[item].pkey is not None
+
+    def extract_tokens(self, prefix: str) -> list[str]:
+        """Return stub keys matching *prefix*."""
+        return [k for k in self.root if k.startswith(prefix)]
+
+    def parametrize_args(
+        self, prefix: str, *, caller: str = ""
+    ) -> tuple[list[str], list[str]]:
+        """
+        Return ``(values, ids)`` for ``metafunc.parametrize``.
+
+        *values* are full stub keys matching *prefix*.
+        *ids* are the keys with the prefix stripped for clean test output.
+        Emit a warning when no stubs match.
+        """
+        values = self.extract_tokens(prefix)
+        ids = [v.removeprefix(prefix) for v in values]
+        if not values:
+            label = f" for {caller}" if caller else ""
+            warnings.warn(
+                f"stub_parametrize: no stubs matched prefix "
+                f"'{prefix}'{label}; test will be skipped",
+                stacklevel=2,
+            )
+        return values, ids
 
     @classmethod
     def model_validate_json_or_file(cls, json_data_or_path: str) -> Self:
