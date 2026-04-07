@@ -307,20 +307,14 @@ class RethFixtureConsumer(
         debug_output_path: Optional[Path] = None,
     ) -> Dict[str, Dict[str, Any]]:
         """
-        Run a subcommand once per type directory and cache all
+        Run a subcommand once per fixture directory and cache all
         results indexed by test name.
-
-        Uses top-level type directory (e.g. blockchain_tests_engine/)
-        to avoid repeated rayon runtime startup per subdirectory.
         """
-        type_dirs = {"state_tests", "blockchain_tests", "blockchain_tests_engine"}
         dir_path = (
             fixture_path
             if fixture_path.is_dir()
             else fixture_path.parent
         )
-        while dir_path.name not in type_dirs and dir_path.parent != dir_path:
-            dir_path = dir_path.parent
         effective_binary = binary if binary else self.binary
         cache_key = f"{subcommand}:{dir_path}"
 

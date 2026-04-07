@@ -316,21 +316,26 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
         )
     # Block -n for clients with top-level caching (besu/nethermind)
     no_xdist_reasons = {
-        "BesuFixtureConsumer": "JVM startup is expensive per xdist worker",
-        "NethtestFixtureConsumer": "dotnet startup is expensive per xdist worker",
-        "RethFixtureConsumer": "rayon runtime is expensive per xdist worker",
+        "BesuFixtureConsumer": (
+            "JVM startup is expensive per xdist worker",
+            "Use --bin-workers instead. Recommended: --bin-workers 8.",
+        ),
+        "NethtestFixtureConsumer": (
+            "dotnet startup is expensive per xdist worker",
+            "Use --bin-workers instead. Recommended: --bin-workers 4.",
+        ),
     }
     n_workers = config.getoption("numprocesses", None)
     if n_workers and n_workers > 0:
         for consumer in fixture_consumers:
             cls_name = type(consumer).__name__
-            reason = no_xdist_reasons.get(cls_name)
-            if reason:
+            entry = no_xdist_reasons.get(cls_name)
+            if entry:
                 friendly = NAME_MAP.get(cls_name, cls_name)
-                rec = RECOMMENDED_WORKERS.get(cls_name, 4)
+                reason, suggestion = entry
                 pytest.exit(
                     f"{friendly} does not support -n (xdist): {reason}. "
-                    f"Use --bin-workers instead. Recommended: --bin-workers {rec}."
+                    f"{suggestion}"
                 )
 
     # Reject --bin-workers for clients that don't support it
@@ -343,7 +348,8 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
                 friendly = NAME_MAP.get(cls_name, cls_name)
                 pytest.exit(
                     f"{friendly} does not support --bin-workers "
-                    f"(parallelism is handled internally by rayon)."
+                    f"(parallelism is handled internally by rayon). "
+                    f"Use -n instead. Recommended: -n 2."
                 )
 
     # Auto-set recommended --bin-workers only if user didn't pass it
