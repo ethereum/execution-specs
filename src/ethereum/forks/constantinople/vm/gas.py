@@ -119,12 +119,12 @@ class GasCosts:
     OPCODE_MSTORE8 = VERY_LOW
     OPCODE_COPY_PER_WORD = Uint(3)
     OPCODE_CREATE_BASE = Uint(32000)
+    OPCODE_EXP_BASE = Uint(10)
+    OPCODE_EXP_PER_BYTE = Uint(50)
     # TODO
     EXTERNAL = Uint(700)
     BALANCE = Uint(400)
     CALL = Uint(700)
-    EXPONENTIATION = Uint(10)
-    EXPONENTIATION_PER_BYTE = Uint(50)
     KECCAK256 = Uint(30)
     KECCAK256_PER_WORD = Uint(6)
     LOG = Uint(375)

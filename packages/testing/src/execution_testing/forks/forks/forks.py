@@ -178,9 +178,9 @@ class Frontier(
             OPCODE_SELFDESTRUCT=5_000,
             OPCODE_COPY_PER_WORD=3,
             OPCODE_CREATE_BASE=32_000,
+            OPCODE_EXP_BASE=10,
+            OPCODE_EXP_PER_BYTE=50,
             # TODO
-            EXPONENTIATION=10,
-            EXPONENTIATION_PER_BYTE=50,
             LOG=375,
             LOG_DATA_PER_BYTE=8,
             LOG_TOPIC=375,
@@ -353,8 +353,8 @@ class Frontier(
             Opcodes.ADDMOD: gas_costs.OPCODE_ADDMOD,
             Opcodes.MULMOD: gas_costs.OPCODE_MULMOD,
             Opcodes.EXP: lambda op: (
-                gas_costs.EXPONENTIATION
-                + gas_costs.EXPONENTIATION_PER_BYTE
+                gas_costs.OPCODE_EXP_BASE
+                + gas_costs.OPCODE_EXP_PER_BYTE
                 * ((op.metadata["exponent"].bit_length() + 7) // 8)
             ),
             Opcodes.SIGNEXTEND: gas_costs.OPCODE_SIGNEXTEND,
