@@ -186,7 +186,7 @@ class Frontier(
             LOG_DATA_PER_BYTE=8,
             LOG_TOPIC=375,
             KECCAK256=30,
-            KECCAK256_PER_WORD=6,
+            OPCODE_KECCACK256_PER_WORD=6,
             # Zero-initialized: introduced in later forks, set via
             # replace() in the fork that activates them.
             TX_DATA_TOKEN_STANDARD=0,
@@ -375,7 +375,7 @@ class Frontier(
             Opcodes.SHA3: cls._with_memory_expansion(
                 lambda op: (
                     gas_costs.KECCAK256
-                    + gas_costs.KECCAK256_PER_WORD
+                    + gas_costs.OPCODE_KECCACK256_PER_WORD
                     * ((op.metadata["data_size"] + 31) // 32)
                 ),
                 memory_expansion_calculator,

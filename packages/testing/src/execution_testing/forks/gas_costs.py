@@ -137,7 +137,7 @@ class GasCosts:
     LOG_DATA_PER_BYTE: int
     LOG_TOPIC: int
     KECCAK256: int
-    KECCAK256_PER_WORD: int
+    OPCODE_KECCACK256_PER_WORD: int
 
     # Defined post-Frontier
     OPCODE_SHL: int = 0
