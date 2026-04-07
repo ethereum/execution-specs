@@ -32,6 +32,24 @@ class SplitGroup(NamedTuple):
     duration: float
 
 
+def strip_xdist_suffix(nodeid: str) -> str:
+    """Strip the ``@xdist_group`` suffix from a nodeid."""
+    return nodeid.split("@")[0]
+
+
+def normalize_durations(
+    raw: dict[str, float],
+) -> dict[str, float]:
+    """
+    Strip ``@xdist_group`` suffixes from duration keys.
+
+    ``--store-durations`` records nodeids with ``@t8n-cache-*`` suffixes
+    added by xdist during execution, but ``item.nodeid`` during
+    collection does not include them.
+    """
+    return {strip_xdist_suffix(k): v for k, v in raw.items()}
+
+
 def grouping_key(nodeid: str) -> str:
     """
     Extract the ``(function, fork)`` grouping key from a test nodeid.
@@ -41,8 +59,7 @@ def grouping_key(nodeid: str) -> str:
 
     Unparametrized nodeids (no ``[``) are their own singleton group.
     """
-    # Strip @xdist_group suffix (e.g. "@t8n-cache-64a1c75b")
-    base_nid = nodeid.split("@")[0]
+    base_nid = strip_xdist_suffix(nodeid)
     if "[" not in base_nid:
         return base_nid
     base, params = base_nid.split("[", 1)
@@ -71,17 +88,20 @@ def grouped_least_duration(
         groups.setdefault(key, []).append(item)
 
     # --- 2. Compute per-group duration ---
-    relevant = {
-        item.nodeid: durations[item.nodeid]
-        for item in items
-        if item.nodeid in durations
-    }
+    # Normalize nodeids: item.nodeid may or may not have @xdist_group
+    # suffixes depending on whether xdist is active during collection.
+    relevant: dict[str, float] = {}
+    for item in items:
+        nid = strip_xdist_suffix(item.nodeid)
+        if nid in durations:
+            relevant[nid] = durations[nid]
     avg_duration = sum(relevant.values()) / len(relevant) if relevant else 1.0
 
     group_durations: dict[str, float] = {}
     for key, group_items in groups.items():
         group_durations[key] = sum(
-            relevant.get(item.nodeid, avg_duration) for item in group_items
+            relevant.get(strip_xdist_suffix(item.nodeid), avg_duration)
+            for item in group_items
         )
 
     # --- 3. Greedy bin-packing (heaviest first) ---

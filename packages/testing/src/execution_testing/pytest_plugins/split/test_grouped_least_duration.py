@@ -9,6 +9,7 @@ import pytest
 from execution_testing.pytest_plugins.split.grouped_least_duration import (
     grouped_least_duration,
     grouping_key,
+    normalize_durations,
 )
 
 
@@ -180,3 +181,18 @@ class TestGroupedLeastDuration:
         assert len(groups) == 1
         assert groups[0].selected == list(items)
         assert groups[0].deselected == []
+
+    def test_durations_with_xdist_suffix_match(self) -> None:
+        """Durations with ``@xdist_group`` suffixes match bare nodeids."""
+        heavy = Item("t.py::heavy[fork_A-fmt]")
+        light = Item("t.py::light[fork_B-fmt]")
+        # Durations have @t8n-cache suffix, items do not
+        raw_durations = {
+            "t.py::heavy[fork_A-fmt]@t8n-cache-aaa": 100.0,
+            "t.py::light[fork_B-fmt]@t8n-cache-bbb": 1.0,
+        }
+        durations = normalize_durations(raw_durations)
+        groups = grouped_least_duration(2, [heavy, light], durations)
+        durations_sorted = sorted(g.duration for g in groups)
+        assert durations_sorted[0] == pytest.approx(1.0)
+        assert durations_sorted[1] == pytest.approx(100.0)

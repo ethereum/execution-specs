@@ -60,13 +60,15 @@ def pytest_collection_modifyitems(config: Config, items: list[Item]) -> None:
 
     from execution_testing.pytest_plugins.split.grouped_least_duration import (
         grouped_least_duration,
+        normalize_durations,
     )
 
     durations_path = Path(config.getoption("durations_path"))
     try:
-        durations = json.loads(durations_path.read_text())
+        raw = json.loads(durations_path.read_text())
     except FileNotFoundError:
-        durations = {}
+        raw = {}
+    durations = normalize_durations(raw)
 
     all_groups = grouped_least_duration(
         splits=splits, items=items, durations=durations

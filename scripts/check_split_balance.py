@@ -46,9 +46,10 @@ def main(durations: Path, nodeids: Path, splits: int) -> None:
     from execution_testing.pytest_plugins.split.grouped_least_duration import (
         grouped_least_duration,
         grouping_key,
+        normalize_durations,
     )
 
-    durations_data: dict[str, float] = json.loads(durations.read_text())
+    durations_data = normalize_durations(json.loads(durations.read_text()))
     items = [
         Item(line.strip())
         for line in nodeids.read_text().splitlines()
