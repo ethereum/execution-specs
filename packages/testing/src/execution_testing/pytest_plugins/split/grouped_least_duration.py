@@ -50,21 +50,41 @@ def normalize_durations(
     return {strip_xdist_suffix(k): v for k, v in raw.items()}
 
 
+# Fixture format tokens that appear as parameters in test nodeids.
+# These are stripped from the grouping key so that format variants
+# of the same test case form a single group.
+FIXTURE_FORMATS = frozenset(
+    {
+        "state_test",
+        "blockchain_test",
+        "blockchain_test_from_state_test",
+        "blockchain_test_engine",
+        "blockchain_test_engine_from_state_test",
+        "blockchain_test_engine_x",
+        "blockchain_test_engine_x_from_state_test",
+    }
+)
+
+
 def grouping_key(nodeid: str) -> str:
     """
-    Extract the ``(function, fork)`` grouping key from a test nodeid.
+    Extract the ``(test_case, fork)`` grouping key from a nodeid.
 
-    Strip the ``@xdist_group`` suffix, then combine the base
-    ``path::function`` with the first parameter token (the fork).
+    Strip the ``@xdist_group`` suffix and the fixture format token,
+    keeping the function path, fork, and all other parameters.
+    Format variants of the same test case share t8n cache entries
+    and must land on the same runner.
 
     Unparametrized nodeids (no ``[``) are their own singleton group.
     """
     base_nid = strip_xdist_suffix(nodeid)
     if "[" not in base_nid:
         return base_nid
-    base, params = base_nid.split("[", 1)
-    fork = params.split("-", 1)[0]
-    return f"{base}[{fork}]"
+    base, params_bracket = base_nid.split("[", 1)
+    params = params_bracket.rstrip("]")
+    tokens = params.split("-")
+    filtered = [t for t in tokens if t not in FIXTURE_FORMATS]
+    return f"{base}[{'-'.join(filtered)}]"
 
 
 def grouped_least_duration(

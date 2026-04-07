@@ -28,24 +28,26 @@ class TestGroupingKey:
     """Test the grouping key extraction."""
 
     def test_standard_nodeid(self) -> None:
-        """Extract fork from a full nodeid with xdist group suffix."""
+        """Strip format and xdist suffix, keep fork and params."""
         nid = (
             "tests/istanbul/test_chainid.py::test_chainid"
             "[fork_Prague-typed_transaction_2-blockchain_test]"
             "@t8n-cache-abc123"
         )
         assert grouping_key(nid) == (
-            "tests/istanbul/test_chainid.py::test_chainid[fork_Prague]"
+            "tests/istanbul/test_chainid.py::test_chainid"
+            "[fork_Prague-typed_transaction_2]"
         )
 
     def test_no_xdist_group_suffix(self) -> None:
-        """Extract fork when no @xdist_group suffix is present."""
+        """Strip format, keep fork and params without xdist suffix."""
         nid = (
             "tests/istanbul/test_chainid.py::test_chainid"
             "[fork_Prague-typed_transaction_2-state_test]"
         )
         assert grouping_key(nid) == (
-            "tests/istanbul/test_chainid.py::test_chainid[fork_Prague]"
+            "tests/istanbul/test_chainid.py::test_chainid"
+            "[fork_Prague-typed_transaction_2]"
         )
 
     def test_singleton_no_bracket(self) -> None:
@@ -54,15 +56,33 @@ class TestGroupingKey:
         assert grouping_key(nid) == nid
 
     def test_different_formats_same_key(self) -> None:
-        """All fixture formats for the same function+fork share a key."""
+        """All fixture formats for the same test case share a key."""
         base = "tests/test.py::test_fn"
         nids = [
-            f"{base}[fork_Cancun-state_test]@t8n-cache-aa",
-            f"{base}[fork_Cancun-blockchain_test]@t8n-cache-bb",
-            f"{base}[fork_Cancun-blockchain_test_engine_x]@t8n-cache-cc",
+            f"{base}[fork_Cancun-param_X-state_test]@t8n-cache-aa",
+            f"{base}[fork_Cancun-param_X-blockchain_test]@t8n-cache-bb",
+            f"{base}[fork_Cancun-param_X-blockchain_test_engine_x]",
         ]
         keys = {grouping_key(n) for n in nids}
-        assert keys == {f"{base}[fork_Cancun]"}
+        assert keys == {f"{base}[fork_Cancun-param_X]"}
+
+    def test_different_params_different_keys(self) -> None:
+        """Different test case params produce different keys."""
+        base = "tests/test.py::test_fn"
+        k1 = grouping_key(f"{base}[fork_A-param_X-state_test]")
+        k2 = grouping_key(f"{base}[fork_A-param_Y-state_test]")
+        assert k1 != k2
+        assert k1 == f"{base}[fork_A-param_X]"
+        assert k2 == f"{base}[fork_A-param_Y]"
+
+    def test_format_in_middle_of_params(self) -> None:
+        """Format token is stripped regardless of position."""
+        nid = (
+            "t.py::test_fn[fork_BPO1-target_blobs-blockchain_test-base_fee_7]"
+        )
+        assert grouping_key(nid) == (
+            "t.py::test_fn[fork_BPO1-target_blobs-base_fee_7]"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -73,27 +93,35 @@ class TestGroupingKey:
 class TestGroupedLeastDuration:
     """Test the splitting algorithm."""
 
-    def test_basic_grouping_same_runner(self) -> None:
-        """Items with the same (function, fork) always land together."""
+    def test_format_variants_same_runner(self) -> None:
+        """Format variants of the same test case land together."""
         items = [
-            Item("t.py::f[fork_A-state_test]"),
-            Item("t.py::f[fork_A-blockchain_test]"),
-            Item("t.py::f[fork_B-state_test]"),
+            Item("t.py::f[fork_A-p_X-state_test]"),
+            Item("t.py::f[fork_A-p_X-blockchain_test]"),
+            Item("t.py::f[fork_A-p_Y-state_test]"),
         ]
         durations = {i.nodeid: 1.0 for i in items}
         groups = grouped_least_duration(2, items, durations)
 
-        # fork_A items must be on the same runner
-        a_items = [items[0], items[1]]
+        # p_X format variants must be on the same runner
+        x_items = [items[0], items[1]]
         for g in groups:
-            if a_items[0] in g.selected:
-                assert a_items[1] in g.selected
+            if x_items[0] in g.selected:
+                assert x_items[1] in g.selected
                 break
 
     def test_heaviest_group_first(self) -> None:
         """Heavy group anchors one runner; light groups fill the other."""
-        heavy = [Item(f"t.py::heavy[fork_A-fmt_{i}]") for i in range(3)]
-        light = [Item(f"t.py::light[fork_B-fmt_{i}]") for i in range(3)]
+        heavy = [
+            Item("t.py::heavy[fork_A-p_X-state_test]"),
+            Item("t.py::heavy[fork_A-p_X-blockchain_test]"),
+            Item("t.py::heavy[fork_A-p_X-blockchain_test_engine_x]"),
+        ]
+        light = [
+            Item("t.py::light[fork_B-p_Y-state_test]"),
+            Item("t.py::light[fork_B-p_Y-blockchain_test]"),
+            Item("t.py::light[fork_B-p_Y-blockchain_test_engine_x]"),
+        ]
         durations = {}
         for item in heavy:
             durations[item.nodeid] = 100.0
@@ -118,8 +146,8 @@ class TestGroupedLeastDuration:
 
     def test_unknown_duration_fallback(self) -> None:
         """Unknown items get the average of known durations."""
-        known = Item("t.py::known[fork_A-fmt]")
-        unknown = Item("t.py::unknown[fork_B-fmt]")
+        known = Item("t.py::known[fork_A-state_test]")
+        unknown = Item("t.py::unknown[fork_B-state_test]")
         durations = {known.nodeid: 10.0}
 
         groups = grouped_least_duration(2, [known, unknown], durations)
@@ -132,9 +160,9 @@ class TestGroupedLeastDuration:
     def test_intra_group_order_preserved(self) -> None:
         """Items within a group appear in original collection order."""
         items = [
-            Item("t.py::f[fork_A-c]"),
-            Item("t.py::f[fork_A-b]"),
-            Item("t.py::f[fork_A-a]"),
+            Item("t.py::f[fork_A-p-blockchain_test_engine_x]"),
+            Item("t.py::f[fork_A-p-blockchain_test]"),
+            Item("t.py::f[fork_A-p-state_test]"),
         ]
         durations = {i.nodeid: 1.0 for i in items}
         groups = grouped_least_duration(1, items, durations)
@@ -143,9 +171,9 @@ class TestGroupedLeastDuration:
     def test_deselected_correctness(self) -> None:
         """Selected + deselected == all items for every runner."""
         items = [
-            Item("t.py::f[fork_A-fmt]"),
-            Item("t.py::f[fork_B-fmt]"),
-            Item("t.py::g[fork_A-fmt]"),
+            Item("t.py::f[fork_A-p1-state_test]"),
+            Item("t.py::f[fork_A-p2-state_test]"),
+            Item("t.py::g[fork_A-p1-state_test]"),
         ]
         durations = {i.nodeid: 1.0 for i in items}
         groups = grouped_least_duration(2, items, durations)
@@ -159,7 +187,7 @@ class TestGroupedLeastDuration:
 
     def test_empty_runners(self) -> None:
         """More splits than groups: some runners are empty, no crash."""
-        items = [Item("t.py::f[fork_A-fmt]")]
+        items = [Item("t.py::f[fork_A-state_test]")]
         durations = {items[0].nodeid: 1.0}
         groups = grouped_least_duration(5, items, durations)
 
@@ -172,8 +200,8 @@ class TestGroupedLeastDuration:
     def test_single_runner(self) -> None:
         """Return all items as selected when splits=1."""
         items = [
-            Item("t.py::f[fork_A-fmt]"),
-            Item("t.py::g[fork_B-fmt]"),
+            Item("t.py::f[fork_A-state_test]"),
+            Item("t.py::g[fork_B-state_test]"),
         ]
         durations = {i.nodeid: 1.0 for i in items}
         groups = grouped_least_duration(1, items, durations)
@@ -184,12 +212,11 @@ class TestGroupedLeastDuration:
 
     def test_durations_with_xdist_suffix_match(self) -> None:
         """Durations with ``@xdist_group`` suffixes match bare nodeids."""
-        heavy = Item("t.py::heavy[fork_A-fmt]")
-        light = Item("t.py::light[fork_B-fmt]")
-        # Durations have @t8n-cache suffix, items do not
+        heavy = Item("t.py::heavy[fork_A-state_test]")
+        light = Item("t.py::light[fork_B-state_test]")
         raw_durations = {
-            "t.py::heavy[fork_A-fmt]@t8n-cache-aaa": 100.0,
-            "t.py::light[fork_B-fmt]@t8n-cache-bbb": 1.0,
+            "t.py::heavy[fork_A-state_test]@t8n-cache-aaa": 100.0,
+            "t.py::light[fork_B-state_test]@t8n-cache-bbb": 1.0,
         }
         durations = normalize_durations(raw_durations)
         groups = grouped_least_duration(2, [heavy, light], durations)
