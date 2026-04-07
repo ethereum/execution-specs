@@ -379,9 +379,9 @@ def selfdestruct(evm: Evm) -> None:
     beneficiary = to_address_masked(pop(evm.stack))
 
     # GAS
-    gas_cost = GasCosts.SELF_DESTRUCT
+    gas_cost = GasCosts.OPCODE_SELFDESTRUCT_BASE
     if not account_exists(evm.message.block_env.state, beneficiary):
-        gas_cost += GasCosts.SELF_DESTRUCT_NEW_ACCOUNT
+        gas_cost += GasCosts.OPCODE_SELFDESTRUCT_NEW_ACCOUNT
 
     originator = evm.message.current_target
 
