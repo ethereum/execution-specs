@@ -206,30 +206,24 @@ class TraceVerifier:
             if not all_equivalent:
                 any_failed = True
 
-        if exact_comparator is not None:
-            if any_failed:
-                results[exact_comparator.name] = TraceComparisonResult(
-                    equivalent=False,
-                    differences=[],
+        if exact_comparator is not None and not any_failed:
+            all_diffs = []
+            all_equivalent = True
+            for baseline, current in zip(
+                baseline_traces_list,
+                current_traces_list,
+                strict=False,
+            ):
+                result = exact_comparator.compare_traces(
+                    baseline, current
                 )
-            else:
-                all_diffs = []
-                all_equivalent = True
-                for baseline, current in zip(
-                    baseline_traces_list,
-                    current_traces_list,
-                    strict=False,
-                ):
-                    result = exact_comparator.compare_traces(
-                        baseline, current
-                    )
-                    all_diffs.extend(result.differences)
-                    if not result.equivalent:
-                        all_equivalent = False
-                results[exact_comparator.name] = TraceComparisonResult(
-                    equivalent=all_equivalent,
-                    differences=all_diffs,
-                )
+                all_diffs.extend(result.differences)
+                if not result.equivalent:
+                    all_equivalent = False
+            results[exact_comparator.name] = TraceComparisonResult(
+                equivalent=all_equivalent,
+                differences=all_diffs,
+            )
 
         if results:
             self.test_results[item.nodeid] = results

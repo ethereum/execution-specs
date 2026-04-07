@@ -58,12 +58,11 @@ class TestTextFormatTestResult:
     def test_single_comparator_equivalent(
         self, formatter: TextTracesDiffReportFormatter
     ) -> None:
-        """Single comparator, all equivalent, shows EQUIVALENT."""
+        """All equivalent returns None."""
         output = formatter.format_test_result(
             "test_foo", {"exact": _make_result(equivalent=True)}
         )
-        assert "EQUIVALENT" in output
-        assert "exact" in output
+        assert output is None
 
     def test_single_comparator_with_differences(
         self, formatter: TextTracesDiffReportFormatter
@@ -81,6 +80,7 @@ class TestTextFormatTestResult:
             "test_bar",
             {"exact": _make_result(equivalent=False, differences=diffs)},
         )
+        assert output is not None
         assert "DIFFERENT" in output
         assert "0x4e20" in output
         assert "0x4e10" in output
@@ -88,7 +88,7 @@ class TestTextFormatTestResult:
     def test_multiple_comparators_mixed(
         self, formatter: TextTracesDiffReportFormatter
     ) -> None:
-        """Multiple comparators show per-comparator status."""
+        """Only non-equivalent comparators are shown."""
         diffs = [_make_diff()]
         output = formatter.format_test_result(
             "test_baz",
@@ -97,10 +97,11 @@ class TestTextFormatTestResult:
                 "exact-no-gas": _make_result(equivalent=True),
             },
         )
-        assert "exact" in output
-        assert "exact-no-gas" in output
+        assert output is not None
+        assert "[exact]" in output
         assert "DIFFERENT" in output
-        assert "EQUIVALENT" in output
+        assert "exact-no-gas" not in output
+        assert "EQUIVALENT" not in output
 
     def test_differences_capped(self) -> None:
         """Only the first max_differences diffs are shown."""
@@ -110,6 +111,7 @@ class TestTextFormatTestResult:
             "test_cap",
             {"exact": _make_result(equivalent=False, differences=diffs)},
         )
+        assert output is not None
         assert "7 more" in output
 
 
@@ -143,7 +145,7 @@ class TestTextFormatSummary:
     def test_all_equivalent(
         self, formatter: TextTracesDiffReportFormatter
     ) -> None:
-        """When all tests pass, summary shows 0 with differences."""
+        """When all tests pass, only summary line is shown."""
         all_results = {
             "test_a": {"exact": _make_result(equivalent=True)},
             "test_b": {"exact": _make_result(equivalent=True)},
@@ -151,3 +153,5 @@ class TestTextFormatSummary:
         output = formatter.format_summary(all_results)
         assert "2 tests verified" in output
         assert "0 with differences" in output
+        assert "test_a" not in output
+        assert "test_b" not in output

@@ -15,8 +15,11 @@ class TracesDiffReportFormatter(ABC):
         self,
         test_id: str,
         results: dict[str, TraceComparisonResult],
-    ) -> str:
-        """Format one test's comparison results across all comparators."""
+    ) -> str | None:
+        """Format one test's comparison results.
+
+        Return None if there is nothing to report (e.g. all equivalent).
+        """
         ...
 
     @abstractmethod
@@ -39,44 +42,51 @@ class TextTracesDiffReportFormatter(TracesDiffReportFormatter):
         self,
         test_id: str,
         results: dict[str, TraceComparisonResult],
-    ) -> str:
-        """Format one test's comparison results across all comparators."""
-        lines = [f"{test_id}:"]
+    ) -> str | None:
+        """Format one test's comparison results.
+
+        Return None if all comparators are equivalent.
+        """
+        diff_lines: list[str] = []
         for name, result in results.items():
             if result.equivalent:
-                lines.append(f"  [{name}] EQUIVALENT")
-            else:
-                count = len(result.differences)
-                lines.append(f"  [{name}] DIFFERENT ({count} differences)")
-                shown = result.differences[: self.max_differences]
-                for diff in shown:
-                    loc = (
-                        f"tx[{diff.transaction_index}] "
-                        f"line[{diff.trace_line_index}]"
-                    )
-                    lines.append(f"    {loc} baseline: {diff.baseline}")
-                    lines.append(f"    {loc} current:  {diff.current}")
-                remaining = count - len(shown)
-                if remaining > 0:
-                    lines.append(f"    ... ({remaining} more)")
-        return "\n".join(lines)
+                continue
+            count = len(result.differences)
+            diff_lines.append(f"  [{name}] DIFFERENT ({count} differences)")
+            shown = result.differences[: self.max_differences]
+            for diff in shown:
+                loc = (
+                    f"tx[{diff.transaction_index}] "
+                    f"line[{diff.trace_line_index}]"
+                )
+                diff_lines.append(
+                    f"    {loc} baseline: {diff.baseline}"
+                )
+                diff_lines.append(
+                    f"    {loc} current:  {diff.current}"
+                )
+            remaining = count - len(shown)
+            if remaining > 0:
+                diff_lines.append(f"    ... ({remaining} more)")
+        if not diff_lines:
+            return None
+        return "\n".join([f"{test_id}:"] + diff_lines)
 
     def format_summary(
         self,
         all_results: dict[str, dict[str, TraceComparisonResult]],
     ) -> str:
         """Format the aggregated report for all tests."""
-        lines = []
+        lines: list[str] = []
+        with_diffs = 0
         for test_id, results in all_results.items():
-            lines.append(self.format_test_result(test_id, results))
-            lines.append("")
+            formatted = self.format_test_result(test_id, results)
+            if formatted is not None:
+                lines.append(formatted)
+                lines.append("")
+                with_diffs += 1
 
         total = len(all_results)
-        with_diffs = sum(
-            1
-            for results in all_results.values()
-            if any(not r.equivalent for r in results.values())
-        )
         lines.append(
             f"Summary: {total} tests verified, {with_diffs} with differences"
         )
