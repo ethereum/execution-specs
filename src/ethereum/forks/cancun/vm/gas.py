@@ -135,9 +135,9 @@ class GasCosts:
     OPCODE_CREATE_BASE = Uint(32000)
     OPCODE_EXP_BASE = Uint(10)
     OPCODE_EXP_PER_BYTE = Uint(50)
+    OPCODE_KECCAK256_BASE = Uint(30)
+    OPCODE_KECCACK256_PER_WORD = Uint(6)
     # TODO
-    KECCAK256 = Uint(30)
-    KECCAK256_PER_WORD = Uint(6)
     LOG = Uint(375)
     LOG_DATA_PER_BYTE = Uint(8)
     LOG_TOPIC = Uint(375)
