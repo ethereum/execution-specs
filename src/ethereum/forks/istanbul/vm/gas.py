@@ -114,6 +114,7 @@ class GasCosts:
 
     # Dynamic Opcodes
     COPY_PER_WORD = Uint(3)
+    MEMORY_PER_WORD = Uint(3)
     OPCODE_CALLDATACOPY = VERY_LOW
     OPCODE_CODECOPY = VERY_LOW
     OPCODE_MLOAD = VERY_LOW
@@ -121,7 +122,6 @@ class GasCosts:
     OPCODE_MSTORE8 = VERY_LOW
 
     # TODO
-    MEMORY = Uint(3)
     EXTERNAL = Uint(700)
     BALANCE = Uint(700)
     CREATE = Uint(32000)
@@ -208,7 +208,7 @@ def calculate_memory_gas_cost(size_in_bytes: Uint) -> Uint:
 
     """
     size_in_words = ceil32(size_in_bytes) // Uint(32)
-    linear_cost = size_in_words * GasCosts.MEMORY
+    linear_cost = size_in_words * GasCosts.MEMORY_PER_WORD
     quadratic_cost = size_in_words ** Uint(2) // Uint(512)
     total_gas_cost = linear_cost + quadratic_cost
     try:

@@ -129,7 +129,7 @@ class GasCosts:
     # Dynamic Opcode Component Costs
     COPY_PER_WORD: int
     CREATE: int
-    MEMORY: int
+    MEMORY_PER_WORD: int
     EXPONENTIATION: int
     EXPONENTIATION_PER_BYTE: int
     LOG: int
