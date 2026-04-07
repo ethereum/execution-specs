@@ -41,22 +41,21 @@ def parse_matrix_output(stdout: str) -> dict[str, str]:
 class TestGenerateBuildMatrix:
     """Test generate_build_matrix.py."""
 
-    def test_split_feature_produces_entries_per_range(self):
-        """Verify a split feature expands into one entry per range."""
+    def test_split_feature_produces_entries_per_group(self):
+        """Verify a split feature expands into one entry per group."""
         result = run_script(BUILD_MATRIX_SCRIPT, "mainnet")
         assert result.returncode == 0
         out = parse_matrix_output(result.stdout)
         matrix = json.loads(out["build_matrix"])
-        assert len(matrix) > 1
+        assert len(matrix) == 5
         assert out["feature_name"] == "mainnet"
-        assert out["combine_labels"] != ""
-        labels = [e["label"] for e in matrix]
-        assert all(lbl != "" for lbl in labels)
-        assert all(e["from_fork"] != "" for e in matrix)
-        assert all(e["until_fork"] != "" for e in matrix)
+        assert out["combine_labels"] == "1 2 3 4 5"
+        assert [e["group"] for e in matrix] == [1, 2, 3, 4, 5]
+        assert all(e["splits"] == 5 for e in matrix)
+        assert all(e["label"] == str(e["group"]) for e in matrix)
 
     def test_unsplit_feature_produces_single_entry(self):
-        """Verify a feature without fork-ranges produces one entry."""
+        """Verify a single-fork feature produces one unsplit entry."""
         result = run_script(BUILD_MATRIX_SCRIPT, "benchmark")
         assert result.returncode == 0
         out = parse_matrix_output(result.stdout)
@@ -65,8 +64,8 @@ class TestGenerateBuildMatrix:
         assert out["feature_name"] == "benchmark"
         assert out["combine_labels"] == ""
         assert matrix[0]["label"] == ""
-        assert matrix[0]["from_fork"] == ""
-        assert matrix[0]["until_fork"] == ""
+        assert matrix[0]["splits"] == 0
+        assert matrix[0]["group"] == 0
 
     def test_feature_only_can_be_requested_explicitly(self):
         """Verify feature_only entries work when named directly."""
