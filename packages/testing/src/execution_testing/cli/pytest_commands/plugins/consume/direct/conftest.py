@@ -273,6 +273,7 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
     no_xdist_reasons = {
         "BesuFixtureConsumer": "JVM startup is expensive per xdist worker",
         "NethtestFixtureConsumer": "dotnet startup is expensive per xdist worker",
+        "RethFixtureConsumer": "rayon runtime is expensive per xdist worker",
     }
     n_workers = config.getoption("numprocesses", None)
     if n_workers and n_workers > 0:
