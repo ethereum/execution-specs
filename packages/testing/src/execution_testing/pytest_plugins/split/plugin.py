@@ -1,10 +1,12 @@
 """
-Root conftest for grouped test splitting.
+Pytest plugin for grouped test splitting.
 
-When ``--splitting-algorithm grouped_least_duration`` is passed alongside
-``--splits`` and ``--group``, this hook replaces pytest-split's built-in
-splitting with a ``(function, fork)``-aware algorithm that keeps cache-
-sharing parametrizations on the same runner.
+When ``--grouped-split`` is passed alongside ``--splits`` and ``--group``,
+replaces pytest-split's built-in splitting with a ``(function, fork)``-
+aware algorithm that keeps cache-sharing parametrizations on the same
+runner.
+
+Registered via ``-p`` in ``pytest-fill.ini``.
 """
 
 from __future__ import annotations
@@ -19,16 +21,28 @@ if TYPE_CHECKING:
     from _pytest.config import Config
     from _pytest.nodes import Item
 
-ALGORITHM_NAME = "grouped_least_duration"
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    """Register the ``--grouped-split`` flag."""
+    parser.getgroup("split").addoption(
+        "--grouped-split",
+        dest="grouped_split",
+        action="store_true",
+        default=False,
+        help=(
+            "Use grouped least-duration splitting"
+            " (requires --splits and --group)."
+        ),
+    )
 
 
 def pytest_configure(config: Config) -> None:
-    """Unregister pytest-split's plugin when using our custom algorithm."""
-    algo = config.getoption("splitting_algorithm", default=None)
+    """Unregister pytest-split's plugin when using grouped splitting."""
+    if not config.getoption("grouped_split", default=False):
+        return
     splits = config.getoption("splits", default=None)
     group = config.getoption("group", default=None)
-
-    if algo == ALGORITHM_NAME and splits and group:
+    if splits and group:
         plugin = config.pluginmanager.get_plugin("pytestsplitplugin")
         if plugin is not None:
             config.pluginmanager.unregister(plugin, "pytestsplitplugin")
@@ -37,11 +51,11 @@ def pytest_configure(config: Config) -> None:
 @pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(config: Config, items: list[Item]) -> None:
     """Apply grouped least-duration splitting."""
-    algo = config.getoption("splitting_algorithm", default=None)
+    if not config.getoption("grouped_split", default=False):
+        return
     splits = config.getoption("splits", default=None)
     group = config.getoption("group", default=None)
-
-    if algo != ALGORITHM_NAME or splits is None or group is None:
+    if splits is None or group is None:
         return
 
     from execution_testing.pytest_plugins.split.grouped_least_duration import (

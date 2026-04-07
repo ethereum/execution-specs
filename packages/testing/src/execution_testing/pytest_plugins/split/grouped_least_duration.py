@@ -104,6 +104,9 @@ def grouped_least_duration(
         heapq.heappush(heap, (new_total, idx))
 
     # --- 4. Expand to SplitGroup objects ---
+    # Groups within each runner are in heaviest-first assignment order.
+    # Items within each group are in original collection order, keeping
+    # format parametrizations adjacent for t8n cache efficiency.
     result: list[SplitGroup] = []
     for i in range(splits):
         selected = [item for key in runner_keys[i] for item in groups[key]]
