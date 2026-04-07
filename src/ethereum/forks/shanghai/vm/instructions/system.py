@@ -156,7 +156,9 @@ def create(evm: Evm) -> None:
     )
     init_code_gas = init_code_cost(Uint(memory_size))
 
-    charge_gas(evm, GasCosts.CREATE + extend_memory.cost + init_code_gas)
+    charge_gas(
+        evm, GasCosts.OPCODE_CREATE_BASE + extend_memory.cost + init_code_gas
+    )
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -206,7 +208,7 @@ def create2(evm: Evm) -> None:
     init_code_gas = init_code_cost(Uint(memory_size))
     charge_gas(
         evm,
-        GasCosts.CREATE
+        GasCosts.OPCODE_CREATE_BASE
         + GasCosts.KECCAK256_PER_WORD * call_data_words
         + extend_memory.cost
         + init_code_gas,

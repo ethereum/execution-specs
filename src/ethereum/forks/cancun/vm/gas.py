@@ -39,27 +39,28 @@ class GasCosts:
     MID = Uint(8)
     HIGH = Uint(10)
 
-    # Access Costs
+    # Access
     WARM_ACCESS = Uint(100)
     COLD_ACCOUNT_ACCESS = Uint(2600)
     COLD_STORAGE_ACCESS = Uint(2100)
 
-    # Storage Costs
+    # Storage
     STORAGE_SET = Uint(20000)
     COLD_STORAGE_WRITE = Uint(5000)
 
-    # Call Costs
+    # Call
     CALL_VALUE = Uint(9000)
     CALL_STIPEND = Uint(2300)
     NEW_ACCOUNT = Uint(25000)
 
-    # Contract Creation Costs
+    # Contract Creation
     CODE_DEPOSIT_PER_BYTE = Uint(200)
     CODE_INIT_PER_WORD = Uint(2)
 
     # Utility
     ZERO = Uint(0)
     RETURN_DATA_COPY = Uint(3)
+    MEMORY_PER_WORD = Uint(3)
     FAST_STEP = Uint(5)
 
     # Refunds
@@ -125,16 +126,14 @@ class GasCosts:
     OPCODE_SWAP = VERY_LOW
 
     # Dynamic Opcodes
-    COPY_PER_WORD = Uint(3)
-    MEMORY_PER_WORD = Uint(3)
     OPCODE_CALLDATACOPY = VERY_LOW
     OPCODE_CODECOPY = VERY_LOW
     OPCODE_MLOAD = VERY_LOW
     OPCODE_MSTORE = VERY_LOW
     OPCODE_MSTORE8 = VERY_LOW
-
+    OPCODE_COPY_PER_WORD = Uint(3)
+    OPCODE_CREATE_BASE = Uint(32000)
     # TODO
-    CREATE = Uint(32000)
     EXPONENTIATION = Uint(10)
     EXPONENTIATION_PER_BYTE = Uint(50)
     KECCAK256 = Uint(30)
