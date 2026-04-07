@@ -17,7 +17,7 @@ TEST_PKEY = Hash(
 TEST_ADDR = Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
 
 
-def _stubs(mapping: dict[str, StubAddress]) -> AddressStubs:
+def _stubs(mapping: dict[str, StubAddress | StubEOA]) -> AddressStubs:
     """Create an AddressStubs instance from a plain dict."""
     return AddressStubs(root=mapping)
 
