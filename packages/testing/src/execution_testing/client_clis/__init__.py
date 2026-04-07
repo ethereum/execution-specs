@@ -27,6 +27,8 @@ from .clis.nimbus import NimbusTransitionTool
 from .ethereum_cli import CLINotFoundInPathError, UnknownCLIError
 from .fixture_consumer_tool import FixtureConsumerTool
 from .trace_comparators import (
+    FieldExclusionTraceComparator,
+    GasExhaustionTraceComparator,
     TraceComparator,
     TraceComparatorType,
     TraceComparisonResult,
@@ -50,7 +52,9 @@ __all__ = (
     "EvmOneStateFixtureConsumer",
     "EvmOneBlockchainFixtureConsumer",
     "ExecutionSpecsTransitionTool",
+    "FieldExclusionTraceComparator",
     "FixtureConsumerTool",
+    "GasExhaustionTraceComparator",
     "GethFixtureConsumer",
     "GethTransitionTool",
     "LazyAlloc",
