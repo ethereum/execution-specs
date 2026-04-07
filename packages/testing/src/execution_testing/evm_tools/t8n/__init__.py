@@ -140,6 +140,7 @@ class T8N(Load):
     state_test: bool
     state_reward: int
     exception_mapper: Optional["ExceptionMapper"]
+    inclusion_list_txs: Optional[List["TestingTransaction"]]
     _block_exception: Optional[str]
 
     def __init__(
@@ -232,6 +233,11 @@ class T8N(Load):
         self.ommers = list(ommers)
         self.body = Bytes(rlp.encode([tx.rlp() for tx in self.txs]))
         self.rejected_transactions = []
+        self.inclusion_list_txs = (
+            list(t8n_data.inclusion_list_txs)
+            if t8n_data.inclusion_list_txs is not None
+            else None
+        )
 
     def _tracer(self, type_: Type[T]) -> T:
         group = self.tracers
@@ -399,6 +405,23 @@ class T8N(Load):
             # ``--state.reward=None`` to the fork's ``BLOCK_REWARD``
             # before constructing the data).
             self.pay_block_rewards(U256(self.state_reward), block_env)
+
+        if self.fork.has_is_inclusion_list_satisfied:
+            block_output.is_inclusion_list_satisfied = (
+                (
+                    self.fork.check_inclusion_list_transactions(
+                        block_env,
+                        block_output,
+                        tuple(self.convert_transaction(tx) for tx in self.txs),
+                        tuple(
+                            self.convert_transaction(tx)
+                            for tx in self.inclusion_list_txs
+                        ),
+                    )
+                )
+                if self.inclusion_list_txs is not None
+                else True
+            )
 
         if self.fork.has_withdrawal:
             withdrawals = self.env.withdrawals or []
