@@ -2287,4 +2287,4 @@ def pytest_testnodedown(node: Any, error: Any) -> None:
     worker_id = getattr(node, "workerinput", {}).get("workerid", "unknown")
     timing_logs = getattr(node, "workeroutput", {}).get("timing_logs", [])
     for log_line in timing_logs:
-        logger.debug(f"[worker {worker_id}] {log_line}")
+        logger.info(f"[worker {worker_id}] {log_line}")
