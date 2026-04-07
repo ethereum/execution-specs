@@ -182,10 +182,10 @@ class Frontier(
             OPCODE_EXP_BASE=10,
             OPCODE_EXP_PER_BYTE=50,
             # TODO
-            LOG=375,
+            OPCODE_LOG_BASE=375,
             OPCODE_LOG_DATA_PER_BYTE=8,
             OPCODE_LOG_TOPIC=375,
-            KECCAK256=30,
+            OPCODE_KECCAK256_BASE=30,
             OPCODE_KECCACK256_PER_WORD=6,
             # Zero-initialized: introduced in later forks, set via
             # replace() in the fork that activates them.
@@ -374,7 +374,7 @@ class Frontier(
             # SHA3
             Opcodes.SHA3: cls._with_memory_expansion(
                 lambda op: (
-                    gas_costs.KECCAK256
+                    gas_costs.OPCODE_KECCAK256_BASE
                     + gas_costs.OPCODE_KECCACK256_PER_WORD
                     * ((op.metadata["data_size"] + 31) // 32)
                 ),
@@ -459,7 +459,7 @@ class Frontier(
             # Logging operations
             Opcodes.LOG0: cls._with_memory_expansion(
                 lambda op: (
-                    gas_costs.LOG
+                    gas_costs.OPCODE_LOG_BASE
                     + gas_costs.OPCODE_LOG_DATA_PER_BYTE
                     * op.metadata["data_size"]
                 ),
@@ -467,7 +467,7 @@ class Frontier(
             ),
             Opcodes.LOG1: cls._with_memory_expansion(
                 lambda op: (
-                    gas_costs.LOG
+                    gas_costs.OPCODE_LOG_BASE
                     + gas_costs.OPCODE_LOG_DATA_PER_BYTE
                     * op.metadata["data_size"]
                     + gas_costs.OPCODE_LOG_TOPIC
@@ -476,7 +476,7 @@ class Frontier(
             ),
             Opcodes.LOG2: cls._with_memory_expansion(
                 lambda op: (
-                    gas_costs.LOG
+                    gas_costs.OPCODE_LOG_BASE
                     + gas_costs.OPCODE_LOG_DATA_PER_BYTE
                     * op.metadata["data_size"]
                     + gas_costs.OPCODE_LOG_TOPIC * 2
@@ -485,7 +485,7 @@ class Frontier(
             ),
             Opcodes.LOG3: cls._with_memory_expansion(
                 lambda op: (
-                    gas_costs.LOG
+                    gas_costs.OPCODE_LOG_BASE
                     + gas_costs.OPCODE_LOG_DATA_PER_BYTE
                     * op.metadata["data_size"]
                     + gas_costs.OPCODE_LOG_TOPIC * 3
@@ -494,7 +494,7 @@ class Frontier(
             ),
             Opcodes.LOG4: cls._with_memory_expansion(
                 lambda op: (
-                    gas_costs.LOG
+                    gas_costs.OPCODE_LOG_BASE
                     + gas_costs.OPCODE_LOG_DATA_PER_BYTE
                     * op.metadata["data_size"]
                     + gas_costs.OPCODE_LOG_TOPIC * 4
