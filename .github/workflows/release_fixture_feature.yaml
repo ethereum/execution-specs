@@ -10,11 +10,6 @@ on:
         description: "Feature to build (e.g. mainnet). Required for dispatch."
         required: true
         type: string
-      store_durations:
-        description: "Store pytest-split durations for future load balancing."
-        required: false
-        type: boolean
-        default: false
 
 jobs:
   setup:
@@ -165,13 +160,31 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+      - name: Download durations from latest run
+        if: matrix.label != ''
+        shell: bash
+        run: |
+          FEATURE_NAME="${{ needs.setup.outputs.feature_name }}"
+          ARTIFACT_ID=$(gh api "repos/${{ github.repository }}/actions/artifacts?name=durations_${FEATURE_NAME}&per_page=1" \
+            --jq '.artifacts[0].id // empty' 2>/dev/null || true)
+          if [ -n "$ARTIFACT_ID" ]; then
+            echo "Downloading durations artifact ${ARTIFACT_ID}"
+            gh api "repos/${{ github.repository }}/actions/artifacts/${ARTIFACT_ID}/zip" > /tmp/durations.zip
+            unzip -o /tmp/durations.zip -d .
+            echo "Durations file: $(wc -c < .test_durations) bytes"
+          else
+            echo "No previous durations found, using average durations"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - uses: ./.github/actions/build-fixtures
         with:
           release_name: ${{ matrix.feature }}
           split_label: ${{ matrix.label }}
           splits: ${{ matrix.splits }}
           group: ${{ matrix.group }}
-          store_durations: ${{ inputs.store_durations && 'true' || 'false' }}
+          store_durations: "true"
           use_pre_alloc_groups: ${{ matrix.label != '' && 'true' || 'false' }}
 
   combine:
@@ -216,7 +229,6 @@ jobs:
             uv run python .github/scripts/merge_index_files.py combined/.meta/index.json "${SPLIT_DIRS[@]}"
           fi
       - name: Download and merge split durations
-        if: inputs.store_durations
         shell: bash
         run: |
           DURATIONS_FILES=()
@@ -234,7 +246,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
       - name: Upload merged durations
-        if: inputs.store_durations
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: durations_${{ needs.setup.outputs.feature_name }}

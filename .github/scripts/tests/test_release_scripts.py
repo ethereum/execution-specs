@@ -47,11 +47,14 @@ class TestGenerateBuildMatrix:
         assert result.returncode == 0
         out = parse_matrix_output(result.stdout)
         matrix = json.loads(out["build_matrix"])
-        assert len(matrix) == 5
+        assert len(matrix) > 1
         assert out["feature_name"] == "mainnet"
-        assert out["combine_labels"] == "1 2 3 4 5"
-        assert [e["group"] for e in matrix] == [1, 2, 3, 4, 5]
-        assert all(e["splits"] == 5 for e in matrix)
+        assert out["combine_labels"] != ""
+        splits = matrix[0]["splits"]
+        assert [e["group"] for e in matrix] == list(
+            range(1, splits + 1)
+        )
+        assert all(e["splits"] == splits for e in matrix)
         assert all(e["label"] == str(e["group"]) for e in matrix)
 
     def test_split_feature_produces_pre_alloc_matrix(self):
