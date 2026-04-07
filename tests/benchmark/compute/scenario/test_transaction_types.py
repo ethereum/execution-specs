@@ -21,6 +21,25 @@ from execution_testing import (
     compute_create_address,
 )
 
+from packages.testing.src.execution_testing.test_types.phase_manager import (
+    TestPhaseManager,
+)
+
+
+def test_multi_empty_blocks(
+    benchmark_test: BenchmarkTestFiller,
+) -> None:
+    """Test running multiple empty blocks to check for any overhead."""
+    blocks = []
+    with TestPhaseManager.execution():
+        for _ in range(5):
+            blocks.append(Block(txs=[]))
+
+    benchmark_test(
+        blocks=blocks,
+        expected_benchmark_gas_used=0,
+    )
+
 
 def test_empty_block(
     benchmark_test: BenchmarkTestFiller,
