@@ -42,11 +42,15 @@ jobs:
           uv run -q .github/scripts/generate_build_matrix.py "$FEATURE_NAME" >> "$GITHUB_OUTPUT"
 
   generate-pre-alloc:
-    name: pre-alloc (${{ needs.setup.outputs.feature_name }})
+    name: pre-alloc (${{ matrix.label || needs.setup.outputs.feature_name }})
     needs: setup
     if: needs.setup.outputs.combine_labels != ''
     runs-on: [self-hosted-ghr, size-gigachungus-x64]
     timeout-minutes: 120
+    strategy:
+      fail-fast: true
+      matrix:
+        include: ${{ fromJson(needs.setup.outputs.build_matrix) }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -97,9 +101,9 @@ jobs:
           FEATURE_NAME="${{ needs.setup.outputs.feature_name }}"
           EXIT_CODE=0
           if [ "${{ steps.evm-builder.outputs.impl }}" = "eels" ]; then
-            uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} ${{ steps.properties.outputs.fill-params }} --generate-pre-alloc-groups --output=fixtures_${FEATURE_NAME} --build-name ${FEATURE_NAME} --no-html -qq || EXIT_CODE=$?
+            uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} ${{ steps.properties.outputs.fill-params }} --generate-pre-alloc-groups --splits=${{ matrix.splits }} --group=${{ matrix.group }} --grouped-split --output=fixtures_${FEATURE_NAME} --build-name ${FEATURE_NAME} --no-html -qq || EXIT_CODE=$?
           else
-            uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} --evm-bin=${{ steps.evm-builder.outputs.evm-bin }} ${{ steps.properties.outputs.fill-params }} --generate-pre-alloc-groups --output=fixtures_${FEATURE_NAME} --build-name ${FEATURE_NAME} --no-html -qq || EXIT_CODE=$?
+            uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} --evm-bin=${{ steps.evm-builder.outputs.evm-bin }} ${{ steps.properties.outputs.fill-params }} --generate-pre-alloc-groups --splits=${{ matrix.splits }} --group=${{ matrix.group }} --grouped-split --output=fixtures_${FEATURE_NAME} --build-name ${FEATURE_NAME} --no-html -qq || EXIT_CODE=$?
           fi
           if [ "$EXIT_CODE" -ne 0 ] && [ "$EXIT_CODE" -ne 5 ]; then
             exit "$EXIT_CODE"
@@ -108,9 +112,10 @@ jobs:
       - name: Upload pre-alloc groups
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
-          name: pre-alloc-groups
+          name: pre-alloc-groups__${{ matrix.label }}
           path: fixtures_${{ needs.setup.outputs.feature_name }}/
           retention-days: 1
+          if-no-files-found: ignore
 
   build:
     name: fill (${{ matrix.label || matrix.feature }})
@@ -151,7 +156,10 @@ jobs:
         if: matrix.label != ''
         shell: bash
         run: |
-          gh run download ${{ github.run_id }} -n "pre-alloc-groups" --dir "fixtures_${{ matrix.feature }}"
+          for label in ${{ needs.setup.outputs.combine_labels }}; do
+            echo "Downloading: pre-alloc-groups__${label}"
+            gh run download ${{ github.run_id }} -n "pre-alloc-groups__${label}" --dir "fixtures_${{ matrix.feature }}" || true
+          done
         env:
           GH_TOKEN: ${{ github.token }}
 
