@@ -12,7 +12,12 @@ from .cli_types import (
     TransitionToolOutput,
 )
 from .clis.besu import BesuFixtureConsumer, BesuTransitionTool
+# Erigon must be imported before geth: both use the `evm` binary,
+# and erigon's more-specific detect pattern (version >= 2.x) must
+# be checked before geth's broader pattern.
+from .clis.erigon import ErigonFixtureConsumer
 from .clis.ethereumjs import EthereumJSTransitionTool
+from .clis.ethrex import EthrexFixtureConsumer
 from .clis.evmone import (
     EvmOneBlockchainFixtureConsumer,
     EvmoneExceptionMapper,
@@ -22,7 +27,8 @@ from .clis.evmone import (
 from .clis.execution_specs import ExecutionSpecsTransitionTool
 from .clis.geth import GethFixtureConsumer, GethTransitionTool
 from .clis.nethermind import Nethtest, NethtestFixtureConsumer
-from .clis.nimbus import NimbusTransitionTool
+from .clis.nimbus import NimbusFixtureConsumer, NimbusTransitionTool
+from .clis.reth import RethFixtureConsumer
 from .ethereum_cli import CLINotFoundInPathError, UnknownCLIError
 from .fixture_consumer_tool import FixtureConsumerTool
 from .transition_tool import TransitionTool
@@ -35,7 +41,9 @@ __all__ = (
     "BesuTransitionTool",
     "BlockExceptionWithMessage",
     "CLINotFoundInPathError",
+    "ErigonFixtureConsumer",
     "EthereumJSTransitionTool",
+    "EthrexFixtureConsumer",
     "EvmoneExceptionMapper",
     "EvmOneTransitionTool",
     "EvmOneStateFixtureConsumer",
@@ -47,7 +55,9 @@ __all__ = (
     "LazyAlloc",
     "Nethtest",
     "NethtestFixtureConsumer",
+    "NimbusFixtureConsumer",
     "NimbusTransitionTool",
+    "RethFixtureConsumer",
     "Result",
     "Traces",
     "TransactionExceptionWithMessage",

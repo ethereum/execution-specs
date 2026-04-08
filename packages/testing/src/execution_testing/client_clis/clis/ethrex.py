@@ -1,16 +1,43 @@
-"""Ethrex execution client transition tool."""
+"""Ethrex execution client fixture consumer interface."""
+
+import json
+import re
+import shlex
+import shutil
+import subprocess
+import textwrap
+from pathlib import Path
+from typing import Any, ClassVar, Dict, List, Optional
 
 from execution_testing.exceptions import (
     BlockException,
+    ExceptionBase,
     ExceptionMapper,
     TransactionException,
 )
+from ..validate_helpers import validate_test_result
+from execution_testing.fixtures import (
+    BlockchainEngineFixture,
+    BlockchainFixture,
+    FixtureFormat,
+    StateFixture,
+)
+
+from ..cli_types import (
+    BlockTestResult,
+    EngineTestResult,
+    FixtureTestResult,
+    StateTestResult,
+)
+from ..ethereum_cli import EthereumCLI
+from ..file_utils import dump_files_to_directory
+from ..fixture_consumer_tool import FixtureConsumerTool
 
 
 class EthrexExceptionMapper(ExceptionMapper):
-    """Ethrex exception mapper."""
+    """Translate between EEST exceptions and error strings returned by Ethrex."""
 
-    mapping_substring = {
+    mapping_substring: ClassVar[Dict[ExceptionBase, str]] = {
         BlockException.INVALID_GASLIMIT: (
             "Gas limit changed more than allowed from the parent"
         ),
@@ -65,7 +92,7 @@ class EthrexExceptionMapper(ExceptionMapper):
             "Base fee per gas is incorrect"
         ),
     }
-    mapping_regex = {
+    mapping_regex: ClassVar[Dict[ExceptionBase, str]] = {
         TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
             r"(?i)priority fee.* is greater than max fee.*"
         ),
@@ -79,37 +106,46 @@ class EthrexExceptionMapper(ExceptionMapper):
         TransactionException.NONCE_MISMATCH_TOO_LOW: (
             r"nonce \d+ too low, expected \d+|Nonce mismatch.*"
         ),
-        TransactionException.NONCE_MISMATCH_TOO_HIGH: r"Nonce mismatch.*",
+        TransactionException.NONCE_MISMATCH_TOO_HIGH: (
+            r"Nonce mismatch.*"
+        ),
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
             r"blob gas used \d+ exceeds maximum allowance \d+"
         ),
         TransactionException.TYPE_3_TX_ZERO_BLOBS: (
-            r"blob transactions present in pre-cancun payload|empty blobs|"
+            r"blob transactions present in pre-cancun payload|"
+            r"empty blobs|"
             r"Type 3 transaction without blobs"
         ),
         TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: (
-            r"blob version not supported|Invalid blob versioned hash"
+            r"blob version not supported|"
+            r"Invalid blob versioned hash"
         ),
         TransactionException.TYPE_2_TX_PRE_FORK: (
-            r"Type 2 transactions are not supported before the London fork"
+            r"Type 2 transactions are not supported "
+            r"before the London fork"
         ),
         TransactionException.TYPE_3_TX_PRE_FORK: (
             r"blob versioned hashes not supported|"
-            r"Type 3 transactions are not supported before the Cancun fork"
+            r"Type 3 transactions are not supported "
+            r"before the Cancun fork"
         ),
         TransactionException.TYPE_4_TX_CONTRACT_CREATION: (
-            r"unexpected length|Contract creation in type 4 transaction|"
-            r"Error decoding field 'to' of type primitive_types::H160: "
-            r"InvalidLength"
+            r"unexpected length|"
+            r"Contract creation in type 4 transaction|"
+            r"Error decoding field 'to' of type "
+            r"primitive_types::H160: InvalidLength"
         ),
         TransactionException.TYPE_3_TX_CONTRACT_CREATION: (
-            r"unexpected length|Contract creation in type 3 transaction|"
-            r"Error decoding field 'to' of type primitive_types::H160: "
-            r"InvalidLength"
+            r"unexpected length|"
+            r"Contract creation in type 3 transaction|"
+            r"Error decoding field 'to' of type "
+            r"primitive_types::H160: InvalidLength"
         ),
         TransactionException.TYPE_4_TX_PRE_FORK: (
             r"eip 7702 transactions present in pre-prague payload|"
-            r"Type 4 transactions are not supported before the Prague fork"
+            r"Type 4 transactions are not supported "
+            r"before the Prague fork"
         ),
         TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
             r"lack of funds \(\d+\) for max fee \(\d+\)|"
@@ -118,45 +154,50 @@ class EthrexExceptionMapper(ExceptionMapper):
         TransactionException.INTRINSIC_GAS_TOO_LOW: (
             r"gas floor exceeds the gas limit|"
             r"call gas cost exceeds the gas limit|"
-            r"Transaction gas limit lower than the minimum gas cost "
-            r"to execute the transaction|"
-            r"Transaction gas limit lower than the gas cost floor "
-            r"for calldata tokens"
+            r"Transaction gas limit lower than the minimum "
+            r"gas cost to execute the transaction|"
+            r"Transaction gas limit lower than the gas cost "
+            r"floor for calldata tokens"
         ),
         TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
-            r"Transaction gas limit lower than the gas cost floor "
-            r"for calldata tokens"
+            r"Transaction gas limit lower than the gas cost "
+            r"floor for calldata tokens"
         ),
         TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: (
             r"gas price is less than basefee|"
             r"Insufficient max fee per gas"
         ),
         TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS: (
-            r"blob gas price is greater than max fee per blob gas|"
+            r"blob gas price is greater than "
+            r"max fee per blob gas|"
             r"Insufficient max fee per blob gas.*"
         ),
         TransactionException.INITCODE_SIZE_EXCEEDED: (
             r"create initcode size limit|Initcode size exceeded.*"
         ),
-        TransactionException.NONCE_IS_MAX: (r"Nonce is max"),
+        TransactionException.NONCE_IS_MAX: r"Nonce is max",
         TransactionException.GAS_ALLOWANCE_EXCEEDED: (
             r"Gas allowance exceeded.*"
         ),
-        BlockException.GAS_USED_OVERFLOW: (r"Block gas used overflow.*"),
+        BlockException.GAS_USED_OVERFLOW: r"Block gas used overflow.*",
         TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: (
             r"Blob count exceeded.*"
         ),
         TransactionException.GASLIMIT_PRICE_PRODUCT_OVERFLOW: (
-            r"Invalid transaction: Gas limit price product overflow.*"
+            r"Invalid transaction: "
+            r"Gas limit price product overflow.*"
         ),
         TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
             r"Invalid transaction: "
             r"Transaction gas limit exceeds maximum.*"
         ),
         BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: (
-            r"Invalid deposit request layout|BAL validation failed.*"
+            r"Invalid deposit request layout|"
+            r"BAL validation failed.*"
         ),
-        BlockException.SYSTEM_CONTRACT_CALL_FAILED: (r"System call failed.*"),
+        BlockException.SYSTEM_CONTRACT_CALL_FAILED: (
+            r"System call failed.*"
+        ),
         BlockException.SYSTEM_CONTRACT_EMPTY: (
             r"System contract:.* has no code after deployment"
         ),
@@ -176,16 +217,22 @@ class EthrexExceptionMapper(ExceptionMapper):
             r"Maximum block size exceeded.*"
         ),
         BlockException.INVALID_BAL_EXTRA_ACCOUNT: (
-            r"Block access list accounts not in strictly ascending order.*|"
-            r"BAL validation failed: account .* was never accessed.*"
+            r"Block access list accounts not in strictly "
+            r"ascending order.*|"
+            r"BAL validation failed: account .* "
+            r"was never accessed.*"
         ),
-        BlockException.INVALID_BAL_MISSING_ACCOUNT: (r"absent from BAL"),
+        BlockException.INVALID_BAL_MISSING_ACCOUNT: (
+            r"absent from BAL"
+        ),
         BlockException.INVALID_BLOCK_ACCESS_LIST: (
             r"Block access list contains index \d+ "
             r"exceeding max valid index \d+|"
             r"Failed to RLP decode BAL|"
-            r"Block access list .+ not in strictly ascending order.*|"
-            r"BAL validation failed for (tx \d+|system_tx|withdrawal): .*|"
+            r"Block access list .+ not in strictly "
+            r"ascending order.*|"
+            r"BAL validation failed for "
+            r"(tx \d+|system_tx|withdrawal): .*|"
             r"BAL validation failed: .*|"
             r"Block access list slot .+ is in both "
             r"storage_changes and storage_reads.*"
@@ -196,6 +243,329 @@ class EthrexExceptionMapper(ExceptionMapper):
             r"Block access list contains index \d+ "
             r"exceeding max valid index \d+|"
             r"Failed to RLP decode BAL|"
-            r"Block access list accounts not in strictly ascending order.*"
+            r"Block access list accounts not in strictly "
+            r"ascending order.*"
         ),
     }
+
+
+class EthrexCLI(EthereumCLI):
+    """Ethrex base class for the ef_tests-* binaries.
+
+    Uses a base binary path (e.g. `ef_tests`) and derives per-type
+    binaries by appending `-statetest`, `-blocktest`, `-enginetest`.
+    """
+
+    default_binary = Path("ef_tests-statetest")
+    detect_binary_pattern = re.compile(r"^ef_tests-statetest\b")
+    version_flag: str = "--version"
+    cached_version: Optional[str] = None
+    trace: bool
+
+    def __init__(
+        self,
+        binary: Optional[Path] = None,
+        trace: bool = False,
+    ):
+        """Initialize the EthrexCLI class."""
+        self.binary = binary if binary else self.default_binary
+        self.trace = trace
+
+    def binary_for(self, test_type: str) -> Path:
+        """Derive the binary path for a given test type.
+
+        If binary is `ef_tests-statetest`, derives siblings like
+        `ef_tests-blocktest`. If binary is a base like `ef_tests`,
+        appends `-statetest` etc.
+        """
+        bin_str = str(self.binary)
+        # Strip any existing suffix to get the base
+        for suffix in (
+            "-statetest",
+            "-blocktest",
+            "-enginetest",
+        ):
+            if bin_str.endswith(suffix):
+                base = bin_str[: -len(suffix)]
+                return Path(f"{base}-{test_type}")
+        # Binary is the base itself
+        return Path(f"{bin_str}-{test_type}")
+
+    def run_command(
+        self, command: List[str]
+    ) -> subprocess.CompletedProcess:
+        """Run a command and return the result."""
+        try:
+            return subprocess.run(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+        except subprocess.CalledProcessError as e:
+            raise Exception(
+                "Command failed with non-zero status."
+            ) from e
+        except Exception as e:
+            raise Exception(
+                "Unexpected exception calling ethrex tool."
+            ) from e
+
+    def validate_debug_dump(
+        self,
+        command: List[str],
+        result: subprocess.CompletedProcess,
+        fixture_path: Path,
+        debug_output_path: Path,
+    ) -> None:
+        """Dump debug output for a consume command."""
+        assert all(isinstance(x, str) for x in command), (
+            f"Not all elements of 'command' list are strings: "
+            f"{command}"
+        )
+        assert len(command) > 0
+
+        debug_fixture_path = str(
+            debug_output_path / "fixtures.json"
+        )
+
+        validate_call = " ".join(
+            shlex.quote(arg) for arg in command
+        )
+
+        validate_script = textwrap.dedent(
+            f"""\
+            #!/bin/bash
+            {validate_call}
+            """
+        )
+        dump_files_to_directory(
+            debug_output_path,
+            {
+                "validate_args.py": command,
+                "validate_returncode.txt": result.returncode,
+                "validate_stdout.txt": result.stdout,
+                "validate_stderr.txt": result.stderr,
+                "validate.sh+x": validate_script,
+            },
+        )
+        shutil.copyfile(fixture_path, debug_fixture_path)
+
+
+class EthrexFixtureConsumer(
+    EthrexCLI,
+    FixtureConsumerTool,
+    fixture_formats=[
+        StateFixture,
+        BlockchainFixture,
+        BlockchainEngineFixture,
+    ],
+):
+    """Ethrex's implementation of the fixture consumer.
+
+    Uses separate binaries per test type:
+    ef_tests-statetest, ef_tests-blocktest, ef_tests-enginetest.
+    All use --path <dir> --json --workers N.
+    """
+
+    dir_cache: Dict[str, Dict[str, Dict[str, Any]]] = {}
+    fixture_cache: Dict[str, Dict[str, Any]] = {}
+    exception_mapper: ExceptionMapper = EthrexExceptionMapper()
+
+    def get_dir_results(
+        self,
+        test_type: str,
+        fixture_path: Path,
+        debug_output_path: Optional[Path] = None,
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Run a binary once per fixture directory and cache all
+        results indexed by test name.
+        """
+        dir_path = (
+            fixture_path
+            if fixture_path.is_dir()
+            else fixture_path.parent
+        )
+        cache_key = f"{test_type}:{dir_path}"
+
+        if cache_key not in self.dir_cache:
+            workers = getattr(self, "workers", 1)
+            binary = self.binary_for(test_type)
+
+            command = [
+                str(binary),
+                "--path",
+                str(dir_path),
+                "--json",
+                "--workers",
+                str(workers),
+            ]
+            result = self.run_command(command)
+
+            if debug_output_path:
+                self.validate_debug_dump(
+                    command,
+                    result,
+                    fixture_path,
+                    debug_output_path,
+                )
+
+            # Ethrex exits non-zero when any test fails, but still
+            # outputs JSON results. Parse JSON first, only fail if missing.
+            stdout = result.stdout
+            json_start = stdout.find("[")
+            if json_start < 0:
+                raise Exception(
+                    f"No JSON array in {test_type} output:\n"
+                    f"{stdout[:500]}"
+                )
+            result_json = json.loads(stdout[json_start:])
+            if not isinstance(result_json, list):
+                raise Exception(
+                    f"Unexpected result from {test_type}: "
+                    f"{result_json}"
+                )
+
+            result_model: type[FixtureTestResult] = {
+                "statetest": StateTestResult,
+                "blocktest": BlockTestResult,
+                "enginetest": EngineTestResult,
+            }.get(test_type, FixtureTestResult)
+
+            indexed: Dict[str, Dict[str, Any]] = {}
+            for r in result_json:
+                # Ethrex blocktest/enginetest may omit fork
+                # and use null for error; normalize before
+                # Pydantic validation.
+                if "fork" not in r:
+                    r["fork"] = ""
+                if r.get("error") is None:
+                    r["error"] = ""
+                validated = result_model.model_validate(
+                    r
+                ).model_dump(by_alias=True)
+                indexed[validated["name"]] = validated
+
+            self.dir_cache[cache_key] = indexed
+
+        return self.dir_cache[cache_key]
+
+    def validate_test(
+        self,
+        test_type: str,
+        label: str,
+        fixture_path: Path,
+        fixture_name: Optional[str] = None,
+        debug_output_path: Optional[Path] = None,
+    ) -> None:
+        """Generic consume method using directory-level cache."""
+        dir_results = self.get_dir_results(
+            test_type=test_type,
+            fixture_path=fixture_path,
+            debug_output_path=debug_output_path,
+        )
+        if fixture_name:
+            if fixture_name not in dir_results:
+                return  # silently pass — client skipped this test (unsupported fork)
+            validate_test_result(
+                self.fixture_cache, self.exception_mapper,
+                label, fixture_name, dir_results[fixture_name],
+                fixture_path,
+                is_engine=test_type == "enginetest",
+                is_block=test_type == "blocktest",
+                is_state=test_type == "statetest",
+                exception_check=getattr(self, "exception_check", True),
+            )
+        else:
+            failures = [
+                r
+                for r in dir_results.values()
+                if not r["pass"]
+            ]
+            if failures:
+                raise Exception(
+                    f"{label} test failed: \n"
+                    + "\n".join(
+                        f"{r['name']}: {r['error']}"
+                        for r in failures
+                    )
+                )
+
+    def consume_state_test(
+        self,
+        fixture_path: Path,
+        fixture_name: Optional[str] = None,
+        debug_output_path: Optional[Path] = None,
+    ) -> None:
+        """Consume a single state test."""
+        self.validate_test(
+            "statetest",
+            "State",
+            fixture_path,
+            fixture_name,
+            debug_output_path,
+        )
+
+    def consume_blockchain_test(
+        self,
+        fixture_path: Path,
+        fixture_name: Optional[str] = None,
+        debug_output_path: Optional[Path] = None,
+    ) -> None:
+        """Consume a single blockchain test."""
+        self.validate_test(
+            "blocktest",
+            "Blockchain",
+            fixture_path,
+            fixture_name,
+            debug_output_path,
+        )
+
+    def consume_engine_test(
+        self,
+        fixture_path: Path,
+        fixture_name: Optional[str] = None,
+        debug_output_path: Optional[Path] = None,
+    ) -> None:
+        """Consume a single engine test."""
+        self.validate_test(
+            "enginetest",
+            "Engine",
+            fixture_path,
+            fixture_name,
+            debug_output_path,
+        )
+
+    def consume_fixture(
+        self,
+        fixture_format: FixtureFormat,
+        fixture_path: Path,
+        fixture_name: Optional[str] = None,
+        debug_output_path: Optional[Path] = None,
+    ) -> None:
+        """Execute the appropriate ethrex fixture consumer."""
+        if fixture_format == BlockchainFixture:
+            self.consume_blockchain_test(
+                fixture_path=fixture_path,
+                fixture_name=fixture_name,
+                debug_output_path=debug_output_path,
+            )
+        elif fixture_format == BlockchainEngineFixture:
+            self.consume_engine_test(
+                fixture_path=fixture_path,
+                fixture_name=fixture_name,
+                debug_output_path=debug_output_path,
+            )
+        elif fixture_format == StateFixture:
+            self.consume_state_test(
+                fixture_path=fixture_path,
+                fixture_name=fixture_name,
+                debug_output_path=debug_output_path,
+            )
+        else:
+            raise Exception(
+                f"Fixture format "
+                f"{fixture_format.format_name} "
+                f"not supported by {self.binary}"
+            )

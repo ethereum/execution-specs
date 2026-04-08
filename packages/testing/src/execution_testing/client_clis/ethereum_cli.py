@@ -216,7 +216,14 @@ class EthereumCLI:
             f"Trying to match {binary_output} against this "
             f"pattern: {cls.detect_binary_pattern}"
         )
+        # Try matching each line (some binaries output extra info before version)
         match_result = cls.detect_binary_pattern.match(binary_output)
+        if match_result is None:
+            for line in binary_output.splitlines():
+                line = line.strip()
+                if line and cls.detect_binary_pattern.match(line):
+                    match_result = cls.detect_binary_pattern.match(line)
+                    break
         match_successful: bool = match_result is not None
 
         return match_successful
@@ -239,8 +246,10 @@ class EthereumCLI:
         Process the stderr output and decide if the error is a
         breaking error for this specific tool.
         """
-        # harmless java warning on certain systems (besu)
+        # harmless java warnings on certain systems (besu)
         if "SVE vector length" in stderr:
+            return False
+        if "Mockito" in stderr or "Java agent" in stderr or "boot loader" in stderr:
             return False
 
         return True

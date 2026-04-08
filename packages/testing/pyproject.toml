@@ -84,6 +84,7 @@ checkfixtures = "execution_testing.cli.check_fixtures:check_fixtures"
 check_eip_versions = "execution_testing.cli.pytest_commands.check_eip_versions:check_eip_versions"
 consume = "execution_testing.cli.pytest_commands.consume:consume"
 protec = "execution_testing.cli.pytest_commands.consume:consume"
+validate = "execution_testing.cli.pytest_commands.validate:validate"
 checklist = "execution_testing.cli.pytest_commands.checklist:checklist"
 generate_checklist_stubs = "execution_testing.cli.generate_checklist_stubs:generate_checklist_stubs"
 genindex = "execution_testing.cli.gen_index:generate_fixtures_index_cli"
@@ -134,6 +135,7 @@ addopts = [
     "--ignore=src/execution_testing/cli/pytest_commands/plugins/consume/test_cache.py",
     "--ignore=src/execution_testing/cli/pytest_commands/plugins/consume/direct/",
     "--ignore=src/execution_testing/cli/pytest_commands/plugins/consume/simulators/",
+    "--ignore=src/execution_testing/cli/pytest_commands/plugins/validate/",
 ]
 markers = [
     "pre_alloc_group: Custom marker for pre-allocation grouping",

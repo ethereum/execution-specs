@@ -58,6 +58,16 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         ),
     )
     help_group.addoption(
+        "--validate-help",
+        action="store_true",
+        dest="show_validate_help",
+        default=False,
+        help=(
+            "Show help options specific to the validate command "
+            "and exit."
+        ),
+    )
+    help_group.addoption(
         "--execute-recover-help",
         action="store_true",
         dest="show_execute_recover_help",
@@ -114,6 +124,16 @@ def pytest_configure(config: pytest.Config) -> None:
             "pytest-consume.ini",
             [
                 "consuming",
+            ],
+        )
+    elif config.getoption("show_validate_help"):
+        show_specific_help(
+            config,
+            "pytest-validate.ini",
+            [
+                "validating fixtures",
+                "fixture input",
+                "debug behavior",
             ],
         )
     elif config.getoption("show_execute_help"):
@@ -199,7 +219,10 @@ def show_specific_help(
                     kwargs["type"] = action.type
                 if action.nargs:
                     kwargs["nargs"] = action.nargs
-                new_group.add_argument(*action.option_strings, **kwargs)
+                try:
+                    new_group.add_argument(*action.option_strings, **kwargs)
+                except argparse.ArgumentError:
+                    pass  # skip conflicting options (e.g. -h/--help)
 
     print(test_parser.format_help())
     pytest.exit("After displaying help.", returncode=pytest.ExitCode.OK)

@@ -21,13 +21,21 @@ from execution_testing.exceptions import (
     TransactionException,
 )
 from execution_testing.fixtures import (
+    BlockchainEngineFixture,
     BlockchainFixture,
     FixtureFormat,
     StateFixture,
 )
 from execution_testing.forks import Fork
 
-from ..cli_types import TransitionToolOutput
+from ..cli_types import (
+    BlockTestResult,
+    EngineTestResult,
+    FixtureTestResult,
+    StateTestResult,
+    TransitionToolOutput,
+)
+from ..validate_helpers import validate_test_result
 from ..ethereum_cli import EthereumCLI
 from ..fixture_consumer_tool import FixtureConsumerTool
 from ..transition_tool import (
@@ -57,7 +65,7 @@ class BesuEvmTool(EthereumCLI):
         self.binary = binary if binary else self.default_binary
         self.trace = trace
 
-    def _run_command(self, command: List[str]) -> subprocess.CompletedProcess:
+    def run_command(self, command: List[str]) -> subprocess.CompletedProcess:
         """Run a command and return the result."""
         try:
             return subprocess.run(
@@ -71,7 +79,7 @@ class BesuEvmTool(EthereumCLI):
         except Exception as e:
             raise Exception("Unexpected exception calling evmtool.") from e
 
-    def _consume_debug_dump(
+    def validate_debug_dump(
         self,
         command: List[str],
         result: subprocess.CompletedProcess,
@@ -87,22 +95,22 @@ class BesuEvmTool(EthereumCLI):
         debug_fixture_path = str(debug_output_path / "fixtures.json")
         command[-1] = debug_fixture_path
 
-        consume_direct_call = " ".join(shlex.quote(arg) for arg in command)
+        validate_call = " ".join(shlex.quote(arg) for arg in command)
 
-        consume_direct_script = textwrap.dedent(
+        validate_script = textwrap.dedent(
             f"""\
             #!/bin/bash
-            {consume_direct_call}
+            {validate_call}
             """
         )
         dump_files_to_directory(
             debug_output_path,
             {
-                "consume_direct_args.py": command,
-                "consume_direct_returncode.txt": result.returncode,
-                "consume_direct_stdout.txt": result.stdout,
-                "consume_direct_stderr.txt": result.stderr,
-                "consume_direct.sh+x": consume_direct_script,
+                "validate_args.py": command,
+                "validate_returncode.txt": result.returncode,
+                "validate_stdout.txt": result.stdout,
+                "validate_stderr.txt": result.stderr,
+                "validate.sh+x": validate_script,
             },
         )
         shutil.copyfile(fixture_path, debug_fixture_path)
@@ -424,12 +432,12 @@ class BesuExceptionMapper(ExceptionMapper):
             r"exceeds transaction sender account balance 0x[0-9a-f]+"
         ),
         TransactionException.INTRINSIC_GAS_TOO_LOW: (
-            r"transaction invalid intrinsic gas cost \d+"
+            r"(?:transaction invalid )?intrinsic gas cost \d+"
             r"(?: \(regular \d+ \+ state \d+\))? "
             r"exceeds gas limit \d+"
         ),
         TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
-            r"transaction invalid intrinsic gas cost \d+"
+            r"(?:transaction invalid )?intrinsic gas cost \d+"
             r"(?: \(regular \d+ \+ state \d+\))? "
             r"exceeds gas limit \d+"
         ),
@@ -490,155 +498,129 @@ class BesuExceptionMapper(ExceptionMapper):
 class BesuFixtureConsumer(
     BesuEvmTool,
     FixtureConsumerTool,
-    fixture_formats=[StateFixture, BlockchainFixture],
+    fixture_formats=[StateFixture, BlockchainFixture, BlockchainEngineFixture],
 ):
     """Besu's implementation of the fixture consumer."""
 
-    def consume_blockchain_test(
+    subcommands: Dict[type, str] = {
+        StateFixture: "state-test",
+        BlockchainFixture: "block-test",
+        BlockchainEngineFixture: "engine-test",
+    }
+
+    dir_cache: Dict[str, Dict[str, Dict[str, Any]]] = {}
+    fixture_cache: Dict[str, Dict[str, Any]] = {}
+    exception_mapper: ExceptionMapper = BesuExceptionMapper()
+
+    def get_dir_results(
         self,
+        fixture_format: FixtureFormat,
         fixture_path: Path,
-        fixture_name: Optional[str] = None,
         debug_output_path: Optional[Path] = None,
-    ) -> None:
-        """
-        Consume a single blockchain test.
+    ) -> Dict[str, Dict[str, Any]]:
+        """Run evmtool once per type directory and cache results.
 
-        Besu's ``evmtool block-test`` accepts ``--test-name`` to
-        select a specific fixture from the file.
+        Uses the top-level type directory (e.g. blockchain_tests_engine/)
+        to avoid repeated JVM startup per subdirectory.
         """
-        subcommand = "block-test"
-        subcommand_options: List[str] = []
-        if debug_output_path:
-            subcommand_options += ["--json"]
+        fmt = type(fixture_format) if not isinstance(fixture_format, type) else fixture_format
+        subcommand = self.subcommands[fmt]
+        type_dirs = {"state_tests", "blockchain_tests", "blockchain_tests_engine"}
+        dir_path = fixture_path if fixture_path.is_dir() else fixture_path.parent
+        while dir_path.name not in type_dirs and dir_path.parent != dir_path:
+            dir_path = dir_path.parent
+        cache_key = f"{subcommand}:{dir_path}"
 
-        if fixture_name:
-            subcommand_options += [
-                "--test-name",
-                fixture_name,
+        if cache_key not in self.dir_cache:
+            workers = getattr(self, "workers", 1)
+            command = [
+                str(self.binary), subcommand,
+                "--json-array", "--workers", str(workers),
+                str(dir_path),
             ]
+            if debug_output_path:
+                command.insert(-1, "--json")
 
-        command = (
-            [str(self.binary)]
-            + [subcommand]
-            + subcommand_options
-            + [str(fixture_path)]
-        )
+            result = self.run_command(command)
 
-        result = self._run_command(command)
+            if debug_output_path:
+                self.validate_debug_dump(
+                    command, result, fixture_path, debug_output_path
+                )
 
-        if debug_output_path:
-            self._consume_debug_dump(
-                command, result, fixture_path, debug_output_path
-            )
-
-        if result.returncode != 0:
-            raise Exception(
-                f"Unexpected exit code:\n{' '.join(command)}\n\n"
-                f"Error:\n{result.stderr}"
-            )
-
-        # Parse text output for failures
-        stdout = result.stdout
-        if "Failed:" in stdout:
-            failed_match = re.search(r"Failed:\s+(\d+)", stdout)
-            if failed_match and int(failed_match.group(1)) > 0:
-                raise Exception(f"Blockchain test failed:\n{stdout}")
-
-    @cache  # noqa
-    def consume_state_test_file(
-        self,
-        fixture_path: Path,
-        debug_output_path: Optional[Path] = None,
-    ) -> List[Dict[str, Any]]:
-        """
-        Consume an entire state test file.
-
-        Besu's ``evmtool state-test`` outputs one JSON object per
-        line (NDJSON) with a ``test`` field instead of ``name``.
-        This method normalizes the output to match the expected
-        format.
-        """
-        subcommand = "state-test"
-        subcommand_options: List[str] = []
-        if debug_output_path:
-            subcommand_options += ["--json"]
-
-        command = (
-            [str(self.binary)]
-            + [subcommand]
-            + subcommand_options
-            + [str(fixture_path)]
-        )
-        result = self._run_command(command)
-
-        if debug_output_path:
-            self._consume_debug_dump(
-                command, result, fixture_path, debug_output_path
-            )
-
-        if result.returncode != 0:
-            raise Exception(
-                f"Unexpected exit code:\n{' '.join(command)}\n\n"
-                f"Error:\n{result.stderr}"
-            )
-
-        # Parse NDJSON output, normalize "test" -> "name"
-        results: List[Dict[str, Any]] = []
-        for line in result.stdout.strip().splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                entry = json.loads(line)
-                if "test" in entry and "name" not in entry:
-                    entry["name"] = entry["test"]
-                results.append(entry)
-            except json.JSONDecodeError as e:
+            if result.returncode != 0:
                 raise Exception(
-                    f"Failed to parse Besu state-test output as JSON.\n"
-                    f"Offending line:\n{line}\n\n"
-                    f"Error: {e}"
-                ) from e
-        return results
+                    f"Unexpected exit code:\n{' '.join(command)}\n\n"
+                    f"Error:\n{result.stderr}"
+                )
 
-    def consume_state_test(
+            # Besu mixes text output with JSON — find JSON array via '[{'
+            stdout = result.stdout
+            json_start = stdout.rfind("[{")
+            if json_start < 0:
+                json_start = stdout.rfind("[")
+            if json_start < 0:
+                raise Exception(
+                    f"No JSON array in evmtool {subcommand} output:\n"
+                    f"{stdout[:500]}"
+                )
+            result_json = json.loads(stdout[json_start:])
+
+            result_model: type[FixtureTestResult] = {
+                StateFixture: StateTestResult,
+                BlockchainFixture: BlockTestResult,
+                BlockchainEngineFixture: EngineTestResult,
+            }.get(fmt, FixtureTestResult)
+
+            indexed: Dict[str, Dict[str, Any]] = {}
+            for r in result_json:
+                validated = result_model.model_validate(r).model_dump(
+                    by_alias=True
+                )
+                indexed[validated["name"]] = validated
+
+            self.dir_cache[cache_key] = indexed
+
+        return self.dir_cache[cache_key]
+
+    def validate_test(
         self,
+        fixture_format: FixtureFormat,
+        label: str,
         fixture_path: Path,
         fixture_name: Optional[str] = None,
         debug_output_path: Optional[Path] = None,
     ) -> None:
-        """
-        Consume a single state test.
-
-        Uses the cached result from ``consume_state_test_file``
-        and selects the requested fixture by name.
-        """
-        file_results = self.consume_state_test_file(
+        """Generic consume method with directory cache and exception matching."""
+        dir_results = self.get_dir_results(
+            fixture_format=fixture_format,
             fixture_path=fixture_path,
             debug_output_path=debug_output_path,
         )
         if fixture_name:
-            test_result = [
-                r for r in file_results if r["name"] == fixture_name
-            ]
-            assert len(test_result) < 2, (
-                f"Multiple test results for {fixture_name}"
-            )
-            assert len(test_result) == 1, (
-                f"Test result for {fixture_name} missing"
-            )
-            assert test_result[0]["pass"], (
-                f"State test failed: "
-                f"{test_result[0].get('error', 'unknown error')}"
+            if fixture_name not in dir_results:
+                raise Exception(
+                    f"{label} test result missing: {fixture_name} "
+                    f"(client may have skipped or crashed on this test)"
+                )
+            validate_test_result(
+                self.fixture_cache, self.exception_mapper,
+                label, fixture_name, dir_results[fixture_name],
+                fixture_path,
+                is_engine=fixture_format == BlockchainEngineFixture,
+                is_block=fixture_format == BlockchainFixture,
+                is_state=fixture_format == StateFixture,
+                exception_check=getattr(self, "exception_check", True),
             )
         else:
-            if any(not r["pass"] for r in file_results):
-                exception_text = "State test failed: \n" + "\n".join(
-                    f"{r['name']}: " + r.get("error", "unknown error")
-                    for r in file_results
-                    if not r["pass"]
+            failures = [r for r in dir_results.values() if not r["pass"]]
+            if failures:
+                raise Exception(
+                    f"{label} test failed: \n"
+                    + "\n".join(
+                        f"{r['name']}: {r['error']}" for r in failures
+                    )
                 )
-                raise Exception(exception_text)
 
     def consume_fixture(
         self,
@@ -647,24 +629,14 @@ class BesuFixtureConsumer(
         fixture_name: Optional[str] = None,
         debug_output_path: Optional[Path] = None,
     ) -> None:
-        """
-        Execute the appropriate Besu fixture consumer for the
-        fixture at ``fixture_path``.
-        """
-        if fixture_format == BlockchainFixture:
-            self.consume_blockchain_test(
-                fixture_path=fixture_path,
-                fixture_name=fixture_name,
-                debug_output_path=debug_output_path,
-            )
-        elif fixture_format == StateFixture:
-            self.consume_state_test(
-                fixture_path=fixture_path,
-                fixture_name=fixture_name,
-                debug_output_path=debug_output_path,
-            )
-        else:
-            raise Exception(
-                f"Fixture format {fixture_format.format_name} "
-                f"not supported by {self.binary}"
-            )
+        """Execute the appropriate Besu fixture consumer."""
+        labels = {
+            StateFixture: "State",
+            BlockchainFixture: "Blockchain",
+            BlockchainEngineFixture: "Engine",
+        }
+        label = labels.get(fixture_format, "Unknown")
+        self.validate_test(
+            fixture_format, label, fixture_path, fixture_name,
+            debug_output_path,
+        )
