@@ -165,15 +165,24 @@ jobs:
         shell: bash
         run: |
           FEATURE_NAME="${{ needs.setup.outputs.feature_name }}"
-          ARTIFACT_ID=$(gh api "repos/${{ github.repository }}/actions/artifacts?name=durations_${FEATURE_NAME}&per_page=1" \
-            --jq '.artifacts[0].id // empty' 2>/dev/null || true)
-          if [ -n "$ARTIFACT_ID" ]; then
-            echo "Downloading durations artifact ${ARTIFACT_ID}"
-            gh api "repos/${{ github.repository }}/actions/artifacts/${ARTIFACT_ID}/zip" > /tmp/durations.zip
-            unzip -o /tmp/durations.zip -d .
-            echo "Durations file: $(wc -c < .test_durations) bytes"
+          RUN_ID=$(gh api "repos/${{ github.repository }}/actions/artifacts?name=durations_${FEATURE_NAME}&per_page=1" \
+            --jq '.artifacts[0].workflow_run.id // empty' 2>/dev/null || true)
+          if [ -n "$RUN_ID" ]; then
+            echo "Downloading durations from run ${RUN_ID}"
+            if gh run download "${RUN_ID}" -n "durations_${FEATURE_NAME}" --dir .; then
+              BYTES=$(wc -c < .test_durations)
+              echo "Durations file: ${BYTES} bytes"
+              echo "### Durations" >> "$GITHUB_STEP_SUMMARY"
+              echo "Downloaded \`durations_${FEATURE_NAME}\` from run ${RUN_ID} (${BYTES} bytes)" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "::warning::Failed to download durations artifact from run ${RUN_ID}, using average durations"
+              echo "### Durations" >> "$GITHUB_STEP_SUMMARY"
+              echo "⚠️ Download failed for run ${RUN_ID}, using average durations" >> "$GITHUB_STEP_SUMMARY"
+            fi
           else
-            echo "No previous durations found, using average durations"
+            echo "::warning::No previous durations artifact found for ${FEATURE_NAME}, using average durations"
+            echo "### Durations" >> "$GITHUB_STEP_SUMMARY"
+            echo "⚠️ No previous durations found, using average durations" >> "$GITHUB_STEP_SUMMARY"
           fi
         env:
           GH_TOKEN: ${{ github.token }}
