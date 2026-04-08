@@ -11,8 +11,13 @@ from typing import Any, Generator, List, Sequence
 
 import pytest
 
-from execution_testing.base_types import Bytes, Hash, HexNumber, Number
-from execution_testing.test_types import EOA
+from execution_testing.base_types import (
+    Address,
+    Bytes,
+    Hash,
+    HexNumber,
+    Number,
+)
 from execution_testing.fixtures.blockchain import (
     BlockchainEngineStatefulFixture,
     FixtureConfig,
@@ -32,6 +37,7 @@ from execution_testing.rpc.rpc_types import (
     PayloadAttributes,
     TransactionProtocol,
 )
+from execution_testing.test_types import EOA
 from execution_testing.test_types.phase_manager import TestPhase
 
 from ..shared.helpers import is_help_or_collectonly_mode
@@ -196,8 +202,11 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "--rpc-seed-key",
         action="store",
         dest="rpc_seed_key",
+        default=None,
         type=str,
-        help="Private key of a funded account on the target network.",
+        help="Private key for signing transactions. "
+        "Optional — a random key is generated and funded via "
+        "CL withdrawal if not provided.",
     )
 
 
@@ -245,27 +254,35 @@ def execute_required_contracts(
     sender_funding_transactions_gas_price: int,
     session_temp_folder: Path,
 ) -> None:
-    """Deploy required contracts AFTER snapshot_block is captured.
+    """
+    Fund seed account via CL withdrawal and deploy required contracts.
 
-    Overrides pre_alloc's version to guarantee ordering: the raw
-    snapshot is recorded before any blocks are built.
+    Runs AFTER snapshot_block is captured so the raw datadir head
+    is recorded first.  Funds the seed key via a withdrawal (works
+    on any snapshot regardless of account balances), then deploys
+    the deterministic factory.
     """
     from filelock import FileLock
 
-    from execution_testing.cli.pytest_commands.plugins.execute.contracts import (
-        check_deterministic_factory_deployment,
-        deploy_deterministic_factory_contract,
+    from execution_testing.cli.pytest_commands.plugins.execute import (
+        contracts,
     )
 
+    # Fund seed account via CL withdrawal.
+    funding_wei = 10**9 * 10**18  # 1B ETH
+    eth_rpc.fund_via_withdrawals([(Address(session_worker_key), funding_wei)])
+    logger.info(f"Funded {Address(session_worker_key)} via withdrawal")
+
+    # Deploy deterministic factory if not already present.
     base_lock_file = session_temp_folder / "execute_required_contracts.lock"
     with FileLock(base_lock_file):
         if (
-            check_deterministic_factory_deployment(
+            contracts.check_deterministic_factory_deployment(
                 eth_rpc=eth_rpc, fork=session_fork
             )
             is None
         ):
-            deploy_deterministic_factory_contract(
+            contracts.deploy_deterministic_factory_contract(
                 eth_rpc=eth_rpc,
                 seed_key=session_worker_key,
                 gas_price=sender_funding_transactions_gas_price,
@@ -287,10 +304,22 @@ def worker_count() -> int:
 
 @pytest.fixture(scope="session")
 def seed_key(eth_rpc: Any, request: pytest.FixtureRequest) -> EOA:
-    """Load the seed key from --rpc-seed-key (replaces remote_seed_sender)."""
+    """
+    Load or generate a seed key for signing transactions.
+
+    If ``--rpc-seed-key`` is provided, uses that key.  Otherwise
+    generates a random one — the withdrawal in global setup will
+    fund it regardless.
+    """
+    import secrets
+
     key_str = request.config.getoption("rpc_seed_key")
-    assert key_str, "--rpc-seed-key is required for fill-stateful"
-    eoa = EOA(key=int(key_str, 16), nonce=0)
+    if key_str:
+        key = int(key_str, 16)
+    else:
+        key = int.from_bytes(secrets.token_bytes(32))
+        logger.info("Generated random seed key (funded via withdrawal)")
+    eoa = EOA(key=key, nonce=0)
     account = eth_rpc.get_account(eoa, skip_code=True)
     eoa.nonce = Number(account.nonce)
     return eoa
@@ -324,7 +353,8 @@ def sender_fund_refund_gas_limit() -> int:
 
 @pytest.fixture(scope="session")
 def snapshot_block(eth_rpc: Any) -> dict:
-    """Capture the client's current head as the snapshot reference.
+    """
+    Capture the client's current head as the snapshot reference.
 
     With ``execute_required_contracts`` overridden as a no-op, this
     captures the raw datadir head — the true snapshot that
@@ -333,8 +363,7 @@ def snapshot_block(eth_rpc: Any) -> dict:
     block = eth_rpc.get_block_by_number("latest")
     assert block is not None, "Could not fetch snapshot block"
     logger.info(
-        f"Snapshot block {block['number']} "
-        f"hash={block['hash'][:20]}..."
+        f"Snapshot block {block['number']} hash={block['hash'][:20]}..."
     )
     return block
 
@@ -358,17 +387,15 @@ def start_block(
     eth_rpc: Any,
     execute_required_contracts: None,  # noqa: ARG001
 ) -> dict:
-    """Capture the head after global setup (factory deploy etc.).
+    """
+    Capture the head after global setup (factory deploy etc.).
 
     Each test's ``setupEngineNewPayloads`` chain from this block.
     ``debug_setHead`` rewinds to this block between tests.
     """
     block = eth_rpc.get_block_by_number("latest")
     assert block is not None, "Could not fetch start block"
-    logger.info(
-        f"Start block {block['number']} "
-        f"hash={block['hash'][:20]}..."
-    )
+    logger.info(f"Start block {block['number']} hash={block['hash'][:20]}...")
     return block
 
 
@@ -391,7 +418,8 @@ def _maybe_write_pre_run(
     snapshot_num = int(HexNumber(snapshot_block["number"]))
     start_num = int(HexNumber(start_block["number"]))
     pre_run_captured = [
-        c for c in recording_rpc.captured
+        c
+        for c in recording_rpc.captured
         if snapshot_num < c.response.execution_payload.number <= start_num
     ]
     payloads = [_to_fixture_payload(c) for c in pre_run_captured]
@@ -427,7 +455,8 @@ def capture_stateful_fixture(
     session_fork: Fork | TransitionFork,
     eth_rpc: Any,
 ) -> Generator[None, None, None]:
-    """Clear recorder before test, package fixture after.
+    """
+    Clear recorder before test, package fixture after.
 
     On the first test, saves global setup blocks (between snapshot
     and start) to ``pre_run/global_setup.json``.  After each test,
@@ -439,8 +468,11 @@ def capture_stateful_fixture(
 
     # On first test, write global setup blocks as pre-run fixture.
     _maybe_write_pre_run(
-        recording_rpc, snapshot_block, start_block,
-        session_fork, request.config,
+        recording_rpc,
+        snapshot_block,
+        start_block,
+        session_fork,
+        request.config,
     )
 
     recording_rpc.clear()

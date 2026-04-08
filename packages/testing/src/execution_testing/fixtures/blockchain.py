@@ -919,7 +919,8 @@ class BlockchainEngineStatefulFixture(BlockchainEngineFixtureCommon):
 
 
 class StatefulPreRunFixture(CamelModel):
-    """Pre-run payloads for stateful benchmark fixtures.
+    """
+    Pre-run payloads for stateful benchmark fixtures.
 
     Contains session-scoped blocks (e.g. deterministic factory
     deploy) that must be replayed once before any per-test

@@ -3,10 +3,11 @@ Chain builder Ethereum RPC that can drive the chain when new transactions are
 submitted.
 """
 
+import math
 import time
 from contextlib import AbstractContextManager
 from pathlib import Path
-from typing import Any, List, Sequence
+from typing import Any, List, Sequence, Tuple
 from urllib.parse import urlparse
 
 from filelock import FileLock
@@ -27,6 +28,7 @@ from execution_testing.rpc.rpc_types import (
     PayloadStatusEnum,
     TransactionProtocol,
 )
+from execution_testing.test_types import Withdrawal
 
 
 class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
@@ -129,7 +131,11 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         return self.block_building_lock
 
     def _payload_attributes(
-        self, *, next_block_number: int, next_timestamp: int
+        self,
+        *,
+        next_block_number: int,
+        next_timestamp: int,
+        withdrawals: List[Withdrawal] | None = None,
     ) -> PayloadAttributes:
         """Build payload attributes from the current head block."""
         next_fork = self.fork.fork_at(
@@ -138,13 +144,17 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         parent_beacon_block_root = (
             Hash(0) if next_fork.header_beacon_root_required() else None
         )
+        if withdrawals is None:
+            block_withdrawals: List[Withdrawal] | None = (
+                [] if next_fork.header_withdrawals_required() else None
+            )
+        else:
+            block_withdrawals = withdrawals
         return PayloadAttributes(
             timestamp=next_timestamp,
             prev_randao=Hash(0),
             suggested_fee_recipient=Address(0),
-            withdrawals=[]
-            if next_fork.header_withdrawals_required()
-            else None,
+            withdrawals=block_withdrawals,
             parent_beacon_block_root=parent_beacon_block_root,
             target_blobs_per_block=(
                 next_fork.target_blobs_per_block()
@@ -306,3 +316,51 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
             )
 
         return [tx.hash for tx in transactions]
+
+    def fund_via_withdrawals(
+        self,
+        funding_targets: List[Tuple[Address, int]],
+    ) -> None:
+        """
+        Fund accounts by injecting CL withdrawals into a block.
+
+        Builds a transaction-free block whose payload attributes
+        contain one withdrawal per funding target.
+        """
+        assert self.testing_rpc is not None, (
+            "fund_via_withdrawals requires testing_rpc"
+        )
+        if not funding_targets:
+            return
+
+        gwei = 10**9
+        withdrawals = [
+            Withdrawal(
+                index=HexNumber(i),
+                validator_index=HexNumber(1),
+                address=addr,
+                amount=HexNumber(math.ceil(wei_amount / gwei)),
+            )
+            for i, (addr, wei_amount) in enumerate(funding_targets)
+        ]
+
+        with self.block_building_lock:
+            head_block = self.get_block_by_number("latest")
+            assert head_block is not None
+            next_block_number = int(HexNumber(head_block["number"]) + 1)
+            next_timestamp = int(HexNumber(head_block["timestamp"]) + 1)
+            payload_attributes = self._payload_attributes(
+                next_block_number=next_block_number,
+                next_timestamp=next_timestamp,
+                withdrawals=withdrawals,
+            )
+            new_payload = self.testing_rpc.build_block(
+                parent_block_hash=Hash(head_block["hash"]),
+                payload_attributes=payload_attributes,
+                transactions=None,
+                extra_data=Bytes(b""),
+            )
+            self._finalize_payload(
+                new_payload,
+                payload_attributes.parent_beacon_block_root,
+            )
