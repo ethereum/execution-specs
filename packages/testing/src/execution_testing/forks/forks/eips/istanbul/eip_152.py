@@ -28,5 +28,5 @@ class EIP152(BaseFork):
         """Set BLAKE2F per-round gas cost."""
         return replace(
             super(EIP152, cls).gas_costs(),
-            GAS_PRECOMPILE_BLAKE2F_PER_ROUND=1,
+            PRECOMPILE_BLAKE2F_PER_ROUND=1,
         )

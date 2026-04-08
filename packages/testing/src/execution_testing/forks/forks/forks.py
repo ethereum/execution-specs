@@ -32,7 +32,7 @@ from ..base_fork import (
     TransactionDataFloorCostCalculator,
     TransactionIntrinsicCostCalculator,
 )
-from ..gas_costs import GasCosts
+from ..gas_costs import BASE, HIGH, LOW, MID, VERY_LOW, GasCosts
 from . import eips
 from .helpers import ceiling_division
 

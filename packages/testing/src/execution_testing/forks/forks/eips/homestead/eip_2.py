@@ -43,7 +43,7 @@ class EIP2(BaseFork):
                 authorization_list_or_count=authorization_list_or_count,
             )
             if contract_creation:
-                intrinsic_cost += gas_costs.GAS_TX_CREATE
+                intrinsic_cost += gas_costs.TX_CREATE
             return intrinsic_cost
 
         return fn

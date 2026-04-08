@@ -26,9 +26,9 @@ class EIP1014(BaseFork):
 
         init_code_size = metadata["init_code_size"]
         init_code_words = (init_code_size + 31) // 32
-        hash_gas = gas_costs.GAS_KECCAK256_PER_WORD * init_code_words
+        hash_gas = gas_costs.OPCODE_KECCACK256_PER_WORD * init_code_words
 
-        return gas_costs.GAS_CREATE + hash_gas
+        return gas_costs.OPCODE_CREATE_BASE + hash_gas
 
     @classmethod
     def create_opcodes(cls) -> List[Opcodes]:

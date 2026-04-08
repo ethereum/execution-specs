@@ -26,7 +26,7 @@ class EIP3855(BaseFork):
         base_map = super(EIP3855, cls).opcode_gas_map()
         return {
             **base_map,
-            Opcodes.PUSH0: gas_costs.GAS_BASE,
+            Opcodes.PUSH0: gas_costs.BASE,
         }
 
     @classmethod

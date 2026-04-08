@@ -26,9 +26,9 @@ class EIP161(BaseFork):
         metadata = opcode.metadata
         if "value_transfer" in metadata:
             if metadata["value_transfer"]:
-                base_cost += gas_costs.GAS_CALL_VALUE
+                base_cost += gas_costs.CALL_VALUE
                 if metadata["account_new"]:
-                    base_cost += gas_costs.GAS_NEW_ACCOUNT
+                    base_cost += gas_costs.NEW_ACCOUNT
             elif metadata["account_new"]:
                 raise ValueError("Account new requires value transfer")
 
