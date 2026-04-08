@@ -67,7 +67,7 @@ test = [
 ]
 lint = [
     "ruff==0.13.2",
-    "mypy==1.17.0",
+    "mypy==1.20.0",
     "types-requests>=2.31,<2.33",
 ]
 dev = [

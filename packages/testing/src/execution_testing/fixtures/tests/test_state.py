@@ -112,7 +112,7 @@ class TestPydanticModelConversion:
         self,
         can_be_deserialized: bool,
         model_instance: Any,
-        json: str | Dict[str, Any],
+        json: Dict[str, Any],
     ) -> None:
         """Test that to_json returns the expected JSON for the given object."""
         if not can_be_deserialized:
