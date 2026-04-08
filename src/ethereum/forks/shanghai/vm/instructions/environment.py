@@ -439,7 +439,7 @@ def returndatacopy(evm: Evm) -> None:
 
     # GAS
     words = ceil32(Uint(size)) // Uint(32)
-    copy_gas_cost = GasCosts.RETURN_DATA_COPY * words
+    copy_gas_cost = GasCosts.OPCODE_RETURNDATACOPY_PER_WORD * words
     extend_memory = calculate_gas_extend_memory(
         evm.memory, [(memory_start_index, size)]
     )

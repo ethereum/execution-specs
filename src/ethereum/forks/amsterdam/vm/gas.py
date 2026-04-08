@@ -60,9 +60,7 @@ class GasCosts:
 
     # Utility
     ZERO = Uint(0)
-    RETURN_DATA_COPY = Uint(
-        3
-    )  # TODO refactor=>OPCODE_RETURNDATAOPCODE_COPY_PER_WORD
+    OPCODE_RETURNDATACOPY_PER_WORD = Uint(3)
     MEMORY_PER_WORD = Uint(3)
     FAST_STEP = Uint(5)
 
