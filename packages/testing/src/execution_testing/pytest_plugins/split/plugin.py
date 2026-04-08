@@ -96,7 +96,6 @@ def pytest_collection_modifyitems(config: Config, items: list[Item]) -> None:
         splits=splits,
         items=items,
         durations=durations,
-        workers_per_runner=workers,
     )
     split = all_groups[group - 1]  # group is 1-indexed
 
