@@ -127,9 +127,7 @@ def pytest_collection_modifyitems(config: Config, items: list[Item]) -> None:
         f" max_group={split.max_group_duration:.0f}s"
     )
     if workers > 1:
-        wall = max(
-            split.duration / workers, split.max_group_duration
-        )
+        wall = max(split.duration / workers, split.max_group_duration)
         summary.append(
             f"  est_wall={wall:.0f}s"
             f" (serial/{workers}={split.duration / workers:.0f}s,"
