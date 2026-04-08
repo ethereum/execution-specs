@@ -23,7 +23,7 @@ fix:
 
 # Run all static checks (spellcheck, lint, format, mypy, ...)
 [group('static analysis'), parallel]
-static: typecheck lint-spec spellcheck lint-actions lock-check format-check lint deadcode
+static: typecheck lint-spec spellcheck deadcode lint-actions lock-check format-check lint
 
 # Check spelling
 [group('static analysis')]
