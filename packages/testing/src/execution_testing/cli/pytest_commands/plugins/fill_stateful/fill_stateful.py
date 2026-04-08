@@ -6,6 +6,7 @@ tests against a live network.
 """
 
 import secrets
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Generator, List, Sequence
@@ -211,6 +212,13 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help="Output directory for generated fixtures.",
     )
     fill_group.addoption(
+        "--clean",
+        action="store_true",
+        dest="clean_output",
+        default=False,
+        help="Remove existing output directory before filling.",
+    )
+    fill_group.addoption(
         "--rpc-seed-key",
         action="store",
         dest="rpc_seed_key",
@@ -250,6 +258,15 @@ def pytest_configure(config: pytest.Config) -> None:
         logger.info(f"Auto-detected chain ID: {config.option.chain_id}")
 
     output_dir = Path(config.getoption("output"))
+    if output_dir.exists() and any(output_dir.iterdir()):
+        if config.getoption("clean_output"):
+            shutil.rmtree(output_dir)
+        else:
+            pytest.exit(
+                f"Output directory {output_dir} is not empty. "
+                f"Use --clean to remove it, or specify a different "
+                f"--output path."
+            )
     output_dir.mkdir(parents=True, exist_ok=True)
 
     config.fixture_collector = FixtureCollector(  # type: ignore[attr-defined]
