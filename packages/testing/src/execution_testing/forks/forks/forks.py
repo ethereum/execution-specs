@@ -131,6 +131,7 @@ class Frontier(
             TX_CREATE=32_000,
             # Refunds
             REFUND_STORAGE_CLEAR=4_800,
+            REFUND_AUTH_PER_EXISTING_ACCOUNT=0,
             # Precompiles
             PRECOMPILE_ECRECOVER=3_000,
             PRECOMPILE_SHA256_BASE=60,
@@ -181,7 +182,6 @@ class Frontier(
             OPCODE_CREATE_BASE=32_000,
             OPCODE_EXP_BASE=10,
             OPCODE_EXP_PER_BYTE=50,
-            # TODO
             OPCODE_LOG_BASE=375,
             OPCODE_LOG_DATA_PER_BYTE=8,
             OPCODE_LOG_TOPIC=375,
@@ -192,7 +192,6 @@ class Frontier(
             TX_DATA_TOKEN_STANDARD=0,
             TX_DATA_TOKEN_FLOOR=0,
             AUTH_PER_EMPTY_ACCOUNT=0,
-            REFUND_AUTH_PER_EXISTING_ACCOUNT=0,
             PRECOMPILE_ECADD=0,
             PRECOMPILE_ECMUL=0,
             PRECOMPILE_ECPAIRING_BASE=0,

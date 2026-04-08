@@ -118,10 +118,9 @@ class GasCosts:
     OPCODE_LOG_BASE = Uint(375)
     OPCODE_LOG_DATA_PER_BYTE = Uint(8)
     OPCODE_LOG_TOPIC = Uint(375)
-    # TODO
-    EXTERNAL = Uint(20)
-    BALANCE = Uint(20)
-    CALL = Uint(40)
+    OPCODE_EXTERNAL_BASE = Uint(20)
+    OPCODE_BALANCE = Uint(20)
+    OPCODE_CALL_BASE = Uint(40)
 
 
 @dataclass
@@ -270,6 +269,8 @@ def calculate_message_call_gas(
         Uint(0) if account_exists(state, to) else GasCosts.NEW_ACCOUNT
     )
     transfer_gas_cost = Uint(0) if value == 0 else GasCosts.CALL_VALUE
-    cost = GasCosts.CALL + gas + create_gas_cost + transfer_gas_cost
+    cost = (
+        GasCosts.OPCODE_CALL_BASE + gas + create_gas_cost + transfer_gas_cost
+    )
     stipend = gas if value == 0 else GasCosts.CALL_STIPEND + gas
     return MessageCallGas(cost, stipend)

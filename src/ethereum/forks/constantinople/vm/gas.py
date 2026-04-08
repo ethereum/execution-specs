@@ -128,10 +128,9 @@ class GasCosts:
     OPCODE_LOG_TOPIC = Uint(375)
     OPCODE_SELFDESTRUCT_BASE = Uint(5000)
     OPCODE_SELFDESTRUCT_NEW_ACCOUNT = Uint(25000)
-    # TODO
-    EXTERNAL = Uint(700)
-    BALANCE = Uint(400)
-    CALL = Uint(700)
+    OPCODE_EXTERNAL_BASE = Uint(700)
+    OPCODE_BALANCE = Uint(400)
+    OPCODE_CALL_BASE = Uint(700)
 
 
 @dataclass
