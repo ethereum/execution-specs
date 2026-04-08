@@ -20,7 +20,7 @@ from .spec import ref_spec_8024
 REFERENCE_SPEC_GIT_PATH = ref_spec_8024.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8024.version
 
-pytestmark = pytest.mark.valid_from("Amsterdam")
+pytestmark = pytest.mark.valid_from("EIP8024")
 
 
 def test_eip_vector_dupn_duplicate_bottom(
