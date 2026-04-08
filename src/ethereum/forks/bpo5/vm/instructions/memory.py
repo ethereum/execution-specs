@@ -166,7 +166,7 @@ def mcopy(evm: Evm) -> None:
     )
     charge_gas(
         evm,
-        GasCosts.OPCODE_MCOPY + copy_gas_cost + extend_memory.cost,
+        GasCosts.OPCODE_MCOPY_BASE + copy_gas_cost + extend_memory.cost,
     )
 
     # OPERATION

@@ -142,7 +142,7 @@ class GasCosts:
     OPCODE_SHL: int = 0
     OPCODE_SHR: int = 0
     OPCODE_SAR: int = 0
-    OPCODE_RETURNDATACOPY: int = 0
+    OPCODE_RETURNDATACOPY_BASE: int = 0
     OPCODE_BLOBHASH: int = 0
-    OPCODE_MCOPY: int = 0
+    OPCODE_MCOPY_BASE: int = 0
     OPCODE_CLZ: int = 0
