@@ -1,0 +1,181 @@
+name: Runner Fingerprint
+
+on:
+  workflow_dispatch:
+    inputs:
+      runners:
+        description: "Number of parallel runners to fingerprint"
+        required: false
+        default: "10"
+        type: string
+
+jobs:
+  fingerprint:
+    name: runner-${{ matrix.id }}
+    runs-on: [self-hosted-ghr, size-gigachungus-x64]
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        id: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    steps:
+      - name: Runner identity
+        run: |
+          echo "### Runner Identity" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "Runner name: $(hostname)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Date: $(date -u)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Kernel: $(uname -r)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Arch: $(uname -m)" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: CPU
+        run: |
+          echo "### CPU" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          lscpu >> "$GITHUB_STEP_SUMMARY" 2>&1
+          echo '---' >> "$GITHUB_STEP_SUMMARY"
+          echo "Model: $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | xargs)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Physical cores: $(grep -c '^processor' /proc/cpuinfo)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Sockets: $(lscpu | grep 'Socket(s)' | awk '{print $2}')" >> "$GITHUB_STEP_SUMMARY"
+          echo "Cores per socket: $(lscpu | grep 'Core(s) per socket' | awk '{print $4}')" >> "$GITHUB_STEP_SUMMARY"
+          echo "Threads per core: $(lscpu | grep 'Thread(s) per core' | awk '{print $4}')" >> "$GITHUB_STEP_SUMMARY"
+          echo "CPU MHz range: $(lscpu | grep -E 'CPU.*MHz')" >> "$GITHUB_STEP_SUMMARY"
+          echo "Flags (abridged): $(grep -m1 flags /proc/cpuinfo | grep -oE '(avx|avx2|avx512|sse4|aes|bmi|bmi2)' | sort -u | tr '\n' ' ')" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: CPU benchmark (single-core)
+        run: |
+          echo "### CPU Benchmark" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          # Single-core: hash 100MB
+          echo "Single-core (sha256sum 100MB):"  >> "$GITHUB_STEP_SUMMARY"
+          dd if=/dev/zero bs=1M count=100 2>/dev/null | { time sha256sum; } 2>&1 | grep real >> "$GITHUB_STEP_SUMMARY"
+          # Multi-core: parallel hash on all cores
+          NCPU=$(nproc)
+          echo "Multi-core ($NCPU parallel sha256sum 100MB each):" >> "$GITHUB_STEP_SUMMARY"
+          { time seq "$NCPU" | xargs -P"$NCPU" -I{} sh -c 'dd if=/dev/zero bs=1M count=100 2>/dev/null | sha256sum > /dev/null'; } 2>&1 | grep real >> "$GITHUB_STEP_SUMMARY"
+          # Python single-core: tight loop (measures Python perf specifically)
+          echo "Python single-core (10M iterations):" >> "$GITHUB_STEP_SUMMARY"
+          { time python3 -c "
+s = 0
+for i in range(10_000_000):
+    s += i
+print(s)
+" > /dev/null; } 2>&1 | grep real >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Memory
+        run: |
+          echo "### Memory" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          free -h >> "$GITHUB_STEP_SUMMARY"
+          echo '---' >> "$GITHUB_STEP_SUMMARY"
+          echo "NUMA nodes:" >> "$GITHUB_STEP_SUMMARY"
+          numactl --hardware 2>&1 | head -20 >> "$GITHUB_STEP_SUMMARY" || echo "numactl not available" >> "$GITHUB_STEP_SUMMARY"
+          echo '---' >> "$GITHUB_STEP_SUMMARY"
+          echo "Transparent hugepages: $(cat /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null || echo 'N/A')" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Memory benchmark
+        run: |
+          echo "### Memory Benchmark" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          # Sequential write bandwidth
+          echo "dd write 1GB:" >> "$GITHUB_STEP_SUMMARY"
+          dd if=/dev/zero of=/tmp/bench_mem bs=1M count=1024 2>&1 | tail -1 >> "$GITHUB_STEP_SUMMARY"
+          rm -f /tmp/bench_mem
+          # Python memory allocation benchmark (relevant to EELS)
+          echo "Python alloc+fill 500MB:" >> "$GITHUB_STEP_SUMMARY"
+          { time python3 -c "
+import array
+a = array.array('q', range(500_000_000 // 8))
+print(f'allocated {len(a) * 8 / 1e6:.0f} MB')
+" ; } 2>&1 >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Disk
+        run: |
+          echo "### Disk" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "Filesystem:" >> "$GITHUB_STEP_SUMMARY"
+          df -Th / >> "$GITHUB_STEP_SUMMARY"
+          df -Th /tmp >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+          echo '---' >> "$GITHUB_STEP_SUMMARY"
+          echo "Block devices:" >> "$GITHUB_STEP_SUMMARY"
+          lsblk -o NAME,TYPE,SIZE,ROTA,DISC-GRAN,MODEL 2>/dev/null >> "$GITHUB_STEP_SUMMARY" || lsblk >> "$GITHUB_STEP_SUMMARY"
+          echo '---' >> "$GITHUB_STEP_SUMMARY"
+          echo "Scheduler:" >> "$GITHUB_STEP_SUMMARY"
+          for dev in /sys/block/*/queue/scheduler; do
+            echo "  $dev: $(cat "$dev" 2>/dev/null)" >> "$GITHUB_STEP_SUMMARY"
+          done
+          echo '---' >> "$GITHUB_STEP_SUMMARY"
+          echo "Mount options:" >> "$GITHUB_STEP_SUMMARY"
+          mount | grep -E '^/dev' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Disk benchmark
+        run: |
+          echo "### Disk Benchmark" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          TESTDIR="${GITHUB_WORKSPACE:-/tmp}/diskbench"
+          mkdir -p "$TESTDIR"
+          # Sequential write
+          echo "Sequential write 1GB (oflag=direct):" >> "$GITHUB_STEP_SUMMARY"
+          dd if=/dev/zero of="$TESTDIR/seqwrite" bs=1M count=1024 oflag=direct 2>&1 | tail -1 >> "$GITHUB_STEP_SUMMARY"
+          # Sequential read
+          echo "Sequential read 1GB (iflag=direct):" >> "$GITHUB_STEP_SUMMARY"
+          dd if="$TESTDIR/seqwrite" of=/dev/null bs=1M iflag=direct 2>&1 | tail -1 >> "$GITHUB_STEP_SUMMARY"
+          rm -f "$TESTDIR/seqwrite"
+          # Random I/O (many small files, simulates fixture writes)
+          echo "Create+write 1000 x 4KB files:" >> "$GITHUB_STEP_SUMMARY"
+          { time for i in $(seq 1 1000); do dd if=/dev/zero of="$TESTDIR/f$i" bs=4K count=1 2>/dev/null; done; } 2>&1 | grep real >> "$GITHUB_STEP_SUMMARY"
+          echo "Sync:" >> "$GITHUB_STEP_SUMMARY"
+          { time sync; } 2>&1 | grep real >> "$GITHUB_STEP_SUMMARY"
+          rm -rf "$TESTDIR"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Network and virtualization
+        run: |
+          echo "### Virtualization & Environment" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "Virt type: $(systemd-detect-virt 2>/dev/null || echo 'unknown')" >> "$GITHUB_STEP_SUMMARY"
+          echo "Hypervisor: $(grep -m1 'hypervisor' /proc/cpuinfo > /dev/null 2>&1 && echo 'yes' || echo 'no/bare-metal')" >> "$GITHUB_STEP_SUMMARY"
+          echo "DMI product: $(cat /sys/class/dmi/id/product_name 2>/dev/null || echo 'N/A')" >> "$GITHUB_STEP_SUMMARY"
+          echo "DMI vendor: $(cat /sys/class/dmi/id/sys_vendor 2>/dev/null || echo 'N/A')" >> "$GITHUB_STEP_SUMMARY"
+          echo "Cloud provider: $(cat /sys/class/dmi/id/board_vendor 2>/dev/null || echo 'N/A')" >> "$GITHUB_STEP_SUMMARY"
+          echo '---' >> "$GITHUB_STEP_SUMMARY"
+          echo "cgroups CPU:" >> "$GITHUB_STEP_SUMMARY"
+          cat /sys/fs/cgroup/cpu.max 2>/dev/null >> "$GITHUB_STEP_SUMMARY" || echo "  v1: quota=$(cat /sys/fs/cgroup/cpu/cpu.cfs_quota_us 2>/dev/null) period=$(cat /sys/fs/cgroup/cpu/cpu.cfs_period_us 2>/dev/null)" >> "$GITHUB_STEP_SUMMARY"
+          echo "cgroups memory:" >> "$GITHUB_STEP_SUMMARY"
+          cat /sys/fs/cgroup/memory.max 2>/dev/null >> "$GITHUB_STEP_SUMMARY" || cat /sys/fs/cgroup/memory/memory.limit_in_bytes 2>/dev/null >> "$GITHUB_STEP_SUMMARY" || echo "  N/A" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Process limits
+        run: |
+          echo "### Process Limits" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          ulimit -a >> "$GITHUB_STEP_SUMMARY" 2>&1
+          echo '---' >> "$GITHUB_STEP_SUMMARY"
+          echo "nproc: $(nproc)" >> "$GITHUB_STEP_SUMMARY"
+          echo "/proc/sys/vm/swappiness: $(cat /proc/sys/vm/swappiness)" >> "$GITHUB_STEP_SUMMARY"
+          echo "/proc/sys/vm/overcommit_memory: $(cat /proc/sys/vm/overcommit_memory)" >> "$GITHUB_STEP_SUMMARY"
+          echo "/proc/sys/kernel/threads-max: $(cat /proc/sys/kernel/threads-max)" >> "$GITHUB_STEP_SUMMARY"
+          echo "/proc/sys/vm/max_map_count: $(cat /proc/sys/vm/max_map_count)" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Summary table
+        run: |
+          echo "### Quick Summary" >> "$GITHUB_STEP_SUMMARY"
+          CPU_MODEL=$(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | xargs)
+          CPU_COUNT=$(nproc)
+          MEM_TOTAL=$(free -g | awk '/Mem:/{print $2}')
+          DISK_SIZE=$(df -BG / | awk 'NR==2{print $2}')
+          DISK_AVAIL=$(df -BG / | awk 'NR==2{print $4}')
+          VIRT=$(systemd-detect-virt 2>/dev/null || echo 'unknown')
+          echo "| Metric | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|--------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| CPU | $CPU_MODEL |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Cores (nproc) | $CPU_COUNT |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| RAM | ${MEM_TOTAL}G |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Disk | ${DISK_SIZE} (${DISK_AVAIL} free) |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Virtualization | $VIRT |" >> "$GITHUB_STEP_SUMMARY"
