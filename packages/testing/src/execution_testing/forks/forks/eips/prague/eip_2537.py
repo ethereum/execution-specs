@@ -47,12 +47,12 @@ class EIP2537(BaseFork):
         """Add gas costs for BLS12-381 precompiles."""
         return replace(
             super(EIP2537, cls).gas_costs(),
-            GAS_PRECOMPILE_BLS_G1ADD=375,
-            GAS_PRECOMPILE_BLS_G1MUL=12_000,
-            GAS_PRECOMPILE_BLS_G1MAP=5_500,
-            GAS_PRECOMPILE_BLS_G2ADD=600,
-            GAS_PRECOMPILE_BLS_G2MUL=22_500,
-            GAS_PRECOMPILE_BLS_G2MAP=23_800,
-            GAS_PRECOMPILE_BLS_PAIRING_BASE=37_700,
-            GAS_PRECOMPILE_BLS_PAIRING_PER_PAIR=32_600,
+            PRECOMPILE_BLS_G1ADD=375,
+            PRECOMPILE_BLS_G1MUL=12_000,
+            PRECOMPILE_BLS_G1MAP=5_500,
+            PRECOMPILE_BLS_G2ADD=600,
+            PRECOMPILE_BLS_G2MUL=22_500,
+            PRECOMPILE_BLS_G2MAP=23_800,
+            PRECOMPILE_BLS_PAIRING_BASE=37_700,
+            PRECOMPILE_BLS_PAIRING_PER_PAIR=32_600,
         )

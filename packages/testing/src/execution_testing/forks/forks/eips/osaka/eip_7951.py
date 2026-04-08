@@ -35,5 +35,5 @@ class EIP7951(BaseFork):
         """Set the P256VERIFY precompile gas cost."""
         return replace(
             super(EIP7951, cls).gas_costs(),
-            GAS_PRECOMPILE_P256VERIFY=6_900,
+            PRECOMPILE_P256VERIFY=6_900,
         )

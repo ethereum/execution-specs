@@ -20,5 +20,5 @@ class EIP2028(BaseFork):
         """Reduce non-zero calldata byte gas cost to 16."""
         return replace(
             super(EIP2028, cls).gas_costs(),
-            GAS_TX_DATA_PER_NON_ZERO=16,
+            TX_DATA_PER_NON_ZERO=16,
         )

@@ -24,9 +24,9 @@ class EIP211(BaseFork):
         base_map = super(EIP211, cls).opcode_gas_map()
         return {
             **base_map,
-            Opcodes.RETURNDATASIZE: gas_costs.GAS_BASE,
+            Opcodes.RETURNDATASIZE: gas_costs.BASE,
             Opcodes.RETURNDATACOPY: cls._with_memory_expansion(
-                cls._with_data_copy(gas_costs.GAS_VERY_LOW, gas_costs),
+                cls._with_data_copy(gas_costs.VERY_LOW, gas_costs),
                 memory_expansion_calculator,
             ),
         }

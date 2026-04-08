@@ -189,7 +189,7 @@ class EIP4844(
         """On Cancun, the point evaluation precompile gas cost is set."""
         return replace(
             super(EIP4844, cls).gas_costs(),
-            GAS_PRECOMPILE_POINT_EVALUATION=50_000,
+            PRECOMPILE_POINT_EVALUATION=50_000,
         )
 
     @classmethod
@@ -208,7 +208,7 @@ class EIP4844(
         base_map = super(EIP4844, cls).opcode_gas_map()
 
         # Add Cancun-specific opcodes
-        return {**base_map, Opcodes.BLOBHASH: gas_costs.GAS_VERY_LOW}
+        return {**base_map, Opcodes.BLOBHASH: gas_costs.VERY_LOW}
 
     @classmethod
     def valid_opcodes(cls) -> List[Opcodes]:

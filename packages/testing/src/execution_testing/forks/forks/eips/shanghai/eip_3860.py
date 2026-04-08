@@ -36,7 +36,7 @@ class EIP3860(BaseFork):
 
         init_code_size = metadata["init_code_size"]
         init_code_words = (init_code_size + 31) // 32
-        init_code_gas = gas_costs.GAS_CODE_INIT_PER_WORD * init_code_words
+        init_code_gas = gas_costs.CODE_INIT_PER_WORD * init_code_words
 
         return base_cost + init_code_gas
 
@@ -55,6 +55,6 @@ class EIP3860(BaseFork):
 
         init_code_size = metadata["init_code_size"]
         init_code_words = (init_code_size + 31) // 32
-        init_code_gas = gas_costs.GAS_CODE_INIT_PER_WORD * init_code_words
+        init_code_gas = gas_costs.CODE_INIT_PER_WORD * init_code_words
 
         return base_cost + init_code_gas

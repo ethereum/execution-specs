@@ -36,7 +36,7 @@ class EIP7928(
         """
         return replace(
             super(EIP7928, cls).gas_costs(),
-            GAS_BLOCK_ACCESS_LIST_ITEM=2000,
+            BLOCK_ACCESS_LIST_ITEM=2000,
         )
 
     @classmethod
