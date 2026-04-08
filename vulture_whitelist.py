@@ -138,11 +138,6 @@ CommentReplaceCommand.transform_module_impl
 
 _children  # unused attribute (src/ethereum_spec_tools/docc.py:751)
 
-# src/ethereum/forks/amsterdam/vm/__init__.py - dataclass field
-from ethereum.forks.amsterdam.vm import Message
-
-Message.is_create
-
 # evm_tools/loaders/fixture_loader.py - abstract methods
 from ethereum_spec_tools.evm_tools.loaders.fixture_loader import BaseLoad
 
