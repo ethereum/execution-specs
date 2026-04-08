@@ -171,11 +171,11 @@ class Frontier(
             OPCODE_DUP=VERY_LOW,
             OPCODE_SWAP=VERY_LOW,
             # Dynamic Opcode Component
-            OPCODE_CALLDATACOPY=VERY_LOW,
-            OPCODE_CODECOPY=VERY_LOW,
-            OPCODE_MLOAD=VERY_LOW,
-            OPCODE_MSTORE=VERY_LOW,
-            OPCODE_MSTORE8=VERY_LOW,
+            OPCODE_CALLDATACOPY_BASE=VERY_LOW,
+            OPCODE_CODECOPY_BASE=VERY_LOW,
+            OPCODE_MLOAD_BASE=VERY_LOW,
+            OPCODE_MSTORE_BASE=VERY_LOW,
+            OPCODE_MSTORE8_BASE=VERY_LOW,
             OPCODE_SELFDESTRUCT_BASE=5_000,
             OPCODE_COPY_PER_WORD=3,
             OPCODE_CREATE_BASE=32_000,
@@ -387,12 +387,14 @@ class Frontier(
             Opcodes.CALLDATALOAD: gas_costs.OPCODE_CALLDATALOAD,
             Opcodes.CALLDATASIZE: gas_costs.BASE,
             Opcodes.CALLDATACOPY: cls._with_memory_expansion(
-                cls._with_data_copy(gas_costs.OPCODE_CALLDATACOPY, gas_costs),
+                cls._with_data_copy(
+                    gas_costs.OPCODE_CALLDATACOPY_BASE, gas_costs
+                ),
                 memory_expansion_calculator,
             ),
             Opcodes.CODESIZE: gas_costs.BASE,
             Opcodes.CODECOPY: cls._with_memory_expansion(
-                cls._with_data_copy(gas_costs.OPCODE_CODECOPY, gas_costs),
+                cls._with_data_copy(gas_costs.OPCODE_CODECOPY_BASE, gas_costs),
                 memory_expansion_calculator,
             ),
             Opcodes.GASPRICE: gas_costs.BASE,
@@ -414,15 +416,15 @@ class Frontier(
             # Stack, memory, storage and flow operations
             Opcodes.POP: gas_costs.BASE,
             Opcodes.MLOAD: cls._with_memory_expansion(
-                gas_costs.OPCODE_MLOAD,
+                gas_costs.OPCODE_MLOAD_BASE,
                 memory_expansion_calculator,
             ),
             Opcodes.MSTORE: cls._with_memory_expansion(
-                gas_costs.OPCODE_MSTORE,
+                gas_costs.OPCODE_MSTORE_BASE,
                 memory_expansion_calculator,
             ),
             Opcodes.MSTORE8: cls._with_memory_expansion(
-                gas_costs.OPCODE_MSTORE8,
+                gas_costs.OPCODE_MSTORE8_BASE,
                 memory_expansion_calculator,
             ),
             Opcodes.SLOAD: lambda op: (

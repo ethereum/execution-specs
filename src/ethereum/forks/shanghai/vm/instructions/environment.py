@@ -227,7 +227,7 @@ def calldatacopy(evm: Evm) -> None:
     )
     charge_gas(
         evm,
-        GasCosts.OPCODE_CALLDATACOPY + copy_gas_cost + extend_memory.cost,
+        GasCosts.OPCODE_CALLDATACOPY_BASE + copy_gas_cost + extend_memory.cost,
     )
 
     # OPERATION
@@ -288,7 +288,7 @@ def codecopy(evm: Evm) -> None:
     )
     charge_gas(
         evm,
-        GasCosts.OPCODE_CODECOPY + copy_gas_cost + extend_memory.cost,
+        GasCosts.OPCODE_CODECOPY_BASE + copy_gas_cost + extend_memory.cost,
     )
 
     # OPERATION
