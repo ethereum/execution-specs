@@ -30,6 +30,7 @@ class SplitGroup(NamedTuple):
     selected: list[HasNodeId]
     deselected: list[HasNodeId]
     duration: float
+    max_group_duration: float
 
 
 def strip_xdist_suffix(nodeid: str) -> str:
@@ -91,6 +92,7 @@ def grouped_least_duration(
     splits: int,
     items: Sequence[HasNodeId],
     durations: dict[str, float],
+    workers_per_runner: int = 1,
 ) -> list[SplitGroup]:
     """
     Split *items* into *splits* groups using grouped least-duration
@@ -98,8 +100,14 @@ def grouped_least_duration(
 
     1. Group items by ``grouping_key(item.nodeid)``.
     2. Compute per-group duration from *durations* (average for unknowns).
-    3. Assign groups heaviest-first to the runner with the smallest total.
+    3. Assign groups heaviest-first to the runner with the smallest
+       estimated wall time.
     4. Return one ``SplitGroup`` per runner.
+
+    When *workers_per_runner* > 1, the heap key is the estimated wall
+    time ``max(total / workers, max_group_dur)`` instead of just the
+    serial total.  A secondary key on serial total fills free capacity
+    on runners whose wall time is dominated by a single heavy group.
     """
     # --- 1. Build ordered groups (preserving collection order) ---
     groups: OrderedDict[str, list[HasNodeId]] = OrderedDict()
@@ -131,17 +139,31 @@ def grouped_least_duration(
 
     runner_keys: list[list[str]] = [[] for _ in range(splits)]
     runner_totals: list[float] = [0.0] * splits
+    runner_max_group: list[float] = [0.0] * splits
+    w = max(workers_per_runner, 1)
 
-    # Heap of (total_duration, runner_index)
-    heap: list[tuple[float, int]] = [(0.0, i) for i in range(splits)]
+    # Heap of (wall_time, total_duration, runner_index).
+    # wall_time = max(total/workers, max_group_dur) when workers > 1,
+    # otherwise just the serial total.  The secondary total_duration
+    # key ensures runners with equal wall time but more free capacity
+    # (lower serial total) are preferred.
+    heap: list[tuple[float, float, int]] = [
+        (0.0, 0.0, i) for i in range(splits)
+    ]
     heapq.heapify(heap)
 
     for key in sorted_keys:
-        total, idx = heapq.heappop(heap)
+        _, total, idx = heapq.heappop(heap)
         runner_keys[idx].append(key)
         new_total = total + group_durations[key]
         runner_totals[idx] = new_total
-        heapq.heappush(heap, (new_total, idx))
+        new_max = max(runner_max_group[idx], group_durations[key])
+        runner_max_group[idx] = new_max
+        if w > 1:
+            wall = max(new_total / w, new_max)
+        else:
+            wall = new_total
+        heapq.heappush(heap, (wall, new_total, idx))
 
     # --- 4. Expand to SplitGroup objects ---
     # Groups within each runner are in heaviest-first assignment order.
@@ -157,6 +179,7 @@ def grouped_least_duration(
                 selected=selected,
                 deselected=deselected,
                 duration=runner_totals[i],
+                max_group_duration=runner_max_group[i],
             )
         )
 

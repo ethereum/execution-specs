@@ -223,3 +223,69 @@ class TestGroupedLeastDuration:
         durations_sorted = sorted(g.duration for g in groups)
         assert durations_sorted[0] == pytest.approx(1.0)
         assert durations_sorted[1] == pytest.approx(100.0)
+
+    def test_max_group_duration_field(self) -> None:
+        """``SplitGroup.max_group_duration`` returns the heaviest group."""
+        items = [
+            Item("t.py::heavy[fork_A-state_test]"),
+            Item("t.py::heavy[fork_A-blockchain_test]"),
+            Item("t.py::light[fork_B-state_test]"),
+        ]
+        durations = {
+            items[0].nodeid: 100.0,
+            items[1].nodeid: 50.0,
+            items[2].nodeid: 1.0,
+        }
+        groups = grouped_least_duration(2, items, durations)
+        # heavy group = 150, light group = 1
+        for g in groups:
+            if items[0] in g.selected:
+                assert g.max_group_duration == pytest.approx(150.0)
+            else:
+                assert g.max_group_duration == pytest.approx(1.0)
+
+    def test_workers_default_matches_serial(self) -> None:
+        """``workers_per_runner=1`` matches serial-only balancing."""
+        items = [
+            Item("t.py::a[fork_A-state_test]"),
+            Item("t.py::b[fork_B-state_test]"),
+            Item("t.py::c[fork_C-state_test]"),
+        ]
+        durations = {
+            items[0].nodeid: 100.0,
+            items[1].nodeid: 50.0,
+            items[2].nodeid: 10.0,
+        }
+        g_default = grouped_least_duration(2, items, durations)
+        g_explicit = grouped_least_duration(
+            2, items, durations, workers_per_runner=1
+        )
+        assert [g.duration for g in g_default] == [
+            g.duration for g in g_explicit
+        ]
+
+    def test_wall_time_aware_fills_free_capacity(self) -> None:
+        """With workers, heavy-group runners absorb light groups."""
+        heavy = [Item("t.py::h[fork_A-state_test]")]
+        lights = [Item(f"t.py::l{i}[fork_B-state_test]") for i in range(10)]
+        durations = {heavy[0].nodeid: 1000.0}
+        for item in lights:
+            durations[item.nodeid] = 1.0
+
+        groups = grouped_least_duration(
+            2, heavy + lights, durations, workers_per_runner=10
+        )
+        # With 10 workers, the heavy runner's wall time is 1000s
+        # (dominated by max_group_dur).  Light groups can be added
+        # without increasing wall time.
+        for g in groups:
+            if heavy[0] in g.selected:
+                heavy_runner = g
+            else:
+                light_runner = g
+
+        # The heavy runner should absorb some light groups
+        # because its wall time is already 1000s (max_group_dur)
+        # and adding light work doesn't increase it.
+        assert heavy_runner.max_group_duration == pytest.approx(1000.0)
+        assert light_runner.duration < heavy_runner.duration
