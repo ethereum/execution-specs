@@ -70,7 +70,7 @@ def merge_partial_fixture_files(output_dir: Path) -> None:
                 try:
                     existing_data = json.load(existing)
                     for k, v in existing_data.items():
-                        entries[k] = json.dumps(v, separators=(",", ":"))
+                        entries[k] = json.dumps(v, indent=4)
                 except json.JSONDecodeError:
                     pass
 

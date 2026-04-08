@@ -1167,6 +1167,12 @@ class DebugRPC(EthRPC):
             request=RPCCall(method="traceCall", params=params)
         ).result_or_raise()
 
+    def set_head(self, block_number: str) -> None:
+        """`debug_setHead`: Reset chain head to the given block."""
+        self.post_request(
+            request=RPCCall(method="setHead", params=[block_number])
+        ).result_or_raise()
+
 
 class EngineRPC(BaseJwtRPC):
     """

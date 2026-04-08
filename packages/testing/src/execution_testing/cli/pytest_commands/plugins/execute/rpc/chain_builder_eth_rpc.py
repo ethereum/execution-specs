@@ -3,7 +3,6 @@ Chain builder Ethereum RPC that can drive the chain when new transactions are
 submitted.
 """
 
-import math
 import time
 from contextlib import AbstractContextManager
 from pathlib import Path
@@ -339,7 +338,7 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
                 index=HexNumber(i),
                 validator_index=HexNumber(1),
                 address=addr,
-                amount=HexNumber(math.ceil(wei_amount / gwei)),
+                amount=HexNumber((wei_amount + gwei - 1) // gwei),
             )
             for i, (addr, wei_amount) in enumerate(funding_targets)
         ]
