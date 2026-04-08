@@ -175,7 +175,7 @@ def build_refund_tx(
 )
 @pytest.mark.with_all_refund_types()
 @pytest.mark.execute(pytest.mark.skip(reason="Requires specific gas price"))
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP7778")
 def test_simple_gas_accounting(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -243,7 +243,7 @@ def test_simple_gas_accounting(
 )
 @pytest.mark.with_all_refund_types()
 @pytest.mark.execute(pytest.mark.skip(reason="Requires specific gas price"))
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP7778")
 def test_multi_transaction_gas_accounting(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -370,7 +370,7 @@ class CallDataTestType(Enum):
     ],
 )
 @pytest.mark.with_all_refund_types()
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP7778")
 def test_varying_calldata_costs(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -413,7 +413,7 @@ def test_varying_calldata_costs(
 
     # Time to start searching for appropriate call data for each scenario
     num_iterations = 200
-    # Currently in Amsterdam, the optimal call data is found in about
+    # Currently in EIP-7778, the optimal call data is found in about
     # 30 iterations for CallDataTestType.DATA_FLOOR_GT_TX_GAS_BEFORE_REFUND.
     # Setting this higher just to make it
     # a bit more future proof if the gas calc logic changes
