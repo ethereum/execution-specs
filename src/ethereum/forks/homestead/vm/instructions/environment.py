@@ -64,7 +64,7 @@ def balance(evm: Evm) -> None:
     address = to_address_masked(pop(evm.stack))
 
     # GAS
-    charge_gas(evm, GasCosts.BALANCE)
+    charge_gas(evm, GasCosts.OPCODE_BALANCE)
 
     # OPERATION
     # Non-existent accounts default to EMPTY_ACCOUNT, which has balance 0.
@@ -331,7 +331,7 @@ def extcodesize(evm: Evm) -> None:
     address = to_address_masked(pop(evm.stack))
 
     # GAS
-    charge_gas(evm, GasCosts.EXTERNAL)
+    charge_gas(evm, GasCosts.OPCODE_EXTERNAL_BASE)
 
     # OPERATION
     account = get_account(evm.message.block_env.state, address)
@@ -366,7 +366,10 @@ def extcodecopy(evm: Evm) -> None:
     extend_memory = calculate_gas_extend_memory(
         evm.memory, [(memory_start_index, size)]
     )
-    charge_gas(evm, GasCosts.EXTERNAL + copy_gas_cost + extend_memory.cost)
+    charge_gas(
+        evm,
+        GasCosts.OPCODE_EXTERNAL_BASE + copy_gas_cost + extend_memory.cost,
+    )
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by

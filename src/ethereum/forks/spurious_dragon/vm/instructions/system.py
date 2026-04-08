@@ -270,7 +270,7 @@ def call(evm: Evm) -> None:
         gas,
         Uint(evm.gas_left),
         extend_memory.cost,
-        GasCosts.CALL + create_gas_cost + transfer_gas_cost,
+        GasCosts.OPCODE_CALL_BASE + create_gas_cost + transfer_gas_cost,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
 
@@ -336,7 +336,7 @@ def callcode(evm: Evm) -> None:
         gas,
         Uint(evm.gas_left),
         extend_memory.cost,
-        GasCosts.CALL + transfer_gas_cost,
+        GasCosts.OPCODE_CALL_BASE + transfer_gas_cost,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
 
@@ -463,7 +463,11 @@ def delegatecall(evm: Evm) -> None:
         ],
     )
     message_call_gas = calculate_message_call_gas(
-        U256(0), gas, Uint(evm.gas_left), extend_memory.cost, GasCosts.CALL
+        U256(0),
+        gas,
+        Uint(evm.gas_left),
+        extend_memory.cost,
+        GasCosts.OPCODE_CALL_BASE,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
 

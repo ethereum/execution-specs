@@ -435,7 +435,7 @@ def delegatecall(evm: Evm) -> None:
             (memory_output_start_position, memory_output_size),
         ],
     )
-    charge_gas(evm, GasCosts.CALL + gas + extend_memory.cost)
+    charge_gas(evm, GasCosts.OPCODE_CALL_BASE + gas + extend_memory.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by

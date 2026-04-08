@@ -132,7 +132,6 @@ class GasCosts:
     OPCODE_CREATE_BASE: int
     OPCODE_EXP_BASE: int
     OPCODE_EXP_PER_BYTE: int
-    # TODO
     OPCODE_LOG_BASE: int
     OPCODE_LOG_DATA_PER_BYTE: int
     OPCODE_LOG_TOPIC: int
