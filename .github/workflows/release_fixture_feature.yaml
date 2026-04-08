@@ -98,9 +98,9 @@ jobs:
           FEATURE_NAME="${{ needs.setup.outputs.feature_name }}"
           EXIT_CODE=0
           if [ "${{ steps.evm-builder.outputs.impl }}" = "eels" ]; then
-            uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} --maxprocesses=32 ${{ steps.properties.outputs.fill-params }} --generate-pre-alloc-groups --from=${{ matrix.from_fork }} --until=${{ matrix.until_fork }} --output=fixtures_${FEATURE_NAME} --build-name ${FEATURE_NAME} --no-html -qq || EXIT_CODE=$?
+            uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} ${{ steps.properties.outputs.fill-params }} --generate-pre-alloc-groups --from=${{ matrix.from_fork }} --until=${{ matrix.until_fork }} --output=fixtures_${FEATURE_NAME} --build-name ${FEATURE_NAME} --no-html -qq || EXIT_CODE=$?
           else
-            uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} --maxprocesses=32 --evm-bin=${{ steps.evm-builder.outputs.evm-bin }} ${{ steps.properties.outputs.fill-params }} --generate-pre-alloc-groups --from=${{ matrix.from_fork }} --until=${{ matrix.until_fork }} --output=fixtures_${FEATURE_NAME} --build-name ${FEATURE_NAME} --no-html -qq || EXIT_CODE=$?
+            uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} --evm-bin=${{ steps.evm-builder.outputs.evm-bin }} ${{ steps.properties.outputs.fill-params }} --generate-pre-alloc-groups --from=${{ matrix.from_fork }} --until=${{ matrix.until_fork }} --output=fixtures_${FEATURE_NAME} --build-name ${FEATURE_NAME} --no-html -qq || EXIT_CODE=$?
           fi
           if [ "$EXIT_CODE" -ne 0 ] && [ "$EXIT_CODE" -ne 5 ]; then
             exit "$EXIT_CODE"
@@ -186,6 +186,14 @@ jobs:
           fi
         env:
           GH_TOKEN: ${{ github.token }}
+
+      - name: Normalize durations (strip xdist suffixes)
+        if: matrix.label != ''
+        shell: bash
+        run: |
+          if [ -f .test_durations ]; then
+            python3 -c 'exec("import json\nwith open(\".test_durations\") as f: data=json.load(f)\nout={k.split(\"@\")[0]:v for k,v in data.items()}\nwith open(\".test_durations\",\"w\") as f: json.dump(out,f)\nprint(f\"Normalized {len(data)} -> {len(out)} entries\")")'
+          fi
 
       - uses: ./.github/actions/build-fixtures
         with:

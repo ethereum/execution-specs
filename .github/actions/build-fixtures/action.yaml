@@ -50,8 +50,7 @@ runs:
 
         if [ -n "$IS_SPLIT" ]; then
           OUTPUT_ARG="--output=fixtures_${{ inputs.release_name }}"
-          SPLIT_ARGS="--generate-all-formats --splits=${{ inputs.splits }} --group=${{ inputs.group }} --grouped-split --split-workers=$(nproc)"
-          # --split-workers is diagnostic only (reported in grouped-split summary)
+          SPLIT_ARGS="--generate-all-formats --splits=${{ inputs.splits }} --group=${{ inputs.group }} --single-fixture-per-file"
         else
           OUTPUT_ARG="--output=fixtures_${{ inputs.release_name }}.tar.gz"
           SPLIT_ARGS=""
@@ -70,9 +69,9 @@ runs:
         # Allow exit code 5 (NO_TESTS_COLLECTED) for groups with no tests.
         EXIT_CODE=0
         if [ "${{ steps.evm-builder.outputs.impl }}" = "eels" ]; then
-          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} --maxprocesses=32 ${{ steps.properties.outputs.fill-params }} $SPLIT_ARGS $OUTPUT_ARG --build-name ${{ inputs.release_name }} --no-html --durations=100 --log-level=INFO $DURATIONS_ARG $PRE_ALLOC_ARG || EXIT_CODE=$?
+          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} ${{ steps.properties.outputs.fill-params }} $SPLIT_ARGS $OUTPUT_ARG --build-name ${{ inputs.release_name }} --no-html --durations=100 --log-level=INFO $DURATIONS_ARG $PRE_ALLOC_ARG || EXIT_CODE=$?
         else
-          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} --maxprocesses=32 --evm-bin=${{ steps.evm-builder.outputs.evm-bin }} ${{ steps.properties.outputs.fill-params }} $SPLIT_ARGS $OUTPUT_ARG --build-name ${{ inputs.release_name }} --no-html --durations=100 --log-level=INFO $DURATIONS_ARG $PRE_ALLOC_ARG || EXIT_CODE=$?
+          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} --evm-bin=${{ steps.evm-builder.outputs.evm-bin }} ${{ steps.properties.outputs.fill-params }} $SPLIT_ARGS $OUTPUT_ARG --build-name ${{ inputs.release_name }} --no-html --durations=100 --log-level=INFO $DURATIONS_ARG $PRE_ALLOC_ARG || EXIT_CODE=$?
         fi
         if [ "$EXIT_CODE" -ne 0 ] && [ "$EXIT_CODE" -ne 5 ]; then
           exit "$EXIT_CODE"
