@@ -50,7 +50,7 @@ runs:
 
         if [ -n "$IS_SPLIT" ]; then
           OUTPUT_ARG="--output=fixtures_${{ inputs.release_name }}"
-          SPLIT_ARGS="--generate-all-formats --splits=${{ inputs.splits }} --group=${{ inputs.group }} --grouped-split"
+          SPLIT_ARGS="--generate-all-formats --splits=${{ inputs.splits }} --group=${{ inputs.group }} --grouped-split --split-workers=$(nproc)"
         else
           OUTPUT_ARG="--output=fixtures_${{ inputs.release_name }}.tar.gz"
           SPLIT_ARGS=""

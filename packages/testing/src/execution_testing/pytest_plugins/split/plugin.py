@@ -27,8 +27,9 @@ _SPLIT_SUMMARY_KEY = pytest.StashKey[list[str]]()
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
-    """Register the ``--grouped-split`` flag."""
-    parser.getgroup("split").addoption(
+    """Register the ``--grouped-split`` and ``--split-workers`` flags."""
+    group = parser.getgroup("split")
+    group.addoption(
         "--grouped-split",
         dest="grouped_split",
         action="store_true",
@@ -36,6 +37,16 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help=(
             "Use grouped least-duration splitting"
             " (requires --splits and --group)."
+        ),
+    )
+    group.addoption(
+        "--split-workers",
+        dest="split_workers",
+        type=int,
+        default=1,
+        help=(
+            "Number of xdist workers per runner for wall-time-aware"
+            " splitting (default: 1, serial balance)."
         ),
     )
 
@@ -80,8 +91,12 @@ def pytest_collection_modifyitems(config: Config, items: list[Item]) -> None:
     )
     unmatched = len(items) - matched
 
+    workers = config.getoption("split_workers", default=1)
     all_groups = grouped_least_duration(
-        splits=splits, items=items, durations=durations
+        splits=splits,
+        items=items,
+        durations=durations,
+        workers_per_runner=workers,
     )
     split = all_groups[group - 1]  # group is 1-indexed
 
