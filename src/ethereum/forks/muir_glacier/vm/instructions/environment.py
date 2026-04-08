@@ -431,7 +431,9 @@ def returndatacopy(evm: Evm) -> None:
     )
     charge_gas(
         evm,
-        GasCosts.OPCODE_RETURNDATACOPY + copy_gas_cost + extend_memory.cost,
+        GasCosts.OPCODE_RETURNDATACOPY_BASE
+        + copy_gas_cost
+        + extend_memory.cost,
     )
     if Uint(return_data_start_position) + Uint(size) > ulen(evm.return_data):
         raise OutOfBoundsRead
@@ -460,7 +462,7 @@ def extcodehash(evm: Evm) -> None:
     address = to_address_masked(pop(evm.stack))
 
     # GAS
-    charge_gas(evm, GasCosts.CODE_HASH)
+    charge_gas(evm, GasCosts.OPCODE_EXTCODEHASH)
 
     # OPERATION
     account = get_account(evm.message.block_env.state, address)

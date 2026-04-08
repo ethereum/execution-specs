@@ -445,7 +445,9 @@ def returndatacopy(evm: Evm) -> None:
     )
     charge_gas(
         evm,
-        GasCosts.OPCODE_RETURNDATACOPY + copy_gas_cost + extend_memory.cost,
+        GasCosts.OPCODE_RETURNDATACOPY_BASE
+        + copy_gas_cost
+        + extend_memory.cost,
     )
     if Uint(return_data_start_position) + Uint(size) > ulen(evm.return_data):
         raise OutOfBoundsRead
