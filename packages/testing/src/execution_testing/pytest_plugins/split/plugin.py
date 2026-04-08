@@ -123,8 +123,39 @@ def pytest_collection_modifyitems(config: Config, items: list[Item]) -> None:
     summary.append(
         f"Runner {group}/{splits}:"
         f" {len(split.selected)} items,"
-        f" estimated {split.duration:.1f}s"
+        f" serial={split.duration:.0f}s,"
+        f" max_group={split.max_group_duration:.0f}s"
     )
+    if workers > 1:
+        wall = max(
+            split.duration / workers, split.max_group_duration
+        )
+        summary.append(
+            f"  est_wall={wall:.0f}s"
+            f" (serial/{workers}={split.duration / workers:.0f}s,"
+            f" max_group={split.max_group_duration:.0f}s)"
+        )
+    # Compact overview of all runners (emitted by every runner for
+    # independent CI log inspection).
+    summary.append("All runners:")
+    for i, g in enumerate(all_groups, 1):
+        marker = ">>>" if i == group else "   "
+        if workers > 1:
+            wall = max(g.duration / workers, g.max_group_duration)
+            summary.append(
+                f"  {marker} {i:2d}:"
+                f" {len(g.selected):6d} items,"
+                f" serial={g.duration:.0f}s,"
+                f" max_grp={g.max_group_duration:.0f}s,"
+                f" wall~{wall:.0f}s"
+            )
+        else:
+            summary.append(
+                f"  {marker} {i:2d}:"
+                f" {len(g.selected):6d} items,"
+                f" serial={g.duration:.0f}s,"
+                f" max_grp={g.max_group_duration:.0f}s"
+            )
     config.stash[_SPLIT_SUMMARY_KEY] = summary
 
     items[:] = split.selected
