@@ -538,6 +538,8 @@ class TransitionToolInput:
             )
         elif isinstance(self.alloc, LazyAllocJson):
             alloc_contents = self.alloc.raw
+        elif isinstance(self.alloc, LazyAllocStr):
+            alloc_contents = json.loads(self.alloc.raw)
         else:
             raise Exception(f"Invalid alloc type: {type(self.alloc)}")
 

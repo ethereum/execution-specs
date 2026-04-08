@@ -94,6 +94,7 @@ from ..shared.helpers import (
 from ..spec_version_checker.spec_version_checker import (
     get_ref_spec_from_module,
 )
+from .disk_cache import DiskCache
 
 if TYPE_CHECKING:
     from .pre_alloc import Alloc
@@ -446,6 +447,8 @@ class TransitionToolCacheStats:
     key_test_miss: int = 0
     subkey_test_hits: int = 0
     subkey_test_miss: int = 0
+    disk_hits: int = 0
+    disk_misses: int = 0
     unique_keys: int = 0
     _seen_keys: Set[str] = field(default_factory=set, repr=False)
 
@@ -467,6 +470,8 @@ class TransitionToolCacheStats:
             "key_test_miss": self.key_test_miss,
             "subkey_test_hits": self.subkey_test_hits,
             "subkey_test_miss": self.subkey_test_miss,
+            "disk_hits": self.disk_hits,
+            "disk_misses": self.disk_misses,
             "unique_keys": self.unique_keys,
         }
 
@@ -476,6 +481,8 @@ class TransitionToolCacheStats:
         self.key_test_miss += other.key_test_miss
         self.subkey_test_hits += other.subkey_test_hits
         self.subkey_test_miss += other.subkey_test_miss
+        self.disk_hits += other.disk_hits
+        self.disk_misses += other.disk_misses
         self.unique_keys += other.unique_keys
 
     @classmethod
@@ -486,6 +493,8 @@ class TransitionToolCacheStats:
             key_test_miss=data.get("key_test_miss", 0),
             subkey_test_hits=data.get("subkey_test_hits", 0),
             subkey_test_miss=data.get("subkey_test_miss", 0),
+            disk_hits=data.get("disk_hits", 0),
+            disk_misses=data.get("disk_misses", 0),
             unique_keys=data.get("unique_keys", 0),
         )
 
@@ -625,6 +634,23 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help=(
             "Path to an evm executable that provides the `blocktest` command. "
             "Default: The first (geth) 'evm' entry in PATH."
+        ),
+    )
+    evm_group.addoption(
+        "--cache",
+        action="store_true",
+        dest="cache",
+        default=False,
+        help="Enable the disk cache for t8n results.",
+    )
+    evm_group.addoption(
+        "--cache-dir",
+        action="store",
+        dest="cache_dir",
+        type=Path,
+        default=None,
+        help=(
+            "Path to the t8n disk cache database file. Default: .t8n-cache.db"
         ),
     )
 
@@ -932,6 +958,21 @@ def pytest_configure(config: pytest.Config) -> None:
         )
     config.t8n = t8n  # type: ignore[attr-defined]
 
+    # Initialize disk cache (opt-in via --cache, disabled with --traces)
+    if config.getoption("cache") and not config.getoption(
+        "evm_collect_traces"
+    ):
+        db_path = config.getoption("cache_dir") or Path(".t8n-cache.db")
+        t8n.disk_cache = DiskCache(
+            db_path=db_path,
+            exception_mapper_context={
+                "exception_mapper": t8n.exception_mapper
+            },
+        )
+        import ethereum
+
+        t8n.disk_cache.set_ethereum_root(Path(ethereum.__file__).parent)
+
     if "Tools" not in config.stash[metadata_key]:
         config.stash[metadata_key]["Tools"] = {
             "t8n": t8n.version(),
@@ -1046,6 +1087,19 @@ def pytest_terminal_summary(
                     " test groups, no cache sharing possible"
                 ),
                 bold=True,
+            )
+        disk_total = t8n_cache_stats.disk_hits + t8n_cache_stats.disk_misses
+        if disk_total > 0:
+            disk_pct = t8n_cache_stats.disk_hits / disk_total * 100
+            terminalreporter.write_sep(
+                "=",
+                (
+                    f" T8n disk cache: {disk_pct:.0f}% hit rate"
+                    f" ({t8n_cache_stats.disk_hits} hits,"
+                    f" {t8n_cache_stats.disk_misses} misses)"
+                ),
+                bold=True,
+                green=disk_pct > 90,
             )
     stats = terminalreporter.stats
     if "passed" in stats and stats["passed"]:
@@ -1241,6 +1295,8 @@ def session_t8n(
             stacklevel=2,
         )
     yield t8n
+    if t8n.disk_cache is not None:
+        t8n.disk_cache.close()
     t8n.shutdown()
 
 
@@ -1306,6 +1362,14 @@ def t8n(
         # Reset counters to avoid double-counting (cache persists across tests)
         session_t8n.output_cache.hits = 0
         session_t8n.output_cache.misses = 0
+    # Collect disk cache stats
+    if session_t8n.disk_cache is not None:
+        transition_tool_cache_stats.disk_hits += session_t8n.disk_cache.hits
+        transition_tool_cache_stats.disk_misses += (
+            session_t8n.disk_cache.misses
+        )
+        session_t8n.disk_cache.hits = 0
+        session_t8n.disk_cache.misses = 0
 
 
 @pytest.fixture(scope="session")

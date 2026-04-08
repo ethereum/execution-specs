@@ -24,6 +24,7 @@ cached_downloads/
 __pycache__/
 .pytest_cache/
 pytest-cache-files-*/
+.t8n-cache*
 
 # Distribution / packaging
 .Python

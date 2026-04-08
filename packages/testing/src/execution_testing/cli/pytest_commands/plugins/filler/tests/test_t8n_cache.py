@@ -1,11 +1,17 @@
 """Unit tests for the t8n output cache functionality."""
 
 import hashlib
+from pathlib import Path
 from typing import Any
 from unittest.mock import sentinel
 
 import pytest
 
+from execution_testing.client_clis.cli_types import (
+    LazyAllocStr,
+    Result,
+    TransitionToolOutput,
+)
 from execution_testing.client_clis.transition_tool import OutputCache
 from execution_testing.fixtures import (
     BlockchainEngineFixture,
@@ -608,3 +614,210 @@ class TestOutputCache:
 
         assert cache.hits == 2
         assert cache.misses == 1
+
+
+def make_test_output(alloc_data: str = '{"0x00": {}}') -> TransitionToolOutput:
+    """Create a minimal TransitionToolOutput for testing."""
+    result = Result.model_validate(
+        {
+            "stateRoot": "0x" + "00" * 32,
+            "txRoot": "0x" + "00" * 32,
+            "receiptsRoot": "0x" + "00" * 32,
+            "logsHash": "0x" + "00" * 32,
+            "logsBloom": "0x" + "00" * 256,
+            "receipts": [],
+            "gasUsed": "0x0",
+        }
+    )
+    alloc = LazyAllocStr(raw=alloc_data, _state_root=result.state_root)
+    return TransitionToolOutput(alloc=alloc, result=result)
+
+
+class TestDiskCache:
+    """Unit tests for the DiskCache SQLite + pickle cache."""
+
+    def test_set_and_get(self, tmp_path: Path) -> None:
+        """Test round-trip: set then get returns equivalent output."""
+        from ..disk_cache import DiskCache
+
+        cache = DiskCache(db_path=tmp_path / "cache.db")
+        output = make_test_output()
+
+        cache.set("spec123", "content456", output)
+        result = cache.get("spec123", "content456")
+
+        assert result is not None
+        assert result.alloc.raw == output.alloc.raw
+        assert result.result.state_root == output.result.state_root
+
+    def test_get_miss_returns_none(self, tmp_path: Path) -> None:
+        """Test get returns None for a nonexistent key."""
+        from ..disk_cache import DiskCache
+
+        cache = DiskCache(db_path=tmp_path / "cache.db")
+        assert cache.get("spec123", "content456") is None
+        assert cache.misses == 1
+
+    def test_hit_miss_counters(self, tmp_path: Path) -> None:
+        """Test hit and miss counters track correctly."""
+        from ..disk_cache import DiskCache
+
+        cache = DiskCache(db_path=tmp_path / "cache.db")
+        output = make_test_output()
+
+        cache.set("spec", "content_a", output)
+        cache.get("spec", "content_a")  # hit
+        cache.get("spec", "content_b")  # miss
+        cache.get("spec", "content_a")  # hit
+
+        assert cache.hits == 2
+        assert cache.misses == 1
+
+    def test_content_hash_deterministic(self) -> None:
+        """Test same inputs produce the same content hash."""
+        from execution_testing.client_clis.cli_types import (
+            TransitionToolContext,
+            TransitionToolInput,
+            TransitionToolRequest,
+        )
+        from execution_testing.test_types import Alloc, Environment
+
+        from ..disk_cache import compute_content_hash
+
+        alloc = Alloc()
+        env = Environment()
+        request = TransitionToolRequest(
+            state=TransitionToolContext(
+                fork="Amsterdam", chain_id=1, reward=0
+            ),
+            input=TransitionToolInput(alloc=alloc, txs=[], env=env),
+        )
+
+        hash_1 = compute_content_hash(request, state_test=False)
+        hash_2 = compute_content_hash(request, state_test=False)
+        assert hash_1 == hash_2
+
+    def test_content_hash_varies_with_state_test(self) -> None:
+        """Test state_test flag changes the content hash."""
+        from execution_testing.client_clis.cli_types import (
+            TransitionToolContext,
+            TransitionToolInput,
+            TransitionToolRequest,
+        )
+        from execution_testing.test_types import Alloc, Environment
+
+        from ..disk_cache import compute_content_hash
+
+        alloc = Alloc()
+        env = Environment()
+        request = TransitionToolRequest(
+            state=TransitionToolContext(
+                fork="Amsterdam", chain_id=1, reward=0
+            ),
+            input=TransitionToolInput(alloc=alloc, txs=[], env=env),
+        )
+
+        hash_false = compute_content_hash(request, state_test=False)
+        hash_true = compute_content_hash(request, state_test=True)
+        assert hash_false != hash_true
+
+    def test_fork_name_to_module(self) -> None:
+        """Test PascalCase to snake_case conversion for fork names."""
+        from ..disk_cache import fork_name_to_module
+
+        assert fork_name_to_module("Amsterdam") == "amsterdam"
+        assert fork_name_to_module("ArrowGlacier") == "arrow_glacier"
+        assert fork_name_to_module("TangerineWhistle") == "tangerine_whistle"
+        assert fork_name_to_module("BPO1") == "bpo1"
+        assert fork_name_to_module("BPO5") == "bpo5"
+
+    def test_spec_hash_changes_for_different_forks(
+        self, tmp_path: Path
+    ) -> None:
+        """Test that different forks produce different spec hashes."""
+        from ..disk_cache import DiskCache
+
+        # Create fake ethereum source tree
+        eth_root = tmp_path / "ethereum"
+        eth_root.mkdir()
+        (eth_root / "__init__.py").write_text("# shared")
+        forks_dir = eth_root / "forks"
+        forks_dir.mkdir()
+
+        fork_a = forks_dir / "fork_a"
+        fork_a.mkdir()
+        (fork_a / "__init__.py").write_text("# fork a code")
+
+        fork_b = forks_dir / "fork_b"
+        fork_b.mkdir()
+        (fork_b / "__init__.py").write_text("# fork b code")
+
+        cache = DiskCache(db_path=tmp_path / "cache.db")
+        cache.set_ethereum_root(eth_root)
+
+        # Use raw module names since fake dirs are already snake_case
+        from ..disk_cache import compute_fork_spec_hash
+
+        assert cache.shared_hash is not None
+        hash_a = compute_fork_spec_hash("ForkA", eth_root, cache.shared_hash)
+        hash_b = compute_fork_spec_hash("ForkB", eth_root, cache.shared_hash)
+        assert hash_a != hash_b
+
+    def test_corrupt_cache_entry_returns_none(self, tmp_path: Path) -> None:
+        """Test that a corrupt cache entry is handled gracefully."""
+        from ..disk_cache import DiskCache
+
+        cache = DiskCache(db_path=tmp_path / "cache.db")
+        # Insert garbage data directly into the DB
+        cache.conn.execute(
+            "INSERT INTO cache (spec_hash, content_hash, data)"
+            " VALUES (?, ?, ?)",
+            ("spec123", "content456", b"not valid pickle"),
+        )
+        cache.conn.commit()
+
+        result = cache.get("spec123", "content456")
+        assert result is None
+        assert cache.misses == 1
+
+    def test_set_skips_existing(self, tmp_path: Path) -> None:
+        """Test set does not overwrite an existing cache entry."""
+        from ..disk_cache import DiskCache
+
+        cache = DiskCache(db_path=tmp_path / "cache.db")
+        output_1 = make_test_output('{"0x01": {}}')
+        output_2 = make_test_output('{"0x02": {}}')
+
+        cache.set("spec", "content", output_1)
+        cache.set("spec", "content", output_2)
+
+        result = cache.get("spec", "content")
+        assert result is not None
+        assert result.alloc.raw == output_1.alloc.raw
+
+    def test_db_file_created(self, tmp_path: Path) -> None:
+        """Test cache creates the SQLite database file."""
+        from ..disk_cache import DiskCache
+
+        db_path = tmp_path / "cache.db"
+        cache = DiskCache(db_path=db_path)
+        output = make_test_output()
+
+        cache.set("myspechash", "abcdef1234567890", output)
+        assert db_path.exists()
+
+    def test_concurrent_writers(self, tmp_path: Path) -> None:
+        """Test two cache instances can write to the same DB."""
+        from ..disk_cache import DiskCache
+
+        db_path = tmp_path / "cache.db"
+        cache_a = DiskCache(db_path=db_path)
+        cache_b = DiskCache(db_path=db_path)
+        output = make_test_output()
+
+        cache_a.set("spec", "content_a", output)
+        cache_b.set("spec", "content_b", output)
+
+        assert cache_a.get("spec", "content_a") is not None
+        assert cache_a.get("spec", "content_b") is not None
+        assert cache_b.get("spec", "content_a") is not None
