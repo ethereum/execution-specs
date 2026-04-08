@@ -99,6 +99,7 @@ def run_bloated_eoa_benchmark(
     authority: EOA,
     existing_slots: bool,
     runtime_code: Bytecode,
+    cache_strategy: CacheStrategy,
 ) -> None:
     """
     Run a bloated-EOA benchmark with the given runtime delegation code.
@@ -125,17 +126,32 @@ def run_bloated_eoa_benchmark(
     sender = pre.fund_eoa()
 
     txs: list[Transaction] = []
-    while gas_available >= intrinsic_gas:
-        tx_gas = min(gas_available, tx_gas_limit)
-        txs.append(
-            Transaction(
-                gas_limit=tx_gas,
-                to=authority,
-                sender=sender,
+    with TestPhaseManager.execution():
+        while gas_available >= intrinsic_gas:
+            tx_gas = min(gas_available, tx_gas_limit)
+            txs.append(
+                Transaction(
+                    gas_limit=tx_gas,
+                    to=authority,
+                    sender=sender,
+                )
             )
-        )
-        gas_available -= tx_gas
-    blocks.append(Block(txs=txs))
+            gas_available -= tx_gas
+
+    cache_txs: list[Transaction] = []
+    if cache_strategy == CacheStrategy.CACHE_PREVIOUS_BLOCK:
+        with TestPhaseManager.setup():
+            cache_sender = pre.fund_eoa()
+            for tx in txs:
+                cache_txs.append(
+                    Transaction(
+                        gas_limit=tx.gas_limit,
+                        to=authority,
+                        sender=cache_sender,
+                    )
+                )
+
+    blocks += build_cache_strategy_blocks(cache_strategy, txs, cache_txs)
 
     benchmark_test(
         pre=pre,
@@ -148,6 +164,7 @@ def run_bloated_eoa_benchmark(
 @pytest.mark.repricing
 @pytest.mark.stub_parametrize("token_name", "bloated_eoa_")
 @pytest.mark.parametrize("existing_slots", [False, True])
+@pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
 def test_sload_bloated(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
@@ -156,6 +173,7 @@ def test_sload_bloated(
     tx_gas_limit: int,
     token_name: str,
     existing_slots: bool,
+    cache_strategy: CacheStrategy,
 ) -> None:
     """
     Benchmark SLOAD opcodes targeting an EOA with storage bloated.
@@ -165,14 +183,28 @@ def test_sload_bloated(
     storage layout of the target account, then the existing_slots
     parameter will not be correct.
     """
+    slot_access = (
+        Op.DUP1  # [index, index]
+        + Op.SLOAD  # [s[index], index]
+        + Op.POP  # [index]
+    )
+    # CACHE_TX: access each slot twice so the second hit is unchached
+    if cache_strategy == CacheStrategy.CACHE_TX:
+        slot_access *= 2
+
     runtime_code = (
-        Op.SLOAD(Op.PUSH0)
+        Op.PUSH0  # [0]
+        + Op.SLOAD  # [index], s[0] = index
         + While(
-            body=(Op.DUP1 + Op.SLOAD + Op.POP + Op.PUSH1(1) + Op.ADD),
+            body=(
+                slot_access
+                + Op.PUSH1(1)  # [1, index]
+                + Op.ADD  # [index+1]
+            ),
             condition=Op.GT(Op.GAS, 0xFFFF),
         )
-        + Op.PUSH0
-        + Op.SSTORE
+        + Op.PUSH0  # [0, index+1]
+        + Op.SSTORE  # s[0] = index+1
     )
 
     run_bloated_eoa_benchmark(
@@ -184,6 +216,7 @@ def test_sload_bloated(
         authority=pre.stub_eoa(token_name),
         existing_slots=existing_slots,
         runtime_code=runtime_code,
+        cache_strategy=cache_strategy,
     )
 
 
@@ -191,6 +224,7 @@ def test_sload_bloated(
 @pytest.mark.stub_parametrize("token_name", "bloated_eoa_")
 @pytest.mark.parametrize("write_new_value", [False, True])
 @pytest.mark.parametrize("existing_slots", [True, False])
+@pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
 def test_sstore_bloated(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
@@ -200,6 +234,7 @@ def test_sstore_bloated(
     token_name: str,
     write_new_value: bool,
     existing_slots: bool,
+    cache_strategy: CacheStrategy,
 ) -> None:
     """
     Benchmark SSTORE opcodes targeting an EOA with storage bloated.
@@ -213,29 +248,50 @@ def test_sstore_bloated(
     test what they claim to do. For instance, for `write_new_value`
     set to False we need to know the current value of the slots.
     """
-    stack_init = Op.DUP1 + (
-        Op.PUSH1(1) + Op.ADD + Op.SWAP1 if write_new_value else Bytecode()
+    setup = (
+        Op.PUSH0  # [0]
+        + Op.SLOAD  # [key], s[0] = key
+        + Op.DUP1  # [key, key]
     )
 
+    if write_new_value:
+        setup += (
+            Op.PUSH1(1)  # [1, key, key]
+            + Op.ADD  # [key+1, key]
+            + Op.SWAP1  # [key, key+1]
+        )
+
+    # After setup phase, the stack element represents
+    # [slot, value], slot to write and value to write
+
+    cache_op = Bytecode()
+    if cache_strategy == CacheStrategy.CACHE_TX:
+        cache_op = (
+            Op.DUP1  # [slot, slot, value]
+            + Op.SLOAD  # [s[slot], slot, value]
+            + Op.POP  # [slot, value]
+        )
+
+    # The cache mechanism touches the slot before SSTORE
+
     runtime_code = (
-        Op.SLOAD(Op.PUSH0)
-        + stack_init
-        + While(
+        +While(
             body=(
-                Op.DUP2
-                + Op.DUP2
-                + Op.SSTORE
-                + Op.PUSH1(1)
-                + Op.ADD
-                + Op.SWAP1
-                + Op.PUSH1(1)
-                + Op.ADD
-                + Op.SWAP1
+                cache_op  # [slot, value]
+                + Op.DUP2  # [value, slot, value]
+                + Op.DUP2  # [slot, value, slot, value]
+                + Op.SSTORE  # [slot, value], s[slot] = value
+                + Op.PUSH1(1)  # [1, slot, value]
+                + Op.ADD  # [slot+1, value]
+                + Op.SWAP1  # [value, slot+1]
+                + Op.PUSH1(1)  # [1, value, slot+1]
+                + Op.ADD  # [value+1, slot+1]
+                + Op.SWAP1  # [slot+1, value+1]
             ),
             condition=Op.GT(Op.GAS, 0xFFFF),
         )
-        + Op.PUSH0
-        + Op.SSTORE
+        + Op.PUSH0  # [0, slot+1, value+1]
+        + Op.SSTORE  # s[0] = slot+1
     )
 
     run_bloated_eoa_benchmark(
@@ -247,6 +303,7 @@ def test_sstore_bloated(
         authority=pre.stub_eoa(token_name),
         existing_slots=existing_slots,
         runtime_code=runtime_code,
+        cache_strategy=cache_strategy,
     )
 
 
