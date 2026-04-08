@@ -56,12 +56,7 @@ jobs:
           { time seq "$NCPU" | xargs -P"$NCPU" -I{} sh -c 'dd if=/dev/zero bs=1M count=100 2>/dev/null | sha256sum > /dev/null'; } 2>&1 | grep real >> "$GITHUB_STEP_SUMMARY"
           # Python single-core: tight loop (measures Python perf specifically)
           echo "Python single-core (10M iterations):" >> "$GITHUB_STEP_SUMMARY"
-          { time python3 -c "
-s = 0
-for i in range(10_000_000):
-    s += i
-print(s)
-" > /dev/null; } 2>&1 | grep real >> "$GITHUB_STEP_SUMMARY"
+          { time python3 -c 'exec("s=0\nfor i in range(10_000_000): s+=i\nprint(s)")' > /dev/null; } 2>&1 | grep real >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Memory
@@ -86,11 +81,7 @@ print(s)
           rm -f /tmp/bench_mem
           # Python memory allocation benchmark (relevant to EELS)
           echo "Python alloc+fill 500MB:" >> "$GITHUB_STEP_SUMMARY"
-          { time python3 -c "
-import array
-a = array.array('q', range(500_000_000 // 8))
-print(f'allocated {len(a) * 8 / 1e6:.0f} MB')
-" ; } 2>&1 >> "$GITHUB_STEP_SUMMARY"
+          { time python3 -c "import array; a=array.array('q',range(500_000_000//8)); print(f'allocated {len(a)*8/1e6:.0f} MB')" ; } >> "$GITHUB_STEP_SUMMARY" 2>&1
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Disk
