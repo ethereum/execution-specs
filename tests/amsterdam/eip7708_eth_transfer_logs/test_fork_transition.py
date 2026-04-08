@@ -31,7 +31,7 @@ REFERENCE_SPEC_VERSION = ref_spec_7708.version
         pytest.param(False, False, id="pre_existing_to_other"),
     ],
 )
-@pytest.mark.valid_at_transition_to("Amsterdam")
+@pytest.mark.valid_at_transition_to("EIP7708")
 def test_burn_log_at_fork_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -39,7 +39,7 @@ def test_burn_log_at_fork_transition(
     to_self: bool,
 ) -> None:
     """
-    Test burn log emission across the Amsterdam fork transition.
+    Test burn log emission across the EIP-7708 fork transition.
 
     same_tx_to_self: Factory CREATEs and selfdestructs to self in one tx.
     At/after Amsterdam emits a CREATE transfer log + Burn log.
@@ -135,7 +135,7 @@ def test_burn_log_at_fork_transition(
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
-@pytest.mark.valid_at_transition_to("Amsterdam")
+@pytest.mark.valid_at_transition_to("EIP7708")
 def test_transfer_log_fork_transition(
     blockchain_test: BlockchainTestFiller, pre: Alloc
 ) -> None:

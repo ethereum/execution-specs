@@ -35,7 +35,7 @@ from .spec import burn_log, ref_spec_7708, transfer_log
 REFERENCE_SPEC_GIT_PATH = ref_spec_7708.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7708.version
 
-pytestmark = pytest.mark.valid_from("Amsterdam")
+pytestmark = pytest.mark.valid_from("EIP7708")
 
 
 def test_selfdestruct_to_self_pre_existing_no_log(
