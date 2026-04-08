@@ -24,7 +24,7 @@ from .spec import ref_spec_7954
 REFERENCE_SPEC_GIT_PATH = ref_spec_7954.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7954.version
 
-pytestmark = pytest.mark.valid_from("Amsterdam")
+pytestmark = pytest.mark.valid_from("EIP7954")
 
 CREATE2_SALT = 0xC0FFEE
 
