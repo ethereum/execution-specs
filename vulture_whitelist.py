@@ -146,11 +146,6 @@ BaseLoad.json_to_state
 BaseLoad.json_to_block
 json_data  # abstract method parameter used by concrete implementations
 
-# src/ethereum_spec_tools/evm_tools/loaders/fork_loader.py - internal attribute
-from ethereum_spec_tools.evm_tools.loaders.fork_loader import ForkLoad
-
-ForkLoad._forks
-
 # src/ethereum_spec_tools/lint/lints/patch_hygiene.py - discovered dynamically
 from ethereum_spec_tools.lint.lints.patch_hygiene import PatchHygiene
 
