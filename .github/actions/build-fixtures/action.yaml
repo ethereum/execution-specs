@@ -54,7 +54,7 @@ runs:
 
         if [ -n "$IS_SPLIT" ]; then
           OUTPUT_ARG="--output=fixtures_${{ inputs.release_name }}"
-          SPLIT_ARGS="--generate-all-formats --splits=${{ inputs.splits }} --group=${{ inputs.group }} --single-fixture-per-file"
+          SPLIT_ARGS="--splitting-algorithm=least_duration --generate-all-formats --splits=${{ inputs.splits }} --group=${{ inputs.group }} --single-fixture-per-file"
         else
           OUTPUT_ARG="--output=fixtures_${{ inputs.release_name }}.tar.gz"
           SPLIT_ARGS=""
