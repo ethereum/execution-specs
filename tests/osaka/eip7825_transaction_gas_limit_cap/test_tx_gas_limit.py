@@ -90,7 +90,7 @@ def tx_gas_limit_cap_tests(fork: Fork) -> List[ParameterSet]:
 @pytest.mark.parametrize_by_fork("tx_gas_limit,error", tx_gas_limit_cap_tests)
 @pytest.mark.with_all_tx_types
 @pytest.mark.valid_from("Prague")
-@pytest.mark.valid_until("EIP8037")
+@pytest.mark.valid_before("EIP8037")
 def test_transaction_gas_limit_cap(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -345,7 +345,7 @@ def total_cost_floor_per_token(fork: Fork) -> int:
 )
 @pytest.mark.parametrize("zero_byte", [True, False])
 @pytest.mark.valid_from("Osaka")
-@pytest.mark.valid_until("EIP8037")
+@pytest.mark.valid_before("EIP8037")
 @pytest.mark.eels_base_coverage
 def test_tx_gas_limit_cap_full_calldata(
     state_test: StateTestFiller,
@@ -480,7 +480,7 @@ def test_tx_gas_limit_cap_contract_creation(
     ],
 )
 @pytest.mark.valid_from("Osaka")
-@pytest.mark.valid_until("EIP8037")
+@pytest.mark.valid_before("EIP8037")
 def test_tx_gas_limit_cap_access_list_with_diff_keys(
     state_test: StateTestFiller,
     exceed_tx_gas_limit: bool,
@@ -567,7 +567,7 @@ def test_tx_gas_limit_cap_access_list_with_diff_keys(
     ],
 )
 @pytest.mark.valid_from("Osaka")
-@pytest.mark.valid_until("EIP8037")
+@pytest.mark.valid_before("EIP8037")
 def test_tx_gas_limit_cap_access_list_with_diff_addr(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -648,7 +648,7 @@ def test_tx_gas_limit_cap_access_list_with_diff_addr(
     ],
 )
 @pytest.mark.valid_from("Osaka")
-@pytest.mark.valid_until("EIP8037")
+@pytest.mark.valid_before("EIP8037")
 def test_tx_gas_limit_cap_authorized_tx(
     state_test: StateTestFiller,
     pre: Alloc,
