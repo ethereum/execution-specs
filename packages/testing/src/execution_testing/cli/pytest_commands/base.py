@@ -1,5 +1,6 @@
 """Base classes and utilities for pytest-based CLI commands."""
 
+import os
 import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -75,7 +76,7 @@ class PytestRunner:
                 "execution_testing.cli."
                 "pytest_commands.plugins.fix_package_test_path",
             ]
-        if self._is_verbose(execution.args):
+        if self._is_verbose(execution.args) or os.environ.get("CI"):
             pytest_cmd = f"pytest {' '.join(pytest_args)}"
             self.console.print(f"Executing: [bold]{pytest_cmd}[/bold]")
 
