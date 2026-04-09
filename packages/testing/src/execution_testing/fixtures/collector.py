@@ -128,7 +128,7 @@ class TestInfo:
         fork_Shanghai
         """
         test_name, parameters = self.name.split("[")
-        return test_name, re.sub(r"[\[\]\-:#]", "_", parameters)
+        return test_name, re.sub(r'[\[\]\-:#<>|*?"\\]', "_", parameters)
 
     def get_single_test_name(
         self, mode: Literal["module", "test"] = "module"
