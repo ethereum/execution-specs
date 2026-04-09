@@ -2947,7 +2947,7 @@ def test_set_code_to_precompile(
 
 
 @pytest.mark.with_all_precompiles
-@pytest.mark.valid_until("EIP8037")
+@pytest.mark.valid_before("EIP8037")
 def test_set_code_to_precompile_not_enough_gas_for_precompile_execution(
     state_test: StateTestFiller,
     pre: Alloc,

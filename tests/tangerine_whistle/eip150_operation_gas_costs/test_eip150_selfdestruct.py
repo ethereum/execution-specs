@@ -329,7 +329,7 @@ def build_post_state(
     [0, 1],
     ids=["dead_beneficiary", "alive_beneficiary"],
 )
-@pytest.mark.valid_until("EIP8037")  # TODO[EIP-8037]: Fix for Amsterdam
+@pytest.mark.valid_before("EIP8037")  # TODO[EIP-8037]: Fix for Amsterdam
 def test_selfdestruct_to_account(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
@@ -583,7 +583,7 @@ def test_selfdestruct_state_access_boundary(
     ],
 )
 @pytest.mark.valid_from("TangerineWhistle")
-@pytest.mark.valid_until("EIP8037")  # TODO[EIP-8037]: Fix for Amsterdam
+@pytest.mark.valid_before("EIP8037")  # TODO[EIP-8037]: Fix for Amsterdam
 def test_selfdestruct_to_precompile(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
