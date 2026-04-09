@@ -80,7 +80,7 @@ class Alloc(BaseAlloc):
                 f"Stub EOA '{label}' not found. "
                 "Provide --address-stubs with a pkey entry."
             )
-        return self._stub_eoas[label]
+        return self._stub_eoas[label].copy()
 
     def __setitem__(
         self,
