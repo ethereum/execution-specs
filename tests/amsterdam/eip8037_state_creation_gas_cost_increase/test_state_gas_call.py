@@ -23,6 +23,7 @@ from execution_testing import (
     BlockchainTestFiller,
     Environment,
     Fork,
+    Header,
     Op,
     StateTestFiller,
     Storage,
@@ -913,4 +914,102 @@ def test_call_new_account_header_gas_used(
             Block(txs=[tx]),
         ],
         post={contract: Account(storage=storage)},
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+def test_parent_halt_preserves_reservoir_restored_from_child_spill_revert(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Test reservoir refunded at top level when parent halts after child
+    spills and reverts.
+
+    The tx runs with an empty reservoir (tx.gas == TX_MAX_GAS_LIMIT), so
+    the child's cold SSTORE spills its state gas into `gas_left`. The
+    child then REVERTs, restoring the spill to the parent's reservoir.
+    The parent then hits INVALID, halting the outermost frame. On a
+    top-level exceptional halt the reservoir must be preserved for
+    refund, so block gas_used equals tx.gas_limit minus the restored
+    reservoir.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
+
+    child = pre.deploy_contract(code=(Op.SSTORE(0, 1) + Op.REVERT(0, 0)))
+
+    parent = pre.deploy_contract(
+        code=(Op.POP(Op.CALL(gas=500_000, address=child)) + Op.INVALID),
+    )
+
+    tx = Transaction(
+        to=parent,
+        gas_limit=gas_limit_cap,
+        sender=pre.fund_eoa(),
+    )
+
+    # Top-level exceptional halt: gas_left is zeroed, but the reservoir
+    # restored from the child refund is preserved for top-level refund.
+    # block_regular = gas_limit - sstore_state_gas (reservoir kept out)
+    # block_state   = 0 (nothing actually grown)
+    expected_gas_used = gas_limit_cap - sstore_state_gas
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=expected_gas_used),
+            ),
+        ],
+        post={},
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+def test_parent_halt_preserves_reservoir_restored_from_child_spill_halt(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Test reservoir refunded at top level when parent halts after child
+    spills and halts.
+
+    Same as test_parent_halt_preserves_reservoir_restored_from_child_spill_revert
+    but the child hits INVALID (exceptional halt) instead of REVERT.
+    Both failure modes must restore the spilled state gas to the
+    parent's reservoir; the parent's subsequent top-level halt must
+    preserve that reservoir for refund.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
+
+    child = pre.deploy_contract(code=(Op.SSTORE(0, 1) + Op.INVALID))
+
+    parent = pre.deploy_contract(
+        code=(Op.POP(Op.CALL(gas=500_000, address=child)) + Op.INVALID),
+    )
+
+    tx = Transaction(
+        to=parent,
+        gas_limit=gas_limit_cap,
+        sender=pre.fund_eoa(),
+    )
+
+    expected_gas_used = gas_limit_cap - sstore_state_gas
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=expected_gas_used),
+            ),
+        ],
+        post={},
     )
