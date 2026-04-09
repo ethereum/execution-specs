@@ -841,7 +841,7 @@ def gas_test_parameter_args(
     )
 )
 @pytest.mark.slow()
-@pytest.mark.valid_until("EIP8037")
+@pytest.mark.valid_before("EIP8037")
 def test_gas_cost(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -1120,7 +1120,7 @@ def test_account_warming(
 # TODO[EIP-8037]: EELS uses PER_EMPTY_ACCOUNT_COST=25,000
 # per auth for intrinsic gas check, but Amsterdam
 # G_AUTHORIZATION=165,990 includes state gas. EELS bug?
-@pytest.mark.valid_until("EIP8037")
+@pytest.mark.valid_before("EIP8037")
 def test_intrinsic_gas_cost(
     state_test: StateTestFiller,
     pre: Alloc,
