@@ -52,25 +52,21 @@ theme:
     - navigation.instant
     - navigation.tabs
     - navigation.footer
-  # disabled due to https://github.com/ethereum/execution-specs/issues/1491
-  # palette:
-  #   # Palette toggle for automatic mode
-  #   - media: "(prefers-color-scheme)"
-  #     toggle:
-  #       icon: material/brightness-auto
-  #       name: Switch to light mode
-  #   Palette toggle for light mode
-  #   - media: "(prefers-color-scheme: light)"
-  #    scheme: default
-  #    toggle:
-  #      icon: material/brightness-7
-  #      name: Switch to dark mode
-  #   # Palette toggle for dark mode
-  #   - media: "(prefers-color-scheme: dark)"
-  #     scheme: slate
-  #     toggle:
-  #       icon: material/brightness-4
-  #       name: Switch to system preference
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep-orange
+      accent: deep-orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep-orange
+      accent: deep-orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
 
 markdown_extensions:
   - abbr
