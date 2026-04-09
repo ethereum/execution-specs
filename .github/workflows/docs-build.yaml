@@ -99,14 +99,37 @@ jobs:
 
           # Check if branch is in allowlist
           if echo "$ALLOWLISTED_BRANCHES" | grep -qxF "$BRANCH_INPUT"; then
-            echo "should_publish=true" >> "$GITHUB_OUTPUT"
-            echo "Branch '$BRANCH_INPUT' is allowlisted for publishing"
+            SHOULD_PUBLISH="true"
           else
-            echo "should_publish=false" >> "$GITHUB_OUTPUT"
-            echo "Branch '$BRANCH_INPUT' is not allowlisted for publishing"
-            echo "Allowlisted branches:"
-            echo "$ALLOWLISTED_BRANCHES" | sed 's/^/  - /'
+            SHOULD_PUBLISH="false"
           fi
+          echo "should_publish=$SHOULD_PUBLISH" >> "$GITHUB_OUTPUT"
+
+          # Write job summary
+          {
+            echo "## Check Should Publish"
+            echo ""
+            echo "| Setting | Value |"
+            echo "|---------|-------|"
+            echo "| **Branch** | \`$BRANCH_INPUT\` |"
+            echo "| **Event** | \`$EVENT_NAME\` |"
+            echo "| **Deploy build** | $IS_DEPLOY |"
+            echo "| **Allowlisted** | $SHOULD_PUBLISH |"
+            echo ""
+
+            if [ "$EVENT_NAME" = "pull_request" ]; then
+              echo "-> **Build only** -- pull request; artifacts are not published."
+            elif [ "$SHOULD_PUBLISH" = "true" ]; then
+              echo "-> **Will publish** -- branch is allowlisted; artifacts will be built, combined, and uploaded."
+            else
+              echo "-> **Skipping publish** -- branch is not in the allowlist (\`.github/configs/docs-branches.yaml\`)."
+              echo ""
+              echo "Allowlisted branches:"
+              echo "$ALLOWLISTED_BRANCHES" | while read -r b; do
+                echo "- \`$b\`"
+              done
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
   html-docs:
     name: "Build HTML Docs"
