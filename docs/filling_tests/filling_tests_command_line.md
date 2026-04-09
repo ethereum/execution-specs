@@ -1,8 +1,8 @@
 # Filling Tests at a Prompt
 
-The execution-spec-tests test framework uses the [pytest framework](https://docs.pytest.org/en/latest/) for test case collection and execution. The `fill` command is essentially an alias for `pytest`, which uses several [custom pytest plugins](../library/pytest_plugins/index.md) to run transition tools against test cases and generate JSON fixtures.
+The execution-specs test framework uses the [pytest framework](https://docs.pytest.org/en/latest/) for test case collection and execution. The `fill` command is essentially an alias for `pytest`, which uses several [custom pytest plugins](../library/pytest_plugins/index.md) to run transition tools against test cases and generate JSON fixtures.
 
-!!! note "Options specific to execution-spec-tests"
+!!! note "Options specific to execution-specs"
     The command-line options specific to filling tests can be listed via:
 
     ```console
