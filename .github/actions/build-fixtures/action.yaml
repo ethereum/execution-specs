@@ -43,6 +43,10 @@ runs:
       if: inputs.split_label == ''
       shell: bash
       run: sudo apt-get install -y pigz
+    - name: Diagnose split durations
+      if: inputs.split_label != ''
+      shell: bash
+      run: uv run python .github/scripts/diagnose_durations.py
     - name: Generate fixtures using fill
       shell: bash
       run: |
