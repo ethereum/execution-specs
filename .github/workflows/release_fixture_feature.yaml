@@ -188,6 +188,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+      - uses: ./.github/actions/setup-uv
+        if: matrix.label != ''
+        with:
+          enable-cache: "false"
+
       - name: Normalize durations (strip xdist suffixes)
         if: matrix.label != ''
         shell: bash
