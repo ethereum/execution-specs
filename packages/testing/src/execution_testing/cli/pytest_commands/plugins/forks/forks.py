@@ -478,7 +478,17 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
-        "valid_until(fork): specifies until which fork a test case is valid",
+        (
+            "valid_until(fork): specifies until which fork a test "
+            "case is valid (inclusive)"
+        ),
+    )
+    config.addinivalue_line(
+        "markers",
+        (
+            "valid_before(fork_or_eip): specifies the fork or EIP "
+            "before which a test case is valid (exclusive)"
+        ),
     )
     config.addinivalue_line(
         "markers",
@@ -967,6 +977,49 @@ class ValidUntil(ValidityMarker):
         return resulting_set
 
 
+class ValidBefore(ValidityMarker, mutually_exclusive=[ValidUntil]):
+    """
+    Marker to specify the fork or EIP before which the test is valid.
+
+    The test will be filled for all forks strictly before the specified
+    fork — the fork itself is **excluded**.
+
+    ``valid_before`` vs ``valid_until``:
+
+    - ``valid_until("Prague")`` — inclusive: runs *through* Prague.
+    - ``valid_before("EIP7825")`` — exclusive: runs up to but *not at*
+      the point where EIP-7825 activates.
+
+    ```python
+    import pytest
+
+    from execution_testing import  Alloc, StateTestFiller
+
+    @pytest.mark.valid_before("EIP7825")
+    def test_something_only_valid_before_eip7825(
+        state_test: StateTestFiller,
+        pre: Alloc
+    ):
+        pass
+    ```
+
+    In this example, the test will only be filled for forks where
+    EIP-7825 is not yet active.
+    """
+
+    def _process_with_marker_args(
+        self, *fork_args: str
+    ) -> Set[Fork | TransitionFork]:
+        """Process the fork arguments."""
+        forks: Set[Fork | TransitionFork] = self.process_fork_arguments(
+            *fork_args
+        )
+        resulting_set: Set[Fork | TransitionFork] = set()
+        for fork in forks:
+            resulting_set |= {f for f in ALL_FORKS if f < fork}
+        return resulting_set
+
+
 class ValidAt(ValidityMarker):
     """
     Marker to specify each fork individually for which the test is valid.
@@ -996,7 +1049,8 @@ class ValidAt(ValidityMarker):
 
 
 class ValidAtTransitionTo(
-    ValidityMarker, mutually_exclusive=[ValidAt, ValidFrom, ValidUntil]
+    ValidityMarker,
+    mutually_exclusive=[ValidAt, ValidFrom, ValidUntil, ValidBefore],
 ):
     """
     Marker to specify that a test is only meant to be filled at the transition
@@ -1476,8 +1530,9 @@ def pytest_collection_modifyitems(
 
     Two kinds of filtering are applied:
 
-    1. **Validity markers** — param-level ``valid_from`` / ``valid_until``
-       markers that the ``pytest_generate_tests`` hook cannot see.
+    1. **Validity markers** — param-level ``valid_from`` / ``valid_until`` /
+       ``valid_before`` markers that the ``pytest_generate_tests`` hook
+       cannot see.
     2. **Combination filters** — the ``filter_combinations`` marker lets
        test authors reject specific cross-parameter tuples at collection
        time instead of calling ``pytest.skip()`` at runtime.

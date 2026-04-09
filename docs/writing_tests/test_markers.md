@@ -16,6 +16,10 @@ These markers are used to specify the forks for which a test is valid.
 
 :::execution_testing.cli.pytest_commands.plugins.forks.forks.ValidUntil
 
+### `@pytest.mark.valid_before("FORK_OR_EIP")`
+
+:::execution_testing.cli.pytest_commands.plugins.forks.forks.ValidBefore
+
 ### `@pytest.mark.valid_at("FORK_NAME_1", "FORK_NAME_2", ...)`
 
 :::execution_testing.cli.pytest_commands.plugins.forks.forks.ValidAt
