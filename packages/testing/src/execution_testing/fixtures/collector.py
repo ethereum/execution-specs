@@ -141,7 +141,18 @@ class TestInfo:
             # Mix the module name and the test name/arguments
             test_name, test_parameters = self.get_name_and_parameters()
             test_name = self.strip_test_name(test_name)
-            return f"{test_name}__{test_parameters}"
+            result = f"{test_name}__{test_parameters}"
+            # Truncate to avoid ENAMETOOLONG (max 255 bytes for
+            # most filesystems, minus room for .partial.gwN.jsonl).
+            max_stem = 200
+            if len(result) > max_stem:
+                import hashlib
+
+                h = hashlib.md5(
+                    result.encode(), usedforsecurity=False
+                ).hexdigest()[:8]
+                result = f"{result[:max_stem]}_{h}"
+            return result
 
     def get_dump_dir_path(
         self,
