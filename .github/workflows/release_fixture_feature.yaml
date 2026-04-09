@@ -193,7 +193,9 @@ jobs:
         shell: bash
         run: |
           if [ -f .test_durations ]; then
-            python3 -c 'exec("import json\nwith open(\".test_durations\") as f: data=json.load(f)\nout={k.split(\"@\")[0]:v for k,v in data.items()}\nwith open(\".test_durations\",\"w\") as f: json.dump(out,f)\nprint(f\"Normalized {len(data)} -> {len(out)} entries\")")'
+            uv run python .github/scripts/normalize_durations.py
+          else
+            echo "::warning::No .test_durations file to normalize"
           fi
 
       - uses: ./.github/actions/build-fixtures
