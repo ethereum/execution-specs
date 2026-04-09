@@ -31,7 +31,7 @@ REFERENCE_SPEC_VERSION = ref_spec_8037.version
 
 
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_sstore_zero_to_nonzero(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -60,7 +60,7 @@ def test_sstore_zero_to_nonzero(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_sstore_nonzero_to_nonzero(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -90,7 +90,7 @@ def test_sstore_nonzero_to_nonzero(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_sstore_nonzero_to_zero(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -120,7 +120,7 @@ def test_sstore_nonzero_to_zero(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_sstore_zero_to_zero(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -150,7 +150,7 @@ def test_sstore_zero_to_zero(
 
 
 @EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_sstore_restoration_refund(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -181,7 +181,7 @@ def test_sstore_restoration_refund(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_sstore_restoration_nonzero_no_state_refund(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -211,7 +211,7 @@ def test_sstore_restoration_nonzero_no_state_refund(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_sstore_clear_refund_reversal(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -249,7 +249,7 @@ def test_sstore_clear_refund_reversal(
         pytest.param(10, id="ten_slots"),
     ],
 )
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_sstore_multiple_slots(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -280,7 +280,7 @@ def test_sstore_multiple_slots(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_sstore_state_gas_drawn_from_reservoir(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -314,7 +314,7 @@ def test_sstore_state_gas_drawn_from_reservoir(
 
 
 @pytest.mark.with_all_typed_transactions
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_sstore_state_gas_all_tx_types(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -352,7 +352,7 @@ def test_sstore_state_gas_all_tx_types(
         pytest.param(0, id="at_stipend"),
     ],
 )
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_sstore_stipend_check_excludes_reservoir(
     state_test: StateTestFiller,
     pre: Alloc,

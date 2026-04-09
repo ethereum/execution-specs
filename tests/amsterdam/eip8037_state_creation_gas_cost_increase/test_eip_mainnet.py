@@ -19,7 +19,7 @@ from .spec import ref_spec_8037
 REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
 
-pytestmark = [pytest.mark.valid_at("Amsterdam"), pytest.mark.mainnet]
+pytestmark = [pytest.mark.valid_at("EIP8037"), pytest.mark.mainnet]
 
 
 def test_sstore_zero_to_nonzero(
