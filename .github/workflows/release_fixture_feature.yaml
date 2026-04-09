@@ -173,7 +173,7 @@ jobs:
               BYTES=$(wc -c < .test_durations)
               echo "Durations file: ${BYTES} bytes"
               echo "### Durations" >> "$GITHUB_STEP_SUMMARY"
-              echo "Downloaded [\`durations_${FEATURE_NAME}\`](/${{ github.repository }}/actions/runs/${RUN_ID}) from run ${RUN_ID} (${BYTES} bytes)" >> "$GITHUB_STEP_SUMMARY"
+              echo "Downloaded \`durations_${FEATURE_NAME}\` from run [${RUN_ID}](/${{ github.repository }}/actions/runs/${RUN_ID}) (${BYTES} bytes)" >> "$GITHUB_STEP_SUMMARY"
             else
               echo "::warning::Failed to download durations artifact from run ${RUN_ID}, using average durations"
               echo "### Durations" >> "$GITHUB_STEP_SUMMARY"
