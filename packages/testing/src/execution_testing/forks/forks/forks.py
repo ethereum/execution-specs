@@ -1531,6 +1531,7 @@ class BPO5(
 
 class Amsterdam(
     eips.EIP7928,
+    eips.EIP8037,
     BPO2,
     deployed=False,
 ):
