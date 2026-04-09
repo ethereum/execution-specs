@@ -44,6 +44,7 @@ from execution_testing.tools import Initcode
 from execution_testing.vm import Bytecode, Op
 
 from ..shared.address_stubs import AddressStubs
+from ..shared.execute_fill import stub_eoas_key
 from ..shared.pre_alloc import Alloc as SharedAlloc
 from ..shared.pre_alloc import AllocFlags
 from .contracts import (
@@ -106,6 +107,14 @@ def address_stubs(
     else:
         logger.debug("No address stubs configured")
     return address_stubs
+
+
+@pytest.fixture(scope="session")
+def stub_eoas(
+    request: pytest.FixtureRequest,
+) -> Dict[str, EOA]:
+    """Return stub EOAs pre-populated during configuration."""
+    return request.config.stash.get(stub_eoas_key, {})
 
 
 @pytest.fixture(scope="session")
@@ -973,6 +982,7 @@ def pre(
     eth_rpc: EthRPC,
     chain_config: ChainConfig,
     address_stubs: AddressStubs | None,
+    stub_eoas: Dict[str, EOA],
     skip_cleanup: bool,
     max_fee_per_gas: int,
     max_priority_fee_per_gas: int,
@@ -994,6 +1004,7 @@ def pre(
     pre = Alloc(
         fork=actual_fork,
         flags=alloc_flags,
+        stub_eoas=stub_eoas,
         sender=worker_key,
         eth_rpc=eth_rpc,
         eoa_iterator=eoa_iterator,

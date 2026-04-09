@@ -69,7 +69,6 @@ class Alloc(SharedAlloc):
     _eoa_fund_amount_default: int = PrivateAttr(10**21)
     _account_salt: Dict[Hash, int] = PrivateAttr(default_factory=dict)
     _stub_accounts: Dict[str, Account] = PrivateAttr(default_factory=dict)
-    _stub_eoas: Dict[str, EOA] = PrivateAttr(default_factory=dict)
 
     def __init__(
         self,
@@ -81,20 +80,15 @@ class Alloc(SharedAlloc):
         **kwargs: Any,
     ) -> None:
         """Initialize the pre-alloc."""
-        super().__init__(*args, fork=fork, flags=flags, **kwargs)
+        super().__init__(
+            *args,
+            fork=fork,
+            flags=flags,
+            stub_eoas=stub_eoas,
+            **kwargs,
+        )
         if stub_accounts is not None:
             self._stub_accounts = stub_accounts
-        if stub_eoas is not None:
-            self._stub_eoas = stub_eoas
-
-    def stub_eoa(self, label: str) -> EOA:
-        """Return the EOA for a key-bearing stub."""
-        if label not in self._stub_eoas:
-            raise ValueError(
-                f"Stub EOA '{label}' not found. "
-                "Provide --address-stubs with a pkey entry."
-            )
-        return self._stub_eoas[label]
 
     def get_next_account_salt(self, account_hash: Hash) -> int:
         """Retrieve the next salt for this account."""
