@@ -716,7 +716,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                 ),
             ],
             id="single_deposit_from_contract_call_depth_high",
-            marks=pytest.mark.valid_until("EIP8037"),
+            marks=pytest.mark.valid_before("EIP8037"),
         ),
         pytest.param(
             [
