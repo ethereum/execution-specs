@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-The tools provided by [execution-spec-tests](https://github.com/ethereum/execution-spec-tests) use `uv` ([docs.astral.sh/uv](https://docs.astral.sh/uv/)) to manage their dependencies and virtual environment.
+The tools provided by [execution-specs](https://github.com/ethereum/execution-specs) use `uv` ([docs.astral.sh/uv](https://docs.astral.sh/uv/)) to manage their dependencies and virtual environment.
 
 It's typically recommended to use the latest version of `uv`, currently `uv>=0.7.0` is required.
 
@@ -24,13 +24,13 @@ If installed via `curl`, `uv` will download Python for your target platform if o
 
 ## Installation Commands
 
-Clone [execution-spec-tests](https://github.com/ethereum/execution-spec-tests) and install its dependencies. We recommend using Python 3.12, the following uses `uv` to download and configures 3.12 to be the Python version used in execution-spec-tests:
+Clone [execution-specs](https://github.com/ethereum/execution-specs) and install its dependencies. We recommend using Python 3.12, the following uses `uv` to download and configures 3.12 to be the Python version used in execution-specs:
 
 === "All platforms"
 
     ```console
-    git clone --depth 1 https://github.com/ethereum/execution-spec-tests
-    cd execution-spec-tests
+    git clone --depth 1 https://github.com/ethereum/execution-specs
+    cd execution-specs
     uv python install 3.12
     uv python pin 3.12
     uv sync

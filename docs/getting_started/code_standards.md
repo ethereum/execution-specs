@@ -1,10 +1,10 @@
 # Code Standards
 
-This document outlines the coding standards and practices used in the @ethereum/execution-spec-tests repository.
+This document outlines the coding standards and practices used in the @ethereum/execution-specs repository.
 
 ## Code and CI Requirements
 
-Code pushed to @ethereum/execution-spec-tests must pass the CI checks. Run `just` to see all available recipes, grouped by category. The most common checks:
+Code pushed to @ethereum/execution-specs must pass the CI checks. Run `just` to see all available recipes, grouped by category. The most common checks:
 
 ```console
 just static   # Run all static checks (lint, format, mypy, spellcheck, ...)
@@ -37,7 +37,7 @@ just fix      # Auto-fix formatting and lint issues
 
 ## Python Coding Preferences
 
-- **Line Length**: 100 characters maximum.
+- **Line Length**: 79 characters maximum.
 - **Formatting**: Enforced by `ruff` (similar to `black`).
 - **Documentation**: All public functions and classes should have docstrings
     - Docstrings should have a good one-line summary which uses the imperative ("Return" not "Returns").

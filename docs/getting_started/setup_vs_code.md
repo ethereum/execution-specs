@@ -13,10 +13,10 @@ Please refer to the [Visual Studio Code docs](https://code.visualstudio.com/docs
 
 ## VS Code Settings file
 
-The [ethereum/execution-spec-tests](https://github.com/ethereum/execution-spec-tests) repo includes configuration files for VS Code in the `.vscode/` sub-directory:
+The [ethereum/execution-specs](https://github.com/ethereum/execution-specs) repo includes configuration files for VS Code in the `.vscode/` sub-directory:
 
 ```text
-📁 execution-test-specs/
+📁 execution-specs/
 └──📁 .vscode/
     ├── 📄 settings.json
     ├── 📄 extensions.json
@@ -35,9 +35,9 @@ cp .vscode/launch.recommended.json .vscode/launch.json
 
 The extensions listed in `.vscode/extensions.json` are required for a smooth developer experience.
 
-1. Open the root folder of your local `execution-spec-tests` clone in VS Code, it will prompt you to install the repository's required extensions (from `.vscode/extensions.json` - you will be required to trust the `executions-spec-tests` repository first). These extensions are used to format, lint, type check and run tests on the codebase. After all the required extensions are installed a VS Code reload will be required.
+1. Open the root folder of your local `execution-specs` clone in VS Code, it will prompt you to install the repository's required extensions (from `.vscode/extensions.json` - you will be required to trust the `execution-specs` repository first). These extensions are used to format, lint, type check and run tests on the codebase. After all the required extensions are installed a VS Code reload will be required.
 
-2. If previously installed, ensure that the following `ms-python` extensions are disabled for the `execution-spec-tests` workspace to ensure there are no conflicts with the `ruff` formatter. In the VS Code Extensions tab, search for the each of the extensions below, and if installed and enabled, open the "Disabled" menu and select "Disable (Workspace)". This ensures that the extensions will be available with other workspaces that may need them.
+2. If previously installed, ensure that the following `ms-python` extensions are disabled for the `execution-specs` workspace to ensure there are no conflicts with the `ruff` formatter. In the VS Code Extensions tab, search for the each of the extensions below, and if installed and enabled, open the "Disabled" menu and select "Disable (Workspace)". This ensures that the extensions will be available with other workspaces that may need them.
 
     - [`ms-python.isort`](https://marketplace.visualstudio.com/items?itemName=ms-python.isort)
     - [`ms-python.flake8`](https://marketplace.visualstudio.com/items?itemName=ms-python.flake8)

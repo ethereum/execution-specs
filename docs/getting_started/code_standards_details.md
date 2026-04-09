@@ -1,6 +1,6 @@
 # Detailed Code Standards
 
-This page provides in-depth information about the code standards and verification processes in @ethereum/execution-spec-tests.
+This page provides in-depth information about the code standards and verification processes in @ethereum/execution-specs.
 
 ## Running Checks
 
@@ -76,7 +76,7 @@ Build the full HTML documentation:
 just docs
 ```
 
-For faster iteration (skips the "[Test Case Reference](https://eest.ethereum.org/main/tests/)" section):
+For faster iteration (skips the "Test Case Reference" section):
 
 ```console
 just docs-fast
