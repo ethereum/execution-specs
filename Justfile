@@ -263,6 +263,17 @@ bench-opcode-config *args:
         "$@" \
         tests/benchmark/compute
 
+# --- Checklists ---
+
+# Generate EIP test checklists from eip_checklist markers
+[group('checklists')]
+checklist *args:
+    #!/usr/bin/env bash
+    uv run checklist --output docs/checklist "$@"
+    rc=$?
+    # exit code 5 = "no tests ran" which is expected (collect-only)
+    if [ $rc -eq 5 ] || [ $rc -eq 0 ]; then exit 0; else exit $rc; fi
+
 # --- Docs ---
 
 # Generate documentation for EELS using docc

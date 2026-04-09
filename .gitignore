@@ -90,3 +90,6 @@ logs/
 env.yaml
 
 site/
+
+# Generated checklists
+docs/checklist/
