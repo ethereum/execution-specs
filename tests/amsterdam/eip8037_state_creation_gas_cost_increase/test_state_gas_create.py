@@ -43,7 +43,7 @@ def nonexistent_account(pre: Alloc) -> Address:
 
 
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_create_charges_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -91,7 +91,7 @@ def test_create_charges_state_gas(
         pytest.param(Op.CREATE2, id="create2"),
     ],
 )
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_create_with_reservoir(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -153,7 +153,7 @@ def test_create_with_reservoir(
         pytest.param("max+1", id="over_max_code_size"),
     ],
 )
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_code_deposit_state_gas_scales_with_size(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -201,7 +201,7 @@ def test_code_deposit_state_gas_scales_with_size(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_create_tx_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -226,7 +226,7 @@ def test_create_tx_state_gas(
     state_test(pre=pre, post={}, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_create_revert_no_code_deposit_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -269,7 +269,7 @@ def test_create_revert_no_code_deposit_state_gas(
 
 
 @EIPChecklist.GasCostChanges.Test.OutOfGas()
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_create_insufficient_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -316,7 +316,7 @@ def test_create_insufficient_state_gas(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_create2_address_collision(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -376,7 +376,7 @@ def test_create2_address_collision(
         pytest.param(0, id="at_intrinsic"),
     ],
 )
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_create_tx_intrinsic_gas_boundary(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -409,7 +409,7 @@ def test_create_tx_intrinsic_gas_boundary(
     state_test(pre=pre, post={}, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_code_deposit_oog_preserves_parent_reservoir(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -479,7 +479,7 @@ def test_code_deposit_oog_preserves_parent_reservoir(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_nested_create_code_deposit_cannot_borrow_parent_gas(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -556,7 +556,7 @@ def test_nested_create_code_deposit_cannot_borrow_parent_gas(
         pytest.param(1, id="short_one_gas"),
     ],
 )
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_sstore_oog_no_reservoir_inflation(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -648,7 +648,7 @@ def test_sstore_oog_no_reservoir_inflation(
     ],
 )
 @pytest.mark.with_all_create_opcodes()
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_max_initcode_size_gas_metering_via_create(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -756,7 +756,7 @@ def test_max_initcode_size_gas_metering_via_create(
     state_test(pre=pre, tx=tx, post=post)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_create_no_double_charge_new_account(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -828,7 +828,7 @@ def test_create_no_double_charge_new_account(
         pytest.param("oog_deposit", id="oog_deposit"),
     ],
 )
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_code_deposit_halt_discards_initcode_state_gas(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -887,7 +887,7 @@ def test_code_deposit_halt_discards_initcode_state_gas(
     )
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_create_tx_header_gas_used(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -932,7 +932,7 @@ def test_create_tx_header_gas_used(
     )
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_create_initcode_halt_no_code_deposit_state_gas(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -987,7 +987,7 @@ def test_create_initcode_halt_no_code_deposit_state_gas(
     )
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_state_gas_spill_header_gas_used(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -1048,7 +1048,7 @@ def test_state_gas_spill_header_gas_used(
     ],
 )
 @pytest.mark.with_all_create_opcodes()
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_failed_create_header_gas_used(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

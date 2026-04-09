@@ -28,7 +28,7 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_sstore_via_delegation_pointer(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -77,7 +77,7 @@ def test_sstore_via_delegation_pointer(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_sstore_direct_call_same_contract(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -110,7 +110,7 @@ def test_sstore_direct_call_same_contract(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_delegation_pointer_new_account_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
