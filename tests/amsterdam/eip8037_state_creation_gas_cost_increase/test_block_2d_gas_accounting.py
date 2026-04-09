@@ -93,7 +93,7 @@ def stop_txs(pre: Alloc, fork: Fork, n: int) -> list[Transaction]:
         pytest.param(10, 5, id="multi_sstore_many_txs"),
     ],
 )
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_block_gas_used_state_dominates(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -135,7 +135,7 @@ def test_block_gas_used_state_dominates(
     )
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_block_gas_used_regular_dominates(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -172,7 +172,7 @@ def test_block_gas_used_regular_dominates(
         pytest.param(10, 10, True, id="interleaved"),
     ],
 )
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_block_gas_used_mixed_txs(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -220,7 +220,7 @@ def test_block_gas_used_mixed_txs(
     )
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_block_gas_refund_eip7778_no_block_reduction(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -279,7 +279,7 @@ def test_block_gas_refund_eip7778_no_block_reduction(
         pytest.param(10, 5, id="multi_sstore_many_txs"),
     ],
 )
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_block_2d_gas_boundary_exact_fit(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -327,7 +327,7 @@ def test_block_2d_gas_boundary_exact_fit(
     )
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_block_gas_used_call_new_account(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -373,7 +373,7 @@ def test_block_gas_used_call_new_account(
     )
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_block_gas_used_create_tx(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -423,7 +423,7 @@ def test_block_gas_used_create_tx(
     )
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_multi_block_dimension_flip(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

@@ -3,12 +3,12 @@ State gas fork transition tests for EIP-8037.
 
 Verify that state gas pricing and the modified transaction validity
 constraint (tx.gas can exceed TX_MAX_GAS_LIMIT) activate correctly at
-the Amsterdam fork boundary.
+the EIP-8037 fork boundary.
 
-Before Amsterdam: no state gas dimension, tx.gas capped at
+Before EIP-8037: no state gas dimension, tx.gas capped at
 TX_MAX_GAS_LIMIT (EIP-7825).
 
-At/after Amsterdam: state gas charges apply, tx.gas above
+At/after EIP-8037: state gas charges apply, tx.gas above
 TX_MAX_GAS_LIMIT is valid (excess feeds the reservoir).
 
 Tests for [EIP-8037: State Creation Gas Cost Increase]
@@ -34,7 +34,7 @@ from .spec import ref_spec_8037
 REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
 
-pytestmark = pytest.mark.valid_at_transition_to("Amsterdam")
+pytestmark = pytest.mark.valid_at_transition_to("EIP8037")
 
 
 @EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
@@ -45,7 +45,7 @@ def test_sstore_state_gas_at_transition(
     fork: Fork,
 ) -> None:
     """
-    Test SSTORE state gas activates at the Amsterdam fork boundary.
+    Test SSTORE state gas activates at the EIP-8037 fork boundary.
 
     Before the fork, an SSTORE zero-to-nonzero succeeds with only
     regular gas (no state gas dimension). After the fork, the same
@@ -116,10 +116,10 @@ def test_tx_gas_above_cap_at_transition(
     fork: Fork,
 ) -> None:
     """
-    Test tx.gas > TX_MAX_GAS_LIMIT validity at the Amsterdam transition.
+    Test tx.gas > TX_MAX_GAS_LIMIT validity at the EIP-8037 transition.
 
-    Before Amsterdam, EIP-7825 rejects any tx with gas > TX_MAX_GAS_LIMIT.
-    After Amsterdam, EIP-8037 allows it — the excess feeds the state gas
+    Before EIP-8037, EIP-7825 rejects any tx with gas > TX_MAX_GAS_LIMIT.
+    After EIP-8037 it's allowed — the excess feeds the state gas
     reservoir. This test sends a tx at the cap (always valid) and one
     above the cap (rejected before, accepted after).
     """

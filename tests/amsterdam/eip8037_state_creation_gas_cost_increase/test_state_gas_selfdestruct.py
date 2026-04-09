@@ -30,7 +30,7 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_selfdestruct_new_beneficiary_charges_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -66,7 +66,7 @@ def test_selfdestruct_new_beneficiary_charges_state_gas(
     state_test(env=env, pre=pre, post={}, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_selfdestruct_existing_beneficiary_no_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -96,7 +96,7 @@ def test_selfdestruct_existing_beneficiary_no_state_gas(
     state_test(pre=pre, post={}, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_selfdestruct_zero_balance_no_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -128,7 +128,7 @@ def test_selfdestruct_zero_balance_no_state_gas(
     state_test(pre=pre, post={}, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_selfdestruct_state_gas_from_reservoir(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -162,7 +162,7 @@ def test_selfdestruct_state_gas_from_reservoir(
     state_test(env=env, pre=pre, post={}, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_selfdestruct_to_self_in_create_tx(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -203,7 +203,7 @@ def test_selfdestruct_to_self_in_create_tx(
     state_test(env=env, pre=pre, post={}, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_selfdestruct_new_beneficiary_header_gas_used(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

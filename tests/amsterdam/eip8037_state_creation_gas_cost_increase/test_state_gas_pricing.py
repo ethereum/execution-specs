@@ -45,7 +45,7 @@ REFERENCE_SPEC_VERSION = ref_spec_8037.version
         pytest.param(100_000_000, id="high_gas_limit"),
     ],
 )
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_pricing_at_various_gas_limits(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -80,7 +80,7 @@ def test_pricing_at_various_gas_limits(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_charge_draws_entirely_from_reservoir(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -122,7 +122,7 @@ def test_charge_draws_entirely_from_reservoir(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_charge_spills_to_gas_left(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -158,7 +158,7 @@ def test_charge_spills_to_gas_left(
 
 
 @EIPChecklist.GasCostChanges.Test.OutOfGas()
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_charge_oog_both_pools_insufficient(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -192,7 +192,7 @@ def test_charge_oog_both_pools_insufficient(
 
 
 @EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_refund_cap_includes_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -226,7 +226,7 @@ def test_refund_cap_includes_state_gas(
 
 
 @EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_refund_with_reservoir_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -268,7 +268,7 @@ def test_refund_with_reservoir_state_gas(
         pytest.param(30_000_000, 29_970_705, id="decrease"),
     ],
 )
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_pricing_changes_with_block_gas_limit(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -333,7 +333,7 @@ def test_pricing_changes_with_block_gas_limit(
     )
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_pricing_minimum_cpsb_floor(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -367,7 +367,7 @@ def test_pricing_minimum_cpsb_floor(
 
 
 @pytest.mark.exception_test
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_intrinsic_regular_gas_exceeds_cap(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -412,7 +412,7 @@ def test_intrinsic_regular_gas_exceeds_cap(
         pytest.param(True, id="at_floor"),
     ],
 )
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_calldata_floor_enforced_with_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,

@@ -35,7 +35,7 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_child_call_uses_reservoir(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -81,7 +81,7 @@ def test_child_call_uses_reservoir(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_reservoir_returned_on_revert(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -120,7 +120,7 @@ def test_reservoir_returned_on_revert(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_reservoir_returned_on_oog(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -160,7 +160,7 @@ def test_reservoir_returned_on_oog(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_reservoir_restored_after_child_spill_and_revert(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -209,7 +209,7 @@ def test_reservoir_restored_after_child_spill_and_revert(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_reservoir_restored_after_child_spill_and_halt(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -256,7 +256,7 @@ def test_reservoir_restored_after_child_spill_and_halt(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_reservoir_restored_after_child_full_drain_and_revert(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -296,7 +296,7 @@ def test_reservoir_restored_after_child_full_drain_and_revert(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_sequential_calls_reservoir_restored_between_reverts(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -341,7 +341,7 @@ def test_sequential_calls_reservoir_restored_between_reverts(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_nested_calls_reservoir_passing(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -391,7 +391,7 @@ def test_nested_calls_reservoir_passing(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_call_value_transfer_new_account(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -433,7 +433,7 @@ def test_call_value_transfer_new_account(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_call_value_transfer_existing_account_no_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -471,7 +471,7 @@ def test_call_value_transfer_existing_account_no_state_gas(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_child_state_gas_tracked_in_parent(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -522,7 +522,7 @@ def test_child_state_gas_tracked_in_parent(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_delegatecall_reservoir_passing(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -561,7 +561,7 @@ def test_delegatecall_reservoir_passing(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_staticcall_passes_reservoir(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -603,7 +603,7 @@ def test_staticcall_passes_reservoir(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_gas_opcode_excludes_reservoir(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -654,7 +654,7 @@ def test_gas_opcode_excludes_reservoir(
         pytest.param(False, id="new_account"),
     ],
 )
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_call_insufficient_balance_returns_reservoir(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -708,7 +708,7 @@ def test_call_insufficient_balance_returns_reservoir(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_create_insufficient_balance_returns_reservoir(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -750,7 +750,7 @@ def test_create_insufficient_balance_returns_reservoir(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_call_stack_depth_returns_reservoir(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -791,7 +791,7 @@ def test_call_stack_depth_returns_reservoir(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_call_pre_charged_costs_excluded_from_forwarding(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -870,7 +870,7 @@ def test_call_pre_charged_costs_excluded_from_forwarding(
     state_test(pre=pre, tx=tx, post=post)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_call_new_account_header_gas_used(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
