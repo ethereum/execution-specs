@@ -31,7 +31,7 @@ REFERENCE_SPEC_VERSION = ref_spec_8037.version
 
 
 @EIPChecklist.GasRefundsChanges.Test.CrossFunctional.CalldataCost()
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_calldata_floor_with_sstore(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -64,7 +64,7 @@ def test_calldata_floor_with_sstore(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_calldata_floor_independent_of_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -95,7 +95,7 @@ def test_calldata_floor_independent_of_state_gas(
     state_test(pre=pre, post={}, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_calldata_floor_higher_than_execution_with_state_ops(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -138,7 +138,7 @@ def test_calldata_floor_higher_than_execution_with_state_ops(
         pytest.param(True, id="exceeds_cap", marks=pytest.mark.exception_test),
     ],
 )
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_calldata_floor_exceeding_tx_gas_limit_cap(
     state_test: StateTestFiller,
     pre: Alloc,

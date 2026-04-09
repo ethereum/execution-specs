@@ -46,7 +46,7 @@ REFERENCE_SPEC_VERSION = ref_spec_8037.version
     ],
 )
 @EIPChecklist.ModifiedTransactionValidityConstraint.Test()
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_reservoir_allocation_boundary(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -87,7 +87,7 @@ def test_reservoir_allocation_boundary(
         pytest.param(5, False, id="multiple_sstores_spill_to_gas_left"),
     ],
 )
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_sstore_state_gas_source(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -129,7 +129,7 @@ def test_sstore_state_gas_source(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_sstore_state_gas_entirely_from_gas_left(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -159,7 +159,7 @@ def test_sstore_state_gas_entirely_from_gas_left(
 
 
 @EIPChecklist.GasCostChanges.Test.OutOfGas()
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_insufficient_gas_for_sstore_state_cost(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -200,7 +200,7 @@ def test_insufficient_gas_for_sstore_state_cost(
         pytest.param(False),
     ],
 )
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_block_regular_gas_limit(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -242,7 +242,7 @@ def test_block_regular_gas_limit(
     blockchain_test(pre=pre, post={}, blocks=[block])
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_block_gas_used_no_state_ops(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -272,7 +272,7 @@ def test_block_gas_used_no_state_ops(
     )
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_block_gas_used_with_state_ops(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -305,7 +305,7 @@ def test_block_gas_used_with_state_ops(
     )
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_block_2d_gas_valid_when_cumulative_exceeds_limit(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -379,7 +379,7 @@ def test_block_2d_gas_valid_when_cumulative_exceeds_limit(
         pytest.param(False, id="state_gas_from_gas_left"),
     ],
 )
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_create_tx_reservoir(
     state_test: StateTestFiller,
     pre: Alloc,
