@@ -12,7 +12,6 @@ state_tests/stStaticFlagEnabled/CallcodeToPrecompileFromContractInitializationFi
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -42,9 +41,7 @@ def test_callcode_to_precompile_from_contract_initialization(
     coinbase = Address(0xCAFE000000000000000000000000000000000001)
     contract_0 = Address(0xB000000000000000000000000000000000000000)
     contract_1 = Address(0xA000000000000000000000000000000000000000)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -85,7 +82,6 @@ def test_callcode_to_precompile_from_contract_initialization(
         },
         balance=1000,
         nonce=0,
-        address=Address(0xB000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # {
@@ -505,9 +501,7 @@ def test_callcode_to_precompile_from_contract_initialization(
         + Op.STOP,
         balance=1000,
         nonce=0,
-        address=Address(0xA000000000000000000000000000000000000000),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
@@ -533,7 +527,7 @@ def test_callcode_to_precompile_from_contract_initialization(
                 0: 0xFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEED,  # noqa: E501
                 1: 0xFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEED,  # noqa: E501
                 2560: 1,
-                2561: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                2561: sender,
                 2562: 1,
                 2563: 1,
                 2564: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC000000,  # noqa: E501
@@ -554,7 +548,7 @@ def test_callcode_to_precompile_from_contract_initialization(
                 2585: 1,
                 2592: 1,
                 2816: 1,
-                2817: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                2817: sender,
                 2818: 1,
                 2819: 1,
                 2820: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC000000,  # noqa: E501

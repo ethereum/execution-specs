@@ -7,7 +7,6 @@ state_tests/VMTests/vmArithmeticTest/arithFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_arith(
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x40AC0FC28C27E961EE46EC43355A094DE205856EDBD4654CF2577C2608D4EC1E
-    )
+    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -67,9 +64,7 @@ def test_arith(
         + Op.RETURN(offset=0x0, size=0x8),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address(0x14814D06E93EFB1102A15D5881432C9FF6C91362),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     tx = Transaction(
         sender=sender,

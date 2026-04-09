@@ -7,7 +7,6 @@ state_tests/stReturnDataTest/returndatacopy_after_successful_callcodeFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_returndatacopy_after_successful_callcode(
 ) -> None:
     """Test_returndatacopy_after_successful_callcode."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
-    )
+    sender = pre.fund_eoa(amount=0x6400000000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -49,12 +46,24 @@ def test_returndatacopy_after_successful_callcode(
     )
 
     # Source: lll
+    # { (MSTORE 0x0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) (RETURN 0 32) }  # noqa: E501
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(
+            offset=0x0,
+            value=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
+        )
+        + Op.RETURN(offset=0x0, size=0x20)
+        + Op.STOP,
+        balance=0x6400000000,
+        nonce=0,
+    )
+    # Source: lll
     # {  (CALLCODE 60000 <contract:0x1000000000000000000000000000000000000002> 0 0 0 0 0) (RETURNDATACOPY 0x0 0x0 32) (SSTORE 0 (MLOAD 0))}  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
             Op.CALLCODE(
                 gas=0xEA60,
-                address=0x53B272D553D8179D017AAE6F3BADF0570743593A,
+                address=addr,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -67,22 +76,7 @@ def test_returndatacopy_after_successful_callcode(
         + Op.STOP,
         storage={0: 0xFFFFFFFFFFFF},
         nonce=0,
-        address=Address(0x7E319028B16C006ECC1B068CCE1A1C9B0B457B0D),  # noqa: E501
     )
-    # Source: lll
-    # { (MSTORE 0x0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) (RETURN 0 32) }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(
-            offset=0x0,
-            value=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
-        )
-        + Op.RETURN(offset=0x0, size=0x20)
-        + Op.STOP,
-        balance=0x6400000000,
-        nonce=0,
-        address=Address(0x53B272D553D8179D017AAE6F3BADF0570743593A),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0x6400000000)
 
     tx = Transaction(
         sender=sender,

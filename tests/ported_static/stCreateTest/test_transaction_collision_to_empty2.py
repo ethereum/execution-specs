@@ -7,7 +7,6 @@ state_tests/stCreateTest/TransactionCollisionToEmpty2Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -69,10 +68,7 @@ def test_transaction_collision_to_empty2(
 ) -> None:
     """Test_transaction_collision_to_empty2."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x6295EE1B4F6DD65047762F924ECD367C17EABF8F)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -83,8 +79,7 @@ def test_transaction_collision_to_empty2(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
-    pre[contract_0] = Account(balance=10)
+    contract_0 = pre.fund_eoa(amount=10)
 
     expect_entries_: list[dict] = [
         {

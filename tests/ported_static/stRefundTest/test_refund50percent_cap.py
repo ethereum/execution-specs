@@ -7,7 +7,6 @@ state_tests/stRefundTest/refund50percentCapFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_refund50percent_cap(
 ) -> None:
     """Test_refund50percent_cap."""
     coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
-    sender = EOA(
-        key=0xDC4EFA209AECDD4C2D5201A419EA27506151B4EC687F14A613229E310932491B
-    )
+    sender = pre.fund_eoa(amount=0x989680)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -46,7 +43,7 @@ def test_refund50percent_cap(
         gas_limit=1000000,
     )
 
-    pre[coinbase] = Account(balance=0, nonce=1)
+    coinbase = pre.fund_eoa(amount=0)
     # Source: lll
     # { @@1 @@2 [[ 10 ]] (EXP 2 0xff) [[ 11 ]] (BALANCE (ADDRESS)) [[ 1 ]] 0 [[ 2 ]] 0 [[ 3 ]] 0 [[ 4 ]] 0 [[ 5 ]] 0 [[ 6 ]] 0 }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -64,9 +61,7 @@ def test_refund50percent_cap(
         storage={1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1},
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0xEF67F354C8505E1056889970C3D9B5E0FE65D1E2),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x989680)
 
     tx = Transaction(
         sender=sender,

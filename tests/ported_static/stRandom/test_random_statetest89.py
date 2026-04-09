@@ -7,7 +7,6 @@ state_tests/stRandom/randomStatetest89Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_random_statetest89(
 ) -> None:
     """Test_random_statetest89."""
     coinbase = Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79)
-    sender = EOA(
-        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -58,7 +55,6 @@ def test_random_statetest89(
             key=Op.MLOAD(offset=0x0), value=0x5648CE0AD106B7A6F3483379E62876B
         ),
         nonce=0,
-        address=Address(0x1719F88AEEA1DCFEB5AC48FE64D270AB05723C94),  # noqa: E501
     )
     # Source: raw
     # 0x6000355415600957005b60203560003555
@@ -74,9 +70,7 @@ def test_random_statetest89(
         ),
         balance=46,
         nonce=0,
-        address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

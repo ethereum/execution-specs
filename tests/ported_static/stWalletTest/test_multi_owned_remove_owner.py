@@ -7,7 +7,6 @@ state_tests/stWalletTest/multiOwnedRemoveOwnerFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_multi_owned_remove_owner(
     """Test_multi_owned_remove_owner."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x6295EE1B4F6DD65047762F924ECD367C17EABF8F)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A75EF08F, nonce=1)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -831,16 +828,14 @@ def test_multi_owned_remove_owner(
         storage={
             0: 1,
             1: 2,
-            3: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+            3: sender,
             4: 0x3FB1CD2CD96C6D5C0B5EB3322D807B34482481D4,
             0x6E369836487C234B9E553EF3F787C2D8865520739D340C67B3D251A33986E58D: 1,  # noqa: E501
             0xD3E69D8C7F41F7AEAF8130DDC53047AEEE8CB46A73D6BAE86B7E7D6BF8312E6B: 2,  # noqa: E501
         },
         balance=100,
         nonce=0,
-        address=Address(0x6295EE1B4F6DD65047762F924ECD367C17EABF8F),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A75EF08F, nonce=1)
 
     tx = Transaction(
         sender=sender,

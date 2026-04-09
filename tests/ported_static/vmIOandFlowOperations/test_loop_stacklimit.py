@@ -7,7 +7,6 @@ state_tests/VMTests/vmIOandFlowOperations/loop_stacklimitFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -56,9 +55,7 @@ def test_loop_stacklimit(
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xA62D63F95900B04CCD3FEE13360DE78966F24695945E8B2C09E646352BC5AF94
-    )
+    sender = pre.fund_eoa(amount=0x100000000000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -93,7 +90,6 @@ def test_loop_stacklimit(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address(0x15F0298E83391F673B708790F259F3F34DFBD788),  # noqa: E501
     )
     # Source: raw
     # 0x6000345b60019003906001018180600357600052600152600059f300
@@ -117,7 +113,6 @@ def test_loop_stacklimit(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address(0x3B20573C5048E5BA16083407E59FC0BBC044B6C0),  # noqa: E501
     )
     # Source: lll
     # {
@@ -136,9 +131,7 @@ def test_loop_stacklimit(
         storage={0: 0},
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address(0xF9B46C1D708104B4E6007D17AE485B0A00D8E952),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x100000000000)
 
     tx_data = [
         Bytes("693c6139") + Hash(0x0),

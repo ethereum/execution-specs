@@ -7,7 +7,6 @@ state_tests/stDelegatecallTestHomestead/delegatecodeDynamicCode2SelfCallFiller.j
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -37,9 +36,7 @@ def test_delegatecode_dynamic_code2_self_call(
     """Test_delegatecode_dynamic_code2_self_call."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x1000000000000000000000000000000000000000)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0x2386F26FC10000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -65,9 +62,7 @@ def test_delegatecode_dynamic_code2_self_call(
         + Op.STOP,
         balance=0x10C8E0,
         nonce=0,
-        address=Address(0x1000000000000000000000000000000000000000),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x2386F26FC10000)
 
     tx = Transaction(
         sender=sender,
@@ -78,11 +73,7 @@ def test_delegatecode_dynamic_code2_self_call(
 
     post = {
         compute_create_address(address=contract_0, nonce=0): Account(
-            storage={
-                11: 1,
-                12: 0x1000000000000000000000000000000000000000,
-            },
-            balance=1,
+            storage={11: 1, 12: contract_0}, balance=1
         ),
     }
 

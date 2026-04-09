@@ -7,7 +7,6 @@ state_tests/stSolidityTest/CallInfiniteLoopFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_call_infinite_loop(
 ) -> None:
     """Test_call_infinite_loop."""
     coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
-    sender = EOA(
-        key=0x96C07046493EC8728482079AB999D2994420D9CF4D3491DFD06871B106D9D87B
-    )
+    sender = pre.fund_eoa(amount=0x1DCD6500)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -46,7 +43,7 @@ def test_call_infinite_loop(
         gas_limit=100000000,
     )
 
-    pre[coinbase] = Account(balance=0, nonce=1)
+    coinbase = pre.fund_eoa(amount=0)
     # Source: raw
     # 0x60003560e060020a90048063296df0df1460295780634893d88a146035578063981a316514604157005b602f604d565b60006000f35b603b6062565b60006000f35b6047605a565b60006000f35b5b600115605857604e565b565b60606062565b565b6068605a565b56  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -90,9 +87,7 @@ def test_call_infinite_loop(
         + Op.JUMP,
         balance=0x186A0,
         nonce=0,
-        address=Address(0xF9B9CCB6160CE3574DF5D096CA9FD12BA81D97EE),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x1DCD6500)
 
     tx = Transaction(
         sender=sender,

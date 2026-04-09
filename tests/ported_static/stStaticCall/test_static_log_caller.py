@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_log_CallerFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -74,9 +73,7 @@ def test_static_log_caller(
 ) -> None:
     """Test_static_log_caller."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -104,7 +101,6 @@ def test_static_log_caller(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0xD8C1FCDB2990F08E5FE821BF5AF85F34201BA79A),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE8 0 0xff) (LOG0 0 32 ) }
@@ -114,7 +110,6 @@ def test_static_log_caller(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0xC725ABAE869E29A5448DCA5B51A58F0C960D4069),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE8 0 0xff) (LOG1 0 32 (CALLER) ) }
@@ -124,7 +119,6 @@ def test_static_log_caller(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x842936958D62030200FBCEF4371460D8A9400D05),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE8 0 0xff) (LOG2 0 32 0 (CALLER) ) }
@@ -134,7 +128,6 @@ def test_static_log_caller(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x861CCCBD560D81A33AAC05190E986540663C6BBA),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE8 0 0xff) (LOG3 0 32 0 0 (CALLER) ) }
@@ -146,7 +139,6 @@ def test_static_log_caller(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x6C5DA6457F756A77C392C72FE884F7F650428AEF),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE8 0 0xff) (LOG4 0 32 0 0 0 (CALLER) )}
@@ -163,9 +155,7 @@ def test_static_log_caller(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x586CFAA42DB8B743452A87549943AC07A09DE5CC),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx_data = [
         Hash(addr, left_padding=True),

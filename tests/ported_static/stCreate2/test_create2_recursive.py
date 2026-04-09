@@ -7,7 +7,6 @@ state_tests/stCreate2/Create2RecursiveFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -66,8 +65,8 @@ def test_create2_recursive(
     """Create2 inside Create2 inside Create2."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    sender = pre.fund_eoa(
+        amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
     )
 
     env = Environment(
@@ -79,9 +78,6 @@ def test_create2_recursive(
         gas_limit=9223372036854775807,
     )
 
-    pre[sender] = Account(
-        balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-    )
     # Source: lll
     # { (MSTORE 0 0x606460006000396103e85a10601b576000606460006000f5601d565b5a5b)  (CREATE2 0 2 30 0) }  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -92,7 +88,6 @@ def test_create2_recursive(
         + Op.CREATE2(value=0x0, offset=0x2, size=0x1E, salt=0x0)
         + Op.STOP,
         nonce=0,
-        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

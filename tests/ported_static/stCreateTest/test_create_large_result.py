@@ -7,7 +7,6 @@ state_tests/stCreateTest/createLargeResultFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -146,9 +145,7 @@ def test_create_large_result(
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x000000000000000000000000000000000000C0DE)
     contract_1 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE, nonce=1)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -176,7 +173,6 @@ def test_create_large_result(
         + Op.CODECOPY(dest_offset=Op.DUP1, offset=0x100, size=0x20)
         + Op.RETURN(offset=0x0, size=Op.MLOAD(offset=0x100)),
         nonce=1,
-        address=Address(0x000000000000000000000000000000000000C0DE),  # noqa: E501
     )
     # Source: yul
     # london
@@ -217,9 +213,9 @@ def test_create_large_result(
         + Op.CALLDATALOAD(offset=0x44)
         + Op.SWAP1
         + Op.PUSH1[0x1]
-        + Op.EXTCODESIZE(address=0xC0DE)
+        + Op.EXTCODESIZE(address=contract_0)
         + Op.EXTCODECOPY(
-            address=0xC0DE, dest_offset=Op.DUP1, offset=0x0, size=Op.DUP1
+            address=contract_0, dest_offset=Op.DUP1, offset=0x0, size=Op.DUP1
         )
         + Op.SUB
         + Op.MSTORE8
@@ -246,9 +242,7 @@ def test_create_large_result(
         storage={0: 24743, 1: 24743, 2: 24743},
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
 
     expect_entries_: list[dict] = [
         {

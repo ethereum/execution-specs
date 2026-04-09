@@ -7,7 +7,6 @@ state_tests/stRandom2/randomStatetest646Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,11 +34,8 @@ def test_random_statetest646(
 ) -> None:
     """Geth Failed this test on all networks."""
     coinbase = Address(0xD94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    contract_0 = Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_1 = Address(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0x54465EF1C769628B)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -50,8 +46,7 @@ def test_random_statetest646(
         gas_limit=18857228215205537,
     )
 
-    pre[sender] = Account(balance=0x54465EF1C769628B)
-    pre[contract_0] = Account(balance=0x33888D4CE6B934, nonce=7)
+    contract_0 = pre.fund_eoa(amount=0x33888D4CE6B934)
     # Source: raw
     # 0x64ba8b878e0154689b908f27acb42e5269603972609834bf9a7e578e45609242172907dd75a92555656c5aa6e9248162013ffa6203864863446d325df0336d2c38cfa2f1cdf8cb623c0591987419  # noqa: E501
     contract_1 = pre.deploy_contract(  # noqa: F841
@@ -64,7 +59,6 @@ def test_random_statetest646(
         + Op.NOT(0x2C38CFA2F1CDF8CB623C05919874),
         balance=0xD61773F0C27B842F,
         nonce=28,
-        address=Address(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF),  # noqa: E501
     )
 
     tx = Transaction(

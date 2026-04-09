@@ -7,7 +7,6 @@ state_tests/stTransactionTest/SuicidesAndInternalCallSuicidesOOGFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_suicides_and_internal_call_suicides_oog(
 ) -> None:
     """Test_suicides_and_internal_call_suicides_oog."""
     coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0xA2333EEF5630066B928DEA5FD85A239F511B5B067D1441EE7AC290D0122B917B
-    )
+    sender = pre.fund_eoa(amount=0x5F5E100)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -53,16 +50,14 @@ def test_suicides_and_internal_call_suicides_oog(
     addr = pre.deploy_contract(  # noqa: F841
         code=Op.SELFDESTRUCT(address=0x1) + Op.STOP,
         nonce=0,
-        address=Address(0x5F0D8CD21C9026A32A4E8D15257B1801458989F3),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x5F5E100)
     # Source: lll
     # {(CALL 22000 <contract:0x0000000000000000000000000000000000000000> 1 0 0 0 0) (SELFDESTRUCT 0)}  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
             Op.CALL(
                 gas=0x55F0,
-                address=0x5F0D8CD21C9026A32A4E8D15257B1801458989F3,
+                address=addr,
                 value=0x1,
                 args_offset=0x0,
                 args_size=0x0,
@@ -74,7 +69,6 @@ def test_suicides_and_internal_call_suicides_oog(
         + Op.STOP,
         balance=10,
         nonce=0,
-        address=Address(0x78F15BA0ABC5CC1AAA5A0AC6ADD5D28DD9AB8E1E),  # noqa: E501
     )
 
     tx = Transaction(

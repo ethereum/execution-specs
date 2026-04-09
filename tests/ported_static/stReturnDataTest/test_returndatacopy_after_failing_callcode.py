@@ -7,7 +7,6 @@ state_tests/stReturnDataTest/returndatacopy_after_failing_callcodeFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,10 +34,7 @@ def test_returndatacopy_after_failing_callcode(
 ) -> None:
     """Test_returndatacopy_after_failing_callcode."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    addr = Address(0x285D0814904BEBB3B4ADD3B531A07647C2D08F59)
-    sender = EOA(
-        key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
-    )
+    sender = pre.fund_eoa(amount=0x6400000000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -49,14 +45,21 @@ def test_returndatacopy_after_failing_callcode(
         gas_limit=111669149696,
     )
 
-    pre[addr] = Account(balance=0x10000000)
+    addr = pre.fund_eoa(amount=0x10000000)
+    # Source: raw
+    # 0xfd
+    addr_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.REVERT,
+        balance=0x6400000000,
+        nonce=0,
+    )
     # Source: lll
     # {  (CALLCODE 0 <contract:0x1000000000000000000000000000000000000002> 0 0 0 0 0) (RETURNDATACOPY 0x0 0x0 32) (SSTORE 0 (MLOAD 0))}  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
             Op.CALLCODE(
                 gas=0x0,
-                address=0x665521FD750490FD880EE369C267FCA44ED8A078,
+                address=addr_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -69,17 +72,7 @@ def test_returndatacopy_after_failing_callcode(
         + Op.STOP,
         storage={0: 0xFFFFFFFFFFFF},
         nonce=0,
-        address=Address(0x24878B81DD27C2D76258B421ACDDF26835BC1484),  # noqa: E501
     )
-    # Source: raw
-    # 0xfd
-    addr_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.REVERT,
-        balance=0x6400000000,
-        nonce=0,
-        address=Address(0x665521FD750490FD880EE369C267FCA44ED8A078),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0x6400000000)
 
     tx = Transaction(
         sender=sender,

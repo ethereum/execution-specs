@@ -7,7 +7,6 @@ state_tests/stInitCodeTest/CallRecursiveContractFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -34,9 +33,7 @@ def test_call_recursive_contract(
     """Test_call_recursive_contract."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0x989680)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -55,9 +52,7 @@ def test_call_recursive_contract(
         + Op.CREATE(value=0x0, offset=0x0, size=0x20)
         + Op.STOP,
         nonce=40,
-        address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x989680)
 
     tx = Transaction(
         sender=sender,
@@ -68,11 +63,7 @@ def test_call_recursive_contract(
     )
 
     post = {
-        contract_0: Account(
-            storage={2: 0x95E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87},
-            balance=1,
-            nonce=41,
-        ),
+        contract_0: Account(storage={2: contract_0}, balance=1, nonce=41),
         Address(
             0x1A4C83E1A9834CDC7E4A905FF7F0CF44AED73180
         ): Account.NONEXISTENT,

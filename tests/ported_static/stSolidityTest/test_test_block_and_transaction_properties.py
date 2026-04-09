@@ -7,7 +7,6 @@ state_tests/stSolidityTest/TestBlockAndTransactionPropertiesFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_test_block_and_transaction_properties(
 ) -> None:
     """Test_test_block_and_transaction_properties."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xA2333EEF5630066B928DEA5FD85A239F511B5B067D1441EE7AC290D0122B917B
-    )
+    sender = pre.fund_eoa(amount=0x5F5E100)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -145,7 +142,7 @@ def test_test_block_and_transaction_properties(
                             0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
                             Op.COINBASE,
                         ),
-                        0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA,
+                        coinbase,
                     )
                 )
             ),
@@ -195,7 +192,7 @@ def test_test_block_and_transaction_properties(
                             0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
                             Op.CALLER,
                         ),
-                        0x7F3F285918D9B5E764174551E10B7539B97BBB27,
+                        sender,
                     )
                 )
             ),
@@ -230,7 +227,7 @@ def test_test_block_and_transaction_properties(
                             0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
                             Op.ORIGIN,
                         ),
-                        0x7F3F285918D9B5E764174551E10B7539B97BBB27,
+                        sender,
                     )
                 )
             ),
@@ -244,9 +241,7 @@ def test_test_block_and_transaction_properties(
         + Op.JUMP,
         balance=0x186A0,
         nonce=0,
-        address=Address(0xAD24D212286AB785EFE98AB6F5A3ECDE73054EE5),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x5F5E100)
 
     tx = Transaction(
         sender=sender,

@@ -7,7 +7,6 @@ state_tests/stRandom2/randomStatetest642Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -32,10 +31,7 @@ def test_random_statetest642(
     pre: Alloc,
 ) -> None:
     """Test_random_statetest642."""
-    addr_2 = Address(0x78D51368C50ED27350D847254125276522CF9DAC)
-    sender = EOA(
-        key=0x776D5E84B9AA14EAE66D436166D11BE9B04516CA480E3E2C7936A647DA1BE721
-    )
+    sender = pre.fund_eoa(amount=0x26551A696CACB206)
 
     env = Environment(
         fee_recipient=sender,
@@ -46,7 +42,7 @@ def test_random_statetest642(
         gas_limit=18137262409615484,
     )
 
-    pre[sender] = Account(balance=0x26551A696CACB206)
+    addr_2 = pre.fund_eoa(amount=0x11BAE0BB79D6A164)
     # Source: raw
     # 0x62f46a4f547b169c9edf92f4b39273fe47accc75d1209ae58463c2585607ce051ff6714c4f0fbf6de0659784434fb240652ff52d08576408f168a43a6651f765a4788a05537086290691d5a3239db43eefea96b0012ea26534e99e4ba9ee7f92f37fa731707f800683bafb70815757d861ad8cc6804154ce5b9de3146b58cd53  # noqa: E501
     addr = pre.deploy_contract(  # noqa: F841
@@ -63,9 +59,7 @@ def test_random_statetest642(
         ),
         balance=0x577686E8D1344340,
         nonce=112,
-        address=Address(0x88F8BB676EB054B4F4788ABF1200CB51361038CF),  # noqa: E501
     )
-    pre[addr_2] = Account(balance=0x11BAE0BB79D6A164, nonce=163)
 
     tx = Transaction(
         sender=sender,

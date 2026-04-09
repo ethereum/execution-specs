@@ -7,7 +7,6 @@ state_tests/stDelegatecallTestHomestead/delegatecallInInitcodeToExistingContract
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -39,9 +38,7 @@ def test_delegatecall_in_initcode_to_existing_contract(
     contract_0 = Address(0x1000000000000000000000000000000000000000)
     contract_1 = Address(0x1000000000000000000000000000000000000001)
     contract_2 = Address(0x945304EB96065B2A98B57A48A06AE28D285A71B5)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0x2386F26FC10000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -67,7 +64,6 @@ def test_delegatecall_in_initcode_to_existing_contract(
         + Op.STOP,
         balance=10000,
         nonce=0,
-        address=Address(0x1000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 0 0x6001600055) (CREATE 1 27 5) }
@@ -77,7 +73,6 @@ def test_delegatecall_in_initcode_to_existing_contract(
         + Op.STOP,
         balance=1000,
         nonce=0,
-        address=Address(0x1000000000000000000000000000000000000001),  # noqa: E501
     )
     # Source: lll
     # { (SSTORE 2 1) [[ 11 ]] (CALLER) }
@@ -86,9 +81,7 @@ def test_delegatecall_in_initcode_to_existing_contract(
         + Op.SSTORE(key=0xB, value=Op.CALLER)
         + Op.STOP,
         nonce=0,
-        address=Address(0x945304EB96065B2A98B57A48A06AE28D285A71B5),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x2386F26FC10000)
 
     tx = Transaction(
         sender=sender,
@@ -99,12 +92,7 @@ def test_delegatecall_in_initcode_to_existing_contract(
 
     post = {
         compute_create_address(address=contract_0, nonce=0): Account(
-            storage={
-                0: 1,
-                1: 0x1000000000000000000000000000000000000000,
-                2: 1,
-                11: 0x1000000000000000000000000000000000000000,
-            },
+            storage={0: 1, 1: contract_0, 2: 1, 11: contract_0},
             balance=1,
         ),
     }

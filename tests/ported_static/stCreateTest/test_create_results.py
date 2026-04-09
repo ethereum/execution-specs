@@ -7,7 +7,6 @@ state_tests/stCreateTest/CreateResultsFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -205,9 +204,7 @@ def test_create_results(
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
     contract_1 = Address(0x00000000000000000000000000000000000060A7)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -464,7 +461,7 @@ def test_create_results(
         + Op.INVALID
         + Op.CALL(
             gas=0xFFFF,
-            address=0x60A7,
+            address=contract_1,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -481,7 +478,7 @@ def test_create_results(
         + Op.INVALID
         + Op.CALL(
             gas=0xFFFF,
-            address=0x60A7,
+            address=contract_1,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -498,7 +495,7 @@ def test_create_results(
         + Op.INVALID
         + Op.CALL(
             gas=0xFFFF,
-            address=0x60A7,
+            address=contract_1,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -506,7 +503,7 @@ def test_create_results(
             ret_size=0x0,
         )
         + Op.STOP
-        + Op.MSTORE(offset=0x0, value=0x60A7)
+        + Op.MSTORE(offset=0x0, value=contract_1)
         + Op.REVERT(offset=0x0, size=0x20)
         + Op.PUSH1[0x12]
         + Op.CODECOPY(dest_offset=0x200, offset=0x1A, size=Op.DUP1)
@@ -516,7 +513,7 @@ def test_create_results(
         + Op.INVALID
         + Op.CALL(
             gas=0xFFFF,
-            address=0x60A7,
+            address=contract_1,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -524,7 +521,7 @@ def test_create_results(
             ret_size=0x0,
         )
         + Op.STOP
-        + Op.MSTORE(offset=0x0, value=0x60A7)
+        + Op.MSTORE(offset=0x0, value=contract_1)
         + Op.STOP
         + Op.PUSH1[0x12]
         + Op.CODECOPY(dest_offset=0x200, offset=0x16, size=Op.DUP1)
@@ -534,7 +531,7 @@ def test_create_results(
         + Op.INVALID
         + Op.CALL(
             gas=0xFFFF,
-            address=0x60A7,
+            address=contract_1,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -542,7 +539,7 @@ def test_create_results(
             ret_size=0x0,
         )
         + Op.STOP
-        + Op.MSTORE(offset=0x0, value=0x60A7)
+        + Op.MSTORE(offset=0x0, value=contract_1)
         + Op.SELFDESTRUCT(address=0x0)
         + Op.PUSH1[0x12]
         + Op.CODECOPY(dest_offset=0x200, offset=0x18, size=Op.DUP1)
@@ -552,7 +549,7 @@ def test_create_results(
         + Op.INVALID
         + Op.CALL(
             gas=0xFFFF,
-            address=0x60A7,
+            address=contract_1,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -562,7 +559,7 @@ def test_create_results(
         + Op.STOP
         + Op.CALL(
             gas=0xFFFF,
-            address=0x60A7,
+            address=contract_1,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -571,29 +568,26 @@ def test_create_results(
         )
         + Op.STOP,
         storage={
-            16: 24743,
-            18: 24743,
-            19: 24743,
-            20: 24743,
-            21: 24743,
-            32: 24743,
-            33: 24743,
+            16: contract_1,
+            18: contract_1,
+            19: contract_1,
+            20: contract_1,
+            21: contract_1,
+            32: contract_1,
+            33: contract_1,
         },
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
     # Source: lll
     # {
     #   [[0]] 0x60A7
     # }   ; end of LLL code
     contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x60A7) + Op.STOP,
+        code=Op.SSTORE(key=0x0, value=contract_1) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000060A7),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     expect_entries_: list[dict] = [
         {
@@ -601,7 +595,7 @@ def test_create_results(
             "network": [">=Cancun"],
             "result": {
                 contract_0: Account(storage={32: 295, 33: 551}),
-                contract_1: Account(storage={0: 24743}),
+                contract_1: Account(storage={0: contract_1}),
             },
         },
         {
@@ -621,8 +615,8 @@ def test_create_results(
                     storage={
                         18: 18,
                         19: 0x600060006000600060006160A761FFFFF1000000000000000000000000000000,  # noqa: E501
-                        20: 24743,
-                        21: 24743,
+                        20: contract_1,
+                        21: contract_1,
                         32: 295,
                         33: 551,
                     },
@@ -636,11 +630,11 @@ def test_create_results(
                 contract_0: Account(
                     storage={
                         16: 32,
-                        17: 24743,
+                        17: contract_1,
                         18: 18,
                         19: 0x600060006000600060006160A761FFFFF1000000000000000000000000000000,  # noqa: E501
-                        20: 24743,
-                        21: 24743,
+                        20: contract_1,
+                        21: contract_1,
                         32: 295,
                         33: 551,
                     },
@@ -657,14 +651,14 @@ def test_create_results(
             "result": {
                 contract_0: Account(
                     storage={
-                        16: 24743,
+                        16: contract_1,
                         17: 0,
-                        18: 24743,
-                        19: 24743,
-                        20: 24743,
-                        21: 24743,
-                        32: 24743,
-                        33: 24743,
+                        18: contract_1,
+                        19: contract_1,
+                        20: contract_1,
+                        21: contract_1,
+                        32: contract_1,
+                        33: contract_1,
                     },
                 ),
             },

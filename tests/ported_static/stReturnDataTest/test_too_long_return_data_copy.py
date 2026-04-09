@@ -7,7 +7,6 @@ state_tests/stReturnDataTest/tooLongReturnDataCopyFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -191,9 +190,7 @@ def test_too_long_return_data_copy(
 ) -> None:
     """Ori Pomerantz   qbzzt1@gmail."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x4DC42D61413D4DED993826AC4D6ED7A4A970C60335D2B285C60A4274E792FF1
-    )
+    sender = pre.fund_eoa(amount=0x3635C9ADC5DEA00000, nonce=1)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -228,7 +225,6 @@ def test_too_long_return_data_copy(
         + Op.PUSH1[0x0]
         + Op.RETURN,
         nonce=1,
-        address=Address(0xA6E4F86617D6AB14D857F9115C2AB9F2787157BA),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -254,7 +250,6 @@ def test_too_long_return_data_copy(
         + Op.PUSH1[0x0]
         + Op.REVERT,
         nonce=1,
-        address=Address(0x23EEF957BCFB3738417AEE7FDF4294CF110D7881),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -307,15 +302,10 @@ def test_too_long_return_data_copy(
         + Op.PUSH2[0x100]
         + Op.RETURNDATACOPY
         + Op.EXTCODECOPY(
-            address=0xA6E4F86617D6AB14D857F9115C2AB9F2787157BA,
+            address=addr,
             dest_offset=Op.DUP1,
             offset=0x0,
-            size=Op.ADD(
-                0x20,
-                Op.EXTCODESIZE(
-                    address=0xA6E4F86617D6AB14D857F9115C2AB9F2787157BA
-                ),
-            ),
+            size=Op.ADD(0x20, Op.EXTCODESIZE(address=addr)),
         )
         + Op.CALLDATACOPY(
             dest_offset=Op.DUP1, offset=0x0, size=Op.ADD(0x20, Op.CALLDATASIZE)
@@ -328,9 +318,7 @@ def test_too_long_return_data_copy(
         storage={0: 24743},
         balance=0xDE0B6B3A7640000,
         nonce=1,
-        address=Address(0xE4592ED5B9C3A9302D66798E39BFB7DFD44FAFC1),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x3635C9ADC5DEA00000, nonce=1)
 
     expect_entries_: list[dict] = [
         {

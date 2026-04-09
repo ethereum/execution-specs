@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_Call50000_rip160Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -57,9 +56,7 @@ def test_static_call50000_rip160(
 ) -> None:
     """Test_static_call50000_rip160."""
     coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0xE7C72B378297589ACEE4E0BA3272841BCFC5E220F86DE253F890274CFEE9E474
-    )
+    sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -70,7 +67,6 @@ def test_static_call50000_rip160(
         gas_limit=39250000000,
     )
 
-    pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
     # Source: lll
     # {  [[ 0 ]] (CALL (GAS) (CALLDATALOAD 0) (CALLVALUE) 0 0 0 0) [[ 1 ]] 1 }
     target = pre.deploy_contract(  # noqa: F841
@@ -89,7 +85,6 @@ def test_static_call50000_rip160(
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
         nonce=0,
-        address=Address(0xC0E4183389EB57F779A986D8C878F89B9401DC8E),  # noqa: E501
     )
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) [[ 0 ]] (STATICCALL 78200 3 0 50000 0 0) ) [[ 1 ]] @i}  # noqa: E501
@@ -116,7 +111,6 @@ def test_static_call50000_rip160(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
-        address=Address(0xF50714EA64904A573FEE759CA74A1C3C93FEF59F),  # noqa: E501
     )
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (MSTORE 0 (STATICCALL 78200 3 0 50000 0 0)) ) (MSTORE 32 @i) }  # noqa: E501
@@ -143,7 +137,6 @@ def test_static_call50000_rip160(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
-        address=Address(0x4689CAD8BBC0E90B346E8B4BC385E68BA03F307C),  # noqa: E501
     )
 
     tx_data = [

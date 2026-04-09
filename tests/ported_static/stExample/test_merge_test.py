@@ -7,7 +7,6 @@ state_tests/stExample/mergeTestFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     AccessList,
     Account,
     Address,
@@ -35,9 +34,7 @@ def test_merge_test(
 ) -> None:
     """Example of PoS merge state test."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xDE0C95357363DA5C1C5A73BD7C2781CA5C9FECC1014103B5E1D1E990AE8208EC
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000, nonce=1)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -61,9 +58,7 @@ def test_merge_test(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=1,
-        address=Address(0x49A0FE79E28D1D65E16CDF53ACAFEAE7BACCAC0E),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
 
     tx = Transaction(
         sender=sender,
@@ -75,7 +70,7 @@ def test_merge_test(
         nonce=1,
         access_list=[
             AccessList(
-                address=Address(0x49A0FE79E28D1D65E16CDF53ACAFEAE7BACCAC0E),
+                address=target,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501

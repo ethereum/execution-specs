@@ -7,7 +7,6 @@ state_tests/stCallCodes/callcodeInInitcodeToEmptyContractFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -62,9 +61,7 @@ def test_callcode_in_initcode_to_empty_contract(
     contract_0 = Address(0x1100000000000000000000000000000000000000)
     contract_1 = Address(0x1000000000000000000000000000000000000000)
     contract_2 = Address(0x2000000000000000000000000000000000000000)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0x2386F26FC10000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -89,7 +86,6 @@ def test_callcode_in_initcode_to_empty_contract(
         )
         + Op.STOP,
         nonce=0,
-        address=Address(0x1100000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # {(seq (CREATE 0 0 (lll (seq  [[1]] (CALLCODE 500000 0x1000000000000000000000000000000000000001 1 0 0 0 0)  [[2]] 1  ) 0)   )           )}  # noqa: E501
@@ -116,7 +112,6 @@ def test_callcode_in_initcode_to_empty_contract(
         + Op.STOP,
         balance=10000,
         nonce=0,
-        address=Address(0x1000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # {(seq (CREATE2 0 0 (lll (seq  [[1]] (CALLCODE 500000 0x1000000000000000000000000000000000000001 1 0 0 0 0) [[2]] 1 ) 0)   0)           )}  # noqa: E501
@@ -144,9 +139,7 @@ def test_callcode_in_initcode_to_empty_contract(
         + Op.STOP,
         balance=10000,
         nonce=0,
-        address=Address(0x2000000000000000000000000000000000000000),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x2386F26FC10000)
 
     expect_entries_: list[dict] = [
         {

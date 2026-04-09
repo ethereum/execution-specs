@@ -10,7 +10,6 @@ state_tests/stStaticCall/StaticcallToPrecompileFromContractInitializationFiller.
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -40,9 +39,7 @@ def test_staticcall_to_precompile_from_contract_initialization(
     """STATICCALL to precompiled contracts from contract initialization code."""  # noqa: E501
     coinbase = Address(0xCAFE000000000000000000000000000000000001)
     contract_0 = Address(0xA000000000000000000000000000000000000000)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -71,9 +68,7 @@ def test_staticcall_to_precompile_from_contract_initialization(
         )
         + Op.STOP,
         nonce=0,
-        address=Address(0xA000000000000000000000000000000000000000),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
@@ -92,7 +87,7 @@ def test_staticcall_to_precompile_from_contract_initialization(
         Address(0xFAD204ED1275B429B66C9CE0614D62832D6B2580): Account(
             storage={
                 0: 1,
-                1: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                1: sender,
                 2: 1,
                 3: 1,
                 4: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC000000,

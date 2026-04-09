@@ -7,7 +7,6 @@ state_tests/stBugs/staticcall_createfailsFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -59,9 +58,7 @@ def test_staticcall_createfails(
     contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_1 = Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_2 = Address(0xD94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0x38BEEC8FEECA2598)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -72,7 +69,6 @@ def test_staticcall_createfails(
         gas_limit=23826461031063688,
     )
 
-    pre[sender] = Account(balance=0x38BEEC8FEECA2598)
     # Source: lll
     # { [[1]] (STATICCALL 70000 (CALLDATALOAD 0) 0 0 0 0) }
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -90,7 +86,6 @@ def test_staticcall_createfails(
         + Op.STOP,
         storage={1: 1},
         nonce=63,
-        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 1 1) [[2]] (CREATE 1 1 1) }
@@ -99,14 +94,12 @@ def test_staticcall_createfails(
         + Op.SSTORE(key=0x2, value=Op.CREATE(value=0x1, offset=0x1, size=0x1))
         + Op.STOP,
         nonce=63,
-        address=Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
     # Source: raw
     # 0x60006000f0
     contract_2 = pre.deploy_contract(  # noqa: F841
         code=Op.PUSH1[0x0] * 2 + Op.CREATE,
         nonce=63,
-        address=Address(0xD94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     tx_data = [

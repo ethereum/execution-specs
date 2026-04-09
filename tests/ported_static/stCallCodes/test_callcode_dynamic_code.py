@@ -7,7 +7,6 @@ state_tests/stCallCodes/callcodeDynamicCodeFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -76,9 +75,7 @@ def test_callcode_dynamic_code(
     contract_2 = Address(0x2000000000000000000000000000000000000000)
     contract_3 = Address(0x3000000000000000000000000000000000000000)
     contract_4 = Address(0x4000000000000000000000000000000000000000)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0x2386F26FC10000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -103,7 +100,6 @@ def test_callcode_dynamic_code(
         )
         + Op.STOP,
         nonce=0,
-        address=Address(0x1100000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # {(seq [[10]] (CREATE 0 0 (lll(seq  (RETURN 0 (lll(seq [[0]] 1  [[20]] (ADDRESS) [[21]] (ORIGIN) [[22]] (CALLER)   )0) )  )0)   )  [[11]] (CALLCODE 100000 (SLOAD 10) 0 0 64 0 64)                   )}  # noqa: E501
@@ -139,7 +135,6 @@ def test_callcode_dynamic_code(
         + Op.STOP,
         balance=10000,
         nonce=0,
-        address=Address(0x1000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # {(seq [[10]] (CREATE2 0 0 (lll(seq  (RETURN 0 (lll(seq [[0]] 1  [[20]] (ADDRESS) [[21]] (ORIGIN) [[22]] (CALLER)  )0) )  )0)  0 )  [[11]] (CALLCODE 100000 (SLOAD 10) 0 0 64 0 64)                   )}  # noqa: E501
@@ -176,7 +171,6 @@ def test_callcode_dynamic_code(
         + Op.STOP,
         balance=1000,
         nonce=0,
-        address=Address(0x2000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # {(seq (CREATE 0 0 (lll(seq       [[10]] (CREATE 0 0 (lll(seq  (RETURN 0 (lll(seq [[0]] 1  [[20]] (ADDRESS)  [[21]] (ORIGIN) [[22]] (CALLER)  )0) )  )0)   )  [[11]] (CALLCODE 100000 (SLOAD 10) 0 0 64 0 64)            )0))       )}  # noqa: E501
@@ -218,7 +212,6 @@ def test_callcode_dynamic_code(
         + Op.STOP,
         balance=10000,
         nonce=0,
-        address=Address(0x3000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # {(seq (CREATE 0 0 (lll(seq       [[10]] (CREATE2 0 0 (lll(seq  (RETURN 0 (lll(seq [[0]] 1  [[20]] (ADDRESS)  [[21]] (ORIGIN) [[22]] (CALLER)  )0) )  )0)  0 )  [[11]] (CALLCODE 100000 (SLOAD 10) 0 0 64 0 64)            )0))       )}  # noqa: E501
@@ -261,9 +254,7 @@ def test_callcode_dynamic_code(
         + Op.STOP,
         balance=10000,
         nonce=0,
-        address=Address(0x4000000000000000000000000000000000000000),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x2386F26FC10000)
 
     expect_entries_: list[dict] = [
         {
@@ -275,9 +266,9 @@ def test_callcode_dynamic_code(
                         0: 1,
                         10: 0x13136008B64FF592819B2FA6D43F2835C452020E,
                         11: 1,
-                        20: 0x1000000000000000000000000000000000000000,
-                        21: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                        22: 0x1000000000000000000000000000000000000000,
+                        20: contract_1,
+                        21: sender,
+                        22: contract_1,
                     },
                 ),
             },
@@ -291,9 +282,9 @@ def test_callcode_dynamic_code(
                         0: 1,
                         10: 0x2D39FAD743351D4CF3F4717907D3DDA5E0A689A7,
                         11: 1,
-                        20: 0x2000000000000000000000000000000000000000,
-                        21: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                        22: 0x2000000000000000000000000000000000000000,
+                        20: contract_2,
+                        21: sender,
+                        22: contract_2,
                     },
                 ),
             },
@@ -308,7 +299,7 @@ def test_callcode_dynamic_code(
                         10: 0xBF1676BE6038AB86D66E00824C2E3577858040F6,
                         11: 1,
                         20: 0x4B86C4ED99B87F0F396BC0C76885453C343916ED,
-                        21: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        21: sender,
                         22: 0x4B86C4ED99B87F0F396BC0C76885453C343916ED,
                     },
                     code=b"",
@@ -327,7 +318,7 @@ def test_callcode_dynamic_code(
                         10: 0xF2D6BF688FAE45DA62AB2DD4F36945BC924CC61,
                         11: 1,
                         20: 0xA51C188504A60578914FCAE68F7A1F0DCBB856A9,
-                        21: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        21: sender,
                         22: 0xA51C188504A60578914FCAE68F7A1F0DCBB856A9,
                     },
                     code=b"",

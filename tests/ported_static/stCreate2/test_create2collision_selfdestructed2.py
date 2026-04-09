@@ -7,7 +7,6 @@ state_tests/stCreate2/create2collisionSelfdestructed2Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -59,9 +58,7 @@ def test_create2collision_selfdestructed2(
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xFCE41D047B4A1D4450382DCC29EC7E5FEDC5F9A3)
     contract_1 = Address(0xCFF64F4C5DF8F436C4F2C1AF4B2E3F9E3004C779)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -72,14 +69,12 @@ def test_create2collision_selfdestructed2(
         gas_limit=1000000,
     )
 
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { (SELFDESTRUCT 0x10) }
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.SELFDESTRUCT(address=0x10) + Op.STOP,
         balance=1,
         nonce=0,
-        address=Address(0xFCE41D047B4A1D4450382DCC29EC7E5FEDC5F9A3),  # noqa: E501
     )
     # Source: raw
     # 0x6010ff
@@ -87,7 +82,6 @@ def test_create2collision_selfdestructed2(
         code=Op.SELFDESTRUCT(address=0x10),
         balance=1,
         nonce=1,
-        address=Address(0xCFF64F4C5DF8F436C4F2C1AF4B2E3F9E3004C779),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

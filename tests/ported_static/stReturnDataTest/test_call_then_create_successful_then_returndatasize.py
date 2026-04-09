@@ -7,7 +7,6 @@ state_tests/stReturnDataTest/call_then_create_successful_then_returndatasizeFill
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_call_then_create_successful_then_returndatasize(
 ) -> None:
     """Test_call_then_create_successful_then_returndatasize."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
-    )
+    sender = pre.fund_eoa(amount=0x6400000000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -58,7 +55,6 @@ def test_call_then_create_successful_then_returndatasize(
         + Op.RETURN(offset=0x0, size=0x20)
         + Op.STOP * 2,
         nonce=0,
-        address=Address(0x24B406508240D6F2783499D1FD65FEDD0FEEEF37),  # noqa: E501
     )
     # Source: lll
     # { (seq (CALL 0x0900000000 <contract:0x0aabbccdd5c57f15886f9b263e2f6d2d6c7b5ec6> 0 0 0 0 0) (CREATE 0 0 (lll (seq (mstore 0 0x112233) (RETURN 0 32) (STOP) ) 0)) (SSTORE 0 (RETURNDATASIZE)) (STOP) )}  # noqa: E501
@@ -66,7 +62,7 @@ def test_call_then_create_successful_then_returndatasize(
         code=Op.POP(
             Op.CALL(
                 gas=0x900000000,
-                address=0x24B406508240D6F2783499D1FD65FEDD0FEEEF37,
+                address=addr,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -86,9 +82,7 @@ def test_call_then_create_successful_then_returndatasize(
         + Op.STOP * 2,
         storage={0: 1},
         nonce=0,
-        address=Address(0xCC5FBABB1E86F7744ED4840B4153736D3C0AE2A2),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x6400000000)
 
     tx = Transaction(
         sender=sender,

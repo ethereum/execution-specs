@@ -7,7 +7,6 @@ state_tests/stZeroCallsTest/ZeroValue_TransactionCALL_ToOneStorageKey_ParisFille
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -34,10 +33,7 @@ def test_zero_value_transaction_call_to_one_storage_key_paris(
 ) -> None:
     """Test_zero_value_transaction_call_to_one_storage_key_paris."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    addr = Address(0x4757608F18B70777AE788DD4056EEED52F7AA68F)
-    sender = EOA(
-        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -48,8 +44,7 @@ def test_zero_value_transaction_call_to_one_storage_key_paris(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
-    pre[addr] = Account(balance=10, storage={0: 1})
+    addr = pre.fund_eoa(amount=10)
 
     tx = Transaction(
         sender=sender,

@@ -7,7 +7,6 @@ state_tests/stMemExpandingEIP150Calls/CallAndCallcodeConsumeMoreGasThenTransacti
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_call_and_callcode_consume_more_gas_then_transaction_has_with_mem_expand
 ) -> None:
     """Test_call_and_callcode_consume_more_gas_then_transaction_has_with_m..."""  # noqa: E501
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x8D19F2B0D2F5689C1771FBCA70476CA6E877A81EE15C3733DE87FAE38E5ABCEF
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -48,13 +45,11 @@ def test_call_and_callcode_consume_more_gas_then_transaction_has_with_mem_expand
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: hex
     # 0x6012600055
     addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=0x12),
         nonce=0,
-        address=Address(0xA1F6E75A455896613053D45331763A07F4718969),  # noqa: E501
     )
     # Source: hex
     # 0x5a60085560ff60ff60ff60ff600073<contract:0x1000000000000000000000000000000000000103>620927c0f160095560ff60ff60ff60ff600073<contract:0x1000000000000000000000000000000000000103>620927c0f2600a55  # noqa: E501
@@ -64,7 +59,7 @@ def test_call_and_callcode_consume_more_gas_then_transaction_has_with_mem_expand
             key=0x9,
             value=Op.CALL(
                 gas=0x927C0,
-                address=0xA1F6E75A455896613053D45331763A07F4718969,
+                address=addr,
                 value=0x0,
                 args_offset=0xFF,
                 args_size=0xFF,
@@ -76,7 +71,7 @@ def test_call_and_callcode_consume_more_gas_then_transaction_has_with_mem_expand
             key=0xA,
             value=Op.CALLCODE(
                 gas=0x927C0,
-                address=0xA1F6E75A455896613053D45331763A07F4718969,
+                address=addr,
                 value=0x0,
                 args_offset=0xFF,
                 args_size=0xFF,
@@ -85,7 +80,6 @@ def test_call_and_callcode_consume_more_gas_then_transaction_has_with_mem_expand
             ),
         ),
         nonce=0,
-        address=Address(0x346E4C3E54A808E0CAD66173DE0D81FF4D06BABF),  # noqa: E501
     )
 
     tx = Transaction(

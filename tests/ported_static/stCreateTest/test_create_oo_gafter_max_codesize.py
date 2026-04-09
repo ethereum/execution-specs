@@ -7,7 +7,6 @@ state_tests/stCreateTest/CreateOOGafterMaxCodesizeFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -90,9 +89,7 @@ def test_create_oo_gafter_max_codesize(
     contract_1 = Address(0x00000000000000000000000000000000000C0DE1)
     contract_2 = Address(0x00000000000000000000000000000000000C0DEB)
     contract_3 = Address(0x00000000000000000000000000000000000C0DEA)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -119,7 +116,6 @@ def test_create_oo_gafter_max_codesize(
         + Op.JUMPDEST
         + Op.SELFDESTRUCT(address=0x0),
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000C0DE0),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -138,7 +134,6 @@ def test_create_oo_gafter_max_codesize(
         + Op.EXTCODECOPY
         + Op.RETURN(offset=0x0, size=0x6000),
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000C0DE1),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -197,7 +192,6 @@ def test_create_oo_gafter_max_codesize(
         + Op.ADD
         + Op.JUMP(pc=0x18),
         nonce=1,
-        address=Address(0x00000000000000000000000000000000000C0DEB),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -315,9 +309,7 @@ def test_create_oo_gafter_max_codesize(
         + Op.JUMPDEST
         + Op.REVERT(offset=Op.DUP1, size=0x0),
         nonce=1,
-        address=Address(0x00000000000000000000000000000000000C0DEA),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     expect_entries_: list[dict] = [
         {

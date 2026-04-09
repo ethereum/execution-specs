@@ -7,7 +7,6 @@ state_tests/stExample/basefeeExampleFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     AccessList,
     Account,
     Address,
@@ -35,9 +34,7 @@ def test_basefee_example(
 ) -> None:
     """A test shows basefee transaction example."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -57,9 +54,7 @@ def test_basefee_example(
         code=Op.SSTORE(key=0x0, value=Op.ADD(0x1, 0x1)) + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0xAD21EB96C7A254C810474F7B1E1E66CA449A3426),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
@@ -71,7 +66,7 @@ def test_basefee_example(
         max_priority_fee_per_gas=2,
         access_list=[
             AccessList(
-                address=Address(0xAD21EB96C7A254C810474F7B1E1E66CA449A3426),
+                address=target,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501

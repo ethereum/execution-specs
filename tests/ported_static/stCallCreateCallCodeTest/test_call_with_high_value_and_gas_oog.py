@@ -7,7 +7,6 @@ state_tests/stCallCreateCallCodeTest/callWithHighValueAndGasOOGFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -60,9 +59,7 @@ def test_call_with_high_value_and_gas_oog(
 ) -> None:
     """Call with value."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x897B12D02D588D8A4FE16FF831CBD4459C6F62F8C845B0CCDD31CAF068C84A26
-    )
+    sender = pre.fund_eoa(amount=0x3635C9ADC5DEA00000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -73,6 +70,15 @@ def test_call_with_high_value_and_gas_oog(
         gas_limit=30000000,
     )
 
+    # Source: raw
+    # 0x6001600155603760005360026000f3
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x1, value=0x1)
+        + Op.MSTORE8(offset=0x0, value=0x37)
+        + Op.RETURN(offset=0x0, size=0x2),
+        balance=23,
+        nonce=0,
+    )
     # Source: lll
     # { (MSTORE 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) (MSTORE 32 0xaaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffaa ) [[ 0 ]] (CALL 0xffffffffffffffffffffffff <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 100000000000000000000 0 64 0 2 ) [[1]] (MLOAD 0)}  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -88,7 +94,7 @@ def test_call_with_high_value_and_gas_oog(
             key=0x0,
             value=Op.CALL(
                 gas=0xFFFFFFFFFFFFFFFFFFFFFFFF,
-                address=0x896F13E800125C0CCEC44F3C434335F0A97BC1B,
+                address=addr,
                 value=0x56BC75E2D63100000,
                 args_offset=0x0,
                 args_size=0x40,
@@ -101,19 +107,7 @@ def test_call_with_high_value_and_gas_oog(
         storage={0: 5},
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0xDFAD372452688759EDD82C422BF3976EAFC89C2B),  # noqa: E501
     )
-    # Source: raw
-    # 0x6001600155603760005360026000f3
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x1, value=0x1)
-        + Op.MSTORE8(offset=0x0, value=0x37)
-        + Op.RETURN(offset=0x0, size=0x2),
-        balance=23,
-        nonce=0,
-        address=Address(0x0896F13E800125C0CCEC44F3C434335F0A97BC1B),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0x3635C9ADC5DEA00000)
 
     expect_entries_: list[dict] = [
         {

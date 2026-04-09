@@ -7,7 +7,6 @@ state_tests/stEIP2930/variedContextFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     AccessList,
     Account,
     Address,
@@ -292,9 +291,7 @@ def test_varied_context(
     contract_24 = Address(0x0000000000000000000000000000000000001026)
     contract_25 = Address(0x000000000000000000000000000000000000F126)
     contract_26 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -416,31 +413,6 @@ def test_varied_context(
     )
     # Source: lll
     # {
-    #    ; STATICCALL_VALID  STATICCALL_INVALID
-    #
-    #    ; Need to store the result here, because static call is, well, static
-    #    (staticcall (gas) 0xEAD0C057 0 0 0 0x20)
-    #    [[0]] @0
-    # }
-    contract_4 = pre.deploy_contract(  # noqa: F841
-        code=Op.POP(
-            Op.STATICCALL(
-                gas=Op.GAS,
-                address=0xEAD0C057,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x20,
-            )
-        )
-        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
-        + Op.STOP,
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001003),  # noqa: E501
-    )
-    # Source: lll
-    # {
     #  ;   STATICCALL_VALID  STATICCALL_INVALID
     #
     #
@@ -517,34 +489,6 @@ def test_varied_context(
     # Source: lll
     # {
     #    ; CALL_WRITE_SUICIDE_VALID      CALL_WRITE_SUICIDE_INVALID
-    #    [0] (gas)
-    #    (call (gas) 0xDEAD0111 0 0 0 0 0)
-    #    [[0]] (- @0 (gas) 0x7fe8)
-    # }
-    contract_7 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.POP(
-            Op.CALL(
-                gas=Op.GAS,
-                address=0xDEAD0111,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            )
-        )
-        + Op.SSTORE(
-            key=0x0, value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x0), Op.GAS), 0x7FE8)
-        )
-        + Op.STOP,
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001011),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #    ; CALL_WRITE_SUICIDE_VALID      CALL_WRITE_SUICIDE_INVALID
     #    [[0]] 0xDEAD
     #
     #    (selfdestruct 0)
@@ -556,34 +500,6 @@ def test_varied_context(
         balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address(0x00000000000000000000000000000000DEAD0111),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #    ; CALL_READ_SUICIDE_VALID      CALL_READ_SUICIDE_INVALID
-    #    [0] (gas)
-    #    (call (gas) 0xDEAD0112 0 0 0 0 0)
-    #    [[0]] (- @0 (gas) 0x7fe8)
-    # }
-    contract_9 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.POP(
-            Op.CALL(
-                gas=Op.GAS,
-                address=0xDEAD0112,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            )
-        )
-        + Op.SSTORE(
-            key=0x0, value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x0), Op.GAS), 0x7FE8)
-        )
-        + Op.STOP,
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001012),  # noqa: E501
     )
     # Source: lll
     # {
@@ -1320,7 +1236,87 @@ def test_varied_context(
         nonce=0,
         address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
+    # Source: lll
+    # {
+    #    ; STATICCALL_VALID  STATICCALL_INVALID
+    #
+    #    ; Need to store the result here, because static call is, well, static
+    #    (staticcall (gas) 0xEAD0C057 0 0 0 0x20)
+    #    [[0]] @0
+    # }
+    contract_4 = pre.deploy_contract(  # noqa: F841
+        code=Op.POP(
+            Op.STATICCALL(
+                gas=Op.GAS,
+                address=0xEAD0C057,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x20,
+            )
+        )
+        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
+        nonce=0,
+        address=Address(0x0000000000000000000000000000000000001003),  # noqa: E501
+    )
+    # Source: lll
+    # {
+    #    ; CALL_WRITE_SUICIDE_VALID      CALL_WRITE_SUICIDE_INVALID
+    #    [0] (gas)
+    #    (call (gas) 0xDEAD0111 0 0 0 0 0)
+    #    [[0]] (- @0 (gas) 0x7fe8)
+    # }
+    contract_7 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=Op.GAS)
+        + Op.POP(
+            Op.CALL(
+                gas=Op.GAS,
+                address=0xDEAD0111,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.SSTORE(
+            key=0x0, value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x0), Op.GAS), 0x7FE8)
+        )
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
+        nonce=0,
+        address=Address(0x0000000000000000000000000000000000001011),  # noqa: E501
+    )
+    # Source: lll
+    # {
+    #    ; CALL_READ_SUICIDE_VALID      CALL_READ_SUICIDE_INVALID
+    #    [0] (gas)
+    #    (call (gas) 0xDEAD0112 0 0 0 0 0)
+    #    [[0]] (- @0 (gas) 0x7fe8)
+    # }
+    contract_9 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=Op.GAS)
+        + Op.POP(
+            Op.CALL(
+                gas=Op.GAS,
+                address=0xDEAD0112,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.SSTORE(
+            key=0x0, value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x0), Op.GAS), 0x7FE8)
+        )
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
+        nonce=0,
+        address=Address(0x0000000000000000000000000000000000001012),  # noqa: E501
+    )
 
     expect_entries_: list[dict] = [
         {
@@ -1781,7 +1777,7 @@ def test_varied_context(
     tx_access_lists: dict[int, list] = {
         0: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001000),
+                address=contract_0,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -1794,7 +1790,7 @@ def test_varied_context(
         ],
         1: [
             AccessList(
-                address=Address(0x000000000000000000000000000000000000C057),
+                address=contract_3,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -1807,7 +1803,7 @@ def test_varied_context(
         ],
         2: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001002),
+                address=contract_2,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -1820,7 +1816,7 @@ def test_varied_context(
         ],
         3: [
             AccessList(
-                address=Address(0x000000000000000000000000000000000000C057),
+                address=contract_3,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -1833,7 +1829,7 @@ def test_varied_context(
         ],
         4: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001001),
+                address=contract_1,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -1846,7 +1842,7 @@ def test_varied_context(
         ],
         5: [
             AccessList(
-                address=Address(0x000000000000000000000000000000000000C057),
+                address=contract_3,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -1859,7 +1855,7 @@ def test_varied_context(
         ],
         6: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001003),
+                address=contract_4,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -1872,7 +1868,7 @@ def test_varied_context(
         ],
         7: [
             AccessList(
-                address=Address(0x00000000000000000000000000000000EAD0C057),
+                address=contract_5,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -1885,7 +1881,7 @@ def test_varied_context(
         ],
         8: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001010),
+                address=contract_6,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -1898,7 +1894,7 @@ def test_varied_context(
         ],
         9: [
             AccessList(
-                address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),
+                address=contract_26,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -1911,7 +1907,7 @@ def test_varied_context(
         ],
         10: [
             AccessList(
-                address=Address(0x00000000000000000000000000000000DEAD0111),
+                address=contract_8,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -1921,7 +1917,7 @@ def test_varied_context(
         ],
         11: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001011),
+                address=contract_7,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -1931,7 +1927,7 @@ def test_varied_context(
         ],
         12: [
             AccessList(
-                address=Address(0x00000000000000000000000000000000DEAD0112),
+                address=contract_10,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -1941,7 +1937,7 @@ def test_varied_context(
         ],
         13: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001012),
+                address=contract_9,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -1961,7 +1957,7 @@ def test_varied_context(
         ],
         15: [
             AccessList(
-                address=Address(0x000000000000000000000000000000000000F113),
+                address=contract_12,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -1971,7 +1967,7 @@ def test_varied_context(
         ],
         16: [
             AccessList(
-                address=Address(0x000000000000000000000000000000000000F114),
+                address=contract_14,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -1981,7 +1977,7 @@ def test_varied_context(
         ],
         17: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001014),
+                address=contract_13,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -1991,7 +1987,7 @@ def test_varied_context(
         ],
         18: [
             AccessList(
-                address=Address(0x000000000000000000000000000000000000F115),
+                address=contract_16,
                 storage_keys=[
                     Hash(
                         "0x00000000000000000000000000000000000000000000000000000000000060a7"  # noqa: E501
@@ -2001,7 +1997,7 @@ def test_varied_context(
         ],
         19: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001015),
+                address=contract_15,
                 storage_keys=[
                     Hash(
                         "0x00000000000000000000000000000000000000000000000000000000000060a7"  # noqa: E501
@@ -2011,7 +2007,7 @@ def test_varied_context(
         ],
         20: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001016),
+                address=contract_17,
                 storage_keys=[
                     Hash(
                         "0x00000000000000000000000000000000000000000000000000000000000060a7"  # noqa: E501
@@ -2253,7 +2249,7 @@ def test_varied_context(
         ],
         34: [
             AccessList(
-                address=Address(0x000000000000000000000000000000000000F126),
+                address=contract_25,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -2263,7 +2259,7 @@ def test_varied_context(
         ],
         35: [
             AccessList(
-                address=Address(0x000000000000000000000000000000000000F126),
+                address=contract_25,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000020"  # noqa: E501

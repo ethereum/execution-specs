@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_callChangeRevertFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -65,9 +64,7 @@ def test_static_call_change_revert(
 ) -> None:
     """Test_static_call_change_revert."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -93,57 +90,20 @@ def test_static_call_change_revert(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x492BB18ADCE7DA2BED3592742FB4E3DF9086FB4C),  # noqa: E501
-    )
-    # Source: lll
-    # {  [[ 0 ]] (CALL 100000 <contract:0x1000000000000000000000000000000000000001> 1 0 0 0 0) [[ 1 ]] (STATICCALL 100000 <contract:0x1000000000000000000000000000000000000001> 0 0 0 0) [[ 2 ]] (CALL 100000 <contract:0x1000000000000000000000000000000000000001> 1 0 0 0 0) }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0x0,
-            value=Op.CALL(
-                gas=0x186A0,
-                address=0xC031FC0AA7B61A5D7D962AFEE8838DEC6948ABB7,
-                value=0x1,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.SSTORE(
-            key=0x1,
-            value=Op.STATICCALL(
-                gas=0x186A0,
-                address=0xC031FC0AA7B61A5D7D962AFEE8838DEC6948ABB7,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.SSTORE(
-            key=0x2,
-            value=Op.CALL(
-                gas=0x186A0,
-                address=0xC031FC0AA7B61A5D7D962AFEE8838DEC6948ABB7,
-                value=0x1,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.STOP,
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0xE6F1FDAA1C99007971C641E10AF3A8FAC0B641C8),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 1 1)  }
     addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x1, value=0x1) + Op.STOP,
         nonce=0,
-        address=Address(0xC031FC0AA7B61A5D7D962AFEE8838DEC6948ABB7),  # noqa: E501
+    )
+    # Source: lll
+    # { (MSTORE 1 1) (SSTORE 1 (SLOAD 1)) }
+    addr_5 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x1, value=0x1)
+        + Op.SSTORE(key=0x1, value=Op.SLOAD(key=0x1))
+        + Op.STOP,
+        nonce=0,
     )
     # Source: lll
     # {  [[ 0 ]] (CALL 100000 <contract:0x1000000000000000000000000000000000000001> 1 0 0 0 0) [[ 1 ]] (STATICCALL 100000 <contract:0x1000000000000000000000000000000000000001> 0 0 0 0) [[ 2 ]] (CALL 100000 <contract:0x1000000000000000000000000000000000000001> 1 0 0 0 0) (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (EXTCODESIZE 1)) }  # noqa: E501
@@ -152,7 +112,7 @@ def test_static_call_change_revert(
             key=0x0,
             value=Op.CALL(
                 gas=0x186A0,
-                address=0xC031FC0AA7B61A5D7D962AFEE8838DEC6948ABB7,
+                address=addr_2,
                 value=0x1,
                 args_offset=0x0,
                 args_size=0x0,
@@ -164,7 +124,7 @@ def test_static_call_change_revert(
             key=0x1,
             value=Op.STATICCALL(
                 gas=0x186A0,
-                address=0xC031FC0AA7B61A5D7D962AFEE8838DEC6948ABB7,
+                address=addr_2,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -175,7 +135,7 @@ def test_static_call_change_revert(
             key=0x2,
             value=Op.CALL(
                 gas=0x186A0,
-                address=0xC031FC0AA7B61A5D7D962AFEE8838DEC6948ABB7,
+                address=addr_2,
                 value=0x1,
                 args_offset=0x0,
                 args_size=0x0,
@@ -194,16 +154,15 @@ def test_static_call_change_revert(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0xEA22EC955AC71D8E4380541212BD20818D704567),  # noqa: E501
     )
     # Source: lll
-    # {  [[ 0 ]] (CALL 100000 <contract:0x1000000000000000000000000000000000000002> 1 0 0 0 0) [[ 1 ]] (STATICCALL 100000 <contract:0x1000000000000000000000000000000000000002> 0 0 0 0) [[ 2 ]] (CALL 100000 <contract:0x1000000000000000000000000000000000000002> 1 0 0 0 0) }  # noqa: E501
-    addr_4 = pre.deploy_contract(  # noqa: F841
+    # {  [[ 0 ]] (CALL 100000 <contract:0x1000000000000000000000000000000000000001> 1 0 0 0 0) [[ 1 ]] (STATICCALL 100000 <contract:0x1000000000000000000000000000000000000001> 0 0 0 0) [[ 2 ]] (CALL 100000 <contract:0x1000000000000000000000000000000000000001> 1 0 0 0 0) }  # noqa: E501
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALL(
                 gas=0x186A0,
-                address=0x47C4ED3D93429CB8304737E2327B522E8928C9F3,
+                address=addr_2,
                 value=0x1,
                 args_offset=0x0,
                 args_size=0x0,
@@ -215,7 +174,7 @@ def test_static_call_change_revert(
             key=0x1,
             value=Op.STATICCALL(
                 gas=0x186A0,
-                address=0x47C4ED3D93429CB8304737E2327B522E8928C9F3,
+                address=addr_2,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -226,7 +185,7 @@ def test_static_call_change_revert(
             key=0x2,
             value=Op.CALL(
                 gas=0x186A0,
-                address=0x47C4ED3D93429CB8304737E2327B522E8928C9F3,
+                address=addr_2,
                 value=0x1,
                 args_offset=0x0,
                 args_size=0x0,
@@ -237,18 +196,49 @@ def test_static_call_change_revert(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x2C004389EDAAE817E664B6D660F46735756B56D3),  # noqa: E501
     )
     # Source: lll
-    # { (MSTORE 1 1) (SSTORE 1 (SLOAD 1)) }
-    addr_5 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x1, value=0x1)
-        + Op.SSTORE(key=0x1, value=Op.SLOAD(key=0x1))
+    # {  [[ 0 ]] (CALL 100000 <contract:0x1000000000000000000000000000000000000002> 1 0 0 0 0) [[ 1 ]] (STATICCALL 100000 <contract:0x1000000000000000000000000000000000000002> 0 0 0 0) [[ 2 ]] (CALL 100000 <contract:0x1000000000000000000000000000000000000002> 1 0 0 0 0) }  # noqa: E501
+    addr_4 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.CALL(
+                gas=0x186A0,
+                address=addr_5,
+                value=0x1,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
+        + Op.SSTORE(
+            key=0x1,
+            value=Op.STATICCALL(
+                gas=0x186A0,
+                address=addr_5,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
+        + Op.SSTORE(
+            key=0x2,
+            value=Op.CALL(
+                gas=0x186A0,
+                address=addr_5,
+                value=0x1,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
         + Op.STOP,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x47C4ED3D93429CB8304737E2327B522E8928C9F3),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     expect_entries_: list[dict] = [
         {

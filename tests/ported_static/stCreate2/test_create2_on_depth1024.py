@@ -7,7 +7,6 @@ state_tests/stCreate2/Create2OnDepth1024Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -36,8 +35,8 @@ def test_create2_on_depth1024(
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_1 = Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    sender = pre.fund_eoa(
+        amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
     )
 
     env = Environment(
@@ -49,9 +48,6 @@ def test_create2_on_depth1024(
         gas_limit=9223372036854775807,
     )
 
-    pre[sender] = Account(
-        balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-    )
     # Source: lll
     # { (MSTORE 0 (CALLDATALOAD 0)) (MSTORE 0 (ADD 2 (MLOAD 0))) (if (EQ (MLOAD 0) 0x0400) (seq (MSTORE 32 0x686000600060006000f56000526000600960176000f5600155) [[1]] (CREATE2 0 39 25 0))  (CALL (GAS) 0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b (EQ (MLOAD 0) 0x0400) 0 32 0 0)) }  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841

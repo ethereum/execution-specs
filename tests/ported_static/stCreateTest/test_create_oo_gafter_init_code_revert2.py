@@ -7,7 +7,6 @@ state_tests/stCreateTest/CreateOOGafterInitCodeRevert2Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -63,9 +62,7 @@ def test_create_oo_gafter_init_code_revert2(
     contract_1 = Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_2 = Address(0xD94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_3 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -76,7 +73,6 @@ def test_create_oo_gafter_init_code_revert2(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # { (CALL (GAS) (CALLDATALOAD 0) 0 0 0 0 0) }
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -92,47 +88,6 @@ def test_create_oo_gafter_init_code_revert2(
         + Op.STOP,
         balance=0xE8D4A51000,
         nonce=0,
-        address=Address(0x1000000000000000000000000000000000000000),  # noqa: E501
-    )
-    # Source: lll
-    # { (CALL 33000 0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0 32) [[ 1 ]] (MLOAD 0) }  # noqa: E501
-    contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.POP(
-            Op.CALL(
-                gas=0x80E8,
-                address=0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x20,
-            )
-        )
-        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0))
-        + Op.STOP,
-        storage={1: 255},
-        nonce=0,
-        address=Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
-    )
-    # Source: lll
-    # { (CALL 23000 0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0 32) [[ 1 ]] (MLOAD 0) }  # noqa: E501
-    contract_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.POP(
-            Op.CALL(
-                gas=0x59D8,
-                address=0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x20,
-            )
-        )
-        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0))
-        + Op.STOP,
-        storage={1: 255},
-        nonce=0,
-        address=Address(0xD94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 0 0x6460016001556000526005601bf3) (CREATE 0 18 14) (REVERT 0 32) }  # noqa: E501
@@ -142,7 +97,44 @@ def test_create_oo_gafter_init_code_revert2(
         + Op.REVERT(offset=0x0, size=0x20)
         + Op.STOP,
         nonce=0,
-        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
+    )
+    # Source: lll
+    # { (CALL 33000 0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0 32) [[ 1 ]] (MLOAD 0) }  # noqa: E501
+    contract_1 = pre.deploy_contract(  # noqa: F841
+        code=Op.POP(
+            Op.CALL(
+                gas=0x80E8,
+                address=contract_3,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x20,
+            )
+        )
+        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0))
+        + Op.STOP,
+        storage={1: 255},
+        nonce=0,
+    )
+    # Source: lll
+    # { (CALL 23000 0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0 32) [[ 1 ]] (MLOAD 0) }  # noqa: E501
+    contract_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.POP(
+            Op.CALL(
+                gas=0x59D8,
+                address=contract_3,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x20,
+            )
+        )
+        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0))
+        + Op.STOP,
+        storage={1: 255},
+        nonce=0,
     )
 
     expect_entries_: list[dict] = [

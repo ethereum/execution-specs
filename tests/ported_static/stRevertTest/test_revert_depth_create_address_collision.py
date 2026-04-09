@@ -7,7 +7,6 @@ state_tests/stRevertTest/RevertDepthCreateAddressCollisionFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -94,9 +93,7 @@ def test_revert_depth_create_address_collision(
 ) -> None:
     """Test_revert_depth_create_address_collision."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -107,7 +104,15 @@ def test_revert_depth_create_address_collision(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
+    # Source: lll
+    # { [[2]] 8 (CREATE 0 0 0) [[3]] 12}
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x2, value=0x8)
+        + Op.POP(Op.CREATE(value=0x0, offset=0x0, size=0x0))
+        + Op.SSTORE(key=0x3, value=0xC)
+        + Op.STOP,
+        nonce=0,
+    )
     # Source: lll
     # { [[0]] 1 [[1]] (CALL (CALLDATALOAD 0) <contract:0xb000000000000000000000000000000000000000> 0 0 0 0 0) [[4]] 12 }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -116,7 +121,7 @@ def test_revert_depth_create_address_collision(
             key=0x1,
             value=Op.CALL(
                 gas=Op.CALLDATALOAD(offset=0x0),
-                address=0xB1B49241A4ECF7860872E686090781C906B1B437,
+                address=addr,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -128,17 +133,6 @@ def test_revert_depth_create_address_collision(
         + Op.STOP,
         balance=5,
         nonce=54,
-        address=Address(0x97E33A176B7C8D61B356D1C170AC2119D28867DF),  # noqa: E501
-    )
-    # Source: lll
-    # { [[2]] 8 (CREATE 0 0 0) [[3]] 12}
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x2, value=0x8)
-        + Op.POP(Op.CREATE(value=0x0, offset=0x0, size=0x0))
-        + Op.SSTORE(key=0x3, value=0xC)
-        + Op.STOP,
-        nonce=0,
-        address=Address(0xB1B49241A4ECF7860872E686090781C906B1B437),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

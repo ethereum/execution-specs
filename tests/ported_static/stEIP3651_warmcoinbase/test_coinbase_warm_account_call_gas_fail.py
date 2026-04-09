@@ -7,7 +7,6 @@ state_tests/Shanghai/stEIP3651_warmcoinbase/coinbaseWarmAccountCallGasFailFiller
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -70,9 +69,7 @@ def test_coinbase_warm_account_call_gas_fail(
 ) -> None:
     """Test_coinbase_warm_account_call_gas_fail."""
     coinbase = Address(0x50228C44ED92561D94511E8518A75AA463BD444B)
-    sender = EOA(
-        key=0x48DC5A9F099CAAAA557742CA3A990A94BE45B9969126A1BC74E5E8BE5A2B5B47
-    )
+    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE, nonce=1)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -83,6 +80,85 @@ def test_coinbase_warm_account_call_gas_fail(
         gas_limit=100000000,
     )
 
+    coinbase = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
+    # Source: yul
+    # berlin
+    # {
+    #    let cb := coinbase()
+    #    pop(call(0, cb, 0, 0, 0, 0, 0))
+    # }
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.CALL(
+            gas=Op.DUP2,
+            address=Op.COINBASE,
+            value=Op.DUP1,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=Op.DUP1,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=1,
+    )
+    # Source: yul
+    # berlin
+    # {
+    #    let cb := coinbase()
+    #    pop(callcode(0, cb, 0, 0, 0, 0, 0))
+    # }
+    addr_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALLCODE(
+            gas=Op.DUP2,
+            address=Op.COINBASE,
+            value=Op.DUP1,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=Op.DUP1,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=1,
+    )
+    # Source: yul
+    # berlin
+    # {
+    #    let cb := coinbase()
+    #    pop(delegatecall(0, cb, 0, 0, 0, 0))
+    # }
+    addr_3 = pre.deploy_contract(  # noqa: F841
+        code=Op.DELEGATECALL(
+            gas=Op.DUP2,
+            address=Op.COINBASE,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=Op.DUP1,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=1,
+    )
+    # Source: yul
+    # berlin
+    # {
+    #    let cb := coinbase()
+    #    pop(staticcall(0, cb, 0, 0, 0, 0))
+    # }
+    addr_4 = pre.deploy_contract(  # noqa: F841
+        code=Op.STATICCALL(
+            gas=Op.DUP2,
+            address=Op.COINBASE,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=Op.DUP1,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=1,
+    )
     # Source: yul
     # berlin
     # {
@@ -119,24 +195,9 @@ def test_coinbase_warm_account_call_gas_fail(
         + Op.CALLDATALOAD(offset=0x4)
         + Op.PUSH1[0x64]
         + Op.DUP2
-        + Op.JUMPI(
-            pc=0x88,
-            condition=Op.EQ(
-                0x8DDF5D9A5251C41EFD2949F53DB0A464116C7C6E, Op.DUP1
-            ),
-        )
-        + Op.JUMPI(
-            pc=0x88,
-            condition=Op.EQ(
-                0x498516B6B2F25CB6A8E011A7C37A617B77E7D500, Op.DUP1
-            ),
-        )
-        + Op.JUMPI(
-            pc=0x80,
-            condition=Op.EQ(
-                0x8873820BB96DAA39DB93AE64A9D6397E4C6A48D7, Op.DUP1
-            ),
-        )
+        + Op.JUMPI(pc=0x88, condition=Op.EQ(addr, Op.DUP1))
+        + Op.JUMPI(pc=0x88, condition=Op.EQ(addr_2, Op.DUP1))
+        + Op.JUMPI(pc=0x80, condition=Op.EQ(addr_3, Op.DUP1))
         + Op.PUSH20[0x303B6790D019874A107418EB549E4E7766A64728]
         + Op.JUMPI(pc=0x79, condition=Op.EQ)
         + Op.JUMPDEST
@@ -158,92 +219,7 @@ def test_coinbase_warm_account_call_gas_fail(
         + Op.JUMP(pc=0x73),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address(0x0A92FC97BB4C47B3D5E9E96FBB1C3FC2F07DBA81),  # noqa: E501
     )
-    # Source: yul
-    # berlin
-    # {
-    #    let cb := coinbase()
-    #    pop(call(0, cb, 0, 0, 0, 0, 0))
-    # }
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.CALL(
-            gas=Op.DUP2,
-            address=Op.COINBASE,
-            value=Op.DUP1,
-            args_offset=Op.DUP1,
-            args_size=Op.DUP1,
-            ret_offset=Op.DUP1,
-            ret_size=0x0,
-        )
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x8DDF5D9A5251C41EFD2949F53DB0A464116C7C6E),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #    let cb := coinbase()
-    #    pop(callcode(0, cb, 0, 0, 0, 0, 0))
-    # }
-    addr_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.CALLCODE(
-            gas=Op.DUP2,
-            address=Op.COINBASE,
-            value=Op.DUP1,
-            args_offset=Op.DUP1,
-            args_size=Op.DUP1,
-            ret_offset=Op.DUP1,
-            ret_size=0x0,
-        )
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x498516B6B2F25CB6A8E011A7C37A617B77E7D500),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #    let cb := coinbase()
-    #    pop(delegatecall(0, cb, 0, 0, 0, 0))
-    # }
-    addr_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.DELEGATECALL(
-            gas=Op.DUP2,
-            address=Op.COINBASE,
-            args_offset=Op.DUP1,
-            args_size=Op.DUP1,
-            ret_offset=Op.DUP1,
-            ret_size=0x0,
-        )
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x8873820BB96DAA39DB93AE64A9D6397E4C6A48D7),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #    let cb := coinbase()
-    #    pop(staticcall(0, cb, 0, 0, 0, 0))
-    # }
-    addr_4 = pre.deploy_contract(  # noqa: F841
-        code=Op.STATICCALL(
-            gas=Op.DUP2,
-            address=Op.COINBASE,
-            args_offset=Op.DUP1,
-            args_size=Op.DUP1,
-            ret_offset=Op.DUP1,
-            ret_size=0x0,
-        )
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x303B6790D019874A107418EB549E4E7766A64728),  # noqa: E501
-    )
-    pre[coinbase] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
 
     tx_data = [
         Bytes("693c6139") + Hash(addr, left_padding=True),

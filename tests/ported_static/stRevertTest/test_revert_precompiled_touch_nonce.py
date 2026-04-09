@@ -7,7 +7,6 @@ state_tests/stRevertTest/RevertPrecompiledTouch_nonceFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -67,17 +66,7 @@ def test_revert_precompiled_touch_nonce(
 ) -> None:
     """Test_revert_precompiled_touch_nonce."""
     coinbase = Address(0x68795C4AA09D6F4ED3E5DEDDF8C2AD3049A601DA)
-    addr_5 = Address(0xB478E245708BE95C33C6C35DEA161C0429D02DD2)
-    addr_6 = Address(0x6A22458E937F487E2DAFFA193B9C5FB610DC4789)
-    addr_7 = Address(0x8D1D883976DF004B96C383782A828DC5BC82EF9D)
-    addr_8 = Address(0x05A4FAF1EDE8E96AAE92AE51915074E42787F868)
-    addr_9 = Address(0xF8F0AEC70F4BBDADCE829783A0AFFF43F384C640)
-    addr_10 = Address(0x4BA6259BB96E9D7822A5FB3A1F8037BC68A08D43)
-    addr_11 = Address(0xBEB47E021A70649B079C4BDF150108C0D8C6ACCB)
-    addr_12 = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
-    sender = EOA(
-        key=0xFF8D58222F34F6890DDAA468C023B77D6691ED7D3C4DCDDAE38336212FAF54B
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000, nonce=1)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -88,6 +77,14 @@ def test_revert_precompiled_touch_nonce(
         gas_limit=4012015,
     )
 
+    addr_5 = pre.fund_eoa(amount=0)
+    addr_6 = pre.fund_eoa(amount=0)
+    addr_7 = pre.fund_eoa(amount=0)
+    addr_8 = pre.fund_eoa(amount=0)
+    addr_9 = pre.fund_eoa(amount=0)
+    addr_10 = pre.fund_eoa(amount=0)
+    addr_11 = pre.fund_eoa(amount=0)
+    addr_12 = pre.fund_eoa(amount=0)
     # Source: lll
     # {  (CALLCODE (GAS) (CALLDATALOAD 0) 0 0 0 0 0) }
     target = pre.deploy_contract(  # noqa: F841
@@ -102,7 +99,6 @@ def test_revert_precompiled_touch_nonce(
         )
         + Op.STOP,
         nonce=0,
-        address=Address(0xE7C596DE24CCC387DAA5C017066AEB25EA8D2F3F),  # noqa: E501
     )
     # Source: lll
     # { (CALL 50000 1 0 0 0 0 0) (CALL 50000 2 0 0 0 0 0) (CALL 50000 3 0 0 0 0 0) (CALL 50000 4 0 0 0 0 0) (CALL 50000 5 0 0 0 0 0) (CALL 50000 6 0 0 0 0 0) (CALL 50000 7 0 0 0 0 0) (CALL 50000 8 0 0 0 0 0) [[1]] (GAS) [[2]] (GAS) [[3]] (GAS) }  # noqa: E501
@@ -200,7 +196,6 @@ def test_revert_precompiled_touch_nonce(
         + Op.SSTORE(key=0x3, value=Op.GAS)
         + Op.STOP,
         nonce=0,
-        address=Address(0x87AAEB9E422487283B0B008EF445E32ACB9DD1AE),  # noqa: E501
     )
     # Source: lll
     # { (DELEGATECALL 50000 1 0 0 0 0) (DELEGATECALL 50000 2 0 0 0 0) (DELEGATECALL 50000 3 0 0 0 0) (DELEGATECALL 50000 4 0 0 0 0) (DELEGATECALL 50000 5 0 0 0 0) (DELEGATECALL 50000 6 0 0 0 0) (DELEGATECALL 50000 7 0 0 0 0) (DELEGATECALL 50000 8 0 0 0 0) [[1]] (GAS) [[2]] (GAS) [[3]] (GAS) }  # noqa: E501
@@ -290,7 +285,6 @@ def test_revert_precompiled_touch_nonce(
         + Op.SSTORE(key=0x3, value=Op.GAS)
         + Op.STOP,
         nonce=0,
-        address=Address(0x31F52A66CF9D94C60F089A2CA9C4E784261C57FA),  # noqa: E501
     )
     # Source: lll
     # { (CALLCODE 50000 1 0 0 0 0 0) (CALLCODE 50000 2 0 0 0 0 0) (CALLCODE 50000 3 0 0 0 0 0) (CALLCODE 50000 4 0 0 0 0 0) (CALLCODE 50000 5 0 0 0 0 0) (CALLCODE 50000 6 0 0 0 0 0) (CALLCODE 50000 7 0 0 0 0 0) (CALLCODE 50000 8 0 0 0 0 0) [[1]] (GAS) [[2]] (GAS) [[3]] (GAS) }  # noqa: E501
@@ -388,7 +382,6 @@ def test_revert_precompiled_touch_nonce(
         + Op.SSTORE(key=0x3, value=Op.GAS)
         + Op.STOP,
         nonce=0,
-        address=Address(0xDE1200B7ECAEA2D15B57D0F331AD5ADE8E924255),  # noqa: E501
     )
     # Source: lll
     # { (STATICCALL 50000 1 0 0 0 0) (STATICCALL 50000 2 0 0 0 0) (STATICCALL 50000 3 0 0 0 0) (STATICCALL 50000 4 0 0 0 0) (STATICCALL 50000 5 0 0 0 0) (STATICCALL 50000 6 0 0 0 0) (STATICCALL 50000 7 0 0 0 0) (STATICCALL 50000 8 0 0 0 0) [[1]] (GAS) [[2]] (GAS) [[3]] (GAS) }  # noqa: E501
@@ -478,17 +471,7 @@ def test_revert_precompiled_touch_nonce(
         + Op.SSTORE(key=0x3, value=Op.GAS)
         + Op.STOP,
         nonce=0,
-        address=Address(0x10EF6D6218ADA53728683CEC4D5160C8C72159BD),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
-    pre[addr_5] = Account(balance=0, nonce=1)
-    pre[addr_6] = Account(balance=0, nonce=1)
-    pre[addr_7] = Account(balance=0, nonce=1)
-    pre[addr_8] = Account(balance=0, nonce=1)
-    pre[addr_9] = Account(balance=0, nonce=1)
-    pre[addr_10] = Account(balance=0, nonce=1)
-    pre[addr_11] = Account(balance=0, nonce=1)
-    pre[addr_12] = Account(balance=0, nonce=1)
 
     tx_data = [
         Hash(addr, left_padding=True),

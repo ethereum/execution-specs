@@ -7,7 +7,6 @@ state_tests/stCreateTest/CreateCollisionToEmpty2Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -122,12 +121,8 @@ def test_create_collision_to_empty2(
     contract_1 = Address(0x1000000000000000000000000000000000000000)
     contract_2 = Address(0x2000000000000000000000000000000000000000)
     contract_3 = Address(0x3000000000000000000000000000000000000000)
-    contract_4 = Address(0x13136008B64FF592819B2FA6D43F2835C452020E)
-    contract_5 = Address(0x0BF4C804E0579073BAF54EC4EC37CD04F3455C65)
     contract_6 = Address(0x4B86C4ED99B87F0F396BC0C76885453C343916ED)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -138,7 +133,8 @@ def test_create_collision_to_empty2(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
+    contract_4 = pre.fund_eoa(amount=10)
+    contract_5 = pre.fund_eoa(amount=0)
     # Source: lll
     # { (CALL 80000 (CALLDATALOAD 0) 0 0 0 0 0) }
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -153,7 +149,6 @@ def test_create_collision_to_empty2(
         )
         + Op.STOP,
         nonce=0,
-        address=Address(0x1A00000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 0 0x6001600155) [[1]] (CREATE 0 27 5) }
@@ -162,7 +157,6 @@ def test_create_collision_to_empty2(
         + Op.SSTORE(key=0x1, value=Op.CREATE(value=0x0, offset=0x1B, size=0x5))
         + Op.STOP,
         nonce=0,
-        address=Address(0x1000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 0 0x6001600155) [[1]] (CREATE 0 27 5) }
@@ -171,7 +165,6 @@ def test_create_collision_to_empty2(
         + Op.SSTORE(key=0x1, value=Op.CREATE(value=0x0, offset=0x1B, size=0x5))
         + Op.STOP,
         nonce=0,
-        address=Address(0x2000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 0 0x6001600155) [[1]] (CREATE 0 27 5) }
@@ -180,16 +173,12 @@ def test_create_collision_to_empty2(
         + Op.SSTORE(key=0x1, value=Op.CREATE(value=0x0, offset=0x1B, size=0x5))
         + Op.STOP,
         nonce=0,
-        address=Address(0x3000000000000000000000000000000000000000),  # noqa: E501
     )
-    pre[contract_4] = Account(balance=10)
-    pre[contract_5] = Account(balance=0, nonce=2)
     # Source: raw
     # 0x1122334455
     contract_6 = pre.deploy_contract(  # noqa: F841
         code=bytes.fromhex("1122334455"),
         nonce=0,
-        address=Address(0x4B86C4ED99B87F0F396BC0C76885453C343916ED),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -207,10 +196,7 @@ def test_create_collision_to_empty2(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                contract_1: Account(
-                    storage={1: 0x13136008B64FF592819B2FA6D43F2835C452020E},
-                    nonce=1,
-                ),
+                contract_1: Account(storage={1: contract_4}, nonce=1),
                 contract_4: Account(
                     storage={1: 1}, code=b"", balance=10, nonce=1
                 ),

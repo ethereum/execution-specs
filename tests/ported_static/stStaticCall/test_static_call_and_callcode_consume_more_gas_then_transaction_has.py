@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_CallAndCallcodeConsumeMoreGasThenTransactionHasF
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -61,9 +60,7 @@ def test_static_call_and_callcode_consume_more_gas_then_transaction_has(
 ) -> None:
     """Test_static_call_and_callcode_consume_more_gas_then_transaction_has."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -74,7 +71,6 @@ def test_static_call_and_callcode_consume_more_gas_then_transaction_has(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # {  [[ 0 ]] (CALL (GAS) (CALLDATALOAD 0) (CALLVALUE) 0 0 0 0) [[ 1 ]] 1 }
     target = pre.deploy_contract(  # noqa: F841
@@ -93,7 +89,18 @@ def test_static_call_and_callcode_consume_more_gas_then_transaction_has(
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
         nonce=0,
-        address=Address(0xC0E4183389EB57F779A986D8C878F89B9401DC8E),  # noqa: E501
+    )
+    # Source: lll
+    # { (SSTORE 0 0x12) }
+    addr_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=0x12) + Op.STOP,
+        nonce=0,
+    )
+    # Source: lll
+    # { (MSTORE 0 0x12) }
+    addr_4 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=0x12) + Op.STOP,
+        nonce=0,
     )
     # Source: lll
     # {  (SSTORE 9 (STATICCALL 600000 <contract:0x1000000000000000000000000000000000000103> 0 0 0 0)) (SSTORE 10 (CALLCODE 600000 <contract:0x1000000000000000000000000000000000000103> 0 0 0 0 0)) }  # noqa: E501
@@ -102,7 +109,7 @@ def test_static_call_and_callcode_consume_more_gas_then_transaction_has(
             key=0x9,
             value=Op.STATICCALL(
                 gas=0x927C0,
-                address=0xFD59ABAE521384B5731AC657616680219FBC423D,
+                address=addr_2,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -113,7 +120,7 @@ def test_static_call_and_callcode_consume_more_gas_then_transaction_has(
             key=0xA,
             value=Op.CALLCODE(
                 gas=0x927C0,
-                address=0xFD59ABAE521384B5731AC657616680219FBC423D,
+                address=addr_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -123,14 +130,6 @@ def test_static_call_and_callcode_consume_more_gas_then_transaction_has(
         )
         + Op.STOP,
         nonce=0,
-        address=Address(0x438F316BA8E30F69666A3477A7F5CD26235D3CBB),  # noqa: E501
-    )
-    # Source: lll
-    # { (SSTORE 0 0x12) }
-    addr_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x12) + Op.STOP,
-        nonce=0,
-        address=Address(0xFD59ABAE521384B5731AC657616680219FBC423D),  # noqa: E501
     )
     # Source: lll
     # {  (SSTORE 9 (STATICCALL 600000 <contract:0x2000000000000000000000000000000000000103> 0 0 0 0)) (SSTORE 10 (CALLCODE 600000 <contract:0x1000000000000000000000000000000000000103> 0 0 0 0 0)) }  # noqa: E501
@@ -139,7 +138,7 @@ def test_static_call_and_callcode_consume_more_gas_then_transaction_has(
             key=0x9,
             value=Op.STATICCALL(
                 gas=0x927C0,
-                address=0x9620801959B49D6D1BD08F0CDAFDA5D87E900403,
+                address=addr_4,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -150,7 +149,7 @@ def test_static_call_and_callcode_consume_more_gas_then_transaction_has(
             key=0xA,
             value=Op.CALLCODE(
                 gas=0x927C0,
-                address=0xFD59ABAE521384B5731AC657616680219FBC423D,
+                address=addr_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -160,14 +159,6 @@ def test_static_call_and_callcode_consume_more_gas_then_transaction_has(
         )
         + Op.STOP,
         nonce=0,
-        address=Address(0x7D77EAF6DC93E2B7B83A8E06314AF1CE47CD2596),  # noqa: E501
-    )
-    # Source: lll
-    # { (MSTORE 0 0x12) }
-    addr_4 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=0x12) + Op.STOP,
-        nonce=0,
-        address=Address(0x9620801959B49D6D1BD08F0CDAFDA5D87E900403),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

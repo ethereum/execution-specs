@@ -7,13 +7,13 @@ state_tests/stEIP158Specific/vitalikTransactionTestParisFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.vm import Op
 
@@ -33,9 +33,7 @@ def test_vitalik_transaction_test_paris(
     """Test_vitalik_transaction_test_paris."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xEE098E6C2A43D9E2C04F08F0C3A87B0BA59079D4)
-    sender = EOA(
-        key=0xC85EF7D79691FE79573B1A7064C19C1A9819EBDBD1FAAAB1A8EC92344438AAF4
-    )
+    sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFF, nonce=335)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -46,15 +44,13 @@ def test_vitalik_transaction_test_paris(
         gas_limit=10000000,
     )
 
-    pre[coinbase] = Account(balance=0, nonce=1)
-    pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFF, nonce=335)
+    coinbase = pre.fund_eoa(amount=0)
     # Source: hex
     # 0x
     contract_0 = pre.deploy_contract(  # noqa: F841
         code="",
         balance=10,
         nonce=0,
-        address=Address(0xEE098E6C2A43D9E2C04F08F0C3A87B0BA59079D4),  # noqa: E501
     )
 
     tx = Transaction(
@@ -155,7 +151,7 @@ def test_vitalik_transaction_test_paris(
     post = {
         coinbase: Account(storage={}, code=b"", nonce=1),
         sender: Account(storage={}, code=b"", nonce=336),
-        Address(0x1BC78AE0E5EC5CB439F1D5355D6F90D38343E109): Account(
+        compute_create_address(address=sender, nonce=335): Account(
             storage={}, code=b"", nonce=3
         ),
         Address(0x51F9D7F98E997BDD6BEBDE4C2DD27BE8C99303AA): Account(

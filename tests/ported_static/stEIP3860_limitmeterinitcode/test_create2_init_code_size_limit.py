@@ -7,7 +7,6 @@ state_tests/Shanghai/stEIP3860_limitmeterinitcode/create2InitCodeSizeLimitFiller
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -62,9 +61,7 @@ def test_create2_init_code_size_limit(
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_1 = Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xBEBC200)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -75,34 +72,6 @@ def test_create2_init_code_size_limit(
         gas_limit=20000000,
     )
 
-    pre[sender] = Account(balance=0xBEBC200)
-    # Source: yul
-    # berlin
-    # {
-    #   mstore(0, calldataload(0))
-    #   let call_result := call(10000000, 0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b, 0, 0, calldatasize(), 0, 0)  # noqa: E501
-    #   sstore(0, call_result)
-    #   sstore(1, 1)
-    # }
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=Op.CALLDATALOAD(offset=0x0))
-        + Op.SSTORE(
-            key=0x0,
-            value=Op.CALL(
-                gas=0x989680,
-                address=0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                value=Op.DUP1,
-                args_offset=Op.DUP2,
-                args_size=Op.CALLDATASIZE,
-                ret_offset=Op.DUP1,
-                ret_size=0x0,
-            ),
-        )
-        + Op.SSTORE(key=Op.DUP1, value=0x1)
-        + Op.STOP,
-        nonce=0,
-        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
-    )
     # Source: yul
     # berlin
     # {
@@ -136,7 +105,32 @@ def test_create2_init_code_size_limit(
         + Op.SSTORE
         + Op.STOP,
         nonce=0,
-        address=Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
+    )
+    # Source: yul
+    # berlin
+    # {
+    #   mstore(0, calldataload(0))
+    #   let call_result := call(10000000, 0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b, 0, 0, calldatasize(), 0, 0)  # noqa: E501
+    #   sstore(0, call_result)
+    #   sstore(1, 1)
+    # }
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=Op.CALLDATALOAD(offset=0x0))
+        + Op.SSTORE(
+            key=0x0,
+            value=Op.CALL(
+                gas=0x989680,
+                address=contract_1,
+                value=Op.DUP1,
+                args_offset=Op.DUP2,
+                args_size=Op.CALLDATASIZE,
+                ret_offset=Op.DUP1,
+                ret_size=0x0,
+            ),
+        )
+        + Op.SSTORE(key=Op.DUP1, value=0x1)
+        + Op.STOP,
+        nonce=0,
     )
 
     expect_entries_: list[dict] = [

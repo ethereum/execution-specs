@@ -7,7 +7,6 @@ state_tests/stHomesteadSpecific/createContractViaTransactionCost53000Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -34,9 +33,7 @@ def test_create_contract_via_transaction_cost53000(
 ) -> None:
     """Trigger transaction creating gasPrice in the state."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xF4240)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -46,8 +43,6 @@ def test_create_contract_via_transaction_cost53000(
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
-
-    pre[sender] = Account(balance=0xF4240)
 
     tx = Transaction(
         sender=sender,

@@ -7,7 +7,6 @@ state_tests/stSStoreTest/sstore_0to0to0Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -169,9 +168,7 @@ def test_sstore_0to0to0(
     contract_0 = Address(0xB000000000000000000000000000000000000000)
     contract_1 = Address(0xC000000000000000000000000000000000000000)
     contract_2 = Address(0xDEA0000000000000000000000000000000000000)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -182,20 +179,17 @@ def test_sstore_0to0to0(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # { [[1]] 0 [[1]] 0 }
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x1, value=0x0) * 2 + Op.STOP,
         nonce=0,
-        address=Address(0xB000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # { [[1]] 0 [[1]] 0 }
     contract_1 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x1, value=0x0) * 2 + Op.STOP,
         nonce=0,
-        address=Address(0xC000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # { [[1]] 1 [[1]] 0 [[2]] 1 [[2]] 0 [[3]] 1 [[3]] 0 [[4]] 1 [[4]] 0 [[5]] 1 [[5]] 0 [[6]] 1 [[6]] 0 [[7]] 1 [[7]] 0 [[8]] 1 [[8]] 0 [[9]] 1 [[9]] 0 [[10]] 1 [[10]] 0 [[11]] 1 [[11]] 0 [[12]] 1 [[12]] 0 [[13]] 1 [[13]] 0 [[14]] 1 [[14]] 0 [[15]] 1 [[15]] 0 [[16]] 1 [[16]] 0  [[1]] 1 }  # noqa: E501
@@ -235,7 +229,6 @@ def test_sstore_0to0to0(
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
         nonce=0,
-        address=Address(0xDEA0000000000000000000000000000000000000),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

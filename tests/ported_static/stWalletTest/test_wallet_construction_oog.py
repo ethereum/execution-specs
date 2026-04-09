@@ -7,7 +7,6 @@ state_tests/stWalletTest/walletConstructionOOGFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -58,9 +57,7 @@ def test_wallet_construction_oog(
 ) -> None:
     """Test_wallet_construction_oog."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A75EF08F, nonce=1)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -70,8 +67,6 @@ def test_wallet_construction_oog(
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
-
-    pre[sender] = Account(balance=0xDE0B6B3A75EF08F, nonce=1)
 
     expect_entries_: list[dict] = [
         {
@@ -93,7 +88,7 @@ def test_wallet_construction_oog(
                     storage={
                         0: 1,
                         1: 1,
-                        3: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        3: sender,
                         263: 0,
                         0x6E369836487C234B9E553EF3F787C2D8865520739D340C67B3D251A33986E58D: 1,  # noqa: E501
                     },

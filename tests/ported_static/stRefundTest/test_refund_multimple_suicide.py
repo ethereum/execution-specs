@@ -7,7 +7,6 @@ state_tests/stRefundTest/refund_multimpleSuicideFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_refund_multimple_suicide(
 ) -> None:
     """Test_refund_multimple_suicide."""
     coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
-    sender = EOA(
-        key=0xC69694690A07D1418B0AADFD424A00EA9F25D84B94FECEF12943DE9CD38EDE14
-    )
+    sender = pre.fund_eoa(amount=0x623A7C0)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -46,7 +43,7 @@ def test_refund_multimple_suicide(
         gas_limit=1000000,
     )
 
-    pre[coinbase] = Account(balance=0, nonce=1)
+    coinbase = pre.fund_eoa(amount=0)
     # Source: raw
     # 0x606060405260e060020a600035046309e587a58114610031578063c04062261461004d578063dd4f1f2a1461005a575b005b61002f3373ffffffffffffffffffffffffffffffffffffffff16ff5b6100f5600061010961005e565b61002f5b60003090508073ffffffffffffffffffffffffffffffffffffffff166309e587a56040518160e060020a0281526004018090506000604051808303816000876161da5a03f1156100025750604080517f09e587a500000000000000000000000000000000000000000000000000000000815290516004828101926000929190829003018183876161da5a03f1156100025750505050565b604080519115158252519081900360200190f35b5060019056  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -145,9 +142,7 @@ def test_refund_multimple_suicide(
         + Op.JUMP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x8B9574E5049501F581886404ADF7037002276E78),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x623A7C0)
 
     tx = Transaction(
         sender=sender,

@@ -7,7 +7,6 @@ state_tests/stReturnDataTest/subcallReturnMoreThenExpectedFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_subcall_return_more_then_expected(
 ) -> None:
     """Https://github."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -46,6 +43,46 @@ def test_subcall_return_more_then_expected(
         gas_limit=10000000,
     )
 
+    # Source: lll
+    # {
+    #   (MSTORE 0  0x1122334455667788991011121314151617181920212223242526272829303132)  # noqa: E501
+    #   (MSTORE 32 0x3334353637383940414243444546474849505152535455565758596061626364)  # noqa: E501
+    #   (RETURN 0 64)
+    # }
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(
+            offset=0x0,
+            value=0x1122334455667788991011121314151617181920212223242526272829303132,  # noqa: E501
+        )
+        + Op.MSTORE(
+            offset=0x20,
+            value=0x3334353637383940414243444546474849505152535455565758596061626364,  # noqa: E501
+        )
+        + Op.RETURN(offset=0x0, size=0x40)
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
+        nonce=0,
+    )
+    # Source: lll
+    # {
+    #   (MSTORE 0  0x1122334455667788991011121314151617181920212223242526272829303132)  # noqa: E501
+    #   (MSTORE 32 0x3334353637383940414243444546474849505152535455565758596061626364)  # noqa: E501
+    #   (REVERT 0 64)
+    # }
+    addr_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(
+            offset=0x0,
+            value=0x1122334455667788991011121314151617181920212223242526272829303132,  # noqa: E501
+        )
+        + Op.MSTORE(
+            offset=0x20,
+            value=0x3334353637383940414243444546474849505152535455565758596061626364,  # noqa: E501
+        )
+        + Op.REVERT(offset=0x0, size=0x40)
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
+        nonce=0,
+    )
     # Source: lll
     # {
     #   ;; Get returndata from a subcall
@@ -79,7 +116,7 @@ def test_subcall_return_more_then_expected(
         code=Op.POP(
             Op.CALL(
                 gas=0x30D40,
-                address=0xA8592F39B32943F9F464090497722B4F9C15F598,
+                address=addr,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -92,7 +129,7 @@ def test_subcall_return_more_then_expected(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x30D40,
-                address=0xA8592F39B32943F9F464090497722B4F9C15F598,
+                address=addr,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -104,7 +141,7 @@ def test_subcall_return_more_then_expected(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x30D40,
-                address=0xA8592F39B32943F9F464090497722B4F9C15F598,
+                address=addr,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -116,7 +153,7 @@ def test_subcall_return_more_then_expected(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x30D40,
-                address=0xA8592F39B32943F9F464090497722B4F9C15F598,
+                address=addr,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -129,7 +166,7 @@ def test_subcall_return_more_then_expected(
         + Op.POP(
             Op.CALL(
                 gas=0x30D40,
-                address=0x28CDAFC3D5D27D006FFB88E1ECF2FA4B412EE4F,
+                address=addr_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -142,7 +179,7 @@ def test_subcall_return_more_then_expected(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x30D40,
-                address=0x28CDAFC3D5D27D006FFB88E1ECF2FA4B412EE4F,
+                address=addr_2,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -154,7 +191,7 @@ def test_subcall_return_more_then_expected(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x30D40,
-                address=0x28CDAFC3D5D27D006FFB88E1ECF2FA4B412EE4F,
+                address=addr_2,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -166,7 +203,7 @@ def test_subcall_return_more_then_expected(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x30D40,
-                address=0x28CDAFC3D5D27D006FFB88E1ECF2FA4B412EE4F,
+                address=addr_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -178,51 +215,7 @@ def test_subcall_return_more_then_expected(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0xCA70835D5E9B8C8E139A9693AB05705D291F86BB),  # noqa: E501
     )
-    # Source: lll
-    # {
-    #   (MSTORE 0  0x1122334455667788991011121314151617181920212223242526272829303132)  # noqa: E501
-    #   (MSTORE 32 0x3334353637383940414243444546474849505152535455565758596061626364)  # noqa: E501
-    #   (RETURN 0 64)
-    # }
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(
-            offset=0x0,
-            value=0x1122334455667788991011121314151617181920212223242526272829303132,  # noqa: E501
-        )
-        + Op.MSTORE(
-            offset=0x20,
-            value=0x3334353637383940414243444546474849505152535455565758596061626364,  # noqa: E501
-        )
-        + Op.RETURN(offset=0x0, size=0x40)
-        + Op.STOP,
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0xA8592F39B32943F9F464090497722B4F9C15F598),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #   (MSTORE 0  0x1122334455667788991011121314151617181920212223242526272829303132)  # noqa: E501
-    #   (MSTORE 32 0x3334353637383940414243444546474849505152535455565758596061626364)  # noqa: E501
-    #   (REVERT 0 64)
-    # }
-    addr_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(
-            offset=0x0,
-            value=0x1122334455667788991011121314151617181920212223242526272829303132,  # noqa: E501
-        )
-        + Op.MSTORE(
-            offset=0x20,
-            value=0x3334353637383940414243444546474849505152535455565758596061626364,  # noqa: E501
-        )
-        + Op.REVERT(offset=0x0, size=0x40)
-        + Op.STOP,
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x028CDAFC3D5D27D006FFB88E1ECF2FA4B412EE4F),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

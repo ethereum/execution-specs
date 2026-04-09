@@ -7,7 +7,6 @@ state_tests/stEIP158Specific/CALL_OneVCallSuicide2Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,10 +32,7 @@ def test_call_one_v_call_suicide2(
 ) -> None:
     """Test_call_one_v_call_suicide2."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    addr_2 = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
-    sender = EOA(
-        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -47,7 +43,13 @@ def test_call_one_v_call_suicide2(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
+    addr_2 = pre.fund_eoa(amount=0)
+    # Source: lll
+    # { (SELFDESTRUCT <eoa:0xd94f5374fce5edbc8e2a8697c15331677e6ebf0b>) }
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.SELFDESTRUCT(address=addr_2) + Op.STOP,
+        nonce=0,
+    )
     # Source: lll
     # { [0](GAS) (CALL 60000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 1 0 0 0 0) [[100]] (SUB @0 (GAS)) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -55,7 +57,7 @@ def test_call_one_v_call_suicide2(
         + Op.POP(
             Op.CALL(
                 gas=0xEA60,
-                address=0x99378E0DB04E57AE174AD69770E1B7A0AA805930,
+                address=addr,
                 value=0x1,
                 args_offset=0x0,
                 args_size=0x0,
@@ -67,19 +69,7 @@ def test_call_one_v_call_suicide2(
         + Op.STOP,
         balance=100,
         nonce=0,
-        address=Address(0xEA04224539257FBE043981AA6058FBC1D5E21B1A),  # noqa: E501
     )
-    # Source: lll
-    # { (SELFDESTRUCT <eoa:0xd94f5374fce5edbc8e2a8697c15331677e6ebf0b>) }
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.SELFDESTRUCT(
-            address=0xEB201D2887816E041F6E807E804F64F3A7A226FE
-        )
-        + Op.STOP,
-        nonce=0,
-        address=Address(0x99378E0DB04E57AE174AD69770E1B7A0AA805930),  # noqa: E501
-    )
-    pre[addr_2] = Account(balance=0, nonce=1)
 
     tx = Transaction(
         sender=sender,

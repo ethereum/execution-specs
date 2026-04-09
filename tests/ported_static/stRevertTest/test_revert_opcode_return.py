@@ -7,7 +7,6 @@ state_tests/stRevertTest/RevertOpcodeReturnFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -118,9 +117,7 @@ def test_revert_opcode_return(
 ) -> None:
     """Test_revert_opcode_return."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -131,7 +128,6 @@ def test_revert_opcode_return(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # { [[1]](CALL 150000 (CALLDATALOAD 0) 0 0 0 0 32) [[2]] (MLOAD 0) }
     target = pre.deploy_contract(  # noqa: F841
@@ -150,7 +146,6 @@ def test_revert_opcode_return(
         + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=0x0))
         + Op.STOP,
         nonce=0,
-        address=Address(0x1FC98371F1A058F1A6042E30A141AA8BB67DD1BC),  # noqa: E501
     )
     # Source: lll
     # { (SSTORE 0 0x72657665727465642064617461) (MSTORE 0 0x726576657274206d657373616765) (REVERT 0 32) }  # noqa: E501
@@ -160,7 +155,6 @@ def test_revert_opcode_return(
         + Op.REVERT(offset=0x0, size=0x20)
         + Op.STOP,
         nonce=0,
-        address=Address(0x1963FD2C717F5B4B9FA3D6BAF38D66241E1EC005),  # noqa: E501
     )
     # Source: lll
     # { (SSTORE 0 0x72657665727465642064617461) (MSTORE 0 0x726576657274206d657373616765) (REVERT 0 0) }  # noqa: E501
@@ -170,7 +164,6 @@ def test_revert_opcode_return(
         + Op.REVERT(offset=0x0, size=0x0)
         + Op.STOP,
         nonce=0,
-        address=Address(0x745E52346D8549444323699E9FC383AE89BDD24F),  # noqa: E501
     )
     # Source: lll
     # { (SSTORE 0 0x72657665727465642064617461) (MSTORE 0 0x726576657274206d657373616765) (REVERT 0 0xfffffffffffffffffffffffffffff) }  # noqa: E501
@@ -180,7 +173,6 @@ def test_revert_opcode_return(
         + Op.REVERT(offset=0x0, size=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
         + Op.STOP,
         nonce=0,
-        address=Address(0x50EACA0A040AC6242D0C01CC1FF82F5B95CC10E4),  # noqa: E501
     )
     # Source: lll
     # { (SSTORE 0 0x72657665727465642064617461) (MSTORE 0 0x726576657274206d657373616765) (REVERT 0x0100 0x00) }  # noqa: E501
@@ -190,7 +182,6 @@ def test_revert_opcode_return(
         + Op.REVERT(offset=0x100, size=0x0)
         + Op.STOP,
         nonce=0,
-        address=Address(0xF933D2374D5875DE033A8ED9D9C1CE5DEA25C78B),  # noqa: E501
     )
     # Source: lll
     # { (SSTORE 0 0x72657665727465642064617461) (MSTORE 0 0x726576657274206d657373616765) (REVERT 0x01 0x00) }  # noqa: E501
@@ -200,7 +191,6 @@ def test_revert_opcode_return(
         + Op.REVERT(offset=0x1, size=0x0)
         + Op.STOP,
         nonce=0,
-        address=Address(0xE5B2DFE7F932F2D5EAA7C8FB2E1E9A8B6A846FD7),  # noqa: E501
     )
     # Source: lll
     # { (SSTORE 0 0x72657665727465642064617461) (MSTORE 0 0x726576657274206d657373616765) (REVERT 0xfffffffffffffffffffffffffffff 0x00) }  # noqa: E501
@@ -210,7 +200,6 @@ def test_revert_opcode_return(
         + Op.REVERT(offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFF, size=0x0)
         + Op.STOP,
         nonce=0,
-        address=Address(0x858F82BBFD84FC9EB91291458511DF77311DBD0D),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

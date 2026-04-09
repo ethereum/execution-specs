@@ -7,8 +7,6 @@ state_tests/stRandom/randomStatetest384Filler.yml
 
 import pytest
 from execution_testing import (
-    EOA,
-    Account,
     Address,
     Alloc,
     Bytes,
@@ -33,9 +31,7 @@ def test_random_statetest384(
 ) -> None:
     """Ori Pomerantz   qbzzt1@gmail."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x4DC42D61413D4DED993826AC4D6ED7A4A970C60335D2B285C60A4274E792FF1
-    )
+    sender = pre.fund_eoa(amount=0x3635C9ADC5DEA00000, nonce=1)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -271,9 +267,7 @@ def test_random_statetest384(
         + Op.RETURN(offset=0xC065, size=0x2739),
         balance=0xDE0B6B3A7640000,
         nonce=1,
-        address=Address(0x14CEED78F6E86EEAD0A39E3F5C3481C7C233E8EA),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x3635C9ADC5DEA00000, nonce=1)
 
     tx = Transaction(
         sender=sender,

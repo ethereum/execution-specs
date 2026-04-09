@@ -173,6 +173,9 @@ def analyze(
     if sender_tag_name and not any(a.is_sender for a in accounts):
         sender_ir.not_in_pre = True
 
+    # Always use dynamic sender (pre.fund_eoa) for non-hardcoded tests
+    sender_ir.use_dynamic = True
+
     # 10. Build environment
     environment_ir = _build_environment(model, tags, addr_to_var)
 
@@ -195,7 +198,7 @@ def analyze(
 
     # 13. Address constants (non-tagged, non-sender addresses)
     address_constants = _build_address_constants(
-        model, tags, addr_to_var, sender_tag_name
+        model, tags, addr_to_var, sender_tag_name, accounts
     )
 
     # 14. Import flags
@@ -535,31 +538,40 @@ def _build_sender_ir(
             key_int = int.from_bytes(key, "big")
         else:
             key_int = 0
-        # Find sender balance from pre-state
+        # Find sender balance and nonce from pre-state
         balance = 0
+        nonce: int | None = None
         for address_or_tag, account in model.pre.root.items():
             if isinstance(address_or_tag, SenderTag):
                 if address_or_tag.name == tag_name:
                     balance = int(account.balance) if account.balance else 0
+                    if account.nonce is not None:
+                        nonce = int(account.nonce)
                     break
         return (
-            SenderIR(is_tagged=False, key=key_int, balance=balance),
+            SenderIR(
+                is_tagged=False, key=key_int, balance=balance, nonce=nonce
+            ),
             tag_name,
         )
     else:
-        # Find sender balance from pre-state
+        # Find sender balance and nonce from pre-state
         eoa = EOA(key=model.transaction.secret_key)
         sender_addr = _addr_hex(eoa)
         balance = 0
+        nonce = None
         for address_or_tag, account in model.pre.root.items():
             if not isinstance(address_or_tag, Tag):
                 if _addr_hex(address_or_tag) == sender_addr:
                     balance = int(account.balance) if account.balance else 0
+                    if account.nonce is not None:
+                        nonce = int(account.nonce)
                     break
         return SenderIR(
             is_tagged=False,
             key=int.from_bytes(eoa.key, "big"),
             balance=balance,
+            nonce=nonce,
         ), None
 
 
@@ -605,6 +617,90 @@ def _build_parameters(model: StateStaticTest) -> list[ParameterCaseIR]:
     return parameters
 
 
+def _resolve_storage_values(
+    storage: dict[int, int],
+    addr_to_var: dict[Address | EOA, str],
+) -> dict[int, int | str]:
+    """Replace storage values matching known addresses with var names."""
+    if not storage or not addr_to_var:
+        return storage
+    # Build int -> var_name lookup from addr_to_var
+    int_to_var: dict[int, str] = {}
+    for addr, var_name in addr_to_var.items():
+        int_to_var[int.from_bytes(addr, "big")] = var_name
+    result: dict[int, int | str] = {}
+    for k, v in storage.items():
+        if v in int_to_var:
+            result[k] = int_to_var[v]
+        else:
+            result[k] = v
+    return result
+
+
+def _find_address_refs_in_bytecode(
+    code_bytes: bytes,
+    known_addresses: set[Address],
+) -> set[Address]:
+    """Find which known addresses are referenced in bytecode via PUSH."""
+    refs: set[Address] = set()
+    # Pre-compute int values for fast comparison
+    known_ints = {int.from_bytes(a, "big") for a in known_addresses}
+    i = 0
+    while i < len(code_bytes):
+        opcode = code_bytes[i]
+        if 0x60 <= opcode <= 0x7F:  # PUSHn
+            push_size = opcode - 0x5F
+            push_data = code_bytes[i + 1 : i + 1 + push_size]
+            if len(push_data) == push_size and push_size >= 4:
+                # Addresses may be in PUSH19 or smaller if they have
+                # leading zero bytes (compiler optimization). Use
+                # min size 4 to avoid false positives on small values.
+                val = int.from_bytes(push_data, "big")
+                if val in known_ints:
+                    addr = Address(val)
+                    refs.add(addr)
+            i += 1 + push_size
+        else:
+            i += 1
+    return refs
+
+
+def _topological_sort_contracts(
+    contract_addrs: list[Address],
+    deps: dict[Address, set[Address]],
+) -> tuple[list[Address], set[Address]]:
+    """
+    Return (sorted_addresses, cycle_addresses).
+
+    If A's bytecode references B, B must be deployed before A.
+    """
+    addr_set = set(contract_addrs)
+    # forward[B] = {A} means A depends on B, so B must come first
+    forward: dict[Address, set[Address]] = {a: set() for a in addr_set}
+    in_deg: dict[Address, int] = {a: 0 for a in addr_set}
+    for a, dep_set in deps.items():
+        if a not in addr_set:
+            continue
+        for b in dep_set:
+            if b in addr_set:
+                forward[b].add(a)
+                in_deg[a] += 1
+
+    # Kahn's algorithm
+    queue = [a for a in contract_addrs if in_deg[a] == 0]
+    sorted_addrs: list[Address] = []
+    while queue:
+        node = queue.pop(0)
+        sorted_addrs.append(node)
+        for neighbor in forward[node]:
+            in_deg[neighbor] -= 1
+            if in_deg[neighbor] == 0:
+                queue.append(neighbor)
+
+    cycle_addrs = addr_set - set(sorted_addrs)
+    return sorted_addrs, cycle_addrs
+
+
 def _build_accounts(
     model: StateStaticTest,
     tags: TagDict,
@@ -612,8 +708,13 @@ def _build_accounts(
     sender_tag_name: str | None,
     imports: ImportsIR,
 ) -> list[AccountIR]:
-    """Build AccountIR list. Return (accounts, needs_op_import)."""
-    accounts: list[AccountIR] = []
+    """Build AccountIR list with dependency-ordered contracts."""
+    # ------------------------------------------------------------------
+    # Pass 1: gather account metadata and compile bytecode (no Op yet)
+    # ------------------------------------------------------------------
+    raw_accounts: list[AccountIR] = []
+    # Map address -> compiled code_bytes for contracts (for dep analysis)
+    code_bytes_map: dict[Address, bytes] = {}
 
     for address_or_tag, account in model.pre.root.items():
         is_tagged = isinstance(address_or_tag, Tag)
@@ -652,9 +753,9 @@ def _build_accounts(
             # Non-tagged, no code — treat as EOA
             is_eoa = True
 
-        # Code processing
+        # Compile code but defer Op expression conversion
         source_comment = ""
-        code_expr = ""
+        code_bytes: bytes = b""
         oversized_code = False
         if has_code:
             source_comment = _classify_code_source(account.code.source)
@@ -662,49 +763,183 @@ def _build_accounts(
                 code_bytes = account.code.compiled(tags)
                 if len(code_bytes) > MAX_BYTECODE_OP_SIZE:
                     oversized_code = True
-                # TODO: To add `addr_to_var` here, we need to resolve
-                # dependency order.
-                op_expr = _bytes_to_op_expr(code_bytes)
-                if op_expr:
-                    code_expr = op_expr
-                    imports.needs_op = True
-                elif code_bytes:
-                    code_expr = f'bytes.fromhex("{code_bytes.hex()}")'
             except Exception as e:
                 warnings.warn(
                     f"Code compilation failed for {var_name}: {e}",
                     stacklevel=2,
                 )
-                code_expr = 'b""'
 
         # Storage
-        storage: dict[int, int] = {}
+        storage: dict[int, int | str] = {}
         if account.storage and account.storage.root:
             resolved_storage = account.storage.resolve(tags)
             for k, v in resolved_storage.items():
                 storage[int(k)] = int(v)
+            storage = _resolve_storage_values(storage, addr_to_var)
 
         # Balance and nonce
         balance = int(account.balance) if account.balance is not None else 0
         nonce = int(account.nonce) if account.nonce is not None else None
 
-        accounts.append(
-            AccountIR(
-                var_name=var_name,
-                is_tagged=is_tagged,
-                is_eoa=is_eoa,
-                is_sender=is_sender,
-                balance=balance,
-                nonce=nonce,
-                address=address,
-                source_comment=source_comment,
-                code_expr=code_expr,
-                storage=storage,
-                oversized_code=oversized_code,
-            )
+        acct_ir = AccountIR(
+            var_name=var_name,
+            is_tagged=is_tagged,
+            is_eoa=is_eoa,
+            is_sender=is_sender,
+            balance=balance,
+            nonce=nonce,
+            address=address,
+            source_comment=source_comment,
+            code_expr="",
+            storage=storage,
+            oversized_code=oversized_code,
+            use_dynamic=True,
         )
 
-    return accounts
+        # Oversized contracts must keep hardcoded address
+        if oversized_code:
+            acct_ir.use_dynamic = False
+
+        raw_accounts.append(acct_ir)
+        if code_bytes and address is not None:
+            code_bytes_map[address] = code_bytes
+
+    # ------------------------------------------------------------------
+    # Build dependency graph and topological sort for contracts
+    # ------------------------------------------------------------------
+    known_contract_addrs: set[Address] = set()
+    for acct in raw_accounts:
+        if not acct.is_eoa and acct.address is not None:
+            known_contract_addrs.add(acct.address)
+
+    # All known addresses (contracts + EOAs) for bytecode ref scanning
+    all_known_addrs: set[Address] = set()
+    for addr_or_eoa in addr_to_var:
+        if isinstance(addr_or_eoa, Address):
+            all_known_addrs.add(addr_or_eoa)
+        else:
+            all_known_addrs.add(Address(int.from_bytes(addr_or_eoa, "big")))
+
+    deps: dict[Address, set[Address]] = {}
+    for addr, cb in code_bytes_map.items():
+        refs = _find_address_refs_in_bytecode(cb, all_known_addrs)
+        # Track deps on other contracts. Keep self-references — they
+        # create self-loops detected as cycles, forcing hardcoded addr.
+        deps[addr] = refs & known_contract_addrs
+
+    contract_addrs_ordered = [
+        acct.address
+        for acct in raw_accounts
+        if not acct.is_eoa and acct.address is not None
+    ]
+    sorted_addrs, cycle_addrs = _topological_sort_contracts(
+        contract_addrs_ordered, deps
+    )
+
+    # Mark cycle contracts as non-dynamic, then propagate: any contract
+    # referenced by a non-dynamic contract must also be non-dynamic
+    # (because the non-dynamic bytecode contains the old address).
+    non_dynamic_addrs = set(cycle_addrs)
+    for acct in raw_accounts:
+        if acct.oversized_code and acct.address is not None:
+            non_dynamic_addrs.add(acct.address)
+
+    changed = True
+    while changed:
+        changed = False
+        for addr in list(non_dynamic_addrs):
+            for ref in deps.get(addr, set()):
+                if ref not in non_dynamic_addrs and ref in known_contract_addrs:
+                    non_dynamic_addrs.add(ref)
+                    changed = True
+
+    for acct in raw_accounts:
+        if acct.address in non_dynamic_addrs:
+            acct.use_dynamic = False
+
+    # ------------------------------------------------------------------
+    # Pass 2: convert bytecode to Op expressions
+    # ------------------------------------------------------------------
+    # Collect all address variable names for arithmetic detection
+    addr_var_names = set(addr_to_var.values())
+
+    for acct in raw_accounts:
+        cb = code_bytes_map.get(acct.address) if acct.address else None
+        if not cb:
+            continue
+        try:
+            if acct.use_dynamic:
+                # Try with addr_to_var for symbolic references
+                op_expr = _bytes_to_op_expr(cb, addr_to_var)
+                if op_expr is None:
+                    # Fallback: without addr_to_var (keep dynamic)
+                    op_expr = _bytes_to_op_expr(cb)
+            else:
+                op_expr = _bytes_to_op_expr(cb)
+
+            if op_expr:
+                acct.code_expr = op_expr
+                imports.needs_op = True
+            elif cb:
+                acct.code_expr = f'bytes.fromhex("{cb.hex()}")'
+        except Exception:
+            acct.code_expr = 'b""'
+
+    # ------------------------------------------------------------------
+    # Check for address variables used in arithmetic operations.
+    # Pattern: Op.ADD(contract_0, ...) means contracts are at
+    # sequential addresses and cannot be dynamically assigned.
+    # If found, disable dynamic for ALL contracts.
+    # ------------------------------------------------------------------
+    _ARITH_OPS = {"Op.ADD(", "Op.SUB(", "Op.MUL(", "Op.DIV("}
+    has_addr_arithmetic = False
+    for acct in raw_accounts:
+        if not acct.code_expr:
+            continue
+        for var_name in addr_var_names:
+            for arith_op in _ARITH_OPS:
+                if f"{arith_op}{var_name}" in acct.code_expr:
+                    has_addr_arithmetic = True
+                    break
+            if has_addr_arithmetic:
+                break
+        if has_addr_arithmetic:
+            break
+
+    if has_addr_arithmetic:
+        # Disable dynamic for all contracts and re-generate Op
+        # expressions without addr_to_var
+        for acct in raw_accounts:
+            if not acct.is_eoa:
+                acct.use_dynamic = False
+            cb = code_bytes_map.get(acct.address) if acct.address else None
+            if not cb:
+                continue
+            try:
+                op_expr = _bytes_to_op_expr(cb)
+                if op_expr:
+                    acct.code_expr = op_expr
+                elif cb:
+                    acct.code_expr = f'bytes.fromhex("{cb.hex()}")'
+            except Exception:
+                acct.code_expr = 'b""'
+
+    # ------------------------------------------------------------------
+    # Reorder: EOAs first (filler order), then contracts (topo order)
+    # ------------------------------------------------------------------
+    eoa_accounts = [a for a in raw_accounts if a.is_eoa]
+    contract_by_addr = {a.address: a for a in raw_accounts if not a.is_eoa}
+    # Sorted contracts first, then any cycle contracts in filler order
+    ordered_contracts: list[AccountIR] = []
+    for addr in sorted_addrs:
+        if addr in contract_by_addr:
+            ordered_contracts.append(contract_by_addr[addr])
+    # Append cycle contracts (non-dynamic) in their original filler order
+    for acct in raw_accounts:
+        if not acct.is_eoa and acct.address in cycle_addrs:
+            ordered_contracts.append(acct)
+
+    return eoa_accounts + ordered_contracts
 
 
 def _build_environment(
@@ -856,13 +1091,14 @@ def _build_expect_entries(
                 continue
 
             # Storage (including ANY keys)
-            storage: dict[int, int] | None = None
+            storage: dict[int, int | str] | None = None
             storage_any_keys: list[int] = []
             if account_expect.storage is not None:
                 storage = {}
                 resolved_storage = account_expect.storage.resolve(tags)
                 for k, v in resolved_storage.items():
                     storage[int(k)] = int(v)
+                storage = _resolve_storage_values(storage, addr_to_var)
                 # Capture ANY keys from _any_map
                 if hasattr(resolved_storage, "_any_map"):
                     for k in resolved_storage._any_map:
@@ -954,12 +1190,24 @@ def _build_transaction_ir(
         for al_entry in data_box_al:
             if isinstance(al_entry.address, Tag):
                 resolved_al = al_entry.address.resolve(tags)
-                al_addr = str(Address(resolved_al))
+                al_address = Address(resolved_al)
             else:
-                al_addr = str(al_entry.address)
+                al_address = al_entry.address
+            # Try to resolve to variable name
+            var_name = addr_to_var.get(al_address)
+            if var_name:
+                al_addr_str = var_name
+                al_dynamic = True
+            else:
+                al_addr_str = str(al_address)
+                al_dynamic = False
             al_keys = [str(k) for k in al_entry.storage_keys]
             entries.append(
-                AccessListEntryIR(address=al_addr, storage_keys=al_keys)
+                AccessListEntryIR(
+                    address=al_addr_str,
+                    storage_keys=al_keys,
+                    use_dynamic=al_dynamic,
+                )
             )
         return entries
 
@@ -1050,12 +1298,20 @@ def _build_address_constants(
     tags: TagDict,
     addr_to_var: dict[Address | EOA, str],
     sender_tag_name: str | None,
+    accounts: list[AccountIR],
 ) -> list[dict[str, str]]:
     """Build list of address constants for the function body."""
     constants: list[dict[str, str]] = []
     seen: set[Address | EOA] = set()
 
-    # Coinbase (tagged or not)
+    # Collect addresses of dynamic EOAs — these are handled by
+    # pre.fund_eoa() in the accounts section, not as constants.
+    dynamic_eoa_addrs: set[Address | EOA] = set()
+    for acct in accounts:
+        if acct.is_eoa and acct.use_dynamic and acct.address is not None:
+            dynamic_eoa_addrs.add(acct.address)
+
+    # Coinbase (tagged or not) — always keep as hardcoded constant
     if isinstance(model.env.current_coinbase, Tag):
         tag_name = model.env.current_coinbase.name
         resolved = tags.get(tag_name)
@@ -1084,6 +1340,9 @@ def _build_address_constants(
                 continue
             resolved = tags.get(tag_name)
             if resolved:
+                # Skip dynamic EOAs (handled by fund_eoa)
+                if resolved in dynamic_eoa_addrs:
+                    continue
                 var_name = addr_to_var.get(resolved, tag_name)
                 if resolved not in seen and var_name != "coinbase":
                     constants.append(
@@ -1091,6 +1350,9 @@ def _build_address_constants(
                     )
                     seen.add(resolved)
         else:
+            # Skip dynamic EOAs (handled by fund_eoa)
+            if address_or_tag in dynamic_eoa_addrs:
+                continue
             var_name = addr_to_var.get(address_or_tag)
             if (
                 var_name
@@ -1206,10 +1468,9 @@ def _resolve_address(
         if addr == var_addr:
             return var
     # Check if the address is the result of contract creation from a known
-    # address.
+    # address.  Use a larger range to cover high-nonce senders.
     for var_addr, var in addr_to_var.items():
-        max_created_contracts = 256
-        for nonce in range(max_created_contracts):
+        for nonce in range(10000):
             if addr == compute_create_address(address=var_addr, nonce=nonce):
                 imports.needs_compute_create_address = True
                 return f"compute_create_address(address={var}, nonce={nonce})"

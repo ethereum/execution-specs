@@ -7,7 +7,6 @@ state_tests/stStackTests/underflowTestFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -1043,9 +1042,7 @@ def test_underflow_test(
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x40AC0FC28C27E961EE46EC43355A094DE205856EDBD4654CF2577C2608D4EC1E
-    )
+    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -1062,7 +1059,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.PUSH1[0x80] + Op.ADD + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x3AAC251F428DCD7CB57E01C7DBB8BC3A76D5D628),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060800100
@@ -1070,7 +1066,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.ADD(0x80, 0x80) + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xCC44BEBAEB76A6568AA26AE045F8516FA29B0F9C),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560800200
@@ -1078,7 +1073,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.PUSH1[0x80] + Op.MUL + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xE383F3E5B45FA86D5B37CDFEB146CF903641C76C),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060800200
@@ -1086,7 +1080,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.MUL(0x80, 0x80) + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xDA3EC48D60F1CF78ECC154FA0C6181CF833916AA),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560800300
@@ -1094,7 +1087,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.PUSH1[0x80] + Op.SUB + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xB50944B674EB20B0FE99A18BB764B45500C41144),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060800300
@@ -1102,7 +1094,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.SUB(0x80, 0x80) + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xFCC0A7EBCAB4F6D8C91C9062F2CD1148073253D2),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560800400
@@ -1110,7 +1101,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.PUSH1[0x80] + Op.DIV + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xD54C502B5478A191E9A25BC0D1BA94669C5A5F4F),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060800400
@@ -1118,7 +1108,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.DIV(0x80, 0x80) + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x836D0C3CE82596908935C3CC794DA4603E135B1C),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560800500
@@ -1129,7 +1118,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xC131D96E30386B63F89592008939DD517579F203),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060800500
@@ -1137,7 +1125,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.SDIV(0x80, 0x80) + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x58CD7CC2B1B1CD459DECC8EBBBD2FCBF9C68CEF9),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560800600
@@ -1145,7 +1132,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.PUSH1[0x80] + Op.MOD + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x5DF0DD6D100E8DD03D211B55D4A8CC7C7657C038),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060800600
@@ -1153,7 +1139,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.MOD(0x80, 0x80) + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x4E985C32A0F53AB426FE2BCDEA720F0F71A4C1D1),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560800700
@@ -1164,7 +1149,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x9D8EA14AF8D401208EB0687B8AE6F1E5ED6808D4),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060800700
@@ -1172,7 +1156,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.SMOD(0x80, 0x80) + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x18C875E7EB21E50BAD81E8940A2272FD6760E0DD),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060800800
@@ -1183,7 +1166,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xC51017527CDD990D0C8E146ED36237694024021C),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080608060800800
@@ -1193,7 +1175,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x23D790B6F14975963EE30FF45CC4621C7E1EEAF7),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060800900
@@ -1204,7 +1185,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x0824DE5BB894849FCDD60634275D6BCB8157D4A0),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080608060800900
@@ -1214,7 +1194,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xDA24FFD288756277E556671AE2306B7587EF0C63),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560800A00
@@ -1222,7 +1201,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.PUSH1[0x80] + Op.EXP + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xC36332F339266D7989B005864C48548883213125),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060800A00
@@ -1230,7 +1208,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.EXP(0x80, 0x80) + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x973B5CC7E4678BCB85618B38C910F8ADC68703A6),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560800B00
@@ -1241,7 +1218,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x1E27CC27790C60DDE31215BF2BE1D9A66C41C8FA),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060800B00
@@ -1251,7 +1227,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x1523B84A9FB4A0D32F070847190D34F912C04C4E),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560801000
@@ -1259,7 +1234,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.PUSH1[0x80] + Op.LT + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x77225976113D69EEE2FD870EA02D670BADABDCAB),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060801000
@@ -1267,7 +1241,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.LT(0x80, 0x80) + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x2947A82B8AABD0F80C7E215BC066EA92BDD65B31),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560801100
@@ -1275,7 +1248,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.PUSH1[0x80] + Op.GT + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xF9A965915F18A6108B842A40148DC5FD47EC7140),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060801100
@@ -1283,7 +1255,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.GT(0x80, 0x80) + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xD60AB3D73FD71F071EDE5EEAD527DB298236B162),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560801200
@@ -1291,7 +1262,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.PUSH1[0x80] + Op.SLT + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xE519AC21322361B960BED6CCBBF538840E85F76E),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060801200
@@ -1299,7 +1269,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.SLT(0x80, 0x80) + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xC74809261EDC3EDD91EC17DBF4B898233C42DDB4),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560801300
@@ -1307,7 +1276,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.PUSH1[0x80] + Op.SGT + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xCC9FFEDE5B0D7F58002F852181D0B4B35C0DABEE),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060801300
@@ -1315,7 +1283,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.SGT(0x80, 0x80) + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x0BDF35FC6C5C2A3E1E9711112FF7EF71E2419532),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560801400
@@ -1323,7 +1290,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.PUSH1[0x80] + Op.EQ + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x2B3BC02CABBA968640FD86614F855A406B5C32E2),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060801400
@@ -1331,7 +1297,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.EQ(0x80, 0x80) + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x5029D082367AA4510D5A6E3B5CF83CD41E05C7F4),  # noqa: E501
     )
     # Source: raw
     # 0x60016001551500
@@ -1339,7 +1304,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.ISZERO + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xC744CF16CF5E2EB3C97E641E63801B8AF3015DEF),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560801500
@@ -1347,7 +1311,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.ISZERO(0x80) + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xBE25986EB0EE281252E783918D867630E5119455),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560801600
@@ -1355,7 +1318,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.PUSH1[0x80] + Op.AND + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x1029B338AA781A64308000FA49515769618F176E),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060801600
@@ -1363,7 +1325,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.AND(0x80, 0x80) + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xC8D2EB10090F9940B7E816E6A278AE2EC943D232),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560801700
@@ -1371,7 +1332,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.PUSH1[0x80] + Op.OR + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x7D00C3C2CBB3B64BBB4F0F518EF779F6DF875F6E),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060801700
@@ -1379,7 +1339,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.OR(0x80, 0x80) + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xE8565720BA47032E7B0EDCB4BCE06303F83FF450),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560801800
@@ -1387,7 +1346,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.PUSH1[0x80] + Op.XOR + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x4C47590AB3F1DFE486900D0EC41510F85545B182),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060801800
@@ -1395,7 +1353,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.XOR(0x80, 0x80) + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x9B0EDD3CF5B6CCC09B3C9D15646EF629A7767BA8),  # noqa: E501
     )
     # Source: raw
     # 0x60016001551900
@@ -1403,7 +1360,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.NOT + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x10DF9321D0355308A994D3709E30609BD72655B7),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560801900
@@ -1411,7 +1367,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.NOT(0x80) + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xC52F28D6433F203EAE23F5F2FC642938A25AAFE7),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560801A00
@@ -1422,7 +1377,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x1BE71F78FCFBC7E4002DB615E7FC878E7F090C50),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060801A00
@@ -1430,7 +1384,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.BYTE(0x80, 0x80) + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xF04FE60AD6F92FA14A53A0882943A66EA4E49EF1),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560801B00
@@ -1438,7 +1391,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.PUSH1[0x80] + Op.SHL + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xA7B1CD72EBC0B8F3E353885EF17B04AA28D8F0FA),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060801B00
@@ -1446,7 +1398,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.SHL(0x80, 0x80) + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x701A7D6AA6EF15A38FD8311E074A96C09B434A2A),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560801C00
@@ -1454,7 +1405,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.PUSH1[0x80] + Op.SHR + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xC024F0F81B1C2C1AB6362E5ECF79A7BE3DE2F60E),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060801C00
@@ -1462,7 +1412,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.SHR(0x80, 0x80) + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xA49E66F497A85D949D334A20724BC6B75DA3D3AE),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560801D00
@@ -1470,7 +1419,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.PUSH1[0x80] + Op.SAR + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xB37C41D445866CEB36EDC4E6456CAE78949C9F97),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060801D00
@@ -1478,7 +1426,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.SAR(0x80, 0x80) + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x8E689EEE6C7387A37612A42F8EE44DD7A823FB5C),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560802000
@@ -1489,7 +1436,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xEC8B92806C1AD0F2DCF5B0207DB7EDDB464DF0CA),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060802000
@@ -1499,7 +1445,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x11FFE11BB835B6CE89FC91D65B1F6C0919B07A1D),  # noqa: E501
     )
     # Source: raw
     # 0x60016001553100
@@ -1507,7 +1452,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.BALANCE + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x943B918E625B3ECB5D186D820A60C8EEBD1C71EC),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560803100
@@ -1517,7 +1461,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x58A413DDE8DDD92C793FCA0B18CE89BD3DFBA0E8),  # noqa: E501
     )
     # Source: raw
     # 0x60016001553500
@@ -1525,7 +1468,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.CALLDATALOAD + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xC24790535CFEA9781D66D59B81D9B92A576BB9EF),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560803500
@@ -1535,7 +1477,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x488A9B0F0E885B96F67C113F0979799F801D70D3),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060803700
@@ -1546,7 +1487,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x59F8C0328E432DF7467313742E1EFFC9EE2BAC4E),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080608060803700
@@ -1556,7 +1496,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xBC57A2F2490132B8F8980CD242F7DC76B4B3F1C3),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060803900
@@ -1567,7 +1506,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x50A33DA19F003AEC73BC65754E12A7F94C9B1C34),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080608060803900
@@ -1577,7 +1515,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x866777EADDC2BE0A50B3D3F76F2064876EA42802),  # noqa: E501
     )
     # Source: raw
     # 0x60016001553B00
@@ -1585,7 +1522,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.EXTCODESIZE + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x664F23C7AF786DC61B6A068B3F9BDE0051716384),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560803B00
@@ -1595,7 +1531,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x75A2A8AFA2446EC88A716EF7074351ACCFACCADF),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080608060803C00
@@ -1606,7 +1541,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x93D0507F681BA7DE662D14AE8DE922D161698C8E),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560806080608060803C00
@@ -1618,7 +1552,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xBF337119D0B966CC500CD3FF5AB9F3C7FDDAA91D),  # noqa: E501
     )
     # Source: raw
     # 0x60016001553F00
@@ -1626,7 +1559,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.EXTCODEHASH + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x7142D01ED8802179659127719398FA679AC41292),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560803F00
@@ -1636,7 +1568,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xA3D5AECBF6541CD2A0DF5AE2E1294ABC682180E6),  # noqa: E501
     )
     # Source: raw
     # 0x60016001554000
@@ -1644,7 +1575,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.BLOCKHASH + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x6F72794F9C9D8A693FF6C1134D611D353678FCF0),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560804000
@@ -1654,7 +1584,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xB8479583829F24D888A0493A9132845B3D6A5305),  # noqa: E501
     )
     # Source: raw
     # 0x60016001555000
@@ -1662,7 +1591,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.POP + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x5F750BAD38B37C4EBCC5FEE4EED5639283A09A38),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560805000
@@ -1670,7 +1598,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.POP(0x80) + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x14ED6C71EBCCDF69007D79FE699D368102533929),  # noqa: E501
     )
     # Source: raw
     # 0x60016001555100
@@ -1678,7 +1605,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.MLOAD + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x92BFB1AA73E92C1F591D8B6854514DF6672BBB90),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560805100
@@ -1686,7 +1612,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.MLOAD(offset=0x80) + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xB2E76A6FDFC66A93A2354748EC2D107A818FE73C),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560805200
@@ -1697,7 +1622,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xEC26E590A6F5DA137088AEE0C4D6B0F8870EB1AD),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060805200
@@ -1707,7 +1631,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xAC95D1D1C86AF90F5A0CF44C104D0DA04AB3A467),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560805300
@@ -1718,7 +1641,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xA1903DB9AA9AA2665CA7DA383DB9291D93F1D576),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060805300
@@ -1728,7 +1650,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x891E304C4126F24BF762DF079C7683420B16FF57),  # noqa: E501
     )
     # Source: raw
     # 0x60016001555400
@@ -1736,7 +1657,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.SLOAD + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x7AEDAF23D4E9AFB84BAA67824CEBFEC01339AFC1),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560805400
@@ -1744,7 +1664,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.SLOAD(key=0x80) + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x5096DB6B2EA6ACE8E2AEB3610FAAAD183A51CA8D),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080A000
@@ -1755,7 +1674,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x17F25A871EA2EA564CFFE99D31DEDCF1FCFF0A63),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560806080A000
@@ -1765,7 +1683,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xFB5DBFCD64B16AB0129B99278B9D5CCFB9B605B9),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560806080A100
@@ -1776,7 +1693,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xC70E97B872035F925B07DB55B85A3EAC04E724D6),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060806080A100
@@ -1786,7 +1702,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xD051AFB76160844EB32DF55E052044DE76250EBC),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060806080A200
@@ -1797,7 +1712,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xDAC05B6FC9DC9C0B65ECC5032F2313F7A7DD2586),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080608060806080A200
@@ -1807,7 +1721,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x3FD249E0BE1D7BF6386B7DC90D92BF95F9F98BC4),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080608060806080A300
@@ -1818,7 +1731,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xA7EEC8574DBFC883575F2B20A80F14F335A809B6),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560806080608060806080A300
@@ -1830,7 +1742,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x22D7D32459B46A9B69542C31545CB3A0D887064C),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560806080608060806080A400
@@ -1841,7 +1752,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x715F213243CD7BAEEFD3A52434353015A4FC8DE2),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060806080608060806080A400
@@ -1858,7 +1768,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x79D8AEDD70F8A99A15E3083D3335A028D69AF9FA),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560806080F000
@@ -1869,7 +1778,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x16A80F6C0BBED421A0D6B392E891A52FCA715213),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060806080F000
@@ -1879,7 +1787,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x9BD8E7C30198BD73A39E51D6866B72026272773E),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060806080608060806080F100
@@ -1890,7 +1797,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xF465862E7BF5085FB692E16D3181AFABA87550CC),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080608060806080608060806080F100
@@ -1908,7 +1814,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x8CE099E0D9E5E5153E578F7CBFA9FD071B714142),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060806080608060806080F200
@@ -1919,7 +1824,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x8E3AB300E3D93AC55727C65510FF8BD96EA76928),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080608060806080608060806080F200
@@ -1937,7 +1841,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xAF6EAD2E1A296B787D4B084D30B0733518FD2462),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080F300
@@ -1948,7 +1851,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x84798B4FB35D09DB14ECAB9D65A4A280E483FE29),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560806080F300
@@ -1958,7 +1860,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x7D002CACBE954F4360FE634FBE23F5B67C686CBF),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560806080608060806080F400
@@ -1969,7 +1870,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x799721E570BCD85BE50C0D7A399AF369BE561FBE),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060806080608060806080F400
@@ -1986,7 +1886,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x9386C3CCE8CAB9F8C3BC1A89C82A0E55588CED9D),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060806080F500
@@ -1997,7 +1896,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x933CB75E0E03A16AA3D3E7114D269A6FE4DB46F9),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080608060806080F500
@@ -2007,7 +1905,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xF1CFC656C8D8E2BCFDFEA0E0E9CABCC0B743DD19),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560806080608060806080FA00
@@ -2018,7 +1915,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xEE8790666225DF6F97AE194E20853F2907BBAEBC),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060806080608060806080FA00
@@ -2035,7 +1931,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x45952ED2C957691AE4DE05032B429A8A0F0CED5B),  # noqa: E501
     )
     # Source: raw
     # 0x60016001558000
@@ -2043,7 +1938,6 @@ def test_underflow_test(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.DUP1 + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x8CEB89E3037B7AC8B58E3765EA3EB65F1A9E4A7C),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560808000
@@ -2054,7 +1948,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x5782C86BE10D218C82D509F3257E9DFDBF6DEAD8),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560808100
@@ -2065,7 +1958,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xE6D703C31F83BC617A62F78E3C3A615001D3DD2C),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060808100
@@ -2076,7 +1968,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x113855E9AA747F6AE6FD74667D7A288B2288CAF6),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060808200
@@ -2087,7 +1978,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x2C2938555E004CBB0CE4481BAD8A15857D983D06),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080608060808200
@@ -2098,7 +1988,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x63E21AD1535B95AAEED05E893B5B7947D6B0F15A),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080608060808300
@@ -2109,7 +1998,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x5BCE589F39F0EFF323BCBEAC539DC9FD0F429BD2),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560806080608060808300
@@ -2120,7 +2008,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x8030A1EB20B388143F12FB547B5E53A4C164A621),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560806080608060808400
@@ -2131,7 +2018,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x5BB0E367BEC7D734CB0FC9C27EB85AF479B39673),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060806080608060808400
@@ -2142,7 +2028,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xE594A68387D42D18BB8E460CEF74876F05985E3A),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060806080608060808500
@@ -2153,7 +2038,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x9A90A463D916B189EEE17B331F27A54142B79961),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080608060806080608060808500
@@ -2164,7 +2048,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x029D8125096A81237BE857845270AB34AFAB88AC),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080608060806080608060808600
@@ -2175,7 +2058,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x0D423FA4896ACA0A02CBA41462E754C3241427F0),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560806080608060806080608060808600
@@ -2186,7 +2068,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xCA098DEB4AB81002CDDBD3C93261D6D1CB5113B5),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560806080608060806080608060808700
@@ -2197,7 +2078,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xFBC09AC707FCCA4AE8E348F01457EA18825BD139),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060806080608060806080608060808700
@@ -2208,7 +2088,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x662D9872215DDE44EC296918A0FD96C45C97B332),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060806080608060806080608060808800
@@ -2219,7 +2098,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xAEEC863F85B9A222AC1FFFF774A881D46EC3AD37),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080608060806080608060806080608060808800
@@ -2230,7 +2108,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x5D4FA1456FBF03872B922DC0E8E48EC49F5FAF9E),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080608060806080608060806080608060808900
@@ -2241,7 +2118,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x4DA0082F56C3CAE860EB6FB0FE36BC17CFBA2C27),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560806080608060806080608060806080608060808900
@@ -2252,7 +2128,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x444A2203A30517F4A8BECCA90192B193A7B6ECF3),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560806080608060806080608060806080608060808a00
@@ -2263,7 +2138,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xD5765C6E58B373DF78D7311FE80A67DE0DDF987E),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060806080608060806080608060806080608060808a00
@@ -2274,7 +2148,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x742BF896D715C00EB77F340FCAA65BACAEE2467C),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060806080608060806080608060806080608060808b00
@@ -2285,7 +2158,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xC698050F674750BBCAFA30C433633DEE22B8A9D3),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080608060806080608060806080608060806080608060808b00
@@ -2296,7 +2168,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x6CE1B9FEDCA232F6829F0831ED2C23BD9C2F99A2),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080608060806080608060806080608060806080608060808c00
@@ -2307,7 +2178,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x91605658E9533E831C9F855874FAA14C363DC795),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560806080608060806080608060806080608060806080608060808c00
@@ -2318,7 +2188,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xF2578FADCDD5CD7B55F7046C88A7A77E195A7B17),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560806080608060806080608060806080608060806080608060808d00
@@ -2329,7 +2198,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x34FB465A898787F7ED08BC2F5DE86A896F8BC4DA),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060806080608060806080608060806080608060806080608060808d00
@@ -2340,7 +2208,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xF84F405591BE4AB47CA2CA1841DCB57CC43F076F),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060806080608060806080608060806080608060806080608060808e00
@@ -2351,7 +2218,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x2CD79F853EC648B7C3EC3FAC7C7CE82D7D83EA1E),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080608060806080608060806080608060806080608060806080608060808e00  # noqa: E501
@@ -2362,7 +2228,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x0CD1B3E02E0BC556B0C7D4779C69A9A383C0C7CD),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080608060806080608060806080608060806080608060806080608060808f00  # noqa: E501
@@ -2373,7 +2238,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x175DE68007E136237A4F26B6983DBCE27A87FB5B),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560806080608060806080608060806080608060806080608060806080608060808f00  # noqa: E501
@@ -2384,7 +2248,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x9C8FC002A1DCD0EDCF93C20DC9D674031DC5A28D),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560809000
@@ -2395,7 +2258,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x8B62B65DB3BD1BE727290B490C679C0E84585498),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060809000
@@ -2406,7 +2268,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x6C6BC4F9CCDE5DA559A3E5DDDB6B60A8675C0076),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060809100
@@ -2417,7 +2278,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xE98C1AB0FF23D5C5005C639781D1A635B9AF887B),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080608060809100
@@ -2428,7 +2288,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xACDA51EB0D678A0D52BFA44E4354D8F371F43438),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080608060809200
@@ -2439,7 +2298,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x9768A9BB367830F3331B0C09D7183C131E44A7FC),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560806080608060809200
@@ -2450,7 +2308,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xD6BB0EA7C7F60C967D3DEEEAABA555DAAFBC52CB),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560806080608060809300
@@ -2461,7 +2318,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x19598106D1CEDE298B275523E64593C95D5C431C),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060806080608060809300
@@ -2472,7 +2328,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xB44C7350F24BB5482057B53911A1D3C91C263EAF),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060806080608060809400
@@ -2483,7 +2338,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x0D0E14670E6E8718377BC2FAE6B6814D558D3DEE),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080608060806080608060809400
@@ -2494,7 +2348,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xA15FE2669809DDC6640E94572907A53411B2AA6E),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080608060806080608060809500
@@ -2505,7 +2358,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xD435F13E92F7DB306B9B32E1D61DB6ECD9C135BD),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560806080608060806080608060809500
@@ -2516,7 +2368,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xC3FCE336558080EF8B1A20A209B173E6D163E548),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560806080608060806080608060809600
@@ -2527,7 +2378,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x620D85C5ACC41CBFA47A763BBB9E326054B1819D),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060806080608060806080608060809600
@@ -2538,7 +2388,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x9B9D04770C429114574C11780FC9658D3257E80B),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060806080608060806080608060809700
@@ -2549,7 +2398,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x44C420A5B1A9071EB7FF6F1027C167C002C7F355),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080608060806080608060806080608060809700
@@ -2560,7 +2408,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xDCB6A7C9B64471EFFDD8BBF72D32D271DEEEC8C5),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080608060806080608060806080608060809800
@@ -2571,7 +2418,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x3AD6053AF54D703F7E7229BD5BF120C908C8513D),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560806080608060806080608060806080608060809800
@@ -2582,7 +2428,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xD9292DE838CD8839D91B496D8A9D25AC102CD821),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560806080608060806080608060806080608060809900
@@ -2593,7 +2438,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x2AC63027195DA2EE9CE4CC1DFF225CA97D3C2F0C),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060806080608060806080608060806080608060809900
@@ -2604,7 +2448,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x723A69480F074F5DF2544CACF63347FB5F0F36D1),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060806080608060806080608060806080608060809a00
@@ -2615,7 +2458,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x73F7599A216D98D9FF1559788A9771D78895A6A3),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080608060806080608060806080608060806080608060809a00
@@ -2626,7 +2468,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x4289634EBF793179377FAA7140610BB80DB21B45),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080608060806080608060806080608060806080608060809b00
@@ -2637,7 +2478,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x66A62A0AF37886B9B057A1BAD714665525E7687F),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560806080608060806080608060806080608060806080608060809b00
@@ -2648,7 +2488,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x1BB096578FE2F1BE79E03EA88551A8BDD0692BEA),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560806080608060806080608060806080608060806080608060809c00
@@ -2659,7 +2498,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x745A759F45602915EAB7BDC87BC8D1C1675D4E29),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060806080608060806080608060806080608060806080608060809c00
@@ -2670,7 +2508,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xBF99AD09FC2F72924CBE6DA6020F985E65F78901),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060806080608060806080608060806080608060806080608060809d00
@@ -2681,7 +2518,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x727FD27941DBE4D8F1E2E9DAA0DF70288FD73772),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080608060806080608060806080608060806080608060806080608060809d00  # noqa: E501
@@ -2692,7 +2528,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x1EB3790937F47FE31A45F55BD82F50107E7A463A),  # noqa: E501
     )
     # Source: raw
     # 0x60016001556080608060806080608060806080608060806080608060806080608060809e00  # noqa: E501
@@ -2703,7 +2538,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0xCD63F547EE166A3FEB23A945F488CCC5EE921EEF),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560806080608060806080608060806080608060806080608060806080608060809e00  # noqa: E501
@@ -2714,7 +2548,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x8FD69485A26470A721F6DD7E685DA39EE2A3DC1C),  # noqa: E501
     )
     # Source: raw
     # 0x600160015560806080608060806080608060806080608060806080608060806080608060809f00  # noqa: E501
@@ -2725,7 +2558,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x6F631AE51EAD55C8526AFF13665FE5DD055E3561),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155608060806080608060806080608060806080608060806080608060806080608060809f00  # noqa: E501
@@ -2736,7 +2568,6 @@ def test_underflow_test(
         + Op.STOP,
         storage={1: 24743},
         nonce=0,
-        address=Address(0x1DEBD2AFBA875DB8938CE64218B40FB210E1DE0A),  # noqa: E501
     )
     # Source: lll
     # {
@@ -2760,9 +2591,7 @@ def test_underflow_test(
         + Op.SSTORE(key=0x1, value=0x60A7)
         + Op.STOP,
         nonce=0,
-        address=Address(0x4C5F839D523E76FC3837E085A3E1538CD36E288A),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     expect_entries_: list[dict] = [
         {

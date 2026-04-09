@@ -7,7 +7,6 @@ state_tests/stBadOpcode/eip2315NotRemovedFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_eip2315_not_removed(
 ) -> None:
     """Test_eip2315_not_removed."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x31B5AF02B012484AE954B3A43943242EDE546A2E76FC0A6ACC17435107C385EB
-    )
+    sender = pre.fund_eoa(amount=0x7FFFFFFFFFFFFFFF)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -57,9 +54,7 @@ def test_eip2315_not_removed(
         + Op.TSTORE,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x147943601B1281618E4D824D11073025CD2AC623),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x7FFFFFFFFFFFFFFF)
 
     tx = Transaction(
         sender=sender,

@@ -7,7 +7,6 @@ state_tests/stReturnDataTest/returndatasize_following_successful_createFiller.js
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_returndatasize_following_successful_create(
 ) -> None:
     """Test_returndatasize_following_successful_create."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
-    )
+    sender = pre.fund_eoa(amount=0x6400000000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -63,9 +60,7 @@ def test_returndatasize_following_successful_create(
         + Op.STOP * 2,
         storage={0: 1},
         nonce=0,
-        address=Address(0xE7E262CA8EF9761ACCA450874326B1F3F483A73F),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x6400000000)
 
     tx = Transaction(
         sender=sender,

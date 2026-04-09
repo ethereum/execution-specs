@@ -7,7 +7,6 @@ state_tests/stHomesteadSpecific/createContractViaContractOOGInitCodeFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -36,9 +35,7 @@ def test_create_contract_via_contract_oog_init_code(
     """Test_create_contract_via_contract_oog_init_code."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x1000000000000000000000000000000000000001)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0x10C8E0)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -49,7 +46,6 @@ def test_create_contract_via_contract_oog_init_code(
         gas_limit=1000000,
     )
 
-    pre[sender] = Account(balance=0x10C8E0)
     # Source: lll
     # { (MSTORE 0 0x602060406000f0600c600055)(CREATE 0 20 12)}
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -57,7 +53,6 @@ def test_create_contract_via_contract_oog_init_code(
         + Op.CREATE(value=0x0, offset=0x14, size=0xC)
         + Op.STOP,
         nonce=0,
-        address=Address(0x1000000000000000000000000000000000000001),  # noqa: E501
     )
 
     tx = Transaction(

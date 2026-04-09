@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_callcodecallcall_100_SuicideMiddle2Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -58,9 +57,7 @@ def test_static_callcodecallcall_100_suicide_middle2(
 ) -> None:
     """Test_static_callcodecallcall_100_suicide_middle2."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -71,6 +68,14 @@ def test_static_callcodecallcall_100_suicide_middle2(
         gas_limit=30000000,
     )
 
+    # Source: lll
+    # {  (MSTORE 3 1) }
+    addr_3 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x3, value=0x1) + Op.STOP,
+        balance=0x2540BE400,
+        nonce=0,
+        address=Address(0x48E2D4C0B593BFEBE5DDB4F13AA355B8BD83DDD3),  # noqa: E501
+    )
     # Source: lll
     # {  [[ 0 ]] (CALLCODE 150000 <contract:0x1000000000000000000000000000000000000001> (CALLVALUE) 0 64 0 64 ) [[ 1 ]] 1  }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -125,15 +130,6 @@ def test_static_callcodecallcall_100_suicide_middle2(
         nonce=0,
         address=Address(0x408F1ACEFFEC7BDAA35D77006CDCAEAD563BB694),  # noqa: E501
     )
-    # Source: lll
-    # {  (MSTORE 3 1) }
-    addr_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x3, value=0x1) + Op.STOP,
-        balance=0x2540BE400,
-        nonce=0,
-        address=Address(0x48E2D4C0B593BFEBE5DDB4F13AA355B8BD83DDD3),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx_data = [
         Bytes(""),

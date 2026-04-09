@@ -7,7 +7,6 @@ state_tests/Shanghai/stEIP3860_limitmeterinitcode/createInitCodeSizeLimitFiller.
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -63,9 +62,7 @@ def test_create_init_code_size_limit(
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB)
     contract_1 = Address(0x000000000000000000000000000000000000C0DE)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xBEBC200, nonce=1)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -76,7 +73,6 @@ def test_create_init_code_size_limit(
         gas_limit=20000000,
     )
 
-    pre[sender] = Account(balance=0xBEBC200, nonce=1)
     # Source: yul
     # berlin
     # {
@@ -91,7 +87,7 @@ def test_create_init_code_size_limit(
             key=0x0,
             value=Op.CALL(
                 gas=0x989680,
-                address=0xC0DE,
+                address=contract_1,
                 value=Op.DUP1,
                 args_offset=Op.DUP2,
                 args_size=Op.CALLDATASIZE,
@@ -102,7 +98,6 @@ def test_create_init_code_size_limit(
         + Op.SSTORE(key=Op.DUP1, value=0x1)
         + Op.STOP,
         nonce=1,
-        address=Address(0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -136,7 +131,6 @@ def test_create_init_code_size_limit(
         + Op.SSTORE
         + Op.STOP,
         nonce=1,
-        address=Address(0x000000000000000000000000000000000000C0DE),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

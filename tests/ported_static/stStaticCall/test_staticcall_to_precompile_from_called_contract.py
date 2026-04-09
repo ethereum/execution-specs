@@ -10,7 +10,6 @@ state_tests/stStaticCall/StaticcallToPrecompileFromCalledContractFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -41,9 +40,7 @@ def test_staticcall_to_precompile_from_called_contract(
     coinbase = Address(0xCAFE000000000000000000000000000000000001)
     contract_0 = Address(0xB000000000000000000000000000000000000000)
     contract_1 = Address(0xA000000000000000000000000000000000000000)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -54,27 +51,6 @@ def test_staticcall_to_precompile_from_called_contract(
         gas_limit=10000000,
     )
 
-    # Source: lll
-    # {
-    #   [[ 0 ]] (CALL (GAS) 0xa000000000000000000000000000000000000000 0 0 0 0 0 )  # noqa: E501
-    # }
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0x0,
-            value=Op.CALL(
-                gas=Op.GAS,
-                address=0xA000000000000000000000000000000000000000,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.STOP,
-        nonce=0,
-        address=Address(0xB000000000000000000000000000000000000000),  # noqa: E501
-    )
     # Source: lll
     # {
     #   ;; Recovery of ECDSA signature
@@ -355,9 +331,27 @@ def test_staticcall_to_precompile_from_called_contract(
         + Op.SSTORE(key=0x20, value=Op.MLOAD(offset=0x3E8))
         + Op.STOP,
         nonce=0,
-        address=Address(0xA000000000000000000000000000000000000000),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
+    # Source: lll
+    # {
+    #   [[ 0 ]] (CALL (GAS) 0xa000000000000000000000000000000000000000 0 0 0 0 0 )  # noqa: E501
+    # }
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.CALL(
+                gas=Op.GAS,
+                address=contract_1,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
+        + Op.STOP,
+        nonce=0,
+    )
 
     tx = Transaction(
         sender=sender,
@@ -372,7 +366,7 @@ def test_staticcall_to_precompile_from_called_contract(
         contract_1: Account(
             storage={
                 0: 1,
-                1: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                1: sender,
                 2: 1,
                 3: 1,
                 4: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC000000,

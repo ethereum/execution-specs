@@ -7,7 +7,6 @@ state_tests/stCreate2/create2noCashFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -64,9 +63,7 @@ def test_create2no_cash(
     """Create2 fails with not enough cash (endowment of a new account) +..."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xE2B35478FDD26477CC576DD906E6277761246A3C)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -77,14 +74,12 @@ def test_create2no_cash(
         gas_limit=1000000,
     )
 
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { (CREATE2 101 0 0 0) }
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.CREATE2(value=0x65, offset=0x0, size=0x0, salt=0x0) + Op.STOP,
         balance=100,
         nonce=0,
-        address=Address(0xE2B35478FDD26477CC576DD906E6277761246A3C),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

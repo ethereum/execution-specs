@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_LoopCallsThenRevertFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -59,9 +58,7 @@ def test_static_loop_calls_then_revert(
 ) -> None:
     """Requires a separate pre-alloc group due to time required to fill..."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -72,7 +69,32 @@ def test_static_loop_calls_then_revert(
         gas_limit=100000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
+    # Source: lll
+    # { (MSTORE 0 (ADD 1 (MLOAD 0))) }
+    addr_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=Op.ADD(0x1, Op.MLOAD(offset=0x0)))
+        + Op.STOP,
+        nonce=0,
+    )
+    # Source: raw
+    # 0x5b600160003503600052600060006000600073<contract:0xb000000000000000000000000000000000000000>61c350fa50600051600057  # noqa: E501
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMPDEST
+        + Op.MSTORE(offset=0x0, value=Op.SUB(Op.CALLDATALOAD(offset=0x0), 0x1))
+        + Op.POP(
+            Op.STATICCALL(
+                gas=0xC350,
+                address=addr_2,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.JUMPI(pc=0x0, condition=Op.MLOAD(offset=0x0)),
+        storage={0: 850},
+        nonce=0,
+    )
     # Source: lll
     # { (MSTORE 0 850) [[ 0 ]] (CALL (- (GAS) 10000) <contract:0xa000000000000000000000000000000000000000> 0 0 32 0 0) [[ 1 ]] 1 }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -81,7 +103,7 @@ def test_static_loop_calls_then_revert(
             key=0x0,
             value=Op.CALL(
                 gas=Op.SUB(Op.GAS, 0x2710),
-                address=0x7A2AF5CC0310371CCE006E472ED3B5D68E62F839,
+                address=addr,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x20,
@@ -92,35 +114,6 @@ def test_static_loop_calls_then_revert(
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
         nonce=0,
-        address=Address(0xD64495CBBA16D27A88B96F2A72417B957ED4CAE6),  # noqa: E501
-    )
-    # Source: raw
-    # 0x5b600160003503600052600060006000600073<contract:0xb000000000000000000000000000000000000000>61c350fa50600051600057  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMPDEST
-        + Op.MSTORE(offset=0x0, value=Op.SUB(Op.CALLDATALOAD(offset=0x0), 0x1))
-        + Op.POP(
-            Op.STATICCALL(
-                gas=0xC350,
-                address=0x59C89B27361FD637262B13489F28923C835E17B2,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            )
-        )
-        + Op.JUMPI(pc=0x0, condition=Op.MLOAD(offset=0x0)),
-        storage={0: 850},
-        nonce=0,
-        address=Address(0x7A2AF5CC0310371CCE006E472ED3B5D68E62F839),  # noqa: E501
-    )
-    # Source: lll
-    # { (MSTORE 0 (ADD 1 (MLOAD 0))) }
-    addr_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=Op.ADD(0x1, Op.MLOAD(offset=0x0)))
-        + Op.STOP,
-        nonce=0,
-        address=Address(0x59C89B27361FD637262B13489F28923C835E17B2),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

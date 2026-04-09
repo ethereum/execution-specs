@@ -7,7 +7,6 @@ state_tests/stSolidityTest/TestOverflowFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_test_overflow(
 ) -> None:
     """Test_test_overflow."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xA9AE12CB2700C0214F86B9796881BC03A1FD5605D0E76D2DA2CA592E62D53E52
-    )
+    sender = pre.fund_eoa(amount=0x12A05F200)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -156,9 +153,7 @@ def test_test_overflow(
         + Op.JUMP,
         balance=0x186A0,
         nonce=0,
-        address=Address(0x1A5A251A7E18EBC1A8EBFC47E3F36D9BE03F1627),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x12A05F200)
 
     tx = Transaction(
         sender=sender,

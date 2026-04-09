@@ -189,7 +189,6 @@ def test_no_src_account1559(
     target = pre.deploy_contract(  # noqa: F841
         code=Op.STOP,
         nonce=0,
-        address=Address(0x4D7B154E5BF8310A4D8220C8EED80020E4B8F86F),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -250,13 +249,13 @@ def test_no_src_account1559(
         0: [],
         1: [
             AccessList(
-                address=Address(0x4D7B154E5BF8310A4D8220C8EED80020E4B8F86F),
+                address=target,
                 storage_keys=[],
             ),
         ],
         2: [
             AccessList(
-                address=Address(0x4D7B154E5BF8310A4D8220C8EED80020E4B8F86F),
+                address=target,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501

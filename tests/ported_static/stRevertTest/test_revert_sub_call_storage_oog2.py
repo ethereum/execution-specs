@@ -7,7 +7,6 @@ state_tests/stRevertTest/RevertSubCallStorageOOG2Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -69,9 +68,7 @@ def test_revert_sub_call_storage_oog2(
 ) -> None:
     """Test_revert_sub_call_storage_oog2."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -82,7 +79,6 @@ def test_revert_sub_call_storage_oog2(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: raw
     # 0x60606040526000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff168063b28175c4146046578063c0406226146052575b6000565b3460005760506076565b005b34600057605c6081565b604051808215151515815260200191505060405180910390f35b600c6000819055505b565b600060896076565b600d600081905550600e6001819055505b905600a165627a7a72305820b7c6987c21e63fed8a74d899557744a3be8d3fda191ce0f56cf261d6b860f6b40029  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -91,7 +87,6 @@ def test_revert_sub_call_storage_oog2(
         ),
         balance=1,
         nonce=0,
-        address=Address(0x48BC00BE37FE77BD0F7B7B8009F908FC534A028B),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

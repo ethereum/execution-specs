@@ -7,7 +7,6 @@ state_tests/stCreate2/create2collisionCode2Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -59,9 +58,7 @@ def test_create2collision_code2(
     """Collision with the contract that already has the same init code..."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xFCE41D047B4A1D4450382DCC29EC7E5FEDC5F9A3)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -72,13 +69,11 @@ def test_create2collision_code2(
         gas_limit=1000000,
     )
 
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: raw
     # 0x010203
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.SUB(Op.MUL, Op.ADD),
         nonce=1,
-        address=Address(0xFCE41D047B4A1D4450382DCC29EC7E5FEDC5F9A3),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

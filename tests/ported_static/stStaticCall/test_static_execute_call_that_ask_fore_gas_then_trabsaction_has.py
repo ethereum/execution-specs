@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_ExecuteCallThatAskForeGasThenTrabsactionHasFille
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -67,9 +66,7 @@ def test_static_execute_call_that_ask_fore_gas_then_trabsaction_has(
 ) -> None:
     """Test_static_execute_call_that_ask_fore_gas_then_trabsaction_has."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xDC4EFA209AECDD4C2D5201A419EA27506151B4EC687F14A613229E310932491B
-    )
+    sender = pre.fund_eoa(amount=0x989680)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -80,7 +77,6 @@ def test_static_execute_call_that_ask_fore_gas_then_trabsaction_has(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0x989680)
     # Source: lll
     # { [[1]] (STATICCALL 600000 (CALLDATALOAD 0) 0 0 0 0) }
     target = pre.deploy_contract(  # noqa: F841
@@ -97,7 +93,6 @@ def test_static_execute_call_that_ask_fore_gas_then_trabsaction_has(
         )
         + Op.STOP,
         nonce=0,
-        address=Address(0xA256EBCC5536CDA56E04C39FE9584ECC7594A438),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 1 1) }
@@ -105,7 +100,6 @@ def test_static_execute_call_that_ask_fore_gas_then_trabsaction_has(
         code=Op.MSTORE(offset=0x1, value=0x1) + Op.STOP,
         balance=0x186A0,
         nonce=0,
-        address=Address(0x3DC16A13CF554533F380CC938A2C1AB04DAC534F),  # noqa: E501
     )
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (EXTCODESIZE 1)) }
@@ -121,7 +115,6 @@ def test_static_execute_call_that_ask_fore_gas_then_trabsaction_has(
         + Op.STOP,
         balance=0x186A0,
         nonce=0,
-        address=Address(0x73EF1878A0F2C9629DEDC1B1E9BE8D77DCF93688),  # noqa: E501
     )
     # Source: lll
     # { (SSTORE 1 1) }
@@ -129,7 +122,6 @@ def test_static_execute_call_that_ask_fore_gas_then_trabsaction_has(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.STOP,
         balance=0x186A0,
         nonce=0,
-        address=Address(0xCE4CCBFFAF450AE2126EB96DCD7C891F37764F20),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

@@ -7,7 +7,6 @@ state_tests/Cancun/stEIP4844_blobtransactions/opcodeBlobhashOutOfRangeFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     AccessList,
     Account,
     Address,
@@ -37,9 +36,7 @@ def test_opcode_blobhash_out_of_range(
 ) -> None:
     """BLOB003, BLOB004."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -64,9 +61,7 @@ def test_opcode_blobhash_out_of_range(
         storage={0: 1, 1: 1},
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x0C4D6F62D3C85069CEA2411284BD520AC87FB7EB),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
@@ -87,7 +82,7 @@ def test_opcode_blobhash_out_of_range(
         ],
         access_list=[
             AccessList(
-                address=Address(0x0C4D6F62D3C85069CEA2411284BD520AC87FB7EB),
+                address=target,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501

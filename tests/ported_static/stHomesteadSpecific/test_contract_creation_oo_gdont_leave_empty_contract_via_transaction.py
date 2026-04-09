@@ -7,7 +7,6 @@ state_tests/stHomesteadSpecific/contractCreationOOGdontLeaveEmptyContractViaTran
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -37,9 +36,7 @@ def test_contract_creation_oo_gdont_leave_empty_contract_via_transaction(
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_1 = Address(0x1000000000000000000000000000000000000001)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0x10C8E0)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -50,13 +47,18 @@ def test_contract_creation_oo_gdont_leave_empty_contract_via_transaction(
         gas_limit=1000000,
     )
 
-    pre[sender] = Account(balance=0x10C8E0)
+    # Source: lll
+    # {(SSTORE 1 1)}
+    contract_1 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x1, value=0x1) + Op.STOP,
+        nonce=0,
+    )
     # Source: lll
     # {(CALL 50000 0x1000000000000000000000000000000000000001 0 0 64 0 64)}
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.CALL(
             gas=0xC350,
-            address=0x1000000000000000000000000000000000000001,
+            address=contract_1,
             value=0x0,
             args_offset=0x0,
             args_size=0x40,
@@ -66,14 +68,6 @@ def test_contract_creation_oo_gdont_leave_empty_contract_via_transaction(
         + Op.STOP,
         balance=0x186A0,
         nonce=0,
-        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
-    )
-    # Source: lll
-    # {(SSTORE 1 1)}
-    contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x1, value=0x1) + Op.STOP,
-        nonce=0,
-        address=Address(0x1000000000000000000000000000000000000001),  # noqa: E501
     )
 
     tx = Transaction(

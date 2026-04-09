@@ -7,7 +7,6 @@ state_tests/Cancun/stEIP1153_transientStorage/transStorageResetFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -229,9 +228,7 @@ def test_trans_storage_reset(
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x48DC5A9F099CAAAA557742CA3A990A94BE45B9969126A1BC74E5E8BE5A2B5B47
-    )
+    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE, nonce=1)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -359,7 +356,6 @@ def test_trans_storage_reset(
         + Op.JUMP,
         storage={16: 24743},
         nonce=1,
-        address=Address(0xD1F046B080A87137C61A14BB81C2B6BBCEC17084),  # noqa: E501
     )
     # Source: yul
     # {
@@ -495,7 +491,6 @@ def test_trans_storage_reset(
         + Op.JUMP,
         storage={1: 24743},
         nonce=1,
-        address=Address(0x9F075370EF41D4CD90151E731E33836E6F521669),  # noqa: E501
     )
     # Source: yul
     # {
@@ -528,21 +523,14 @@ def test_trans_storage_reset(
         + Op.SSTORE(key=0x1, value=Op.CALL)
         + Op.STOP,
         nonce=1,
-        address=Address(0x1679C7439EF325A99A6AFC54A8F7894C3DA35B16),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
 
     expect_entries_: list[dict] = [
         {
             "indexes": {"data": [0], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                target: Account(
-                    storage={
-                        0: 0x9F075370EF41D4CD90151E731E33836E6F521669,
-                        1: 1,
-                    },
-                ),
+                target: Account(storage={0: reverter, 1: 1}),
                 reverter: Account(storage={0: 48879, 1: 1}),
                 dead: Account(storage={16: 1}),
             },
@@ -551,12 +539,7 @@ def test_trans_storage_reset(
             "indexes": {"data": [3, 6, 9, 12, 15, 18], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                target: Account(
-                    storage={
-                        0: 0x9F075370EF41D4CD90151E731E33836E6F521669,
-                        1: 1,
-                    },
-                ),
+                target: Account(storage={0: reverter, 1: 1}),
                 reverter: Account(storage={0: 48879, 1: 1, 16: 1}),
             },
         },
@@ -564,12 +547,7 @@ def test_trans_storage_reset(
             "indexes": {"data": [24, 27], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                target: Account(
-                    storage={
-                        0: 0x9F075370EF41D4CD90151E731E33836E6F521669,
-                        1: 1,
-                    },
-                ),
+                target: Account(storage={0: reverter, 1: 1}),
                 reverter: Account(storage={0: 0xBAD0BEEF, 1: 1, 16: 32343}),
             },
         },
@@ -602,12 +580,7 @@ def test_trans_storage_reset(
             },
             "network": [">=Cancun"],
             "result": {
-                target: Account(
-                    storage={
-                        0: 0x9F075370EF41D4CD90151E731E33836E6F521669,
-                        1: 1,
-                    },
-                ),
+                target: Account(storage={0: reverter, 1: 1}),
                 reverter: Account(storage={0: 24743, 1: 0}),
                 dead: Account(storage={16: 24743}),
             },
@@ -616,12 +589,7 @@ def test_trans_storage_reset(
             "indexes": {"data": [21], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                target: Account(
-                    storage={
-                        0: 0x9F075370EF41D4CD90151E731E33836E6F521669,
-                        1: 1,
-                    },
-                ),
+                target: Account(storage={0: reverter, 1: 1}),
                 reverter: Account(storage={0: 24743, 1: 1}),
                 dead: Account(storage={16: 32343}),
             },

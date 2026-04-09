@@ -7,7 +7,6 @@ state_tests/stReturnDataTest/returndatacopy_afterFailing_createFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_returndatacopy_after_failing_create(
 ) -> None:
     """Returndatacopy after failing create case due to 0xfd code."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
-    )
+    sender = pre.fund_eoa(amount=0x6400000000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -59,9 +56,7 @@ def test_returndatacopy_after_failing_create(
         + Op.STOP,
         storage={0: 1},
         nonce=0,
-        address=Address(0x1F2642DD423C1BAC7E318EE8DF07608C3216D725),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x6400000000)
 
     tx = Transaction(
         sender=sender,

@@ -7,7 +7,6 @@ state_tests/stCreate2/CREATE2_FirstByte_loopFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -65,9 +64,7 @@ def test_create2_first_byte_loop(
 ) -> None:
     """Test_create2_first_byte_loop."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xF79127A3004ABDE26A4CBD80C428CB10F829FA11B54D36E7B326F4F4A5927ACF
-    )
+    sender = pre.fund_eoa(amount=0x3B9ACA00)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -78,7 +75,6 @@ def test_create2_first_byte_loop(
         gas_limit=89128960,
     )
 
-    pre[sender] = Account(balance=0x3B9ACA00)
     # Source: yul
     # berlin
     # {
@@ -123,7 +119,6 @@ def test_create2_first_byte_loop(
         + Op.SSTORE(key=Op.DUP2, value=Op.DUP2)
         + Op.JUMP(pc=0x4A),
         nonce=0,
-        address=Address(0x09FDD11D68BE787A4C43F692A0778BEFC011CD35),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

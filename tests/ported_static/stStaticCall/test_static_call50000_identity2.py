@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_Call50000_identity2Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -60,9 +59,7 @@ def test_static_call50000_identity2(
 ) -> None:
     """Test_static_call50000_identity2."""
     coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0xE7C72B378297589ACEE4E0BA3272841BCFC5E220F86DE253F890274CFEE9E474
-    )
+    sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -73,7 +70,6 @@ def test_static_call50000_identity2(
         gas_limit=8925000000,
     )
 
-    pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
     # Source: lll
     # {  [[ 0 ]] (CALL (GAS) (CALLDATALOAD 0) (CALLVALUE) 0 0 0 0) [[ 1 ]] 1 }
     target = pre.deploy_contract(  # noqa: F841
@@ -92,7 +88,6 @@ def test_static_call50000_identity2(
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
         nonce=0,
-        address=Address(0xC0E4183389EB57F779A986D8C878F89B9401DC8E),  # noqa: E501
     )
     # Source: lll
     # { (def 'i 0x80) [ 1 ] 42 (for {} (< @i 50000) [i](+ @i 1) [[ 0 ]] (STATICCALL 1564 4 0 50000 1 50000) ) [[ 1 ]] @i [[ 2 ]] @1 }  # noqa: E501
@@ -121,7 +116,6 @@ def test_static_call50000_identity2(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
-        address=Address(0xCFB4C99D22928822FEFFA77A1A6DE64042E48DD3),  # noqa: E501
     )
     # Source: lll
     # { (def 'i 0x80) [ 1 ] 42 (for {} (< @i 50000) [i](+ @i 1) (MSTORE 0 (STATICCALL 1564 4 0 50000 1 50000)) ) (MSTORE 32 @i) (MSTORE 64 @1 ) }  # noqa: E501
@@ -150,7 +144,6 @@ def test_static_call50000_identity2(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
-        address=Address(0xB02BD8691A1A4F5FD4432B5B17C68DDE3013FC35),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_callToStaticOpCodeCheckFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -34,9 +33,7 @@ def test_static_call_to_static_op_code_check(
 ) -> None:
     """Test_static_call_to_static_op_code_check."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -64,7 +61,6 @@ def test_static_call_to_static_op_code_check(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x7EF8271E6CDB0A23220B73BF3E9697E173F9D015),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 0 (STATICCALL 100000 <contract:0x1000000000000000000000000000000000000002> 0 0 0 0)) (if (= 1 (MLOAD 0)) (MSTORE 1 1) (SSTORE 1 1) ) }  # noqa: E501
@@ -138,7 +134,6 @@ def test_static_call_to_static_op_code_check(
         nonce=0,
         address=Address(0x0D366057A988CB6562F7FA2A601F06A503D30A90),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

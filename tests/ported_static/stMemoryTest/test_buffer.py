@@ -7,7 +7,6 @@ state_tests/stMemoryTest/bufferFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -2139,9 +2138,7 @@ def test_buffer(
     contract_1 = Address(0x000000000000000000000000000000000F30C0DE)
     contract_2 = Address(0x000000000000000000000000000000000FF0C0DE)
     contract_3 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -2160,7 +2157,6 @@ def test_buffer(
         code=Op.RETURN(offset=0x0, size=0x120) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000C0DE),  # noqa: E501
     )
     # Source: lll
     # {
@@ -2181,7 +2177,6 @@ def test_buffer(
         storage={0: 24743},
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000F30C0DE),  # noqa: E501
     )
     # Source: lll
     # {
@@ -2199,7 +2194,6 @@ def test_buffer(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000FF0C0DE),  # noqa: E501
     )
     # Source: lll
     # {
@@ -2435,7 +2429,7 @@ def test_buffer(
         + Op.JUMP(pc=0x2C0)
         + Op.JUMPDEST
         + Op.EXTCODECOPY(
-            address=0xC0DE,
+            address=contract_0,
             dest_offset=Op.MLOAD(offset=0x2040),
             offset=0x0,
             size=Op.MLOAD(offset=0x2020),
@@ -2536,7 +2530,7 @@ def test_buffer(
         + Op.JUMPDEST
         + Op.CALL(
             gas=0x1000,
-            address=0xC0DE,
+            address=contract_0,
             value=0x0,
             args_offset=Op.MLOAD(offset=0x2040),
             args_size=Op.MLOAD(offset=0x2020),
@@ -2553,7 +2547,7 @@ def test_buffer(
         + Op.JUMPDEST
         + Op.CALL(
             gas=0x1000,
-            address=0xC0DE,
+            address=contract_0,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -2570,7 +2564,7 @@ def test_buffer(
         + Op.JUMPDEST
         + Op.CALLCODE(
             gas=0x1000,
-            address=0xC0DE,
+            address=contract_0,
             value=0x0,
             args_offset=Op.MLOAD(offset=0x2040),
             args_size=Op.MLOAD(offset=0x2020),
@@ -2587,7 +2581,7 @@ def test_buffer(
         + Op.JUMPDEST
         + Op.CALLCODE(
             gas=0x1000,
-            address=0xC0DE,
+            address=contract_0,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -2604,7 +2598,7 @@ def test_buffer(
         + Op.JUMPDEST
         + Op.DELEGATECALL(
             gas=0x100000,
-            address=0xC0DE,
+            address=contract_0,
             args_offset=Op.MLOAD(offset=0x2040),
             args_size=Op.MLOAD(offset=0x2020),
             ret_offset=0x0,
@@ -2620,7 +2614,7 @@ def test_buffer(
         + Op.JUMPDEST
         + Op.DELEGATECALL(
             gas=0x100000,
-            address=0xC0DE,
+            address=contract_0,
             args_offset=0x0,
             args_size=0x0,
             ret_offset=Op.MLOAD(offset=0x2040),
@@ -2650,7 +2644,7 @@ def test_buffer(
         + Op.JUMPDEST
         + Op.STATICCALL(
             gas=0x100000,
-            address=0xC0DE,
+            address=contract_0,
             args_offset=Op.MLOAD(offset=0x2040),
             args_size=Op.MLOAD(offset=0x2020),
             ret_offset=0x0,
@@ -2666,7 +2660,7 @@ def test_buffer(
         + Op.JUMPDEST
         + Op.STATICCALL(
             gas=0x100000,
-            address=0xC0DE,
+            address=contract_0,
             args_offset=0x0,
             args_size=0x0,
             ret_offset=Op.MLOAD(offset=0x2040),
@@ -2683,7 +2677,7 @@ def test_buffer(
         + Op.POP(
             Op.CALL(
                 gas=0x1000,
-                address=0xC0DE,
+                address=contract_0,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -2705,7 +2699,7 @@ def test_buffer(
         + Op.JUMPDEST
         + Op.CALL(
             gas=0x100000,
-            address=0xF30C0DE,
+            address=contract_1,
             value=0x0,
             args_offset=0x2020,
             args_size=0x40,
@@ -2723,7 +2717,7 @@ def test_buffer(
         + Op.POP(
             Op.CALL(
                 gas=0x100000,
-                address=0xFF0C0DE,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x2020,
                 args_size=0x40,
@@ -2738,9 +2732,7 @@ def test_buffer(
         storage={256: 24743},
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     expect_entries_: list[dict] = [
         {

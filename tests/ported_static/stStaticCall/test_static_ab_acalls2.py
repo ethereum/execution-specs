@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_ABAcalls2Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -60,9 +59,7 @@ def test_static_ab_acalls2(
 ) -> None:
     """Test_static_ab_acalls2."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -91,7 +88,6 @@ def test_static_ab_acalls2(
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
         nonce=0,
-        address=Address(0x2B0DE1D059B61D3AFBDBC6D7D59720FE04C1FFF2),  # noqa: E501
     )
     # Source: lll
     # {  [[ 0 ]] (ADD (SLOAD 0) 1) (STATICCALL (- (GAS) 100000) <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 0 0 0 0) }  # noqa: E501
@@ -159,7 +155,6 @@ def test_static_ab_acalls2(
         nonce=0,
         address=Address(0x57EFC7A25D8E40B0798FB4CBC2BCC3C124141CBB),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     expect_entries_: list[dict] = [
         {

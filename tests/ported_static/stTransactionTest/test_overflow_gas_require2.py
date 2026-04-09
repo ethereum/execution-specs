@@ -7,7 +7,6 @@ state_tests/stTransactionTest/OverflowGasRequire2Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -38,8 +37,8 @@ def test_overflow_gas_require2(
 ) -> None:
     """Test_overflow_gas_require2."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x50EADFB1030587AB3A993A6ECC073041FC3B45E119DAA31A13D78C7E209631A5
+    sender = pre.fund_eoa(
+        amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
     )
 
     env = Environment(
@@ -49,10 +48,6 @@ def test_overflow_gas_require2(
         prev_randao=0x20000,
         base_fee_per_gas=10,
         gas_limit=9223372036854775807,
-    )
-
-    pre[sender] = Account(
-        balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

@@ -13,7 +13,6 @@ state_tests/stCreateTest/CreateAddressWarmAfterFailFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -241,9 +240,7 @@ def test_create_address_warm_after_fail(
     contract_1 = Address(0x00000000000000000000000000000000C0DE1006)
     contract_2 = Address(0x00000000000000000000000000000020C0DE1006)
     contract_3 = Address(0x00000000000000000000000000000000C0DEFFFF)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51001)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -254,7 +251,84 @@ def test_create_address_warm_after_fail(
         gas_limit=3000000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51001)
+    # Source: yul
+    # berlin
+    #   object "C" {
+    #     code {
+    #       datacopy(0, dataoffset("dummy"), datasize("dummy"))
+    #       sstore(0, create(0, 0, datasize("dummy")))
+    #       stop()
+    #     }
+    #     object "dummy" {
+    #       code {
+    #         return(0,0x6000)
+    #     }
+    #   }
+    #  }
+    contract_1 = pre.deploy_contract(  # noqa: F841
+        code=Op.CODECOPY(dest_offset=0x0, offset=0x12, size=0x6)
+        + Op.SSTORE(
+            key=0x0, value=Op.CREATE(value=Op.DUP1, offset=0x0, size=0x6)
+        )
+        + Op.STOP
+        + Op.INVALID
+        + Op.RETURN(offset=0x0, size=0x6000),
+        balance=4096,
+        nonce=1,
+    )
+    # Source: yul
+    # berlin
+    #   object "C" {
+    #     code {
+    #       datacopy(0, dataoffset("dummy"), datasize("dummy"))
+    #       sstore(0, create2(0, 0, datasize("dummy"), 0))
+    #       stop()
+    #     }
+    #     object "dummy" {
+    #       code {
+    #         return(0,0x6000)
+    #     }
+    #   }
+    #  }
+    contract_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.CODECOPY(dest_offset=0x0, offset=0x13, size=0x6)
+        + Op.SSTORE(
+            key=0x0,
+            value=Op.CREATE2(
+                value=Op.DUP1, offset=Op.DUP2, size=0x6, salt=0x0
+            ),
+        )
+        + Op.STOP
+        + Op.INVALID
+        + Op.RETURN(offset=0x0, size=0x6000),
+        balance=4096,
+        nonce=1,
+    )
+    # Source: yul
+    # berlin
+    #   object "C" {
+    #     code {
+    #       datacopy(0, dataoffset("dummy"), datasize("dummy"))
+    #       sstore(0, create(0, 0, datasize("dummy")))
+    #       stop()
+    #     }
+    #     object "dummy" {
+    #       code {
+    #         return(0,0x20)
+    #     }
+    #   }
+    #  }
+    contract_3 = pre.deploy_contract(  # noqa: F841
+        code=Op.CODECOPY(dest_offset=0x0, offset=0x12, size=0x5)
+        + Op.SSTORE(
+            key=0x0, value=Op.CREATE(value=Op.DUP1, offset=0x0, size=0x5)
+        )
+        + Op.STOP
+        + Op.INVALID
+        + Op.RETURN(offset=0x0, size=0x20),
+        balance=4096,
+        nonce=18446744073709551615,
+    )
     # Source: yul
     # london
     #   object "C" {
@@ -293,88 +367,6 @@ def test_create_address_warm_after_fail(
         ),
         balance=4096,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000C0DEC),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    #   object "C" {
-    #     code {
-    #       datacopy(0, dataoffset("dummy"), datasize("dummy"))
-    #       sstore(0, create(0, 0, datasize("dummy")))
-    #       stop()
-    #     }
-    #     object "dummy" {
-    #       code {
-    #         return(0,0x6000)
-    #     }
-    #   }
-    #  }
-    contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.CODECOPY(dest_offset=0x0, offset=0x12, size=0x6)
-        + Op.SSTORE(
-            key=0x0, value=Op.CREATE(value=Op.DUP1, offset=0x0, size=0x6)
-        )
-        + Op.STOP
-        + Op.INVALID
-        + Op.RETURN(offset=0x0, size=0x6000),
-        balance=4096,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000C0DE1006),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    #   object "C" {
-    #     code {
-    #       datacopy(0, dataoffset("dummy"), datasize("dummy"))
-    #       sstore(0, create2(0, 0, datasize("dummy"), 0))
-    #       stop()
-    #     }
-    #     object "dummy" {
-    #       code {
-    #         return(0,0x6000)
-    #     }
-    #   }
-    #  }
-    contract_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.CODECOPY(dest_offset=0x0, offset=0x13, size=0x6)
-        + Op.SSTORE(
-            key=0x0,
-            value=Op.CREATE2(
-                value=Op.DUP1, offset=Op.DUP2, size=0x6, salt=0x0
-            ),
-        )
-        + Op.STOP
-        + Op.INVALID
-        + Op.RETURN(offset=0x0, size=0x6000),
-        balance=4096,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000020C0DE1006),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    #   object "C" {
-    #     code {
-    #       datacopy(0, dataoffset("dummy"), datasize("dummy"))
-    #       sstore(0, create(0, 0, datasize("dummy")))
-    #       stop()
-    #     }
-    #     object "dummy" {
-    #       code {
-    #         return(0,0x20)
-    #     }
-    #   }
-    #  }
-    contract_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.CODECOPY(dest_offset=0x0, offset=0x12, size=0x5)
-        + Op.SSTORE(
-            key=0x0, value=Op.CREATE(value=Op.DUP1, offset=0x0, size=0x5)
-        )
-        + Op.STOP
-        + Op.INVALID
-        + Op.RETURN(offset=0x0, size=0x20),
-        balance=4096,
-        nonce=18446744073709551615,
-        address=Address(0x00000000000000000000000000000000C0DEFFFF),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

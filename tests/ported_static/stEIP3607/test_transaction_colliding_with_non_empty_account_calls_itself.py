@@ -7,8 +7,6 @@ state_tests/stEIP3607/transactionCollidingWithNonEmptyAccount_callsItselfFiller.
 
 import pytest
 from execution_testing import (
-    EOA,
-    Account,
     Address,
     Alloc,
     Bytes,
@@ -17,7 +15,6 @@ from execution_testing import (
     Transaction,
     TransactionException,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -37,9 +34,7 @@ def test_transaction_colliding_with_non_empty_account_calls_itself(
 ) -> None:
     """Account with non-empty code attempts to send tx to call itself."""
     coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
-    sender = EOA(
-        key=0x402790500EA083A617EC567407D9EC3BBB3A5C8B812547D9F66E8D7878B8A75D
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -50,10 +45,7 @@ def test_transaction_colliding_with_non_empty_account_calls_itself(
         gas_limit=71794957647893862,
     )
 
-    pre[coinbase] = Account(balance=0, nonce=1)
-    pre[sender] = Account(
-        balance=0xDE0B6B3A7640000, code=Op.SSTORE(key=0x1, value=0x0)
-    )
+    coinbase = pre.fund_eoa(amount=0)
 
     tx = Transaction(
         sender=sender,

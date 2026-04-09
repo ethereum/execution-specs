@@ -7,7 +7,6 @@ state_tests/stBadOpcode/invalidAddrFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -554,9 +553,7 @@ def test_invalid_addr(
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x40AC0FC28C27E961EE46EC43355A094DE205856EDBD4654CF2577C2608D4EC1E
-    )
+    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -578,7 +575,6 @@ def test_invalid_addr(
         + Op.STOP,
         balance=0x10000,
         nonce=0,
-        address=Address(0x1C60A961CFF23C82B2F809E76B815D003898E196),  # noqa: E501
     )
     # Source: lll
     # {
@@ -588,7 +584,6 @@ def test_invalid_addr(
         code=Op.SELFDESTRUCT(address=Op.CALLDATALOAD(offset=0x0)) + Op.STOP,
         balance=4096,
         nonce=0,
-        address=Address(0x9CB657C71386D578195B90DA7DE545482E0A9440),  # noqa: E501
     )
     # Source: lll
     # {
@@ -598,7 +593,6 @@ def test_invalid_addr(
         code=Op.SELFDESTRUCT(address=Op.CALLDATALOAD(offset=0x0)) + Op.STOP,
         balance=4096,
         nonce=0,
-        address=Address(0xE2CFFD6602680D87B7872C3B69F42FA631058CBF),  # noqa: E501
     )
     # Source: lll
     # {
@@ -640,9 +634,7 @@ def test_invalid_addr(
         + Op.POP(0x0)
         + Op.JUMP(pc=Op.PUSH2[0x2B])
         + Op.JUMPDEST
-        + Op.MSTORE(
-            offset=0x2000, value=0x1C60A961CFF23C82B2F809E76B815D003898E196
-        )
+        + Op.MSTORE(offset=0x2000, value=addr)
         + Op.JUMPDEST
         + Op.JUMPI(
             pc=Op.PUSH2[0x3D],
@@ -980,7 +972,7 @@ def test_invalid_addr(
         + Op.POP(
             Op.CALL(
                 gas=0x10000000,
-                address=0x9CB657C71386D578195B90DA7DE545482E0A9440,
+                address=dead1,
                 value=0x0,
                 args_offset=0x2000,
                 args_size=0x20,
@@ -994,7 +986,7 @@ def test_invalid_addr(
         + Op.POP(
             Op.CALL(
                 gas=0x10000000,
-                address=0xE2CFFD6602680D87B7872C3B69F42FA631058CBF,
+                address=dead2,
                 value=0x0,
                 args_offset=0x2040,
                 args_size=0x20,
@@ -1034,9 +1026,7 @@ def test_invalid_addr(
         storage={256: 24743},
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address(0x2D876FD03A90703F170C256363BA225F9494E604),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     tx_data = [
         Bytes("048071d3") + Hash(0x31) + Hash(0x1) + Hash(0x0),

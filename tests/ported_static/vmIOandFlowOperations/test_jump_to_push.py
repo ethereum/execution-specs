@@ -7,7 +7,6 @@ state_tests/VMTests/vmIOandFlowOperations/jumpToPushFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -611,9 +610,7 @@ def test_jump_to_push(
     contract_93 = Address(0x000000000000000000000000000000000000020B)
     contract_94 = Address(0x000000000000000000000000000000000000020C)
     contract_95 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0x100000000000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -632,7 +629,6 @@ def test_jump_to_push(
         + Op.PUSH1[0x5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000001A),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600956605B5B
@@ -642,7 +638,6 @@ def test_jump_to_push(
         + Op.PUSH1[0x5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000001B),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600B56615B5B5B
@@ -652,7 +647,6 @@ def test_jump_to_push(
         + Op.PUSH2[0x5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000002A),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600956615B5B5B
@@ -662,7 +656,6 @@ def test_jump_to_push(
         + Op.PUSH2[0x5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000002B),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600A56615B5B5B
@@ -672,7 +665,6 @@ def test_jump_to_push(
         + Op.PUSH2[0x5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000002C),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600C56625B5B5B5B
@@ -682,7 +674,6 @@ def test_jump_to_push(
         + Op.PUSH3[0x5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000003A),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600956625B5B5B5B
@@ -692,7 +683,6 @@ def test_jump_to_push(
         + Op.PUSH3[0x5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000003B),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600B56625B5B5B5B
@@ -702,7 +692,6 @@ def test_jump_to_push(
         + Op.PUSH3[0x5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000003C),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600D56635B5B5B5B5B
@@ -712,7 +701,6 @@ def test_jump_to_push(
         + Op.PUSH4[0x5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000004A),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600956635B5B5B5B5B
@@ -722,7 +710,6 @@ def test_jump_to_push(
         + Op.PUSH4[0x5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000004B),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600C56635B5B5B5B5B
@@ -732,7 +719,6 @@ def test_jump_to_push(
         + Op.PUSH4[0x5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000004C),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600E56645B5B5B5B5B5B
@@ -742,7 +728,6 @@ def test_jump_to_push(
         + Op.PUSH5[0x5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000005A),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600956645B5B5B5B5B5B
@@ -752,7 +737,6 @@ def test_jump_to_push(
         + Op.PUSH5[0x5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000005B),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600D56645B5B5B5B5B5B
@@ -762,7 +746,6 @@ def test_jump_to_push(
         + Op.PUSH5[0x5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000005C),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600F56655B5B5B5B5B5B5B
@@ -772,7 +755,6 @@ def test_jump_to_push(
         + Op.PUSH6[0x5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000006A),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600956655B5B5B5B5B5B5B
@@ -782,7 +764,6 @@ def test_jump_to_push(
         + Op.PUSH6[0x5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000006B),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600E56655B5B5B5B5B5B5B
@@ -792,7 +773,6 @@ def test_jump_to_push(
         + Op.PUSH6[0x5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000006C),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055601056665B5B5B5B5B5B5B5B
@@ -802,7 +782,6 @@ def test_jump_to_push(
         + Op.PUSH7[0x5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000007A),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600956665B5B5B5B5B5B5B5B
@@ -812,7 +791,6 @@ def test_jump_to_push(
         + Op.PUSH7[0x5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000007B),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600F56665B5B5B5B5B5B5B5B
@@ -822,7 +800,6 @@ def test_jump_to_push(
         + Op.PUSH7[0x5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000007C),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055601156675B5B5B5B5B5B5B5B5B
@@ -832,7 +809,6 @@ def test_jump_to_push(
         + Op.PUSH8[0x5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000008A),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600956675B5B5B5B5B5B5B5B5B
@@ -842,7 +818,6 @@ def test_jump_to_push(
         + Op.PUSH8[0x5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000008B),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055601056675B5B5B5B5B5B5B5B5B
@@ -852,7 +827,6 @@ def test_jump_to_push(
         + Op.PUSH8[0x5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000008C),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055601256685B5B5B5B5B5B5B5B5B5B
@@ -862,7 +836,6 @@ def test_jump_to_push(
         + Op.PUSH9[0x5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000009A),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600956685B5B5B5B5B5B5B5B5B5B
@@ -872,7 +845,6 @@ def test_jump_to_push(
         + Op.PUSH9[0x5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000009B),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055601156685B5B5B5B5B5B5B5B5B5B
@@ -882,7 +854,6 @@ def test_jump_to_push(
         + Op.PUSH9[0x5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000009C),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055601356695B5B5B5B5B5B5B5B5B5B5B
@@ -892,7 +863,6 @@ def test_jump_to_push(
         + Op.PUSH10[0x5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000000AA),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600956695B5B5B5B5B5B5B5B5B5B5B
@@ -902,7 +872,6 @@ def test_jump_to_push(
         + Op.PUSH10[0x5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000000AB),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055601256695B5B5B5B5B5B5B5B5B5B5B
@@ -912,7 +881,6 @@ def test_jump_to_push(
         + Op.PUSH10[0x5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000000AC),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556014566A5B5B5B5B5B5B5B5B5B5B5B5B
@@ -922,7 +890,6 @@ def test_jump_to_push(
         + Op.PUSH11[0x5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000000BA),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556009566A5B5B5B5B5B5B5B5B5B5B5B5B
@@ -932,7 +899,6 @@ def test_jump_to_push(
         + Op.PUSH11[0x5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000000BB),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556013566A5B5B5B5B5B5B5B5B5B5B5B5B
@@ -942,7 +908,6 @@ def test_jump_to_push(
         + Op.PUSH11[0x5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000000BC),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556015566B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -952,7 +917,6 @@ def test_jump_to_push(
         + Op.PUSH12[0x5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000000CA),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556009566B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -962,7 +926,6 @@ def test_jump_to_push(
         + Op.PUSH12[0x5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000000CB),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556014566B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -972,7 +935,6 @@ def test_jump_to_push(
         + Op.PUSH12[0x5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000000CC),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556016566C5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -982,7 +944,6 @@ def test_jump_to_push(
         + Op.PUSH13[0x5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000000DA),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556009566C5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -992,7 +953,6 @@ def test_jump_to_push(
         + Op.PUSH13[0x5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000000DB),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556015566C5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1002,7 +962,6 @@ def test_jump_to_push(
         + Op.PUSH13[0x5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000000DC),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556017566D5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1012,7 +971,6 @@ def test_jump_to_push(
         + Op.PUSH14[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000000EA),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556009566D5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1022,7 +980,6 @@ def test_jump_to_push(
         + Op.PUSH14[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000000EB),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556016566D5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1032,7 +989,6 @@ def test_jump_to_push(
         + Op.PUSH14[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000000EC),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556018566E5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1042,7 +998,6 @@ def test_jump_to_push(
         + Op.PUSH15[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000000FA),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556009566E5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1052,7 +1007,6 @@ def test_jump_to_push(
         + Op.PUSH15[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000000FB),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556017566E5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1062,7 +1016,6 @@ def test_jump_to_push(
         + Op.PUSH15[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000000FC),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556019566F5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1072,7 +1025,6 @@ def test_jump_to_push(
         + Op.PUSH16[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000010A),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556009566F5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1082,7 +1034,6 @@ def test_jump_to_push(
         + Op.PUSH16[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000010B),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556018566F5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1092,17 +1043,15 @@ def test_jump_to_push(
         + Op.PUSH16[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000010C),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055601A56705B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
     contract_47 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.JUMP(pc=0x1A)
+        + Op.JUMP(pc=contract_0)
         + Op.PUSH17[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000011A),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600956705B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1112,7 +1061,6 @@ def test_jump_to_push(
         + Op.PUSH17[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000011B),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055601956705B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1122,17 +1070,15 @@ def test_jump_to_push(
         + Op.PUSH17[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000011C),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055601B56715B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
     contract_50 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.JUMP(pc=0x1B)
+        + Op.JUMP(pc=contract_1)
         + Op.PUSH18[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000012A),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600956715B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1142,17 +1088,15 @@ def test_jump_to_push(
         + Op.PUSH18[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000012B),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055601A56715B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
     contract_52 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.JUMP(pc=0x1A)
+        + Op.JUMP(pc=contract_0)
         + Op.PUSH18[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000012C),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055601C56725B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1162,7 +1106,6 @@ def test_jump_to_push(
         + Op.PUSH19[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000013A),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600956725B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1172,17 +1115,15 @@ def test_jump_to_push(
         + Op.PUSH19[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000013B),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055601B56725B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
     contract_55 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.JUMP(pc=0x1B)
+        + Op.JUMP(pc=contract_1)
         + Op.PUSH19[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000013C),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055601D56735B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1192,7 +1133,6 @@ def test_jump_to_push(
         + Op.PUSH20[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000014A),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600956735B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1202,7 +1142,6 @@ def test_jump_to_push(
         + Op.PUSH20[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000014B),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055601C56735B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1212,7 +1151,6 @@ def test_jump_to_push(
         + Op.PUSH20[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000014C),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055601E56745B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1222,7 +1160,6 @@ def test_jump_to_push(
         + Op.PUSH21[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000015A),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600956745B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1232,7 +1169,6 @@ def test_jump_to_push(
         + Op.PUSH21[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000015B),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055601D56745B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1242,7 +1178,6 @@ def test_jump_to_push(
         + Op.PUSH21[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000015C),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055601F56755B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1252,7 +1187,6 @@ def test_jump_to_push(
         + Op.PUSH22[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000016A),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600956755B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1262,7 +1196,6 @@ def test_jump_to_push(
         + Op.PUSH22[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000016B),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055601E56755B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1272,7 +1205,6 @@ def test_jump_to_push(
         + Op.PUSH22[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000016C),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055602056765B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1282,7 +1214,6 @@ def test_jump_to_push(
         + Op.PUSH23[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000017A),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600956765B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1292,7 +1223,6 @@ def test_jump_to_push(
         + Op.PUSH23[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000017B),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055601F56765B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1302,7 +1232,6 @@ def test_jump_to_push(
         + Op.PUSH23[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000017C),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055602156775B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1312,7 +1241,6 @@ def test_jump_to_push(
         + Op.PUSH24[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000018A),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600956775B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1322,7 +1250,6 @@ def test_jump_to_push(
         + Op.PUSH24[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000018B),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055602056775B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1332,7 +1259,6 @@ def test_jump_to_push(
         + Op.PUSH24[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000018C),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055602256785B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1342,7 +1268,6 @@ def test_jump_to_push(
         + Op.PUSH25[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000019A),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600956785B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1352,7 +1277,6 @@ def test_jump_to_push(
         + Op.PUSH25[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000019B),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055602156785B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1362,7 +1286,6 @@ def test_jump_to_push(
         + Op.PUSH25[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000019C),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055602356795B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B  # noqa: E501
@@ -1372,7 +1295,6 @@ def test_jump_to_push(
         + Op.PUSH26[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000001AA),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055600956795B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B  # noqa: E501
@@ -1382,7 +1304,6 @@ def test_jump_to_push(
         + Op.PUSH26[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000001AB),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055602256795B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B  # noqa: E501
@@ -1392,7 +1313,6 @@ def test_jump_to_push(
         + Op.PUSH26[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000001AC),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556024567A5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B  # noqa: E501
@@ -1402,7 +1322,6 @@ def test_jump_to_push(
         + Op.PUSH27[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000001BA),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556009567A5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B  # noqa: E501
@@ -1412,7 +1331,6 @@ def test_jump_to_push(
         + Op.PUSH27[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000001BB),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556023567A5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B  # noqa: E501
@@ -1422,7 +1340,6 @@ def test_jump_to_push(
         + Op.PUSH27[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000001BC),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556025567B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B  # noqa: E501
@@ -1432,7 +1349,6 @@ def test_jump_to_push(
         + Op.PUSH28[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000001CA),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556009567B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B  # noqa: E501
@@ -1442,7 +1358,6 @@ def test_jump_to_push(
         + Op.PUSH28[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000001CB),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556024567B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B  # noqa: E501
@@ -1452,7 +1367,6 @@ def test_jump_to_push(
         + Op.PUSH28[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000001CC),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556026567C5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B  # noqa: E501
@@ -1464,7 +1378,6 @@ def test_jump_to_push(
         ]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000001DA),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556009567C5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B  # noqa: E501
@@ -1476,7 +1389,6 @@ def test_jump_to_push(
         ]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000001DB),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556025567C5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B  # noqa: E501
@@ -1488,7 +1400,6 @@ def test_jump_to_push(
         ]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000001DC),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556027567D5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B  # noqa: E501
@@ -1500,7 +1411,6 @@ def test_jump_to_push(
         ]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000001EA),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556009567D5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B  # noqa: E501
@@ -1512,7 +1422,6 @@ def test_jump_to_push(
         ]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000001EB),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556026567D5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B  # noqa: E501
@@ -1524,7 +1433,6 @@ def test_jump_to_push(
         ]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000001EC),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556028567E5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B  # noqa: E501
@@ -1536,7 +1444,6 @@ def test_jump_to_push(
         ]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000001FA),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556009567E5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B  # noqa: E501
@@ -1548,7 +1455,6 @@ def test_jump_to_push(
         ]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000001FB),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556027567E5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B  # noqa: E501
@@ -1560,7 +1466,6 @@ def test_jump_to_push(
         ]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x00000000000000000000000000000000000001FC),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556029567F5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B  # noqa: E501
@@ -1572,7 +1477,6 @@ def test_jump_to_push(
         ]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000020A),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556009567F5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B  # noqa: E501
@@ -1584,7 +1488,6 @@ def test_jump_to_push(
         ]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000020B),  # noqa: E501
     )
     # Source: raw
     # 0x60016000556028567F5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B  # noqa: E501
@@ -1596,7 +1499,6 @@ def test_jump_to_push(
         ]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000020C),  # noqa: E501
     )
     # Source: yul
     # berlin {
@@ -1615,9 +1517,7 @@ def test_jump_to_push(
         + Op.STOP,
         storage={0: 0},
         nonce=0,
-        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x100000000000)
 
     expect_entries_: list[dict] = [
         {

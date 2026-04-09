@@ -7,7 +7,6 @@ state_tests/stTransactionTest/SuicidesAndInternalCallSuicidesSuccessFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -62,9 +61,7 @@ def test_suicides_and_internal_call_suicides_success(
     coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_0 = Address(0x0000000000000000000000000000000000000000)
     contract_1 = Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xABA9500)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -80,28 +77,25 @@ def test_suicides_and_internal_call_suicides_success(
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.SELFDESTRUCT(address=0x1) + Op.STOP,
         nonce=0,
-        address=Address(0x0000000000000000000000000000000000000000),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xABA9500)
     # Source: lll
     # {(CALL (CALLDATALOAD 0) 0x0000000000000000000000000000000000000000 1 0 0 0 0) (SELFDESTRUCT 0)}  # noqa: E501
     contract_1 = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
             Op.CALL(
-                gas=Op.CALLDATALOAD(offset=0x0),
-                address=0x0,
+                gas=Op.CALLDATALOAD(offset=contract_0),
+                address=contract_0,
                 value=0x1,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
+                args_offset=contract_0,
+                args_size=contract_0,
+                ret_offset=contract_0,
+                ret_size=contract_0,
             )
         )
-        + Op.SELFDESTRUCT(address=0x0)
+        + Op.SELFDESTRUCT(address=contract_0)
         + Op.STOP,
         balance=1000,
         nonce=0,
-        address=Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

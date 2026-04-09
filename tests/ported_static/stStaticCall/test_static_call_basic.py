@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_callBasicFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -71,9 +70,7 @@ def test_static_call_basic(
 ) -> None:
     """Test_static_call_basic."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -102,7 +99,6 @@ def test_static_call_basic(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x13670D6BD41ACD42D75E7C4C25DF7384A6FBD752),  # noqa: E501
     )
     # Source: lll
     # { [[ 1 ]] 1 }
@@ -111,7 +107,6 @@ def test_static_call_basic(
         storage={1: 1},
         balance=23,
         nonce=0,
-        address=Address(0xD3C0847CA0222F22DCFB4A433A378FF58AD6A881),  # noqa: E501
     )
     # Source: lll
     # { [[ 1 ]] 0 }
@@ -120,7 +115,22 @@ def test_static_call_basic(
         storage={1: 0},
         balance=23,
         nonce=0,
-        address=Address(0xEAD198F480FB91A5FBEDCF5EB28CD369EE4C6CF2),  # noqa: E501
+    )
+    # Source: lll
+    # { (LOG0 1 10) (MSTORE 1 1) }
+    addr_4 = pre.deploy_contract(  # noqa: F841
+        code=Op.LOG0(offset=0x1, size=0xA)
+        + Op.MSTORE(offset=0x1, value=0x1)
+        + Op.STOP,
+        balance=23,
+        nonce=0,
+    )
+    # Source: lll
+    # { (MSTORE 1 1) }
+    addr_6 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x1, value=0x1) + Op.STOP,
+        balance=23,
+        nonce=0,
     )
     # Source: lll
     # { (CALL 40000 <contract:0x2000000000000000000000000000000000000003> 0 0 0 0 0) (MSTORE 1 1) }  # noqa: E501
@@ -128,7 +138,7 @@ def test_static_call_basic(
         code=Op.POP(
             Op.CALL(
                 gas=0x9C40,
-                address=0x2E0DD8ABE4E68C5B602F3C65051F4B30C6D018DA,
+                address=addr_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -140,17 +150,6 @@ def test_static_call_basic(
         + Op.STOP,
         balance=23,
         nonce=0,
-        address=Address(0xEB015F637A39C63F8B6DB67505F5C02C613DEFC1),  # noqa: E501
-    )
-    # Source: lll
-    # { (LOG0 1 10) (MSTORE 1 1) }
-    addr_4 = pre.deploy_contract(  # noqa: F841
-        code=Op.LOG0(offset=0x1, size=0xA)
-        + Op.MSTORE(offset=0x1, value=0x1)
-        + Op.STOP,
-        balance=23,
-        nonce=0,
-        address=Address(0x2E0DD8ABE4E68C5B602F3C65051F4B30C6D018DA),  # noqa: E501
     )
     # Source: lll
     # { (CALLCODE 40000 <contract:0x3000000000000000000000000000000000000003> 1 0 0 0 0) (MSTORE 1 1) }  # noqa: E501
@@ -158,7 +157,7 @@ def test_static_call_basic(
         code=Op.POP(
             Op.CALLCODE(
                 gas=0x9C40,
-                address=0xC93C7A588B13699E562B3933E8F2B1C15E610781,
+                address=addr_6,
                 value=0x1,
                 args_offset=0x0,
                 args_size=0x0,
@@ -170,17 +169,7 @@ def test_static_call_basic(
         + Op.STOP,
         balance=23,
         nonce=0,
-        address=Address(0xD5B64FA2CA1E471B45B639A5E9C259CA24C28ACE),  # noqa: E501
     )
-    # Source: lll
-    # { (MSTORE 1 1) }
-    addr_6 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x1, value=0x1) + Op.STOP,
-        balance=23,
-        nonce=0,
-        address=Address(0xC93C7A588B13699E562B3933E8F2B1C15E610781),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     expect_entries_: list[dict] = [
         {

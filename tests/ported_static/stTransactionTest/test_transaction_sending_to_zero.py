@@ -7,7 +7,6 @@ state_tests/stTransactionTest/TransactionSendingToZeroFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -32,9 +31,7 @@ def test_transaction_sending_to_zero(
 ) -> None:
     """Test_transaction_sending_to_zero."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xA2333EEF5630066B928DEA5FD85A239F511B5B067D1441EE7AC290D0122B917B
-    )
+    sender = pre.fund_eoa(amount=0x5F5E100)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -44,8 +41,6 @@ def test_transaction_sending_to_zero(
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
-
-    pre[sender] = Account(balance=0x5F5E100)
 
     tx = Transaction(
         sender=sender,

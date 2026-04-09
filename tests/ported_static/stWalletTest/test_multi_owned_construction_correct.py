@@ -7,7 +7,6 @@ state_tests/stWalletTest/multiOwnedConstructionCorrectFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_multi_owned_construction_correct(
 ) -> None:
     """Test_multi_owned_construction_correct."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -45,8 +42,6 @@ def test_multi_owned_construction_correct(
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
-
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
@@ -63,7 +58,7 @@ def test_multi_owned_construction_correct(
             storage={
                 0: 1,
                 1: 1,
-                3: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                3: sender,
                 0x6E369836487C234B9E553EF3F787C2D8865520739D340C67B3D251A33986E58D: 1,  # noqa: E501
             },
             code=bytes.fromhex(

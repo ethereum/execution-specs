@@ -7,7 +7,6 @@ state_tests/stCreate2/Create2OOGafterInitCodeReturndataSizeFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_create2_oo_gafter_init_code_returndata_size(
     """Calls a contract that runs CREATE2 which deploy a code."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -48,7 +45,6 @@ def test_create2_oo_gafter_init_code_returndata_size(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # { (MSTORE 0 0x6960016001556001600255600052600a6016f3) (CREATE2 0 13 19 0) (EXP 2 (RETURNDATASIZE)) }  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -59,7 +55,6 @@ def test_create2_oo_gafter_init_code_returndata_size(
         + Op.EXP(0x2, Op.RETURNDATASIZE)
         + Op.STOP,
         nonce=0,
-        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     tx = Transaction(

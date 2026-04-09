@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_CREATE_EmptyContractAndCallIt_0weiFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -38,9 +37,7 @@ def test_static_create_empty_contract_and_call_it_0wei(
     """Test_static_create_empty_contract_and_call_it_0wei."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -51,7 +48,6 @@ def test_static_create_empty_contract_and_call_it_0wei(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # { [[0]](GAS) [[1]] (CREATE 0 0 32) [[2]](GAS) [[3]] (STATICCALL 60000 (SLOAD 1) 0 0 0 0) [[100]] (GAS) }  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -72,7 +68,6 @@ def test_static_create_empty_contract_and_call_it_0wei(
         + Op.SSTORE(key=0x64, value=Op.GAS)
         + Op.STOP,
         nonce=0,
-        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     tx = Transaction(

@@ -7,7 +7,6 @@ state_tests/stMemoryStressTest/mload32bitBound_returnFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -55,9 +54,7 @@ def test_mload32bit_bound_return(
 ) -> None:
     """Test_mload32bit_bound_return."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x7DD14755C573E37C1F649B0C53B9815F76AEBD636DF7CCFA97F4579F33BA59A0
-    )
+    sender = pre.fund_eoa(amount=0x186A0C3B1E19A180)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -74,9 +71,7 @@ def test_mload32bit_bound_return(
         code=Op.RETURN(offset=0x0, size=0xFFFFFFFF) + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0xD9CBA08B7A9695800F57E226045176CF420CA0C1),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x186A0C3B1E19A180)
 
     tx_data = [
         Bytes(""),

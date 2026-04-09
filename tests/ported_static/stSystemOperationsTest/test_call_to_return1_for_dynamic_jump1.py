@@ -7,7 +7,6 @@ state_tests/stSystemOperationsTest/CallToReturn1ForDynamicJump1Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_call_to_return1_for_dynamic_jump1(
 ) -> None:
     """Test_call_to_return1_for_dynamic_jump1."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -49,13 +46,22 @@ def test_call_to_return1_for_dynamic_jump1(
     )
 
     # Source: raw
+    # 0x6001600155602b601f536001601ff3
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x1, value=0x1)
+        + Op.MSTORE8(offset=0x1F, value=0x2B)
+        + Op.RETURN(offset=0x1F, size=0x1),
+        balance=23,
+        nonce=0,
+    )
+    # Source: raw
     # 0x6001601f60006000601773<contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5>6103e8f160005560005156605b6023602355  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALL(
                 gas=0x3E8,
-                address=0xD43411A40A68E9CBA15440E3C34A74A4DC5F79DD,
+                address=addr,
                 value=0x17,
                 args_offset=0x0,
                 args_size=0x0,
@@ -68,19 +74,7 @@ def test_call_to_return1_for_dynamic_jump1(
         + Op.SSTORE(key=0x23, value=0x23),
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x7BC307EC814CE37F4553993AC5612B763F18165D),  # noqa: E501
     )
-    # Source: raw
-    # 0x6001600155602b601f536001601ff3
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x1, value=0x1)
-        + Op.MSTORE8(offset=0x1F, value=0x2B)
-        + Op.RETURN(offset=0x1F, size=0x1),
-        balance=23,
-        nonce=0,
-        address=Address(0xD43411A40A68E9CBA15440E3C34A74A4DC5F79DD),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

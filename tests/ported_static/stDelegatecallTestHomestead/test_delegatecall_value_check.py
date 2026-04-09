@@ -7,7 +7,6 @@ state_tests/stDelegatecallTestHomestead/delegatecallValueCheckFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_delegatecall_value_check(
 ) -> None:
     """Test_delegatecall_value_check."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -49,13 +46,20 @@ def test_delegatecall_value_check(
     )
 
     # Source: lll
+    # {[[ 1 ]] (CALLVALUE) }
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x1, value=Op.CALLVALUE) + Op.STOP,
+        balance=23,
+        nonce=0,
+    )
+    # Source: lll
     # {  [[ 0 ]] (DELEGATECALL 500000 <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 0 64 0 2 ) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(
             key=0x0,
             value=Op.DELEGATECALL(
                 gas=0x7A120,
-                address=0x5D25AD2A26F849E9400D6B65244F26F4EEA11ADF,
+                address=addr,
                 args_offset=0x0,
                 args_size=0x40,
                 ret_offset=0x0,
@@ -65,17 +69,7 @@ def test_delegatecall_value_check(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x55BB8A8658B848EBBBB73CBF6AC9D59D715AEC58),  # noqa: E501
     )
-    # Source: lll
-    # {[[ 1 ]] (CALLVALUE) }
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x1, value=Op.CALLVALUE) + Op.STOP,
-        balance=23,
-        nonce=0,
-        address=Address(0x5D25AD2A26F849E9400D6B65244F26F4EEA11ADF),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

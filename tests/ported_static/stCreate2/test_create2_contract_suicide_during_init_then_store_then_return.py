@@ -7,7 +7,6 @@ state_tests/stCreate2/CREATE2_ContractSuicideDuringInit_ThenStoreThenReturnFille
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -37,9 +36,7 @@ def test_create2_contract_suicide_during_init_then_store_then_return(
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_1 = Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -50,27 +47,6 @@ def test_create2_contract_suicide_during_init_then_store_then_return(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
-    # Source: lll
-    # { (CALL 150000 0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b 1 0 0 0 32) (SSTORE 1 (MLOAD 0)) }  # noqa: E501
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.POP(
-            Op.CALL(
-                gas=0x249F0,
-                address=0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                value=0x1,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x20,
-            )
-        )
-        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0))
-        + Op.STOP,
-        balance=0xE8D4A51000,
-        nonce=0,
-        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
-    )
     # Source: lll
     # { (MSTORE 0 0x6d64600c6000556000526005601bf36000526001ff) (CREATE2 1 11 21 0) [[0]] 11 (RETURN 18 14) }  # noqa: E501
     contract_1 = pre.deploy_contract(  # noqa: F841
@@ -83,7 +59,25 @@ def test_create2_contract_suicide_during_init_then_store_then_return(
         + Op.STOP,
         balance=0xE8D4A51000,
         nonce=0,
-        address=Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
+    )
+    # Source: lll
+    # { (CALL 150000 0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b 1 0 0 0 32) (SSTORE 1 (MLOAD 0)) }  # noqa: E501
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.POP(
+            Op.CALL(
+                gas=0x249F0,
+                address=contract_1,
+                value=0x1,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x20,
+            )
+        )
+        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0))
+        + Op.STOP,
+        balance=0xE8D4A51000,
+        nonce=0,
     )
 
     tx = Transaction(

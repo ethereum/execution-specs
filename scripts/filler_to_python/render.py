@@ -42,7 +42,11 @@ def format_storage(d: dict) -> str:
         return "{}"
     items = []
     for k in sorted(d.keys()):
-        items.append(f"{format_int(k)}: {format_int(d[k])}")
+        v = d[k]
+        if isinstance(v, str):
+            items.append(f"{format_int(k)}: {v}")
+        else:
+            items.append(f"{format_int(k)}: {format_int(v)}")
     single = "{" + ", ".join(items) + "}"
     if len(single) <= 50:
         return single

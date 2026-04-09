@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_callCreate3Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -36,9 +35,7 @@ def test_static_call_create3(
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xA000000000000000000000000000000000000000)
     contract_1 = Address(0x1000000000000000000000000000000000000000)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -64,7 +61,6 @@ def test_static_call_create3(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0xA000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 0 0x6d600060006000600030620186a0fa600052600e6012f3) [[ 0 ]] (CREATE 1 9 23)  [[ 1 ]] (STATICCALL 30000 (SLOAD 0) 0 0 0 0) [[ 2 ]] 1 }  # noqa: E501
@@ -88,9 +84,7 @@ def test_static_call_create3(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x1000000000000000000000000000000000000000),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

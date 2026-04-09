@@ -7,7 +7,6 @@ state_tests/stCreateTest/TransactionCollisionToEmptyButCodeFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -70,9 +69,7 @@ def test_transaction_collision_to_empty_but_code(
     """Test_transaction_collision_to_empty_but_code."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x6295EE1B4F6DD65047762F924ECD367C17EABF8F)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -83,13 +80,11 @@ def test_transaction_collision_to_empty_but_code(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: raw
     # 0x1122334455
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=bytes.fromhex("1122334455"),
         nonce=0,
-        address=Address(0x6295EE1B4F6DD65047762F924ECD367C17EABF8F),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

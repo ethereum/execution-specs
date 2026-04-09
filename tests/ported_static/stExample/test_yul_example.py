@@ -7,7 +7,6 @@ state_tests/stExample/yulExampleFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_yul_example(
 ) -> None:
     """An example test for using simple yul contracts in the test."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x40AC0FC28C27E961EE46EC43355A094DE205856EDBD4654CF2577C2608D4EC1E
-    )
+    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -60,9 +57,7 @@ def test_yul_example(
         code=Op.SSTORE(key=0x0, value=0x3) + Op.RETURN(offset=0x0, size=0x20),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address(0xF30C160326A04ECB32E7651C0A8F373468BEA269),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     tx = Transaction(
         sender=sender,

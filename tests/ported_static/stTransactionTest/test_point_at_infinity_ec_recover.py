@@ -7,7 +7,6 @@ state_tests/stTransactionTest/PointAtInfinityECRecoverFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -32,9 +31,7 @@ def test_point_at_infinity_ec_recover(
 ) -> None:
     """Test_point_at_infinity_ec_recover."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -53,9 +50,7 @@ def test_point_at_infinity_ec_recover(
         ),
         balance=0xFFFFFFFF,
         nonce=0,
-        address=Address(0xB9F36F1CB467544974BB7E0F5E1F0A499D4E6D7D),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

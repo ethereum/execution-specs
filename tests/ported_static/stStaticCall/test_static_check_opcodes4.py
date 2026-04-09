@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_CheckOpcodes4Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -71,9 +70,7 @@ def test_static_check_opcodes4(
 ) -> None:
     """Test_static_check_opcodes4."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -84,7 +81,6 @@ def test_static_check_opcodes4(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # { [[1]] (STATICCALL 100000 <contract:0x1000000000000000000000000000000000000001> 0 0 0 0) [[2]] (STATICCALL 100000 <contract:0x1000000000000000000000000000000000000002> 0 0 0 0) [[3]] (CALLER) [[4]] (CALLVALUE) [[5]] (ORIGIN) [[6]] (ADDRESS) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -218,13 +214,7 @@ def test_static_check_opcodes4(
             "result": {
                 sender: Account(nonce=1),
                 target: Account(
-                    storage={
-                        1: 1,
-                        2: 1,
-                        3: 0xFAA10B404AB607779993C016CD5DA73AE1F29D7E,
-                        5: 0xFAA10B404AB607779993C016CD5DA73AE1F29D7E,
-                        6: 0x3350A62DDDDD0FF0E39CD82E2D185FE06B5FCF49,
-                    },
+                    storage={1: 1, 2: 1, 3: sender, 5: sender, 6: target},
                 ),
             },
         },
@@ -245,10 +235,10 @@ def test_static_check_opcodes4(
                     storage={
                         1: 1,
                         2: 1,
-                        3: 0xFAA10B404AB607779993C016CD5DA73AE1F29D7E,
+                        3: sender,
                         4: 100,
-                        5: 0xFAA10B404AB607779993C016CD5DA73AE1F29D7E,
-                        6: 0x3350A62DDDDD0FF0E39CD82E2D185FE06B5FCF49,
+                        5: sender,
+                        6: target,
                     },
                 ),
             },

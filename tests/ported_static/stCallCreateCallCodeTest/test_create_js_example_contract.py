@@ -7,7 +7,6 @@ state_tests/stCallCreateCallCodeTest/createJS_ExampleContractFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_create_js_example_contract(
 ) -> None:
     """Deploy legacy contract normally."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x6600370D1F9991E2D92FFE661C84E7C8C6ECAFC094774F0F3DB0F8DD663590E9
-    )
+    sender = pre.fund_eoa(amount=0x9184E72A000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -385,17 +382,15 @@ def test_create_js_example_contract(
         + Op.POP
         + Op.JUMP,
         storage={
-            0: 0xBCC416D85E26124EA4EC199A92CF495584A99831,
+            0: sender,
             1: 66,
             2: 35,
-            3: 0xBCC416D85E26124EA4EC199A92CF495584A99831,
+            3: sender,
             5: 0x54C98C81,
         },
         balance=0x186A0,
         nonce=0,
-        address=Address(0x1119D4CCF86B65812D85F2FF3E9B2D851E40BA5A),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x9184E72A000)
 
     tx = Transaction(
         sender=sender,
@@ -410,10 +405,10 @@ def test_create_js_example_contract(
     post = {
         addr: Account(
             storage={
-                0: 0xBCC416D85E26124EA4EC199A92CF495584A99831,
+                0: sender,
                 1: 66,
                 2: 35,
-                3: 0xBCC416D85E26124EA4EC199A92CF495584A99831,
+                3: sender,
                 5: 0x54C98C81,
             },
             code=bytes.fromhex(

@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_CheckOpcodes3Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -107,9 +106,7 @@ def test_static_check_opcodes3(
 ) -> None:
     """Test_static_check_opcodes3."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -120,7 +117,6 @@ def test_static_check_opcodes3(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # { [[1]] (STATICCALL 100000 (CALLDATALOAD 0) 0 0 0 0) }
     target = pre.deploy_contract(  # noqa: F841
@@ -137,7 +133,30 @@ def test_static_check_opcodes3(
         )
         + Op.STOP,
         nonce=0,
-        address=Address(0x50F628D871A69F2DB31E98D7FBF8AE6F1FC0D55C),  # noqa: E501
+    )
+    # Source: lll
+    # { (MSTORE 0 (STATICCALL 100000 (CALLDATALOAD 0) 0 0 0 0)) (if (= 1 (MLOAD 0)) (MSTORE 1 1) (SSTORE 1 2)) }  # noqa: E501
+    addr_6 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(
+            offset=0x0,
+            value=Op.STATICCALL(
+                gas=0x186A0,
+                address=Op.CALLDATALOAD(offset=0x0),
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
+        + Op.JUMPI(pc=0x24, condition=Op.EQ(0x1, Op.MLOAD(offset=0x0)))
+        + Op.SSTORE(key=0x1, value=0x2)
+        + Op.JUMP(pc=0x2A)
+        + Op.JUMPDEST
+        + Op.MSTORE(offset=0x1, value=0x1)
+        + Op.JUMPDEST
+        + Op.STOP,
+        nonce=0,
+        address=Address(0x2E5DC1C94AF89D7C115126FCEBAD7A5C50F5FE35),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 0 <contract:0xa100000000000000000000000000000000000001>) (MSTORE 0 (CALL 100000 <contract:0xb000000000000000000000000000000000000001> 0 0 32 0 0))  (if (= 1 (MLOAD 0)) (MSTORE 1 1) (SSTORE 1 2) ) }  # noqa: E501
@@ -278,30 +297,6 @@ def test_static_check_opcodes3(
         balance=10,
         nonce=0,
         address=Address(0x8113F9FC0868700534ECBECF1120A812CB1AF0AC),  # noqa: E501
-    )
-    # Source: lll
-    # { (MSTORE 0 (STATICCALL 100000 (CALLDATALOAD 0) 0 0 0 0)) (if (= 1 (MLOAD 0)) (MSTORE 1 1) (SSTORE 1 2)) }  # noqa: E501
-    addr_6 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(
-            offset=0x0,
-            value=Op.STATICCALL(
-                gas=0x186A0,
-                address=Op.CALLDATALOAD(offset=0x0),
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.JUMPI(pc=0x24, condition=Op.EQ(0x1, Op.MLOAD(offset=0x0)))
-        + Op.SSTORE(key=0x1, value=0x2)
-        + Op.JUMP(pc=0x2A)
-        + Op.JUMPDEST
-        + Op.MSTORE(offset=0x1, value=0x1)
-        + Op.JUMPDEST
-        + Op.STOP,
-        nonce=0,
-        address=Address(0x2E5DC1C94AF89D7C115126FCEBAD7A5C50F5FE35),  # noqa: E501
     )
     # Source: lll
     # { (if (= <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b> (ORIGIN)) (MSTORE 1 1) (SSTORE 1 2) ) (if (= <contract:0xb000000000000000000000000000000000000001> (CALLER)) (MSTORE 1 1) (SSTORE 1 2) ) (if (= <contract:0xa100000000000000000000000000000000000001> (ADDRESS)) (MSTORE 1 1) (SSTORE 1 2) )   (if (= 0 (CALLVALUE)) (MSTORE 1 1) (SSTORE 1 2) ) }  # noqa: E501

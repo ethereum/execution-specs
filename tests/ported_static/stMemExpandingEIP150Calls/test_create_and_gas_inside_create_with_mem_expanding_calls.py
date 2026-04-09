@@ -7,7 +7,6 @@ state_tests/stMemExpandingEIP150Calls/CreateAndGasInsideCreateWithMemExpandingCa
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -37,9 +36,7 @@ def test_create_and_gas_inside_create_with_mem_expanding_calls(
     """Test_create_and_gas_inside_create_with_mem_expanding_calls."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -50,7 +47,6 @@ def test_create_and_gas_inside_create_with_mem_expanding_calls(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: hex
     # 0x5a600a55635a60fd556000526004601c6000f0600b555a600955
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -59,7 +55,6 @@ def test_create_and_gas_inside_create_with_mem_expanding_calls(
         + Op.SSTORE(key=0xB, value=Op.CREATE(value=0x0, offset=0x1C, size=0x4))
         + Op.SSTORE(key=0x9, value=Op.GAS),
         nonce=0,
-        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     tx = Transaction(

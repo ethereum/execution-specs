@@ -7,7 +7,6 @@ state_tests/stMemoryTest/mem64kb_singleByte-33Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_mem64kb_single_byte_minus_33(
 ) -> None:
     """Test_mem64kb_single_byte_minus_33."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
-    )
+    sender = pre.fund_eoa(amount=0x6400000000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -54,9 +51,7 @@ def test_mem64kb_single_byte_minus_33(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0xFB3508C998CC4F73516F89AF816422663EE3C87A),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x6400000000)
 
     tx = Transaction(
         sender=sender,

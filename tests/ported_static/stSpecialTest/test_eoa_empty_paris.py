@@ -7,7 +7,6 @@ state_tests/stSpecialTest/eoaEmptyParisFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -104,9 +103,7 @@ def test_eoa_empty_paris(
     contract_3 = Address(0x000000000000000000000000000000000000BAD4)
     contract_4 = Address(0x000000000000000000000000000000000000DEAD)
     contract_5 = Address(0x000000000000000000000000000000000000C0DE)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0x3B9ACA00)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -117,21 +114,18 @@ def test_eoa_empty_paris(
         gas_limit=89128960,
     )
 
-    pre[sender] = Account(balance=0x3B9ACA00)
     # Source: hex
     # 0x
     contract_0 = pre.deploy_contract(  # noqa: F841
         code="",
         balance=1,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000BAD1),  # noqa: E501
     )
     # Source: hex
     # 0x
     contract_1 = pre.deploy_contract(  # noqa: F841
         code="",
         nonce=1,
-        address=Address(0x000000000000000000000000000000000000BAD2),  # noqa: E501
     )
     # Source: hex
     # 0x
@@ -139,7 +133,6 @@ def test_eoa_empty_paris(
         code="",
         balance=1,
         nonce=1,
-        address=Address(0x000000000000000000000000000000000000BAD3),  # noqa: E501
     )
     # Source: hex
     # 0x
@@ -148,7 +141,6 @@ def test_eoa_empty_paris(
         storage={57005: 48879},
         balance=10,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000BAD4),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -159,7 +151,6 @@ def test_eoa_empty_paris(
         code=Op.SELFDESTRUCT(address=Op.ORIGIN),
         balance=10000,
         nonce=1,
-        address=Address(0x000000000000000000000000000000000000DEAD),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -195,10 +186,10 @@ def test_eoa_empty_paris(
         + Op.SSTORE(
             key=0x13F, value=Op.EXTCODEHASH(address=Op.ADD(Op.DUP2, 0x1))
         )
-        + Op.SSTORE(key=0xBAD1, value=Op.EXTCODEHASH(address=0xBAD1))
-        + Op.SSTORE(key=0xBAD2, value=Op.EXTCODEHASH(address=0xBAD2))
-        + Op.SSTORE(key=0xBAD3, value=Op.EXTCODEHASH(address=0xBAD3))
-        + Op.SSTORE(key=0xBAD4, value=Op.EXTCODEHASH(address=0xBAD4))
+        + Op.SSTORE(key=contract_0, value=Op.EXTCODEHASH(address=contract_0))
+        + Op.SSTORE(key=contract_1, value=Op.EXTCODEHASH(address=contract_1))
+        + Op.SSTORE(key=contract_2, value=Op.EXTCODEHASH(address=contract_2))
+        + Op.SSTORE(key=contract_3, value=Op.EXTCODEHASH(address=contract_3))
         + Op.SSTORE(key=0xBAD5, value=Op.EXTCODEHASH(address=0xBAD5))
         + Op.PUSH1[0x0]
         + Op.DUP1 * 3
@@ -215,7 +206,7 @@ def test_eoa_empty_paris(
         + Op.POP(
             Op.CALL(
                 gas=Op.GAS,
-                address=0xDEAD,
+                address=contract_4,
                 value=Op.DUP1,
                 args_offset=Op.DUP1,
                 args_size=Op.DUP1,
@@ -228,7 +219,6 @@ def test_eoa_empty_paris(
         + Op.SSTORE(key=0xFF, value=Op.SUB)
         + Op.STOP,
         nonce=1,
-        address=Address(0x000000000000000000000000000000000000C0DE),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -239,7 +229,7 @@ def test_eoa_empty_paris(
                 sender: Account(nonce=1),
                 contract_5: Account(
                     storage={
-                        0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        0: sender,
                         49: 0,
                         59: 0,
                         63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
@@ -261,7 +251,7 @@ def test_eoa_empty_paris(
                 sender: Account(nonce=1),
                 contract_5: Account(
                     storage={
-                        0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        0: sender,
                         49: 0,
                         59: 0,
                         63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
@@ -291,7 +281,7 @@ def test_eoa_empty_paris(
                 sender: Account(nonce=1),
                 contract_5: Account(
                     storage={
-                        0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        0: sender,
                         49: 100,
                         59: 0,
                         63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
@@ -313,7 +303,7 @@ def test_eoa_empty_paris(
                 sender: Account(nonce=1),
                 contract_5: Account(
                     storage={
-                        0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        0: sender,
                         49: 100,
                         59: 0,
                         63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
@@ -335,7 +325,7 @@ def test_eoa_empty_paris(
                 sender: Account(nonce=1),
                 contract_5: Account(
                     storage={
-                        0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        0: sender,
                         49: 0,
                         59: 0,
                         63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
@@ -357,7 +347,7 @@ def test_eoa_empty_paris(
                 sender: Account(nonce=1),
                 contract_5: Account(
                     storage={
-                        0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        0: sender,
                         49: 0,
                         59: 0,
                         63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501

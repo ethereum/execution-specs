@@ -7,7 +7,6 @@ state_tests/stSolidityTest/TestStructuresAndVariablessFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_test_structures_and_variabless(
 ) -> None:
     """Test_test_structures_and_variabless."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x6F0117D3E9C684C7D6E1E6B79DC3880DA2BEBE77C765B171C062FDFFD38A673F
-    )
+    sender = pre.fund_eoa(amount=0x2540BE400)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -98,7 +95,7 @@ def test_test_structures_and_variabless(
                         Op.AND(Op.DUP2, Op.DIV(Op.SLOAD(key=0x2), 0x1)),
                         0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
                     ),
-                    0xD96ED4431B417993AB4F4D4A656959D13C66E1DC,
+                    sender,
                 )
             ),
         )
@@ -144,7 +141,7 @@ def test_test_structures_and_variabless(
             pc=0x160,
             condition=Op.ISZERO(
                 Op.EQ(
-                    0xD96ED4431B417993AB4F4D4A656959D13C66E1DC,
+                    sender,
                     Op.AND(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF, Op.DIV),
                 )
             ),
@@ -223,9 +220,7 @@ def test_test_structures_and_variabless(
         + Op.JUMP,
         balance=0x186A0,
         nonce=0,
-        address=Address(0x53D3DBDFD3AE109712A4771F7F37A6B1CDA7B864),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x2540BE400)
 
     tx = Transaction(
         sender=sender,
@@ -240,10 +235,10 @@ def test_test_structures_and_variabless(
             storage={
                 0: 1,
                 1: 255,
-                2: 0xD96ED4431B417993AB4F4D4A656959D13C66E1DC,
+                2: sender,
                 3: 255,
                 4: 0x676C6F62616C2064617461203332206C656E67746820737472696E6700000000,  # noqa: E501
-                0x5B8CCBB9D4D8FB16EA74CE3C29A41F1B461FBDAFF4714A0D9A8EB05499746BC: 0xD96ED4431B417993AB4F4D4A656959D13C66E1DC,  # noqa: E501
+                0x5B8CCBB9D4D8FB16EA74CE3C29A41F1B461FBDAFF4714A0D9A8EB05499746BC: sender,  # noqa: E501
             },
         ),
     }

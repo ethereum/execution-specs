@@ -7,7 +7,6 @@ state_tests/stCreate2/CREATE2_HighNonceDelegatecallFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -191,9 +190,7 @@ def test_create2_high_nonce_delegatecall(
 ) -> None:
     """Delegate calls CREATE/CREATE2 from an account with max allowed..."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xF79127A3004ABDE26A4CBD80C428CB10F829FA11B54D36E7B326F4F4A5927ACF
-    )
+    sender = pre.fund_eoa(amount=0x3B9ACA00)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -204,7 +201,6 @@ def test_create2_high_nonce_delegatecall(
         gas_limit=89128960,
     )
 
-    pre[sender] = Account(balance=0x3B9ACA00)
     # Source: yul
     # berlin
     # {
@@ -266,7 +262,6 @@ def test_create2_high_nonce_delegatecall(
         + Op.JUMP(pc=0x26),
         storage={65535: 0xFFFFFFFFFFFFFFFE},
         nonce=18446744073709551614,
-        address=Address(0xCF7DD310DB9459FA2E6EEC97D4B972BA24FF23EB),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -329,7 +324,6 @@ def test_create2_high_nonce_delegatecall(
         + Op.JUMP(pc=0x26),
         storage={65535: 0xFFFFFFFFFFFFFFFF},
         nonce=18446744073709551615,
-        address=Address(0xE51BC07F90C9661FA42DB3BDE8DD52B942AC69E0),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -450,7 +444,6 @@ def test_create2_high_nonce_delegatecall(
         + Op.JUMP(pc=0xA1),
         storage={65535: 0xFFFFFFFFFFFFFFFE},
         nonce=18446744073709551614,
-        address=Address(0xD7D7B37FC131964CD181D47C9B705028776FE3D4),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

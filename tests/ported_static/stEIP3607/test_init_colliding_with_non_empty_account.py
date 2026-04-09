@@ -7,7 +7,6 @@ state_tests/stEIP3607/initCollidingWithNonEmptyAccountFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -75,9 +74,7 @@ def test_init_colliding_with_non_empty_account(
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x6295EE1B4F6DD65047762F924ECD367C17EABF8F)
     contract_1 = Address(0xD0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -88,22 +85,19 @@ def test_init_colliding_with_non_empty_account(
         gas_limit=71794957647893862,
     )
 
-    pre[coinbase] = Account(balance=0, nonce=1)
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
+    coinbase = pre.fund_eoa(amount=0)
     # Source: raw
     # 0x6000600155
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x1, value=0x0),
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x6295EE1B4F6DD65047762F924ECD367C17EABF8F),  # noqa: E501
     )
     # Source: raw
     # 0x00
     contract_1 = pre.deploy_contract(  # noqa: F841
         code=Op.STOP,
         nonce=0,
-        address=Address(0xD0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0),  # noqa: E501
     )
 
     tx_data = [
