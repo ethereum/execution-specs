@@ -81,8 +81,6 @@
       * [Enabling Precommit Checks](dev/precommit.md)
       * [Running Github Actions Locally](dev/test_actions_locally.md)
       * [Dependencies and Packaging](dev/deps_and_packaging.md)
-  * [Changelog](CHANGELOG.md)
-      * [Changelog Section Template](changelog_section_template.md)
   * [Library Reference](library/index.md)
       * [EEST CLI Tools](library/cli/index.md)
           * [eest](library/cli/eest.md)
