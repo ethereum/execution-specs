@@ -45,7 +45,7 @@ def _single_sstore_probe_gas(fork: Fork) -> int:
     return push_gas + sstore_regular + sstore_state - 1
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_sstore_oog_reservoir_inflation_detection(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -144,7 +144,7 @@ def test_sstore_oog_reservoir_inflation_detection(
     state_test(pre=pre, tx=tx, post=post)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_call_oog_reservoir_inflation_detection(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -203,7 +203,7 @@ def test_call_oog_reservoir_inflation_detection(
     state_test(pre=pre, tx=tx, post=post)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_selfdestruct_oog_reservoir_inflation_detection(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -255,7 +255,7 @@ def test_selfdestruct_oog_reservoir_inflation_detection(
     state_test(pre=pre, tx=tx, post=post)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_code_deposit_oog_reservoir_inflation_detection(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -333,7 +333,7 @@ def test_code_deposit_oog_reservoir_inflation_detection(
 
 
 @pytest.mark.with_all_create_opcodes()
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_create_oog_reservoir_inflation_detection(
     state_test: StateTestFiller,
     pre: Alloc,
