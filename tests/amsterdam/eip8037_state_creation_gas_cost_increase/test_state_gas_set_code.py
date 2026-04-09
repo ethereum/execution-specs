@@ -40,7 +40,7 @@ REFERENCE_SPEC_VERSION = ref_spec_8037.version
         pytest.param(3, id="three_auths"),
     ],
 )
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_authorization_state_gas_scaling(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -85,7 +85,7 @@ def test_authorization_state_gas_scaling(
     state_test(env=env, pre=pre, post={}, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_existing_account_refund(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -129,7 +129,7 @@ def test_existing_account_refund(
     state_test(env=env, pre=pre, post={}, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_mixed_new_and_existing_auths(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -190,7 +190,7 @@ def test_mixed_new_and_existing_auths(
     state_test(env=env, pre=pre, post={}, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_authorization_with_sstore(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -237,7 +237,7 @@ def test_authorization_with_sstore(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_existing_account_refund_enables_sstore(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -288,7 +288,7 @@ def test_existing_account_refund_enables_sstore(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_auth_refund_block_gas_accounting(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -333,7 +333,7 @@ def test_auth_refund_block_gas_accounting(
     )
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_invalid_nonce_auth_still_charges_intrinsic_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -375,7 +375,7 @@ def test_invalid_nonce_auth_still_charges_intrinsic_state_gas(
     state_test(env=env, pre=pre, post={}, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_invalid_chain_id_auth_still_charges_intrinsic_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -417,7 +417,7 @@ def test_invalid_chain_id_auth_still_charges_intrinsic_state_gas(
     state_test(env=env, pre=pre, post={}, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_self_sponsored_authorization(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -464,7 +464,7 @@ def test_self_sponsored_authorization(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_duplicate_signer_authorizations(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -515,7 +515,7 @@ def test_duplicate_signer_authorizations(
     state_test(env=env, pre=pre, post={}, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_auth_with_calldata_and_access_list(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -564,7 +564,7 @@ def test_auth_with_calldata_and_access_list(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_re_authorization_existing_delegation(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -623,7 +623,7 @@ def test_re_authorization_existing_delegation(
         pytest.param(1, 2, id="one_valid_two_invalid"),
     ],
 )
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_mixed_valid_and_invalid_auths(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -684,7 +684,7 @@ def test_mixed_valid_and_invalid_auths(
     state_test(env=env, pre=pre, post={}, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_many_authorizations_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -729,7 +729,7 @@ def test_many_authorizations_state_gas(
     state_test(env=env, pre=pre, post={}, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_auth_with_multiple_sstores(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -791,7 +791,7 @@ def test_auth_with_multiple_sstores(
         ),
     ],
 )
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_authorization_exact_state_gas_boundary(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -848,7 +848,7 @@ def test_authorization_exact_state_gas_boundary(
     )
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_authorization_to_precompile_address(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -892,7 +892,7 @@ def test_authorization_to_precompile_address(
     state_test(env=env, pre=pre, post={}, tx=tx)
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_multi_tx_block_auth_refund_and_sstore(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -954,7 +954,7 @@ def test_multi_tx_block_auth_refund_and_sstore(
     )
 
 
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP8037")
 def test_auth_refund_bypasses_one_fifth_cap(
     state_test: StateTestFiller,
     pre: Alloc,
