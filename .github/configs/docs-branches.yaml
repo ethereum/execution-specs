@@ -15,3 +15,5 @@ branches:
   # TEMPORARY: remove after E2E testing
   - path: "experiments/publish-docs"
     label: "Amsterdam"
+  - path: "experiments/publish-docs-test"
+    label: "Amsterdam (Test)"
