@@ -1,21 +1,19 @@
-name: Test mkdocs documentation
+name: Static Doc Checks
 
 on:
   push:
     branches:
       - mainnet
       - "forks/**"
-    paths: &mkdocs_paths
+    paths: &docs_validation_paths
       - uv.lock
       - CONTRIBUTING.md
       - SECURITY.md
       - "docs/**"
       - "packages/testing/**"
       - ".github/workflows/test-docs.yaml"
-      # disabling on tests/** until site is deployed with the "test case reference"
-      # - "tests/**"
   pull_request:
-    paths: *mkdocs_paths
+    paths: *docs_validation_paths
   workflow_dispatch:
 
 concurrency:
@@ -23,16 +21,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  mkdocs:
-    name: Test html documentation build with mkdocs
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout ethereum/execution-specs
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/setup-uv
-      - name: Build html documentation with mkdocs
-        run: just docs
-
   changelog:
     name: Validate changelog entries
     runs-on: ubuntu-latest
