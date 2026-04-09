@@ -198,7 +198,7 @@ jobs:
         shell: bash
         run: |
           if [ -f .test_durations ]; then
-            uv run python .github/scripts/normalize_durations.py
+            uv run --no-project python .github/scripts/normalize_durations.py
           else
             echo "::warning::No .test_durations file to normalize"
           fi
