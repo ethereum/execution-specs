@@ -21,6 +21,7 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     BlockException,
+    Hash,
     Initcode,
     Op,
     Storage,
@@ -28,6 +29,7 @@ from execution_testing import (
     Withdrawal,
     compute_create_address,
 )
+from execution_testing.specs.blockchain import Header
 from execution_testing.test_types.block_access_list.modifiers import (
     append_account,
     append_change,
@@ -41,11 +43,15 @@ from execution_testing.test_types.block_access_list.modifiers import (
     duplicate_storage_slot,
     insert_storage_read,
     modify_balance,
+    modify_code,
     modify_nonce,
     modify_storage,
     remove_accounts,
     remove_balances,
+    remove_code,
     remove_nonces,
+    remove_storage,
+    remove_storage_reads,
     reverse_accounts,
     swap_bal_indices,
 )
@@ -1097,6 +1103,225 @@ def test_bal_invalid_duplicate_entries(
                         oracle=oracle,
                         created=created,
                     )
+                ),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+def test_bal_invalid_hash_mismatch(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test that clients reject blocks where the BAL hash in the header
+    does not match the actual BAL content.
+
+    Unlike other invalid BAL tests which corrupt the BAL content while
+    keeping the header hash consistent with the corrupted data, this
+    test keeps the BAL valid but injects a wrong hash into the header
+    via rlp_modifier.
+    """
+    sender = pre.fund_eoa(amount=10**18)
+    receiver = pre.fund_eoa(amount=0)
+
+    tx = Transaction(
+        sender=sender,
+        to=receiver,
+        value=10**15,
+        gas_limit=21_000,
+    )
+
+    blockchain_test(
+        pre=pre,
+        post={
+            sender: Account(balance=10**18, nonce=0),
+            receiver: None,
+        },
+        blocks=[
+            Block(
+                txs=[tx],
+                rlp_modifier=Header(bal_hash=Hash(1)),
+                exception=[
+                    BlockException.INVALID_BAL_HASH,
+                    BlockException.INVALID_BLOCK_HASH,
+                ],
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "modifier",
+    [
+        pytest.param(
+            lambda oracle, **_: remove_storage(oracle),
+            id="missing_storage_change",
+        ),
+        pytest.param(
+            lambda oracle, **_: remove_storage_reads(oracle),
+            id="missing_storage_read",
+        ),
+        pytest.param(
+            lambda created, **_: remove_code(created),
+            id="missing_code_change",
+        ),
+        pytest.param(
+            lambda created, **_: modify_code(
+                created, block_access_index=1, code=b"\xde\xad"
+            ),
+            id="wrong_code_value",
+        ),
+    ],
+)
+def test_bal_invalid_field_entries(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    modifier: Callable,
+) -> None:
+    """
+    Test that clients reject blocks with missing or incorrect
+    field-level BAL entries.
+
+    Oracle writes storage slot 1, reads storage slot 2, and CREATEs a
+    small contract. A valid BAL is created containing all changes, then
+    corrupted by the parameterized modifier:
+
+    - missing_storage_change: Oracle's storage writes removed.
+    - missing_storage_read: Oracle's storage reads removed.
+    - missing_code_change: Created contract's code change removed.
+    - wrong_code_value: Created contract's deployed bytecode wrong.
+    """
+    alice = pre.fund_eoa()
+    deploy_code = b"\x13\x37"
+    initcode = Initcode(deploy_code=deploy_code)
+    initcode_word = int.from_bytes(bytes(initcode).ljust(32, b"\x00"), "big")
+    oracle = pre.deploy_contract(
+        code=(
+            Op.SSTORE(1, 0x42)
+            + Op.SLOAD(2)
+            + Op.MSTORE(0, initcode_word)
+            + Op.CREATE(0, 0, len(initcode))
+        ),
+        storage={2: 0x84},
+    )
+    created = compute_create_address(address=oracle, nonce=1)
+
+    tx = Transaction(
+        sender=alice,
+        to=oracle,
+        value=100,
+        gas_limit=2_000_000,
+    )
+
+    blockchain_test(
+        pre=pre,
+        post=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        alice: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1,
+                                    post_nonce=1,
+                                ),
+                            ],
+                        ),
+                        oracle: BalAccountExpectation(
+                            balance_changes=[
+                                BalBalanceChange(
+                                    block_access_index=1,
+                                    post_balance=100,
+                                ),
+                            ],
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=1,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=1,
+                                            post_value=0x42,
+                                        ),
+                                    ],
+                                ),
+                            ],
+                            storage_reads=[2],
+                        ),
+                        created: BalAccountExpectation(
+                            code_changes=[
+                                BalCodeChange(
+                                    block_access_index=1,
+                                    new_code=deploy_code,
+                                ),
+                            ],
+                        ),
+                    }
+                ).modify(
+                    modifier(
+                        alice=alice,
+                        oracle=oracle,
+                        created=created,
+                    )
+                ),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+def test_bal_invalid_withdrawal_balance_value(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test that clients reject blocks where BAL contains an incorrect
+    balance value for an account modified only by a withdrawal.
+
+    Charlie receives a 10 gwei withdrawal in an empty block.
+    BAL is corrupted by changing Charlie's post-balance to 999 instead
+    of the correct 10_000_000_000 (10 gwei in wei).
+    """
+    charlie = pre.fund_eoa(amount=0)
+
+    blockchain_test(
+        pre=pre,
+        post={
+            charlie: None,
+        },
+        blocks=[
+            Block(
+                txs=[],
+                withdrawals=[
+                    Withdrawal(
+                        index=0,
+                        validator_index=0,
+                        address=charlie,
+                        amount=10,
+                    )
+                ],
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        charlie: BalAccountExpectation(
+                            balance_changes=[
+                                BalBalanceChange(
+                                    block_access_index=1,
+                                    post_balance=10 * 10**9,
+                                )
+                            ],
+                        ),
+                    }
+                ).modify(
+                    modify_balance(charlie, block_access_index=1, balance=999)
                 ),
             )
         ],
