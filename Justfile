@@ -301,3 +301,37 @@ clean *args:
 [group('housekeeping')]
 clean-all *args:
     uv run eest clean --all "$@"
+
+# Print the command to install shell completions for just recipes
+[group('housekeeping')]
+shell-completions:
+    #!/usr/bin/env bash
+    case "$(basename "$SHELL")" in
+        bash)
+            echo "Run the following commands to install just completions for bash:"
+            echo ""
+            echo "  mkdir -p ~/.local/share/bash-completion/completions"
+            echo "  just --completions bash > ~/.local/share/bash-completion/completions/just"
+            ;;
+        zsh)
+            echo "Run the following commands to install just completions for zsh:"
+            echo ""
+            echo "  mkdir -p ~/.zsh/completions"
+            echo "  just --completions zsh > ~/.zsh/completions/_just"
+            echo ""
+            echo "Then add to your .zshrc:"
+            echo ""
+            echo "  fpath=(~/.zsh/completions \$fpath)"
+            echo "  autoload -U compinit"
+            echo "  compinit"
+            ;;
+        fish)
+            echo "Run the following commands to install just completions for fish:"
+            echo ""
+            echo "  mkdir -p ~/.config/fish/completions"
+            echo "  just --completions fish > ~/.config/fish/completions/just.fish"
+            ;;
+        *)
+            echo "See https://just.systems/man/en/shell-completion-scripts.html"
+            ;;
+    esac
