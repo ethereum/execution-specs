@@ -110,6 +110,8 @@ Trace.memSize
 Trace.returnData
 Trace.refund
 Trace.opName
+Trace.stateGas
+Trace.stateGasCost
 FinalTrace.gasUsed
 
 # src/ethereum_spec_tools/lint/lints/glacier_forks_hygiene.py
