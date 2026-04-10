@@ -44,6 +44,7 @@ sudo npm install -g markdownlint-cli2@0.17.2  # the version used in ci
 
 Or use a specific node version using `nvm`.
 
+<!--
 ## Pre-commit Hooks
 
 Certain checks can be run automatically as git pre-commit hooks to ensure that your changes meet the project's standards before committing.
@@ -55,6 +56,7 @@ uvx pre-commit install
 ```
 
 For more information, see [Pre-commit Hooks Documentation](../dev/precommit.md).
+-->
 
 ## Testing Framework Plugins with Pytester
 
