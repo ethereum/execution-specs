@@ -94,6 +94,9 @@ lint-actions:
 coverage:
     uv run coverage html -d "{{ output_dir }}/fill/coverage-html"
 
+checklist *args:
+    uv run checklist --output tmp/checklist "$@"
+
 # --- Fill Tests ---
 
 # Fill the consensus tests using EELS (with Python)
@@ -262,17 +265,6 @@ bench-opcode-config *args:
         --clean \
         "$@" \
         tests/benchmark/compute
-
-# --- Checklists ---
-
-# Generate EIP test checklists from eip_checklist markers
-[group('checklists')]
-checklist *args:
-    #!/usr/bin/env bash
-    uv run checklist --output docs/checklist "$@"
-    rc=$?
-    # exit code 5 = "no tests ran" which is expected (collect-only)
-    if [ $rc -eq 5 ] || [ $rc -eq 0 ]; then exit 0; else exit $rc; fi
 
 # --- Docs ---
 

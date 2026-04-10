@@ -1,11 +1,29 @@
 """CLI entry point for the `checklist` pytest-based command."""
 
-from typing import Any
+import sys
+from typing import Any, List
 
 import click
 
 from ...forks import get_development_forks
 from .fill import FillCommand
+
+
+class ChecklistCommand(FillCommand):
+    """Fill command that treats 'no tests ran' as success."""
+
+    def execute(self, pytest_args: List[str]) -> None:
+        """
+        Execute the command, treating pytest exit code 5 as success.
+
+        The checklist command only collects tests to analyze markers
+        and does not run them, so exit code 5 ("no tests ran") is expected.
+        """
+        executions = self.create_executions(pytest_args)
+        result = self.runner.run_multiple(executions)
+        if result == 5:
+            result = 0
+        sys.exit(result)
 
 
 def _last_development_fork() -> str | None:
@@ -81,7 +99,7 @@ def checklist(
     if until:
         args.extend(["--until", until])
 
-    command = FillCommand(
+    command = ChecklistCommand(
         plugins=[
             "execution_testing.cli.pytest_commands.plugins.filler.eip_checklist"
         ],

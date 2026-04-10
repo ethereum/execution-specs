@@ -92,4 +92,4 @@ env.yaml
 site/
 
 # Generated checklists
-docs/checklist/
+tmp/
