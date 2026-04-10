@@ -36,3 +36,53 @@ Filling static test fillers in YAML or JSON formats from [ethereum/tests](https:
 This functionality is only available for backwards compatibility and copying legacy tests from the [ethereum/tests](https://github.com/ethereum/tests) repository into this one.
 
 Adding new static test fillers is otherwise not allowed.
+
+<!--
+## Overview
+
+```mermaid
+---
+title: Test Fixture Generation
+---
+flowchart LR
+  style C stroke:#333,stroke-width:2px
+  style D stroke:#333,stroke-width:2px
+  style G stroke:#F9A825,stroke-width:2px
+  style H stroke:#F9A825,stroke-width:2px
+
+  subgraph ethereum/go-ethereum
+    C[<code>evm t8n</code><br/>external executable]
+  end
+
+  subgraph ethereum/solidity
+    D[<code>solc</code><br/>external executable]
+  end
+
+  subgraph ethereum/EIPs
+    E(<code>EIPS/EIP-*.md</code><br/>SHA digest via Github API)
+  end
+
+  subgraph "ethereum/execution-specs"
+    A(<code>./tests/**/*.py</code><br/>Python Test Cases)
+    B([<code>$ fill ./tests/</code><br/>Python Framework])
+    S(<code>./src/ethereum/</code><br/>Python Specifications)
+  end
+
+  subgraph Test Fixture Consumers
+    subgraph ethereum/hive
+      G([<code>$ hive ...</code><br/>Go Test Framework])
+    end
+    H([Client executables])
+  end
+
+  C <-.-> B
+  D <-.-> B
+  S <-.-> B
+  A --> B
+  E <-.-> |retrieve latest spec version\ncheck tested spec version| B
+  B -->|output| F(<code>./fixtures/**/*.json</code>\nJSON Test Fixtures)
+  F -->|input| G
+  F -->|input| H
+
+```
+-->

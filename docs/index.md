@@ -1,6 +1,8 @@
-# Ethereum Execution Layer Specifications and Tests
+# Ethereum Execution Layer Specifications
 
-Welcome to the documentation for [ethereum/execution-specs](https://github.com/ethereum/execution-specs) -- the Python reference specifications and test suite for the Ethereum execution layer.
+Welcome to the documentation for @ethereum/execution-specs, which hosts the Ethereum Execution Layer Specification (EELS). EELS is implemented as an executable reference in Python and acts as a source of truth for test vector generation to verify Execution Layer client implementations.
+
+@ethereum/execution-specs is a collaborative effort between EIP authors, researchers, protocol prototype developers and client developers, maintained by the [STEEL Team](https://steel.ethereum.foundation/).
 
 ## Where to Start
 
@@ -63,53 +65,6 @@ Welcome to the documentation for [ethereum/execution-specs](https://github.com/e
     [:octicons-arrow-right-24: Browse tests](tests/)
 
 </div>
-
-## Overview
-
-```mermaid
----
-title: Test Fixture Generation
----
-flowchart LR
-  style C stroke:#333,stroke-width:2px
-  style D stroke:#333,stroke-width:2px
-  style G stroke:#F9A825,stroke-width:2px
-  style H stroke:#F9A825,stroke-width:2px
-
-  subgraph ethereum/go-ethereum
-    C[<code>evm t8n</code><br/>external executable]
-  end
-
-  subgraph ethereum/solidity
-    D[<code>solc</code><br/>external executable]
-  end
-
-  subgraph ethereum/EIPs
-    E(<code>EIPS/EIP-*.md</code><br/>SHA digest via Github API)
-  end
-
-  subgraph "ethereum/execution-specs"
-    A(<code>./tests/**/*.py</code><br/>Python Test Cases)
-    B([<code>$ fill ./tests/</code><br/>Python Framework])
-    S(<code>./src/ethereum/</code><br/>Python Specifications)
-  end
-
-  subgraph Test Fixture Consumers
-    subgraph ethereum/hive
-      G([<code>$ hive ...</code><br/>Go Test Framework])
-    end
-    H([Client executables])
-  end
-
-  C <-.-> B
-  D <-.-> B
-  S <-.-> B
-  A --> B
-  E <-.-> |retrieve latest spec version\ncheck tested spec version| B
-  B -->|output| F(<code>./fixtures/**/*.json</code>\nJSON Test Fixtures)
-  F -->|input| G
-  F -->|input| H
-```
 
 !!! bug "Reporting a Vulnerability"
 
