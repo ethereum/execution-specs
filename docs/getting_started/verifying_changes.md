@@ -71,13 +71,13 @@ Build the full HTML documentation:
 just docs
 ```
 
-For faster iteration (skips the "Test Case Reference" section):
+For faster iteration use (skips the "Test Case Reference" section):
 
 ```console
 just docs-fast
 ```
 
-## Verifying Fixture Changes
+## Verifying Test Fixture Changes
 
 When writing a PR that modifies either the framework or test cases, verify that changes don't cause issues with existing test cases.
 
@@ -92,25 +92,6 @@ The `hasher` command can be used to bulk-verify the hashes of fixtures in a dire
 | `--files` / `-f` | Prints a combined hash per JSON fixture file.                     |
 | `--tests` / `-t` | Prints the hash of every test vector in JSON fixture files.       |
 | `--root` / `-r`  | Prints a combined hash for all JSON fixture files in a directory. |
-
-For a quick comparison between two fixture directories:
-
-```console
-hasher --root fixtures/
-hasher --root fixtures_new/
-```
-
-To identify which files are different:
-
-```console
-diff <(hasher --files fixtures/) <(hasher --files fixtures_new/)
-```
-
-For a granular comparison:
-
-```console
-diff <(hasher --tests fixtures/) <(hasher --tests fixtures_new/)
-```
 
 #### The `compare` Subcommand
 
@@ -127,4 +108,4 @@ uv run hasher compare fixtures/ fixtures_new/
 | `--files` / `-f`    | Show differences at file level.                           |
 | `--tests` / `-t`    | Show differences at individual test level.                |
 | `--root` / `-r`     | Show only the root-level hash difference.                 |
-| `--ignore-missing`  | Hide entries that exist in only one directory.             |
+| `--ignore-missing`  | Hide entries that exist in only one directory.            |
