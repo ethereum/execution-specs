@@ -1,28 +1,12 @@
-# Detailed Code Standards
+# Verifying Changes
 
-This page provides in-depth information about the code standards and verification processes in @ethereum/execution-specs.
+This page covers how to verify your changes before submitting a PR.
 
-## Running Checks
-
-Run all static checks:
-
-```console
-just static
-```
-
-Run `just` to list all available recipes. Individual checks can be run directly, for example:
-
-```console
-just lint
-just typecheck
-just spellcheck
-```
-
-### Additional Dependencies
+## Additional Dependencies
 
 Some checks require external (non-Python) packages:
 
-#### For `spellcheck`
+### For `spellcheck`
 
 The spellcheck environment uses **codespell**, which is automatically installed via Python dependencies and checks for common spelling mistakes in code and documentation.
 
@@ -35,7 +19,7 @@ uv run codespell --write-changes
 !!! note "VS Code Integration"
     The `whitelist.txt` file is still maintained for the VS Code cSpell extension, which provides real-time spell checking in the editor.
 
-#### For `markdownlint`
+### For `markdownlint`
 
 ```console
 sudo apt install nodejs
@@ -44,31 +28,40 @@ sudo npm install -g markdownlint-cli2@0.17.2  # the version used in ci
 
 Or use a specific node version using `nvm`.
 
-<!--
-## Pre-commit Hooks
+## Code and CI Requirements
 
-Certain checks can be run automatically as git pre-commit hooks to ensure that your changes meet the project's standards before committing.
-
-### Installation
+Code pushed to @ethereum/execution-specs must pass the CI checks. Run `just` to see all available recipes, grouped by category. The most common checks:
 
 ```console
-uvx pre-commit install
+just fix      # Auto-fix formatting and lint issues
+just static   # Run all static checks (lint, format, mypy, spellcheck, ...)
 ```
 
-For more information, see [Pre-commit Hooks Documentation](../dev/precommit.md).
+<!--
+!!! important "Avoid CI surprises - Use pre-commit hooks!"
+    **We strongly encourage all contributors to install and use pre-commit hooks!** This will run fast checks (lint, typecheck, spellcheck) automatically before each commit, helping you catch issues early and avoid frustrating CI failures after pushing your changes.
+
+    Install with one simple command:
+    ```console
+    uvx pre-commit install
+    ```
+
+    This saves you time by catching formatting issues, type errors, and spelling mistakes before they reach CI.
 -->
 
-## Testing Framework Plugins with Pytester
+!!! tip "Lint & code formatting: Using `ruff` and VS Code to help autoformat and fix module imports"
 
-Use pytest's `pytester` fixture when writing tests for our pytest plugins and CLI commands.
+    On the command-line, solve fixable issues with:
 
-`runpytest()` is the default. It runs the inner session in-process, is fast, and gives access to helpers like `assert_outcomes()` and `fnmatch_lines()`.
+    ```console
+    just fix
+    ```
 
-`runpytest_subprocess()` runs the inner session in a separate process. Use it only when in-process mode causes state leakage (e.g., Pydantic `ModelMetaclass` cache pollution or global mutation in `pytest_configure`). Subprocess isolation masks these bugs rather than fixing them, so prefer fixing the root cause and use subprocess mode as defense-in-depth.
+    Use VS Code, see [VS Code Setup](../getting_started/setup_vs_code.md), to autoformat code, automatically organize Python module imports and highlight typechecking and spelling issues.
 
-Don't use raw `subprocess.run()` in pytester-based tests. If you need process isolation, use `runpytest_subprocess()`.
+!!! hint "Typechecking"
 
-Both methods return a `RunResult` with `.ret`, `.outlines`, `.errlines`, `assert_outcomes()`, and `fnmatch_lines()`. When the inner test is expected to fail, use `capsys.readouterr()` after `runpytest_subprocess()` to suppress the inner failure output that pytester replays to stdout.
+    Adding the correct typehints can sometimes be tricky and there are exceptions that require manually disabling typechecking on a per-line basis. Please reach out to the maintainers if you need help, either [directly](../getting_started/getting_help.md) or in a PR.
 
 ## Building and Verifying Docs Locally
 

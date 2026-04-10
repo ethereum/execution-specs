@@ -6,7 +6,7 @@
       * [Installation Troubleshooting](getting_started/installation_troubleshooting.md)
       * [Contributing](getting_started/contributing.md)
       * [Code Standards](getting_started/code_standards.md)
-      * [Detailed Code Standards](getting_started/code_standards_details.md)
+      * [Verifying Changes](getting_started/verifying_changes.md)
       * [VS Code Setup](getting_started/setup_vs_code.md)
       * [Repository Overview](getting_started/repository_overview.md)
       * [Security Policy](getting_started/security.md)

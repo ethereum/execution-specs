@@ -1,41 +1,12 @@
 # Code Standards
 
-This document outlines the coding standards and practices used in the @ethereum/execution-specs repository.
-
-## Code and CI Requirements
-
-Code pushed to @ethereum/execution-specs must pass the CI checks. Run `just` to see all available recipes, grouped by category. The most common checks:
+This page outlines the coding standards and practices used in the @ethereum/execution-specs repository. Many of the following preferences are also enforced in CI via static code analysis checks. All the available static checks can be ran locally via:
 
 ```console
-just fix      # Auto-fix formatting and lint issues
-just static   # Run all static checks (lint, format, mypy, spellcheck, ...)
+just static
 ```
 
-<!--
-!!! important "Avoid CI surprises - Use pre-commit hooks!"
-    **We strongly encourage all contributors to install and use pre-commit hooks!** This will run fast checks (lint, typecheck, spellcheck) automatically before each commit, helping you catch issues early and avoid frustrating CI failures after pushing your changes.
-
-    Install with one simple command:
-    ```console
-    uvx pre-commit install
-    ```
-
-    This saves you time by catching formatting issues, type errors, and spelling mistakes before they reach CI.
--->
-
-!!! tip "Lint & code formatting: Using `ruff` and VS Code to help autoformat and fix module imports"
-
-    On the command-line, solve fixable issues with:
-
-    ```console
-    just fix
-    ```
-
-    Use VS Code, see [VS Code Setup](../getting_started/setup_vs_code.md), to autoformat code, automatically organize Python module imports and highlight typechecking and spelling issues.
-
-!!! hint "Typechecking"
-
-    Adding the correct typehints can sometimes be tricky and there are exceptions that require manually disabling typechecking on a per-line basis. Please reach out to the maintainers if you need help, either [directly](../getting_started/getting_help.md) or in a PR.
+Please see [Verifying Changes](verifying_changes.md) for more details on running checks locally and ensuring that your code passes CI checks.
 
 ## Python Coding Preferences
 
@@ -57,15 +28,20 @@ just static   # Run all static checks (lint, format, mypy, spellcheck, ...)
 - **File Paths**: Strongly prefer `pathlib` over `os.path` for file system operations.
 - **Retry Logic**: Use [`tenacity`](https://github.com/jd/tenacity) library for handling flaky network connections and transient failures.
 
+## Testing Framework Plugins with Pytester
+
+Use pytest's `pytester` fixture when writing tests for our pytest plugins and CLI commands.
+
+`runpytest()` is the default. It runs the inner session in-process, is fast, and gives access to helpers like `assert_outcomes()` and `fnmatch_lines()`.
+
+`runpytest_subprocess()` runs the inner session in a separate process. Use it only when in-process mode causes state leakage (e.g., Pydantic `ModelMetaclass` cache pollution or global mutation in `pytest_configure`). Subprocess isolation masks these bugs rather than fixing them, so prefer fixing the root cause and use subprocess mode as defense-in-depth.
+
+Don't use raw `subprocess.run()` in pytester-based tests. If you need process isolation, use `runpytest_subprocess()`.
+
+Both methods return a `RunResult` with `.ret`, `.outlines`, `.errlines`, `assert_outcomes()`, and `fnmatch_lines()`. When the inner test is expected to fail, use `capsys.readouterr()` after `runpytest_subprocess()` to suppress the inner failure output that pytester replays to stdout.
+
+<!--
 ## Editor Setup
 
 A correctly configured editor will automatically handle most formatting requirements. See [VS Code Setup](./setup_vs_code.md) for recommended settings.
-
-## Detailed Information
-
-See the [Detailed Code Standards](code_standards_details.md) page for more information on:
-
-- Additional required [dependencies for markdownlint](code_standards_details.md#additional-dependencies).
-- [Pre-commit hooks setup](code_standards_details.md#pre-commit-hooks).
-- [Verifying test fixture changes](code_standards_details.md#verifying-fixture-changes).
-- [Ignoring bulk change commits](code_standards_details.md#ignoring-bulk-change-commits) in `git blame`.
+-->
