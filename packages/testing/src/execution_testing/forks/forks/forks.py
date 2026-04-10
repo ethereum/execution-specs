@@ -628,6 +628,9 @@ class Frontier(
         else:
             base_cost = gas_costs.GAS_COLD_ACCOUNT_ACCESS
 
+        if metadata["inner_call_cost"]:
+            return base_cost + metadata["inner_call_cost"]
+
         return base_cost
 
     @classmethod

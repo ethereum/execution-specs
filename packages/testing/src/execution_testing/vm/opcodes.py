@@ -5158,6 +5158,7 @@ class Opcodes(Opcode, Enum):
             "old_memory_size": 0,
             "delegated_address": False,
             "delegated_address_warm": False,
+            "inner_call_cost": 0,
         },
     )
     """
@@ -5236,6 +5237,7 @@ class Opcodes(Opcode, Enum):
             "old_memory_size": 0,
             "delegated_address": False,
             "delegated_address_warm": False,
+            "inner_call_cost": 0,
         },
     )
     """
@@ -5361,6 +5363,7 @@ class Opcodes(Opcode, Enum):
             "old_memory_size": 0,
             "delegated_address": False,
             "delegated_address_warm": False,
+            "inner_call_cost": 0,
         },
     )
     """
@@ -5491,6 +5494,7 @@ class Opcodes(Opcode, Enum):
             "old_memory_size": 0,
             "delegated_address": False,
             "delegated_address_warm": False,
+            "inner_call_cost": 0,
         },
     )
     """
