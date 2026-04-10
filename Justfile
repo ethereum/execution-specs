@@ -332,6 +332,8 @@ shell-completions:
             echo "  just --completions fish > ~/.config/fish/completions/just.fish"
             ;;
         *)
-            echo "See https://just.systems/man/en/shell-completion-scripts.html"
+            echo "See the link below for instructions for your shell."
             ;;
     esac
+    echo ""
+    echo "For more details, see https://just.systems/man/en/shell-completion-scripts.html"
