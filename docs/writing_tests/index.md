@@ -21,7 +21,7 @@ For help deciding which test format to select, see [Types of Tests](./types_of_t
 
 ## Key Resources
 
-- [Coding Standards](./code_standards.md) - Code style and standards for this repository
+- [Coding Standards](../getting_started/code_standards.md) - Code style and standards for this repository
 - [Adding a New Test](./adding_a_new_test.md) - Step-by-step guide to adding new tests
 - [Writing a New Test](./writing_a_new_test.md) - Detailed guide on writing different test types
 - [Using and Extending Fork Methods](./fork_methods.md) - How to use fork methods to write fork-adaptive tests

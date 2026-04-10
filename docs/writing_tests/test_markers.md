@@ -332,7 +332,7 @@ In this example, the test will be marked as expected to fail when it is being ex
 
 ### `@pytest.mark.slow`
 
-This marker is used to mark tests that are slow to run. These tests are not run during [CI checks](./verifying_changes.md), and are only run when a release is being prepared.
+This marker is used to mark tests that are slow to run. These tests are not run during [CI checks](../getting_started/verifying_changes.md), and are only run when a release is being prepared.
 
 ### `@pytest.mark.pre_alloc_mutable`
 
