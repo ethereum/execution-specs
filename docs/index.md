@@ -4,13 +4,65 @@ Welcome to the documentation for [ethereum/execution-specs](https://github.com/e
 
 ## Where to Start
 
-| I want to... | Go to |
-|---|---|
-| Write or modify an EL specification | [Writing Specs](writing_specs/index.md) |
-| Write test cases for EIPs | [Writing Tests](writing_tests/index.md) |
-| Generate or run test fixtures | [Running Tests](running_tests/index.md) |
-| Read the rendered specifications | [Specifications](spec/) |
-| Browse the test cases | [Test Case Reference](tests/) |
+<div class="grid cards" markdown>
+
+- :material-download-outline: **Getting Started**
+
+    ---
+
+    New here? Install the repository and run your first command.
+
+    *First time user.*
+
+    [:octicons-arrow-right-24: Installation](getting_started/installation.md)
+
+- :material-file-code-outline: **Writing Specs**
+
+    ---
+
+    Implement an EIP as an executable Python specification.
+
+    *For EIP authors and researchers.*
+
+    [:octicons-arrow-right-24: Get started](writing_specs/index.md)
+
+- :material-test-tube: **Writing Tests**
+
+    ---
+
+    Write test cases that verify EIP implementations across clients.
+
+    *For EIP authors and test devs.*
+
+    [:octicons-arrow-right-24: Get started](writing_tests/index.md)
+
+- :material-play-circle-outline: **Running Tests**
+
+    ---
+
+    Generate JSON fixtures or run tests against an execution layer client.
+
+    *For client developers.*
+
+    [:octicons-arrow-right-24: Overview](running_tests/index.md)
+
+- :material-book-open-variant: **Read the Specs**
+
+    ---
+
+    Browse the rendered Python specifications for the current fork and EIP.
+
+    [:octicons-arrow-right-24: Specifications](spec/)
+
+- :material-format-list-checks: **Test Case Reference**
+
+    ---
+
+    Browse all test cases organized by fork and EIP.
+
+    [:octicons-arrow-right-24: Browse tests](tests/)
+
+</div>
 
 ## Overview
 
@@ -58,18 +110,6 @@ flowchart LR
   F -->|input| G
   F -->|input| H
 ```
-
-## For EIP Authors
-
-Start with [Writing Specs](writing_specs/index.md) to learn how to implement your EIP as an executable Python specification. An EIP needs a reference implementation here before it can be Considered For Inclusion (CFI) in a fork.
-
-## For Test Developers
-
-See [Writing Tests](writing_tests/index.md) for the test framework and [Filling Tests](filling_tests/index.md) to generate JSON test fixtures from your Python test cases.
-
-## For Client Developers
-
-See [Running Tests](running_tests/index.md) for how to consume test fixtures and verify your client implementation. Pre-built fixtures are available as [releases](https://github.com/ethereum/execution-specs/releases).
 
 !!! bug "Reporting a Vulnerability"
 
