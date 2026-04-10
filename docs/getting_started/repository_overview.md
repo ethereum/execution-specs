@@ -7,11 +7,14 @@ The most relevant folders and files in the repo are:
 📁 execution-specs/
 ├─╴📁 src/                       # EELS - the execution layer specs
 │   ├── 📁 ethereum/
-│   └── 📁 ...
+│   │    └── 📁 forks/
+│   │         ├── 📁 amsterdam/
+|   |         ├── 📁 berlin/
+│   │         └── 📁 ...
+│   └── 📁 ethereum/forks/...
 ├─╴📁 tests/                     # Test cases for EELS organized by fork
 │   ├── 📁 amsterdam/
-│   ├── 📁 osaka/
-│   ├── 📁 prague/
+│   ├── 📁 berlin/
 │   └── 📁 ...
 ├─╴📁 packages/                  # Test generation library & framework packages
 │   └── 📁 testing/
@@ -34,7 +37,7 @@ Contains the Ethereum Execution Layer Specs, each fork is a sub-package.
 
 Contains the implementation of the Ethereum consensus tests available in this repository, organized by the fork in which the functionality was introduced.
 
-#### `packages/execution_testing`
+#### `packages/execution_testing/`
 
 Contains the `execution_testing` package which provides tools to define test cases and to interface with `t8n` command interfaces that are required to generate tests. Additionally, it contains packages that enable test case execution by customizing pytest which acts as the test framework.
 
