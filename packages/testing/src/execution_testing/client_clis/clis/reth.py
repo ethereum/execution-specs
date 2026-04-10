@@ -109,14 +109,8 @@ class RethExceptionMapper(ExceptionMapper):
         BlockException.GAS_USED_OVERFLOW: (
             r"transaction gas limit \w+ is more than blocks available gas \w+"
         ),
-        # BAL Exceptions: TODO - review once all clients completed.
-        BlockException.INVALID_BAL_EXTRA_ACCOUNT: (
-            r"block access list hash mismatch"
-        ),
+        # BAL Exceptions
         BlockException.INVALID_BAL_HASH: (r"block access list hash mismatch"),
-        BlockException.INVALID_BAL_MISSING_ACCOUNT: (
-            r"block access list hash mismatch"
-        ),
         BlockException.INVALID_BLOCK_ACCESS_LIST: (
             r"block access list hash mismatch"
         ),

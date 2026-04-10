@@ -177,15 +177,6 @@ class BlockException(ExceptionBase):
     """Block's access list is invalid."""
     INVALID_BAL_HASH = auto()
     """Block header's BAL hash does not match the computed BAL hash."""
-    INVALID_BAL_EXTRA_ACCOUNT = auto()
-    """
-    Block BAL contains an account change that is not present in the computed
-    BAL.
-    """
-    INVALID_BAL_MISSING_ACCOUNT = auto()
-    """
-    Block BAL is missing an account change that is present in the computed BAL.
-    """
     BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED = auto()
     """
     Block access list exceeds the gas limit constraint (EIP-7928).

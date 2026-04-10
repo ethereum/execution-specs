@@ -41,14 +41,6 @@ class EthrexExceptionMapper(ExceptionMapper):
             "Block access list hash does not match the one in "
             "the header after executing"
         ),
-        BlockException.INVALID_BAL_EXTRA_ACCOUNT: (
-            "Block access list hash does not match the one in "
-            "the header after executing"
-        ),
-        BlockException.INVALID_BAL_MISSING_ACCOUNT: (
-            "Block access list hash does not match the one in "
-            "the header after executing"
-        ),
         BlockException.INCORRECT_BLOCK_FORMAT: (
             "not in strictly ascending order for"
         ),
@@ -175,11 +167,7 @@ class EthrexExceptionMapper(ExceptionMapper):
         BlockException.RLP_BLOCK_LIMIT_EXCEEDED: (
             r"Maximum block size exceeded.*"
         ),
-        BlockException.INVALID_BAL_EXTRA_ACCOUNT: (
-            r"Block access list accounts not in strictly ascending order.*|"
-            r"BAL validation failed: account .* was never accessed.*"
-        ),
-        BlockException.INVALID_BAL_MISSING_ACCOUNT: (r"absent from BAL"),
+        BlockException.INVALID_BAL_HASH: r"BAL validation failed",
         BlockException.INVALID_BLOCK_ACCESS_LIST: (
             r"Block access list contains index \d+ "
             r"exceeding max valid index \d+|"
@@ -187,8 +175,10 @@ class EthrexExceptionMapper(ExceptionMapper):
             r"Block access list .+ not in strictly ascending order.*|"
             r"BAL validation failed for (tx \d+|system_tx|withdrawal): .*|"
             r"BAL validation failed: .*|"
+            r"absent from BAL|"
             r"Block access list slot .+ is in both "
-            r"storage_changes and storage_reads.*"
+            r"storage_changes and storage_reads.*|"
+            r"Invalid block hash"
         ),
         BlockException.INCORRECT_BLOCK_FORMAT: (
             r"Block access list hash does not match "

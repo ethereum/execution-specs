@@ -339,7 +339,7 @@ def test_bal_invalid_account(
         blocks=[
             Block(
                 txs=[tx],
-                exception=BlockException.INVALID_BAL_EXTRA_ACCOUNT,
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
                 expected_block_access_list=BlockAccessListExpectation(
                     account_expectations={
                         sender: BalAccountExpectation(
@@ -595,7 +595,7 @@ def test_bal_invalid_missing_account(
         blocks=[
             Block(
                 txs=[tx],
-                exception=BlockException.INVALID_BAL_MISSING_ACCOUNT,
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
                 expected_block_access_list=BlockAccessListExpectation(
                     account_expectations={
                         sender: BalAccountExpectation(
@@ -664,7 +664,7 @@ def test_bal_invalid_missing_withdrawal_account(
                         amount=10,
                     )
                 ],
-                exception=BlockException.INVALID_BAL_MISSING_ACCOUNT,
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
                 expected_block_access_list=BlockAccessListExpectation(
                     account_expectations={
                         alice: BalAccountExpectation(
@@ -727,7 +727,7 @@ def test_bal_invalid_missing_withdrawal_account_empty_block(
                         amount=10,
                     )
                 ],
-                exception=BlockException.INVALID_BAL_MISSING_ACCOUNT,
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
                 expected_block_access_list=BlockAccessListExpectation(
                     account_expectations={
                         charlie: BalAccountExpectation(
@@ -1381,7 +1381,7 @@ def test_bal_invalid_missing_coinbase(
                 txs=[tx],
                 fee_recipient=charlie,
                 header_verify=Header(base_fee_per_gas=base_fee_per_gas),
-                exception=BlockException.INVALID_BAL_MISSING_ACCOUNT,
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
                 expected_block_access_list=BlockAccessListExpectation(
                     account_expectations={
                         alice: BalAccountExpectation(
@@ -1546,7 +1546,7 @@ def test_bal_invalid_extraneous_coinbase(
                 txs=[],
                 fee_recipient=coinbase,
                 withdrawals=withdrawals,
-                exception=BlockException.INVALID_BAL_EXTRA_ACCOUNT,
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
                 expected_block_access_list=BlockAccessListExpectation(
                     account_expectations={coinbase: None}
                 ).modify(append_account(BalAccountChange(address=coinbase))),
