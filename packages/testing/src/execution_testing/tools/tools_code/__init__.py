@@ -14,6 +14,7 @@ from .generators import (
     Switch,
     TransactionWithCost,
     While,
+    WhileGas,
 )
 from .yul import Solc, Yul, YulCompiler
 
@@ -32,6 +33,7 @@ __all__ = (
     "Switch",
     "TransactionWithCost",
     "While",
+    "WhileGas",
     "Yul",
     "YulCompiler",
 )

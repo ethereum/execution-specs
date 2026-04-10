@@ -17,6 +17,7 @@ from .tools_code import (
     Switch,
     TransactionWithCost,
     While,
+    WhileGas,
 )
 from .utility.generators import (
     DeploymentTestType,
@@ -43,6 +44,7 @@ __all__ = (
     "Switch",
     "TransactionWithCost",
     "While",
+    "WhileGas",
     "extend_with_defaults",
     "gas_test",
     "generate_system_contract_deploy_test",
