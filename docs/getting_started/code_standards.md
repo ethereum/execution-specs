@@ -1,23 +1,23 @@
 # Code Standards
 
-This page outlines the coding standards and practices used in the @ethereum/execution-specs repository. Many of the following preferences are also enforced in CI via static code analysis checks. All the available static checks can be ran locally via:
+This page outlines the coding standards and practices used in the @ethereum/execution-specs repository. Many of the following preferences are also enforced in CI via static code analysis checks which can be ran locally via:
 
 ```console
 just static
 ```
 
-Please see [Verifying Changes](verifying_changes.md) for more details on running checks locally and ensuring that your code passes CI checks.
+See [Verifying Changes](verifying_changes.md) for more details on running checks locally and ensuring that your code passes CI checks.
 
 ## Python Coding Preferences
 
 - **Line Length**: 79 characters maximum.
-- **Formatting**: Enforced by `ruff` (similar to `black`).
-- **Documentation**: All public functions and classes should have docstrings
+- **Formatting**: Enforced by `ruff` (similar to `black`). Run `just fix` to format code via `ruff`.
+- **Documentation**: All public functions and classes should have docstrings:
     - Docstrings should have a good one-line summary which uses the imperative ("Return" not "Returns").
     - Add a blank line after the summary for multi-line docstrings.
     - Single-line docstrings should have triple quotes on the same line.
 - **Imports**: Use explicit imports (no `from module import *`).
-- **Relative Imports**: Use relative imports within the same package
+- **Relative Imports**: Use relative imports within the same package.
 - **Error Handling**: Use explicit exception types and meaningful error messages.
 - **Type Hints**: All functions should include type annotations.
 - **Unused Function Arguments**: When  unavoidable, use `del`, e.g., `del unused_var`, at function start to avoid flagging linter errors.
