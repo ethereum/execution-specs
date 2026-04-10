@@ -236,7 +236,7 @@ bench-opcode *args:
         --fork Osaka \
         -m repricing \
         -n auto --maxprocesses 10 --dist=loadgroup \
-        -k "not test_alt_bn128 and not test_bls12_381 and not test_modexp" \
+        -k "not test_alt_bn128 and not test_bls12_381 and not test_modexp and not uncachable" \
         --output="{{ output_dir }}/bench-opcode/fixtures" \
         --basetemp="{{ output_dir }}/bench-opcode/tmp" \
         --log-to "{{ output_dir }}/bench-opcode/logs" \
@@ -255,7 +255,7 @@ bench-opcode-config *args:
         --fork Osaka \
         -m repricing \
         -n auto --maxprocesses 10 --dist=loadgroup \
-        -k "not test_alt_bn128 and not test_bls12_381 and not test_modexp" \
+        -k "not test_alt_bn128 and not test_bls12_381 and not test_modexp and not test_point_evaluation_uncachable" \
         --output="{{ output_dir }}/bench-opcode-config/fixtures" \
         --basetemp="{{ output_dir }}/bench-opcode-config/tmp" \
         --log-to "{{ output_dir }}/bench-opcode-config/logs" \
