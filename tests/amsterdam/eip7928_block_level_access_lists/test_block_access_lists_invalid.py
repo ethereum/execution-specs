@@ -25,6 +25,7 @@ from execution_testing import (
     Op,
     Storage,
     Transaction,
+    Withdrawal,
     compute_create_address,
 )
 from execution_testing.test_types.block_access_list.modifiers import (
@@ -605,6 +606,132 @@ def test_bal_invalid_missing_account(
                         ),
                     }
                 ).modify(remove_accounts(receiver)),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+def test_bal_invalid_missing_withdrawal_account(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test that clients reject blocks where BAL is missing an account
+    that was modified only by a withdrawal.
+
+    Alice sends 5 wei to Bob (1 transaction).
+    Charlie receives 10 gwei withdrawal.
+    BAL is corrupted by removing Charlie's entry entirely.
+    Clients must detect that Charlie's balance was modified by the
+    withdrawal but has no corresponding BAL entry.
+    """
+    alice = pre.fund_eoa()
+    bob = pre.fund_eoa(amount=0)
+    charlie = pre.fund_eoa(amount=0)
+
+    tx = Transaction(
+        sender=alice,
+        to=bob,
+        value=5,
+        gas_limit=21_000,
+    )
+
+    blockchain_test(
+        pre=pre,
+        post={
+            alice: Account(nonce=0),
+            bob: None,
+            charlie: None,
+        },
+        blocks=[
+            Block(
+                txs=[tx],
+                withdrawals=[
+                    Withdrawal(
+                        index=0,
+                        validator_index=0,
+                        address=charlie,
+                        amount=10,
+                    )
+                ],
+                exception=BlockException.INVALID_BAL_MISSING_ACCOUNT,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        alice: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                )
+                            ],
+                        ),
+                        bob: BalAccountExpectation(
+                            balance_changes=[
+                                BalBalanceChange(
+                                    block_access_index=1, post_balance=5
+                                )
+                            ],
+                        ),
+                        charlie: BalAccountExpectation(
+                            balance_changes=[
+                                BalBalanceChange(
+                                    block_access_index=2,
+                                    post_balance=10 * 10**9,
+                                )
+                            ],
+                        ),
+                    }
+                ).modify(remove_accounts(charlie)),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+def test_bal_invalid_missing_withdrawal_account_empty_block(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test that clients reject blocks where BAL is missing an account
+    that was modified only by a withdrawal, in a block with no transactions.
+
+    Charlie receives 10 gwei withdrawal in an empty block.
+    BAL is corrupted by removing Charlie's entry entirely.
+    """
+    charlie = pre.fund_eoa(amount=0)
+
+    blockchain_test(
+        pre=pre,
+        post={
+            charlie: None,
+        },
+        blocks=[
+            Block(
+                txs=[],
+                withdrawals=[
+                    Withdrawal(
+                        index=0,
+                        validator_index=0,
+                        address=charlie,
+                        amount=10,
+                    )
+                ],
+                exception=BlockException.INVALID_BAL_MISSING_ACCOUNT,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        charlie: BalAccountExpectation(
+                            balance_changes=[
+                                BalBalanceChange(
+                                    block_access_index=1,
+                                    post_balance=10 * 10**9,
+                                )
+                            ],
+                        ),
+                    }
+                ).modify(remove_accounts(charlie)),
             )
         ],
     )
