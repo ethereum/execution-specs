@@ -140,7 +140,7 @@ This page provides guidance on how to troubleshoot common issues that may arise 
 
 If you're facing an issue that's not listed here, you can easily report it on GitHub for resolution.
 
-[Click here to report a documentation issue related to installation](https://github.com/ethereum/execution-specs/issues/new?title=docs(bug):%20unable%20to%20install%20eest%20with%20error%20...&labels=scope:docs,type:bug&body=%3Ccopy-paste%20command%20that%20triggered%20the%20issue%20here%3E%0A%3Ccopy-paste%20output%20or%20attach%20screenshot%20here%3E)
+[Click here to report a documentation issue related to installation](https://github.com/ethereum/execution-specs/issues/new?title=Setting%20up%20execution-specs%20failed%20with%20error%20...&labels=A-doc,C-bug&body=%3Ccopy-paste%20command%20that%20triggered%20the%20issue%20here%3E%0A%3Ccopy-paste%20output%20or%20attach%20screenshot%20here%3E)
 
 Please include the following details in your report:
 

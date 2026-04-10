@@ -7,10 +7,11 @@ This document outlines the coding standards and practices used in the @ethereum/
 Code pushed to @ethereum/execution-specs must pass the CI checks. Run `just` to see all available recipes, grouped by category. The most common checks:
 
 ```console
-just static   # Run all static checks (lint, format, mypy, spellcheck, ...)
 just fix      # Auto-fix formatting and lint issues
+just static   # Run all static checks (lint, format, mypy, spellcheck, ...)
 ```
 
+<!--
 !!! important "Avoid CI surprises - Use pre-commit hooks!"
     **We strongly encourage all contributors to install and use pre-commit hooks!** This will run fast checks (lint, typecheck, spellcheck) automatically before each commit, helping you catch issues early and avoid frustrating CI failures after pushing your changes.
 
@@ -20,6 +21,7 @@ just fix      # Auto-fix formatting and lint issues
     ```
 
     This saves you time by catching formatting issues, type errors, and spelling mistakes before they reach CI.
+-->
 
 !!! tip "Lint & code formatting: Using `ruff` and VS Code to help autoformat and fix module imports"
 
