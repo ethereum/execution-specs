@@ -648,7 +648,7 @@ def test_ec_pairing(
             - mem_exp(new_bytes=len(calldata) + 32)
         )
 
-        if gas_for_loop < iteration_cost:
+        if gas_for_loop < (per_tx_variants + 1) * iteration_cost:
             break
         expected_opcode_count += per_tx_variants
 
