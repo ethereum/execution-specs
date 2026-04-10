@@ -21,7 +21,10 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     BlockException,
+    Environment,
+    Fork,
     Hash,
+    Header,
     Initcode,
     Op,
     Storage,
@@ -29,7 +32,6 @@ from execution_testing import (
     Withdrawal,
     compute_create_address,
 )
-from execution_testing.specs.blockchain import Header
 from execution_testing.test_types.block_access_list.modifiers import (
     append_account,
     append_change,
@@ -1323,6 +1325,231 @@ def test_bal_invalid_withdrawal_balance_value(
                 ).modify(
                     modify_balance(charlie, block_access_index=1, balance=999)
                 ),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+def test_bal_invalid_missing_coinbase(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Test that clients reject blocks where BAL is missing the
+    coinbase/fee recipient account.
+
+    Alice sends 100 wei to Bob with gas_price > base_fee so the
+    coinbase (charlie) receives a non-zero tip. BAL is corrupted
+    by removing charlie's entry entirely.
+    """
+    alice = pre.fund_eoa(amount=10**18)
+    bob = pre.fund_eoa(amount=0)
+    charlie = pre.fund_eoa(amount=0)
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        calldata=b"",
+        contract_creation=False,
+        access_list=[],
+    )
+    gas_price = 0xA
+
+    tx = Transaction(
+        sender=alice,
+        to=bob,
+        value=100,
+        gas_limit=intrinsic_gas + 1000,
+        gas_price=gas_price,
+    )
+
+    genesis_env = Environment(base_fee_per_gas=0x7)
+    base_fee_per_gas = fork.base_fee_per_gas_calculator()(
+        parent_base_fee_per_gas=int(genesis_env.base_fee_per_gas or 0),
+        parent_gas_used=0,
+        parent_gas_limit=genesis_env.gas_limit,
+    )
+    tip = (gas_price - base_fee_per_gas) * intrinsic_gas
+
+    blockchain_test(
+        pre=pre,
+        post={},
+        genesis_environment=genesis_env,
+        blocks=[
+            Block(
+                txs=[tx],
+                fee_recipient=charlie,
+                header_verify=Header(base_fee_per_gas=base_fee_per_gas),
+                exception=BlockException.INVALID_BAL_MISSING_ACCOUNT,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        alice: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                )
+                            ],
+                        ),
+                        bob: BalAccountExpectation(
+                            balance_changes=[
+                                BalBalanceChange(
+                                    block_access_index=1, post_balance=100
+                                )
+                            ],
+                        ),
+                        charlie: BalAccountExpectation(
+                            balance_changes=[
+                                BalBalanceChange(
+                                    block_access_index=1, post_balance=tip
+                                )
+                            ],
+                        ),
+                    }
+                ).modify(remove_accounts(charlie)),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+def test_bal_invalid_coinbase_balance_value(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Test that clients reject blocks where BAL contains an incorrect
+    balance value for the coinbase/fee recipient.
+
+    Same setup as test_bal_invalid_missing_coinbase but the coinbase
+    entry is present with a wrong balance (999 instead of the
+    actual tip).
+    """
+    alice = pre.fund_eoa(amount=10**18)
+    bob = pre.fund_eoa(amount=0)
+    charlie = pre.fund_eoa(amount=0)
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        calldata=b"",
+        contract_creation=False,
+        access_list=[],
+    )
+    gas_price = 0xA
+
+    tx = Transaction(
+        sender=alice,
+        to=bob,
+        value=100,
+        gas_limit=intrinsic_gas + 1000,
+        gas_price=gas_price,
+    )
+
+    genesis_env = Environment(base_fee_per_gas=0x7)
+    base_fee_per_gas = fork.base_fee_per_gas_calculator()(
+        parent_base_fee_per_gas=int(genesis_env.base_fee_per_gas or 0),
+        parent_gas_used=0,
+        parent_gas_limit=genesis_env.gas_limit,
+    )
+    tip = (gas_price - base_fee_per_gas) * intrinsic_gas
+
+    blockchain_test(
+        pre=pre,
+        post={},
+        genesis_environment=genesis_env,
+        blocks=[
+            Block(
+                txs=[tx],
+                fee_recipient=charlie,
+                header_verify=Header(base_fee_per_gas=base_fee_per_gas),
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        alice: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                )
+                            ],
+                        ),
+                        bob: BalAccountExpectation(
+                            balance_changes=[
+                                BalBalanceChange(
+                                    block_access_index=1, post_balance=100
+                                )
+                            ],
+                        ),
+                        charlie: BalAccountExpectation(
+                            balance_changes=[
+                                BalBalanceChange(
+                                    block_access_index=1, post_balance=tip
+                                )
+                            ],
+                        ),
+                    }
+                ).modify(
+                    modify_balance(charlie, block_access_index=1, balance=999)
+                ),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "has_withdrawal",
+    [
+        pytest.param(False, id="empty_block"),
+        pytest.param(True, id="withdrawal_only"),
+    ],
+)
+def test_bal_invalid_extraneous_coinbase(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    has_withdrawal: bool,
+) -> None:
+    """
+    Test that clients reject blocks where BAL contains a spurious
+    coinbase entry when the coinbase received no fees.
+
+    Coinbase is only included in BAL when it receives transaction tips.
+    In blocks with no transactions, the coinbase receives nothing —
+    even if withdrawals modify other accounts' balances.
+
+    - empty_block: No txs, no withdrawals. Only system contracts.
+    - withdrawal_only: No txs, one withdrawal to a different address.
+      Withdrawals don't pay fees, so coinbase is still untouched.
+    """
+    coinbase = pre.fund_eoa(amount=0)
+
+    withdrawals = None
+    post: dict = {}
+    if has_withdrawal:
+        recipient = pre.fund_eoa(amount=0)
+        withdrawals = [
+            Withdrawal(
+                index=0,
+                validator_index=0,
+                address=recipient,
+                amount=10,
+            )
+        ]
+        post[recipient] = None
+
+    blockchain_test(
+        pre=pre,
+        post=post,
+        blocks=[
+            Block(
+                txs=[],
+                fee_recipient=coinbase,
+                withdrawals=withdrawals,
+                exception=BlockException.INVALID_BAL_EXTRA_ACCOUNT,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={coinbase: None}
+                ).modify(append_account(BalAccountChange(address=coinbase))),
             )
         ],
     )
