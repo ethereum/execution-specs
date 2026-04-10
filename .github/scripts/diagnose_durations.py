@@ -46,6 +46,15 @@ def main() -> None:
     for k in keys[-3:]:
         print(f"    {k}: {data[k]:.2f}s")
 
+    # Show what pytest-split would use as the default durations path
+    import os
+
+    default_path = os.path.join(os.getcwd(), ".test_durations")
+    abs_path = path.resolve()
+    print(f"  Absolute path: {abs_path}")
+    print(f"  pytest-split default: {default_path}")
+    print(f"  File size: {abs_path.stat().st_size} bytes")
+
 
 if __name__ == "__main__":
     main()
