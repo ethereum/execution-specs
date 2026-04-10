@@ -1,11 +1,19 @@
 """Benchmark RIPEMD-160 precompile."""
 
+import math
+import random
+
 import pytest
 from execution_testing import (
+    Alloc,
     BenchmarkTestFiller,
+    Block,
+    Bytes,
     Fork,
     JumpLoopGenerator,
     Op,
+    Transaction,
+    WhileGas,
 )
 
 from ..helpers import Precompile, calculate_optimal_input_length
@@ -59,4 +67,96 @@ def test_ripemd160_fixed_size(
         code_generator=JumpLoopGenerator(
             setup=Op.CODECOPY(0, 0, size), attack_block=attack_block
         ),
+    )
+
+
+@pytest.mark.repricing
+@pytest.mark.parametrize("size", [32, 256, 1024])
+def test_ripemd160_uncachable(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_benchmark_value: int,
+    tx_gas_limit: int,
+    size: int,
+) -> None:
+    """Benchmark RIPEMD-160 with unique input per call."""
+    gsc = fork.gas_costs()
+    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
+
+    precompile_cost = (
+        # static cost
+        gsc.GAS_PRECOMPILE_RIPEMD160_BASE
+        # dynamic cost
+        + math.ceil(size / 32) * gsc.GAS_PRECOMPILE_RIPEMD160_PER_WORD
+    )
+
+    attack_block = Op.POP(
+        Op.STATICCALL(
+            gas=Op.GAS,
+            address=0x03,
+            args_size=size,
+            ret_size=0x20,
+            # gas accounting
+            address_warm=True,
+            inner_call_cost=precompile_cost,
+        ),
+    )
+
+    setup = Op.CALLDATACOPY(
+        0,
+        0,
+        Op.CALLDATASIZE,
+        # gas accounting
+        data_size=size,
+        old_memory_size=0,
+        new_memory_size=size,
+    )
+
+    setup_cost = setup.gas_cost(fork)
+
+    loop = WhileGas(
+        body=attack_block,
+        fork=fork,
+        extra_gas=precompile_cost,
+    )
+    code = setup + loop
+    attack_contract_address = pre.deploy_contract(code=code)
+
+    iteration_cost = loop.gas_cost(fork)
+
+    txs: list[Transaction] = []
+    remaining_gas = gas_benchmark_value
+    rng = random.Random(42)
+    expected_opcode_count = 0
+
+    while remaining_gas > 0:
+        per_tx_gas = min(tx_gas_limit, remaining_gas)
+        calldata = Bytes(rng.randbytes(size))
+
+        intrinsic = intrinsic_gas_calculator(
+            calldata=calldata,
+            return_cost_deducted_prior_execution=True,
+        )
+        gas_for_loop = per_tx_gas - intrinsic - setup_cost
+        if gas_for_loop < iteration_cost:
+            break
+        expected_opcode_count += gas_for_loop // iteration_cost
+
+        txs.append(
+            Transaction(
+                to=attack_contract_address,
+                sender=pre.fund_eoa(),
+                gas_limit=per_tx_gas,
+                data=calldata,
+            )
+        )
+        remaining_gas -= per_tx_gas
+
+    benchmark_test(
+        target_opcode=Precompile.RIPEMD160,
+        skip_gas_used_validation=True,
+        expected_receipt_status=1,
+        blocks=[Block(txs=txs)],
+        expected_opcode_count=expected_opcode_count,
     )

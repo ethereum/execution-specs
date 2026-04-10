@@ -1,14 +1,24 @@
 """Benchmark MODEXP precompile."""
 
+import random
+
 import pytest
 from _pytest.mark import ParameterSet
 from execution_testing import (
+    Alloc,
     BenchmarkTestFiller,
+    Block,
+    Bytes,
+    Fork,
     JumpLoopGenerator,
     Op,
+    Transaction,
+    WhileGas,
 )
+from execution_testing.forks import Osaka
 
 from tests.byzantium.eip198_modexp_precompile.helpers import ModExpInput
+from tests.osaka.eip7883_modexp_gas_increase.spec import Spec, Spec7883
 
 from ..helpers import Precompile
 
@@ -416,4 +426,132 @@ def test_modexp(
             attack_block=attack_block,
             tx_kwargs={"data": bytes(mod_exp_input).rstrip(b"\x00")},
         ),
+    )
+
+
+@pytest.mark.repricing
+@pytest.mark.parametrize(
+    "mod_exp_input",
+    [
+        pytest.param(
+            ModExpInput(
+                base=32 * b"\xff",
+                exponent=32 * b"\xff",
+                modulus=31 * b"\xff" + b"\x01",
+            ),
+            id="mod_odd_32b_exp_256",
+        ),
+        pytest.param(
+            ModExpInput(
+                base=64 * b"\xff",
+                exponent=64 * b"\xff",
+                modulus=63 * b"\xff" + b"\x01",
+            ),
+            id="mod_odd_64b_exp_512",
+        ),
+        pytest.param(
+            ModExpInput(
+                base=128 * b"\xff",
+                exponent=128 * b"\xff",
+                modulus=127 * b"\xff" + b"\x01",
+            ),
+            id="mod_odd_128b_exp_1024",
+        ),
+    ],
+)
+def test_modexp_uncachable(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_benchmark_value: int,
+    tx_gas_limit: int,
+    mod_exp_input: ModExpInput,
+) -> None:
+    """Benchmark MODEXP with unique input per call."""
+    base_length = len(mod_exp_input.base)
+    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
+
+    base_calldata = bytes(mod_exp_input).rstrip(b"\x00")
+    calldata_len = len(base_calldata)
+    if fork >= Osaka:
+        precompile_cost = Spec7883.calculate_gas_cost(mod_exp_input)
+    else:
+        precompile_cost = Spec.calculate_gas_cost(mod_exp_input)
+
+    # bsize: data[0:31] 32 bytes
+    # esize: data[32:64] 32 bytes
+    # msize: data[64:96] 32 bytes
+    # B: data[96:96+blength] blength bytes
+    # E: data[96+blength:96+blength+elength] elength bytes
+    # M: data[96+blength+elength:96+blength+elength+msize] msize bytes
+
+    attack_block = Op.POP(
+        Op.STATICCALL(
+            gas=Op.GAS,
+            address=0x05,
+            args_size=Op.CALLDATASIZE,
+            ret_offset=96,
+            ret_size=base_length,
+            # gas accounting
+            address_warm=True,
+            inner_call_cost=precompile_cost,
+        ),
+    )
+    setup = Op.CALLDATACOPY(
+        0,
+        0,
+        Op.CALLDATASIZE,
+        # gas accounting
+        data_size=calldata_len,
+        old_memory_size=0,
+        new_memory_size=calldata_len,
+    )
+    setup_cost = setup.gas_cost(fork)
+
+    loop = WhileGas(
+        body=attack_block,
+        fork=fork,
+    )
+    code = setup + loop
+    attack_contract_address = pre.deploy_contract(code=code)
+
+    txs: list[Transaction] = []
+    remaining_gas = gas_benchmark_value
+    rng = random.Random(42)
+    expected_opcode_count = 0
+
+    while remaining_gas > 0:
+        per_tx_gas = min(tx_gas_limit, remaining_gas)
+        new_base = rng.randbytes(base_length)
+        calldata = Bytes(
+            base_calldata[:96]  # bsize, esize, msize
+            + new_base  # B
+            + base_calldata[96 + base_length :]  # E, M
+        )
+
+        intrinsic = intrinsic_gas_calculator(
+            calldata=calldata,
+            return_cost_deducted_prior_execution=True,
+        )
+        gas_for_loop = per_tx_gas - intrinsic - setup_cost
+        if gas_for_loop < loop.gas_cost(fork):
+            break
+        expected_opcode_count += gas_for_loop // loop.gas_cost(fork)
+
+        txs.append(
+            Transaction(
+                to=attack_contract_address,
+                sender=pre.fund_eoa(),
+                gas_limit=per_tx_gas,
+                data=calldata,
+            )
+        )
+        remaining_gas -= per_tx_gas
+
+    benchmark_test(
+        target_opcode=Precompile.MODEXP,
+        skip_gas_used_validation=True,
+        expected_receipt_status=1,
+        blocks=[Block(txs=txs)],
+        expected_opcode_count=expected_opcode_count,
     )
