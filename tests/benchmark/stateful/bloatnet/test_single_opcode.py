@@ -288,6 +288,7 @@ def test_sload_bloated_prefetch_miss(
     bench_bal = BlockAccessListExpectation(
         account_expectations={
             authority: BalAccountExpectation(
+                storage_reads=[base_offset],
                 storage_changes=[
                     BalStorageSlot(
                         slot=0,
