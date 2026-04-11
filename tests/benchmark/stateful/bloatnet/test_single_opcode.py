@@ -18,8 +18,12 @@ from execution_testing import (
     Address,
     Alloc,
     AuthorizationTuple,
+    BalAccountExpectation,
+    BalNonceChange,
+    BalStorageSlot,
     BenchmarkTestFiller,
     Block,
+    BlockAccessListExpectation,
     Bytecode,
     CreatePreimageLayout,
     Fork,
@@ -58,28 +62,28 @@ START_SLOT = (
 )
 
 
-def delegate_and_set_slot0(
+def delegate_with_calldata(
     pre: Alloc,
     authority: EOA,
-    setter_address: Address,
-    slot_0_value: Hash,
+    address: Address,
+    calldata: Hash,
 ) -> Transaction:
     """
-    Create a tx that delegates the authority to the setter and calls
-    it with slot_0_value as calldata, writing it into slot 0.
+    Create a tx that delegates the authority and calls it with calldata.
 
+    The delegated code determines what happens with the calldata.
     The authority nonce is incremented in-place.
     """
     tx = Transaction(
         gas_limit=100_000,
         to=authority,
         value=0,
-        data=slot_0_value,
+        data=calldata,
         sender=pre.fund_eoa(),
         authorization_list=[
             AuthorizationTuple(
                 chain_id=0,
-                address=setter_address,
+                address=address,
                 nonce=authority.nonce,
                 signer=authority,
             ),
@@ -111,10 +115,10 @@ def run_bloated_eoa_benchmark(
     setter_address = pre.deploy_contract(code=Op.SSTORE(0, Op.CALLDATALOAD(0)))
     runtime_address = pre.deploy_contract(code=runtime_code)
 
-    init_tx = delegate_and_set_slot0(
+    init_tx = delegate_with_calldata(
         pre, authority, setter_address, slot_0_value
     )
-    runtime_tx = delegate_and_set_slot0(
+    runtime_tx = delegate_with_calldata(
         pre, authority, runtime_address, Hash(0)
     )
 
@@ -228,7 +232,7 @@ def test_sload_bloated_prefetch_miss(
     runtime_address = pre.deploy_contract(code=runtime_code)
 
     # Setup: delegate authority to the runtime contract.
-    delegation_tx = delegate_and_set_slot0(
+    delegation_tx = delegate_with_calldata(
         pre, authority, runtime_address, Hash(0)
     )
 
@@ -281,7 +285,33 @@ def test_sload_bloated_prefetch_miss(
         gas_available -= tx_gas
         tx_index += 1
 
-    blocks.append(Block(txs=txs))
+    bench_bal = BlockAccessListExpectation(
+        account_expectations={
+            authority: BalAccountExpectation(
+                storage_changes=[
+                    BalStorageSlot(
+                        slot=0,
+                        validate_any_change=True,
+                    ),
+                ],
+            ),
+            sender: BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(
+                        block_access_index=i + 1,
+                        post_nonce=i + 1,
+                    )
+                    for i in range(len(txs))
+                ],
+            ),
+        }
+    )
+    blocks.append(
+        Block(
+            txs=txs,
+            expected_block_access_list=bench_bal,
+        )
+    )
 
     benchmark_test(
         pre=pre,
