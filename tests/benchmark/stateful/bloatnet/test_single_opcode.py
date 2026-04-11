@@ -189,6 +189,110 @@ def test_sload_bloated(
 
 @pytest.mark.repricing
 @pytest.mark.stub_parametrize("token_name", "bloated_eoa_")
+@pytest.mark.parametrize("existing_slots", [False, True])
+def test_sload_bloated_prefetch_miss(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_benchmark_value: int,
+    tx_gas_limit: int,
+    token_name: str,
+    existing_slots: bool,
+) -> None:
+    """
+    Benchmark SLOAD with calldata-driven offsets to defeat prefetching.
+
+    A small first transaction writes an initial offset into the
+    authority's slot 0 via calldata. Subsequent max-gas transactions
+    each read the previous offset from slot 0, SLOAD sequentially
+    from that offset, and overwrite slot 0 with a new offset from
+    their own calldata. Because each transaction's SLOAD range
+    depends on state written by its predecessor, a prefetcher that
+    analyzes transactions before execution will pre-warm incorrect
+    storage slots.
+    """
+    # Runtime: read old offset from slot 0, write new offset from
+    # calldata to slot 0, then SLOAD sequentially from old offset.
+    runtime_code = (
+        Op.SLOAD(Op.PUSH0)
+        + Op.CALLDATALOAD(0)
+        + Op.PUSH0
+        + Op.SSTORE
+        + While(
+            body=(Op.DUP1 + Op.SLOAD + Op.POP + Op.PUSH1(1) + Op.ADD),
+            condition=Op.GT(Op.GAS, 0xFFFF),
+        )
+    )
+
+    authority = pre.stub_eoa(token_name)
+    runtime_address = pre.deploy_contract(code=runtime_code)
+
+    # Setup: delegate authority to the runtime contract.
+    delegation_tx = delegate_and_set_slot0(
+        pre, authority, runtime_address, Hash(0)
+    )
+
+    blocks: list[Block] = [Block(txs=[delegation_tx])]
+
+    # Offset spacing: upper bound on SLOADs per tx ensures each
+    # transaction reads a completely disjoint slot range.
+    sload_spacing = tx_gas_limit // 2100
+
+    # The base offset must be at least sload_spacing away from the
+    # pre-block slot 0 value (0) so the prefetcher's predicted
+    # SLOAD range is completely disjoint from the actual range.
+    base_offset = sload_spacing if existing_slots else START_SLOT
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        calldata=b"\xff" * 32,
+    )
+
+    gas_available = gas_benchmark_value
+    sender = pre.fund_eoa()
+    txs: list[Transaction] = []
+
+    # First transaction: minimal gas, only writes the initial
+    # offset. Gas limit ensures remaining gas after the SLOAD +
+    # SSTORE setup falls below the 0xFFFF loop threshold.
+    first_tx_gas = min(gas_available, intrinsic_gas + 30_000)
+    txs.append(
+        Transaction(
+            gas_limit=first_tx_gas,
+            to=authority,
+            data=Hash(base_offset),
+            sender=sender,
+        )
+    )
+    gas_available -= first_tx_gas
+
+    # Subsequent transactions: max gas, each shifts the offset
+    # so the next transaction SLOADs from a different range.
+    tx_index = 1
+    while gas_available >= intrinsic_gas:
+        tx_gas = min(gas_available, tx_gas_limit)
+        new_offset = base_offset + tx_index * sload_spacing
+        txs.append(
+            Transaction(
+                gas_limit=tx_gas,
+                to=authority,
+                data=Hash(new_offset),
+                sender=sender,
+            )
+        )
+        gas_available -= tx_gas
+        tx_index += 1
+
+    blocks.append(Block(txs=txs))
+
+    benchmark_test(
+        pre=pre,
+        blocks=blocks,
+        skip_gas_used_validation=True,
+        expected_receipt_status=True,
+    )
+
+
+@pytest.mark.repricing
+@pytest.mark.stub_parametrize("token_name", "bloated_eoa_")
 @pytest.mark.parametrize("write_new_value", [False, True])
 @pytest.mark.parametrize("existing_slots", [True, False])
 def test_sstore_bloated(
