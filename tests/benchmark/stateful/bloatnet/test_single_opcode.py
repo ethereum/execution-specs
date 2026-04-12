@@ -422,12 +422,13 @@ def test_sload_bloated_multi_contract(
 
     # Pre-load slot 0 with the starting offset. For existing_slots,
     # also fill the slot range the loop will read so SLOADs land on
-    # populated entries rather than empty slots.
+    # populated entries rather than empty slots. A fresh Storage
+    # instance is built per deployment (below) so that every target
+    # gets an independent root dict, not an alias of the same one.
     storage_data: dict[int, int] = {0: base_offset}
     if existing_slots:
         for i in range(base_offset, base_offset + sloads_per_tx):
             storage_data[i] = i
-    contract_storage = Storage(storage_data)  # type: ignore
 
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
     # Minimum per-tx gas ensuring the SLOAD loop runs at least one
@@ -456,7 +457,7 @@ def test_sload_bloated_multi_contract(
         tx_gas = min(gas_available, tx_gas_limit)
         target = pre.deploy_contract(
             code=runtime_code,
-            storage=contract_storage,
+            storage=Storage(storage_data),  # type: ignore
         )
         targets.append(target)
         txs.append(
