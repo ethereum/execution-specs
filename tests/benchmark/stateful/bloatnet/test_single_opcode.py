@@ -208,11 +208,12 @@ def test_sload_bloated_prefetch_miss(
 
     A small first transaction writes an initial offset into the
     authority's slot 0 via calldata. Subsequent max-gas transactions
-    each read the previous offset from slot 0, SLOAD sequentially
-    from that offset, and overwrite slot 0 with a new offset from
-    their own calldata. Because each transaction's SLOAD range
-    depends on state written by its predecessor, a prefetcher that
-    analyzes transactions before execution will pre-warm incorrect
+    each read the previous offset from slot 0, immediately overwrite
+    slot 0 with a new offset from their own calldata, then SLOAD
+    sequentially from the previous offset. Because each transaction's
+    SLOAD range depends on state written by its predecessor, a
+    prefetcher that predicts SLOAD targets from pre-block state
+    without simulating intra-block writes will pre-warm incorrect
     storage slots.
     """
     # Runtime: read old offset from slot 0, write new offset from
