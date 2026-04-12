@@ -193,6 +193,7 @@ def test_sload_bloated(
 
 @pytest.mark.repricing
 @pytest.mark.stub_parametrize("token_name", "bloated_eoa_")
+@pytest.mark.parametrize("distinct_senders", [False, True])
 @pytest.mark.parametrize("existing_slots", [False, True])
 def test_sload_bloated_prefetch_miss(
     benchmark_test: BenchmarkTestFiller,
@@ -202,6 +203,7 @@ def test_sload_bloated_prefetch_miss(
     tx_gas_limit: int,
     token_name: str,
     existing_slots: bool,
+    distinct_senders: bool,
 ) -> None:
     """
     Benchmark SLOAD with calldata-driven offsets to defeat prefetching.
@@ -214,9 +216,13 @@ def test_sload_bloated_prefetch_miss(
     SLOAD range depends on state written by its predecessor, a
     prefetcher that predicts SLOAD targets from pre-block state
     without simulating intra-block writes will pre-warm incorrect
-    storage slots. Each transaction uses a distinct sender so that
-    per-sender prewarm serialization also restarts from pre-block
-    state.
+    storage slots.
+
+    When ``distinct_senders`` is True every transaction uses a fresh
+    sender. This additionally defeats per-sender prewarm
+    serialization (e.g. Nethermind) that groups txs by sender and
+    runs them sequentially to propagate state changes — forcing
+    every tx's prewarm scope to restart from pre-block state.
     """
     # Runtime: read old offset from slot 0, write new offset from
     # calldata to slot 0, then SLOAD sequentially from old offset.
@@ -253,40 +259,45 @@ def test_sload_bloated_prefetch_miss(
         calldata=b"\xff" * 32,
     )
 
+    # For distinct_senders, append a fresh EOA per tx. Otherwise
+    # pre-seed the list with a single shared sender reused by all.
+    senders: list[EOA] = [] if distinct_senders else [pre.fund_eoa()]
+
+    def next_sender() -> EOA:
+        if distinct_senders:
+            senders.append(pre.fund_eoa())
+            return senders[-1]
+        return senders[0]
+
     gas_available = gas_benchmark_value
-    senders: list[EOA] = []
     txs: list[Transaction] = []
 
     # First transaction: minimal gas, only writes the initial
     # offset. Gas limit ensures remaining gas after the SLOAD +
     # SSTORE setup falls below the 0xFFFF loop threshold.
     first_tx_gas = min(gas_available, intrinsic_gas + 30_000)
-    senders.append(pre.fund_eoa())
     txs.append(
         Transaction(
             gas_limit=first_tx_gas,
             to=authority,
             data=Hash(base_offset),
-            sender=senders[-1],
+            sender=next_sender(),
         )
     )
     gas_available -= first_tx_gas
 
-    # Subsequent transactions: max gas, each shifts the offset so
-    # the next tx SLOADs from a different range. Distinct senders
-    # defeat per-sender prefetcher optimizations (e.g. Nethermind)
-    # that would otherwise propagate slot 0 updates within a sender.
+    # Subsequent transactions: max gas, each shifts the offset
+    # so the next transaction SLOADs from a different range.
     tx_index = 1
     while gas_available >= intrinsic_gas:
         tx_gas = min(gas_available, tx_gas_limit)
         new_offset = base_offset + tx_index * sload_spacing
-        senders.append(pre.fund_eoa())
         txs.append(
             Transaction(
                 gas_limit=tx_gas,
                 to=authority,
                 data=Hash(new_offset),
-                sender=senders[-1],
+                sender=next_sender(),
             )
         )
         gas_available -= tx_gas
@@ -303,13 +314,24 @@ def test_sload_bloated_prefetch_miss(
             ],
         ),
     }
-    for i, s in enumerate(senders):
-        expectations[s] = BalAccountExpectation(
+    if distinct_senders:
+        for i, s in enumerate(senders):
+            expectations[s] = BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(
+                        block_access_index=i + 1,
+                        post_nonce=1,
+                    ),
+                ],
+            )
+    else:
+        expectations[senders[0]] = BalAccountExpectation(
             nonce_changes=[
                 BalNonceChange(
                     block_access_index=i + 1,
-                    post_nonce=1,
-                ),
+                    post_nonce=i + 1,
+                )
+                for i in range(len(txs))
             ],
         )
     blocks.append(
@@ -320,6 +342,181 @@ def test_sload_bloated_prefetch_miss(
             ),
         )
     )
+
+    benchmark_test(
+        pre=pre,
+        blocks=blocks,
+        skip_gas_used_validation=True,
+        expected_receipt_status=True,
+    )
+
+
+@pytest.mark.repricing
+@pytest.mark.parametrize("distinct_senders", [False, True])
+@pytest.mark.parametrize("existing_slots", [False, True])
+def test_sload_bloated_multi_contract(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_benchmark_value: int,
+    tx_gas_limit: int,
+    existing_slots: bool,
+    distinct_senders: bool,
+) -> None:
+    """
+    Benchmark SLOAD across a distinct contract per transaction.
+
+    Each transaction calls a freshly-deployed contract whose slot 0
+    is pre-loaded with the starting offset; the contract then runs a
+    SLOAD loop over sequential slots until gas runs low. Unlike
+    test_sload_bloated_prefetch_miss which hammers one account's
+    storage trie via an EIP-7702 delegated EOA, every transaction
+    here opens a different storage trie, stressing cross-account
+    state access and state-trie breadth in a single block.
+
+    Every target contract first CALLs a shared offset_holder
+    contract whose slot 0 is read, incremented, and written back.
+    This mirrors the first test's "same-contract slot 0" dependency
+    pattern via cross-contract CALL: every transaction forms a
+    read-after-write edge on offset_holder's slot 0, preventing
+    parallel execution.
+
+    When ``distinct_senders`` is True every transaction uses a fresh
+    sender. This additionally exercises per-sender prewarm
+    serialization (e.g. Nethermind) differently than the shared-
+    sender case; we run both so clients can be measured in both
+    regimes.
+    """
+    # Shared offset_holder: reads, increments, and writes its own
+    # slot 0. Every target CALLs this to create an inter-tx RAW
+    # dependency chain on a single shared storage slot.
+    offset_holder = pre.deploy_contract(
+        code=Op.SSTORE(0, Op.ADD(Op.SLOAD(0), 1)),
+    )
+
+    # Target runtime: CALL offset_holder (for the dependency), then
+    # run the same SLOAD loop as test_sload_bloated in its own
+    # storage. Final counter is written back to slot 0.
+    runtime_code = (
+        Op.POP(
+            Op.CALL(
+                address=offset_holder,
+                value=0,
+                args_offset=0,
+                args_size=0,
+                ret_offset=0,
+                ret_size=0,
+            )
+        )
+        + Op.SLOAD(Op.PUSH0)
+        + While(
+            body=(Op.DUP1 + Op.SLOAD + Op.POP + Op.PUSH1(1) + Op.ADD),
+            condition=Op.GT(Op.GAS, 0xFFFF),
+        )
+        + Op.PUSH0
+        + Op.SSTORE
+    )
+
+    base_offset = 1 if existing_slots else START_SLOT
+    sloads_per_tx = tx_gas_limit // 2100
+
+    # Pre-load slot 0 with the starting offset. For existing_slots,
+    # also fill the slot range the loop will read so SLOADs land on
+    # populated entries rather than empty slots.
+    storage_data: dict[int, int] = {0: base_offset}
+    if existing_slots:
+        for i in range(base_offset, base_offset + sloads_per_tx):
+            storage_data[i] = i
+    contract_storage = Storage(storage_data)  # type: ignore
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
+    # Minimum per-tx gas ensuring the SLOAD loop runs at least one
+    # iteration so every target satisfies storage_reads=[base_offset]:
+    # intrinsic + CALL + offset_holder + setup + 0xFFFF loop threshold
+    # + one iteration + final SSTORE, with buffer.
+    min_tx_gas = intrinsic_gas + 130_000
+
+    # For distinct_senders, append a fresh EOA per tx. Otherwise
+    # pre-seed the list with a single shared sender reused by all.
+    senders: list[EOA] = [] if distinct_senders else [pre.fund_eoa()]
+
+    def next_sender() -> EOA:
+        if distinct_senders:
+            senders.append(pre.fund_eoa())
+            return senders[-1]
+        return senders[0]
+
+    gas_available = gas_benchmark_value
+    targets: list[Address] = []
+    txs: list[Transaction] = []
+
+    # Each tx targets a freshly-deployed contract with identical code
+    # and storage layout.
+    while gas_available >= min_tx_gas:
+        tx_gas = min(gas_available, tx_gas_limit)
+        target = pre.deploy_contract(
+            code=runtime_code,
+            storage=contract_storage,
+        )
+        targets.append(target)
+        txs.append(
+            Transaction(
+                gas_limit=tx_gas,
+                to=target,
+                sender=next_sender(),
+            )
+        )
+        gas_available -= tx_gas
+
+    expectations: dict[Address, BalAccountExpectation] = {
+        offset_holder: BalAccountExpectation(
+            storage_changes=[
+                BalStorageSlot(
+                    slot=0,
+                    validate_any_change=True,
+                ),
+            ],
+        ),
+    }
+    for t in targets:
+        expectations[t] = BalAccountExpectation(
+            storage_reads=[base_offset],
+            storage_changes=[
+                BalStorageSlot(
+                    slot=0,
+                    validate_any_change=True,
+                ),
+            ],
+        )
+    if distinct_senders:
+        for i, s in enumerate(senders):
+            expectations[s] = BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(
+                        block_access_index=i + 1,
+                        post_nonce=1,
+                    ),
+                ],
+            )
+    else:
+        expectations[senders[0]] = BalAccountExpectation(
+            nonce_changes=[
+                BalNonceChange(
+                    block_access_index=i + 1,
+                    post_nonce=i + 1,
+                )
+                for i in range(len(txs))
+            ],
+        )
+
+    blocks = [
+        Block(
+            txs=txs,
+            expected_block_access_list=BlockAccessListExpectation(
+                account_expectations=expectations,
+            ),
+        )
+    ]
 
     benchmark_test(
         pre=pre,
