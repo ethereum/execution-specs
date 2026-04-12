@@ -214,7 +214,9 @@ def test_sload_bloated_prefetch_miss(
     SLOAD range depends on state written by its predecessor, a
     prefetcher that predicts SLOAD targets from pre-block state
     without simulating intra-block writes will pre-warm incorrect
-    storage slots.
+    storage slots. Each transaction uses a distinct sender so that
+    per-sender prewarm serialization also restarts from pre-block
+    state.
     """
     # Runtime: read old offset from slot 0, write new offset from
     # calldata to slot 0, then SLOAD sequentially from old offset.
@@ -252,66 +254,70 @@ def test_sload_bloated_prefetch_miss(
     )
 
     gas_available = gas_benchmark_value
-    sender = pre.fund_eoa()
+    senders: list[EOA] = []
     txs: list[Transaction] = []
 
     # First transaction: minimal gas, only writes the initial
     # offset. Gas limit ensures remaining gas after the SLOAD +
     # SSTORE setup falls below the 0xFFFF loop threshold.
     first_tx_gas = min(gas_available, intrinsic_gas + 30_000)
+    senders.append(pre.fund_eoa())
     txs.append(
         Transaction(
             gas_limit=first_tx_gas,
             to=authority,
             data=Hash(base_offset),
-            sender=sender,
+            sender=senders[-1],
         )
     )
     gas_available -= first_tx_gas
 
-    # Subsequent transactions: max gas, each shifts the offset
-    # so the next transaction SLOADs from a different range.
+    # Subsequent transactions: max gas, each shifts the offset so
+    # the next tx SLOADs from a different range. Distinct senders
+    # defeat per-sender prefetcher optimizations (e.g. Nethermind)
+    # that would otherwise propagate slot 0 updates within a sender.
     tx_index = 1
     while gas_available >= intrinsic_gas:
         tx_gas = min(gas_available, tx_gas_limit)
         new_offset = base_offset + tx_index * sload_spacing
+        senders.append(pre.fund_eoa())
         txs.append(
             Transaction(
                 gas_limit=tx_gas,
                 to=authority,
                 data=Hash(new_offset),
-                sender=sender,
+                sender=senders[-1],
             )
         )
         gas_available -= tx_gas
         tx_index += 1
 
-    bench_bal = BlockAccessListExpectation(
-        account_expectations={
-            authority: BalAccountExpectation(
-                storage_reads=[base_offset],
-                storage_changes=[
-                    BalStorageSlot(
-                        slot=0,
-                        validate_any_change=True,
-                    ),
-                ],
-            ),
-            sender: BalAccountExpectation(
-                nonce_changes=[
-                    BalNonceChange(
-                        block_access_index=i + 1,
-                        post_nonce=i + 1,
-                    )
-                    for i in range(len(txs))
-                ],
-            ),
-        }
-    )
+    expectations: dict[Address, BalAccountExpectation] = {
+        authority: BalAccountExpectation(
+            storage_reads=[base_offset],
+            storage_changes=[
+                BalStorageSlot(
+                    slot=0,
+                    validate_any_change=True,
+                ),
+            ],
+        ),
+    }
+    for i, s in enumerate(senders):
+        expectations[s] = BalAccountExpectation(
+            nonce_changes=[
+                BalNonceChange(
+                    block_access_index=i + 1,
+                    post_nonce=1,
+                ),
+            ],
+        )
     blocks.append(
         Block(
             txs=txs,
-            expected_block_access_list=bench_bal,
+            expected_block_access_list=BlockAccessListExpectation(
+                account_expectations=expectations,
+            ),
         )
     )
 
