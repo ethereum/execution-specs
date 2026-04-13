@@ -26,11 +26,10 @@ from . import Evm
 from .exceptions import OutOfGasError
 
 
+# These values may be patched at runtime by a future gas repricing utility
 class GasCosts:
     """
     Constant gas values for the EVM.
-
-    These values may be patched at runtime by a future gas repricing utility
     """
 
     # Tiers
