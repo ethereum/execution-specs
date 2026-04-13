@@ -1,52 +1,61 @@
 # Verifying Changes
 
-This page covers how to verify your changes before submitting a PR.
+**TL;DR:** Run `just static` before every PR, preferably before every commit. Optionally, run the extra checks from the table below that match what you changed.
 
-## Additional Dependencies for `markdownlint`
+## Before You Open a PR
 
-We use `markdownlint-cli2` to lint documentation markdown files, this is an external (non-Python) packages, that must be installed separately.
+Run `just` to see all available recipes grouped by category. The checks that CI runs are defined in [`.github/workflows/test.yaml`](https://github.com/ethereum/execution-specs/blob/master/.github/workflows/test.yaml) and [`.github/workflows/benchmark.yaml`](https://github.com/ethereum/execution-specs/blob/master/.github/workflows/benchmark.yaml); these files are the source of truth.
+
+Some CI jobs are slow. Only run the checks relevant to your change.
+
+| Change type                                       | Run                                                                    | Comment                                                                                                |
+| ------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Any PR (baseline)                                 | `just static`                                                          | Lint, format, mypy, spellcheck, import isolation, workflow lint.                                       |
+| Added or modified tests                           | `just fill tests/path/to/new/tests`                                    | See [Filling Tests](../filling_tests/index.md).                                                        |
+| Framework changes (`packages/testing/`)           | `just test-tests`                                                      | Framework unit tests. Mirrors the `test-tests` CI job.                                                 |
+| Benchmark framework changes                       | `just test-tests-bench`, `just bench-gas`, `just bench-opcode`, `just bench-opcode-config` | Benchmark unit tests and sanity checks. Mirrors the benchmark CI workflow.                             |
+| Markdown touched                                  | `just lint-md`                                                         | Requires `markdownlint-cli2`; see [Linting Markdown](#linting-markdown).                               |
+| Docs touched                                      | `just docs` or `just docs-fast`                                        | `docs-fast` skips the Test Case Reference section for faster iteration.                                |
+
+## `just fix` and `just static`
+
+`just static` is the baseline check for every PR. It runs spellcheck, lint, format check, mypy, EELS import isolation, and workflow linting.
+
+`just fix` auto-applies formatting and the safe subset of `ruff` lint fixes. Run it first to clear anything mechanically fixable, then run `just static` to see what's left.
+
+```console
+just fix      # Auto-fix formatting and safe ruff lint rules.
+just static   # Run all static checks.
+```
+
+## Filling New or Changed Tests
+
+For PRs that add or modify tests, confirm the new or changed tests fill successfully:
+
+```console
+just fill tests/path/to/new/tests
+```
+
+Pass `--from <Fork>` and `--until <Fork>` to limit the fork range, mirroring the CI matrix. See [Filling Tests](../filling_tests/index.md) for the full `fill` reference.
+
+## Linting Markdown
+
+For PRs that touch markdown, run:
+
+```console
+just lint-md
+```
+
+### Additional Dependencies for `markdownlint`
+
+We use `markdownlint-cli2` to lint documentation markdown files. This is an external (non-Python) package that must be installed separately:
 
 ```console
 sudo apt install nodejs
-sudo npm install -g markdownlint-cli2@0.17.2  # the version used in ci
+sudo npm install -g markdownlint-cli2@0.17.2  # The version used in CI.
 ```
 
-Or use a specific node version using `nvm`.
-
-## Code and CI Requirements
-
-Code pushed to @ethereum/execution-specs must pass the CI checks. Run `just` to see all available recipes, grouped by category. The most common checks:
-
-```console
-just fix      # Auto-fix formatting and lint issues
-just static   # Run all static checks (lint, format, mypy, spellcheck, ...)
-```
-
-!!! tip "Lint & code formatting: Using `ruff` to help autoformat and fix module imports"
-
-    On the command-line, solve fixable issues with:
-
-    ```console
-    just fix
-    ```
-
-!!! hint "Typechecking"
-
-    Adding the correct typehints can sometimes be tricky and there are exceptions that require manually disabling typechecking on a per-line basis. Please reach out to the maintainers if you need help, either [directly](../getting_started/getting_help.md) or in a PR.
-
-## Building and Verifying Docs Locally
-
-Build the full HTML documentation:
-
-```console
-just docs
-```
-
-For faster iteration use (skips the "Test Case Reference" section):
-
-```console
-just docs-fast
-```
+Or use a specific node version via `nvm`.
 
 ## Verifying Test Fixture Changes
 
