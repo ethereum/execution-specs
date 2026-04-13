@@ -22,18 +22,6 @@ just fix      # Auto-fix formatting and lint issues
 just static   # Run all static checks (lint, format, mypy, spellcheck, ...)
 ```
 
-<!--
-!!! important "Avoid CI surprises - Use pre-commit hooks!"
-    **We strongly encourage all contributors to install and use pre-commit hooks!** This will run fast checks (lint, typecheck, spellcheck) automatically before each commit, helping you catch issues early and avoid frustrating CI failures after pushing your changes.
-
-    Install with one simple command:
-    ```console
-    uvx pre-commit install
-    ```
-
-    This saves you time by catching formatting issues, type errors, and spelling mistakes before they reach CI.
--->
-
 !!! tip "Lint & code formatting: Using `ruff` to help autoformat and fix module imports"
 
     On the command-line, solve fixable issues with:

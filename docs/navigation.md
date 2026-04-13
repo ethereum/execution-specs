@@ -73,7 +73,6 @@
       * [Generating Documentation](dev/docs.md)
       * [Documenting CLI Commands](dev/documenting_clis.md)
       * [Logging](dev/logging.md)
-      * [Enabling Precommit Checks](dev/precommit.md)
       * [Running Github Actions Locally](dev/test_actions_locally.md)
       * [Dependencies and Packaging](dev/deps_and_packaging.md)
   * [Library Reference](library/index.md)
