@@ -34,23 +34,5 @@
   },
   "test_mixed_sload_sstore_HST": {
     "addr": "0x2e2a539285ce690e4c6bddd42deb7e37bdde9500"
-  },
-  "bloatnet_factory_0_5kb": {
-    "addr": "0xDf9da7E8660d38654C8aA267635222c9f5Ac0530"
-  },
-  "bloatnet_factory_1kb": {
-    "addr": "0xA52178573dc859741499946148CA1Fc3822Af600"
-  },
-  "bloatnet_factory_2kb": {
-    "addr": "0x88c159584059308C4B466bafC82c45d52De9951D"
-  },
-  "bloatnet_factory_5kb": {
-    "addr": "0x3f59809dac4b33e251e518acDadf923184151334"
-  },
-  "bloatnet_factory_10kb": {
-    "addr": "0xf90E8a6Ce32A949Ce5F58803BBa07476404cD89F"
-  },
-  "bloatnet_factory_24kb": {
-    "addr": "0x091988Afd81E0a2A3E20530A2510c089fF4bfAef"
   }
 }
