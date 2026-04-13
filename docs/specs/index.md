@@ -91,6 +91,8 @@ deliberately.
 
 ## Where to go from here
 
+- [Writing Specs](writing_specs.md): style rules, cross-fork discipline,
+  and the `ethereum_spec_tools` CLI utilities.
 - [Adding a New EIP](adding_a_new_eip.md): the EIP lifecycle from
   pre-draft to final, and how to land a new EIP in EELS.
 - [Protocol History](protocol_history.md): the full table of mainnet
