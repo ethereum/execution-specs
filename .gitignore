@@ -19,6 +19,7 @@
 # Cache
 cached_downloads/
 .cache
+.mypy_cache
 .mypy_cache/
 .ruff_cache/
 __pycache__/
@@ -47,6 +48,8 @@ MANIFEST
 # Python virtual environment
 .venv/
 venv/
+# User config; not imposed
+.python-version
 
 # pycharm
 .idea/
