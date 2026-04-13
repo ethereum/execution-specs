@@ -2,21 +2,9 @@
 
 This page covers how to verify your changes before submitting a PR.
 
-## Additional Dependencies
+## Additional Dependencies for `markdownlint`
 
-Some checks require external (non-Python) packages:
-
-### For `spellcheck`
-
-The spellcheck environment uses **codespell**, which is automatically installed via Python dependencies and checks for common spelling mistakes in code and documentation.
-
-To fix spelling errors found by codespell:
-
-```console
-uv run codespell --write-changes
-```
-
-### For `markdownlint`
+We use `markdownlint-cli2` to lint documentation markdown files, this is an external (non-Python) packages, that must be installed separately.
 
 ```console
 sudo apt install nodejs
