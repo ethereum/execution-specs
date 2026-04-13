@@ -24,7 +24,7 @@ from .spec import ref_spec_7976
 REFERENCE_SPEC_GIT_PATH = ref_spec_7976.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7976.version
 
-pytestmark = [pytest.mark.valid_from("Amsterdam")]
+pytestmark = [pytest.mark.valid_from("EIP7976")]
 
 
 class RefundTestType(Enum):
