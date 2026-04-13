@@ -265,6 +265,9 @@ bench-opcode-config *args:
 
 # --- Docs ---
 
+export GEN_TEST_DOC_VERSION := "local"
+export DYLD_FALLBACK_LIBRARY_PATH := if os() == "macos" { "/opt/homebrew/lib" } else { "" }
+
 # Generate documentation for EELS using docc
 [group('docs')]
 docs-spec:
@@ -273,23 +276,23 @@ docs-spec:
 
 # Build HTML site documentation with mkdocs
 [group('docs')]
-docs:
-    GEN_TEST_DOC_VERSION="local" DYLD_FALLBACK_LIBRARY_PATH="/opt/homebrew/lib" uv run mkdocs build --strict -d "{{ output_dir }}/docs/site"
+docs *args:
+    uv run mkdocs build --strict -d "{{ output_dir }}/docs/site" "$@"
 
 # Build HTML site documentation with mkdocs (skip test case reference)
 [group('docs')]
-docs-fast:
-    FAST_DOCS=True GEN_TEST_DOC_VERSION="local" DYLD_FALLBACK_LIBRARY_PATH="/opt/homebrew/lib" uv run mkdocs build --strict -d "{{ output_dir }}/docs/site"
+docs-fast *args:
+    FAST_DOCS=True uv run mkdocs build --strict -d "{{ output_dir }}/docs/site" "$@"
 
 # Serve site documentation locally with mkdocs (live reload)
 [group('docs')]
-docs-serve:
-    GEN_TEST_DOC_VERSION="local" DYLD_FALLBACK_LIBRARY_PATH="/opt/homebrew/lib" uv run mkdocs serve
+docs-serve *args:
+    uv run mkdocs serve "$@"
 
 # Serve site documentation locally with mkdocs (skip test case reference)
 [group('docs')]
-docs-serve-fast:
-    FAST_DOCS=True GEN_TEST_DOC_VERSION="local" DYLD_FALLBACK_LIBRARY_PATH="/opt/homebrew/lib" uv run mkdocs serve
+docs-serve-fast *args:
+    FAST_DOCS=True uv run mkdocs serve "$@"
 
 # Validate docs/CHANGELOG.md entries
 [group('docs')]
