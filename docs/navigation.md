@@ -10,6 +10,7 @@
       * [Security Policy](getting_started/security.md)
       * [Installation Troubleshooting](getting_started/installation_troubleshooting.md)
       * [Getting Help](getting_started/getting_help.md)
+  * [Specs](specs/index.md)
   * [Consensus Tests](consensus_tests/index.md)
       * [Writing Tests](writing_tests/index.md)
           * [Adding a New Test](writing_tests/adding_a_new_test.md)
