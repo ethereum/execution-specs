@@ -71,7 +71,16 @@ class GasCosts:
     PRECOMPILE_IDENTITY_BASE = Uint(15)
     PRECOMPILE_IDENTITY_PER_WORD = Uint(3)
 
-    # Opcodes
+    # Transactions
+    TX_BASE = Uint(21000)
+    TX_DATA_PER_ZERO = Uint(4)
+    TX_DATA_PER_NON_ZERO = Uint(68)
+
+    # Block
+    LIMIT_ADJUSTMENT_FACTOR = Uint(1024)
+    LIMIT_MINIMUM = Uint(5000)
+
+    # Static Opcodes
     OPCODE_ADD = VERY_LOW
     OPCODE_SUB = VERY_LOW
     OPCODE_MUL = LOW

@@ -57,6 +57,9 @@ class GasCosts:
     CODE_DEPOSIT_PER_BYTE = Uint(200)
     CODE_INIT_PER_WORD = Uint(2)
 
+    # Authorization
+    AUTH_PER_EMPTY_ACCOUNT = 25000
+
     # Utility
     ZERO = Uint(0)
     MEMORY_PER_WORD = Uint(3)
@@ -96,7 +99,19 @@ class GasCosts:
     BLOB_MIN_GASPRICE = Uint(1)
     BLOB_BASE_FEE_UPDATE_FRACTION = Uint(5007716)
 
-    # Opcodes
+    # Transactions
+    TX_BASE = Uint(21000)
+    TX_CREATE = Uint(32000)
+    TX_DATA_TOKEN_STANDARD = Uint(4)
+    TX_DATA_TOKEN_FLOOR = Uint(10)
+    TX_ACCESS_LIST_ADDRESS = Uint(2400)
+    TX_ACCESS_LIST_STORAGE_KEY = Uint(1900)
+
+    # Block
+    LIMIT_ADJUSTMENT_FACTOR = Uint(1024)
+    LIMIT_MINIMUM = Uint(5000)
+
+    # Static Opcodes
     OPCODE_ADD = VERY_LOW
     OPCODE_SUB = VERY_LOW
     OPCODE_MUL = LOW

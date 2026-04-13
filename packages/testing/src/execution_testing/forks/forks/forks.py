@@ -119,6 +119,8 @@ class Frontier(
             # Contract Creation
             CODE_DEPOSIT_PER_BYTE=200,
             CODE_INIT_PER_WORD=2,
+            # Authorization
+            AUTH_PER_EMPTY_ACCOUNT=0,
             # Utility
             MEMORY_PER_WORD=3,
             # Transactions
@@ -170,7 +172,7 @@ class Frontier(
             OPCODE_PUSH=VERY_LOW,
             OPCODE_DUP=VERY_LOW,
             OPCODE_SWAP=VERY_LOW,
-            # Dynamic Opcode Component
+            # Dynamic Opcode Components
             OPCODE_CALLDATACOPY_BASE=VERY_LOW,
             OPCODE_CODECOPY_BASE=VERY_LOW,
             OPCODE_MLOAD_BASE=VERY_LOW,
@@ -190,7 +192,6 @@ class Frontier(
             # replace() in the fork that activates them.
             TX_DATA_TOKEN_STANDARD=0,
             TX_DATA_TOKEN_FLOOR=0,
-            AUTH_PER_EMPTY_ACCOUNT=0,
             PRECOMPILE_ECADD=0,
             PRECOMPILE_ECMUL=0,
             PRECOMPILE_ECPAIRING_BASE=0,

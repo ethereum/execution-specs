@@ -24,43 +24,6 @@ from ethereum.state import Address
 from .exceptions import InitCodeTooLargeError, TransactionTypeError
 from .fork_types import Authorization, VersionedHash
 
-GAS_TX_BASE = Uint(21000)
-"""
-Base cost of a transaction in gas units. This is the minimum amount of gas
-required to execute a transaction.
-"""
-
-GAS_TX_DATA_TOKEN_FLOOR = Uint(10)
-"""
-Minimum gas cost per byte of calldata as per [EIP-7623]. Used to calculate
-the minimum gas cost for transactions that include calldata.
-
-[EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
-"""
-
-GAS_TX_DATA_TOKEN_STANDARD = Uint(4)
-"""
-Gas cost per byte of calldata as per [EIP-7623]. Used to calculate the
-gas cost for transactions that include calldata.
-
-[EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
-"""
-
-GAS_TX_CREATE = Uint(32000)
-"""
-Additional gas cost for creating a new contract.
-"""
-
-GAS_TX_ACCESS_LIST_ADDRESS = Uint(2400)
-"""
-Gas cost for including an address in the access list of a transaction.
-"""
-
-GAS_TX_ACCESS_LIST_STORAGE_KEY = Uint(1900)
-"""
-Gas cost for including a storage key in the access list of a transaction.
-"""
-
 
 @slotted_freezable
 @dataclass
@@ -593,7 +556,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     for all operations to be implemented.
 
     The intrinsic cost includes:
-    1. Base cost (`GAS_TX_BASE`)
+    1. Base cost (`TX_BASE`)
     2. Cost for data (zero and non-zero bytes)
     3. Cost for contract creation (if applicable)
     4. Cost for access list entries (if applicable)
@@ -604,8 +567,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     gas cost of the transaction and the minimum gas cost used by the
     transaction based on the calldata size.
     """
-    from .vm.eoa_delegation import GAS_AUTH_PER_EMPTY_ACCOUNT
-    from .vm.gas import init_code_cost
+    from .vm.gas import GasCosts, init_code_cost
 
     num_zeros = Uint(tx.data.count(0))
     num_non_zeros = ulen(tx.data) - num_zeros
@@ -613,31 +575,33 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     tokens_in_calldata = num_zeros + num_non_zeros * Uint(4)
     # EIP-7623 floor price (note: no EVM costs)
     calldata_floor_gas_cost = (
-        tokens_in_calldata * GAS_TX_DATA_TOKEN_FLOOR + GAS_TX_BASE
+        tokens_in_calldata * GasCosts.TX_DATA_TOKEN_FLOOR + GasCosts.TX_BASE
     )
 
-    data_cost = tokens_in_calldata * GAS_TX_DATA_TOKEN_STANDARD
+    data_cost = tokens_in_calldata * GasCosts.TX_DATA_TOKEN_STANDARD
 
     if tx.to == Bytes0(b""):
-        create_cost = GAS_TX_CREATE + init_code_cost(ulen(tx.data))
+        create_cost = GasCosts.TX_CREATE + init_code_cost(ulen(tx.data))
     else:
         create_cost = Uint(0)
 
     access_list_cost = Uint(0)
     if has_access_list(tx):
         for access in tx.access_list:
-            access_list_cost += GAS_TX_ACCESS_LIST_ADDRESS
+            access_list_cost += GasCosts.TX_ACCESS_LIST_ADDRESS
             access_list_cost += (
-                ulen(access.slots) * GAS_TX_ACCESS_LIST_STORAGE_KEY
+                ulen(access.slots) * GasCosts.TX_ACCESS_LIST_STORAGE_KEY
             )
 
     auth_cost = Uint(0)
     if isinstance(tx, SetCodeTransaction):
-        auth_cost += Uint(GAS_AUTH_PER_EMPTY_ACCOUNT * len(tx.authorizations))
+        auth_cost += Uint(
+            GasCosts.AUTH_PER_EMPTY_ACCOUNT * len(tx.authorizations)
+        )
 
     return (
         Uint(
-            GAS_TX_BASE
+            GasCosts.TX_BASE
             + data_cost
             + create_cost
             + access_list_cost
