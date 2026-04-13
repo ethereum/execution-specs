@@ -91,6 +91,8 @@ deliberately.
 
 ## Where to go from here
 
+- [Protocol History](protocol_history.md): the full table of mainnet
+  hardforks, their included EIPs, and their fork manifests.
 - [Rendered specification](https://ethereum.github.io/execution-specs/):
   the `docc`-rendered narrative view of the Python spec, with side-by-side
   diffs between forks.
