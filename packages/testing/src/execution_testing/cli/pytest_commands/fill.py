@@ -60,6 +60,7 @@ class FillCommand(PytestCommand):
                 PytestExecution(
                     config_file=self.config_path,
                     args=processed_args,
+                    allowed_exit_codes=self.allowed_exit_codes,
                 )
             ]
 
@@ -82,7 +83,7 @@ class FillCommand(PytestCommand):
                 args=phase1_args,
                 description="generating pre-allocation groups",
                 allowed_exit_codes=[
-                    pytest.ExitCode.OK,
+                    *self.allowed_exit_codes,
                     pytest.ExitCode.NO_TESTS_COLLECTED,
                 ],
             ),
@@ -282,6 +283,7 @@ class PhilCommand(FillCommand):
             PytestExecution(
                 config_file=self.config_path,
                 args=emoji_args,
+                allowed_exit_codes=self.allowed_exit_codes,
             )
         ]
 

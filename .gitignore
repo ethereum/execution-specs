@@ -91,5 +91,5 @@ env.yaml
 
 site/
 
-# Generated checklists
+# Temporary data; used for generated checklists
 tmp/

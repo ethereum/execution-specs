@@ -1,29 +1,30 @@
 """CLI entry point for the `checklist` pytest-based command."""
 
-import sys
-from typing import Any, List
+from typing import Any, ClassVar, List
 
 import click
+import pytest
 
 from ...forks import get_development_forks
-from .fill import FillCommand
+from .base import PytestCommand
 
 
-class ChecklistCommand(FillCommand):
-    """Fill command that treats 'no tests ran' as success."""
+class ChecklistCommand(PytestCommand):
+    """
+    Pytest command to generate checklist documentation.
 
-    def execute(self, pytest_args: List[str]) -> None:
-        """
-        Execute the command, treating pytest exit code 5 as success.
+    The checklist command only collects tests to analyze markers and does
+    not run them, so ``NO_TESTS_COLLECTED`` is treated as success.
+    """
 
-        The checklist command only collects tests to analyze markers
-        and does not run them, so exit code 5 ("no tests ran") is expected.
-        """
-        executions = self.create_executions(pytest_args)
-        result = self.runner.run_multiple(executions)
-        if result == 5:
-            result = 0
-        sys.exit(result)
+    allowed_exit_codes: ClassVar[List[pytest.ExitCode]] = [
+        pytest.ExitCode.OK,
+        pytest.ExitCode.NO_TESTS_COLLECTED,
+    ]
+
+    def __init__(self, **kwargs: Any) -> None:
+        """Initialize checklist command."""
+        super().__init__(config_file="pytest-fill.ini", **kwargs)
 
 
 def _last_development_fork() -> str | None:
