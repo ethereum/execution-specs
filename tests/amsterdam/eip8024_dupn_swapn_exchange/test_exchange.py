@@ -10,6 +10,7 @@ from execution_testing import (
     Account,
     Alloc,
     Bytecode,
+    Fork,
     Op,
     StateTestFiller,
     Transaction,
@@ -39,6 +40,7 @@ def test_exchange_basic(
     n: int,
     m: int,
     pre: Alloc,
+    fork: Fork,
     state_test: StateTestFiller,
 ) -> None:
     """Test EXCHANGE with various n and m values."""
@@ -72,7 +74,11 @@ def test_exchange_basic(
 
     contract_address = pre.deploy_contract(code=code)
 
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    gas_limit = 1_000_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 5_000_000
+
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=gas_limit)
 
     # Build expected storage
     expected_storage = {}
@@ -100,6 +106,7 @@ def test_exchange_basic(
 def test_exchange_valid_immediates(
     immediate: int,
     pre: Alloc,
+    fork: Fork,
     state_test: StateTestFiller,
 ) -> None:
     """Test EXCHANGE with valid immediate values (0-81 and 128-255)."""
@@ -134,7 +141,11 @@ def test_exchange_valid_immediates(
 
     contract_address = pre.deploy_contract(code=code)
 
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    gas_limit = 1_000_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 5_000_000
+
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=gas_limit)
 
     # Build expected storage
     expected_storage = {}
