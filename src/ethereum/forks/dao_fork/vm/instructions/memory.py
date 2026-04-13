@@ -131,7 +131,7 @@ def msize(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GasCosts.BASE)
+    charge_gas(evm, GasCosts.OPCODE_MSIZE)
 
     # OPERATION
     push(evm.stack, U256(len(evm.memory)))

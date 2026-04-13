@@ -113,7 +113,7 @@ def pc(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GasCosts.BASE)
+    charge_gas(evm, GasCosts.OPCODE_PC)
 
     # OPERATION
     push(evm.stack, U256(evm.pc))
@@ -137,7 +137,7 @@ def gas_left(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GasCosts.BASE)
+    charge_gas(evm, GasCosts.OPCODE_GAS)
 
     # OPERATION
     push(evm.stack, U256(evm.gas_left))

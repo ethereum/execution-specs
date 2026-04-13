@@ -45,7 +45,7 @@ def address(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GasCosts.BASE)
+    charge_gas(evm, GasCosts.OPCODE_ADDRESS)
 
     # OPERATION
     push(evm.stack, U256.from_be_bytes(evm.message.current_target))
@@ -99,7 +99,7 @@ def origin(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GasCosts.BASE)
+    charge_gas(evm, GasCosts.OPCODE_ORIGIN)
 
     # OPERATION
     push(evm.stack, U256.from_be_bytes(evm.message.tx_env.origin))
@@ -122,7 +122,7 @@ def caller(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GasCosts.BASE)
+    charge_gas(evm, GasCosts.OPCODE_CALLER)
 
     # OPERATION
     push(evm.stack, U256.from_be_bytes(evm.message.caller))
@@ -145,7 +145,7 @@ def callvalue(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GasCosts.BASE)
+    charge_gas(evm, GasCosts.OPCODE_CALLVALUE)
 
     # OPERATION
     push(evm.stack, evm.message.value)
@@ -194,7 +194,7 @@ def calldatasize(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GasCosts.BASE)
+    charge_gas(evm, GasCosts.OPCODE_CALLDATASIZE)
 
     # OPERATION
     push(evm.stack, U256(len(evm.message.data)))
@@ -255,7 +255,7 @@ def codesize(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GasCosts.BASE)
+    charge_gas(evm, GasCosts.OPCODE_CODESIZE)
 
     # OPERATION
     push(evm.stack, U256(len(evm.code)))
@@ -316,7 +316,7 @@ def gasprice(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GasCosts.BASE)
+    charge_gas(evm, GasCosts.OPCODE_GASPRICE)
 
     # OPERATION
     push(evm.stack, U256(evm.message.tx_env.gas_price))
@@ -415,7 +415,7 @@ def returndatasize(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GasCosts.BASE)
+    charge_gas(evm, GasCosts.OPCODE_RETURNDATASIZE)
 
     # OPERATION
     push(evm.stack, U256(len(evm.return_data)))
@@ -542,7 +542,7 @@ def base_fee(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GasCosts.BASE)
+    charge_gas(evm, GasCosts.OPCODE_BASEFEE)
 
     # OPERATION
     push(evm.stack, U256(evm.message.block_env.base_fee_per_gas))
@@ -592,7 +592,7 @@ def blob_base_fee(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GasCosts.BASE)
+    charge_gas(evm, GasCosts.OPCODE_BLOBBASEFEE)
 
     # OPERATION
     blob_base_fee = calculate_blob_gas_price(
