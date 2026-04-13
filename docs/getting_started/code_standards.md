@@ -1,6 +1,6 @@
 # Code Standards
 
-This page outlines the coding standards and practices used in the @ethereum/execution-specs repository. Many of the following preferences are also enforced in CI via static code analysis checks which can be ran locally via:
+This page outlines the code standards used in @ethereum/execution-specs. Many of the following preferences are enforced in CI via static code checks which can be ran locally via:
 
 ```console
 just static
@@ -39,9 +39,3 @@ Use pytest's `pytester` fixture when writing tests for our pytest plugins and CL
 Don't use raw `subprocess.run()` in pytester-based tests. If you need process isolation, use `runpytest_subprocess()`.
 
 Both methods return a `RunResult` with `.ret`, `.outlines`, `.errlines`, `assert_outcomes()`, and `fnmatch_lines()`. When the inner test is expected to fail, use `capsys.readouterr()` after `runpytest_subprocess()` to suppress the inner failure output that pytester replays to stdout.
-
-<!--
-## Editor Setup
-
-A correctly configured editor will automatically handle most formatting requirements. See [VS Code Setup](./setup_vs_code.md) for recommended settings.
--->

@@ -28,7 +28,7 @@ EELS is a collaborative effort between Ethereum Improvement Proposals (EIP) auth
 
     *For EIP authors and researchers.*
 
-    [:octicons-arrow-right-24: Get started](writing_specs/index.md)
+    [:octicons-arrow-right-24: Get started](specs/writing_specs.md)
 
 - :material-test-tube: **Writing Tests**
 

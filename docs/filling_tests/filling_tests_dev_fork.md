@@ -42,7 +42,3 @@ By default, the execution-testing framework only generates fixtures for forks th
      <figure markdown>  <!-- markdownlint-disable MD033 (MD033=no-inline-html) -->
           ![Screenshot of pytest test collection console output](./img/pytest_run_example.png){align=center}
      </figure>
-
-## VS Code Setup
-
-By default, VS Code's Testing View will only show tests for stable forks. To show tests for development forks, uncomment the relevant line in the `python.testing.pytestArgs` configuration section of included settings file (`.vscode/settings.json`) to enable the `--until=FORK` flag. See [VS Code Setup](../getting_started/setup_vs_code.md) for help finding the settings files.

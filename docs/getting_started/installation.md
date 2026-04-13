@@ -11,7 +11,7 @@
     uv python install 3.12
     uv python pin 3.12
     uv sync
-    uv tool install rust-just==1.48.1
+    uv tool install --exclude-newer "10 days" rust-just
     just shell-completions
     ```
 
@@ -85,8 +85,10 @@ The @ethereum/execution-specs repository uses [`just`](https://just.systems/man/
 === "All platforms"
 
     ```console
-    uv tool install rust-just==1.48.1
+    uv tool install --exclude-newer "10 days" rust-just    
     ```
+
+    Using `--exclude-newer` adds a cool-down window that can help reduce exposure to supply-chain attacks.
 
 === "macOS"
 

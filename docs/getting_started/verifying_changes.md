@@ -16,9 +16,6 @@ To fix spelling errors found by codespell:
 uv run codespell --write-changes
 ```
 
-!!! note "VS Code Integration"
-    The `whitelist.txt` file is still maintained for the VS Code cSpell extension, which provides real-time spell checking in the editor.
-
 ### For `markdownlint`
 
 ```console
@@ -49,15 +46,13 @@ just static   # Run all static checks (lint, format, mypy, spellcheck, ...)
     This saves you time by catching formatting issues, type errors, and spelling mistakes before they reach CI.
 -->
 
-!!! tip "Lint & code formatting: Using `ruff` and VS Code to help autoformat and fix module imports"
+!!! tip "Lint & code formatting: Using `ruff` to help autoformat and fix module imports"
 
     On the command-line, solve fixable issues with:
 
     ```console
     just fix
     ```
-
-    Use VS Code, see [VS Code Setup](../getting_started/setup_vs_code.md), to autoformat code, automatically organize Python module imports and highlight typechecking and spelling issues.
 
 !!! hint "Typechecking"
 
