@@ -993,8 +993,8 @@ def test_execution_witness_in_blockchain_fixture(
 ) -> None:
     """
     Fill a minimal Amsterdam state_test that calls a pre-deployed contract,
-    then verify the resulting blockchain fixture contains execution witness
-    and stateless validation fields.
+    then verify the resulting blockchain and engine fixtures contain
+    execution witness data.
     """
     tests_dir = testdir.mkdir("tests")
     amsterdam_tests_dir = tests_dir.mkdir("amsterdam")
@@ -1054,6 +1054,32 @@ def test_execution_witness_in_blockchain_fixture(
         EthereumBytes(bytes.fromhex(sob[2:]))
     )
     assert stateless_output.successful_validation is True
+
+    engine_fixture_path = Path(
+        "fixtures/blockchain_tests_engine/for_amsterdam/amsterdam/"
+        "module_execution_witness/execution_witness.json"
+    )
+    assert engine_fixture_path.exists(), f"{engine_fixture_path} does not exist"
+
+    with open(engine_fixture_path, "r") as f:
+        engine_fixture_data = json.load(f)
+
+    assert len(engine_fixture_data) == 1, "Expected exactly one engine fixture"
+    engine_fixture = next(iter(engine_fixture_data.values()))
+    engine_payload = engine_fixture["engineNewPayloads"][0]
+
+    assert "executionWitness" in engine_payload
+    engine_witness = engine_payload["executionWitness"]
+    assert (
+        len(engine_witness["state"]) > 0
+    ), "engine executionWitness.state is empty"
+    assert (
+        len(engine_witness["codes"]) > 0
+    ), "engine executionWitness.codes is empty"
+    assert (
+        len(engine_witness["headers"]) > 0
+    ), "engine executionWitness.headers is empty"
+    assert engine_witness == witness
 
 
 def test_execution_witness_expected_true_reuses_canonical_stateless_result(
