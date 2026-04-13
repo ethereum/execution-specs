@@ -312,26 +312,17 @@ def test_sload_bloated_prefetch_miss(
             ],
         ),
     }
-    if distinct_senders:
-        for i, s in enumerate(senders):
-            expectations[s] = BalAccountExpectation(
-                nonce_changes=[
-                    BalNonceChange(
-                        block_access_index=i + 1,
-                        post_nonce=1,
-                    ),
-                ],
-            )
-    else:
-        expectations[senders[0]] = BalAccountExpectation(
-            nonce_changes=[
-                BalNonceChange(
-                    block_access_index=i + 1,
-                    post_nonce=i + 1,
-                )
-                for i in range(len(txs))
-            ],
-        )
+ sender_nonce: dict[Address, list[BalNonceChange]] = {}
+  for i, s in enumerate(senders):             
+      changes = sender_nonces.setdefault(s, [])
+      changes.append(
+          BalNonceChange(                                                                                      
+              block_access_index=i + 1,
+              post_nonce=len(changes) + 1,                                                                     
+          )                                             
+      )                                   
+  for s, nonces in sender_nonces.items():
+      expectations[s] = BalAccountExpectation(nonce_changes=nonces)
     blocks.append(
         Block(
             txs=txs,
