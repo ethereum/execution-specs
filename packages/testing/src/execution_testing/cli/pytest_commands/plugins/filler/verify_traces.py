@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any, Generator, Protocol
 
 import pytest
 from _pytest.terminal import TerminalReporter
@@ -26,6 +26,21 @@ from execution_testing.client_clis.trace_report_formatter import (
     TextTracesDiffReportFormatter,
     TracesDiffReportFormatter,
 )
+
+
+class _XdistWorkerNode(Protocol):
+    """
+    Subset of ``xdist.workermanage.WorkerController`` we depend on.
+
+    Defined here as a Protocol because ``xdist`` ships without a
+    ``py.typed`` marker, so importing its concrete class would force a
+    ``# type: ignore`` on every consumer. We only need ``workeroutput``
+    (the worker→controller dict) and ``config.pluginmanager``.
+    """
+
+    workeroutput: dict[str, Any]
+    config: pytest.Config
+
 
 # ---------------------------------------------------------------------------
 # Baseline loading
@@ -245,13 +260,55 @@ class TraceVerifier:
         if results:
             self.test_results[item.nodeid] = results
 
+    @pytest.hookimpl
+    def pytest_sessionfinish(
+        self,
+        session: pytest.Session,
+        exitstatus: int,  # noqa: ARG002
+    ) -> None:
+        """
+        Forward results from each xdist worker to the controller.
+
+        Each xdist worker runs in its own subprocess with its own
+        ``TraceVerifier`` instance, so ``self.test_results`` only holds
+        the tests that *this* worker ran. Without this hook the
+        controller's plugin instance would receive nothing and the
+        terminal/JSON report would only reflect a single worker's slice
+        of the data.
+
+        ``config.workeroutput`` is xdist's documented channel for
+        marshalling per-worker state back to the controller, where it is
+        consumed by the module-level ``pytest_testnodedown`` hook below.
+        Only workers have ``workeroutput``; on the controller this hook
+        is a no-op.
+        """
+        config = session.config
+        if not hasattr(config, "workeroutput"):
+            return
+        if not self.test_results:
+            return
+        config.workeroutput["trace_verifier_results"] = {
+            nodeid: {
+                comp_name: result.to_dict()
+                for comp_name, result in comps.items()
+            }
+            for nodeid, comps in self.test_results.items()
+        }
+
     def pytest_terminal_summary(
         self,
         terminalreporter: TerminalReporter,
         exitstatus: int,  # noqa: ARG002
-        config: pytest.Config,  # noqa: ARG002
+        config: pytest.Config,
     ) -> None:
         """Print the aggregated trace verification report."""
+        # Workers run their own terminal summary, but the aggregated
+        # view only exists on the controller. Skip on workers so they
+        # neither print a partial summary nor race to overwrite the
+        # JSON file.
+        if hasattr(config, "workerinput"):
+            return
+
         if not self.test_results:
             return
 
@@ -265,3 +322,32 @@ class TraceVerifier:
             terminalreporter.write_line(
                 f"JSON report written to: {self.json_formatter.output_path}"
             )
+
+
+# ---------------------------------------------------------------------------
+# xdist controller-side aggregation
+# ---------------------------------------------------------------------------
+
+
+def pytest_testnodedown(node: _XdistWorkerNode, error: object | None) -> None:
+    """
+    Merge one worker's trace verification results into the controller.
+
+    Called on the controller (master) when each xdist worker finishes.
+    The worker has serialized its ``test_results`` into
+    ``node.workeroutput`` (see ``TraceVerifier.pytest_sessionfinish``);
+    here we deserialize and merge them into the controller-side plugin
+    instance so ``pytest_terminal_summary`` sees the combined view.
+    """
+    del error
+    payload = getattr(node, "workeroutput", {}).get("trace_verifier_results")
+    if not payload:
+        return
+    plugin = node.config.pluginmanager.get_plugin("trace-verifier")
+    if plugin is None:
+        return
+    for nodeid, comps in payload.items():
+        plugin.test_results[nodeid] = {
+            comp_name: TraceComparisonResult.from_dict(result_dict)
+            for comp_name, result_dict in comps.items()
+        }

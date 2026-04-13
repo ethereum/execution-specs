@@ -204,6 +204,70 @@ class TestTraceComparisonResult:
         assert len(result.differences) == 1
 
 
+class TestTraceComparisonResultDictRoundTrip:
+    """Test serialization round-trip used by xdist worker transfer."""
+
+    def test_round_trip_equivalent_result(self) -> None:
+        """An equivalent (no-diff) result round-trips through dict."""
+        result = TraceComparisonResult(equivalent=True, differences=[])
+        restored = TraceComparisonResult.from_dict(result.to_dict())
+        assert restored == result
+
+    def test_round_trip_with_trace_difference(self) -> None:
+        """A result with a TraceDifference round-trips identically."""
+        result = TraceComparisonResult(
+            equivalent=False,
+            differences=[
+                TraceDifference(
+                    transaction_index=1,
+                    trace_line_index=4,
+                    baseline="PUSH1 (pc=0xa)",
+                    current="PUSH1 (pc=0x14)",
+                ),
+            ],
+        )
+        restored = TraceComparisonResult.from_dict(result.to_dict())
+        assert restored == result
+        assert type(restored.differences[0]) is TraceDifference
+
+    def test_round_trip_with_transaction_count_mismatch(self) -> None:
+        """A TransactionCountMismatch retains its subclass identity."""
+        result = TraceComparisonResult(
+            equivalent=False,
+            differences=[
+                TransactionCountMismatch(
+                    baseline_count=3,
+                    current_count=2,
+                ),
+            ],
+        )
+        restored = TraceComparisonResult.from_dict(result.to_dict())
+        assert restored == result
+        diff = restored.differences[0]
+        assert isinstance(diff, TransactionCountMismatch)
+        assert diff.baseline_count == 3
+        assert diff.current_count == 2
+
+    def test_round_trip_mixed_difference_types(self) -> None:
+        """A mix of TraceDifference and subclass entries round-trips."""
+        result = TraceComparisonResult(
+            equivalent=False,
+            differences=[
+                TransactionCountMismatch(baseline_count=2, current_count=1),
+                TraceDifference(
+                    transaction_index=0,
+                    trace_line_index=7,
+                    baseline="ADD",
+                    current="MUL",
+                ),
+            ],
+        )
+        restored = TraceComparisonResult.from_dict(result.to_dict())
+        assert restored == result
+        assert isinstance(restored.differences[0], TransactionCountMismatch)
+        assert type(restored.differences[1]) is TraceDifference
+
+
 class TestTraceComparatorType:
     """Test TraceComparatorType enum."""
 

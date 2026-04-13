@@ -47,6 +47,41 @@ class TraceDifference:
     baseline: str
     current: str
 
+    def to_dict(self) -> dict:
+        """Serialize to a JSON/pickle-friendly dict (for xdist transfer)."""
+        return {
+            "kind": "trace_difference",
+            "transaction_index": self.transaction_index,
+            "trace_line_index": self.trace_line_index,
+            "baseline": self.baseline,
+            "current": self.current,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "TraceDifference":
+        """
+        Construct a TraceDifference (or a subclass) from its dict form.
+
+        Dispatches on the ``kind`` field so that subclasses such as
+        ``TransactionCountMismatch`` round-trip correctly.
+        """
+        kind = data.get("kind", "trace_difference")
+        if kind == "transaction_count_mismatch":
+            return TransactionCountMismatch(
+                transaction_index=data.get("transaction_index", 0),
+                trace_line_index=data.get("trace_line_index", -1),
+                baseline=data.get("baseline", ""),
+                current=data.get("current", ""),
+                baseline_count=data.get("baseline_count", 0),
+                current_count=data.get("current_count", 0),
+            )
+        return cls(
+            transaction_index=data["transaction_index"],
+            trace_line_index=data["trace_line_index"],
+            baseline=data["baseline"],
+            current=data["current"],
+        )
+
 
 @dataclass
 class TransactionCountMismatch(TraceDifference):
@@ -59,6 +94,14 @@ class TransactionCountMismatch(TraceDifference):
     baseline_count: int = 0
     current_count: int = 0
 
+    def to_dict(self) -> dict:
+        """Serialize to a JSON/pickle-friendly dict (for xdist transfer)."""
+        data = super().to_dict()
+        data["kind"] = "transaction_count_mismatch"
+        data["baseline_count"] = self.baseline_count
+        data["current_count"] = self.current_count
+        return data
+
 
 @dataclass
 class TraceComparisonResult:
@@ -66,6 +109,24 @@ class TraceComparisonResult:
 
     equivalent: bool
     differences: list[TraceDifference] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        """Serialize to a JSON/pickle-friendly dict (for xdist transfer)."""
+        return {
+            "equivalent": self.equivalent,
+            "differences": [d.to_dict() for d in self.differences],
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "TraceComparisonResult":
+        """Reconstruct a TraceComparisonResult from its dict form."""
+        return cls(
+            equivalent=data["equivalent"],
+            differences=[
+                TraceDifference.from_dict(d)
+                for d in data.get("differences", [])
+            ],
+        )
 
 
 class TraceComparator(ABC):
