@@ -1059,7 +1059,9 @@ def test_execution_witness_in_blockchain_fixture(
         "fixtures/blockchain_tests_engine/for_amsterdam/amsterdam/"
         "module_execution_witness/execution_witness.json"
     )
-    assert engine_fixture_path.exists(), f"{engine_fixture_path} does not exist"
+    assert engine_fixture_path.exists(), (
+        f"{engine_fixture_path} does not exist"
+    )
 
     with open(engine_fixture_path, "r") as f:
         engine_fixture_data = json.load(f)
@@ -1070,15 +1072,15 @@ def test_execution_witness_in_blockchain_fixture(
 
     assert "executionWitness" in engine_payload
     engine_witness = engine_payload["executionWitness"]
-    assert (
-        len(engine_witness["state"]) > 0
-    ), "engine executionWitness.state is empty"
-    assert (
-        len(engine_witness["codes"]) > 0
-    ), "engine executionWitness.codes is empty"
-    assert (
-        len(engine_witness["headers"]) > 0
-    ), "engine executionWitness.headers is empty"
+    assert len(engine_witness["state"]) > 0, (
+        "engine executionWitness.state is empty"
+    )
+    assert len(engine_witness["codes"]) > 0, (
+        "engine executionWitness.codes is empty"
+    )
+    assert len(engine_witness["headers"]) > 0, (
+        "engine executionWitness.headers is empty"
+    )
     assert engine_witness == witness
 
 
