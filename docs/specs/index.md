@@ -95,6 +95,8 @@ deliberately.
   and the `ethereum_spec_tools` CLI utilities.
 - [Adding a New EIP](adding_a_new_eip.md): the EIP lifecycle from
   pre-draft to final, and how to land a new EIP in EELS.
+- [Spec Releases](spec_releases.md): how EELS versions relate to
+  Ethereum hardforks and devnets.
 - [Protocol History](protocol_history.md): the full table of mainnet
   hardforks, their included EIPs, and their fork manifests.
 - [Rendered specification](https://ethereum.github.io/execution-specs/):
