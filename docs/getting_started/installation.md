@@ -1,10 +1,40 @@
 # Installation
 
+## Quick Start
+
+=== "All platforms"
+
+    ```console
+    git clone https://github.com/ethereum/execution-specs
+    cd execution-specs
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    uv python install 3.12
+    uv python pin 3.12
+    uv sync
+    uv tool install rust-just==1.48.1
+    just shell-completions
+    ```
+
+=== "macOS"
+
+    ```console
+    git clone https://github.com/ethereum/execution-specs
+    cd execution-specs
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    uv python install 3.12
+    uv python pin 3.12
+    uv sync
+    brew install just
+    just shell-completions
+    ```
+
+Further explanation, troubleshooting, and alternative installation paths are below.
+
 ## Prerequisites
 
-The tools provided by [execution-specs](https://github.com/ethereum/execution-specs) use `uv` ([docs.astral.sh/uv](https://docs.astral.sh/uv/)) to manage their dependencies and virtual environment.
+The tools provided by [execution-specs](https://github.com/ethereum/execution-specs) use `uv` ([docs.astral.sh/uv](https://docs.astral.sh/uv/)) to manage dependencies and the virtual environment.
 
-It's recommended to use the latest version of `uv` which can be installed via `curl` (recommended; can self-update via `uv self update`) or pip (requires Python, can't self-update):
+It's recommended to use the latest version of `uv`, which can be installed via `curl` (recommended; can self-update via `uv self update`) or pip (requires Python, can't self-update):
 
 === "curl"
 
@@ -18,11 +48,13 @@ It's recommended to use the latest version of `uv` which can be installed via `c
     pip install uv
     ```
 
-If installed via `curl`, `uv` will download Python for your target platform if one of the required versions (Python 3.11-3.14) is not available natively.
+When installed via `curl`, `uv` can also download Python for your platform if a required version (Python 3.11–3.14) is not already installed.
 
 ## Installing Python and Python Dependencies
 
-Clone @ethereum/execution-specs and install its dependencies (via `uv sync`). We recommend using Python 3.12, the following uses `uv` to download and pins 3.12 for use with for all commands executed within the execution-specs folder:
+Clone @ethereum/execution-specs and install the project dependencies. We recommend using Python 3.12 for the simplest local development setup.
+
+The following commands use `uv` to install Python 3.12 and pin it for all commands run within the execution-specs directory:
 
 === "All platforms"
 
@@ -36,7 +68,7 @@ Clone @ethereum/execution-specs and install its dependencies (via `uv sync`). We
 
 ### Testing Your Python Environment
 
-The following command that generates a small subset of the test vectors can be used to verify the installation:
+The following command can be used to verify that the environment is set up correctly. By targeting a single test subdirectory, it generates only a small subset of test vectors:
 
 ```console
 uv run fill tests/istanbul/eip1344_chainid/
@@ -62,9 +94,23 @@ The @ethereum/execution-specs repository uses [`just`](https://just.systems/man/
     brew install just
     ```
 
+### Testing Your `just` Installation
+
+To explore which tasks (recipes) are available, simply run `just` within the `execution-specs` directory:
+
+```console
+just
+```
+
+Then try running the available static code checks:
+
+```console
+just static
+```
+
 ### Configuring Shell Completion
 
-Run the following command to print the commands required to enable tab completion of recipes for your shell:
+`just` supports tab completion for recipes. Run the following command for help on how to enable this feature for your shell:
 
 ```console
 just shell-completions
@@ -72,20 +118,6 @@ just shell-completions
 
 More background is available in the [`just` documentation](https://just.systems/man/en/shell-completion-scripts.html).
 
-### Testing Your `just` Installation
-
-To explore which tasks (aka recipes) are available simply run `just` within the `execution-specs` folder:
-
-```console
-just
-```
-
-and then try to run the available static code checks:
-
-```console
-just static
-```
-
 ## Installation Troubleshooting
 
-If you encounter issues during installation, see the [Installation Troubleshooting](./installation_troubleshooting.md) guide.
+If you run into problems, see [Installation Troubleshooting](./installation_troubleshooting.md).

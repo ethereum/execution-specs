@@ -1,8 +1,10 @@
 # Ethereum Execution Layer Specifications
 
-Welcome to the documentation for @ethereum/execution-specs, which hosts the Ethereum Execution Layer Specification (EELS). EELS is implemented as an executable reference in Python and acts as a source of truth for test vector generation to verify Execution Layer client implementations.
+Welcome to the documentation for the Ethereum Execution Layer Specifications (EELS), the executable Python specification of Ethereum’s Execution Layer.
 
-@ethereum/execution-specs is a collaborative effort between EIP authors, researchers, protocol prototype developers and client developers, maintained by the [STEEL Team](https://steel.ethereum.foundation/).
+EELS is implemented as a readable executable reference in Python that serves as a source of truth for developers across the Ethereum ecosystem and underpins the generation of test vectors used to ensure Execution Layer client implementations are spec-compliant.
+
+EELS is a collaborative effort between Ethereum Improvement Proposals (EIP) authors, protocol researchers, prototype implementers and client developers, maintained in @ethereum/execution-specs by the [STEEL Team](https://steel.ethereum.foundation/).
 
 ## Where to Start
 
@@ -12,7 +14,7 @@ Welcome to the documentation for @ethereum/execution-specs, which hosts the Ethe
 
     ---
 
-    New here? Install the repository and run your first command.
+    Install the repository and run your first command.
 
     *First time user.*
 
@@ -65,6 +67,8 @@ Welcome to the documentation for @ethereum/execution-specs, which hosts the Ethe
     [:octicons-arrow-right-24: Browse tests](tests/)
 
 </div>
+
+## Responsible Disclosure of Vulnerabilities
 
 !!! bug "Reporting a Vulnerability"
 
