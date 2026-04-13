@@ -49,6 +49,7 @@ When reviewing PRs that implement or test EIPs:
 - Assessing EIP complexity or scope → run `/assess-eip`
 - Working on EIP test coverage or checklists → run `/eip-checklist` first
 - Checking if config/skills are stale → run `/audit-config`
+- Writing or modifying docstrings in `src/ethereum/` → run `/write-docstring` first
 - Done with changes and ready to lint → run `/lint`
 
 ## Available Skills
@@ -62,4 +63,5 @@ When reviewing PRs that implement or test EIPs:
 - `/eip-checklist` — EIP testing checklist system for tracking coverage
 - `/lint` — full static analysis suite with auto-fix workflow
 - `/audit-config` — verify CLAUDE.md and skills are still accurate
+- `/write-docstring` — narrative Markdown docstring conventions for the spec
 - `/grammar-check` — audit grammar in documentation and code comments
