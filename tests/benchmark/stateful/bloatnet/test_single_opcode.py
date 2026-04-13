@@ -295,7 +295,9 @@ def test_sload_bloated_prefetch_miss(
                 gas_limit=tx_gas,
                 to=authority,
                 data=Hash(new_offset),
-                sender=next_sender(),
+                sender = next(sender_generator)
+                sender_list.append(sender)
+                sender=sender,
             )
         )
         gas_available -= tx_gas
