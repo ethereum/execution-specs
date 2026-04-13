@@ -228,9 +228,7 @@ def test_sload_bloated_prefetch_miss(
     # calldata to slot 0, then SLOAD sequentially from old offset.
     runtime_code = (
         Op.SLOAD(Op.PUSH0)
-        + Op.CALLDATALOAD(0)
-        + Op.PUSH0
-        + Op.SSTORE
+        + Op.SSTORE(Op.PUSH0, Op.CALLDATALOAD(Op.PUSH0))
         + While(
             body=(Op.DUP1 + Op.SLOAD + Op.POP + Op.PUSH1(1) + Op.ADD),
             condition=Op.GT(Op.GAS, 0xFFFF),
