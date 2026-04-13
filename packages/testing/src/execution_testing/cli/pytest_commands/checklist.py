@@ -34,6 +34,12 @@ def _last_development_fork() -> str | None:
 
 
 @click.command()
+@click.argument(
+    "paths",
+    nargs=-1,
+    type=click.Path(),
+    default=("tests", "tests/benchmark"),
+)
 @click.option(
     "--output",
     "-o",
@@ -56,7 +62,11 @@ def _last_development_fork() -> str | None:
     help="Include upcoming forks up to and including this fork",
 )
 def checklist(
-    output: str, eip: tuple[int, ...], until: str | None, **kwargs: Any
+    paths: tuple[str, ...],
+    output: str,
+    eip: tuple[int, ...],
+    until: str | None,
+    **kwargs: Any,
 ) -> None:
     """
     Generate EIP test checklists based on pytest.mark.eip_checklist markers.
@@ -64,18 +74,21 @@ def checklist(
     This command scans test files for eip_checklist markers and generates
     filled checklists showing which checklist items have been implemented.
 
+    By default it scans `tests` plus `tests/benchmark`; pass one or more
+    paths to limit collection to a subset.
+
     By default, includes all development forks so that checklists for
     upcoming EIPs are generated without needing --until.
 
     Examples:
-        # Generate checklists for all EIPs
+        # Generate checklists for all EIPs (default: tests + tests/benchmark)
         uv run checklist
 
         # Generate checklist for specific EIP
         uv run checklist --eip 7702
 
-        # Generate checklists for specific test path
-        uv run checklist tests/prague/eip7702*
+        # Generate checklists for a specific test path
+        uv run checklist tests/prague/eip7702_set_code_tx
 
         # Limit to a specific fork
         uv run checklist --until Prague
@@ -100,10 +113,14 @@ def checklist(
     if until:
         args.extend(["--until", until])
 
+    # The default `paths` (`tests`, `tests/benchmark`) lists `tests/benchmark`
+    # explicitly because positional paths override `testpaths = tests/` in
+    # pytest-fill.ini, otherwise checklist coverage from benchmark tests
+    # gets dropped.
+    args.extend(paths)
+
     command = ChecklistCommand(
-        plugins=[
-            "execution_testing.cli.pytest_commands.plugins.filler.eip_checklist"
-        ],
+        plugins=["execution_testing.cli.pytest_commands.plugins.filler.eip_checklist"],
     )
     command.execute(args)
 
