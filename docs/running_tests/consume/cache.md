@@ -10,7 +10,7 @@ All `consume` subcommands have an `--input` argument, which implements the same 
 
 ## Example: Two-liner to Download the Latest Fixture Release
 
-Releases can be downloaded using EEST tooling without (manually) cloning and installing the @ethereum/execution-spec-tests tools as following:
+Releases can be downloaded using EEST tooling without (manually) cloning and installing the @ethereum/execution-specs tools as following:
 
 1. Install `uv` (a fast, rust-based Python package manager):
 
@@ -21,10 +21,11 @@ Releases can be downloaded using EEST tooling without (manually) cloning and ins
 2. Run EEST's `consume cache` command via `uv` and request the latest ["stable" fixture release](../releases.md):
 
     ```console
-    uvx --from git+https://github.com/ethereum/execution-spec-tests \
+    uvx --from "git+https://github.com/ethereum/execution-specs.git#subdirectory=packages/testing" \
         consume cache --input=stable@latest
     ```
 
+    <!-- TODO: Re-capture this example output from the new repo; the command works but the transcript still shows the legacy repo identity. -->
     Expected output, as of `v4.5.0`:
 
     ```console
