@@ -24,7 +24,7 @@ graph LR
 
 ## Installation
 
-The fuzzer bridge is included with the execution-specs framework. Follow the [installation guide](../getting_started/installation.md) to set up EEST.
+The fuzzer bridge is included with the execution-specs framework. Follow the [installation guide](../getting_started/installation.md) to set up EELS.
 
 Once installed, the `fuzzer_bridge` command will be available through `uv run`.
 
@@ -255,8 +255,3 @@ builder.env_overrides = {
 3. **Use Parallel Processing**: For large batches, use `--parallel` flag for better performance
 4. **Version Control**: Track generated fixtures in version control for regression testing
 5. **Continuous Integration**: Integrate fuzzer bridge into CI pipelines for automated testing
-
-## Further Resources
-
-- [EEST Framework Documentation](../index.md)
-- [Ethereum Test Format Specifications](./reference_specification.md)

@@ -67,7 +67,7 @@ This marker only differs from `pytest.mark.with_all_tx_types` in that it does no
 This marker is used to automatically parameterize a test with all typed transactions, including `type=0` (legacy transaction), that are valid for the fork being tested.
 This marker is an indirect marker that utilizes the `tx_type` values from the `pytest.mark.with_all_tx_types` marker to build default typed transactions for each `tx_type`.
 
-Optional: Default typed transactions used as values for `typed_transaction` exist in `src/execution_testing/cli/pytest_commands/plugins/shared/transaction_fixtures.py` and can be overridden for the scope of
+Optional: Default typed transactions used as values for `typed_transaction` exist in `packages/testing/src/execution_testing/cli/pytest_commands/plugins/shared/transaction_fixtures.py` and can be overridden for the scope of
 the test by re-defining the appropriate `pytest.fixture` for that transaction type.
 
 ```python
