@@ -34,6 +34,7 @@ from ..base_fork import (
 )
 from ..gas_costs import GasCosts
 from . import eips
+from .eips.amsterdam import AmsterdamEIPs
 from .helpers import ceiling_division
 
 
@@ -1508,7 +1509,7 @@ class BPO5(
 
 
 class Amsterdam(
-    eips.EIP7928,
+    AmsterdamEIPs,
     BPO2,
     deployed=False,
 ):
