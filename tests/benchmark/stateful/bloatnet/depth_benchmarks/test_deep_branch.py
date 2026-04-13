@@ -481,7 +481,6 @@ def build_get_deepest_orchestrator_bytecode(
     )
 
 
-@pytest.mark.valid_from("Prague")
 @pytest.mark.parametrize(
     "storage_depth,account_depth",
     DEPTH_BENCHMARK_CASES,
@@ -579,7 +578,6 @@ def test_worst_depth_stateroot_recomp(
     )
 
 
-@pytest.mark.valid_from("Prague")
 @pytest.mark.parametrize(
     "storage_depth,account_depth",
     DEPTH_BENCHMARK_CASES,
@@ -658,7 +656,6 @@ def test_worst_depth_get_deepest(
     benchmark_test(
         pre=pre,
         blocks=[Block(txs=read_txs)],
-        post=Alloc({}),
         expected_benchmark_gas_used=total_gas_cost,
         expected_receipt_status=1,
     )
