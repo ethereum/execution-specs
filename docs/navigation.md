@@ -11,8 +11,6 @@
       * [Security Policy](getting_started/security.md)
       * [Installation Troubleshooting](getting_started/installation_troubleshooting.md)
       * [Getting Help](getting_started/getting_help.md)
-  * [Writing Specs](writing_specs/index.md)
-      * [Adding a New EIP](writing_specs/adding_a_new_eip.md)
   * [Writing Tests](writing_tests/index.md)
       * [Adding a New Test](writing_tests/adding_a_new_test.md)
       * [Types of Test](writing_tests/types_of_tests.md)
