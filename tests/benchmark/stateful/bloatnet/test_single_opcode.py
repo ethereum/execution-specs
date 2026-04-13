@@ -418,7 +418,7 @@ def test_sload_bloated_multi_contract(
     # populated entries rather than empty slots. A fresh Storage
     # instance is built per deployment (below) so that every target
     # gets an independent root dict, not an alias of the same one.
-    storage_data: dict[int, int] = {0: base_offset}
+    storage_data: Storage.StorageDictType = {0: base_offset}
     if existing_slots:
         for i in range(base_offset, base_offset + sloads_per_tx):
             storage_data[i] = i
