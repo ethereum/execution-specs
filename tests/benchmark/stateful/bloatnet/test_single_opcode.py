@@ -399,11 +399,6 @@ def test_sload_bloated_multi_contract(
         Op.POP(
             Op.CALL(
                 address=offset_holder,
-                value=0,
-                args_offset=0,
-                args_size=0,
-                ret_offset=0,
-                ret_size=0,
             )
         )
         + Op.SLOAD(Op.PUSH0)
