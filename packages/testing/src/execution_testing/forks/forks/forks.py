@@ -37,6 +37,15 @@ from . import eips
 from .eips.amsterdam import AmsterdamEIPs
 from .helpers import ceiling_division
 
+if TYPE_CHECKING:
+
+    class _AmsterdamEIPsForTyping(BaseFork):
+        """Typing-only stand-in for Amsterdam EIP mixins."""
+
+        pass
+else:
+    from .eips.amsterdam import AmsterdamEIPs as _AmsterdamEIPsForTyping
+
 
 # All forks must be listed here !!! in the order they were introduced !!!
 class Frontier(
