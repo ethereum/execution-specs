@@ -76,7 +76,19 @@ class GasCosts:
     PRECOMPILE_ECPAIRING_BASE = Uint(45000)
     PRECOMPILE_ECPAIRING_PER_POINT = Uint(34000)
 
-    # Opcodes
+    # Transactions
+    TX_BASE = Uint(21000)
+    TX_CREATE = Uint(32000)
+    TX_DATA_PER_ZERO = Uint(4)
+    TX_DATA_PER_NON_ZERO = Uint(16)
+    TX_ACCESS_LIST_ADDRESS = Uint(2400)
+    TX_ACCESS_LIST_STORAGE_KEY = Uint(1900)
+
+    # Block
+    LIMIT_ADJUSTMENT_FACTOR = Uint(1024)
+    LIMIT_MINIMUM = Uint(5000)
+
+    # Static Opcodes
     OPCODE_ADD = VERY_LOW
     OPCODE_SUB = VERY_LOW
     OPCODE_MUL = LOW

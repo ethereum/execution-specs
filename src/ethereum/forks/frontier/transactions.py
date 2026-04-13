@@ -21,22 +21,6 @@ from ethereum.exceptions import (
 
 from .fork_types import Address
 
-GAS_TX_BASE = Uint(21000)
-"""
-Base cost of a transaction in gas units. This is the minimum amount of gas
-required to execute a transaction.
-"""
-
-GAS_TX_DATA_PER_NON_ZERO = Uint(68)
-"""
-Gas cost per non-zero byte in the transaction data.
-"""
-
-GAS_TX_DATA_PER_ZERO = Uint(4)
-"""
-Gas cost per zero byte in the transaction data.
-"""
-
 
 @slotted_freezable
 @dataclass
@@ -138,20 +122,22 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     for all operations to be implemented.
 
     The intrinsic cost includes:
-    1. Base cost (`GAS_TX_BASE`)
+    1. Base cost (`TX_BASE`)
     2. Cost for data (zero and non-zero bytes)
 
     This function takes a transaction as a parameter and returns the intrinsic
     gas cost of the transaction.
     """
+    from .vm.gas import GasCosts
+
     num_zeros = Uint(tx.data.count(0))
     num_non_zeros = ulen(tx.data) - num_zeros
     data_cost = (
-        num_zeros * GAS_TX_DATA_PER_ZERO
-        + num_non_zeros * GAS_TX_DATA_PER_NON_ZERO
+        num_zeros * GasCosts.TX_DATA_PER_ZERO
+        + num_non_zeros * GasCosts.TX_DATA_PER_NON_ZERO
     )
 
-    return GAS_TX_BASE + data_cost
+    return GasCosts.TX_BASE + data_cost
 
 
 def recover_sender(tx: Transaction) -> Address:
