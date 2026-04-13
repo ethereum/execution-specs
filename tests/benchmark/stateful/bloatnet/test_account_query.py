@@ -12,7 +12,9 @@ from execution_testing import (
     Hash,
     IteratingBytecode,
     JumpLoopGenerator,
+    NoTraceErrors,
     Op,
+    ReceiptStatusExpected,
     TestPhaseManager,
     Transaction,
     While,
@@ -338,5 +340,5 @@ def test_account_access(
         blocks=blocks,
         target_opcode=target_opcode,
         skip_gas_used_validation=True,
-        expected_receipt_status=1,
+        verifications=[ReceiptStatusExpected(), NoTraceErrors()],
     )

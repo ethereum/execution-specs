@@ -18,6 +18,7 @@ from execution_testing.fixtures.blockchain import (
 )
 from execution_testing.forks import Osaka
 from execution_testing.rpc.rpc_types import GetPayloadResponse
+from execution_testing.specs.verifications import ReceiptStatusExpected
 from execution_testing.test_types import (
     Alloc,
     Environment,
@@ -165,28 +166,28 @@ def _fill_stateful(
 def test_execution_status_mismatch_raises(
     monkeypatch: pytest.MonkeyPatch, client_backend: ClientBackend
 ) -> None:
-    """A status-0 receipt with ``expected_receipt_status=1`` must throw."""
+    """A status-0 receipt with ``ReceiptStatusExpected(status=1)`` throws."""
     with pytest.raises(Exception, match=r"receipt status 0, expected 1"):
         _fill_stateful(
             monkeypatch,
             client_backend,
             statuses_per_block=[[0]],
             phases=[TestPhase.EXECUTION],
-            expected_receipt_status=1,
+            verifications=[ReceiptStatusExpected(status=1)],
         )
 
 
 def test_expected_failure_but_tx_succeeded_raises(
     monkeypatch: pytest.MonkeyPatch, client_backend: ClientBackend
 ) -> None:
-    """A status-1 receipt with ``expected_receipt_status=0`` must throw."""
+    """A status-1 receipt with ``ReceiptStatusExpected(status=0)`` throws."""
     with pytest.raises(Exception, match=r"receipt status 1, expected 0"):
         _fill_stateful(
             monkeypatch,
             client_backend,
             statuses_per_block=[[1]],
             phases=[TestPhase.EXECUTION],
-            expected_receipt_status=0,
+            verifications=[ReceiptStatusExpected(status=0)],
         )
 
 
@@ -203,7 +204,7 @@ def test_single_failed_receipt_in_block_raises(
             client_backend,
             statuses_per_block=[[1, 1, 0]],
             phases=[TestPhase.EXECUTION],
-            expected_receipt_status=1,
+            verifications=[ReceiptStatusExpected(status=1)],
         )
 
 
@@ -213,13 +214,13 @@ def test_matching_status_fills(
     client_backend: ClientBackend,
     status: int,
 ) -> None:
-    """Receipts matching ``expected_receipt_status`` fill normally."""
+    """Receipts matching ``ReceiptStatusExpected`` fill normally."""
     result = _fill_stateful(
         monkeypatch,
         client_backend,
         statuses_per_block=[[status, status]],
         phases=[TestPhase.EXECUTION],
-        expected_receipt_status=status,
+        verifications=[ReceiptStatusExpected(status=status)],
     )
     assert isinstance(result.fixture, BlockchainEngineStatefulFixture)
 
@@ -228,7 +229,7 @@ def test_setup_phase_blocks_are_exempt(
     monkeypatch: pytest.MonkeyPatch, client_backend: ClientBackend
 ) -> None:
     """
-    ``expected_receipt_status`` describes the test's own transactions;
+    ``verifications`` describe the test's own transactions;
     a mismatching status in a SETUP-phase block must not throw.
     """
     result = _fill_stateful(
@@ -236,7 +237,7 @@ def test_setup_phase_blocks_are_exempt(
         client_backend,
         statuses_per_block=[[0], [1]],
         phases=[TestPhase.SETUP, TestPhase.EXECUTION],
-        expected_receipt_status=1,
+        verifications=[ReceiptStatusExpected(status=1)],
     )
     assert isinstance(result.fixture, BlockchainEngineStatefulFixture)
     assert len(result.fixture.setup_payloads) == 1
@@ -246,7 +247,7 @@ def test_setup_phase_blocks_are_exempt(
 def test_unset_expected_status_skips_validation(
     monkeypatch: pytest.MonkeyPatch, client_backend: ClientBackend
 ) -> None:
-    """Without ``expected_receipt_status``, any status fills normally."""
+    """Without ``verifications``, any status fills normally."""
     result = _fill_stateful(
         monkeypatch,
         client_backend,
