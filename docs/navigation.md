@@ -28,7 +28,6 @@
           * [Adding a State Test](writing_tests/tutorials/state_transition.md)
           * [Adding a Blockchain Test](writing_tests/tutorials/blockchain.md)
       * [Opcode Metadata](writing_tests/opcode_metadata.md)
-      * [Porting Legacy Tests](writing_tests/porting_legacy_tests.md)
   * [Filling Tests](filling_tests/index.md)
       * [Getting Started](filling_tests/getting_started.md)
       * [Filling Tests at a Prompt](filling_tests/filling_tests_command_line.md)
