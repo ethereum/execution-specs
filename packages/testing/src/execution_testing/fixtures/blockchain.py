@@ -457,6 +457,7 @@ class FixtureEngineNewPayload(CamelModel):
     params: EngineNewPayloadParameters
     new_payload_version: Number
     forkchoice_updated_version: Number
+    execution_witness: ExecutionWitness | None = None
     validation_error: ExceptionInstanceOrList | None = None
     error_code: (
         Annotated[
@@ -482,6 +483,7 @@ class FixtureEngineNewPayload(CamelModel):
         withdrawals: List[Withdrawal] | None,
         requests: List[Bytes] | None,
         block_access_list: Bytes | None = None,
+        execution_witness: ExecutionWitness | None = None,
         **kwargs: Any,
     ) -> Self:
         """Create `FixtureEngineNewPayload` from a `FixtureHeader`."""
@@ -534,6 +536,7 @@ class FixtureEngineNewPayload(CamelModel):
             params=payload_params,
             new_payload_version=new_payload_version,
             forkchoice_updated_version=forkchoice_updated_version,
+            execution_witness=execution_witness,
             **kwargs,
         )
 

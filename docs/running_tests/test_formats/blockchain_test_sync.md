@@ -127,6 +127,11 @@ List of hashes of the versioned blobs that are part of the execution payload.
 
 Hash of the parent beacon block root.
 
+#### - `executionWitness`: Optional execution witness object
+
+Optional fixture metadata for stateless validation. When present, contains
+`state`, `codes`, and `headers` byte lists associated with this payload.
+
 #### - `validationError`: [`Optional`](./common_types.md#optional)`[`[`TransactionException`](../../library/execution_testing_exceptions.md#execution_testing.exceptions.TransactionException)` | `[`BlockException`](../../library/execution_testing_exceptions.md#execution_testing.exceptions.BlockException)`]`
 
 For sync tests, this field should not be present as sync tests only work with valid chains. Invalid blocks cannot be synced.
