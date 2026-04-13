@@ -20,6 +20,7 @@ from execution_testing import (
     IteratingBytecode,
     JumpLoopGenerator,
     Op,
+    ReceiptStatusExpected,
     RecipientType,
     Storage,
     TestPhaseManager,
@@ -469,7 +470,7 @@ def test_sload_bloated_prefetch_miss(
         pre=pre,
         blocks=blocks,
         skip_gas_used_validation=True,
-        expected_receipt_status=True,
+        verifications=[ReceiptStatusExpected()],
     )
 
 
@@ -629,5 +630,5 @@ def test_sload_bloated_multi_contract(
         pre=pre,
         blocks=blocks,
         skip_gas_used_validation=True,
-        expected_receipt_status=True,
+        verifications=[ReceiptStatusExpected()],
     )

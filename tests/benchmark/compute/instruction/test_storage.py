@@ -26,6 +26,7 @@ from execution_testing import (
     IteratingBytecode,
     JumpLoopGenerator,
     Op,
+    ReceiptStatusExpected,
     RecipientType,
     TestPhaseManager,
     Transaction,
@@ -677,7 +678,7 @@ def test_nested_frame_state_access(
     benchmark_test(
         target_opcode=opcode,
         skip_gas_used_validation=True,
-        expected_receipt_status=1,
+        verifications=[ReceiptStatusExpected()],
         blocks=[Block(txs=txs)],
     )
 
