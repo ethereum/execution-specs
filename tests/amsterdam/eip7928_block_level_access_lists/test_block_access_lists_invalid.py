@@ -1146,7 +1146,7 @@ def test_bal_invalid_hash_mismatch(
         blocks=[
             Block(
                 txs=[tx],
-                rlp_modifier=Header(bal_hash=Hash(1)),
+                rlp_modifier=Header(block_access_list_hash=Hash(1)),
                 exception=[
                     BlockException.INVALID_BAL_HASH,
                     BlockException.INVALID_BLOCK_HASH,

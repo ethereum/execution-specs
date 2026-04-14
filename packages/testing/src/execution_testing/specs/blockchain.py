@@ -164,7 +164,7 @@ class Header(CamelModel):
     excess_blob_gas: Removable | HexNumber | None = None
     parent_beacon_block_root: Removable | Hash | None = None
     requests_hash: Removable | Hash | None = None
-    bal_hash: Removable | Hash | None = None
+    block_access_list_hash: Removable | Hash | None = None
 
     REMOVE_FIELD: ClassVar[Removable] = Removable()
     """
@@ -334,7 +334,9 @@ class Block(Header):
             not isinstance(self.requests_hash, Removable)
             and self.block_access_list is not None
         ):
-            new_env_values["bal_hash"] = self.block_access_list.keccak256()
+            new_env_values["block_access_list_hash"] = (
+                self.block_access_list.keccak256()
+            )
             new_env_values["block_access_list"] = self.block_access_list
         if (
             not isinstance(self.block_access_list, Removable)
@@ -723,11 +725,14 @@ class BlockchainTest(BaseTest):
                 "provided by the transition tool"
             )
 
-            computed_bal_hash = Hash(t8n_bal.rlp.keccak256())
-            assert computed_bal_hash == header.block_access_list_hash, (
+            computed_block_access_list_hash = Hash(t8n_bal.rlp.keccak256())
+            assert (
+                computed_block_access_list_hash
+                == header.block_access_list_hash
+            ), (
                 "Block access list hash in header does not match the "
                 f"computed hash from BAL: {header.block_access_list_hash} "
-                f"!= {computed_bal_hash}"
+                f"!= {computed_block_access_list_hash}"
             )
 
         if block.rlp_modifier is not None:
