@@ -75,6 +75,22 @@ def _max_sloads_per_tx(tx_gas_limit: int, fork: Fork) -> int:
     return tx_gas_limit // cold_sload_cost
 
 
+def _sender_generator(
+    pre: Alloc, distinct_senders: bool
+) -> Generator[EOA, None, None]:
+    """
+    Yield one sender per tx.
+
+    In distinct mode, yields a fresh EOA per call. Otherwise, yields
+    the same shared sender for every call. Used by the bloated SLOAD
+    benchmarks so the BAL builder can group nonce changes by sender
+    uniformly regardless of mode.
+    """
+    sender = pre.fund_eoa()
+    while True:
+        yield sender if not distinct_senders else pre.fund_eoa()
+
+
 def delegate_with_calldata(
     pre: Alloc,
     authority: EOA,
@@ -204,7 +220,6 @@ def test_sload_bloated(
     )
 
 
-@pytest.mark.repricing
 @pytest.mark.stub_parametrize("token_name", "bloated_eoa_")
 @pytest.mark.parametrize("distinct_senders", [False, True])
 @pytest.mark.parametrize("existing_slots", [False, True])
@@ -278,18 +293,11 @@ def test_sload_bloated_prefetch_miss(
         calldata=b"\xff" * 32,
     )
 
-    # Yield one sender per tx via a generator. In distinct mode
-    # each call returns a fresh EOA; otherwise the same shared
-    # sender is reused. The senders list collects one entry per
-    # tx so the BAL builder below can group nonce changes by
-    # sender uniformly.
-    def sender_generator() -> Generator[EOA, None, None]:
-        """Yield senders, fresh if distinct, else reuse one shared."""
-        sender = pre.fund_eoa()
-        while True:
-            yield sender if not distinct_senders else pre.fund_eoa()
-
-    senders_iter = sender_generator()
+    # senders_iter yields one sender per tx (fresh per call in
+    # distinct mode, a single shared sender otherwise). The senders
+    # list collects one entry per tx so the BAL builder below can
+    # group nonce changes by sender uniformly.
+    senders_iter = _sender_generator(pre, distinct_senders)
     senders: list[EOA] = []
 
     gas_available = gas_benchmark_value
@@ -373,7 +381,6 @@ def test_sload_bloated_prefetch_miss(
     )
 
 
-@pytest.mark.repricing
 @pytest.mark.parametrize("distinct_senders", [False, True])
 @pytest.mark.parametrize("existing_slots", [False, True])
 def test_sload_bloated_multi_contract(
@@ -435,7 +442,7 @@ def test_sload_bloated_multi_contract(
     )
 
     base_offset = 1 if existing_slots else START_SLOT
-    max_sloads_per_tx = _max_sloads_per_tx(tx_gas_limit)
+    max_sloads_per_tx = _max_sloads_per_tx(tx_gas_limit, fork)
 
     # Pre-load slot 0 with the starting offset. For existing_slots,
     # also fill the slot range the loop will read so SLOADs land on
@@ -454,18 +461,11 @@ def test_sload_bloated_multi_contract(
     # + one iteration + final SSTORE, with buffer.
     min_tx_gas = intrinsic_gas + 130_000
 
-    # Yield one sender per tx via a generator. In distinct mode
-    # each call returns a fresh EOA; otherwise the same shared
-    # sender is reused. The senders list collects one entry per
-    # tx so the BAL builder below can group nonce changes by
-    # sender uniformly.
-    def sender_generator() -> Generator[EOA, None, None]:
-        """Yield senders, fresh if distinct, else reuse one shared."""
-        sender = pre.fund_eoa()
-        while True:
-            yield sender if not distinct_senders else pre.fund_eoa()
-
-    senders_iter = sender_generator()
+    # senders_iter yields one sender per tx (fresh per call in
+    # distinct mode, a single shared sender otherwise). The senders
+    # list collects one entry per tx so the BAL builder below can
+    # group nonce changes by sender uniformly.
+    senders_iter = _sender_generator(pre, distinct_senders)
     senders: list[EOA] = []
 
     gas_available = gas_benchmark_value
