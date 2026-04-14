@@ -1057,9 +1057,11 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         return int(cls.__name__[3:])
 
     @classmethod
-    def is_eip_enabled(cls, eip_number: int) -> bool:
-        """Return whether this class has an EIP enabled."""
-        return eip_number in cls._enabled_eips
+    def is_eip_enabled(cls, *eip_numbers: int) -> bool:
+        """Return whether this class has all specified EIPs enabled."""
+        return all(
+            eip_number in cls._enabled_eips for eip_number in eip_numbers
+        )
 
     @classmethod
     def enabling_forks(cls) -> Set[Type["BaseFork"]]:
