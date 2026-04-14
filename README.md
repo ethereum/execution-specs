@@ -4,15 +4,9 @@
 [![codecov](https://codecov.io/gh/ethereum/execution-specs/graph/badge.svg?token=0LQZO56RTM)](https://codecov.io/gh/ethereum/execution-specs)
 [![Python Specification](https://github.com/ethereum/execution-specs/actions/workflows/test.yaml/badge.svg)](https://github.com/ethereum/execution-specs/actions/workflows/test.yaml)
 
-The Ethereum Execution Layer Specifications (EELS) are an executable
-Python reference implementation of Ethereum's execution layer, along
-with the test cases that verify it. Clients read EELS to know what
-Ethereum should do on any given block; EIP authors prototype protocol
-changes here before the prose EIP is final; test vectors produced from
-this repository are run against every production client.
+The Ethereum Execution Layer Specifications (EELS) are an executable Python reference implementation of Ethereum's execution layer, along with the test cases that verify it. Clients read EELS to know what Ethereum should do on any given block; EIP authors prototype protocol changes here before the prose EIP is final; test vectors produced from this repository are run against every production client.
 
-The [JSON-RPC API specification](https://github.com/ethereum/execution-apis)
-lives in a separate repository.
+The [JSON-RPC API specification](https://github.com/ethereum/execution-apis) lives in a separate repository.
 
 - **Rendered documentation**: <https://steel.ethereum.foundation/docs/>
 - **Rendered specification (pyspec)**: <https://ethereum.github.io/execution-specs/>
@@ -33,22 +27,24 @@ uv tool install --exclude-newer "10 days" rust-just
 just shell-completions
 ```
 
-Python 3.11–3.14 are supported; 3.12 is recommended for local
-development. For macOS-specific notes, alternative `just` installation
-paths, and troubleshooting, see
-[Installation](docs/getting_started/installation.md).
+Python 3.11–3.14 are supported; 3.12 is recommended for local development. For alternative `just` installation paths, macOS-specific installation notes, and troubleshooting, see [Installation](docs/getting_started/installation.md).
 
 To build and browse the HTML documentation locally:
 
-```bash
-uv run mkdocs serve
+```console
+just docs-serve-fast
 ```
 
-Then open <http://localhost:8000>. To build the `docc`-rendered Python
-specification separately, run `just docs-spec`; the path to the generated
-HTML will be printed.
+Then open <http://localhost:8000>.
+
+To build the `docc`-rendered Python specification, run:
+
+```console
+just docs-spec
+```
+
+the path to the generated HTML will be printed.
 
 ## License
 
-The Ethereum Execution Layer Specification is licensed under the
-[Creative Commons Zero v1.0 Universal](LICENSE.md).
+The Ethereum Execution Layer Specification is licensed under the [Creative Commons Zero v1.0 Universal](LICENSE.md).
