@@ -10,7 +10,7 @@
       * [Security Policy](getting_started/security.md)
       * [Installation Troubleshooting](getting_started/installation_troubleshooting.md)
       * [Getting Help](getting_started/getting_help.md)
-  * [Specs](specs/index.md)
+  * [Specifications](specs/index.md)
       * [Writing Specs](specs/writing_specs.md)
       * [Adding a New EIP](specs/adding_a_new_eip.md)
       * [Spec Releases](specs/spec_releases.md)

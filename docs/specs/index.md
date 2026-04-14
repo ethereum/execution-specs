@@ -1,4 +1,4 @@
-# Specs
+# Specifications
 
 The Ethereum Execution Layer Specifications (EELS) are an executable Python
 reference implementation of Ethereum's execution layer. They serve as a
