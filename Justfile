@@ -89,6 +89,8 @@ lock-check:
 lint-actions:
     uv run actionlint -pyflakes pyflakes -shellcheck "shellcheck -S warning"
 
+# --- Consensus Tests ---
+
 # Generate HTML coverage report from last just fill run
 [group('consensus tests')]
 coverage:
@@ -98,8 +100,6 @@ coverage:
 [group('consensus tests')] 
 checklist *args:
     uv run checklist --output tmp/checklist "$@"
-
-# --- Fill Tests ---
 
 # Fill the consensus tests using EELS (with Python)
 [group('consensus tests')]
@@ -124,6 +124,8 @@ fill *args:
         "$@" \
         tests
 
+# --- Integration Tests ---
+
 # Fill the base coverage consensus tests using EELS with PyPy
 [group('integration tests')]
 fill-pypy *args:
@@ -146,8 +148,6 @@ fill-pypy *args:
         --ignore=tests/ported_static \
         "$@" \
         tests
-
-# --- Integration Tests ---
 
 # Fill the base coverage consensus tests and run EELS against the fixtures
 [group('integration tests')]
