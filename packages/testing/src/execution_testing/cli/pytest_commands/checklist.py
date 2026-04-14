@@ -90,7 +90,7 @@ def checklist(
         uv run checklist tests/prague/eip7702_set_code_tx
 
         # Generate until a specific fork
-        uv run checklist --fork Prague
+        uv run checklist --until Prague
 
         # Specify output directory
         uv run checklist --output ./my-checklists
