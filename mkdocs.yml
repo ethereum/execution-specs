@@ -41,7 +41,7 @@ watch:
 theme:
   name: material
   logo: img/eth-diamond-white.png
-  favicon: img/ETH-logo-icon.svg
+  favicon: img/eth-diamond-orange.svg
   language: en
   features:
     - content.code.copy
