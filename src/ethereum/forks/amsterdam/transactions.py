@@ -676,10 +676,8 @@ def calculate_intrinsic_cost(
     # Data token floor cost for access list bytes.
     access_list_gas += tokens_in_access_list * GAS_TX_DATA_TOKEN_FLOOR
 
-    # Data token floor cost for access list bytes.
-    access_list_cost += tokens_in_access_list * GasCosts.TX_DATA_TOKEN_FLOOR
-
-    auth_cost = Uint(0)
+    auth_regular_gas = Uint(0)
+    auth_state_gas = Uint(0)
     if isinstance(tx, SetCodeTransaction):
         auth_regular_gas = PER_AUTH_BASE_COST * ulen(tx.authorizations)
         auth_state_gas = (

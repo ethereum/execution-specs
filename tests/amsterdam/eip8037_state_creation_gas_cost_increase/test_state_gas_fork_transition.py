@@ -52,7 +52,8 @@ def test_sstore_state_gas_at_transition(
     operation requires state gas. Both blocks use TX_MAX_GAS_LIMIT
     which provides enough gas in either regime.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
+    after_fork = fork.fork_at(timestamp=15_000)
+    gas_limit_cap = after_fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     contract_before = pre.deploy_contract(
         code=Op.SSTORE(0, 1),
@@ -123,7 +124,8 @@ def test_tx_gas_above_cap_at_transition(
     reservoir. This test sends a tx at the cap (always valid) and one
     above the cap (rejected before, accepted after).
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
+    after_fork = fork.fork_at(timestamp=15_000)
+    gas_limit_cap = after_fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     storage_before = Storage()
     contract_before = pre.deploy_contract(
@@ -193,9 +195,10 @@ def test_reservoir_available_after_transition(
     no reservoir. After the fork, gas above the cap feeds the reservoir,
     which child calls can draw from for state operations.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
+    after_fork = fork.fork_at(timestamp=15_000)
+    gas_limit_cap = after_fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = after_fork.sstore_state_gas()
 
     child_storage = Storage()
     child = pre.deploy_contract(
