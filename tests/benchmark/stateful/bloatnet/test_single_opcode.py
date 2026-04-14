@@ -62,7 +62,7 @@ START_SLOT = (
 )
 
 
-def _max_sloads_per_tx(tx_gas_limit: int) -> int:
+def _max_sloads_per_tx(tx_gas_limit: int, fork: Fork) -> int:
     """
     Conservative upper bound on cold SLOADs that fit in a max-gas tx.
 
@@ -71,7 +71,8 @@ def _max_sloads_per_tx(tx_gas_limit: int) -> int:
     (to keep consecutive txs' SLOAD ranges disjoint) and as the
     per-target storage pre-load count.
     """
-    return tx_gas_limit // 2100
+    cold_sload_cost = Op.SLOAD(key_warm=False).gas_cost(fork)
+    return tx_gas_limit // cold_sload_cost
 
 
 def delegate_with_calldata(
