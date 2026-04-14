@@ -620,6 +620,7 @@ def _build_parameters(model: StateStaticTest) -> list[ParameterCaseIR]:
 def _resolve_storage_values(
     storage: dict[int, int],
     addr_to_var: dict[Address | EOA, str],
+    imports: ImportsIR | None = None,
 ) -> dict[int, int | str]:
     """Replace storage values matching known addresses with var names."""
     if not storage or not addr_to_var:
@@ -628,10 +629,25 @@ def _resolve_storage_values(
     int_to_var: dict[int, str] = {}
     for addr, var_name in addr_to_var.items():
         int_to_var[int.from_bytes(addr, "big")] = var_name
+    # Also build CREATE-derived address lookup
+    create_to_expr: dict[int, str] = {}
+    for addr, var_name in addr_to_var.items():
+        for nonce in range(256):
+            created = compute_create_address(address=addr, nonce=nonce)
+            created_int = int.from_bytes(created, "big")
+            if created_int not in int_to_var:
+                create_to_expr[created_int] = (
+                    f"compute_create_address(address={var_name},"
+                    f" nonce={nonce})"
+                )
     result: dict[int, int | str] = {}
     for k, v in storage.items():
         if v in int_to_var:
             result[k] = int_to_var[v]
+        elif v in create_to_expr:
+            if imports is not None:
+                imports.needs_compute_create_address = True
+            result[k] = create_to_expr[v]
         else:
             result[k] = v
     return result
@@ -775,7 +791,9 @@ def _build_accounts(
             resolved_storage = account.storage.resolve(tags)
             for k, v in resolved_storage.items():
                 storage[int(k)] = int(v)
-            storage = _resolve_storage_values(storage, addr_to_var)
+            storage = _resolve_storage_values(
+                storage, addr_to_var, imports
+            )
 
         # Balance and nonce
         balance = int(account.balance) if account.balance is not None else 0
@@ -1098,7 +1116,9 @@ def _build_expect_entries(
                 resolved_storage = account_expect.storage.resolve(tags)
                 for k, v in resolved_storage.items():
                     storage[int(k)] = int(v)
-                storage = _resolve_storage_values(storage, addr_to_var)
+                storage = _resolve_storage_values(
+                    storage, addr_to_var, imports
+                )
                 # Capture ANY keys from _any_map
                 if hasattr(resolved_storage, "_any_map"):
                     for k in resolved_storage._any_map:
