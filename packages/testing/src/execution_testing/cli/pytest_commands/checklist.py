@@ -38,7 +38,6 @@ def _last_development_fork() -> str | None:
     "paths",
     nargs=-1,
     type=click.Path(),
-    default=("tests", "tests/benchmark"),
 )
 @click.option(
     "--output",
@@ -113,14 +112,20 @@ def checklist(
     if until:
         args.extend(["--until", until])
 
-    # The default `paths` (`tests`, `tests/benchmark`) lists `tests/benchmark`
-    # explicitly because positional paths override `testpaths = tests/` in
-    # pytest-fill.ini, otherwise checklist coverage from benchmark tests
-    # gets dropped.
+    # When no paths are provided, scan `tests/` and force inclusion of
+    # `tests/benchmark/` via `--include-benchmark`. The conftest normally
+    # hides `tests/benchmark/` from a plain `tests/` collection, and
+    # passing both as positional paths triggers pytest path deduplication
+    # which drops the broader `tests/`.
+    if not paths:
+        paths = ("tests",)
+        args.append("--include-benchmark")
     args.extend(paths)
 
     command = ChecklistCommand(
-        plugins=["execution_testing.cli.pytest_commands.plugins.filler.eip_checklist"],
+        plugins=[
+            "execution_testing.cli.pytest_commands.plugins.filler.eip_checklist"
+        ],
     )
     command.execute(args)
 

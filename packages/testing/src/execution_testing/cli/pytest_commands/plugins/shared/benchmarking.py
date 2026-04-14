@@ -71,6 +71,19 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "Can be a JSON string or path to a JSON file."
         ),
     )
+    benchmark_group.addoption(
+        "--include-benchmark",
+        action="store_true",
+        dest="include_benchmark",
+        default=False,
+        help=(
+            "Include tests/benchmark/ during collection even when no "
+            "benchmark path is passed as a positional argument. Needed "
+            "when collecting both tests/ and tests/benchmark/ in a single "
+            "pytest invocation, since pytest's path deduplication drops "
+            "the broader tests/ arg."
+        ),
+    )
 
 
 @pytest.hookimpl(tryfirst=True)

@@ -51,8 +51,10 @@ def pytest_generate_tests(metafunc: Any) -> None:
 
 def pytest_ignore_collect(collection_path: Path, config: Any) -> bool | None:
     """Skip benchmark directory unless explicitly targeted."""
-    benchmark_dir = Path(__file__).parent
+    if config.getoption("include_benchmark", default=False):
+        return False
 
+    benchmark_dir = Path(__file__).parent
     args = config.invocation_params.args or ()
     if any(
         benchmark_dir in Path(a).resolve().parents
