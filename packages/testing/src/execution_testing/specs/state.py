@@ -464,7 +464,7 @@ class StateTest(BaseTest):
                     env=env,
                     enable_post_processing=enable_post_processing,
                 )
-                gas_optimization = current_gas_limit
+                gas_optimization = minimum_gas_limit
             else:
                 raise Exception("Impossible to compare.")
 

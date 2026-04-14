@@ -13,7 +13,10 @@ from execution_testing.base_types import (
     TestAddress,
     TestPrivateKey,
 )
-from execution_testing.client_clis import TransitionTool
+from execution_testing.client_clis import (
+    ExecutionSpecsTransitionTool,
+    TransitionTool,
+)
 from execution_testing.exceptions import TransactionException
 from execution_testing.fixtures import (
     BlockchainFixture,
@@ -30,6 +33,7 @@ from execution_testing.test_types import (
     TransactionReceipt,
 )
 
+from ..base import OpMode
 from ..blockchain import BlockchainEngineFixture, BlockchainTest
 from ..helpers import (
     ExecutionExceptionMismatchError,
@@ -94,6 +98,47 @@ def state_test(  # noqa: D103
         fork=fork,
         is_exception_test=is_exception_test,
     )
+
+
+def test_gas_optimization_records_converged_minimum(
+    state_test: StateTest,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Record the converged gas limit after the binary search finishes."""
+    minimum_equivalent_gas_limit = 7
+    state_test.operation_mode = OpMode.OPTIMIZE_GAS
+
+    def fake_verify_modified_gas_limit(
+        self: StateTest,
+        *,
+        current_gas_limit: int,
+        **_: Any,
+    ) -> bool:
+        del self
+        return current_gas_limit >= minimum_equivalent_gas_limit
+
+    monkeypatch.setattr(
+        StateTest,
+        "verify_modified_gas_limit",
+        fake_verify_modified_gas_limit,
+    )
+
+    t8n = ExecutionSpecsTransitionTool(trace=True)
+    t8n.reset_traces()
+    evaluate = t8n.evaluate
+
+    def evaluate_with_traces(**kwargs: Any) -> Any:
+        output = evaluate(**kwargs)
+        traces = t8n.get_traces()
+        if output.result.traces is None and traces:
+            output.result.traces = traces[-1]
+        return output
+
+    monkeypatch.setattr(t8n, "evaluate", evaluate_with_traces)
+
+    fill_result = state_test.generate(t8n=t8n, fixture_format=StateFixture)
+
+    assert fill_result.gas_optimization == minimum_equivalent_gas_limit
 
 
 # Storage value mismatch tests
