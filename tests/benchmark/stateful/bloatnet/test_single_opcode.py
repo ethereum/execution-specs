@@ -268,7 +268,7 @@ def test_sload_bloated_prefetch_miss(
 
     # Offset spacing: upper bound on SLOADs per tx ensures each
     # transaction reads a completely disjoint slot range.
-    max_sloads_per_tx = _max_sloads_per_tx(tx_gas_limit)
+    max_sloads_per_tx = _max_sloads_per_tx(tx_gas_limit, fork)
 
     # The base offset must be at least max_sloads_per_tx away from
     # the pre-block slot 0 value (0) so the prefetcher's predicted
