@@ -1,7 +1,9 @@
 """Shared constants and helpers for stateful benchmark tests."""
 
 from collections.abc import Callable
+from dataclasses import dataclass
 from enum import Enum
+from functools import partial
 
 from execution_testing import (
     EOA,
@@ -16,6 +18,7 @@ from execution_testing import (
     Op,
     Transaction,
 )
+from execution_testing.base_types.base_types import Number
 
 # ERC20 function selectors
 BALANCEOF_SELECTOR = 0x70A08231  # balanceOf(address)
@@ -312,3 +315,136 @@ def initializer_calldata_generator(
     """Generate calldata for the storage initializer."""
     return Hash(start_iteration) + Hash(iteration_count)
 
+
+def create_sequential_sstore_initializer() -> IteratingBytecode:
+    """
+    Create a contract that initializes storage with slot-dependent values.
+
+    - CALLDATA[0..32]  start slot (index)
+    - CALLDATA[32..64] slot count (num)
+    - CALLDATA[64..96] value offset
+
+    storage[i] = i + offset for i in [index, index + num).
+    """
+    # Setup: [offset, index, index + num]
+    prefix = (
+        Op.CALLDATALOAD(64)  # [offset]
+        + Op.CALLDATALOAD(0)  # [index, offset]
+        + Op.DUP1  # [index, index, offset]
+        + Op.CALLDATALOAD(32)  # [num, index, index, offset]
+        + Op.ADD  # [num + index, index, offset]
+    )
+
+    # Loop: decrement current and store slot-dependent value
+    # Stack: [current, index, offset]
+    # current goes from index+num down; stores at current-1
+    loop = (
+        Op.JUMPDEST
+        + Op.PUSH1(1)  # [1, current, index, offset]
+        + Op.SWAP1  # [current, 1, index, offset]
+        + Op.SUB  # [current-1, index, offset]
+        + Op.DUP1  # [current-1, current-1, index, offset]
+        + Op.DUP1  # [current-1, current-1, current-1, index, offset]
+        + Op.DUP5  # [offset, current-1, current-1, current-1, index, offset]
+        + Op.ADD  # [current-1 + offset, current-1, current-1, index, offset]
+        + Op.SWAP1  # [current-1, current-1 + offset, current-1, index, offset]
+        + Op.SSTORE(  # SSTORE(current-1, current-1 + offset)
+            key_warm=False,
+            original_value=0,
+            current_value=0,
+            new_value=1,
+        )
+        # Stack: [current-1, index, offset]
+        # Continue while current-1 > index
+        + Op.JUMPI(len(prefix), Op.GT(Op.DUP2, Op.DUP2))
+    )
+
+    return IteratingBytecode(setup=prefix, iterating=loop)
+
+
+def sequential_initializer_calldata_generator(
+    iteration_count: int,
+    start_iteration: int,
+    *,
+    offset: int = 0,
+) -> bytes:
+    """Generate calldata for the sequential storage initializer."""
+    return Hash(start_iteration) + Hash(iteration_count) + Hash(offset)
+
+
+@dataclass(frozen=True)
+class StorageInitRange:
+    """One contiguous range of storage to initialize."""
+
+    start_slot: int
+    num_slots: int
+    offset: int
+
+
+def build_sequential_storage_init(
+    *,
+    pre: Alloc,
+    fork: Fork,
+    tx_gas_limit: int,
+    authority: EOA,
+    storage_init_ranges: list[StorageInitRange],
+) -> list[Block]:
+    """
+    Build blocks that initialize storage with slot-dependent values.
+
+    Deploy a sequential-SSTORE initializer, delegate *authority* to it,
+    and emit transactions that write
+    ``storage[i] = i + range.offset`` for every range.  The authority's
+    nonce is incremented in-place.
+    """
+    initializer_code = create_sequential_sstore_initializer()
+    initializer_addr = pre.deploy_contract(code=initializer_code)
+
+    delegation_sender = pre.fund_eoa()
+    auth_tx = Transaction(
+        to=delegation_sender,
+        gas_limit=tx_gas_limit,
+        sender=delegation_sender,
+        authorization_list=[
+            AuthorizationTuple(
+                address=initializer_addr,
+                nonce=authority.nonce,
+                signer=authority,
+            ),
+        ],
+    )
+    authority.nonce = Number(authority.nonce + 1)
+
+    init_txs: list[Transaction] = []
+    for r in storage_init_ranges:
+        if r.num_slots == 0:
+            continue
+        calldata_gen = partial(
+            sequential_initializer_calldata_generator,
+            offset=r.offset,
+        )
+        iteration_cost = initializer_code.tx_gas_limit_by_iteration_count(
+            fork=fork,
+            iteration_count=1,
+            start_iteration=max(1, r.start_slot),
+            calldata=calldata_gen,
+        )
+        iteration_count = max(1, tx_gas_limit // iteration_cost)
+
+        end_slot = r.start_slot + r.num_slots
+        for start in range(r.start_slot, end_slot, iteration_count):
+            chunk = min(iteration_count, end_slot - start)
+            init_txs.extend(
+                initializer_code.transactions_by_total_iteration_count(
+                    fork=fork,
+                    total_iterations=chunk,
+                    sender=pre.fund_eoa(),
+                    to=authority,
+                    start_iteration=start,
+                    calldata=calldata_gen,
+                )
+            )
+
+    blocks: list[Block] = [Block(txs=[auth_tx])]
+    blocks.extend(pack_transactions_into_blocks(init_txs, tx_gas_limit))
+    return blocks
