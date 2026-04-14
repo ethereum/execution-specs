@@ -216,12 +216,18 @@ class Header(CamelModel):
         """
         Produce a fixture header copy with the set values from the modifier.
         """
-        return target.copy(
-            **{
-                k: (v if v is not Header.REMOVE_FIELD else None)
-                for k, v in self.model_dump(exclude_none=True).items()
-            }
-        )
+        overrides = {
+            k: (v if v is not Header.REMOVE_FIELD else None)
+            for k, v in self.model_dump(exclude_none=True).items()
+        }
+        unknown = overrides.keys() - target.__class__.model_fields.keys()
+        if unknown:
+            raise ValueError(
+                f"Header fields {unknown} do not exist on "
+                f"{target.__class__.__name__}. Check for field name "
+                f"mismatches between Header and {target.__class__.__name__}."
+            )
+        return target.copy(**overrides)
 
     def verify(self, target: FixtureHeader) -> None:
         """Verify that the header fields from self are as expected."""
