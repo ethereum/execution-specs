@@ -10,26 +10,28 @@ It runs, it can be imported, it can be tested, and it can be stepped through
 in a debugger. When the protocol changes, the change lands in EELS first
 and the client teams read the diff.
 
-## The coordination problem
+## Client Diversity requires Coordination
 
-Ethereum is a multi-client protocol. At least half a dozen independent
-implementations of the execution layer (Geth, Nethermind, Besu, Erigon,
-Reth, EthereumJS, ...) must agree, byte for byte, on every state
-transition. A disagreement between two of them at a single block is a
-chain split.
+Ethereum runs on at least half a dozen independent execution clients
+(Geth, Nethermind, Besu, Erigon, Reth, EthereumJS, ...). This diversity
+is a
+[feature, not an accident](https://ethereum.org/developers/docs/nodes-and-clients/client-diversity/):
+a flaw in any one client is contained, no single team holds the keys to
+the network, and permissionless participation is preserved. The price of
+that resilience is coordination: every client must agree, byte for byte,
+on every state transition, or the chain splits.
 
 For most of Ethereum's history the only "specification" was the Yellow
 Paper, a LaTeX document of dense mathematical notation, supplemented by
 individual EIPs and by the behaviour of the reference clients themselves.
 Human language is ambiguous, and even mathematical notation leaves room
-for interpretation. That ambiguity has caused real bugs: implementation
-differences in early EIPs are part of the lore.
+for interpretation.
 
 Python offers a different contract. A Python function does not leave room
-for interpretation: either it returns the same value for the same input or
-it does not. By writing the specification as a program, every edge case is
-forced into the open, and every client team has a concrete reference to
-compare against.
+for interpretation: either it returns the same value for the same input
+or it does not. By writing the specification as a program, every edge
+case is forced into the open, and every client team has a concrete
+reference to compare against.
 
 ## Why Python
 
