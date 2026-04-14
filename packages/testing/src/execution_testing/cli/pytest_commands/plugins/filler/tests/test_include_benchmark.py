@@ -1,31 +1,16 @@
 """Test the --include-benchmark flag gates tests/benchmark/ collection."""
 
 import textwrap
+from pathlib import Path
 
 import pytest
 
-BENCHMARK_CONFTEST = textwrap.dedent(
-    """\
-    from pathlib import Path
-    from typing import Any
-
-
-    def pytest_ignore_collect(
-        collection_path: Path, config: Any
-    ) -> bool | None:
-        if config.getoption("include_benchmark", default=False):
-            return False
-
-        benchmark_dir = Path(__file__).parent
-        args = config.invocation_params.args or ()
-        if any(
-            benchmark_dir in Path(a).resolve().parents
-            or Path(a).resolve() == benchmark_dir
-            for a in args
-        ):
-            return False
-        return True
-    """
+REAL_BENCHMARK_CONFTEST = (
+    Path(__file__).resolve().parents[9] / "tests" / "benchmark" / "conftest.py"
+)
+assert REAL_BENCHMARK_CONFTEST.is_file(), (
+    f"Expected real benchmark conftest at {REAL_BENCHMARK_CONFTEST}; the "
+    "repo layout likely changed and the parent traversal above is stale."
 )
 
 BENCHMARK_TEST_MODULE = textwrap.dedent(
@@ -61,7 +46,9 @@ def _setup_benchmark_and_consensus_tests(
 
     benchmark_dir = tests_dir / "benchmark"
     benchmark_dir.mkdir()
-    (benchmark_dir / "conftest.py").write_text(BENCHMARK_CONFTEST)
+    (benchmark_dir / "conftest.py").write_text(
+        REAL_BENCHMARK_CONFTEST.read_text()
+    )
     benchmark_module = benchmark_dir / "dummy_test_module"
     benchmark_module.mkdir()
     (benchmark_module / "test_dummy_benchmark.py").write_text(
