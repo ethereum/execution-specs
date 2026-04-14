@@ -19,14 +19,7 @@ The specification aims to be:
 
 ## Getting set up
 
-Environment setup, `uv`, `just`, shell completions, Python version requirements, and the full list of `just` recipes are documented in the [Installation guide](docs/getting_started/installation.md). The short version:
-
-```bash
-git clone https://github.com/ethereum/execution-specs
-cd execution-specs
-uv sync
-just static
-```
+See the [Quick Start](README.md#quick-start) for the commands needed to clone the repository and install `uv` and `just`. Full environment setup (Python version requirements, shell completions, the complete list of `just` recipes, troubleshooting) is documented in the [Installation guide](docs/getting_started/installation.md).
 
 ## Changes that affect multiple forks
 

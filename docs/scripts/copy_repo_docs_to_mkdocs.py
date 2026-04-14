@@ -59,6 +59,14 @@ def copy_markdown_file(source_path, destination_path, fix_links=True):
                             line,
                         )
 
+                        # The site has no README; redirect Quick Start
+                        # references to the Installation page.
+                        line = re.sub(
+                            r"\]\(README\.md#quick-start\)",
+                            r"](installation.md#quick-start)",
+                            line,
+                        )
+
                     destination.write(line)
     except Exception as e:
         raise Exception(
