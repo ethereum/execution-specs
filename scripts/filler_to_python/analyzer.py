@@ -184,6 +184,18 @@ def analyze(
         model, tags, addr_to_var, all_fork_names, imports
     )
 
+    # 11b. If post-state has unresolvable addresses (Address(0x...)),
+    # disable dynamic for all contracts so their addresses stay fixed.
+    has_unresolved = any(
+        "Address(0x" in a.var_ref
+        for entry in expect_entries
+        for a in entry.result
+    )
+    if has_unresolved:
+        for acct in accounts:
+            if not acct.is_eoa:
+                acct.use_dynamic = False
+
     # 12. Build transaction IR
     transaction_ir, access_list_entries = _build_transaction_ir(
         model,
