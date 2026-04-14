@@ -1,8 +1,6 @@
 # Protocol History
 
-The table below lists every mainnet Ethereum hardfork, its activation
-point, the EIPs it introduced, a link to its fork manifest in EELS, and
-the Ethereum Foundation announcement blog post.
+The table below lists every mainnet Ethereum hardfork, its activation point, the EIPs it introduced, a link to its fork manifest in EELS, and the Ethereum Foundation announcement blog post.
 
 ## Mainnet hardforks
 
@@ -31,10 +29,7 @@ the Ethereum Foundation announcement blog post.
 | Frontier | 1 | 2015-07-30 | | [Fork Manifest](https://github.com/ethereum/execution-specs/blob/forks/amsterdam/src/ethereum/forks/frontier/__init__.py) | [Blog](https://blog.ethereum.org/2015/07/22/frontier-is-coming-what-to-expect-and-how-to-prepare/) |
 
 !!! note "Activation mechanism"
-    Starting with Paris, updates are no longer rolled out based on block
-    numbers. Paris was enabled once proof-of-work Total Difficulty reached
-    `58750000000000000000000`. As of Shanghai (at `1681338455`), upgrade
-    activation is based on timestamps.
+    Starting with Paris, updates are no longer rolled out based on block numbers. Paris was enabled once proof-of-work Total Difficulty reached `58750000000000000000000`. As of Shanghai (at `1681338455`), upgrade activation is based on timestamps.
 
 [EIP-2537]: https://eips.ethereum.org/EIPS/eip-2537
 [EIP-2935]: https://eips.ethereum.org/EIPS/eip-2935

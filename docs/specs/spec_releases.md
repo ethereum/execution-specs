@@ -1,15 +1,10 @@
 # Spec Releases
 
-EELS is published as a versioned Python package. This page explains how
-the version number is structured and how it relates to Ethereum
-hardforks and devnets. For the maintainer runbook (tagging, publishing
-to PyPI), see [Releasing](../dev/releasing.md).
+EELS is published as a versioned Python package. This page explains how the version number is structured and how it relates to Ethereum hardforks and devnets. For the maintainer runbook (tagging, publishing to PyPI), see [Releasing](../dev/releasing.md).
 
 ## About versions
 
-EELS' versioning scheme is intended to be compatible with Python's
-[Version Specifiers], and is *not* compatible with [SemVer] (although it
-borrows some of SemVer's concepts).
+EELS' versioning scheme is intended to be compatible with Python's [Version Specifiers], and is *not* compatible with [SemVer] (although it borrows some of SemVer's concepts).
 
 [Version Specifiers]: https://packaging.python.org/en/latest/specifications/version-specifiers/
 [SemVer]: https://semver.org/
@@ -24,22 +19,15 @@ COMPAT "." HARDFORK ( "." PATCH | ".0rc" DEVNET [ ".post" PATCH ] ) [ ".dev" DEV
 
 Where:
 
-- `COMPAT` is incremented when a release contains a backwards-incompatible
-  change to an EELS interface (Python API, command-line tools, etc.).
-- `HARDFORK` is the number of hardforks included in the release after
-  Frontier.
-- `DEVNET`, if present, is incremented when a release targets a new
-  devnet.
-- `DEV`, if present, indicates a pre-release preview and is incremented
-  for each pre-release before the final release.
-- `PATCH`, if present, is incremented for each release that does not
-  increment any of `COMPAT`, `HARDFORK`, `DEV`, or `DEVNET`. It is reset
-  to zero when any of `COMPAT`, `HARDFORK`, or `DEVNET` is incremented.
+- `COMPAT` is incremented when a release contains a backwards-incompatible change to an EELS interface (Python API, command-line tools, etc.).
+- `HARDFORK` is the number of hardforks included in the release after Frontier.
+- `DEVNET`, if present, is incremented when a release targets a new devnet.
+- `DEV`, if present, indicates a pre-release preview and is incremented for each pre-release before the final release.
+- `PATCH`, if present, is incremented for each release that does not increment any of `COMPAT`, `HARDFORK`, `DEV`, or `DEVNET`. It is reset to zero when any of `COMPAT`, `HARDFORK`, or `DEVNET` is incremented.
 
 ### Examples
 
-The following table is a hypothetical complete example of all of the
-releases between `1.15.0rc1.dev1` and `2.16.0`, oldest at the top:
+The following table is a hypothetical complete example of all of the releases between `1.15.0rc1.dev1` and `2.16.0`, oldest at the top:
 
 | Fork   | Description        | Version Number    |
 | ------ | ------------------ | ----------------- |
@@ -69,9 +57,7 @@ releases between `1.15.0rc1.dev1` and `2.16.0`, oldest at the top:
 
 ## Choosing a version number
 
-When proposing a new release, find the format matching the current
-version number in the table below, then choose the new version according
-to the reason for the new release:
+When proposing a new release, find the format matching the current version number in the table below, then choose the new version according to the reason for the new release:
 
 | Current Version           | Action               | New Version            |
 | ------------------------- | -------------------- | ---------------------- |
@@ -106,8 +92,6 @@ to the reason for the new release:
 |                           | Another Preview      | `1.3.0rc5.post7.dev10` |
 
 !!! note
-    Append `.dev1` to any new version number to make it a pre-release,
-    unless it already contained a `.devN` suffix. If it did, increment
-    `N` to make another pre-release instead.
+    Append `.dev1` to any new version number to make it a pre-release, unless it already contained a `.devN` suffix. If it did, increment `N` to make another pre-release instead.
 
 The version number is stored in `src/ethereum/__init__.py`.
