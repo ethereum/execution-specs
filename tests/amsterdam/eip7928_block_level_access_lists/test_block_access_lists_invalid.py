@@ -55,6 +55,7 @@ from execution_testing.test_types.block_access_list.modifiers import (
     remove_storage,
     remove_storage_reads,
     reverse_accounts,
+    sort_accounts_by_address,
     swap_bal_indices,
 )
 
@@ -1268,7 +1269,6 @@ def test_bal_invalid_field_entries(
                     }
                 ).modify(
                     modifier(
-                        alice=alice,
                         oracle=oracle,
                         created=created,
                     )
@@ -1549,7 +1549,10 @@ def test_bal_invalid_extraneous_coinbase(
                 exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
                 expected_block_access_list=BlockAccessListExpectation(
                     account_expectations={coinbase: None}
-                ).modify(append_account(BalAccountChange(address=coinbase))),
+                ).modify(
+                    append_account(BalAccountChange(address=coinbase)),
+                    sort_accounts_by_address(),
+                ),
             )
         ],
     )
