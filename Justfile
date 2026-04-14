@@ -105,7 +105,7 @@ checklist *args:
 
 # Static checks plus minimal test suite for quick validation
 [group('development')]
-smoke *args: typecheck lint-spec lock-check lint-actions format-check
+smoke-quick *args: typecheck lint-spec lock-check lint-actions format-check
     @mkdir -p "{{ output_dir }}/smoke/tmp"
     uv run fill \
         -m "not slow" \
@@ -123,6 +123,20 @@ smoke *args: typecheck lint-spec lock-check lint-actions format-check
         tests/prague/eip7702_set_code_tx/test_gas.py \
         tests/amsterdam/eip7928_block_level_access_lists/test_block_access_lists.py \
         tests/amsterdam/eip7928_block_level_access_lists/test_block_access_lists_opcodes.py
+
+[group('development')]
+smoke *args: typecheck lint-spec lock-check lint-actions format-check
+    @mkdir -p "{{ output_dir }}/smoke/tmp"
+    uv run fill \
+        -m "eels_base_coverage and not derived_test" \
+        -x \
+        --skip-index \
+        --clean \
+        --generate-all-formats \
+        --until {{ latest_fork }} \
+        --basetemp="{{ output_dir }}/smoke/tmp" \
+        "$@" \
+        tests
 
 # --- Fill Tests ---
 
