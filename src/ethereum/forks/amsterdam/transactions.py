@@ -601,6 +601,8 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
             access_list_cost += (
                 ulen(access.slots) * GasCosts.TX_ACCESS_LIST_STORAGE_KEY
             )
+
+    # Data token floor cost for access list bytes.
     access_list_cost += tokens_in_access_list * GAS_TX_DATA_TOKEN_FLOOR
 
     # Data token floor cost for access list bytes.
