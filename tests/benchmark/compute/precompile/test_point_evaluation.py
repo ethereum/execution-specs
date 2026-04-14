@@ -173,34 +173,40 @@ def test_point_evaluation_uncachable(
             1, (per_tx_gas - fixed_overhead) // per_variant_gas
         )
 
-        calldata = Bytes(
-            b"".join(
-                _generate_point_evaluation_input(
-                    blob_data=blob.data,
-                    commitment=blob.commitment,
-                    versioned_hash=versioned_hash,
-                    z=seed_offset + i + 1,
-                    trusted_setup=trusted_setup,
-                )
-                for i in range(per_tx_variants)
+        points = [
+            _generate_point_evaluation_input(
+                blob_data=blob.data,
+                commitment=blob.commitment,
+                versioned_hash=versioned_hash,
+                z=seed_offset + i + 1,
+                trusted_setup=trusted_setup,
             )
-        )
+            for i in range(per_tx_variants)
+        ]
+        calldata = Bytes(b"".join(points))
+        while True:
+            execution_intrinsic = intrinsic_gas_calculator(
+                calldata=calldata,
+                return_cost_deducted_prior_execution=True,
+            )
+            gas_for_loop = (
+                per_tx_gas
+                - execution_intrinsic
+                - setup_cost
+                - math.ceil(len(calldata) / 32) * gsc.GAS_COPY
+                - mem_exp(new_bytes=len(calldata) + 32)
+            )
 
-        execution_intrinsic = intrinsic_gas_calculator(
-            calldata=calldata,
-            return_cost_deducted_prior_execution=True,
-        )
-        gas_for_loop = (
-            per_tx_gas
-            - execution_intrinsic
-            - setup_cost
-            - math.ceil(len(calldata) / 32) * gsc.GAS_COPY
-            - mem_exp(new_bytes=len(calldata) + 32)
-        )
+            if gas_for_loop >= per_tx_variants * iteration_cost:
+                break
+            per_tx_variants -= 1
+            if not per_tx_variants:
+                raise Exception("Unable to find correct variants.")
+            calldata = Bytes(b"".join(points[:per_tx_variants]))
 
-        if gas_for_loop < (per_tx_variants + 1) * iteration_cost:
-            break
         expected_opcode_count += per_tx_variants
+
+        assert len(calldata) != 0, "No valid calldata found for test"
 
         txs.append(
             Transaction(
@@ -212,7 +218,7 @@ def test_point_evaluation_uncachable(
         )
         remaining_gas -= per_tx_gas
         seed_offset += per_tx_variants
-
+    assert len(txs) != 0, "No transactions were added to the test."
     benchmark_test(
         target_opcode=Precompile.POINT_EVALUATION,
         skip_gas_used_validation=True,
