@@ -9,8 +9,11 @@ into the client via ``engine_newPayloadVX`` and
 ``engine_forkchoiceUpdatedVX`` to advance the chain.
 """
 
+import json
+from difflib import unified_diff
 from typing import List
 
+from execution_testing.base_types import Bytes
 from execution_testing.fixtures import BlockchainEngineFixture
 from execution_testing.fixtures.blockchain import (
     FixtureEngineNewPayload,
@@ -29,6 +32,7 @@ from execution_testing.rpc.rpc_types import (
     PayloadAttributes,
     PayloadStatusEnum,
 )
+from execution_testing.test_types.block_access_list import BlockAccessList
 
 from ..helpers.exceptions import (
     GenesisBlockMismatchExceptionError,
@@ -61,6 +65,53 @@ _VALIDATED_FIELDS = (
     "transactions",
     "withdrawals",
 )
+
+
+def _format_block_access_list_diff(
+    expected_rlp: bytes | None,
+    built_rlp: bytes | None,
+) -> str:
+    """Return a readable diff for a BAL mismatch."""
+    if expected_rlp is None or built_rlp is None:
+        return f"expected {expected_rlp!r}, got {built_rlp!r}"
+
+    try:
+        expected_bal = BlockAccessList.from_rlp(Bytes(expected_rlp))
+        built_bal = BlockAccessList.from_rlp(Bytes(built_rlp))
+    except Exception as exc:
+        return (
+            f"expected {expected_rlp!r}, got {built_rlp!r} "
+            f"(BAL decode failed: {exc})"
+        )
+
+    expected_json = json.dumps(
+        expected_bal.model_dump(mode="json"),
+        indent=2,
+        sort_keys=True,
+    )
+    built_json = json.dumps(
+        built_bal.model_dump(mode="json"),
+        indent=2,
+        sort_keys=True,
+    )
+    diff = "\n".join(
+        unified_diff(
+            expected_json.splitlines(),
+            built_json.splitlines(),
+            fromfile="expected_bal",
+            tofile="client_built_bal",
+            lineterm="",
+        )
+    )
+    return (
+        f"expected {expected_rlp!r}, got {built_rlp!r}\n"
+        "decoded BAL diff relative to expected BAL:\n"
+        "  '-' lines are present in the expected BAL but missing from the "
+        "client-built BAL.\n"
+        "  '+' lines are extra or changed in the client-built BAL compared "
+        "to the expected BAL.\n"
+        f"{diff}"
+    )
 
 
 def _payload_attributes(
@@ -114,6 +165,12 @@ def _validate_built_block(
         built_val = getattr(built, field)
         expected_val = getattr(expected, field)
         if built_val != expected_val:
+            if field == "block_access_list":
+                mismatches.append(
+                    "  block_access_list:\n"
+                    + _format_block_access_list_diff(expected_val, built_val)
+                )
+                continue
             mismatches.append(
                 f"  {field}: expected {expected_val}, got {built_val}"
             )
