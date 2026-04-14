@@ -161,24 +161,26 @@ def test_calldata_floor_exceeding_tx_gas_limit_cap(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
 
-    # calldata_floor = tokens * GAS_TX_DATA_TOKEN_FLOOR + GAS_TX_BASE
-    # Non-zero bytes contribute 4 tokens each, zero bytes 1 token.
-    # Exact equality with the cap is not always reachable because
-    # the floor advances in steps of GAS_TX_DATA_TOKEN_FLOOR.
-    # Use nonzero bytes for bulk tokens, then zero bytes (1 token
-    # each) to get as close to the cap as possible.
     floor_token = gas_costs.GAS_TX_DATA_TOKEN_FLOOR
     tx_base = gas_costs.GAS_TX_BASE
-    tokens_per_nonzero = 4
-
     max_tokens = (gas_limit_cap - tx_base) // floor_token
-    nonzero_bytes = max_tokens // tokens_per_nonzero
-    zero_bytes = max_tokens - nonzero_bytes * tokens_per_nonzero
 
-    if exceeds_cap:
-        zero_bytes += 1
-
-    calldata = b"\x01" * nonzero_bytes + b"\x00" * zero_bytes
+    if fork.is_eip_enabled(eip_number=7976):
+        # EIP-7976: all bytes contribute 4 floor tokens regardless of
+        # value, so the token count is len(data) * 4.
+        tokens_per_byte = 4
+        max_bytes = max_tokens // tokens_per_byte
+        if exceeds_cap:
+            max_bytes += 1
+        calldata = b"\x01" * max_bytes
+    else:
+        # EIP-7623: non-zero bytes contribute 4 tokens, zero bytes 1.
+        tokens_per_nonzero = 4
+        nonzero_bytes = max_tokens // tokens_per_nonzero
+        zero_bytes = max_tokens - nonzero_bytes * tokens_per_nonzero
+        if exceeds_cap:
+            zero_bytes += 1
+        calldata = b"\x01" * nonzero_bytes + b"\x00" * zero_bytes
     contract = pre.deploy_contract(Op.STOP)
 
     tx = Transaction(
