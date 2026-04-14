@@ -8,10 +8,10 @@ The repo is a `uv` workspace with two members, each defined by its own `pyprojec
 
 | Package                      | `pyproject.toml`                                                                                                            | Contents                                                 |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| `ethereum-execution`         | [`pyproject.toml`](https://github.com/ethereum/execution-specs/blob/master/pyproject.toml)                                  | The Python specs (`src/ethereum/`) and associated tools. |
-| `ethereum-execution-testing` | [`packages/testing/pyproject.toml`](https://github.com/ethereum/execution-specs/blob/master/packages/testing/pyproject.toml) | The EEST test framework under `packages/testing/`.       |
+| `ethereum-execution`         | [`pyproject.toml`](https://github.com/ethereum/execution-specs/blob/a830dab6f130151ab9023a473b7543120aa21961/pyproject.toml)                                  | The Python specs (`src/ethereum/`) and associated tools. |
+| `ethereum-execution-testing` | [`packages/testing/pyproject.toml`](https://github.com/ethereum/execution-specs/blob/a830dab6f130151ab9023a473b7543120aa21961/packages/testing/pyproject.toml) | The EEST test framework under `packages/testing/`.       |
 
-A single [`uv.lock`](https://github.com/ethereum/execution-specs/blob/master/uv.lock) at the repo root pins dependencies for both packages.
+A single [`uv.lock`](https://github.com/ethereum/execution-specs/blob/a830dab6f130151ab9023a473b7543120aa21961/uv.lock) at the repo root pins dependencies for both packages.
 
 ## Managing Dependencies
 

@@ -267,7 +267,7 @@ Within the `post` dictionary object, an account address can be:
 The `Account` object is used to specify the properties of an account to be
 verified in the post state.
 
-The python representation can be found in [packages/testing/src/execution_testing/test_types/account_types.py](https://github.com/ethereum/execution-specs/blob/main/packages/testing/src/execution_testing/test_types/account_types.py).
+The python representation can be found in [packages/testing/src/execution_testing/test_types/account_types.py](https://github.com/ethereum/execution-specs/blob/a830dab6f130151ab9023a473b7543120aa21961/packages/testing/src/execution_testing/test_types/account_types.py).
 
 It can verify the following properties of an account:
 

@@ -4,7 +4,7 @@
 
 ## Before You Open a PR
 
-Run `just` to see all available recipes grouped by category. The checks that CI runs are defined in [`.github/workflows/test.yaml`](https://github.com/ethereum/execution-specs/blob/master/.github/workflows/test.yaml) and [`.github/workflows/benchmark.yaml`](https://github.com/ethereum/execution-specs/blob/master/.github/workflows/benchmark.yaml); these files are the source of truth.
+Run `just` to see all available recipes grouped by category. The checks that CI runs are defined in [`.github/workflows/test.yaml`](https://github.com/ethereum/execution-specs/blob/a830dab6f130151ab9023a473b7543120aa21961/.github/workflows/test.yaml) and [`.github/workflows/benchmark.yaml`](https://github.com/ethereum/execution-specs/blob/a830dab6f130151ab9023a473b7543120aa21961/.github/workflows/benchmark.yaml); these files are the source of truth.
 
 Some CI jobs are slow. Only run the checks relevant to your change.
 
