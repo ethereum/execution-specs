@@ -581,8 +581,8 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
     """
     from .vm.interpreter import MAX_INIT_CODE_SIZE
 
-    intrinsic_gas, calldata_floor_gas_cost = calculate_intrinsic_cost(tx)
-    if max(intrinsic_gas, calldata_floor_gas_cost) > tx.gas:
+    intrinsic_gas, data_floor_gas_cost = calculate_intrinsic_cost(tx)
+    if max(intrinsic_gas, data_floor_gas_cost) > tx.gas:
         raise InsufficientTransactionGasError("Insufficient gas")
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
         raise NonceOverflowError("Nonce too high")
@@ -591,7 +591,7 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
     if tx.gas > TX_MAX_GAS_LIMIT:
         raise TransactionGasLimitExceededError("Gas limit too high")
 
-    return intrinsic_gas, calldata_floor_gas_cost
+    return intrinsic_gas, data_floor_gas_cost
 
 
 def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
@@ -622,14 +622,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     from .vm.eoa_delegation import GAS_AUTH_PER_EMPTY_ACCOUNT
     from .vm.gas import init_code_cost
 
-    num_zeros = Uint(tx.data.count(0))
-    num_non_zeros = ulen(tx.data) - num_zeros
-
-    tokens_in_calldata = num_zeros + num_non_zeros * Uint(4)
-    # EIP-7623 floor price (note: no EVM costs)
-    calldata_floor_gas_cost = (
-        tokens_in_calldata * GAS_TX_DATA_TOKEN_FLOOR + GAS_TX_BASE
-    )
+    tokens_in_calldata = count_tokens_in_data(tx.data)
 
     data_cost = tokens_in_calldata * GAS_TX_DATA_TOKEN_STANDARD
 
@@ -639,6 +632,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
         create_cost = Uint(0)
 
     access_list_cost = Uint(0)
+    tokens_in_access_list = Uint(0)
     if has_access_list(tx):
         for access in tx.access_list:
             access_list_cost += GAS_TX_ACCESS_LIST_ADDRESS
@@ -646,9 +640,23 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
                 ulen(access.slots) * GAS_TX_ACCESS_LIST_STORAGE_KEY
             )
 
+    # Data token floor cost for access list bytes.
+    access_list_cost += tokens_in_access_list * GAS_TX_DATA_TOKEN_FLOOR
+
     auth_cost = Uint(0)
     if isinstance(tx, SetCodeTransaction):
         auth_cost += Uint(GAS_AUTH_PER_EMPTY_ACCOUNT * len(tx.authorizations))
+
+    # Floor tokens from calldata.
+    floor_tokens_in_calldata = tokens_in_calldata
+
+    # Total floor tokens.
+    total_floor_tokens = floor_tokens_in_calldata + tokens_in_access_list
+
+    # Floor gas cost (EIP-7623: minimum gas for data-heavy transactions).
+    data_floor_gas_cost = (
+        total_floor_tokens * GAS_TX_DATA_TOKEN_FLOOR + GAS_TX_BASE
+    )
 
     return (
         Uint(
@@ -658,8 +666,20 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
             + access_list_cost
             + auth_cost
         ),
-        calldata_floor_gas_cost,
+        data_floor_gas_cost,
     )
+
+
+def count_tokens_in_data(data: bytes) -> Uint:
+    """
+    Count the data tokens in arbitrary input bytes.
+
+    Zero bytes count as 1 token; non-zero bytes count as 4 tokens.
+    """
+    num_zeros = Uint(data.count(0))
+    num_non_zeros = ulen(data) - num_zeros
+
+    return num_zeros + num_non_zeros * Uint(4)
 
 
 def recover_sender(chain_id: U64, tx: Transaction) -> Address:
