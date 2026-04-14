@@ -724,7 +724,7 @@ def test_method_versions() -> None:  # noqa: D103
 
 def test_eips() -> None:  # noqa: D103
     assert EIP3675.enabling_forks() == {Paris}
-    assert Paris.is_eip_enabled(eip_number=3675)
-    assert Shanghai.is_eip_enabled(eip_number=3675)
-    assert not Paris.is_eip_enabled(eip_number=3855)
-    assert Shanghai.is_eip_enabled(eip_number=3855)
+    assert Paris.is_eip_enabled(3675)
+    assert Shanghai.is_eip_enabled(3675)
+    assert not Paris.is_eip_enabled(3855)
+    assert Shanghai.is_eip_enabled(3855)
