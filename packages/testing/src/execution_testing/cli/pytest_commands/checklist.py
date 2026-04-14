@@ -89,7 +89,7 @@ def checklist(
         # Generate checklists for a specific test path
         uv run checklist tests/prague/eip7702_set_code_tx
 
-        # Limit to a specific fork
+        # Generate until a specific fork
         uv run checklist --fork Prague
 
         # Specify output directory
