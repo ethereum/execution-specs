@@ -401,8 +401,10 @@ def build_get_deepest_orchestrator_bytecode(
         Jump over ``INVALID`` when the invariant holds.
         """
         return (
-            # Jump to the JUMPDEST after INVALID. PC points at itself, so we
-            # add the skipped payload (`INVALID`) plus ADD and JUMPI bytes.
+            # PC pushes its own offset; +3 accounts for the
+            # remaining push encoding + ADD + JUMPI bytes that
+            # follow PC, and len(Op.INVALID) accounts for the
+            # INVALID byte to skip over, landing on JUMPDEST.
             Op.JUMPI(Op.ADD(Op.PC, len(Op.INVALID) + 3), condition)
             + Op.INVALID
             + Op.JUMPDEST
