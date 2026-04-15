@@ -22,14 +22,14 @@ Requires a Unix-like shell. All platforms:
 git clone https://github.com/ethereum/execution-specs
 cd execution-specs
 curl -LsSf https://astral.sh/uv/install.sh | sh
-uv python install 3.13
-uv python pin 3.13
+uv python install 3.12
+uv python pin 3.12
 uv sync
 uv tool install --exclude-newer "10 days" rust-just
 just shell-completions
 ```
 
-Python 3.11–3.14 are supported; 3.13 tends to be the smoothest for local setup (pre-built wheels are available across the dependency set). For alternative `just` installation paths, macOS-specific installation notes, and troubleshooting, see [Installation](docs/getting_started/installation.md).
+Python 3.11–3.14 are supported; 3.12 tends to be the smoothest for local setup (pre-built wheels are available across the dependency set). For alternative `just` installation paths, macOS-specific installation notes, and troubleshooting, see [Installation](docs/getting_started/installation.md).
 
 ## Documentation
 
@@ -50,7 +50,9 @@ This repository is maintained by the [STEEL Team](https://steel.ethereum.foundat
 
 ## Community and Support
 
-Discussion around EIP inclusion and the initial specification of protocol changes happens on [Ethereum Magicians](https://ethereum-magicians.org/), the [Ethereum R&D Discord](https://discord.com/invite/qGpsxSA) (one of the channels in the *Execution R&D* category; for testing use `#el-testing`), and in the AllCoreDevs calls.
+Discussion around the initial specification of protocol changes happens on [Ethereum Magicians](https://ethereum-magicians.org/), in pull requests on [ethereum/EIPs](https://github.com/ethereum/EIPs), on the [Ethereum R&D Discord](https://discord.com/invite/qGpsxSA) (one of the channels in the *Execution R&D* category; for testing use `#el-testing`), and in the AllCoreDevs calls.
+
+For tracking the status of upcoming Ethereum upgrades, see [Forkcast](https://forkcast.org/): EIP inclusion, client implementation progress, and ACD call summaries.
 
 For other help, see the [Documentation](#documentation) section above, or reach out to one of the [STEEL team members](https://steel.ethereum.foundation/team/) in the Ethereum R&D Discord.
 
