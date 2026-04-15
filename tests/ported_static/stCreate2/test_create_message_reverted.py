@@ -76,6 +76,7 @@ def test_create_message_reverted(
         + Op.CREATE2(value=0x0, offset=0x16, size=0xA, salt=0x0)
         + Op.STOP,
         nonce=0,
+        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

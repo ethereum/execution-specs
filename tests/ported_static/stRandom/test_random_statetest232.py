@@ -57,6 +57,7 @@ def test_random_statetest232(
         ),
         balance=46,
         nonce=0,
+        address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
     )
     # Source: raw
     # 0x7f000000000000000000000000<contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5>7f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0945415883ff9d7760005155  # noqa: E501
@@ -65,6 +66,7 @@ def test_random_statetest232(
             "7f0000000000000000000000004f3f701464972e74606d6ea82d4d3080599a0e797f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0945415883ff9d7760005155"  # noqa: E501
         ),
         nonce=0,
+        address=Address(0x037642EA84FC8808F2A16AF0EFEFF08B1649FADF),  # noqa: E501
     )
 
     tx = Transaction(

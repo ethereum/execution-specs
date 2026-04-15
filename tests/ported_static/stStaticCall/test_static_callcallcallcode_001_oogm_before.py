@@ -113,9 +113,16 @@ def test_static_callcallcallcode_001_oogm_before(
         nonce=0,
     )
     # Source: lll
-    # { (SSTORE 1 1) (DELEGATECALL 120020 <contract:0x1000000000000000000000000000000000000003> 0 64 0 64 ) (MSTORE 3 1) }  # noqa: E501
-    addr_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x1, value=0x1)
+    # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (EXTCODESIZE 1)  ) (DELEGATECALL 120020 <contract:0x1000000000000000000000000000000000000003> 0 64 0 64 ) (MSTORE 3 1) }  # noqa: E501
+    addr_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMPDEST
+        + Op.JUMPI(
+            pc=0x1C, condition=Op.ISZERO(Op.LT(Op.MLOAD(offset=0x80), 0xC350))
+        )
+        + Op.POP(Op.EXTCODESIZE(address=0x1))
+        + Op.MSTORE(offset=0x80, value=Op.ADD(Op.MLOAD(offset=0x80), 0x1))
+        + Op.JUMP(pc=0x0)
+        + Op.JUMPDEST
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x1D4D4,
@@ -131,16 +138,9 @@ def test_static_callcallcallcode_001_oogm_before(
         nonce=0,
     )
     # Source: lll
-    # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (EXTCODESIZE 1)  ) (DELEGATECALL 120020 <contract:0x1000000000000000000000000000000000000003> 0 64 0 64 ) (MSTORE 3 1) }  # noqa: E501
-    addr_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMPDEST
-        + Op.JUMPI(
-            pc=0x1C, condition=Op.ISZERO(Op.LT(Op.MLOAD(offset=0x80), 0xC350))
-        )
-        + Op.POP(Op.EXTCODESIZE(address=0x1))
-        + Op.MSTORE(offset=0x80, value=Op.ADD(Op.MLOAD(offset=0x80), 0x1))
-        + Op.JUMP(pc=0x0)
-        + Op.JUMPDEST
+    # { (SSTORE 1 1) (DELEGATECALL 120020 <contract:0x1000000000000000000000000000000000000003> 0 64 0 64 ) (MSTORE 3 1) }  # noqa: E501
+    addr_3 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x1, value=0x1)
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x1D4D4,

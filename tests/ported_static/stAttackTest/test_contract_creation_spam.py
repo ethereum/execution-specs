@@ -621,6 +621,7 @@ def test_contract_creation_spam(
         + Op.SSTORE,
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0x6A0A0FC761C612C340A0E98D33B37A75E5268472),  # noqa: E501
     )
 
     tx = Transaction(

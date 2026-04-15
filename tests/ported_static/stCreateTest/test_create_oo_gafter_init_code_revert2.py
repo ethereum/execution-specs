@@ -99,11 +99,11 @@ def test_create_oo_gafter_init_code_revert2(
         nonce=0,
     )
     # Source: lll
-    # { (CALL 33000 0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0 32) [[ 1 ]] (MLOAD 0) }  # noqa: E501
-    contract_1 = pre.deploy_contract(  # noqa: F841
+    # { (CALL 23000 0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0 32) [[ 1 ]] (MLOAD 0) }  # noqa: E501
+    contract_2 = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
             Op.CALL(
-                gas=0x80E8,
+                gas=0x59D8,
                 address=contract_3,
                 value=0x0,
                 args_offset=0x0,
@@ -118,11 +118,11 @@ def test_create_oo_gafter_init_code_revert2(
         nonce=0,
     )
     # Source: lll
-    # { (CALL 23000 0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0 32) [[ 1 ]] (MLOAD 0) }  # noqa: E501
-    contract_2 = pre.deploy_contract(  # noqa: F841
+    # { (CALL 33000 0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0 32) [[ 1 ]] (MLOAD 0) }  # noqa: E501
+    contract_1 = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
             Op.CALL(
-                gas=0x59D8,
+                gas=0x80E8,
                 address=contract_3,
                 value=0x0,
                 args_offset=0x0,

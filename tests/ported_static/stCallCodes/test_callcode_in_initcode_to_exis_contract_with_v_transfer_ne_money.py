@@ -89,12 +89,14 @@ def test_callcode_in_initcode_to_exis_contract_with_v_transfer_ne_money(
         )
         + Op.STOP,
         nonce=0,
+        address=Address(0x1100000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # { (SSTORE 2 1) }
     contract_3 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x2, value=0x1) + Op.STOP,
         nonce=0,
+        address=Address(0x1000000000000000000000000000000000000001),  # noqa: E501
     )
     # Source: lll
     # {(seq (CREATE2 0 0 (lll (seq  [[1]] (CALLCODE 500000 0x1000000000000000000000000000000000000001 1 0 0 0 0)) 0)   0)           )}  # noqa: E501
@@ -121,6 +123,7 @@ def test_callcode_in_initcode_to_exis_contract_with_v_transfer_ne_money(
         + Op.STOP,
         balance=10000,
         nonce=0,
+        address=Address(0x2000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # {(seq (CREATE 0 0 (lll (seq  [[1]] (CALLCODE 500000 0x1000000000000000000000000000000000000001 1 0 0 0 0)) 0)   )           )}  # noqa: E501
@@ -146,6 +149,7 @@ def test_callcode_in_initcode_to_exis_contract_with_v_transfer_ne_money(
         + Op.STOP,
         balance=10000,
         nonce=0,
+        address=Address(0x1000000000000000000000000000000000000000),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

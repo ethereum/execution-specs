@@ -88,6 +88,7 @@ def test_create2_recursive(
         + Op.CREATE2(value=0x0, offset=0x2, size=0x1E, salt=0x0)
         + Op.STOP,
         nonce=0,
+        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

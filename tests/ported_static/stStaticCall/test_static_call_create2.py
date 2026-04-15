@@ -173,7 +173,7 @@ def test_static_call_create2(
             "result": {
                 contract_1: Account(
                     storage={
-                        0: 0x13136008B64FF592819B2FA6D43F2835C452020E,
+                        0: compute_create_address(address=contract_1, nonce=0),
                         1: 1,
                     },
                 ),
@@ -185,7 +185,7 @@ def test_static_call_create2(
             "result": {
                 contract_2: Account(
                     storage={
-                        0: 0x5DDDFCE53EE040D9EB21AFBC0AE1BB4DBB0BA643,
+                        0: compute_create_address(address=contract_2, nonce=0),
                         1: 0,
                     },
                 ),

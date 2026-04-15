@@ -50,6 +50,7 @@ def test_random_statetest14(
             "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f00000000000000000000000000000000000000000000000000000000000000007f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff20547f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000000000000000000000000000000000000000c3507ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffeff61853634f06b907f899d7455"  # noqa: E501
         ),
         nonce=0,
+        address=Address(0xB7A03DFBE844D08CBF10C74EADE7E3041F3453F5),  # noqa: E501
     )
     # Source: raw
     # 0x6000355415600957005b60203560003555
@@ -65,6 +66,7 @@ def test_random_statetest14(
         ),
         balance=46,
         nonce=0,
+        address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
     )
 
     tx = Transaction(

@@ -14,6 +14,7 @@ from execution_testing import (
     Hash,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.vm import Op
 
@@ -97,7 +98,7 @@ def test_static_call_create3(
     post = {
         contract_1: Account(
             storage={
-                0: 0x13136008B64FF592819B2FA6D43F2835C452020E,
+                0: compute_create_address(address=contract_1, nonce=0),
                 1: 1,
                 2: 1,
             },

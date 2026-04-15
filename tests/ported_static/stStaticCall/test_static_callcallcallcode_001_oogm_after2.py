@@ -109,6 +109,23 @@ def test_static_callcallcallcode_001_oogm_after2(
         nonce=0,
     )
     # Source: lll
+    # {  (STATICCALL 400080 <contract:0x1000000000000000000000000000000000000002> 0 64 0 64 ) (SSTORE 3 1)}  # noqa: E501
+    addr_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.POP(
+            Op.STATICCALL(
+                gas=0x61AD0,
+                address=addr_3,
+                args_offset=0x0,
+                args_size=0x40,
+                ret_offset=0x0,
+                ret_size=0x40,
+            )
+        )
+        + Op.SSTORE(key=0x3, value=0x1)
+        + Op.STOP,
+        nonce=0,
+    )
+    # Source: lll
     # {  (STATICCALL 400080 <contract:0x1000000000000000000000000000000000000002> 0 64 0 64 ) (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (EXTCODESIZE 1)  ) }  # noqa: E501
     addr = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
@@ -129,23 +146,6 @@ def test_static_callcallcallcode_001_oogm_after2(
         + Op.MSTORE(offset=0x80, value=Op.ADD(Op.MLOAD(offset=0x80), 0x1))
         + Op.JUMP(pc=0x23)
         + Op.JUMPDEST
-        + Op.STOP,
-        nonce=0,
-    )
-    # Source: lll
-    # {  (STATICCALL 400080 <contract:0x1000000000000000000000000000000000000002> 0 64 0 64 ) (SSTORE 3 1)}  # noqa: E501
-    addr_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.POP(
-            Op.STATICCALL(
-                gas=0x61AD0,
-                address=addr_3,
-                args_offset=0x0,
-                args_size=0x40,
-                ret_offset=0x0,
-                ret_size=0x40,
-            )
-        )
-        + Op.SSTORE(key=0x3, value=0x1)
         + Op.STOP,
         nonce=0,
     )

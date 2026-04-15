@@ -53,6 +53,7 @@ def test_create2_refund_ef(
         code=Op.SSTORE(key=Op.DUP1, value=0x0) + Op.STOP,
         storage={0: 1},
         nonce=0,
+        address=Address(0x00000000000000000000000000000000005EF94D),  # noqa: E501
     )
     # Source: yul
     # london object "C" {
@@ -98,6 +99,7 @@ def test_create2_refund_ef(
         + Op.MSTORE8(offset=0x0, value=0xEF)
         + Op.RETURN(offset=0x0, size=0x1),
         nonce=0,
+        address=Address(0x000000000000000000000000000000000C5EA705),  # noqa: E501
     )
 
     tx = Transaction(

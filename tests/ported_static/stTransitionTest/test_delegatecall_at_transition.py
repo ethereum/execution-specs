@@ -51,6 +51,7 @@ def test_delegatecall_at_transition(
         + Op.STOP,
         balance=23,
         nonce=0,
+        address=Address(0x000D3F6E432D6891A965FC56D39E729652A0762A),  # noqa: E501
     )
     # Source: lll
     # {  [[ 0 ]] (DELEGATECALL 500000 <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 0 64 0 2 ) }  # noqa: E501

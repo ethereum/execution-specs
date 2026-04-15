@@ -183,12 +183,12 @@ def test_static_callcallcall_000_ooge(
         nonce=0,
     )
     # Source: lll
-    # {  [[ 0 ]] (STATICCALL 600000 <contract:0x1000000000000000000000000000000000000001> 0 64 0 64 ) }  # noqa: E501
-    addr_5 = pre.deploy_contract(  # noqa: F841
+    # {  [[ 0 ]] (STATICCALL 500000 <contract:0x1000000000000000000000000000000000000001> 0 64 0 64 ) }  # noqa: E501
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(
             key=0x0,
             value=Op.STATICCALL(
-                gas=0x927C0,
+                gas=0x7A120,
                 address=addr_2,
                 args_offset=0x0,
                 args_size=0x40,
@@ -201,12 +201,12 @@ def test_static_callcallcall_000_ooge(
         nonce=0,
     )
     # Source: lll
-    # {  [[ 0 ]] (STATICCALL 500000 <contract:0x1000000000000000000000000000000000000001> 0 64 0 64 ) }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
+    # {  [[ 0 ]] (STATICCALL 600000 <contract:0x1000000000000000000000000000000000000001> 0 64 0 64 ) }  # noqa: E501
+    addr_5 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(
             key=0x0,
             value=Op.STATICCALL(
-                gas=0x7A120,
+                gas=0x927C0,
                 address=addr_2,
                 args_offset=0x0,
                 args_size=0x40,

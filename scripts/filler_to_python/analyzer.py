@@ -668,25 +668,37 @@ def _resolve_storage_values(
 def _find_address_refs_in_bytecode(
     code_bytes: bytes,
     known_addresses: set[Address],
-) -> set[Address]:
-    """Find which known addresses are referenced in bytecode via PUSH."""
-    refs: set[Address] = set()
+) -> dict[Address, int]:
+    """Find which known addresses are referenced in bytecode via PUSH.
+
+    Return a mapping ``address -> minimum PUSH size observed``. A push size
+    smaller than 20 means the baseline bytecode compiled the address down
+    to fewer bytes (the original address had leading zero bytes); the
+    referenced contract must stay hardcoded so that the compiler keeps
+    emitting the same short PUSH opcode and the trace stays aligned.
+    """
+    refs: dict[Address, int] = {}
     # Pre-compute int values for fast comparison
     known_ints = {int.from_bytes(a, "big") for a in known_addresses}
     i = 0
     while i < len(code_bytes):
         opcode = code_bytes[i]
-        if 0x60 <= opcode <= 0x7F:  # PUSHn
+        if 0x60 <= opcode <= 0x7F:  # PUSH1..PUSH32
             push_size = opcode - 0x5F
             push_data = code_bytes[i + 1 : i + 1 + push_size]
-            if len(push_data) == push_size and push_size >= 4:
-                # Addresses may be in PUSH19 or smaller if they have
-                # leading zero bytes (compiler optimization). Use
-                # min size 4 to avoid false positives on small values.
+            if len(push_data) == push_size:
+                # Addresses with leading zero bytes are compiled to
+                # a PUSH smaller than PUSH20 (down to PUSH1 for 1-byte
+                # addresses like 0x01). Match on int value against the
+                # known-address set — false positives would require a
+                # PUSHn that happens to push exactly a value already
+                # registered as a pre-state address, which is rare in
+                # practice.
                 val = int.from_bytes(push_data, "big")
                 if val in known_ints:
                     addr = Address(val)
-                    refs.add(addr)
+                    if addr not in refs or push_size < refs[addr]:
+                        refs[addr] = push_size
             i += 1 + push_size
         else:
             i += 1
@@ -851,11 +863,27 @@ def _build_accounts(
             all_known_addrs.add(Address(int.from_bytes(addr_or_eoa, "big")))
 
     deps: dict[Address, set[Address]] = {}
+    # Addresses referenced via PUSH<20 anywhere: baseline bytecode
+    # compiled them to a short PUSH because of leading zero bytes, so
+    # they must stay hardcoded to keep the opcode sequence aligned.
+    short_push_refs: set[Address] = set()
+    # True when a short-PUSH ref targets an address that is not a
+    # deployed contract in the pre-state (e.g. an external tag like
+    # <contract:0x...dead> only referenced from bytecode). In that case
+    # no contract can be pinned, so fall back to globally disabling
+    # dynamic addresses for the whole test.
+    short_push_unpinnable = False
     for addr, cb in code_bytes_map.items():
         refs = _find_address_refs_in_bytecode(cb, all_known_addrs)
         # Track deps on other contracts. Keep self-references — they
         # create self-loops detected as cycles, forcing hardcoded addr.
-        deps[addr] = refs & known_contract_addrs
+        deps[addr] = set(refs) & known_contract_addrs
+        for ref_addr, push_size in refs.items():
+            if push_size < 20:
+                if ref_addr in known_contract_addrs:
+                    short_push_refs.add(ref_addr)
+                else:
+                    short_push_unpinnable = True
 
     contract_addrs_ordered = [
         acct.address
@@ -873,6 +901,9 @@ def _build_accounts(
     for acct in raw_accounts:
         if acct.oversized_code and acct.address is not None:
             non_dynamic_addrs.add(acct.address)
+    # Short-PUSH refs: pin the referenced contract so its address keeps
+    # the same leading-zero profile as baseline.
+    non_dynamic_addrs.update(short_push_refs)
 
     changed = True
     while changed:
@@ -936,9 +967,47 @@ def _build_accounts(
         if has_addr_arithmetic:
             break
 
-    if has_addr_arithmetic:
+    # ------------------------------------------------------------------
+    # Computed call targets: CALL/STATICCALL/DELEGATECALL/CALLCODE
+    # receiving `address=` from arithmetic or memory reads. Tests that
+    # do this usually rely on specific pre-state contract addresses
+    # (dispatch-by-offset) and won't survive dynamic allocation.
+    # ------------------------------------------------------------------
+    _COMPUTED_ADDR_PATTERNS = (
+        "address=Op.ADD(",
+        "address=Op.SUB(",
+        "address=Op.MUL(",
+        "address=Op.DIV(",
+        "address=Op.MOD(",
+        "address=Op.MLOAD(",
+        "address=Op.SLOAD(",
+        "address=Op.CALLDATALOAD(",
+    )
+    has_computed_call_target = False
+    for acct in raw_accounts:
+        if not acct.code_expr:
+            continue
+        for pat in _COMPUTED_ADDR_PATTERNS:
+            if pat in acct.code_expr:
+                has_computed_call_target = True
+                break
+        if has_computed_call_target:
+            break
+
+    if (
+        has_addr_arithmetic
+        or short_push_unpinnable
+        or has_computed_call_target
+    ):
         # Disable dynamic for all contracts and re-generate Op
-        # expressions without addr_to_var
+        # expressions without addr_to_var. Triggers:
+        #   * address arithmetic (Op.ADD(var, ...)) assumes sequential
+        #     addresses that dynamic allocation can't preserve.
+        #   * a short-PUSH ref that points outside the pre-state has no
+        #     contract to pin, so the whole test must keep the filler's
+        #     resolved addresses.
+        #   * computed call targets (CALL with address=Op.ADD/MLOAD/
+        #     CALLDATALOAD/...) dispatch by baseline-relative offsets.
         for acct in raw_accounts:
             if not acct.is_eoa:
                 acct.use_dynamic = False

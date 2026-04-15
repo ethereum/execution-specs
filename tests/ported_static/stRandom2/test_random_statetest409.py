@@ -57,6 +57,7 @@ def test_random_statetest409(
         ),
         balance=46,
         nonce=0,
+        address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
     )
     # Source: raw
     # 0x5b7f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7f00000000000000000000000100000000000000000000000000000000000000007f000000000000000000000000<contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5>7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f000000000000000000000001000000000000000000000000000000000000000009ff511287868833063aa3579d8e585560005155  # noqa: E501
@@ -89,6 +90,7 @@ def test_random_statetest409(
         + Op.MLOAD(offset=0x0)
         + Op.SSTORE,
         nonce=0,
+        address=Address(0x68076CF2C7430BB5E7CBAA157DEBE1C7CC9B30AE),  # noqa: E501
     )
 
     tx = Transaction(

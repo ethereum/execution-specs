@@ -92,12 +92,14 @@ def test_init_colliding_with_non_empty_account(
         code=Op.SSTORE(key=0x1, value=0x0),
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0x6295EE1B4F6DD65047762F924ECD367C17EABF8F),  # noqa: E501
     )
     # Source: raw
     # 0x00
     contract_1 = pre.deploy_contract(  # noqa: F841
         code=Op.STOP,
         nonce=0,
+        address=Address(0xD0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0D0),  # noqa: E501
     )
 
     tx_data = [

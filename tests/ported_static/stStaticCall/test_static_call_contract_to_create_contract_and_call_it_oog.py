@@ -107,7 +107,9 @@ def test_static_call_contract_to_create_contract_and_call_it_oog(
             "network": [">=Cancun"],
             "result": {
                 contract_0: Account(
-                    storage={0: 0xD2571607E241ECF590ED94B12D87C94BABE36DB6},
+                    storage={
+                        0: compute_create_address(address=contract_0, nonce=0),
+                    },
                     nonce=1,
                 ),
                 sender: Account(nonce=1),

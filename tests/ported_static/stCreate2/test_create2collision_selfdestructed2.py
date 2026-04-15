@@ -75,6 +75,7 @@ def test_create2collision_selfdestructed2(
         code=Op.SELFDESTRUCT(address=0x10) + Op.STOP,
         balance=1,
         nonce=0,
+        address=Address(0xFCE41D047B4A1D4450382DCC29EC7E5FEDC5F9A3),  # noqa: E501
     )
     # Source: raw
     # 0x6010ff
@@ -82,6 +83,7 @@ def test_create2collision_selfdestructed2(
         code=Op.SELFDESTRUCT(address=0x10),
         balance=1,
         nonce=1,
+        address=Address(0xCFF64F4C5DF8F436C4F2C1AF4B2E3F9E3004C779),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

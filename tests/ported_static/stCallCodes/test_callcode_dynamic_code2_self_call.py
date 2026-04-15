@@ -168,7 +168,9 @@ def test_callcode_dynamic_code2_self_call(
                 contract_2: Account(
                     storage={
                         0: 1,
-                        10: 0x13136008B64FF592819B2FA6D43F2835C452020E,
+                        10: compute_create_address(
+                            address=contract_2, nonce=0
+                        ),
                         11: 1,
                         20: contract_2,
                         21: sender,

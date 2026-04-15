@@ -258,6 +258,7 @@ def test_create2_oog_from_call_refunds(
         + Op.JUMPDEST
         + Op.INVALID,
         nonce=1,
+        address=Address(0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -274,6 +275,7 @@ def test_create2_oog_from_call_refunds(
         + Op.SSTORE(key=Op.DUP3, value=Op.DUP1)
         + Op.RETURN,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000001A),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -289,6 +291,7 @@ def test_create2_oog_from_call_refunds(
         + Op.SSTORE(key=0x1, value=0x0)
         + Op.RETURN(offset=0x0, size=0x1388),
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000001B),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -306,6 +309,7 @@ def test_create2_oog_from_call_refunds(
         + Op.SSTORE
         + Op.INVALID,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000001C),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -328,6 +332,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.RETURN(offset=0x0, size=0x1),
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000002A),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -349,6 +354,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.RETURN(offset=0x0, size=0x1388),
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000002B),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -372,6 +378,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.INVALID,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000002C),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -395,6 +402,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.RETURN(offset=0x0, size=0x1),
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000003A),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -417,6 +425,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.RETURN(offset=0x0, size=0x1388),
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000003B),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -441,6 +450,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.INVALID,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000003C),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -465,6 +475,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.RETURN(offset=0x0, size=0x1),
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000004A),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -488,6 +499,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.RETURN(offset=0x0, size=0x1388),
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000004B),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -513,6 +525,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.INVALID,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000004C),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -535,6 +548,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.RETURN(offset=0x0, size=0x1),
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000005A),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -556,6 +570,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.RETURN(offset=0x0, size=0x1388),
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000005B),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -579,6 +594,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.INVALID,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000005C),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -601,6 +617,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.RETURN(offset=0x0, size=0x1),
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000006A),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -622,6 +639,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.RETURN(offset=0x0, size=0x1388),
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000006B),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -645,6 +663,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.INVALID,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000006C),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -678,6 +697,7 @@ def test_create2_oog_from_call_refunds(
         + Op.ADD
         + Op.RETURN,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000007A),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -709,6 +729,7 @@ def test_create2_oog_from_call_refunds(
         + Op.ADD
         + Op.RETURN,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000007B),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -739,6 +760,7 @@ def test_create2_oog_from_call_refunds(
         + Op.POP(Op.CREATE)
         + Op.INVALID,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000007C),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -774,6 +796,7 @@ def test_create2_oog_from_call_refunds(
         + Op.ADD
         + Op.RETURN,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000008A),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -807,6 +830,7 @@ def test_create2_oog_from_call_refunds(
         + Op.ADD
         + Op.RETURN,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000008B),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -838,6 +862,7 @@ def test_create2_oog_from_call_refunds(
         + Op.POP(Op.CREATE2)
         + Op.INVALID,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000008C),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -849,6 +874,7 @@ def test_create2_oog_from_call_refunds(
         code=Op.SSTORE(key=0x1, value=0x0) + Op.STOP,
         storage={1: 1},
         nonce=1,
+        address=Address(0x00000000000000000000000000000000000C0DEA),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -859,6 +885,7 @@ def test_create2_oog_from_call_refunds(
         code=Op.SELFDESTRUCT(address=Op.ORIGIN),
         storage={1: 1},
         nonce=1,
+        address=Address(0x00000000000000000000000000000000000C0DED),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -889,6 +916,7 @@ def test_create2_oog_from_call_refunds(
         + Op.STOP,
         storage={1: 1},
         nonce=1,
+        address=Address(0x00000000000000000000000000000000000C0DE0),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -904,6 +932,7 @@ def test_create2_oog_from_call_refunds(
         + Op.SWAP1
         + Op.RETURN,
         nonce=1,
+        address=Address(0x00000000000000000000000000000000000C0DE1),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

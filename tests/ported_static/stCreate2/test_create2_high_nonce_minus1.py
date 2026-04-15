@@ -65,6 +65,7 @@ def test_create2_high_nonce_minus1(
         + Op.SSTORE(key=Op.DUP1, value=0x1)
         + Op.STOP,
         nonce=18446744073709551614,
+        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     tx = Transaction(

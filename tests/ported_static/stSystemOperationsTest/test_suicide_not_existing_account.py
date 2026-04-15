@@ -54,6 +54,7 @@ def test_suicide_not_existing_account(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0x70C22830049F2678C8AA93D0060683CD67696495),  # noqa: E501
     )
 
     tx = Transaction(

@@ -15,6 +15,7 @@ from execution_testing import (
     Hash,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -252,7 +253,7 @@ def test_code_in_constructor(
                     storage={
                         0: 8,
                         1: 10,
-                        2: 0x8AF6A7AF30D840BA137E8F3F34D54CFB8BEBA6E2,
+                        2: compute_create_address(address=contract_1, nonce=0),
                         3: 262,
                         4: 0,
                         5: 0x610100610100610100395861026052600060006020610260600061DA7A62FFFF,  # noqa: E501

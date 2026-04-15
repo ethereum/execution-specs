@@ -52,6 +52,7 @@ def test_suicides_and_internal_call_suicides_bonus_gas_at_call(
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.SELFDESTRUCT(address=0x1) + Op.STOP,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # {(CALL 0 0x0000000000000000000000000000000000000000 1 0 0 0 0) (SELFDESTRUCT 0)}  # noqa: E501
@@ -71,6 +72,7 @@ def test_suicides_and_internal_call_suicides_bonus_gas_at_call(
         + Op.STOP,
         balance=10,
         nonce=0,
+        address=Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     tx = Transaction(

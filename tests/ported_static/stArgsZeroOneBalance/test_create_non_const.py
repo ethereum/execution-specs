@@ -14,6 +14,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -97,7 +98,9 @@ def test_create_non_const(
             "network": [">=Cancun"],
             "result": {
                 contract_0: Account(
-                    storage={0: 0xD2571607E241ECF590ED94B12D87C94BABE36DB6},
+                    storage={
+                        0: compute_create_address(address=contract_0, nonce=0),
+                    },
                 ),
             },
         },
@@ -106,7 +109,9 @@ def test_create_non_const(
             "network": [">=Cancun"],
             "result": {
                 contract_0: Account(
-                    storage={0: 0xD2571607E241ECF590ED94B12D87C94BABE36DB6},
+                    storage={
+                        0: compute_create_address(address=contract_0, nonce=0),
+                    },
                 ),
             },
         },

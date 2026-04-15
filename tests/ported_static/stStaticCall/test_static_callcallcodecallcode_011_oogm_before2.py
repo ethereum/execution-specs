@@ -123,13 +123,14 @@ def test_static_callcallcodecallcode_011_oogm_before2(
         nonce=0,
     )
     # Source: lll
-    # {  (CALLCODE 20020 <contract:0x1000000000000000000000000000000000000003> 1 0 64 0 64 ) (MSTORE 32 1) }  # noqa: E501
-    addr_4 = pre.deploy_contract(  # noqa: F841
-        code=Op.POP(
+    # {  (SSTORE 3 1) (CALLCODE 20020 <contract:0x1000000000000000000000000000000000000003> 0 0 64 0 64 ) (MSTORE 32 1) }  # noqa: E501
+    addr_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x3, value=0x1)
+        + Op.POP(
             Op.CALLCODE(
                 gas=0x4E34,
                 address=addr_5,
-                value=0x1,
+                value=0x0,
                 args_offset=0x0,
                 args_size=0x40,
                 ret_offset=0x0,
@@ -138,7 +139,6 @@ def test_static_callcallcodecallcode_011_oogm_before2(
         )
         + Op.MSTORE(offset=0x20, value=0x1)
         + Op.STOP,
-        balance=10,
         nonce=0,
     )
     # Source: lll
@@ -168,14 +168,13 @@ def test_static_callcallcodecallcode_011_oogm_before2(
         nonce=0,
     )
     # Source: lll
-    # {  (SSTORE 3 1) (CALLCODE 20020 <contract:0x1000000000000000000000000000000000000003> 0 0 64 0 64 ) (MSTORE 32 1) }  # noqa: E501
-    addr_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x3, value=0x1)
-        + Op.POP(
+    # {  (CALLCODE 20020 <contract:0x1000000000000000000000000000000000000003> 1 0 64 0 64 ) (MSTORE 32 1) }  # noqa: E501
+    addr_4 = pre.deploy_contract(  # noqa: F841
+        code=Op.POP(
             Op.CALLCODE(
                 gas=0x4E34,
                 address=addr_5,
-                value=0x0,
+                value=0x1,
                 args_offset=0x0,
                 args_size=0x40,
                 ret_offset=0x0,
@@ -184,6 +183,7 @@ def test_static_callcallcodecallcode_011_oogm_before2(
         )
         + Op.MSTORE(offset=0x20, value=0x1)
         + Op.STOP,
+        balance=10,
         nonce=0,
     )
 

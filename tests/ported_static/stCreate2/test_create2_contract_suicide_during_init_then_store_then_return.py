@@ -59,6 +59,7 @@ def test_create2_contract_suicide_during_init_then_store_then_return(
         + Op.STOP,
         balance=0xE8D4A51000,
         nonce=0,
+        address=Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
     # Source: lll
     # { (CALL 150000 0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b 1 0 0 0 32) (SSTORE 1 (MLOAD 0)) }  # noqa: E501
@@ -78,6 +79,7 @@ def test_create2_contract_suicide_during_init_then_store_then_return(
         + Op.STOP,
         balance=0xE8D4A51000,
         nonce=0,
+        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     tx = Transaction(

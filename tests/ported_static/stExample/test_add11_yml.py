@@ -54,6 +54,7 @@ def test_add11_yml(
         code=Op.SSTORE(key=0x0, value=Op.ADD(0x1, 0x1)) + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
 
     tx = Transaction(

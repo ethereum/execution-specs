@@ -221,6 +221,7 @@ def test_double_selfdestruct_test(
         + Op.JUMP(pc=0x4B),
         balance=0xF4240,
         nonce=1,
+        address=Address(0x000000000000000000000000000000000000C0DE),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

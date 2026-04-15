@@ -68,6 +68,7 @@ def test_create_e_contract_then_call_to_non_existent_acc(
         + Op.SSTORE(key=0x64, value=Op.GAS)
         + Op.STOP,
         nonce=0,
+        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     tx = Transaction(
@@ -81,7 +82,7 @@ def test_create_e_contract_then_call_to_non_existent_acc(
         contract_0: Account(
             storage={
                 0: 0x8D5B6,
-                1: 0xF1ECF98489FA9ED60A664FC4998DB699CFA39D40,
+                1: compute_create_address(address=contract_0, nonce=0),
                 2: 0x7ABF8,
                 3: 1,
                 100: 0x6F50B,

@@ -86,6 +86,7 @@ def test_callcode_in_initcode_to_empty_contract(
         )
         + Op.STOP,
         nonce=0,
+        address=Address(0x1100000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # {(seq (CREATE 0 0 (lll (seq  [[1]] (CALLCODE 500000 0x1000000000000000000000000000000000000001 1 0 0 0 0)  [[2]] 1  ) 0)   )           )}  # noqa: E501
@@ -112,6 +113,7 @@ def test_callcode_in_initcode_to_empty_contract(
         + Op.STOP,
         balance=10000,
         nonce=0,
+        address=Address(0x1000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # {(seq (CREATE2 0 0 (lll (seq  [[1]] (CALLCODE 500000 0x1000000000000000000000000000000000000001 1 0 0 0 0) [[2]] 1 ) 0)   0)           )}  # noqa: E501
@@ -139,6 +141,7 @@ def test_callcode_in_initcode_to_empty_contract(
         + Op.STOP,
         balance=10000,
         nonce=0,
+        address=Address(0x2000000000000000000000000000000000000000),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

@@ -106,6 +106,48 @@ def test_static_call_change_revert(
         nonce=0,
     )
     # Source: lll
+    # {  [[ 0 ]] (CALL 100000 <contract:0x1000000000000000000000000000000000000001> 1 0 0 0 0) [[ 1 ]] (STATICCALL 100000 <contract:0x1000000000000000000000000000000000000001> 0 0 0 0) [[ 2 ]] (CALL 100000 <contract:0x1000000000000000000000000000000000000001> 1 0 0 0 0) }  # noqa: E501
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.CALL(
+                gas=0x186A0,
+                address=addr_2,
+                value=0x1,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
+        + Op.SSTORE(
+            key=0x1,
+            value=Op.STATICCALL(
+                gas=0x186A0,
+                address=addr_2,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
+        + Op.SSTORE(
+            key=0x2,
+            value=Op.CALL(
+                gas=0x186A0,
+                address=addr_2,
+                value=0x1,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
+        nonce=0,
+    )
+    # Source: lll
     # {  [[ 0 ]] (CALL 100000 <contract:0x1000000000000000000000000000000000000001> 1 0 0 0 0) [[ 1 ]] (STATICCALL 100000 <contract:0x1000000000000000000000000000000000000001> 0 0 0 0) [[ 2 ]] (CALL 100000 <contract:0x1000000000000000000000000000000000000001> 1 0 0 0 0) (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (EXTCODESIZE 1)) }  # noqa: E501
     addr_3 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(
@@ -151,48 +193,6 @@ def test_static_call_change_revert(
         + Op.MSTORE(offset=0x80, value=Op.ADD(Op.MLOAD(offset=0x80), 0x1))
         + Op.JUMP(pc=0x73)
         + Op.JUMPDEST
-        + Op.STOP,
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-    )
-    # Source: lll
-    # {  [[ 0 ]] (CALL 100000 <contract:0x1000000000000000000000000000000000000001> 1 0 0 0 0) [[ 1 ]] (STATICCALL 100000 <contract:0x1000000000000000000000000000000000000001> 0 0 0 0) [[ 2 ]] (CALL 100000 <contract:0x1000000000000000000000000000000000000001> 1 0 0 0 0) }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0x0,
-            value=Op.CALL(
-                gas=0x186A0,
-                address=addr_2,
-                value=0x1,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.SSTORE(
-            key=0x1,
-            value=Op.STATICCALL(
-                gas=0x186A0,
-                address=addr_2,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.SSTORE(
-            key=0x2,
-            value=Op.CALL(
-                gas=0x186A0,
-                address=addr_2,
-                value=0x1,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,

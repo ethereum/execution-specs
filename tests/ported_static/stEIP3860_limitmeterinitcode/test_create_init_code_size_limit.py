@@ -98,6 +98,7 @@ def test_create_init_code_size_limit(
         + Op.SSTORE(key=Op.DUP1, value=0x1)
         + Op.STOP,
         nonce=1,
+        address=Address(0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -131,6 +132,7 @@ def test_create_init_code_size_limit(
         + Op.SSTORE
         + Op.STOP,
         nonce=1,
+        address=Address(0x000000000000000000000000000000000000C0DE),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -142,7 +144,7 @@ def test_create_init_code_size_limit(
                 contract_0: Account(storage={0: 1, 1: 1}),
                 contract_1: Account(
                     storage={
-                        0: 0x5F6BAAEB5B7C97725F84D1569C4ABC85135F4716,
+                        0: compute_create_address(address=contract_1, nonce=1),
                         10: 46323,
                     },
                 ),

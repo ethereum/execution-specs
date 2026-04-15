@@ -74,6 +74,7 @@ def test_create_message_reverted_oog_in_init2(
         code="",
         balance=10,
         nonce=0,
+        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

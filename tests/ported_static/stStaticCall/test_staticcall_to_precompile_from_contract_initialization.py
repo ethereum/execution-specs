@@ -68,6 +68,7 @@ def test_staticcall_to_precompile_from_contract_initialization(
         )
         + Op.STOP,
         nonce=0,
+        address=Address(0xA000000000000000000000000000000000000000),  # noqa: E501
     )
 
     tx = Transaction(

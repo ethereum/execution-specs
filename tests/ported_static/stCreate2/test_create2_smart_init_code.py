@@ -89,6 +89,7 @@ def test_create2_smart_init_code(
         + Op.STOP,
         balance=100,
         nonce=0,
+        address=Address(0x0F572E5295C57F15886F9B263E2F6D2D6C7B5EC6),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 0 0x600060015414601157600a6000f3601c565b6001600155600a6000f35b) [[1]](CREATE2 1 3 29 0) [[2]](CREATE2 1 5 27 0) }  # noqa: E501
@@ -108,6 +109,7 @@ def test_create2_smart_init_code(
         + Op.STOP,
         balance=100,
         nonce=0,
+        address=Address(0x1F572E5295C57F15886F9B263E2F6D2D6C7B5EC6),  # noqa: E501
     )
     # Source: lll
     # { (CALL (GAS) (CALLDATALOAD 0) 0 0 0 0 0) }
@@ -124,6 +126,7 @@ def test_create2_smart_init_code(
         + Op.STOP,
         balance=0x6400000000,
         nonce=0,
+        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

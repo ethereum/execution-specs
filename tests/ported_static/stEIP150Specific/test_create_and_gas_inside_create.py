@@ -67,7 +67,7 @@ def test_create_and_gas_inside_create(
         contract_0: Account(
             storage={
                 9: 0x129DB,
-                11: 0xF1ECF98489FA9ED60A664FC4998DB699CFA39D40,
+                11: compute_create_address(address=contract_0, nonce=0),
             },
         ),
         compute_create_address(address=contract_0, nonce=0): Account(

@@ -80,6 +80,7 @@ def test_create2no_cash(
         code=Op.CREATE2(value=0x65, offset=0x0, size=0x0, salt=0x0) + Op.STOP,
         balance=100,
         nonce=0,
+        address=Address(0xE2B35478FDD26477CC576DD906E6277761246A3C),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

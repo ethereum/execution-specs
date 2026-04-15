@@ -62,6 +62,7 @@ def test_returndatacopy_0_0_following_successful_create(
         + Op.STOP * 2,
         storage={0: 1},
         nonce=0,
+        address=Address(0x0F572E5295C57F15886F9B263E2F6D2D6C7B5EC6),  # noqa: E501
     )
 
     tx = Transaction(

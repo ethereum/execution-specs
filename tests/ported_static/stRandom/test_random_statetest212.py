@@ -57,6 +57,7 @@ def test_random_statetest212(
         ),
         balance=46,
         nonce=0,
+        address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
     )
     # Source: raw
     # 0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f000000000000000000000000<contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5>7f00000000000000000000000000000000000000000000000000000000000000017ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f00000000000000000000000000000000000000000000000000000000000000017f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe06180908ff3a68f28e61990a525560005155  # noqa: E501
@@ -87,6 +88,7 @@ def test_random_statetest212(
             key=Op.MLOAD(offset=0xF28E61990A52556000), value=Op.GASPRICE
         ),
         nonce=0,
+        address=Address(0x4FCDEB59EA62AB23FBABB8475CC6B4D9A7B4EF10),  # noqa: E501
     )
 
     tx = Transaction(

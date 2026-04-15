@@ -52,6 +52,7 @@ def test_refund_tx_to_suicide(
         storage={1: 1},
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0x2BC33A472F0FBA1E30BF2317D07910367908C7F6),  # noqa: E501
     )
 
     tx = Transaction(

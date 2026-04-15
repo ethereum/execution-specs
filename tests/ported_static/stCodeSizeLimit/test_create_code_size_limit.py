@@ -96,7 +96,7 @@ def test_create_code_size_limit(
                 sender: Account(nonce=1),
                 contract_0: Account(
                     storage={
-                        0: 0xF1ECF98489FA9ED60A664FC4998DB699CFA39D40,
+                        0: compute_create_address(address=contract_0, nonce=0),
                         1: 1,
                     },
                 ),

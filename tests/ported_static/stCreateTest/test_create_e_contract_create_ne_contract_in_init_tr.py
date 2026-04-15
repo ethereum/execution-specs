@@ -52,6 +52,7 @@ def test_create_e_contract_create_ne_contract_in_init_tr(
         code=Op.SSTORE(key=0x1, value=0xC) + Op.STOP,
         balance=0xE8D4A51000,
         nonce=0,
+        address=Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     tx = Transaction(

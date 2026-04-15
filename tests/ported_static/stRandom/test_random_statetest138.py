@@ -58,6 +58,7 @@ def test_random_statetest138(
         )
         + Op.SSTORE(key=Op.MLOAD(offset=0x0), value=Op.MLOAD(offset=Op.MSIZE)),
         nonce=0,
+        address=Address(0x8AF98DC438CC4E9B27789D187A550DF8E85599DE),  # noqa: E501
     )
     # Source: raw
     # 0x6000355415600957005b60203560003555
@@ -73,6 +74,7 @@ def test_random_statetest138(
         ),
         balance=46,
         nonce=0,
+        address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
     )
 
     tx = Transaction(

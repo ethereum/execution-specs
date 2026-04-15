@@ -64,6 +64,7 @@ def test_call_sha256_1_nonzero_value(
         + Op.STOP,
         balance=0xBEBC200,
         nonce=0,
+        address=Address(0x39BAF944BD1B21E643D8D207A7073EE34A5D2116),  # noqa: E501
     )
 
     tx = Transaction(

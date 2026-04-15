@@ -82,6 +82,7 @@ def test_callcode_to_precompile_from_contract_initialization(
         },
         balance=1000,
         nonce=0,
+        address=Address(0xB000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # {
@@ -501,6 +502,7 @@ def test_callcode_to_precompile_from_contract_initialization(
         + Op.STOP,
         balance=1000,
         nonce=0,
+        address=Address(0xA000000000000000000000000000000000000000),  # noqa: E501
     )
 
     tx = Transaction(

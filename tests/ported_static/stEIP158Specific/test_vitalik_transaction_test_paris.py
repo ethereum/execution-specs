@@ -51,6 +51,7 @@ def test_vitalik_transaction_test_paris(
         code="",
         balance=10,
         nonce=0,
+        address=Address(0xEE098E6C2A43D9E2C04F08F0C3A87B0BA59079D4),  # noqa: E501
     )
 
     tx = Transaction(

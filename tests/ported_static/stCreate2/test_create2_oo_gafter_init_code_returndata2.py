@@ -81,6 +81,7 @@ def test_create2_oo_gafter_init_code_returndata2(
         + Op.STOP,
         storage={1: 2},
         nonce=0,
+        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

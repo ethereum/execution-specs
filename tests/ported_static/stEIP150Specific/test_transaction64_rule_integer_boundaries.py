@@ -135,6 +135,7 @@ def test_transaction64_rule_integer_boundaries(
         code=Op.PUSH1[0x0] + Op.PUSH1[0xFF] + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001000),  # noqa: E501
     )
     # Source: yul
     # berlin

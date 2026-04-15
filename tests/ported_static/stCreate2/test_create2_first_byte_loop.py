@@ -119,6 +119,7 @@ def test_create2_first_byte_loop(
         + Op.SSTORE(key=Op.DUP2, value=Op.DUP2)
         + Op.JUMP(pc=0x4A),
         nonce=0,
+        address=Address(0x09FDD11D68BE787A4C43F692A0778BEFC011CD35),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

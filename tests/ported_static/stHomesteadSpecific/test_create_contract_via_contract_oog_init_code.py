@@ -53,6 +53,7 @@ def test_create_contract_via_contract_oog_init_code(
         + Op.CREATE(value=0x0, offset=0x14, size=0xC)
         + Op.STOP,
         nonce=0,
+        address=Address(0x1000000000000000000000000000000000000001),  # noqa: E501
     )
 
     tx = Transaction(

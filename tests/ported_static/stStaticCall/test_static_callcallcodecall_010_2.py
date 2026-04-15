@@ -110,12 +110,12 @@ def test_static_callcallcodecall_010_2(
         nonce=0,
     )
     # Source: lll
-    # {  (CALLCODE 300000 <contract:0x1000000000000000000000000000000000000002> 0 0 64 0 64 ) }  # noqa: E501
-    addr_2 = pre.deploy_contract(  # noqa: F841
+    # {  (CALLCODE 300000 <contract:0x1000000000000000000000000000000000000002> 2 0 64 0 64 ) }  # noqa: E501
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.CALLCODE(
             gas=0x493E0,
             address=addr_3,
-            value=0x0,
+            value=0x2,
             args_offset=0x0,
             args_size=0x40,
             ret_offset=0x0,
@@ -126,12 +126,12 @@ def test_static_callcallcodecall_010_2(
         nonce=0,
     )
     # Source: lll
-    # {  (CALLCODE 300000 <contract:0x1000000000000000000000000000000000000002> 2 0 64 0 64 ) }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
+    # {  (CALLCODE 300000 <contract:0x1000000000000000000000000000000000000002> 0 0 64 0 64 ) }  # noqa: E501
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.CALLCODE(
             gas=0x493E0,
             address=addr_3,
-            value=0x2,
+            value=0x0,
             args_offset=0x0,
             args_size=0x40,
             ret_offset=0x0,

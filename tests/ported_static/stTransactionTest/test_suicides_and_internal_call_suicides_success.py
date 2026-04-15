@@ -77,6 +77,7 @@ def test_suicides_and_internal_call_suicides_success(
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.SELFDESTRUCT(address=0x1) + Op.STOP,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # {(CALL (CALLDATALOAD 0) 0x0000000000000000000000000000000000000000 1 0 0 0 0) (SELFDESTRUCT 0)}  # noqa: E501
@@ -96,6 +97,7 @@ def test_suicides_and_internal_call_suicides_success(
         + Op.STOP,
         balance=1000,
         nonce=0,
+        address=Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

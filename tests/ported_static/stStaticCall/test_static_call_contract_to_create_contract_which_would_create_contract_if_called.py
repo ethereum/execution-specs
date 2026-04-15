@@ -69,6 +69,7 @@ def test_static_call_contract_to_create_contract_which_would_create_contract_if_
         + Op.STOP,
         balance=1000,
         nonce=0,
+        address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
 
     tx = Transaction(
@@ -81,7 +82,7 @@ def test_static_call_contract_to_create_contract_which_would_create_contract_if_
     post = {
         contract_0: Account(
             storage={
-                0: 0xD2571607E241ECF590ED94B12D87C94BABE36DB6,
+                0: compute_create_address(address=contract_0, nonce=0),
                 1: 0,
             },
             nonce=1,

@@ -97,6 +97,7 @@ def test_call50000_sha256(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
+        address=Address(0xBBBF5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

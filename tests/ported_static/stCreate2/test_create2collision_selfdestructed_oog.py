@@ -80,6 +80,7 @@ def test_create2collision_selfdestructed_oog(
         code=Op.SELFDESTRUCT(address=0x10) + Op.STOP,
         balance=1,
         nonce=0,
+        address=Address(0xE2B35478FDD26477CC576DD906E6277761246A3C),  # noqa: E501
     )
     # Source: lll
     # { (SELFDESTRUCT 0x10) }
@@ -87,6 +88,7 @@ def test_create2collision_selfdestructed_oog(
         code=Op.SELFDESTRUCT(address=0x10) + Op.STOP,
         balance=1,
         nonce=0,
+        address=Address(0xAF3ECBA2FE09A4F6C19F16A9D119E44E08C2DA01),  # noqa: E501
     )
     # Source: lll
     # { (SELFDESTRUCT 0x10) }
@@ -94,6 +96,7 @@ def test_create2collision_selfdestructed_oog(
         code=Op.SELFDESTRUCT(address=0x10) + Op.STOP,
         balance=1,
         nonce=0,
+        address=Address(0xEC2C6832D00680ECE8FF9254F81FDAB0A5A2AC50),  # noqa: E501
     )
 
     tx_data = [

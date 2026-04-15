@@ -114,6 +114,7 @@ def test_revert_depth_create2_oog_berlin(
         + Op.SSTORE(key=0x3, value=0xC)
         + Op.STOP,
         nonce=0,
+        address=Address(0xB000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # { [[0]] 1 [[1]] (CALL (CALLDATALOAD 0) 0xb000000000000000000000000000000000000000 0 0 0 0 0) [[4]] 12 }  # noqa: E501
@@ -135,6 +136,7 @@ def test_revert_depth_create2_oog_berlin(
         + Op.STOP,
         balance=5,
         nonce=54,
+        address=Address(0xA000000000000000000000000000000000000000),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

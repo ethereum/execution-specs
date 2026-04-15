@@ -66,6 +66,7 @@ def test_delegatecode_dynamic_code(
         + Op.STOP,
         balance=10000,
         nonce=0,
+        address=Address(0x1000000000000000000000000000000000000000),  # noqa: E501
     )
 
     tx = Transaction(

@@ -52,6 +52,7 @@ def test_call_recursive_contract(
         + Op.CREATE(value=0x0, offset=0x0, size=0x20)
         + Op.STOP,
         nonce=40,
+        address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
 
     tx = Transaction(

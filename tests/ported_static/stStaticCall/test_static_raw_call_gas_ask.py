@@ -127,11 +127,11 @@ def test_static_raw_call_gas_ask(
         nonce=0,
     )
     # Source: lll
-    # {  (STATICCALL 3000000 0x094f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0) [[1]] (GAS) }  # noqa: E501
-    contract_2 = pre.deploy_contract(  # noqa: F841
+    # { (STATICCALL 130000 0x094f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0) [[1]] (GAS) }  # noqa: E501
+    contract_3 = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
             Op.STATICCALL(
-                gas=0x2DC6C0,
+                gas=0x1FBD0,
                 address=contract_0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -161,11 +161,11 @@ def test_static_raw_call_gas_ask(
         nonce=0,
     )
     # Source: lll
-    # { (STATICCALL 130000 0x094f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0) [[1]] (GAS) }  # noqa: E501
-    contract_3 = pre.deploy_contract(  # noqa: F841
+    # {  (STATICCALL 3000000 0x094f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0) [[1]] (GAS) }  # noqa: E501
+    contract_2 = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
             Op.STATICCALL(
-                gas=0x1FBD0,
+                gas=0x2DC6C0,
                 address=contract_0,
                 args_offset=0x0,
                 args_size=0x0,

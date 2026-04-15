@@ -76,6 +76,7 @@ def test_create2_call_data(
         + Op.CALLDATACOPY(dest_offset=Op.DUP1, offset=0x0, size=0x40)
         + Op.RETURN(offset=0x0, size=Op.MSIZE),
         nonce=0,
+        address=Address(0x000000000000000000000000000000000C5EA705),  # noqa: E501
     )
 
     tx = Transaction(

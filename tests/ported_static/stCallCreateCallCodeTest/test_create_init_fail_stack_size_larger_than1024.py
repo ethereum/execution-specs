@@ -60,6 +60,7 @@ def test_create_init_fail_stack_size_larger_than1024(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0x0EE6DB8C4A76CAB3BB0584E06916CEA75D307DB0),  # noqa: E501
     )
 
     tx = Transaction(

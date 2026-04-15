@@ -787,6 +787,7 @@ def test_buffer_src_offset(
         code=Op.RETURN(offset=0x0, size=0x120) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000C0DE),  # noqa: E501
     )
     # Source: lll
     # {

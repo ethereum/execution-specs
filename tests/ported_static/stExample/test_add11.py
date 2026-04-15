@@ -49,6 +49,7 @@ def test_add11(
     coinbase = pre.deploy_contract(  # noqa: F841
         code="",
         nonce=1,
+        address=Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA),  # noqa: E501
     )
     # Source: lll
     # { [[0]] (ADD 1 1) }
@@ -56,6 +57,7 @@ def test_add11(
         code=Op.SSTORE(key=0x0, value=Op.ADD(0x1, 0x1)) + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
 
     tx = Transaction(

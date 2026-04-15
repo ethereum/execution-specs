@@ -461,7 +461,7 @@ def test_create_results(
         + Op.INVALID
         + Op.CALL(
             gas=0xFFFF,
-            address=contract_1,
+            address=0x60A7,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -478,7 +478,7 @@ def test_create_results(
         + Op.INVALID
         + Op.CALL(
             gas=0xFFFF,
-            address=contract_1,
+            address=0x60A7,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -495,7 +495,7 @@ def test_create_results(
         + Op.INVALID
         + Op.CALL(
             gas=0xFFFF,
-            address=contract_1,
+            address=0x60A7,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -503,7 +503,7 @@ def test_create_results(
             ret_size=0x0,
         )
         + Op.STOP
-        + Op.MSTORE(offset=0x0, value=contract_1)
+        + Op.MSTORE(offset=0x0, value=0x60A7)
         + Op.REVERT(offset=0x0, size=0x20)
         + Op.PUSH1[0x12]
         + Op.CODECOPY(dest_offset=0x200, offset=0x1A, size=Op.DUP1)
@@ -513,7 +513,7 @@ def test_create_results(
         + Op.INVALID
         + Op.CALL(
             gas=0xFFFF,
-            address=contract_1,
+            address=0x60A7,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -521,7 +521,7 @@ def test_create_results(
             ret_size=0x0,
         )
         + Op.STOP
-        + Op.MSTORE(offset=0x0, value=contract_1)
+        + Op.MSTORE(offset=0x0, value=0x60A7)
         + Op.STOP
         + Op.PUSH1[0x12]
         + Op.CODECOPY(dest_offset=0x200, offset=0x16, size=Op.DUP1)
@@ -531,7 +531,7 @@ def test_create_results(
         + Op.INVALID
         + Op.CALL(
             gas=0xFFFF,
-            address=contract_1,
+            address=0x60A7,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -539,7 +539,7 @@ def test_create_results(
             ret_size=0x0,
         )
         + Op.STOP
-        + Op.MSTORE(offset=0x0, value=contract_1)
+        + Op.MSTORE(offset=0x0, value=0x60A7)
         + Op.SELFDESTRUCT(address=0x0)
         + Op.PUSH1[0x12]
         + Op.CODECOPY(dest_offset=0x200, offset=0x18, size=Op.DUP1)
@@ -549,7 +549,7 @@ def test_create_results(
         + Op.INVALID
         + Op.CALL(
             gas=0xFFFF,
-            address=contract_1,
+            address=0x60A7,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -559,7 +559,7 @@ def test_create_results(
         + Op.STOP
         + Op.CALL(
             gas=0xFFFF,
-            address=contract_1,
+            address=0x60A7,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -578,15 +578,17 @@ def test_create_results(
         },
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
     # Source: lll
     # {
     #   [[0]] 0x60A7
     # }   ; end of LLL code
     contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=contract_1) + Op.STOP,
+        code=Op.SSTORE(key=0x0, value=0x60A7) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x00000000000000000000000000000000000060A7),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

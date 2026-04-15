@@ -107,11 +107,12 @@ def test_static_call_create(
         nonce=0,
     )
     # Source: lll
-    # {  (DELEGATECALL 150000 <contract:0x1000000000000000000000000000000000000002> 0 0 0 0) }  # noqa: E501
-    addr_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.DELEGATECALL(
+    # {  (CALL 150000 <contract:0x1000000000000000000000000000000000000002> 0 0 0 0 0) }  # noqa: E501
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.CALL(
             gas=0x249F0,
             address=addr_4,
+            value=0x0,
             args_offset=0x0,
             args_size=0x0,
             ret_offset=0x0,
@@ -122,12 +123,11 @@ def test_static_call_create(
         nonce=0,
     )
     # Source: lll
-    # {  (CALL 150000 <contract:0x1000000000000000000000000000000000000002> 0 0 0 0 0) }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.CALL(
+    # {  (DELEGATECALL 150000 <contract:0x1000000000000000000000000000000000000002> 0 0 0 0) }  # noqa: E501
+    addr_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.DELEGATECALL(
             gas=0x249F0,
             address=addr_4,
-            value=0x0,
             args_offset=0x0,
             args_size=0x0,
             ret_offset=0x0,

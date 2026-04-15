@@ -53,6 +53,7 @@ def test_create_init_fail_stack_underflow(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0x1EC952083E988EEB19FCAB317760FFC6671246FD),  # noqa: E501
     )
 
     tx = Transaction(

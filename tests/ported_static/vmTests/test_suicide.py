@@ -87,6 +87,7 @@ def test_suicide(
         code=Op.SELFDESTRUCT(address=Op.CALLER) + Op.STOP,
         balance=0xFF000000000000,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001000),  # noqa: E501
     )
     # Source: lll
     # {
@@ -96,6 +97,7 @@ def test_suicide(
         code=Op.SELFDESTRUCT(address=0xDEAD) + Op.STOP,
         balance=0x100000000000,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001001),  # noqa: E501
     )
     # Source: lll
     # {
@@ -105,6 +107,7 @@ def test_suicide(
         code=Op.SELFDESTRUCT(address=Op.ADDRESS) + Op.STOP,
         balance=0x100000000000,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001002),  # noqa: E501
     )
     # Source: lll
     # {
@@ -123,6 +126,7 @@ def test_suicide(
         + Op.STOP,
         balance=0x100000000000,
         nonce=0,
+        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

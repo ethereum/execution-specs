@@ -70,7 +70,7 @@ def test_create_and_gas_inside_create_with_mem_expanding_calls(
             storage={
                 9: 0x75596,
                 10: 0x8D5B6,
-                11: 0xF1ECF98489FA9ED60A664FC4998DB699CFA39D40,
+                11: compute_create_address(address=contract_0, nonce=0),
             },
             nonce=1,
         ),

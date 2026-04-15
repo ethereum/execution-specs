@@ -2157,6 +2157,7 @@ def test_buffer(
         code=Op.RETURN(offset=0x0, size=0x120) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000C0DE),  # noqa: E501
     )
     # Source: lll
     # {
@@ -2177,6 +2178,7 @@ def test_buffer(
         storage={0: 24743},
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000F30C0DE),  # noqa: E501
     )
     # Source: lll
     # {
@@ -2194,6 +2196,7 @@ def test_buffer(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000FF0C0DE),  # noqa: E501
     )
     # Source: lll
     # {

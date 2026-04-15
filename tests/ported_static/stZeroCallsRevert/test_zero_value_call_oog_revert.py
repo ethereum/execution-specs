@@ -66,6 +66,7 @@ def test_zero_value_call_oog_revert(
         + Op.SSTORE(key=0x64, value=Op.GAS)
         + Op.STOP,
         nonce=0,
+        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     tx = Transaction(

@@ -15,6 +15,7 @@ from execution_testing import (
     Hash,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -534,7 +535,7 @@ def test_create_fail_result(
             "result": {
                 contract_3: Account(
                     storage={
-                        0: 0xB44F2C88D3D4283CD1E54E418C4FF7E6A6C73202,
+                        0: compute_create_address(address=contract_3, nonce=1),
                         1: 0,
                         2: 0,
                         3: 0,

@@ -53,6 +53,7 @@ def test_create_init_fail_bad_jump_destination2(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0x9CC12364004E761C5C594F6DCE3787CFF273029C),  # noqa: E501
     )
 
     tx = Transaction(

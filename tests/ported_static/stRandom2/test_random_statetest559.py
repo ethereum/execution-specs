@@ -65,6 +65,7 @@ def test_random_statetest559(
         + Op.ISZERO
         + Op.SSTORE,
         nonce=0,
+        address=Address(0x1E5FAEF71E88302D7AAED005A206BADDC12897DC),  # noqa: E501
     )
     # Source: raw
     # 0x6000355415600957005b60203560003555
@@ -80,6 +81,7 @@ def test_random_statetest559(
         ),
         balance=46,
         nonce=0,
+        address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
     )
 
     tx = Transaction(

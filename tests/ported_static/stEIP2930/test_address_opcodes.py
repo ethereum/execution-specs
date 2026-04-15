@@ -511,6 +511,7 @@ def test_address_opcodes(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001000),  # noqa: E501
     )
     # Source: lll
     # {
@@ -529,7 +530,7 @@ def test_address_opcodes(
         + Op.POP(
             Op.CALL(
                 gas=Op.GAS,
-                address=contract_0,
+                address=0x1000,
                 value=0x0,
                 args_offset=0x100,
                 args_size=0x40,
@@ -542,6 +543,7 @@ def test_address_opcodes(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

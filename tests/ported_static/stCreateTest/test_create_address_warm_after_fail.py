@@ -275,6 +275,7 @@ def test_create_address_warm_after_fail(
         + Op.RETURN(offset=0x0, size=0x6000),
         balance=4096,
         nonce=1,
+        address=Address(0x00000000000000000000000000000000C0DE1006),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -303,6 +304,7 @@ def test_create_address_warm_after_fail(
         + Op.RETURN(offset=0x0, size=0x6000),
         balance=4096,
         nonce=1,
+        address=Address(0x00000000000000000000000000000020C0DE1006),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -328,6 +330,7 @@ def test_create_address_warm_after_fail(
         + Op.RETURN(offset=0x0, size=0x20),
         balance=4096,
         nonce=18446744073709551615,
+        address=Address(0x00000000000000000000000000000000C0DEFFFF),  # noqa: E501
     )
     # Source: yul
     # london
@@ -367,6 +370,7 @@ def test_create_address_warm_after_fail(
         ),
         balance=4096,
         nonce=0,
+        address=Address(0x00000000000000000000000000000000000C0DEC),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -734,7 +738,7 @@ def test_create_address_warm_after_fail(
                 sender: Account(nonce=1),
                 contract_0: Account(
                     storage={
-                        0: 0xD4E7AE083132925A4927C1F5816238BA17B82A65,
+                        0: compute_create_address(address=contract_0, nonce=0),
                         2: 1,
                         3: 1,
                         4: 1,
@@ -758,7 +762,7 @@ def test_create_address_warm_after_fail(
                 sender: Account(nonce=1),
                 contract_0: Account(
                     storage={
-                        0: 0xD4E7AE083132925A4927C1F5816238BA17B82A65,
+                        0: compute_create_address(address=contract_0, nonce=0),
                         2: 1,
                         3: 1,
                         4: 1,
