@@ -14,9 +14,11 @@ from typing import (
     TypeVar,
 )
 
+import ijson  # type: ignore[import-untyped]
 from pydantic import Field, PlainSerializer, PlainValidator
 
 from execution_testing.base_types import (
+    Account,
     Bloom,
     Bytes,
     CamelModel,
@@ -458,6 +460,33 @@ class LazyAllocStr(LazyAlloc[str]):
         return Alloc.model_validate_json(self.raw)
 
 
+class LazyAllocFile(LazyAlloc[Path]):
+    """
+    Lazy allocation backed by a filesystem path.
+
+    Parses `{address: account_or_null}` entries from the file incrementally
+    via `ijson.kvitems` and validates each `Account` one at a time through
+    `Account.model_validate`. The full mapping of validated accounts is still
+    accumulated before `Alloc.model_validate` is called, so peak memory
+    scales with the size of the alloc — but the raw JSON string is never
+    held in Python memory, and there is no re-serialize / re-parse round
+    trip, which is where `LazyAllocStr` incurs its multi-GB peak.
+    """
+
+    def validate(self) -> Alloc:
+        """Validate the alloc by streaming entries from the backing file."""
+        accumulated: Dict[str, Account | None] = {}
+        with open(self.raw, "rb") as f:
+            for address_str, account_data in ijson.kvitems(f, ""):
+                if account_data is None:
+                    accumulated[address_str] = None
+                else:
+                    accumulated[address_str] = Account.model_validate(
+                        account_data
+                    )
+        return Alloc.model_validate(accumulated)
+
+
 @dataclass
 class TransitionToolInput:
     """Transition tool input."""
@@ -478,6 +507,10 @@ class TransitionToolInput:
             alloc_contents = self.alloc.model_dump_json(**model_dump_config)
         elif isinstance(self.alloc, LazyAllocStr):
             alloc_contents = self.alloc.raw
+        elif isinstance(self.alloc, LazyAllocFile):
+            alloc_contents = self.alloc.get().model_dump_json(
+                **model_dump_config
+            )
         else:
             raise Exception(f"Invalid alloc type: {type(self.alloc)}")
 
@@ -513,6 +546,10 @@ class TransitionToolInput:
             alloc_contents = self.alloc.model_dump_json(**model_dump_config)
         elif isinstance(self.alloc, LazyAllocStr):
             alloc_contents = self.alloc.raw
+        elif isinstance(self.alloc, LazyAllocFile):
+            alloc_contents = self.alloc.get().model_dump_json(
+                **model_dump_config
+            )
         else:
             raise Exception(f"Invalid alloc type: {type(self.alloc)}")
 
@@ -547,6 +584,10 @@ class TransitionToolInput:
             )
         elif isinstance(self.alloc, LazyAllocJson):
             alloc_contents = self.alloc.raw
+        elif isinstance(self.alloc, LazyAllocFile):
+            alloc_contents = self.alloc.get().model_dump(
+                mode=mode, **model_dump_config
+            )
         else:
             raise Exception(f"Invalid alloc type: {type(self.alloc)}")
 
@@ -582,13 +623,19 @@ class TransitionToolOutput:
         """
         Validate the model from the file system where each key is a
         different JSON file.
+
+        `alloc.json` is referenced by path and parsed incrementally on
+        `.get()` via `LazyAllocFile`, so the full file is never held in
+        memory alongside the validated `Alloc`.
         """
-        alloc_data = (directory_path / "alloc.json").read_text()
         result_data = (directory_path / "result.json").read_text()
         result = Result.model_validate_json(
             json_data=result_data, context=context
         )
-        alloc = LazyAllocStr(raw=alloc_data, _state_root=result.state_root)
+        alloc = LazyAllocFile(
+            raw=directory_path / "alloc.json",
+            _state_root=result.state_root,
+        )
         output = cls(result=result, alloc=alloc)
         return output
 

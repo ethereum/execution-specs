@@ -520,6 +520,9 @@ class TransitionTool(EthereumCLI):
                 output.result.receipts, temp_dir, debug_output_path
             )
 
+        # Materialize before temp_dir cleanup removes the backing file.
+        output.alloc.get()
+
         temp_dir.cleanup()
 
         return output
@@ -668,10 +671,19 @@ class TransitionTool(EthereumCLI):
         profiler: Profiler,
     ) -> TransitionToolOutput:
         """
-        Execute a transition tool using stdin and stdout for its inputs and
+        Execute a transition tool using stdin for inputs and files for
         outputs.
+
+        The t8n writes `alloc.json`/`result.json`/`txs.rlp` into an
+        `output/` subdirectory of a temp dir; Python then parses `result.json`
+        eagerly and references `alloc.json` via `LazyAllocFile`, which
+        streams the file on demand. Avoids holding the full alloc JSON
+        (multi-GB for large benchmarks) in the stdout buffer alongside the
+        validated `Alloc` object graph.
         """
         temp_dir = tempfile.TemporaryDirectory()
+        output_dir = Path(temp_dir.name) / "output"
+        output_dir.mkdir()
         args = self.construct_args_stream(t8n_data, temp_dir)
 
         stdin = t8n_data.to_input()
@@ -696,22 +708,23 @@ class TransitionTool(EthereumCLI):
             raise Exception("failed to evaluate: " + result.stderr.decode())
 
         output: TransitionToolOutput = (
-            TransitionToolOutput.model_validate_json(
-                result.stdout,
+            TransitionToolOutput.model_validate_files(
+                output_dir,
                 context={"exception_mapper": self.exception_mapper},
             )
         )
 
         if debug_output_path:
             with profiler.pause():
-                dump_files_to_directory(
-                    debug_output_path,
-                    {
-                        "output/alloc.json": output.alloc.raw,
-                        "output/result.json": output.result,
-                        "output/txs.rlp": str(output.body),
-                    },
-                )
+                debug_output_dir = Path(debug_output_path) / "output"
+                debug_output_dir.mkdir(parents=True, exist_ok=True)
+                for name in ("alloc.json", "result.json", "txs.rlp"):
+                    src = output_dir / name
+                    if src.exists():
+                        shutil.copyfile(src, debug_output_dir / name)
+
+        # Materialize before temp_dir cleanup removes the backing file.
+        output.alloc.get()
 
         if self.supports_opcode_count:
             opcode_count_file_path = Path(temp_dir.name) / "opcodes.json"
@@ -760,14 +773,21 @@ class TransitionTool(EthereumCLI):
         if not isinstance(reward, int) or reward < 0:
             raise ValueError(f"Invalid reward: {reward}")
 
-        # Use literal strings for command flags
+        # Inputs still come through stdin; outputs go to files in the
+        # existing temp dir so Python can stream-read the alloc rather than
+        # buffering the full stdout.
         input_alloc: LiteralString = "--input.alloc=stdin"
         input_txs: LiteralString = "--input.txs=stdin"
         input_env: LiteralString = "--input.env=stdin"
-        output_result: LiteralString = "--output.result=stdout"
-        output_alloc: LiteralString = "--output.alloc=stdout"
-        output_body: LiteralString = "--output.body=stdout"
+        output_result: LiteralString = "--output.result=output/result.json"
+        output_alloc: LiteralString = "--output.alloc=output/alloc.json"
+        output_body: LiteralString = "--output.body=output/txs.rlp"
         trace_flag: LiteralString = "--trace"
+
+        if temp_dir is None:
+            raise ValueError(
+                "safe_t8n_args requires a temp_dir for file-based outputs"
+            )
 
         args = [
             input_alloc,
@@ -779,13 +799,12 @@ class TransitionTool(EthereumCLI):
             f"--state.fork={fork_name}",
             f"--state.chainid={chain_id}",
             f"--state.reward={reward}",
+            f"--output.basedir={temp_dir.name}",
         ]
 
-        if temp_dir and (self.trace or self.supports_opcode_count):
-            args.append(f"--output.basedir={temp_dir.name}")
         if self.trace:
             args.append(trace_flag)
-        if self.supports_opcode_count and temp_dir:
+        if self.supports_opcode_count:
             args.extend(["--opcode.count", "opcodes.json"])
 
         return args
