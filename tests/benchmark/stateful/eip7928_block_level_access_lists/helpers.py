@@ -28,6 +28,7 @@ from execution_testing import (
     TestPhaseManager,
     Transaction,
 )
+from execution_testing.test_types.transaction_types import AuthorizationTuple
 
 CURSOR_SLOT = 0
 CURSOR_INIT = 1
@@ -216,8 +217,29 @@ def run_bal_benchmark(
 ) -> None:
     """Deploy contract, create txs, BAL expectations, and run."""
     contract = pre.deploy_contract(
-        code=contract_code, storage=contract_storage
+        code=contract_code
     )
+
+    blocks = []
+    authority = pre.stub_eoa("bloated_eoa_20GB")
+    with TestPhaseManager.setup():
+        sender = pre.fund_eoa()
+        tx = Transaction(
+            gas_limit=100_000,
+            to=sender,
+            value=0,
+            sender=sender,
+            authorization_list=[
+                AuthorizationTuple(
+                    chain_id=0,
+                    address=contract,
+                    nonce=authority.nonce,
+                    signer=authority,
+                ),
+            ],
+        )
+        blocks.append(Block(txs=[tx]))
+
 
     num_txs = len(plan.gas_limits)
     with TestPhaseManager.execution():
@@ -225,7 +247,7 @@ def run_bal_benchmark(
         transactions = [
             Transaction(
                 sender=sender,
-                to=contract,
+                to=authority,
                 gas_limit=plan.gas_limits[i],
                 data=b"",
             )
@@ -266,6 +288,8 @@ def run_bal_benchmark(
             account_expectations=expectations
         ),
     )
+    
+    blocks.append(block)
 
     # Post-state: only check sender nonce (sanity).
     # Exact storage values depend on gas dynamics and may be
@@ -275,5 +299,5 @@ def run_bal_benchmark(
     }
 
     benchmark_test(
-        pre=pre, post=post, blocks=[block], skip_gas_used_validation=True
+        pre=pre, post=post, blocks=blocks, skip_gas_used_validation=True
     )
