@@ -205,12 +205,21 @@ class TestTraceComparisonResult:
 
 
 class TestTraceComparisonResultDictRoundTrip:
-    """Test serialization round-trip used by xdist worker transfer."""
+    """
+    Test pydantic serialization round-trip used by xdist worker transfer.
+
+    ``model_dump(mode="json")`` → ``model_validate`` must preserve field
+    values AND the concrete subclass of each ``TraceDifference`` entry;
+    the ``kind`` discriminator is what lets ``model_validate`` pick the
+    right class.
+    """
 
     def test_round_trip_equivalent_result(self) -> None:
         """An equivalent (no-diff) result round-trips through dict."""
         result = TraceComparisonResult(equivalent=True, differences=[])
-        restored = TraceComparisonResult.from_dict(result.to_dict())
+        restored = TraceComparisonResult.model_validate(
+            result.model_dump(mode="json")
+        )
         assert restored == result
 
     def test_round_trip_with_trace_difference(self) -> None:
@@ -226,7 +235,9 @@ class TestTraceComparisonResultDictRoundTrip:
                 ),
             ],
         )
-        restored = TraceComparisonResult.from_dict(result.to_dict())
+        restored = TraceComparisonResult.model_validate(
+            result.model_dump(mode="json")
+        )
         assert restored == result
         assert type(restored.differences[0]) is TraceDifference
 
@@ -241,7 +252,9 @@ class TestTraceComparisonResultDictRoundTrip:
                 ),
             ],
         )
-        restored = TraceComparisonResult.from_dict(result.to_dict())
+        restored = TraceComparisonResult.model_validate(
+            result.model_dump(mode="json")
+        )
         assert restored == result
         diff = restored.differences[0]
         assert isinstance(diff, TransactionCountMismatch)
@@ -262,7 +275,9 @@ class TestTraceComparisonResultDictRoundTrip:
                 ),
             ],
         )
-        restored = TraceComparisonResult.from_dict(result.to_dict())
+        restored = TraceComparisonResult.model_validate(
+            result.model_dump(mode="json")
+        )
         assert restored == result
         assert isinstance(restored.differences[0], TransactionCountMismatch)
         assert type(restored.differences[1]) is TraceDifference

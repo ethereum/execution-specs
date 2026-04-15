@@ -289,7 +289,7 @@ class TraceVerifier:
             return
         config.workeroutput["trace_verifier_results"] = {
             nodeid: {
-                comp_name: result.to_dict()
+                comp_name: result.model_dump(mode="json")
                 for comp_name, result in comps.items()
             }
             for nodeid, comps in self.test_results.items()
@@ -348,6 +348,6 @@ def pytest_testnodedown(node: _XdistWorkerNode, error: object | None) -> None:
         return
     for nodeid, comps in payload.items():
         plugin.test_results[nodeid] = {
-            comp_name: TraceComparisonResult.from_dict(result_dict)
+            comp_name: TraceComparisonResult.model_validate(result_dict)
             for comp_name, result_dict in comps.items()
         }

@@ -208,7 +208,9 @@ class TestXdistAggregation:
         # Simulate the data a worker would send back.
         worker_payload = {
             "test_a": {
-                "exact": TraceComparisonResult(equivalent=True).to_dict(),
+                "exact": TraceComparisonResult(equivalent=True).model_dump(
+                    mode="json"
+                ),
             },
             "test_b": {
                 "exact-no-stack": TraceComparisonResult(
@@ -218,7 +220,7 @@ class TestXdistAggregation:
                             baseline_count=2, current_count=1
                         ),
                     ],
-                ).to_dict(),
+                ).model_dump(mode="json"),
             },
         }
         node = MagicMock()
@@ -248,7 +250,7 @@ class TestXdistAggregation:
 
         def _send(node_results: dict[str, TraceComparisonResult]) -> None:
             payload = {
-                nodeid: {"exact": result.to_dict()}
+                nodeid: {"exact": result.model_dump(mode="json")}
                 for nodeid, result in node_results.items()
             }
             node = MagicMock()
@@ -300,7 +302,9 @@ class TestXdistAggregation:
         node.workeroutput = {
             "trace_verifier_results": {
                 "test_a": {
-                    "exact": TraceComparisonResult(equivalent=True).to_dict(),
+                    "exact": TraceComparisonResult(equivalent=True).model_dump(
+                        mode="json"
+                    ),
                 },
             },
         }

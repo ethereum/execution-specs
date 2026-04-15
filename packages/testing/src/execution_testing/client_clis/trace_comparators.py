@@ -1,9 +1,12 @@
 """Trace comparators for verifying EVM execution traces against a baseline."""
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Annotated, Literal, Union
 
+from pydantic import Field
+
+from execution_testing.base_types import EthereumTestBaseModel
 from execution_testing.client_clis.cli_types import (
     TraceLine,
     Traces,
@@ -38,55 +41,24 @@ def _format_trace_line_diff(
     return f"{trace_line.op_name} ({fields_str})"
 
 
-@dataclass
-class TraceDifference:
+class TraceDifference(EthereumTestBaseModel):
     """A difference between baseline and current trace at a specific line."""
 
+    # Tag used by the discriminated union in ``TraceComparisonResult`` so
+    # that serialization (``model_dump``) and deserialization
+    # (``model_validate``) pick the correct concrete subclass when
+    # differences are round-tripped — e.g. across xdist workers.
+    kind: Literal["trace_difference"] = "trace_difference"
     transaction_index: int
     trace_line_index: int
     baseline: str
     current: str
 
-    def to_dict(self) -> dict:
-        """Serialize to a JSON/pickle-friendly dict (for xdist transfer)."""
-        return {
-            "kind": "trace_difference",
-            "transaction_index": self.transaction_index,
-            "trace_line_index": self.trace_line_index,
-            "baseline": self.baseline,
-            "current": self.current,
-        }
 
-    @classmethod
-    def from_dict(cls, data: dict) -> "TraceDifference":
-        """
-        Construct a TraceDifference (or a subclass) from its dict form.
-
-        Dispatches on the ``kind`` field so that subclasses such as
-        ``TransactionCountMismatch`` round-trip correctly.
-        """
-        kind = data.get("kind", "trace_difference")
-        if kind == "transaction_count_mismatch":
-            return TransactionCountMismatch(
-                transaction_index=data.get("transaction_index", 0),
-                trace_line_index=data.get("trace_line_index", -1),
-                baseline=data.get("baseline", ""),
-                current=data.get("current", ""),
-                baseline_count=data.get("baseline_count", 0),
-                current_count=data.get("current_count", 0),
-            )
-        return cls(
-            transaction_index=data["transaction_index"],
-            trace_line_index=data["trace_line_index"],
-            baseline=data["baseline"],
-            current=data["current"],
-        )
-
-
-@dataclass
 class TransactionCountMismatch(TraceDifference):
     """Structural mismatch: different number of transactions."""
 
+    kind: Literal["transaction_count_mismatch"] = "transaction_count_mismatch"  # type: ignore[assignment]
     transaction_index: int = 0
     trace_line_index: int = -1
     baseline: str = ""
@@ -94,39 +66,18 @@ class TransactionCountMismatch(TraceDifference):
     baseline_count: int = 0
     current_count: int = 0
 
-    def to_dict(self) -> dict:
-        """Serialize to a JSON/pickle-friendly dict (for xdist transfer)."""
-        data = super().to_dict()
-        data["kind"] = "transaction_count_mismatch"
-        data["baseline_count"] = self.baseline_count
-        data["current_count"] = self.current_count
-        return data
+
+AnyTraceDifference = Annotated[
+    Union[TraceDifference, TransactionCountMismatch],
+    Field(discriminator="kind"),
+]
 
 
-@dataclass
-class TraceComparisonResult:
+class TraceComparisonResult(EthereumTestBaseModel):
     """Result of comparing two Traces objects."""
 
     equivalent: bool
-    differences: list[TraceDifference] = field(default_factory=list)
-
-    def to_dict(self) -> dict:
-        """Serialize to a JSON/pickle-friendly dict (for xdist transfer)."""
-        return {
-            "equivalent": self.equivalent,
-            "differences": [d.to_dict() for d in self.differences],
-        }
-
-    @classmethod
-    def from_dict(cls, data: dict) -> "TraceComparisonResult":
-        """Reconstruct a TraceComparisonResult from its dict form."""
-        return cls(
-            equivalent=data["equivalent"],
-            differences=[
-                TraceDifference.from_dict(d)
-                for d in data.get("differences", [])
-            ],
-        )
+    differences: list[AnyTraceDifference] = Field(default_factory=list)
 
 
 class TraceComparator(ABC):
