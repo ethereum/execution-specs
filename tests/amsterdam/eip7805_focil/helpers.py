@@ -56,6 +56,11 @@ class BuiltBlock(NamedTuple):
     1. Sender `nonce` is correct
     2. Sender `balance` could have afforded the tx
 
+    These helpers only describe the block body, the flattened IL view, and
+    the gas headroom for a scenario. The actual satisfaction check is done by
+    the Amsterdam fork logic after block execution, when it re-validates any
+    missing IL transactions against the block's post-state.
+
     """
 
     block_txs: list[Transaction]
