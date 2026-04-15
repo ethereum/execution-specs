@@ -480,6 +480,7 @@ Transaction = (
 Union type representing any valid transaction type.
 """
 
+
 AccessListCapableTransaction = (
     AccessListTransaction
     | FeeMarketTransaction
@@ -580,8 +581,8 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
     """
     from .vm.interpreter import MAX_INIT_CODE_SIZE
 
-    intrinsic_gas, data_floor_gas_cost = calculate_intrinsic_cost(tx)
-    if max(intrinsic_gas, data_floor_gas_cost) > tx.gas:
+    intrinsic_gas, calldata_floor_gas_cost = calculate_intrinsic_cost(tx)
+    if max(intrinsic_gas, calldata_floor_gas_cost) > tx.gas:
         raise InsufficientTransactionGasError("Insufficient gas")
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
         raise NonceOverflowError("Nonce too high")
@@ -590,7 +591,7 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
     if tx.gas > TX_MAX_GAS_LIMIT:
         raise TransactionGasLimitExceededError("Gas limit too high")
 
-    return intrinsic_gas, data_floor_gas_cost
+    return intrinsic_gas, calldata_floor_gas_cost
 
 
 def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
@@ -610,18 +611,25 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     1. Base cost (`GAS_TX_BASE`)
     2. Cost for data (zero and non-zero bytes)
     3. Cost for contract creation (if applicable)
-    4. Cost for access list entries (if applicable)
+    4. Cost for access list entries and their data (if applicable)
     5. Cost for authorizations (if applicable)
 
 
     This function takes a transaction as a parameter and returns the intrinsic
     gas cost of the transaction and the minimum gas cost used by the
-    transaction based on the calldata size.
+    transaction based on the calldata and access list size.
     """
     from .vm.eoa_delegation import GAS_AUTH_PER_EMPTY_ACCOUNT
     from .vm.gas import init_code_cost
 
-    tokens_in_calldata = count_tokens_in_data(tx.data)
+    num_zeros = Uint(tx.data.count(0))
+    num_non_zeros = ulen(tx.data) - num_zeros
+
+    tokens_in_calldata = num_zeros + num_non_zeros * Uint(4)
+    # EIP-7623 floor price (note: no EVM costs)
+    calldata_floor_gas_cost = (
+        tokens_in_calldata * GAS_TX_DATA_TOKEN_FLOOR + GAS_TX_BASE
+    )
 
     data_cost = tokens_in_calldata * GAS_TX_DATA_TOKEN_STANDARD
 
@@ -631,7 +639,6 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
         create_cost = Uint(0)
 
     access_list_cost = Uint(0)
-    tokens_in_access_list = Uint(0)
     if has_access_list(tx):
         for access in tx.access_list:
             access_list_cost += GAS_TX_ACCESS_LIST_ADDRESS
