@@ -2,6 +2,7 @@
 
 from functools import cached_property
 from typing import (
+    TYPE_CHECKING,
     Annotated,
     Any,
     ClassVar,
@@ -68,6 +69,9 @@ from .common import (
     FixtureBlobSchedule,
     FixtureTransactionReceipt,
 )
+
+if TYPE_CHECKING:
+    from execution_testing.rpc.rpc_types import PayloadAttributes
 
 
 def post_state_validator(
@@ -471,6 +475,22 @@ class FixtureEngineNewPayload(CamelModel):
     def valid(self) -> bool:
         """Return whether the payload is valid."""
         return self.validation_error is None
+
+    def get_payload_attributes(self) -> "PayloadAttributes":
+        """Return the ``PayloadAttributes`` corresponding to this payload."""
+        from execution_testing.rpc.rpc_types import PayloadAttributes
+
+        execution_payload = self.params[0]
+        parent_beacon_block_root = (
+            self.params[2] if len(self.params) >= 3 else None
+        )
+        return PayloadAttributes(
+            timestamp=execution_payload.timestamp,
+            prev_randao=execution_payload.prev_randao,
+            suggested_fee_recipient=execution_payload.fee_recipient,
+            withdrawals=execution_payload.withdrawals,
+            parent_beacon_block_root=parent_beacon_block_root,
+        )
 
     @classmethod
     def from_fixture_header(

@@ -16,7 +16,6 @@ from typing import List
 from execution_testing.base_types import Bytes
 from execution_testing.fixtures import BlockchainEngineFixture
 from execution_testing.fixtures.blockchain import (
-    FixtureEngineNewPayload,
     FixtureExecutionPayload,
     FixtureHeader,
 )
@@ -29,7 +28,6 @@ from execution_testing.rpc import (
 )
 from execution_testing.rpc.rpc_types import (
     ForkchoiceState,
-    PayloadAttributes,
     PayloadStatusEnum,
 )
 from execution_testing.test_types.block_access_list import BlockAccessList
@@ -41,30 +39,6 @@ from ..helpers.exceptions import (
 from ..helpers.timing import TimingData
 
 logger = get_logger(__name__)
-
-# Execution-dependent fields that must match exactly between the built
-# and expected payloads.  Excluded:
-# - gas_limit: testing_buildBlockV1 doesn't accept it; the client
-#   picks its own via EIP-1559 (validated separately by range check).
-# - block_hash: depends on gas_limit, so it will differ too.
-_VALIDATED_FIELDS = (
-    "state_root",
-    "receipts_root",
-    "gas_used",
-    "logs_bloom",
-    "base_fee_per_gas",
-    "blob_gas_used",
-    "excess_blob_gas",
-    "block_access_list",
-    "fee_recipient",
-    "number",
-    "timestamp",
-    "extra_data",
-    "prev_randao",
-    "parent_hash",
-    "transactions",
-    "withdrawals",
-)
 
 
 def _format_block_access_list_diff(
@@ -114,23 +88,6 @@ def _format_block_access_list_diff(
     )
 
 
-def _payload_attributes(
-    payload: FixtureEngineNewPayload,
-) -> PayloadAttributes:
-    """Extract PayloadAttributes from a fixture payload."""
-    execution_payload = payload.params[0]
-    parent_beacon_block_root = (
-        payload.params[2] if len(payload.params) >= 3 else None
-    )
-    return PayloadAttributes(
-        timestamp=execution_payload.timestamp,
-        prev_randao=execution_payload.prev_randao,
-        suggested_fee_recipient=execution_payload.fee_recipient,
-        withdrawals=execution_payload.withdrawals,
-        parent_beacon_block_root=parent_beacon_block_root,
-    )
-
-
 def _validate_gas_limit(
     built: FixtureExecutionPayload,
     parent_gas_limit: int,
@@ -161,7 +118,17 @@ def _validate_built_block(
     _validate_gas_limit(built, parent_gas_limit)
 
     mismatches: List[str] = []
-    for field in _VALIDATED_FIELDS:
+
+    # All FixtureExecutionPayload fields are validated except:
+    # - gas_limit: testing_buildBlockV1 doesn't accept it; the client
+    #   picks its own via EIP-1559 (validated separately by range check).
+    # - block_hash: depends on gas_limit, so it will differ too.
+    validated_fields = tuple(
+        name
+        for name in FixtureExecutionPayload.model_fields
+        if name not in {"gas_limit", "block_hash"}
+    )
+    for field in validated_fields:
         built_val = getattr(built, field)
         expected_val = getattr(expected, field)
         if built_val != expected_val:
@@ -257,10 +224,9 @@ def test_blockchain_via_build(
             with total_build_timing.time(f"Block {i + 1}") as block_timing:
                 # 1. Build the block
                 with block_timing.time("testing_buildBlockV1"):
-                    attributes = _payload_attributes(payload)
                     build_response = testing_rpc.build_block(
                         parent_block_hash=(expected_payload.parent_hash),
-                        payload_attributes=attributes,
+                        payload_attributes=payload.get_payload_attributes(),
                         transactions=(expected_payload.transactions),
                         extra_data=expected_payload.extra_data,
                     )
