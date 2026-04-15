@@ -430,7 +430,7 @@ class TestDocsGenerator:
                         )
                         for value in values
                     ]
-                    fork = item.callspec.params.get("fork").name()  # type: ignore
+                    fork = item.callspec.params.get("parametrized_fork").name()  # type: ignore
                     test_type = get_test_function_test_type(item)
                     test_type_value = item.callspec.params.get(test_type)
                     fixture_type = test_type_value.format_name  # type: ignore

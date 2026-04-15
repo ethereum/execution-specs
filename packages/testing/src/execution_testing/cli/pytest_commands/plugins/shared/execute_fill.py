@@ -15,6 +15,7 @@ from execution_testing.execution import (
     LabeledExecuteFormat,
 )
 from execution_testing.fixtures import BaseFixture, LabeledFixtureFormat
+from execution_testing.forks import Fork, TransitionFork
 from execution_testing.logging import get_logger
 from execution_testing.rpc import EthRPC
 from execution_testing.specs import BaseTest
@@ -310,7 +311,17 @@ def pytest_make_parametrize_id(
     readable test ids for the generated tests.
     """
     del config
+    if argname == "parametrized_fork":
+        return f"fork_{val}"
     return f"{argname}_{val}"
+
+
+@pytest.fixture(scope="function")
+def fork(
+    parametrized_fork: Fork | TransitionFork,
+) -> Fork | TransitionFork:
+    """Return the fork for the current test."""
+    return parametrized_fork
 
 
 SPEC_TYPES_PARAMETERS: List[str] = list(BaseTest.spec_types.keys())

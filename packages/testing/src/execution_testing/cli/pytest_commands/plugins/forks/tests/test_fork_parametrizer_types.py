@@ -19,7 +19,7 @@ from ..forks import (
     [
         pytest.param(
             [ForkParametrizer(fork=Frontier)],
-            ["fork"],
+            ["parametrized_fork"],
             [pytest.param(Frontier)],
             id="only_fork",
         ),
@@ -34,7 +34,7 @@ from ..forks import (
                     ],
                 )
             ],
-            ["fork", "some_value"],
+            ["parametrized_fork", "some_value"],
             [pytest.param(Frontier, 1)],
             id="fork_with_single_covariant_parameter",
         ),
@@ -50,7 +50,7 @@ from ..forks import (
                     ],
                 )
             ],
-            ["fork", "some_value"],
+            ["parametrized_fork", "some_value"],
             [pytest.param(Frontier, 1), pytest.param(Frontier, 2)],
             id="fork_with_single_covariant_parameter_multiple_values",
         ),
@@ -69,7 +69,7 @@ from ..forks import (
                     ],
                 )
             ],
-            ["fork", "some_value"],
+            ["parametrized_fork", "some_value"],
             [
                 pytest.param(Frontier, 1, marks=[pytest.mark.some_mark]),
                 pytest.param(Frontier, 2),
@@ -90,7 +90,7 @@ from ..forks import (
                     ],
                 )
             ],
-            ["fork", "some_value", "another_value"],
+            ["parametrized_fork", "some_value", "another_value"],
             [pytest.param(Frontier, 1, 2)],
             id="fork_with_multiple_covariant_parameters",
         ),
@@ -109,7 +109,7 @@ from ..forks import (
                     ],
                 )
             ],
-            ["fork", "some_value", "another_value"],
+            ["parametrized_fork", "some_value", "another_value"],
             [pytest.param(Frontier, 1, 2), pytest.param(Frontier, 1, 3)],
             id="fork_with_multiple_covariant_parameters_multiple_values",
         ),
@@ -128,7 +128,7 @@ from ..forks import (
                     ],
                 )
             ],
-            ["fork", "some_value", "another_value"],
+            ["parametrized_fork", "some_value", "another_value"],
             [pytest.param(Frontier, 1, "a"), pytest.param(Frontier, 2, "b")],
             id="fork_with_single_multi_value_covariant_parameter_multiple_values",
         ),
@@ -155,7 +155,7 @@ from ..forks import (
                 )
             ],
             [
-                "fork",
+                "parametrized_fork",
                 "some_value",
                 "another_value",
                 "yet_another_value",
@@ -191,7 +191,12 @@ from ..forks import (
                     ],
                 )
             ],
-            ["fork", "shared_value", "different_value_1", "different_value_2"],
+            [
+                "parametrized_fork",
+                "shared_value",
+                "different_value_1",
+                "different_value_2",
+            ],
             [
                 pytest.param(Frontier, 1, "a", "x"),
                 pytest.param(Frontier, 2, "b", "y"),
