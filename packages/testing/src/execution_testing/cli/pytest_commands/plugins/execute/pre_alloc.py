@@ -953,6 +953,31 @@ class Alloc(SharedAlloc):
             logger.debug(f"Transaction response: {response.model_dump_json()}")
         return responses
 
+    def pending_transactions(self) -> List[Transaction]:
+        """
+        Return the queued setup transactions, signed and consumed.
+
+        Used by fill-native stateful filling to materialise ``pre.fund_eoa``
+        and ``pre.deploy_contract`` calls into a synthetic setup block
+        instead of sending them via ``send_pending_transactions``.
+
+        Transactions carry ``metadata.phase = "setup"`` (set at queue time),
+        so downstream phase derivation routes them to ``setup_payloads``.
+        After this call the internal queue is cleared — callers are expected
+        to own the returned list.
+
+        Unset transaction ``value`` is coerced to ``0`` because some pending
+        txs (e.g. contract deploys with no ether attached) leave the field
+        unset where the live-send path would default it before broadcast.
+        """
+        txs: List[Transaction] = []
+        for tx in self._pending_txs:
+            if tx.value is None:
+                tx.value = 0
+            txs.append(tx.with_signature_and_sender())
+        self._pending_txs.clear()
+        return txs
+
 
 @pytest.fixture(scope="function")
 def alloc_flags(

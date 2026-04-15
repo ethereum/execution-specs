@@ -5,12 +5,14 @@ from typing import Any, List
 import click
 
 from .base import PytestCommand, common_pytest_options
+from .processors import HelpFlagsProcessor
 
 
 def create_fill_stateful_command() -> PytestCommand:
     """Initialize the fill-stateful command."""
     return PytestCommand(
         config_file="pytest-fill-stateful.ini",
+        argument_processors=[HelpFlagsProcessor("fill-stateful")],
     )
 
 

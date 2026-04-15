@@ -34,6 +34,7 @@ from execution_testing.base_types import (
 )
 from execution_testing.client_clis import (
     BlockExceptionWithMessage,
+    FillerBackend,
     LazyAlloc,
     Result,
     TransitionTool,
@@ -55,6 +56,7 @@ from execution_testing.execution import (
 from execution_testing.fixtures import (
     BaseFixture,
     BlockchainEngineFixture,
+    BlockchainEngineStatefulFixture,
     BlockchainEngineSyncFixture,
     BlockchainEngineXFixture,
     BlockchainFixture,
@@ -71,6 +73,7 @@ from execution_testing.fixtures.blockchain import (
     FixtureTransaction,
     FixtureWithdrawal,
     InvalidFixtureBlock,
+    derive_setup_group_hash,
 )
 from execution_testing.fixtures.common import (
     FixtureBlobSchedule,
@@ -83,6 +86,7 @@ from execution_testing.test_types import (
     Environment,
     Removable,
     Requests,
+    TestPhase,
     Transaction,
     Withdrawal,
 )
@@ -91,6 +95,7 @@ from execution_testing.test_types.block_access_list import (
     BlockAccessListExpectation,
 )
 from execution_testing.test_types.chain_config_types import ChainConfigDefaults
+from execution_testing.test_types.transaction_types import TransactionDefaults
 
 from .base import BaseTest, FillResult, OpMode, verify_result
 from .debugging import print_traces
@@ -139,6 +144,45 @@ def count_blobs(txs: List[Transaction]) -> int:
             for tx in txs
             if tx.blob_versioned_hashes is not None
         ]
+    )
+
+
+def _fixture_payload_from_client_response(
+    *,
+    response: Any,
+    new_payload_version: int,
+    forkchoice_updated_version: int,
+    parent_beacon_block_root: Hash | None,
+    phase: TestPhase | None,
+) -> FixtureEngineNewPayload:
+    """
+    Build a ``FixtureEngineNewPayload`` directly from the client's
+    ``GetPayloadResponse``.
+
+    Used by ``make_stateful_fixture``: ClientBackend returns a response
+    whose ``execution_payload`` is authoritative (the client picked
+    fields like ``gas_limit`` itself, and its block_hash is the keccak
+    of the real header RLP). Rebuilding from fill's ``FixtureHeader``
+    would disagree on those fields and produce a mismatched block_hash,
+    so we forward the response verbatim.
+    """
+    version = new_payload_version
+    params: List[Any] = [response.execution_payload]
+    if version >= 3:
+        blob_hashes = (
+            response.blobs_bundle.blob_versioned_hashes()
+            if response.blobs_bundle is not None
+            else []
+        )
+        params.append(blob_hashes)
+        params.append(parent_beacon_block_root)
+    if version >= 4 and response.execution_requests is not None:
+        params.append(response.execution_requests)
+    return FixtureEngineNewPayload(
+        params=tuple(params),
+        new_payload_version=version,
+        forkchoice_updated_version=forkchoice_updated_version,
+        phase=phase,
     )
 
 
@@ -575,8 +619,9 @@ class BlockchainTest(BaseTest):
     ] = [
         BlockchainFixture,
         BlockchainEngineFixture,
-        BlockchainEngineXFixture,
+        BlockchainEngineStatefulFixture,
         BlockchainEngineSyncFixture,
+        BlockchainEngineXFixture,
     ]
     supported_execute_formats: ClassVar[Sequence[LabeledExecuteFormat]] = [
         LabeledExecuteFormat(
@@ -665,13 +710,18 @@ class BlockchainTest(BaseTest):
 
     def generate_block_data(
         self,
-        t8n: TransitionTool,
+        t8n: FillerBackend,
         block: Block,
         previous_env: Environment,
         previous_alloc: Alloc | LazyAlloc,
     ) -> BuiltBlock:
         """
         Generate common block data for both make_fixture and make_hive_fixture.
+
+        ``t8n`` is any backend satisfying ``FillerBackend``. The
+        default compute path passes a concrete ``TransitionTool``; stateful
+        filling will pass an ``ClientBackend`` that drives
+        ``testing_buildBlockV1`` against a live client.
         """
         env = block.set_environment(previous_env)
         fork = self.fork.fork_at(
@@ -899,7 +949,7 @@ class BlockchainTest(BaseTest):
 
     def verify_post_state(
         self,
-        t8n: TransitionTool,
+        t8n: FillerBackend,
         t8n_state: Alloc,
         expected_state: Alloc | None = None,
     ) -> None:
@@ -915,7 +965,7 @@ class BlockchainTest(BaseTest):
 
     def make_fixture(
         self,
-        t8n: TransitionTool,
+        t8n: FillerBackend,
     ) -> FillResult:
         """Create a fixture from the blockchain test definition."""
         fixture_blocks: List[FixtureBlock | InvalidFixtureBlock] = []
@@ -1014,7 +1064,7 @@ class BlockchainTest(BaseTest):
 
     def make_hive_fixture(
         self,
-        t8n: TransitionTool,
+        t8n: FillerBackend,
         fixture_format: FixtureFormat = BlockchainEngineFixture,
     ) -> FillResult:
         """Create a hive fixture from the blocktest definition."""
@@ -1158,12 +1208,220 @@ class BlockchainTest(BaseTest):
             post_verifications=PostVerifications.from_alloc(self.post),
         )
 
+    def make_stateful_fixture(
+        self,
+        t8n: FillerBackend,
+    ) -> FillResult:
+        """
+        Create a ``BlockchainEngineStatefulFixture`` against a live client.
+
+        Differs from ``make_hive_fixture``:
+
+        - No genesis building: the client already has warm state from a
+          snapshot. The backend (typically ``ClientBackend``) owns
+          ``snapshot_block`` / ``start_block`` captured at session start.
+        - ``pre.fund_eoa`` / ``pre.deploy_contract`` calls are materialised
+          into a synthetic setup block prepended to ``self.blocks``,
+          instead of being baked into genesis alloc.
+        - Payloads are partitioned by ``FixtureEngineNewPayload.phase``
+          into ``setup_payloads`` (setup-phase txs) and ``payloads``
+          (execution-phase txs).
+        - ``verify_post_state`` is skipped: the client is the oracle.
+        """
+        snapshot_block = getattr(t8n, "snapshot_block", None)
+        start_block = getattr(t8n, "start_block", None)
+        if snapshot_block is None or start_block is None:
+            raise RuntimeError(
+                "make_stateful_fixture requires a backend with "
+                "`snapshot_block` and `start_block` captured before fill; "
+                "got backend of type "
+                f"{type(t8n).__name__}."
+            )
+
+        # Resolve execute.pre_alloc's deferred machinery so pending-tx
+        # funding amounts get materialised before we pull the queue.
+        # Mirrors execute.py's pre-send flow:
+        #   1. ask the test for its required sender balances
+        #   2. resolve deferred deploys / stubs / fund_addresses
+        #   3. run minimum_balance_for_pending_transactions so that
+        #      deferred ``fund_eoa()`` calls get real values.
+        # Tests that use the fill-native Alloc subclass (which exposes
+        # ``pending_transactions``) go through this path; other tests
+        # are no-ops.
+        pending_getter = getattr(self.pre, "pending_transactions", None)
+        resolve_deferred = getattr(self.pre, "resolve_deferred_checks", None)
+        min_balance = getattr(
+            self.pre, "minimum_balance_for_pending_transactions", None
+        )
+        if (
+            callable(pending_getter)
+            and callable(resolve_deferred)
+            and callable(min_balance)
+        ):
+            try:
+                execute_plan = self.execute(execute_format=TransactionPost)
+            except Exception:
+                # Non-TransactionPost-capable test spec; skip.
+                execute_plan = None
+            if execute_plan is not None:
+                session_fork = self.fork.fork_at(
+                    block_number=0, timestamp=0
+                )
+                required_balances = (
+                    execute_plan.get_required_sender_balances(
+                        gas_price=TransactionDefaults.gas_price,
+                        max_fee_per_gas=TransactionDefaults.max_fee_per_gas,
+                        max_priority_fee_per_gas=(
+                            TransactionDefaults.max_priority_fee_per_gas
+                        ),
+                        max_fee_per_blob_gas=TransactionDefaults.max_fee_per_gas,
+                        fork=session_fork,
+                    )
+                )
+                resolve_deferred()
+                min_balance(
+                    required_balances,
+                    gas_price=TransactionDefaults.gas_price,
+                    max_fee_per_gas=TransactionDefaults.max_fee_per_gas,
+                    max_priority_fee_per_gas=(
+                        TransactionDefaults.max_priority_fee_per_gas
+                    ),
+                    max_fee_per_blob_gas=TransactionDefaults.max_fee_per_gas,
+                )
+
+        # Materialise queued pre-alloc txs into a synthetic setup block.
+        blocks_to_process: List[Block] = []
+        declared_setup_tx_groups: List[List[Transaction]] = []
+        if callable(pending_getter):
+            setup_txs = pending_getter()
+            if setup_txs:
+                blocks_to_process.append(Block(txs=setup_txs))
+                declared_setup_tx_groups.append(setup_txs)
+        blocks_to_process.extend(self.blocks)
+
+        # Hash declared setup intent for cross-test dedup. Pre-RLP the txs
+        # now (the synthetic setup block will re-sign them, but declared
+        # senders/nonces/gas prices are pinned so hashes are stable).
+        signed_setup_groups: List[List[Transaction]] = [
+            [tx.with_signature_and_sender() for tx in group]
+            for group in declared_setup_tx_groups
+        ]
+        setup_group_hash = derive_setup_group_hash(signed_setup_groups)
+
+        # Chain blocks off the session's start_block (client head after
+        # global pre-run). Each built block updates env.parent_hash.
+        start_block_number = int(HexNumber(start_block["number"]))
+        start_block_hash = Hash(start_block["hash"])
+        # Derive a FixtureHeader from the client's block dict for the
+        # parent_* fields (timestamp, base_fee, gas_limit, ...).
+        # FixtureHeader recomputes ``block_hash`` from its RLP, which
+        # will not match the client's authoritative hash unless every
+        # header byte is reproduced exactly — so we build the
+        # Environment manually using ``start_block["hash"]`` directly
+        # for block_hashes.
+        parent_header = FixtureHeader.model_validate(start_block)
+        env = Environment(
+            parent_difficulty=parent_header.difficulty,
+            parent_timestamp=parent_header.timestamp,
+            parent_base_fee_per_gas=parent_header.base_fee_per_gas,
+            parent_blob_gas_used=parent_header.blob_gas_used,
+            parent_excess_blob_gas=parent_header.excess_blob_gas,
+            parent_gas_used=parent_header.gas_used,
+            parent_gas_limit=parent_header.gas_limit,
+            parent_ommers_hash=parent_header.ommers_hash,
+            block_hashes={
+                HexNumber(start_block_number): start_block_hash,
+            },
+        )
+
+        setup_payloads: List[FixtureEngineNewPayload] = []
+        execution_payloads: List[FixtureEngineNewPayload] = []
+        head_hash = start_block_hash
+        # Alloc is not authoritative in stateful mode; pass self.pre as a
+        # placeholder — ClientBackend ignores it.
+        alloc: Alloc | LazyAlloc = self.pre
+        # After each block, pull the client's authoritative payload
+        # directly from the backend so the fixture records what the
+        # client actually built (gas_limit picked by the client, etc.),
+        # not the FixtureHeader-recomputed variant whose RLP/hash would
+        # diverge. This is essential: downstream consumers
+        # (benchmarkoor) replay these payloads via engine_newPayload,
+        # and geth only accepts them if the payload fields hash to the
+        # expected block_hash — which only happens when we forward the
+        # client's real payload verbatim.
+        client_eth_rpc = getattr(t8n, "eth_rpc", None)
+        for block in blocks_to_process:
+            built_block = self.generate_block_data(
+                t8n=t8n,
+                block=block,
+                previous_env=env,
+                previous_alloc=alloc,
+            )
+            client_payload: Any = getattr(t8n, "last_payload_response", None)
+            if client_payload is not None:
+                payload = _fixture_payload_from_client_response(
+                    response=client_payload,
+                    new_payload_version=int(
+                        getattr(t8n, "last_new_payload_version", 1)
+                    ),
+                    forkchoice_updated_version=int(
+                        getattr(t8n, "last_forkchoice_updated_version", 1)
+                    ),
+                    parent_beacon_block_root=getattr(
+                        t8n, "last_parent_beacon_block_root", None
+                    ),
+                    phase=FixtureEngineNewPayload.derive_phase(block.txs),
+                )
+            else:
+                payload = built_block.get_fixture_engine_new_payload()
+            if payload.phase == TestPhase.SETUP:
+                setup_payloads.append(payload)
+            else:
+                execution_payloads.append(payload)
+            env = apply_new_parent(built_block.env, built_block.header)
+            head_hash = built_block.header.block_hash
+            if client_eth_rpc is not None:
+                client_head = client_eth_rpc.get_block_by_number("latest")
+                if client_head is not None:
+                    actual_hash = Hash(client_head["hash"])
+                    env = env.copy(
+                        block_hashes={
+                            **env.block_hashes,
+                            HexNumber(
+                                int(HexNumber(client_head["number"]))
+                            ): actual_hash,
+                        },
+                    )
+                    head_hash = actual_hash
+
+        fixture = BlockchainEngineStatefulFixture(
+            fork=self.fork,
+            last_block_hash=head_hash,
+            config=FixtureConfig(fork=self.fork),
+            snapshot_block_number=HexNumber(snapshot_block["number"]),
+            snapshot_block_hash=Hash(snapshot_block["hash"]),
+            start_block_number=HexNumber(start_block_number),
+            start_block_hash=start_block_hash,
+            setup_group_hash=setup_group_hash,
+            setup_payloads=setup_payloads,
+            payloads=execution_payloads,
+        )
+        return FillResult(
+            fixture=fixture,
+            gas_optimization=None,
+            benchmark_gas_used=None,
+            benchmark_opcode_count=None,
+            post_verifications=PostVerifications.from_alloc(self.post),
+        )
+
     def generate(
         self,
-        t8n: TransitionTool,
+        t8n: FillerBackend,
         fixture_format: FixtureFormat,
     ) -> FillResult:
         """Generate the BlockchainTest fixture."""
+        if fixture_format == BlockchainEngineStatefulFixture:
+            return self.make_stateful_fixture(t8n)
         if fixture_format in [
             BlockchainEngineFixture,
             BlockchainEngineXFixture,

@@ -1,6 +1,7 @@
 """BlockchainTest types."""
 
 from functools import cached_property
+from hashlib import sha256
 from typing import (
     TYPE_CHECKING,
     Annotated,
@@ -10,6 +11,7 @@ from typing import (
     List,
     Literal,
     Self,
+    Sequence,
     Set,
     Tuple,
     Type,
@@ -58,6 +60,7 @@ from execution_testing.test_types import (
     Environment,
     Removable,
     Requests,
+    TestPhase,
     Transaction,
     Withdrawal,
 )
@@ -76,6 +79,34 @@ from .common import (
 
 if TYPE_CHECKING:
     from execution_testing.rpc.rpc_types import PayloadAttributes
+
+
+def derive_setup_group_hash(
+    setup_transaction_groups: Sequence[Sequence[Any]],
+) -> str | None:
+    """
+    Return a deterministic hash over a test's declared setup transactions.
+
+    The input is an ordered sequence of per-block transaction lists (the
+    setup-phase blocks the test emits before its execution phase). The hash
+    concatenates the canonical RLP of each signed transaction in declaration
+    order — tests with byte-identical setup sequences collapse onto the same
+    hash and can share a single ``setup_groups/<hash>.json`` file.
+
+    Returns ``None`` when the input carries no setup-phase transactions.
+    """
+    any_tx = False
+    hasher = sha256()
+    for block_txs in setup_transaction_groups:
+        for tx in block_txs:
+            any_tx = True
+            tx_rlp = tx.rlp() if hasattr(tx, "rlp") else None
+            if tx_rlp is None:
+                return None
+            hasher.update(bytes(tx_rlp))
+            hasher.update(b"\x00")
+        hasher.update(b"\x01")
+    return hasher.hexdigest() if any_tx else None
 
 
 def post_state_validator(
@@ -524,7 +555,17 @@ class FixtureEngineNewPayload(CamelModel):
         ]
         | None
     ) = None
-
+    phase: TestPhase | None = Field(
+        None,
+        description=(
+            "Test phase the payload belongs to (setup / execution / "
+            "cleanup). Set at fill time from the transactions' "
+            "TestPhaseManager context; consumers use it to partition "
+            "payloads (e.g. BlockchainEngineStatefulFixture "
+            "setupEngineNewPayloads vs engineNewPayloads) without "
+            "re-inferring from tx metadata."
+        ),
+    )
     def valid(self) -> bool:
         """Return whether the payload is valid."""
         return self.validation_error is None
@@ -548,6 +589,38 @@ class FixtureEngineNewPayload(CamelModel):
             withdrawals=execution_payload.withdrawals,
             parent_beacon_block_root=parent_beacon_block_root,
         )
+
+    @staticmethod
+    def derive_phase(transactions: Sequence[Any]) -> TestPhase | None:
+        """
+        Derive block phase from transactions.
+
+        Reads ``test_phase`` (set by ``TestPhaseManager`` context managers at
+        construction time), falling back to ``metadata.phase`` (set explicitly
+        by pre_alloc helpers). A block with any ``SETUP`` transaction is
+        considered part of setup; otherwise the single shared phase is used,
+        or ``None`` if the block has no phase-tagged transactions.
+        """
+        if not transactions:
+            return None
+
+        phases: set[TestPhase] = set()
+        for tx in transactions:
+            phase = getattr(tx, "test_phase", None)
+            if phase is None:
+                meta = getattr(tx, "metadata", None)
+                if meta is not None:
+                    phase = getattr(meta, "phase", None)
+            if phase is not None:
+                phases.add(phase)
+
+        if not phases:
+            return None
+        if len(phases) == 1:
+            return next(iter(phases))
+        if TestPhase.SETUP in phases:
+            return TestPhase.SETUP
+        return None
 
     @classmethod
     def from_fixture_header(
@@ -623,6 +696,8 @@ class FixtureEngineNewPayload(CamelModel):
             EngineNewPayloadParameters,
             tuple(params),
         )
+        # Auto-derive phase from transactions if the caller did not pass one.
+        kwargs.setdefault("phase", cls.derive_phase(transactions))
         new_payload = cls(
             params=payload_params,
             new_payload_version=new_payload_version,
@@ -902,7 +977,6 @@ class BlockchainEngineStatefulFixture(BlockchainEngineFixtureCommon):
     )
     format_phases: ClassVar[Set[FixtureFillingPhase]] = {
         FixtureFillingPhase.FILL,
-        FixtureFillingPhase.PRE_ALLOC_GENERATION,
     }
 
     snapshot_block_number: HexNumber
@@ -910,6 +984,16 @@ class BlockchainEngineStatefulFixture(BlockchainEngineFixtureCommon):
     start_block_number: HexNumber
     start_block_hash: Hash
 
+    setup_group_hash: str | None = Field(
+        None,
+        description=(
+            "Hash of this test's declared setup transaction sequence. "
+            "When set, ``setupEngineNewPayloads`` is a copy of the shared "
+            "``setup_groups/<setup_group_hash>.json`` — consumers can skip "
+            "re-applying setup per test by loading the group file once "
+            "and snapshotting the post-setup state."
+        ),
+    )
     setup_payloads: List[FixtureEngineNewPayload] = Field(
         ..., alias="setupEngineNewPayloads"
     )
@@ -930,6 +1014,8 @@ class StatefulPreRunFixture(CamelModel):
     network: str
     snapshot_block_number: HexNumber
     snapshot_block_hash: Hash
+    start_block_number: HexNumber | None = None
+    start_block_hash: Hash | None = None
     payloads: List[FixtureEngineNewPayload] = Field(
         ..., alias="engineNewPayloads"
     )

@@ -31,12 +31,30 @@ def option_was_explicitly_set(config: pytest.Config, option_name: str) -> bool:
 
 def is_help_or_collectonly_mode(config: pytest.Config) -> bool:
     """Check if pytest is running in a help or collectonly mode."""
+    # Command-specific help flags registered by the `help` plugin; each one
+    # triggers a ``show_specific_help`` exit in that plugin's own
+    # ``pytest_configure``. If any are set, skip heavy setup here because
+    # this invocation is help-only.
+    show_help_flags = (
+        "show_fill_help",
+        "show_fill_stateful_help",
+        "show_consume_help",
+        "show_execute_help",
+        "show_execute_hive_help",
+        "show_execute_recover_help",
+        "show_execute_eth_config_help",
+        "show_check_eip_versions_help",
+    )
     return (
         config.getoption("markers", default=False)
         or config.getoption("collectonly", default=False)
         or config.getoption("show_ported_from", default=False)
         or config.getoption("links_as_filled", default=False)
         or config.getoption("help", default=False)
+        or any(
+            config.getoption(flag, default=False)
+            for flag in show_help_flags
+        )
         or config.pluginmanager.has_plugin(
             "execution_testing.cli.pytest_commands.plugins.filler.eip_checklist"
         )
