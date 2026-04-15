@@ -8,8 +8,8 @@
     git clone https://github.com/ethereum/execution-specs
     cd execution-specs
     curl -LsSf https://astral.sh/uv/install.sh | sh
-    uv python install 3.12
-    uv python pin 3.12
+    uv python install 3.13
+    uv python pin 3.13
     uv sync
     uv tool install --exclude-newer "10 days" rust-just
     just shell-completions
@@ -21,8 +21,8 @@
     git clone https://github.com/ethereum/execution-specs
     cd execution-specs
     curl -LsSf https://astral.sh/uv/install.sh | sh
-    uv python install 3.12
-    uv python pin 3.12
+    uv python install 3.13
+    uv python pin 3.13
     uv sync
     brew install just
     just shell-completions
@@ -52,17 +52,17 @@ When installed via `curl`, `uv` can also download Python for your platform if a 
 
 ## Installing Python and Python Dependencies
 
-Clone @ethereum/execution-specs and install the project dependencies. We recommend using Python 3.12 for the simplest local development setup.
+Clone @ethereum/execution-specs and install the project dependencies. Python 3.11–3.14 are supported; Python 3.13 tends to be the smoothest for local setup because pre-built wheels are available across the dependency set.
 
-The following commands use `uv` to install Python 3.12 and pin it for all commands run within the execution-specs directory:
+The following commands use `uv` to install Python 3.13 and pin it for all commands run within the execution-specs directory:
 
 === "All platforms"
 
     ```console
     git clone https://github.com/ethereum/execution-specs
     cd execution-specs
-    uv python install 3.12
-    uv python pin 3.12
+    uv python install 3.13
+    uv python pin 3.13
     uv sync
     ```
 
