@@ -239,15 +239,20 @@ def test_block_gas_refund_eip7778_no_block_reduction(
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
 
     num_txs = 3
-    # Set then restore: second SSTORE is warm with current_value=1
+    # Set then restore: second SSTORE is warm with current_value=1.
+    # With diff-at-return, net state diff is zero (slot restored),
+    # so tx_state = 0. Only regular gas counts.
     code = Op.SSTORE(0, 1) + Op.SSTORE.with_metadata(
         key_warm=True,
         original_value=0,
         current_value=1,
         new_value=0,
     )(0, 0)
+    # code.gas_cost includes state gas from the old model; subtract it
+    # since diff-at-return doesn't charge per-opcode state gas.
     tx_regular = intrinsic_gas + code.gas_cost(fork) - sstore_state_gas
-    expected = max(num_txs * tx_regular, num_txs * sstore_state_gas)
+    tx_state = 0  # net zero state diff
+    expected = max(num_txs * tx_regular, num_txs * tx_state)
     txs = []
     for _ in range(num_txs):
         contract = pre.deploy_contract(code=code)

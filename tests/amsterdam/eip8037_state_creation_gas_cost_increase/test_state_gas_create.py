@@ -410,93 +410,27 @@ def test_create_tx_intrinsic_gas_boundary(
 
 
 @pytest.mark.valid_from("EIP8037")
-def test_code_deposit_oog_preserves_parent_reservoir(
+def test_caller_reservoir_preserved_after_callee_diff_reverts(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
-    Test parent reservoir preserved after child code deposit OOG.
+    Test caller reservoir preserved when callee reverts due to
+    state diff exceeding its budget.
 
-    A caller contract invokes the factory via CALL with limited gas.
-    The child CREATE returns enough bytes that code deposit state gas
-    exceeds the child frame's available gas (reservoir spillover plus
-    the limited gas_left). The factory's SSTORE after the failed
-    CREATE proves the reservoir was not inflated by a spill-then-halt
-    refund.
+    The caller CALLs a factory with limited gas. The factory does
+    CREATE deploying large code. At the factory's call return, the
+    state diff (account + code) exceeds the factory's budget, so the
+    factory reverts. The caller's reservoir is preserved and can be
+    used for a subsequent SSTORE.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    gas_costs = fork.gas_costs()
-    new_account_state_gas = gas_costs.GAS_NEW_ACCOUNT
     sstore_state_gas = fork.sstore_state_gas()
 
-    # Small deploy size; code deposit state gas will exceed the
-    # limited gas available in the CREATE child frame.
     deploy_size = 4096
     init_code = Op.RETURN(0, deploy_size)
-
-    # Limited regular gas forwarded to the factory.  After CREATE
-    # takes 63/64, the factory retains ~15 K for its SSTOREs.
-    child_gas = 1_000_000
-
-    factory_storage = Storage()
-    factory = pre.deploy_contract(
-        code=(
-            Op.MSTORE(0, Op.PUSH32(bytes(init_code)))
-            + Op.SSTORE(
-                factory_storage.store_next(0, "create_fails"),
-                Op.CREATE(
-                    value=0,
-                    offset=32 - len(init_code),
-                    size=len(init_code),
-                ),
-            )
-            # Reservoir must be fully preserved after failed CREATE;
-            # parent can still perform its own SSTORE.
-            + Op.SSTORE(
-                factory_storage.store_next(1, "parent_sstore"),
-                1,
-            )
-        ),
-    )
-
-    # Caller invokes factory with limited gas via CALL.
-    caller = pre.deploy_contract(
-        code=Op.CALL(gas=child_gas, address=factory),
-    )
-
-    # Reservoir = new-account state gas + one SSTORE's state gas.
-    # Code deposit draws from the reservoir first then spills into
-    # gas_left, which the limited CALL gas cannot cover.
-    tx = Transaction(
-        to=caller,
-        gas_limit=(gas_limit_cap + new_account_state_gas + sstore_state_gas),
-        sender=pre.fund_eoa(),
-    )
-
-    post = {factory: Account(storage=factory_storage)}
-    state_test(pre=pre, post=post, tx=tx)
-
-
-@pytest.mark.valid_from("EIP8037")
-def test_nested_create_code_deposit_cannot_borrow_parent_gas(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-) -> None:
-    """
-    Test nested CREATE code deposit does not borrow parent gas.
-
-    Provide just enough gas for CREATE to start (new account state
-    gas + regular gas) but not enough for the child frame to cover
-    code deposit after init code runs. The CREATE increments the
-    factory nonce but code deposit fails, so no contract is deployed.
-    """
-    init_code = Op.RETURN(0, 1)
-    gas_costs = fork.gas_costs()
-    new_acct_state = gas_costs.GAS_NEW_ACCOUNT
-    code_deposit_state = fork.code_deposit_state_gas(code_size=1)
 
     factory = pre.deploy_contract(
         code=(
@@ -510,42 +444,94 @@ def test_nested_create_code_deposit_cannot_borrow_parent_gas(
             )
         ),
     )
-    created = compute_create_address(address=factory, nonce=1)
 
-    # Gas consumed before the child CREATE frame receives gas:
-    # Intrinsic + factory code (PUSH32+PUSH1+MSTORE+mem +
-    # 3xPUSH1) + CREATE regular (+ init_code_cost) + new account
-    # state gas (spilled from gas_left, no reservoir).
-    init_code_word_cost = gas_costs.GAS_CODE_INIT_PER_WORD * (
-        (len(init_code) + 31) // 32
+    # Caller: CALL factory with limited gas (factory will revert
+    # because its diff is too expensive). Then SSTORE to prove
+    # the caller's reservoir is preserved.
+    caller_storage = Storage()
+    caller = pre.deploy_contract(
+        code=(
+            Op.POP(Op.CALL(gas=1_000_000, address=factory))
+            + Op.SSTORE(caller_storage.store_next(1, "sstore_ok"), 1)
+        ),
     )
-    pre_child_gas = (
-        gas_costs.GAS_TX_BASE
-        + 7 * gas_costs.GAS_VERY_LOW
-        + gas_costs.GAS_MEMORY
-        + (gas_costs.GAS_CREATE - new_acct_state)
-        + init_code_word_cost
-        + new_acct_state
-    )
-
-    # Init code cost: PUSH1 + PUSH1 + RETURN(+mem expansion)
-    init_cost = 2 * gas_costs.GAS_VERY_LOW + gas_costs.GAS_MEMORY
-    # Target child gas: enough for init, not enough for code deposit
-    target_child = (init_cost + code_deposit_state) // 2
-    # Invert EIP-150 63/64ths rule: ceil(target_child * 64 / 63)
-    factory_remaining = (target_child * 64 + 62) // 63
-    gas_limit = pre_child_gas + factory_remaining
 
     tx = Transaction(
-        to=factory,
-        gas_limit=gas_limit,
+        to=caller,
+        gas_limit=gas_limit_cap + sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
-    post = {
-        factory: Account(nonce=2),
-        created: Account.NONEXISTENT,
-    }
+    post = {caller: Account(storage=caller_storage)}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_parent_reverts_when_create_diff_exceeds_budget(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Test parent call reverts when CREATE's state diff exceeds budget.
+
+    With diff-at-return, account creation and code deployment from a
+    CREATE are part of the parent's state diff (they happen outside
+    the CREATE child's process_message). The parent pays at its own
+    call return. If the parent's total budget (reservoir + gas_left)
+    cannot cover the diff, the parent's call reverts.
+
+    Uses a large deploy size so the code deposit state gas exceeds
+    the available budget (reservoir + gas_left spillover).
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+
+    # 15000 bytes of code: state cost = (112 + 15000) * cpsb ≈ 17.7M
+    # TX_MAX_GAS_LIMIT = 16.7M, so total budget can't cover it
+    # when reservoir = 0 (gas_limit at cap).
+    deploy_size = 15000
+    init_code = Op.RETURN(0, deploy_size)
+
+    # Wrapper calls factory. Factory does CREATE. If the wrapper's
+    # diff at return exceeds its budget, the wrapper reverts.
+    factory = pre.deploy_contract(
+        code=(
+            Op.MSTORE(0, Op.PUSH32(bytes(init_code)))
+            + Op.POP(
+                Op.CREATE(
+                    value=0,
+                    offset=32 - len(init_code),
+                    size=len(init_code),
+                ),
+            )
+        ),
+    )
+
+    storage = Storage()
+    wrapper = pre.deploy_contract(
+        code=(
+            # CALL returns 1 on success, 0 on failure.
+            # Store the result to verify the factory reverted.
+            Op.SSTORE(
+                storage.store_next(0, "call_failed"),
+                Op.CALL(gas=Op.GAS, address=factory),
+            )
+        ),
+    )
+
+    # gas_limit at cap = reservoir 0. Total budget = gas_left only.
+    # State diff cost (17.7M) > TX_MAX_GAS_LIMIT (16.7M).
+    tx = Transaction(
+        to=wrapper,
+        gas_limit=gas_limit_cap,
+        sender=pre.fund_eoa(),
+    )
+
+    # Wrapper's CALL to factory should fail (diff too expensive).
+    # The SSTORE stores 0 (CALL returned 0) not 1.
+    # But wrapper itself continues — only the inner CALL reverted.
+    post = {wrapper: Account(storage=storage)}
     state_test(pre=pre, post=post, tx=tx)
 
 

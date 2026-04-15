@@ -440,22 +440,24 @@ def test_call_value_transfer_existing_account_no_state_gas(
     fork: Fork,
 ) -> None:
     """
-    Test CALL with value to existing account charges no state gas.
+    Test CALL with value to existing alive account charges no state gas.
 
     A CALL that transfers value to an already-alive account does not
-    create new state, so no state gas is charged.
+    create new state, so no state gas is charged at the callee's
+    call return.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    # Existing target account
-    target = pre.fund_eoa(amount=0)
+    sstore_state_gas = fork.sstore_state_gas()
+    # Target must be alive (non-empty) so no GAS_NEW_ACCOUNT is charged
+    target = pre.fund_eoa(amount=1)
 
     parent_storage = Storage()
     parent = pre.deploy_contract(
         code=(
             Op.SSTORE(
                 parent_storage.store_next(1),
-                Op.CALL(gas=100_000, address=target, value=1),
+                Op.CALL(gas=Op.GAS, address=target, value=1),
             )
         ),
         balance=1,
@@ -463,7 +465,7 @@ def test_call_value_transfer_existing_account_no_state_gas(
 
     tx = Transaction(
         to=parent,
-        gas_limit=gas_limit_cap,
+        gas_limit=gas_limit_cap + sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
