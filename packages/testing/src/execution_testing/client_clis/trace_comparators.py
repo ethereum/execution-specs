@@ -21,6 +21,7 @@ class TraceComparatorType(StrEnum):
     EXACT_NO_GAS = "exact-no-gas"
     EXACT_NO_STACK = "exact-no-stack"
     EXACT_NO_STACK_NO_GAS = "exact-no-stack-no-gas"
+    EXACT_NO_STACK_NO_GAS_NO_GAS_COST = "exact-no-stack-no-gas-no-gas-cost"
     GAS_EXHAUSTION = "gas-exhaustion"
 
 
@@ -134,7 +135,7 @@ def _build_result_from_compare(
     current: TransactionTraces,
     transaction_index: int,
     exclude_fields: set[str] | None = None,
-    enable_post_processing: bool = False,
+    ignore_gas_differences: bool = False,
 ) -> TraceComparisonResult:
     """
     Build a TraceComparisonResult from TransactionTraces.compare().
@@ -145,7 +146,7 @@ def _build_result_from_compare(
     raw_diffs = baseline.compare(
         current,
         exclude_fields=exclude_fields,
-        enable_post_processing=enable_post_processing,
+        ignore_gas_differences=ignore_gas_differences,
     )
     if not raw_diffs:
         return TraceComparisonResult(equivalent=True)
@@ -184,11 +185,11 @@ class FieldExclusionTraceComparator(TraceComparator):
         self,
         comparator_name: str,
         exclude_fields: set[str] | None = None,
-        enable_post_processing: bool = False,
+        ignore_gas_differences: bool = False,
     ) -> None:
         self._name = comparator_name
         self._exclude_fields = exclude_fields
-        self._enable_post_processing = enable_post_processing
+        self._ignore_gas_differences = ignore_gas_differences
 
     @property
     def name(self) -> str:
@@ -207,7 +208,7 @@ class FieldExclusionTraceComparator(TraceComparator):
             current,
             transaction_index,
             exclude_fields=self._exclude_fields,
-            enable_post_processing=self._enable_post_processing,
+            ignore_gas_differences=self._ignore_gas_differences,
         )
 
 
@@ -297,10 +298,20 @@ _FIELD_EXCLUSION_CONFIGS: dict[
     TraceComparatorType,
     tuple[set[str] | None, bool],
 ] = {
+    # The tuple is ``(exclude_fields, ignore_gas_differences)``. The
+    # flag is set for any comparator that tolerates a per-line ``gas``
+    # difference: per-step gas deltas sum into ``gas_used``, so a
+    # comparator that accepts per-step differences must also skip the
+    # ``gas_used`` total check (and scrub ``Op.GAS`` stack results) to
+    # avoid spurious diffs.
     TraceComparatorType.EXACT: (None, False),
     TraceComparatorType.EXACT_NO_GAS: ({"gas"}, True),
     TraceComparatorType.EXACT_NO_STACK: ({"stack"}, False),
-    TraceComparatorType.EXACT_NO_STACK_NO_GAS: ({"gas", "stack"}, False),
+    TraceComparatorType.EXACT_NO_STACK_NO_GAS: ({"gas", "stack"}, True),
+    TraceComparatorType.EXACT_NO_STACK_NO_GAS_NO_GAS_COST: (
+        {"gas", "stack", "gas_cost"},
+        True,
+    ),
 }
 
 
@@ -311,12 +322,12 @@ def create_comparator(
     if comparator_type == TraceComparatorType.GAS_EXHAUSTION:
         return GasExhaustionTraceComparator()
     if comparator_type in _FIELD_EXCLUSION_CONFIGS:
-        exclude_fields, post_processing = _FIELD_EXCLUSION_CONFIGS[
+        exclude_fields, ignore_gas_differences = _FIELD_EXCLUSION_CONFIGS[
             comparator_type
         ]
         return FieldExclusionTraceComparator(
             comparator_type.value,
             exclude_fields=exclude_fields,
-            enable_post_processing=post_processing,
+            ignore_gas_differences=ignore_gas_differences,
         )
     raise ValueError(f"Unknown comparator type: {comparator_type}")

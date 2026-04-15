@@ -292,6 +292,10 @@ class TestTraceComparatorType:
             (TraceComparatorType.EXACT, "exact"),
             (TraceComparatorType.EXACT_NO_GAS, "exact-no-gas"),
             (TraceComparatorType.EXACT_NO_STACK, "exact-no-stack"),
+            (
+                TraceComparatorType.EXACT_NO_STACK_NO_GAS_NO_GAS_COST,
+                "exact-no-stack-no-gas-no-gas-cost",
+            ),
             (TraceComparatorType.GAS_EXHAUSTION, "gas-exhaustion"),
         ],
     )
@@ -385,6 +389,10 @@ class TestCreateComparator:
             (TraceComparatorType.EXACT, "exact"),
             (TraceComparatorType.EXACT_NO_GAS, "exact-no-gas"),
             (TraceComparatorType.EXACT_NO_STACK, "exact-no-stack"),
+            (
+                TraceComparatorType.EXACT_NO_STACK_NO_GAS_NO_GAS_COST,
+                "exact-no-stack-no-gas-no-gas-cost",
+            ),
             (TraceComparatorType.GAS_EXHAUSTION, "gas-exhaustion"),
         ],
     )
@@ -460,25 +468,27 @@ class TestTransactionTracesCompare:
             for d in diffs
         )
 
-    def test_different_gas_used_without_post_processing(self) -> None:
-        """Different gas_used is reported when not post-processing."""
+    def test_different_gas_used_reported_by_default(self) -> None:
+        """gas_used differences are reported when not ignoring gas."""
         baseline = _make_transaction_traces()
         current = _make_transaction_traces()
         baseline.gas_used = HexNumber(0x5208)
         current.gas_used = HexNumber(0x6000)
-        diffs = baseline.compare(current, enable_post_processing=False)
+        diffs = baseline.compare(current, ignore_gas_differences=False)
         assert any(
             d.line_index is None and "gas_used" in d.baseline_fields
             for d in diffs
         )
 
-    def test_different_gas_used_with_post_processing(self) -> None:
-        """Different gas_used is ignored when post-processing."""
+    def test_different_gas_used_ignored_with_ignore_gas_differences(
+        self,
+    ) -> None:
+        """gas_used differences are silenced when ignoring gas."""
         baseline = _make_transaction_traces()
         current = _make_transaction_traces()
         baseline.gas_used = HexNumber(0x5208)
         current.gas_used = HexNumber(0x6000)
-        diffs = baseline.compare(current, enable_post_processing=True)
+        diffs = baseline.compare(current, ignore_gas_differences=True)
         assert not any(
             d.line_index is None and "gas_used" in d.baseline_fields
             for d in diffs
@@ -521,8 +531,10 @@ class TestTransactionTracesCompare:
         diffs = baseline.compare(current, exclude_fields={"gas", "gas_cost"})
         assert diffs == []
 
-    def test_post_processing_removes_gas_stack_pollution(self) -> None:
-        """GAS opcode stack pollution is cleaned with post-processing."""
+    def test_ignore_gas_differences_removes_gas_stack_pollution(
+        self,
+    ) -> None:
+        """``Op.GAS`` stack pollution is scrubbed when ignoring gas."""
         # GAS opcode pushes remaining gas onto stack; next line has it
         gas_line = _make_trace_line(
             pc=0, op=0x5A, op_name="GAS", depth=1, stack=[]
@@ -544,22 +556,23 @@ class TestTransactionTracesCompare:
         )
         baseline = _make_transaction_traces([gas_line, next_line_baseline])
         current = _make_transaction_traces([gas_line, next_line_current])
-        # Without post-processing: stack differs
-        diffs_no_pp = baseline.compare(
+        # Without gas-tolerance: the differing GAS result leaks into the
+        # stack comparison.
+        diffs_strict = baseline.compare(
             current,
             exclude_fields={"gas", "gas_cost"},
-            enable_post_processing=False,
+            ignore_gas_differences=False,
         )
-        assert len(diffs_no_pp) == 1
-        assert "stack" in diffs_no_pp[0].baseline_fields
+        assert len(diffs_strict) == 1
+        assert "stack" in diffs_strict[0].baseline_fields
 
-        # With post-processing: GAS result nullified, equivalent
-        diffs_pp = baseline.compare(
+        # With gas-tolerance: the GAS result is nullified, equivalent.
+        diffs_tolerant = baseline.compare(
             current,
             exclude_fields={"gas", "gas_cost"},
-            enable_post_processing=True,
+            ignore_gas_differences=True,
         )
-        assert diffs_pp == []
+        assert diffs_tolerant == []
 
 
 class TestTransactionTracesAreEquivalentRegression:
@@ -568,7 +581,7 @@ class TestTransactionTracesAreEquivalentRegression:
     def test_identical_traces_equivalent(self) -> None:
         """Identical traces are equivalent."""
         tx = _make_transaction_traces()
-        assert tx.are_equivalent(tx, enable_post_processing=False)
+        assert tx.are_equivalent(tx, ignore_gas_differences=False)
 
     def test_different_length_not_equivalent(self) -> None:
         """Different lengths are not equivalent."""
@@ -577,7 +590,7 @@ class TestTransactionTracesAreEquivalentRegression:
         )
         current = _make_transaction_traces([_make_trace_line()])
         assert not baseline.are_equivalent(
-            current, enable_post_processing=False
+            current, ignore_gas_differences=False
         )
 
     def test_different_output_not_equivalent(self) -> None:
@@ -585,40 +598,40 @@ class TestTransactionTracesAreEquivalentRegression:
         baseline = _make_transaction_traces(output="0xaa")
         current = _make_transaction_traces(output="0xbb")
         assert not baseline.are_equivalent(
-            current, enable_post_processing=False
+            current, ignore_gas_differences=False
         )
 
     def test_gas_only_difference_is_equivalent(self) -> None:
         """Gas-only difference is equivalent (gas excluded by default)."""
         baseline = _make_transaction_traces([_make_trace_line(gas=0x100)])
         current = _make_transaction_traces([_make_trace_line(gas=0x200)])
-        assert baseline.are_equivalent(current, enable_post_processing=False)
+        assert baseline.are_equivalent(current, ignore_gas_differences=False)
 
     def test_pc_difference_not_equivalent(self) -> None:
         """Non-gas field difference is not equivalent."""
         baseline = _make_transaction_traces([_make_trace_line(pc=0)])
         current = _make_transaction_traces([_make_trace_line(pc=5)])
         assert not baseline.are_equivalent(
-            current, enable_post_processing=False
+            current, ignore_gas_differences=False
         )
 
-    def test_gas_used_checked_without_post_processing(self) -> None:
-        """gas_used difference is caught without post-processing."""
+    def test_gas_used_checked_by_default(self) -> None:
+        """gas_used difference is caught when not ignoring gas."""
         baseline = _make_transaction_traces()
         current = _make_transaction_traces()
         baseline.gas_used = HexNumber(0x5208)
         current.gas_used = HexNumber(0x6000)
         assert not baseline.are_equivalent(
-            current, enable_post_processing=False
+            current, ignore_gas_differences=False
         )
 
-    def test_gas_used_ignored_with_post_processing(self) -> None:
-        """gas_used difference is ignored with post-processing."""
+    def test_gas_used_ignored_when_ignore_gas_differences(self) -> None:
+        """gas_used difference is silenced when ignoring gas."""
         baseline = _make_transaction_traces()
         current = _make_transaction_traces()
         baseline.gas_used = HexNumber(0x5208)
         current.gas_used = HexNumber(0x6000)
-        assert baseline.are_equivalent(current, enable_post_processing=True)
+        assert baseline.are_equivalent(current, ignore_gas_differences=True)
 
 
 class TestExactComparator:
@@ -821,7 +834,7 @@ class TestExactNoGasComparator:
     def test_gas_used_difference_is_equivalent(
         self, comparator: FieldExclusionTraceComparator
     ) -> None:
-        """gas_used difference is ignored (post-processing enabled)."""
+        """gas_used difference is ignored (gas-tolerance enabled)."""
         baseline = _make_transaction_traces()
         current = _make_transaction_traces()
         baseline.gas_used = HexNumber(0x5208)
@@ -1026,16 +1039,22 @@ class TestExactNoStackNoGasComparator:
         result = comparator.compare_transaction_traces(baseline, current, 0)
         assert result.equivalent is True
 
-    def test_gas_used_difference_detected(
+    def test_gas_used_difference_tolerated(
         self, comparator: FieldExclusionTraceComparator
     ) -> None:
-        """gas_used difference is detected."""
+        """
+        gas_used difference is tolerated.
+
+        Excluding per-line ``gas`` implies accepting a different total
+        gas_used: per-step gas deltas sum to gas_used, so a comparator
+        that accepts per-step differences must accept the total too.
+        """
         baseline = _make_transaction_traces()
         current = _make_transaction_traces()
         baseline.gas_used = HexNumber(0x5208)
         current.gas_used = HexNumber(0x6000)
         result = comparator.compare_transaction_traces(baseline, current, 0)
-        assert result.equivalent is False
+        assert result.equivalent is True
 
     def test_pc_difference_detected(
         self, comparator: FieldExclusionTraceComparator
@@ -1090,6 +1109,92 @@ class TestExactNoStackNoGasComparator:
         result = comparator.compare_transaction_traces(baseline, current, 0)
         assert result.equivalent is False
         assert "0xaa" in result.differences[0].baseline
+
+
+# ---------------------------------------------------------------------------
+# ExactNoStackNoGasNoGasCost config
+# ---------------------------------------------------------------------------
+
+
+class TestExactNoStackNoGasNoGasCostComparator:
+    """Test FieldExclusionTraceComparator with the gas_cost-tolerant config."""
+
+    @pytest.fixture()
+    def comparator(self) -> FieldExclusionTraceComparator:
+        """Return an exact-no-stack-no-gas-no-gas-cost comparator."""
+        return create_comparator(
+            TraceComparatorType.EXACT_NO_STACK_NO_GAS_NO_GAS_COST
+        )  # type: ignore[return-value]
+
+    def test_identical_traces_are_equivalent(
+        self, comparator: FieldExclusionTraceComparator
+    ) -> None:
+        """Two identical TransactionTraces are equivalent."""
+        tx = _make_transaction_traces()
+        result = comparator.compare_transaction_traces(tx, tx, 0)
+        assert result.equivalent is True
+        assert result.differences == []
+
+    def test_gas_cost_difference_is_equivalent(
+        self, comparator: FieldExclusionTraceComparator
+    ) -> None:
+        """Traces differing only in gas_cost are equivalent."""
+        baseline = _make_transaction_traces([_make_trace_line(gas_cost=0x3)])
+        current = _make_transaction_traces([_make_trace_line(gas_cost=0x5)])
+        result = comparator.compare_transaction_traces(baseline, current, 0)
+        assert result.equivalent is True
+
+    def test_stack_gas_and_gas_cost_difference_is_equivalent(
+        self, comparator: FieldExclusionTraceComparator
+    ) -> None:
+        """Traces differing in all three excluded fields are equivalent."""
+        baseline = _make_transaction_traces(
+            [_make_trace_line(stack=[0x1, 0x2], gas=0x100, gas_cost=0x3)]
+        )
+        current = _make_transaction_traces(
+            [_make_trace_line(stack=[0xA, 0xB], gas=0x200, gas_cost=0x5)]
+        )
+        result = comparator.compare_transaction_traces(baseline, current, 0)
+        assert result.equivalent is True
+
+    def test_pc_difference_detected(
+        self, comparator: FieldExclusionTraceComparator
+    ) -> None:
+        """Non-excluded field diffs are still detected."""
+        baseline = _make_transaction_traces([_make_trace_line(pc=0)])
+        current = _make_transaction_traces([_make_trace_line(pc=5)])
+        result = comparator.compare_transaction_traces(baseline, current, 0)
+        assert result.equivalent is False
+        assert "pc" in result.differences[0].baseline
+
+    def test_op_name_difference_detected(
+        self, comparator: FieldExclusionTraceComparator
+    ) -> None:
+        """op_name differences are still detected."""
+        baseline = _make_transaction_traces(
+            [_make_trace_line(op_name="PUSH1")]
+        )
+        current = _make_transaction_traces([_make_trace_line(op_name="PUSH2")])
+        result = comparator.compare_transaction_traces(baseline, current, 0)
+        assert result.equivalent is False
+        assert "op_name" in result.differences[0].baseline
+
+    def test_gas_used_difference_tolerated(
+        self, comparator: FieldExclusionTraceComparator
+    ) -> None:
+        """
+        gas_used difference is tolerated.
+
+        Matches ``EXACT_NO_STACK_NO_GAS``: per-step gas deltas sum to
+        gas_used, so a comparator that accepts per-step differences
+        must accept the total too.
+        """
+        baseline = _make_transaction_traces()
+        current = _make_transaction_traces()
+        baseline.gas_used = HexNumber(0x5208)
+        current.gas_used = HexNumber(0x6000)
+        result = comparator.compare_transaction_traces(baseline, current, 0)
+        assert result.equivalent is True
 
 
 # ---------------------------------------------------------------------------

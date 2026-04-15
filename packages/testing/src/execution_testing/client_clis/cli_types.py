@@ -185,7 +185,7 @@ class TransactionTraces(CamelModel):
         self,
         other: Self,
         exclude_fields: set[str] | None = None,
-        enable_post_processing: bool = False,
+        ignore_gas_differences: bool = False,
     ) -> List[TraceFieldDiff]:
         """
         Compare traces and return per-line differing fields.
@@ -196,6 +196,15 @@ class TransactionTraces(CamelModel):
 
         When exclude_fields is None, no fields are excluded. Pass an
         explicit set to skip fields (e.g. {"gas", "gas_cost"}).
+
+        ``ignore_gas_differences`` toggles two gas-specific tolerances
+        that cannot be expressed through ``exclude_fields``:
+
+        - The top-level ``gas_used`` total check is skipped (it is not a
+          per-line field, so excluding ``gas`` cannot silence it).
+        - ``Op.GAS`` results are scrubbed from the stack before per-line
+          comparison, so a differing gas value pushed by ``GAS`` does
+          not leak into a stack diff.
         """
         line_exclude = exclude_fields or set()
         diffs: List[TraceFieldDiff] = []
@@ -219,7 +228,7 @@ class TransactionTraces(CamelModel):
                 )
             )
 
-        if not enable_post_processing and self.gas_used != other.gas_used:
+        if not ignore_gas_differences and self.gas_used != other.gas_used:
             diffs.append(
                 TraceFieldDiff(
                     None,
@@ -230,7 +239,7 @@ class TransactionTraces(CamelModel):
 
         own_traces = self.traces.copy()
         other_traces = other.traces.copy()
-        if enable_post_processing:
+        if ignore_gas_differences:
             TransactionTraces.remove_gas(own_traces)
             TransactionTraces.remove_gas(other_traces)
 
@@ -244,13 +253,13 @@ class TransactionTraces(CamelModel):
         return diffs
 
     def are_equivalent(
-        self, other: Self, enable_post_processing: bool
+        self, other: Self, ignore_gas_differences: bool
     ) -> bool:
         """Return True if the only difference is the gas counter."""
         diffs = self.compare(
             other,
             exclude_fields={"gas", "gas_cost"},
-            enable_post_processing=enable_post_processing,
+            ignore_gas_differences=ignore_gas_differences,
         )
         for diff in diffs:
             if diff.line_index is None:
@@ -286,7 +295,7 @@ class Traces(EthereumTestRootModel):
         self.root.append(item)
 
     def are_equivalent(
-        self, other: Self | None, enable_post_processing: bool
+        self, other: Self | None, ignore_gas_differences: bool
     ) -> bool:
         """Return True if the only difference is the gas counter."""
         if other is None:
@@ -295,7 +304,7 @@ class Traces(EthereumTestRootModel):
             return False
         for i in range(len(self.root)):
             if not self.root[i].are_equivalent(
-                other.root[i], enable_post_processing
+                other.root[i], ignore_gas_differences
             ):
                 logger.debug(f"Trace file {i} is not equivalent.")
                 return False
