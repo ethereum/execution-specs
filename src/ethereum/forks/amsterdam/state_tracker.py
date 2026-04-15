@@ -639,6 +639,92 @@ def set_code(
 # -- Snapshot / Rollback ---------------------------------------------------
 
 
+def _get_storage_at_snapshot(
+    snapshot: TransactionState, address: Address, key: Bytes32
+) -> U256:
+    """
+    Get the storage value as it was at the time of the snapshot.
+
+    Read chain: snapshot writes -> block writes -> pre_state.
+    For accounts created in the tx, return 0.
+    """
+    if address in snapshot.storage_writes:
+        if key in snapshot.storage_writes[address]:
+            return snapshot.storage_writes[address][key]
+    if address in snapshot.parent.storage_writes:
+        if key in snapshot.parent.storage_writes[address]:
+            return snapshot.parent.storage_writes[address][key]
+    if address in snapshot.created_accounts:
+        return U256(0)
+    return snapshot.parent.pre_state.get_storage(address, key)
+
+
+def _account_existed_at_snapshot(
+    snapshot: TransactionState, address: Address
+) -> bool:
+    """Check if an account existed at the time of the snapshot."""
+    if address in snapshot.account_writes:
+        return snapshot.account_writes[address] is not None
+    if address in snapshot.parent.account_writes:
+        return snapshot.parent.account_writes[address] is not None
+    return snapshot.parent.pre_state.get_account_optional(address) is not None
+
+
+def compute_state_growth_cost(
+    snapshot: TransactionState,
+    current: TransactionState,
+    cost_per_state_byte: Uint,
+) -> int:
+    """
+    Compute the net state growth cost by diffing a snapshot against
+    the current transaction state.
+
+    Positive cost = state grew (accounts created, slots set, code deployed).
+    Negative cost = state shrank (accounts removed, slots cleared).
+
+    Parameters
+    ----------
+    snapshot :
+        The transaction state at call entry.
+    current :
+        The current transaction state at call return.
+    cost_per_state_byte :
+        The cost per state byte for this block.
+
+    Returns
+    -------
+    cost : ``int``
+        Signed state growth cost in gas units.
+
+    """
+    cost = 0
+
+    # New accounts: in current account_writes but not at snapshot
+    for address, account in current.account_writes.items():
+        existed_before = _account_existed_at_snapshot(snapshot, address)
+        exists_now = account is not None
+        if exists_now and not existed_before:
+            cost += int(Uint(112) * cost_per_state_byte)
+        elif not exists_now and existed_before:
+            cost -= int(Uint(112) * cost_per_state_byte)
+
+    # New storage slots: nonzero in current, zero at snapshot
+    for address, slots in current.storage_writes.items():
+        for key, value in slots.items():
+            old_value = _get_storage_at_snapshot(snapshot, address, key)
+            if value != U256(0) and old_value == U256(0):
+                cost += int(Uint(32) * cost_per_state_byte)
+            elif value == U256(0) and old_value != U256(0):
+                cost -= int(Uint(32) * cost_per_state_byte)
+
+    # New code: in current code_writes but not in snapshot
+    for code_hash, code in current.code_writes.items():
+        if code_hash not in snapshot.code_writes:
+            cost += int(Uint(len(code)) * cost_per_state_byte)
+
+    return cost
+
+
 def copy_tx_state(tx_state: TransactionState) -> TransactionState:
     """
     Create a snapshot of the transaction state for rollback.
@@ -666,7 +752,7 @@ def copy_tx_state(tx_state: TransactionState) -> TransactionState:
             for addr, slots in tx_state.storage_writes.items()
         },
         code_writes=dict(tx_state.code_writes),
-        created_accounts=tx_state.created_accounts,
+        created_accounts=set(tx_state.created_accounts),
         transient_storage=dict(tx_state.transient_storage),
         storage_reads=tx_state.storage_reads,
         account_reads=tx_state.account_reads,

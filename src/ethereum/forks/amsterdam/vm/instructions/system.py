@@ -23,7 +23,6 @@ from ...state_tracker import (
     get_account,
     get_code,
     increment_nonce,
-    is_account_alive,
     move_ether,
     set_account_balance,
 )
@@ -50,15 +49,12 @@ from ..gas import (
     GAS_WARM_ACCESS,
     GAS_ZERO,
     REGULAR_GAS_CREATE,
-    STATE_BYTES_PER_NEW_ACCOUNT,
     calculate_gas_extend_memory,
     calculate_message_call_gas,
     charge_gas,
-    charge_state_gas,
     check_gas,
     init_code_cost,
     max_message_call_gas,
-    state_gas_per_byte,
 )
 from ..memory import memory_read_bytes, memory_write
 from ..stack import pop, push
@@ -86,11 +82,8 @@ def generic_create(
     if memory_size > U256(MAX_INIT_CODE_SIZE):
         raise OutOfGasError
 
-    # Charge state gas for account creation after initcode validation
-    cost_per_state_byte = state_gas_per_byte(
-        evm.message.block_env.block_gas_limit
-    )
-    charge_state_gas(evm, STATE_BYTES_PER_NEW_ACCOUNT * cost_per_state_byte)
+    # EIP-8037 diff-at-return: account creation state gas is computed
+    # from the state diff at call return, not charged here.
 
     tx_state = evm.message.tx_env.state
 
@@ -452,17 +445,9 @@ def call(evm: Evm) -> None:
     code_hash = get_account(tx_state, code_address).code_hash
     code = get_code(tx_state, code_hash)
 
-    # TODO: Consider consolidating charge_gas + charge_state_gas into
-    # a single gas charge to avoid duplicate EVM trace entries.
-    # Applies here and in create, create2, selfdestruct. See #2526.
+    # EIP-8037 diff-at-return: new-account state gas is computed from
+    # the state diff at call return, not charged here.
     charge_gas(evm, extra_gas + extend_memory.cost)
-    if value != 0 and not is_account_alive(tx_state, to):
-        cost_per_state_byte = state_gas_per_byte(
-            evm.message.block_env.block_gas_limit
-        )
-        charge_state_gas(
-            evm, STATE_BYTES_PER_NEW_ACCOUNT * cost_per_state_byte
-        )
 
     message_call_gas = calculate_message_call_gas(
         value,
@@ -653,22 +638,9 @@ def selfdestruct(evm: Evm) -> None:
     if is_cold_access:
         evm.accessed_addresses.add(beneficiary)
 
-    needs_state_gas = (
-        not is_account_alive(tx_state, beneficiary)
-        and get_account(tx_state, evm.message.current_target).balance != 0
-    )
-
-    # Charge regular gas before state gas so that a regular-gas OOG
-    # does not consume state gas that would inflate the parent's
-    # reservoir on frame failure.
+    # EIP-8037 diff-at-return: beneficiary account creation state gas
+    # is computed from the state diff at call return.
     charge_gas(evm, gas_cost)
-    if needs_state_gas:
-        cost_per_state_byte = state_gas_per_byte(
-            evm.message.block_env.block_gas_limit
-        )
-        charge_state_gas(
-            evm, STATE_BYTES_PER_NEW_ACCOUNT * cost_per_state_byte
-        )
 
     originator = evm.message.current_target
     originator_balance = get_account(tx_state, originator).balance

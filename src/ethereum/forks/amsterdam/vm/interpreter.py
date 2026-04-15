@@ -35,6 +35,7 @@ from ..blocks import Log
 from ..state_tracker import (
     account_has_code_or_nonce,
     account_has_storage,
+    compute_state_growth_cost,
     copy_tx_state,
     destroy_storage,
     get_account,
@@ -50,7 +51,6 @@ from ..vm.eoa_delegation import get_delegated_code_address, set_delegation
 from ..vm.gas import (
     GAS_KECCAK256_PER_WORD,
     charge_gas,
-    charge_state_gas,
     state_gas_per_byte,
 )
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
@@ -230,13 +230,8 @@ def process_create_message(message: Message) -> Evm:
                 // Uint(32)
             )
             charge_gas(evm, code_hash_gas)
-            cost_per_state_byte = state_gas_per_byte(
-                message.block_env.block_gas_limit
-            )
-            code_deposit_state_gas = (
-                Uint(len(contract_code)) * cost_per_state_byte
-            )
-            charge_state_gas(evm, code_deposit_state_gas)
+            # EIP-8037 diff-at-return: code deposit state gas is
+            # computed from the state diff at call return.
         except ExceptionalHalt as error:
             restore_tx_state(tx_state, snapshot)
             evm.regular_gas_used += evm.gas_left
@@ -335,6 +330,40 @@ def process_message(message: Message) -> Evm:
     except Revert as error:
         evm_trace(evm, OpException(error))
         evm.error = error
+
+    # EIP-8037: charge state gas based on actual state diff at call return
+    if not evm.error:
+        cost_per_state_byte = state_gas_per_byte(
+            message.block_env.block_gas_limit
+        )
+        growth_cost = compute_state_growth_cost(
+            snapshot, tx_state, cost_per_state_byte
+        )
+        # Inner calls already deducted from reservoir
+        already_paid = int(message.state_gas_reservoir) - int(
+            evm.state_gas_left
+        )
+        this_call_cost = growth_cost - already_paid
+
+        if this_call_cost > 0:
+            cost = Uint(this_call_cost)
+            if evm.state_gas_left >= cost:
+                evm.state_gas_left -= cost
+            elif evm.state_gas_left + evm.gas_left >= cost:
+                # Spillover: reservoir exhausted, take from gas_left
+                remainder = cost - evm.state_gas_left
+                evm.state_gas_left = Uint(0)
+                evm.gas_left -= remainder
+            else:
+                # Can't afford state gas — revert
+                restore_tx_state(tx_state, snapshot)
+                evm.error = OutOfGasError()
+                evm.output = b""
+            if not evm.error:
+                evm.state_gas_used += cost
+        elif this_call_cost < 0:
+            # Negative cost — state was removed, credit reservoir
+            evm.state_gas_left += Uint(-this_call_cost)
 
     if evm.error:
         restore_tx_state(tx_state, snapshot)

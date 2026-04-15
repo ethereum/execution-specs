@@ -28,11 +28,8 @@ from ..gas import (
     GAS_STORAGE_UPDATE,
     GAS_WARM_ACCESS,
     REFUND_STORAGE_CLEAR,
-    STATE_BYTES_PER_STORAGE_SET,
     charge_gas,
-    charge_state_gas,
     check_gas,
-    state_gas_per_byte,
 )
 from ..stack import pop, push
 
@@ -94,63 +91,43 @@ def sstore(evm: Evm) -> None:
     )
     current_value = get_storage(tx_state, evm.message.current_target, key)
 
-    cost_per_state_byte = state_gas_per_byte(
-        evm.message.block_env.block_gas_limit
-    )
-    state_gas_storage_set = STATE_BYTES_PER_STORAGE_SET * cost_per_state_byte
     gas_cost = Uint(0)
 
     if (evm.message.current_target, key) not in evm.accessed_storage_keys:
         evm.accessed_storage_keys.add((evm.message.current_target, key))
         gas_cost += GAS_COLD_STORAGE_ACCESS
 
-    needs_state_gas = False
+    # EIP-8037 diff-at-return: state gas for storage creation is
+    # computed from the state diff at call return, not charged here.
     if original_value == current_value and current_value != new_value:
-        if original_value == 0:
-            needs_state_gas = True
-        # charge regular cost for the operation, even when we
-        # already charge state gas for state creation
         gas_cost += GAS_STORAGE_UPDATE - GAS_COLD_STORAGE_ACCESS
     else:
         gas_cost += GAS_WARM_ACCESS
 
-    # Refund Counter Calculation
+    # Refund Counter Calculation (regular gas only, no state gas)
     if current_value != new_value:
         if original_value != 0 and current_value != 0 and new_value == 0:
-            # Storage is cleared for the first time in the transaction
             evm.refund_counter += REFUND_STORAGE_CLEAR
 
         if original_value != 0 and current_value == 0:
-            # Gas refund issued earlier to be reversed
             evm.refund_counter -= REFUND_STORAGE_CLEAR
 
         if original_value == new_value:
-            # Storage slot being restored to its original value
             if original_value == 0:
-                # Slot was originally empty and was SET earlier.
-                # Refund state gas and the write cost (the write
-                # is cancelled — clients batch trie writes to slot
-                # boundaries, so no IO actually happens).
+                # Slot restored to zero — refund the regular write cost
                 evm.refund_counter += int(
-                    state_gas_storage_set
-                    + GAS_STORAGE_UPDATE
+                    GAS_STORAGE_UPDATE
                     - GAS_COLD_STORAGE_ACCESS
                     - GAS_WARM_ACCESS
                 )
             else:
-                # Slot was originally non-empty and was UPDATED earlier
                 evm.refund_counter += int(
                     GAS_STORAGE_UPDATE
                     - GAS_COLD_STORAGE_ACCESS
                     - GAS_WARM_ACCESS
                 )
 
-    # Charge regular gas before state gas so that a regular-gas OOG
-    # does not consume state gas that would inflate the parent's
-    # reservoir on frame failure.
     charge_gas(evm, gas_cost)
-    if needs_state_gas:
-        charge_state_gas(evm, state_gas_storage_set)
     set_storage(tx_state, evm.message.current_target, key, new_value)
 
     # PROGRAM COUNTER

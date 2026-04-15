@@ -1050,9 +1050,14 @@ def process_transaction(
 
     tx_output = process_message_call(message)
 
-    tx_gas_used_before_refund = (
-        tx.gas - tx_output.gas_left - tx_output.state_gas_left
-    )
+    # With diff-at-return, state_gas_left can exceed its initial value
+    # (from negative diffs crediting the reservoir). Use saturating
+    # subtraction to prevent underflow.
+    total_remaining = tx_output.gas_left + tx_output.state_gas_left
+    if total_remaining > tx.gas:
+        tx_gas_used_before_refund = Uint(0)
+    else:
+        tx_gas_used_before_refund = tx.gas - total_remaining
     tx_gas_refund = min(
         tx_gas_used_before_refund // Uint(5), Uint(tx_output.refund_counter)
     )
