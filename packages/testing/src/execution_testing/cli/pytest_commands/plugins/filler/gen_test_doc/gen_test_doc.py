@@ -42,6 +42,7 @@ uv run mkdocs serve
 import glob
 import logging
 import os
+import re
 import sys
 import textwrap
 from collections import defaultdict
@@ -673,8 +674,15 @@ class TestDocsGenerator:
         Add the generated 'Test Case Reference' entries to the mkdocs
         navigation menu.
         """
+
+        # Fork directories on disk are snake_case (e.g. `tangerine_whistle`)
+        # but `fork.name()` is CamelCase (`TangerineWhistle`).
+        def _dir_name(fork_name: str) -> str:
+            s1 = re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", fork_name)
+            return re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
+
         fork_order = {
-            fork.name().lower(): i
+            _dir_name(fork.name()): i
             for i, fork in enumerate(reversed(get_forks()))
         }
         # Benchmark entries sort above all fork entries.
