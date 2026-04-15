@@ -52,6 +52,7 @@ dependencies = [
     "ckzg>=2.1.3,<3",
     "tenacity>=9.0.0,<10",
     "Jinja2>=3,<4",
+    "ijson>=3.3,<4",
 ]
 
 [project.urls]
