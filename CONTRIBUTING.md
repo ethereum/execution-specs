@@ -9,6 +9,17 @@ Help is always welcome. The Ethereum Execution Layer Specifications (EELS) are a
 > [!IMPORTANT]
 > Generally, we do not assign issues to external contributors. If you want to work on an issue, you are welcome to go ahead and make a pull request. We are happy to answer questions before you start implementing.
 
+## Contributions we don't accept
+
+Pull requests should have reasonable substance and context. In particular, we do not accept:
+
+- Contributions that only fix spelling or grammatical errors in documentation, code, or elsewhere.
+- Drive-by or vibe-coded contributions without proper engagement or context.
+
+## Code of Conduct
+
+All contributors are expected to be excellent to each other; other behavior is not tolerated. To report a concern, contact one of the [STEEL team members](https://steel.ethereum.foundation/team/).
+
 ## Principles
 
 The specification aims to be:
@@ -19,7 +30,9 @@ The specification aims to be:
 
 ## Getting set up
 
-See the [Quick Start](README.md#quick-start) for the commands needed to clone the repository and install `uv` and `just`. Full environment setup (Python version requirements, shell completions, the complete list of `just` recipes, troubleshooting) is documented in the [Installation guide](docs/getting_started/installation.md).
+Environment setup (cloning the repository, installing `uv` and `just`, Python requirements) is documented in the [Installation guide](docs/getting_started/installation.md).
+
+Before opening a PR, run the checks relevant to your change; see [Verifying Changes](docs/getting_started/verifying_changes.md).
 
 ## Changes that affect multiple forks
 
