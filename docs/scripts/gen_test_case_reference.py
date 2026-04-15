@@ -30,21 +30,19 @@ logger = logging.getLogger("mkdocs")
 
 
 # If docs are generated while FAST_DOCS is true, then use "tests/frontier";
-# otherwise include both "tests" and "tests/benchmark". The benchmark path
-# must be listed explicitly so its tests are picked up alongside the rest.
+# otherwise use "tests". Benchmark tests are opted in via --include-benchmark
+# in full mode only.
 #
 # USAGE 1 (use fast mode):
 #       export FAST_DOCS=true && uv run mkdocs serve
 # USAGE 2 (use fast mode + hide side-effect warnings):
 #       export FAST_DOCS=true && uv run mkdocs serve 2>&1 | sed '/is not found among documentation files/d' #noqa: E501
-test_paths = ["tests", "tests/benchmark"]
-fast_mode = getenv("FAST_DOCS")
-if fast_mode is not None:
-    if fast_mode.lower() == "true":
-        print(
-            "-" * 40, "\nWill generate docs using FAST_DOCS mode.\n" + "-" * 40
-        )
-        test_paths = ["tests/frontier"]
+fast_mode = (getenv("FAST_DOCS") or "").lower() == "true"
+if fast_mode:
+    print("-" * 40, "\nWill generate docs using FAST_DOCS mode.\n" + "-" * 40)
+    test_arg = "tests/frontier"
+else:
+    test_arg = "tests"
 
 args = [
     "--override-ini",
@@ -63,7 +61,10 @@ args = [
     "-m",
     "not blockchain_test_engine",
     "-s",
-] + test_paths
+]
+if not fast_mode:
+    args.append("--include-benchmark")
+args.append(test_arg)
 
 runner = CliRunner()
 logger.info(
