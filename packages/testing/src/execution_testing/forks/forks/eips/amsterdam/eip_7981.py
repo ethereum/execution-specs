@@ -48,9 +48,7 @@ class EIP7981(BaseFork):
         """
         Add access list floor tokens to the inherited calldata floor cost.
         """
-        super_fn = super(
-            EIP7981, cls
-        ).transaction_data_floor_cost_calculator()
+        super_fn = super(EIP7981, cls).transaction_data_floor_cost_calculator()
         gas_costs = cls.gas_costs()
 
         def fn(
