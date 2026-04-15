@@ -205,28 +205,43 @@ class BaseForkMeta(ABCMeta):
         b = BaseForkMeta._maybe_transitioned(b)
         return issubclass(a, b)
 
+    @staticmethod
+    def _identity(fork_cls: "BaseForkMeta") -> "BaseForkMeta":
+        """Return the canonical fork class, resolving variants."""
+        base = getattr(fork_cls, "_base_fork", None)
+        return base if base is not None else fork_cls
+
+    def __eq__(cls, other: object) -> bool:
+        """Compare fork identity, treating variants as equal to parents."""
+        if not isinstance(other, BaseForkMeta):
+            return NotImplemented
+        return BaseForkMeta._identity(cls) is BaseForkMeta._identity(other)
+
+    def __hash__(cls) -> int:
+        """Hash by canonical fork identity."""
+        return id(BaseForkMeta._identity(cls))
+
     def __gt__(cls, other: "BaseForkMeta") -> bool:
         """Compare if a fork is newer than some other fork (cls > other)."""
-        return cls is not other and BaseForkMeta._is_subclass_of(cls, other)
+        return cls != other and BaseForkMeta._is_subclass_of(cls, other)
 
     def __ge__(cls, other: "BaseForkMeta") -> bool:
         """
         Compare if a fork is newer than or equal to some other fork (cls >=
         other).
         """
-        return cls is other or BaseForkMeta._is_subclass_of(cls, other)
+        return cls == other or BaseForkMeta._is_subclass_of(cls, other)
 
     def __lt__(cls, other: "BaseForkMeta") -> bool:
         """Compare if a fork is older than some other fork (cls < other)."""
-        # "Older" means other is a subclass of cls, but not the same.
-        return cls is not other and BaseForkMeta._is_subclass_of(other, cls)
+        return cls != other and BaseForkMeta._is_subclass_of(other, cls)
 
     def __le__(cls, other: "BaseForkMeta") -> bool:
         """
         Compare if a fork is older than or equal to some other fork (cls <=
         other).
         """
-        return cls is other or BaseForkMeta._is_subclass_of(other, cls)
+        return cls == other or BaseForkMeta._is_subclass_of(other, cls)
 
 
 class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
@@ -246,6 +261,10 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     _ruleset_name: ClassVar[Optional[str]] = None
     _fork_by_timestamp: ClassVar[bool] = False
     _blob_constants: ClassVar[Dict[str, int]] = {}
+
+    # Environment overrides (set on variants created by with_env_gas_limit)
+    _base_fork: ClassVar[Optional[Type["BaseFork"]]] = None
+    _env_gas_limit: ClassVar[int] = 0
     _deployed: ClassVar[bool] = True
     _enabled_eips: ClassVar[Set[int]] = set()
     _enabling_forks: ClassVar[Set[Type["BaseFork"]]] = set()
@@ -1108,6 +1127,24 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     def children(cls) -> Set[Type["BaseFork"]]:
         """Return the children forks."""
         return set(cls._children)
+
+    @classmethod
+    def with_env_gas_limit(
+        cls, env_gas_limit: int
+    ) -> Type["BaseFork"]:
+        """Return a new fork class with the specified environment gas limit."""
+        new_cls = type(cls.__name__, (cls,), {})
+        # __init_subclass__ resets per-class overrides; restore from parent.
+        new_cls._env_gas_limit = env_gas_limit
+        new_cls._base_fork = cls._base_fork or cls
+        new_cls._transition_tool_name = cls._transition_tool_name
+        new_cls._solc_name = cls._solc_name
+        new_cls._ignore = cls._ignore
+        new_cls._bpo_fork = cls._bpo_fork
+        new_cls._ruleset_name = cls._ruleset_name
+        # Prevent the variant from appearing in fork traversals.
+        cls._children.discard(new_cls)
+        return new_cls
 
     @classmethod
     @abstractmethod
