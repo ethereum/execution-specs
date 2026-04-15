@@ -62,6 +62,7 @@ jobs:
       branch: ${{ steps.check.outputs.branch }}
       branch_artifact_name: ${{ steps.check.outputs.branch_artifact_name }}
       is_deploy: ${{ steps.check.outputs.is_deploy }}
+      commit_sha: ${{ steps.check.outputs.commit_sha }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -103,6 +104,22 @@ jobs:
             SHOULD_PUBLISH="false"
           fi
           echo "should_publish=$SHOULD_PUBLISH" >> "$GITHUB_OUTPUT"
+
+          # Resolve tip commit SHA of the target branch. For push events this
+          # matches github.sha, but for workflow_dispatch github.sha points at
+          # the launch ref (typically the default branch), not the branch that
+          # html-docs/spec-docs actually check out. Resolving here ensures
+          # metadata.json and the steel-website dispatch payload always
+          # reference the commit that was built.
+          if [ "$IS_DEPLOY" = "true" ] && [ "$SHOULD_PUBLISH" = "true" ]; then
+            COMMIT_SHA=$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" \
+              "refs/heads/${BRANCH_INPUT}" | awk '{print $1}')
+            if [ -z "$COMMIT_SHA" ]; then
+              echo "ERROR: could not resolve commit SHA for branch '${BRANCH_INPUT}'"
+              exit 1
+            fi
+            echo "commit_sha=$COMMIT_SHA" >> "$GITHUB_OUTPUT"
+          fi
 
           # Write job summary
           {
@@ -220,6 +237,7 @@ jobs:
       - name: Stage combined artifact
         env:
           BRANCH: ${{ needs.check-should-publish.outputs.branch }}
+          COMMIT_SHA: ${{ needs.check-should-publish.outputs.commit_sha }}
         run: |
           mkdir -p "stage/${BRANCH}/spec"
 
@@ -233,8 +251,8 @@ jobs:
           cat > "stage/${BRANCH}/metadata.json" <<EOF
           {
             "branch": "${BRANCH}",
-            "commit_sha": "${GITHUB_SHA}",
-            "commit_sha_short": "${GITHUB_SHA:0:7}",
+            "commit_sha": "${COMMIT_SHA}",
+            "commit_sha_short": "${COMMIT_SHA:0:7}",
             "build_timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
             "build_url": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           }
@@ -278,7 +296,7 @@ jobs:
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         env:
           BRANCH: ${{ needs.check-should-publish.outputs.branch }}
-          SHA: ${{ github.sha }}
+          SHA: ${{ needs.check-should-publish.outputs.commit_sha }}
           RUN_ID: ${{ github.run_id }}
         with:
           github-token: ${{ secrets.STEEL_WEBSITE_DISPATCH_TOKEN }}
