@@ -906,6 +906,19 @@ class TestExactNoStackComparator:
         result = comparator.compare_transaction_traces(baseline, current, 0)
         assert result.equivalent is True
 
+    def test_return_data_difference_is_equivalent(
+        self, comparator: FieldExclusionTraceComparator
+    ) -> None:
+        """Traces differing only in return_data are equivalent."""
+        baseline = _make_transaction_traces(
+            [_make_trace_line(return_data="0xaa")]
+        )
+        current = _make_transaction_traces(
+            [_make_trace_line(return_data="0xbb")]
+        )
+        result = comparator.compare_transaction_traces(baseline, current, 0)
+        assert result.equivalent is True
+
     def test_gas_difference_detected(
         self, comparator: FieldExclusionTraceComparator
     ) -> None:
@@ -1039,6 +1052,19 @@ class TestExactNoStackNoGasComparator:
         result = comparator.compare_transaction_traces(baseline, current, 0)
         assert result.equivalent is True
 
+    def test_return_data_difference_is_equivalent(
+        self, comparator: FieldExclusionTraceComparator
+    ) -> None:
+        """Inherits the ``return_data`` exclusion from ``exact-no-stack``."""
+        baseline = _make_transaction_traces(
+            [_make_trace_line(return_data="0xaa")]
+        )
+        current = _make_transaction_traces(
+            [_make_trace_line(return_data="0xbb")]
+        )
+        result = comparator.compare_transaction_traces(baseline, current, 0)
+        assert result.equivalent is True
+
     def test_gas_used_difference_tolerated(
         self, comparator: FieldExclusionTraceComparator
     ) -> None:
@@ -1153,6 +1179,19 @@ class TestExactNoStackNoGasNoGasCostComparator:
         )
         current = _make_transaction_traces(
             [_make_trace_line(stack=[0xA, 0xB], gas=0x200, gas_cost=0x5)]
+        )
+        result = comparator.compare_transaction_traces(baseline, current, 0)
+        assert result.equivalent is True
+
+    def test_return_data_difference_is_equivalent(
+        self, comparator: FieldExclusionTraceComparator
+    ) -> None:
+        """Inherits the ``return_data`` exclusion from ``exact-no-stack``."""
+        baseline = _make_transaction_traces(
+            [_make_trace_line(return_data="0xaa")]
+        )
+        current = _make_transaction_traces(
+            [_make_trace_line(return_data="0xbb")]
         )
         result = comparator.compare_transaction_traces(baseline, current, 0)
         assert result.equivalent is True

@@ -306,10 +306,19 @@ _FIELD_EXCLUSION_CONFIGS: dict[
     # avoid spurious diffs.
     TraceComparatorType.EXACT: (None, False),
     TraceComparatorType.EXACT_NO_GAS: ({"gas"}, True),
-    TraceComparatorType.EXACT_NO_STACK: ({"stack"}, False),
-    TraceComparatorType.EXACT_NO_STACK_NO_GAS: ({"gas", "stack"}, True),
+    # ``return_data`` is bundled with ``stack`` because clients differ
+    # in when/how they populate the post-call return buffer in traces.
+    # Tests that already tolerate stack differences want to tolerate this too.
+    # The ``no-stack`` variants below inherit this exclusion so that
+    # each comparator remains strictly more permissive than the one
+    # above it in the chain.
+    TraceComparatorType.EXACT_NO_STACK: ({"stack", "return_data"}, False),
+    TraceComparatorType.EXACT_NO_STACK_NO_GAS: (
+        {"gas", "stack", "return_data"},
+        True,
+    ),
     TraceComparatorType.EXACT_NO_STACK_NO_GAS_NO_GAS_COST: (
-        {"gas", "stack", "gas_cost"},
+        {"gas", "stack", "gas_cost", "return_data"},
         True,
     ),
 }
