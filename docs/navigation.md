@@ -11,6 +11,7 @@
       * [Installation Troubleshooting](getting_started/installation_troubleshooting.md)
       * [Getting Help](getting_started/getting_help.md)
   * [Specs](specs/index.md)
+      * [Adding a New EIP](specs/adding_a_new_eip.md)
       * [Protocol History](specs/protocol_history.md)
   * [Consensus Tests](consensus_tests/index.md)
       * [Writing Tests](writing_tests/index.md)
