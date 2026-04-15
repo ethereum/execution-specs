@@ -2,8 +2,10 @@
 Shared pytest fixtures and hooks for EEST generation modes (fill and execute).
 """
 
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import TYPE_CHECKING, Dict, List, Tuple
 
 import pytest
 from pytest import StashKey
@@ -15,12 +17,19 @@ from execution_testing.execution import (
     LabeledExecuteFormat,
 )
 from execution_testing.fixtures import BaseFixture, LabeledFixtureFormat
-from execution_testing.forks import Fork, TransitionFork
+
+if TYPE_CHECKING:
+    from execution_testing.forks import Fork, TransitionFork
 from execution_testing.logging import get_logger
 from execution_testing.rpc import EthRPC
 from execution_testing.specs import BaseTest
 from execution_testing.specs.base import OpMode
-from execution_testing.test_types import EOA, Alloc, ChainConfig
+from execution_testing.test_types import (
+    EOA,
+    Alloc,
+    ChainConfig,
+    EnvironmentDefaults,
+)
 
 from ..shared.address_stubs import AddressStubs, StubEOA
 from ..shared.helpers import get_rpc_endpoint
@@ -321,7 +330,7 @@ def fork(
     parametrized_fork: Fork | TransitionFork,
 ) -> Fork | TransitionFork:
     """Return the fork for the current test."""
-    return parametrized_fork
+    return parametrized_fork.with_env_gas_limit(EnvironmentDefaults.gas_limit)
 
 
 SPEC_TYPES_PARAMETERS: List[str] = list(BaseTest.spec_types.keys())
