@@ -93,8 +93,7 @@ jobs:
 
           if [ -z "$ALLOWLISTED_BRANCHES" ]; then
             echo "ERROR: Could not read allowlist from .github/configs/docs-branches.yaml"
-            echo "should_publish=false" >> "$GITHUB_OUTPUT"
-            exit 0
+            exit 1
           fi
 
           # Check if branch is in allowlist
