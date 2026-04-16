@@ -231,6 +231,19 @@ def analyze(
     # 5. Build address -> variable name mapping
     addr_to_var = _assign_variable_names(model, tags)
 
+    # 5b. Resolve coinbase address for later use
+    coinbase_addr: Address | None = None
+    if isinstance(model.env.current_coinbase, Tag):
+        tag_name = model.env.current_coinbase.name
+        if tag_name in tags:
+            resolved = tags[tag_name]
+            if isinstance(resolved, Address):
+                coinbase_addr = resolved
+            else:
+                coinbase_addr = Address(int.from_bytes(resolved, "big"))
+    else:
+        coinbase_addr = model.env.current_coinbase
+
     # 6. Identify sender
     sender_ir, sender_tag_name = _build_sender_ir(model, tags)
 
@@ -261,6 +274,7 @@ def analyze(
         sender_tag_name,
         imports,
         force_hardcoded=force_hardcoded,
+        coinbase_addr=coinbase_addr,
     )
 
     # Track if sender is not in the pre-state (for fund_eoa handling).
@@ -853,6 +867,7 @@ def _build_accounts(
     imports: ImportsIR,
     *,
     force_hardcoded: bool = False,
+    coinbase_addr: Address | None = None,
 ) -> list[AccountIR]:
     """Build AccountIR list with dependency-ordered contracts."""
     # ------------------------------------------------------------------
@@ -944,6 +959,17 @@ def _build_accounts(
 
         # Oversized contracts must keep hardcoded address
         if oversized_code:
+            acct_ir.use_dynamic = False
+
+        # Coinbase account must keep hardcoded address so
+        # Environment(fee_recipient=coinbase) and the pre-state
+        # entry refer to the same address.
+        if (
+            coinbase_addr is not None
+            and address is not None
+            and int.from_bytes(address, "big")
+            == int.from_bytes(coinbase_addr, "big")
+        ):
             acct_ir.use_dynamic = False
 
         raw_accounts.append(acct_ir)

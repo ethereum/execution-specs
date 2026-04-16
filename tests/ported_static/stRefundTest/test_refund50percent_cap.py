@@ -43,7 +43,7 @@ def test_refund50percent_cap(
         gas_limit=1000000,
     )
 
-    coinbase = pre.fund_eoa(amount=0)  # noqa: F841
+    pre[coinbase] = Account(balance=0, nonce=1)
     # Source: lll
     # { @@1 @@2 [[ 10 ]] (EXP 2 0xff) [[ 11 ]] (BALANCE (ADDRESS)) [[ 1 ]] 0 [[ 2 ]] 0 [[ 3 ]] 0 [[ 4 ]] 0 [[ 5 ]] 0 [[ 6 ]] 0 }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841

@@ -43,7 +43,7 @@ def test_refund_oog(
         gas_limit=1000000,
     )
 
-    coinbase = pre.fund_eoa(amount=0)  # noqa: F841
+    pre[coinbase] = Account(balance=0, nonce=1)
     # Source: lll
     # { [[ 1 ]] 0 }
     target = pre.deploy_contract(  # noqa: F841

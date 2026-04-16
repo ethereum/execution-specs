@@ -76,7 +76,7 @@ def test_coinbase_t01(
         gas_limit=71794957647893862,
     )
 
-    coinbase = pre.fund_eoa(amount=0)  # noqa: F841
+    pre[coinbase] = Account(balance=0, nonce=1)
     # Source: yul
     # berlin
     # {

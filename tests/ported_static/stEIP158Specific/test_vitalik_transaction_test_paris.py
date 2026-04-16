@@ -44,7 +44,7 @@ def test_vitalik_transaction_test_paris(
         gas_limit=10000000,
     )
 
-    coinbase = pre.fund_eoa(amount=0)  # noqa: F841
+    pre[coinbase] = Account(balance=0, nonce=1)
     # Source: hex
     # 0x
     contract_0 = pre.deploy_contract(  # noqa: F841
