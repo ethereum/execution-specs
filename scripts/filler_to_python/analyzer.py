@@ -921,9 +921,7 @@ def _build_accounts(
             resolved_storage = account.storage.resolve(tags)
             for k, v in resolved_storage.items():
                 storage[int(k)] = int(v)
-            storage = _resolve_storage_values(
-                storage, addr_to_var, imports
-            )
+            storage = _resolve_storage_values(storage, addr_to_var, imports)
 
         # Balance and nonce
         balance = int(account.balance) if account.balance is not None else 0
