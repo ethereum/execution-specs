@@ -20,6 +20,8 @@ from execution_testing.fixtures import BaseFixture, LabeledFixtureFormat
 
 if TYPE_CHECKING:
     from execution_testing.forks import Fork, TransitionFork
+import sys
+
 from execution_testing.logging import get_logger
 from execution_testing.rpc import EthRPC
 from execution_testing.specs import BaseTest
@@ -28,7 +30,6 @@ from execution_testing.test_types import (
     EOA,
     Alloc,
     ChainConfig,
-    EnvironmentDefaults,
 )
 
 from ..shared.address_stubs import AddressStubs, StubEOA
@@ -328,9 +329,48 @@ def pytest_make_parametrize_id(
 @pytest.fixture(scope="function")
 def fork(
     parametrized_fork: Fork | TransitionFork,
+    monkeypatch: pytest.MonkeyPatch,
+    env_gas_limit: int,
 ) -> Fork | TransitionFork:
-    """Return the fork for the current test."""
-    return parametrized_fork.with_env_gas_limit(EnvironmentDefaults.gas_limit)
+    """
+    Return a per-test fork variant whose ``_env_gas_limit`` tracks the
+    ``Environment.gas_limit`` used by the test.
+    """
+    fork_variant = parametrized_fork.with_env_gas_limit(env_gas_limit)
+
+    # Now we monkey-patch the `Environment` class with one that is aware of
+    # the fork that the test is using, and will update its `_env_gas_limit`
+    # automatically.
+    # TODO: This should not be necessary, we should treat the `env` object the
+    #  same way we do `pre` and force it to be a singleton in the test's
+    #  context.
+    from execution_testing.test_types.block_types import (
+        Environment as OriginalEnvironment,
+    )
+
+    class _ForkAwareEnvironment(OriginalEnvironment):
+        """Transparently syncs ``gas_limit`` back to the fork variant."""
+
+        def model_post_init(self, __context: object) -> None:
+            super().model_post_init(__context)
+            fork_variant._env_gas_limit = int(self.gas_limit)
+
+        def __setattr__(self, name: str, value: object) -> None:
+            super().__setattr__(name, value)
+            if name == "gas_limit":
+                fork_variant._env_gas_limit = int(self.gas_limit)
+
+    # Replace Environment in every module that imported the original class
+    # so that both `Environment(...)` in test code and in conftest fixtures
+    # create _ForkAwareEnvironment instances.
+    for mod in list(sys.modules.values()):
+        try:
+            if getattr(mod, "Environment", None) is OriginalEnvironment:
+                monkeypatch.setattr(mod, "Environment", _ForkAwareEnvironment)
+        except Exception:
+            continue
+
+    return fork_variant
 
 
 SPEC_TYPES_PARAMETERS: List[str] = list(BaseTest.spec_types.keys())

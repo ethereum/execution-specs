@@ -553,16 +553,26 @@ def _is_benchmark_test(request: pytest.FixtureRequest) -> bool:
 
 
 @pytest.fixture
-def genesis_environment(request: pytest.FixtureRequest) -> Environment:
+def env_gas_limit(request: pytest.FixtureRequest) -> int:
     """Return an Environment with appropriate gas limit."""
     if _is_benchmark_test(request):
-        return Environment(gas_limit=BENCHMARKING_MAX_GAS)
+        return BENCHMARKING_MAX_GAS
+    return EnvironmentDefaults.gas_limit
+
+
+@pytest.fixture
+def genesis_environment(
+    request: pytest.FixtureRequest, env_gas_limit: int
+) -> Environment:
+    """Return an Environment with appropriate gas limit."""
+    if _is_benchmark_test(request):
+        return Environment(gas_limit=env_gas_limit)
     return Environment()
 
 
 @pytest.fixture
-def env(request: pytest.FixtureRequest) -> Environment:
+def env(request: pytest.FixtureRequest, env_gas_limit: int) -> Environment:
     """Return an Environment with appropriate gas limit."""
     if _is_benchmark_test(request):
-        return Environment(gas_limit=BENCHMARKING_MAX_GAS)
+        return Environment(gas_limit=env_gas_limit)
     return Environment()
