@@ -45,9 +45,6 @@ class FillCommand(PytestCommand):
 
         # Check if we need two-phase execution
         if self._should_use_two_phase_execution(processed_args):
-            processed_args = self._ensure_generate_all_formats_for_tarball(
-                processed_args
-            )
             return self._create_two_phase_executions(processed_args)
         elif "--use-pre-alloc-groups" in processed_args:
             # Only phase 2: using existing pre-allocation groups
@@ -203,32 +200,7 @@ class FillCommand(PytestCommand):
         return (
             "--generate-pre-alloc-groups" in args
             or "--generate-all-formats" in args
-            or self._is_tarball_output(args)
         )
-
-    def _ensure_generate_all_formats_for_tarball(
-        self, args: List[str]
-    ) -> List[str]:
-        """Auto-add --generate-all-formats for tarball output."""
-        if (
-            self._is_tarball_output(args)
-            and "--generate-all-formats" not in args
-        ):
-            return args + ["--generate-all-formats"]
-        return args
-
-    def _is_tarball_output(self, args: List[str]) -> bool:
-        """Check if output argument specifies a tarball (.tar.gz) path."""
-        from pathlib import Path
-
-        for i, arg in enumerate(args):
-            if arg.startswith("--output="):
-                output_path = Path(arg.split("=", 1)[1])
-                return str(output_path).endswith(".tar.gz")
-            elif arg == "--output" and i + 1 < len(args):
-                output_path = Path(args[i + 1])
-                return str(output_path).endswith(".tar.gz")
-        return False
 
     def _is_watch_mode(self, args: List[str]) -> bool:
         """Check if any watch flag is present in arguments."""

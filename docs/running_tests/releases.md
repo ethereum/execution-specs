@@ -102,13 +102,11 @@ For standard releases, two tarballs are available:
 
 I.e., `fixtures_develop` are a superset of `fixtures_stable`.
 
-!!! tip "Generating tarballs directly via `--output` includes all fixture formats"
-    When generating fixtures for release, specifying tarball output automatically enables all fixture formats:
+!!! tip "Release features opt into all fixture formats via `feature.yaml`"
+    Tarball output (`.tar.gz`) does not by itself include the pre-allocation group formats (`BlockchainEngineXFixture`, `BlockchainEngineStatefulFixture`). A release feature requests them by adding `--generate-all-formats` to its `fill-params` in `.github/configs/feature.yaml`:
     ```console
-    # Automatically enables --generate-all-formats due to .tar.gz output
-    uv run fill --output=fixtures_stable.tar.gz tests/
+    uv run fill --generate-all-formats --output=fixtures_stable.tar.gz tests/
     ```
-    This ensures that all fixture formats are included in the tarball release.
 
 ### Pre-Release and Devnet Releases
 
