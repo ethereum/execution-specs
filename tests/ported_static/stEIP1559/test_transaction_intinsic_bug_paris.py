@@ -44,7 +44,7 @@ def test_transaction_intinsic_bug_paris(
         gas_limit=71794957647893862,
     )
 
-    addr = pre.fund_eoa(amount=10)
+    addr = pre.fund_eoa(amount=10)  # noqa: F841
 
     tx = Transaction(
         sender=sender,

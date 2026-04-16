@@ -43,7 +43,7 @@ def test_revert_prefound_empty_call_paris(
         gas_limit=10000000,
     )
 
-    addr = pre.fund_eoa(amount=10)
+    addr = pre.fund_eoa(amount=10)  # noqa: F841
     # Source: lll
     # { [[0]] (CALL 50000 <eoa:0x7db299e0885c85039f56fa504a13dd8ce8a56aa7> 0 0 32 0 32) [[1]]12 }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841

@@ -43,7 +43,7 @@ def test_refund_change_non_zero_storage(
         gas_limit=1000000,
     )
 
-    coinbase = pre.fund_eoa(amount=0)
+    coinbase = pre.fund_eoa(amount=0)  # noqa: F841
     # Source: lll
     # { [[ 1 ]] 23 }
     target = pre.deploy_contract(  # noqa: F841

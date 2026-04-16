@@ -43,7 +43,7 @@ def test_indexes_omit_example(
         gas_limit=71794957647893862,
     )
 
-    coinbase = pre.fund_eoa(amount=0)
+    coinbase = pre.fund_eoa(amount=0)  # noqa: F841
     # Source: lll
     # {
     #    ; Can also add lll style comments here

@@ -44,7 +44,7 @@ def test_non_zero_value_transaction_call_to_non_non_zero_balance(
         gas_limit=10000000,
     )
 
-    addr = pre.fund_eoa(amount=100)
+    addr = pre.fund_eoa(amount=100)  # noqa: F841
 
     tx = Transaction(
         sender=sender,

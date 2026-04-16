@@ -216,7 +216,7 @@ def {{ test_name }}(
 {% elif account.is_sender %}
     pre[sender] = Account(balance={{ account.balance | format_int }}{{ ", nonce=%d" | format(account.nonce) if account.nonce }}{{ ", storage=%s" | format(account.storage | format_storage) if account.storage }}{{ ", code=%s" | format(account.code_expr | wrap_op_chain(indent=8)) if account.code_expr }})
 {% elif account.is_eoa and account.use_dynamic %}
-    {{ account.var_name }} = pre.fund_eoa(amount={{ account.balance | format_int }})
+    {{ account.var_name }} = pre.fund_eoa(amount={{ account.balance | format_int }})  # noqa: F841
 {% elif account.is_eoa %}
     pre[{{ account.var_name }}] = Account(balance={{ account.balance | format_int }}{{ ", nonce=%d" | format(account.nonce) if account.nonce }}{{ ", storage=%s" | format(account.storage | format_storage) if account.storage }}{{ ", code=%s" | format(account.code_expr | wrap_op_chain(indent=8)) if account.code_expr }})
 {% else %}

@@ -157,14 +157,13 @@ def test_revert_opcode_calls(
         address=Address(0x652761B88018EA027F6F27E456FE55C2DC5D6A91),  # noqa: E501
     )
     # Source: lll
-    # { [[0]] (CALLCODE 50000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[2]] 14 }  # noqa: E501
-    addr_2 = pre.deploy_contract(  # noqa: F841
+    # { [[0]] (DELEGATECALL 50000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) [[2]] 14 }  # noqa: E501
+    addr_3 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(
             key=0x0,
-            value=Op.CALLCODE(
+            value=Op.DELEGATECALL(
                 gas=0xC350,
                 address=0x93A599BDE9A3B6390AFDB06952AA5EC0B8C44F3B,
-                value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -175,7 +174,7 @@ def test_revert_opcode_calls(
         + Op.STOP,
         balance=1,
         nonce=0,
-        address=Address(0x737F82ED94146E759790D925492DF5A8CED35885),  # noqa: E501
+        address=Address(0x6B8268AC8921E6A6E59A4B1D51A76F4E807E17AF),  # noqa: E501
     )
     # Source: lll
     # { [[0]] (CALL 50000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[2]] 14 }  # noqa: E501
@@ -199,13 +198,14 @@ def test_revert_opcode_calls(
         address=Address(0xCEB48D108C874B5B014ACDD1A2466D65A3D01DE6),  # noqa: E501
     )
     # Source: lll
-    # { [[0]] (DELEGATECALL 50000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) [[2]] 14 }  # noqa: E501
-    addr_3 = pre.deploy_contract(  # noqa: F841
+    # { [[0]] (CALLCODE 50000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[2]] 14 }  # noqa: E501
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(
             key=0x0,
-            value=Op.DELEGATECALL(
+            value=Op.CALLCODE(
                 gas=0xC350,
                 address=0x93A599BDE9A3B6390AFDB06952AA5EC0B8C44F3B,
+                value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -216,7 +216,7 @@ def test_revert_opcode_calls(
         + Op.STOP,
         balance=1,
         nonce=0,
-        address=Address(0x6B8268AC8921E6A6E59A4B1D51A76F4E807E17AF),  # noqa: E501
+        address=Address(0x737F82ED94146E759790D925492DF5A8CED35885),  # noqa: E501
     )
     # Source: lll
     # { [[0]] (CALL 100000 <contract:0xb3305374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[2]] 14 }  # noqa: E501

@@ -43,7 +43,7 @@ def test_revert_prefound_empty_oog_paris(
         gas_limit=10000000,
     )
 
-    addr = pre.fund_eoa(amount=10)
+    addr = pre.fund_eoa(amount=10)  # noqa: F841
     # Source: lll
     # { [[0]] (CREATE 0 0 32) (KECCAK256 0x00 0x2fffff) }
     target = pre.deploy_contract(  # noqa: F841

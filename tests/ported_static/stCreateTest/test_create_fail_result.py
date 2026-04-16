@@ -195,68 +195,6 @@ def test_create_fail_result(
     #    extcodecopy(srcAddr, 0, 0, codeSize)
     #
     #    // Create
-    #    sstore(0,create2(0, 0, codeSize, 0x5A17))
-    #
-    #    // If we have a returned buffer, see what it is
-    #    sstore(1,returndatasize())
-    #    returndatacopy(0x200, 0, returndatasize())
-    #    sstore(2, mload(0x200))
-    #    sstore(3, mload(0x220))
-    # }
-    contract_4 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0x10,
-            value=Op.CALL(
-                gas=Op.GAS,
-                address=contract_0,
-                value=Op.DUP1,
-                args_offset=Op.DUP1,
-                args_size=0x0,
-                ret_offset=0x100,
-                ret_size=0x40,
-            ),
-        )
-        + Op.SSTORE(key=0x11, value=Op.RETURNDATASIZE)
-        + Op.SSTORE(key=0x12, value=Op.MLOAD(offset=0x100))
-        + Op.SSTORE(key=0x13, value=Op.MLOAD(offset=0x120))
-        + Op.PUSH2[0x5A17]
-        + Op.PUSH1[0x0]
-        + Op.CALLDATALOAD(offset=Op.DUP1)
-        + Op.DUP2
-        + Op.EXTCODESIZE(address=Op.DUP2)
-        + Op.SWAP3
-        + Op.DUP4
-        + Op.SWAP3
-        + Op.EXTCODECOPY
-        + Op.PUSH1[0x0]
-        + Op.DUP1
-        + Op.SSTORE(key=0x0, value=Op.CREATE2)
-        + Op.SSTORE(key=0x1, value=Op.RETURNDATASIZE)
-        + Op.RETURNDATACOPY(
-            dest_offset=0x200, offset=0x0, size=Op.RETURNDATASIZE
-        )
-        + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=0x200))
-        + Op.SSTORE(key=0x3, value=Op.MLOAD(offset=0x220))
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-    )
-    # Source: yul
-    # berlin
-    # {
-    #    // Before the main call, call DA7A to fill up the return buffer
-    #    sstore(0x10, call(gas(), 0xDA7A, 0, 0, 0, 0x100, 0x40))
-    #    sstore(0x11, returndatasize())
-    #    sstore(0x12, mload(0x100))
-    #    sstore(0x13, mload(0x120))
-    #
-    #    // Read the constructor code from the appropriate contract
-    #    let srcAddr := calldataload(0)   // either 600D or BAD
-    #
-    #    let codeSize := extcodesize(srcAddr)
-    #    extcodecopy(srcAddr, 0, 0, codeSize)
-    #
-    #    // Create
     #    sstore(0,create(0, 0, codeSize))
     #
     #    // If we have a returned buffer, see what it is
@@ -354,6 +292,68 @@ def test_create_fail_result(
         + Op.PUSH1[0x0]
         + Op.DUP1
         + Op.SSTORE(key=0x0, value=Op.CREATE)
+        + Op.SSTORE(key=0x1, value=Op.RETURNDATASIZE)
+        + Op.RETURNDATACOPY(
+            dest_offset=0x200, offset=0x0, size=Op.RETURNDATASIZE
+        )
+        + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=0x200))
+        + Op.SSTORE(key=0x3, value=Op.MLOAD(offset=0x220))
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=1,
+    )
+    # Source: yul
+    # berlin
+    # {
+    #    // Before the main call, call DA7A to fill up the return buffer
+    #    sstore(0x10, call(gas(), 0xDA7A, 0, 0, 0, 0x100, 0x40))
+    #    sstore(0x11, returndatasize())
+    #    sstore(0x12, mload(0x100))
+    #    sstore(0x13, mload(0x120))
+    #
+    #    // Read the constructor code from the appropriate contract
+    #    let srcAddr := calldataload(0)   // either 600D or BAD
+    #
+    #    let codeSize := extcodesize(srcAddr)
+    #    extcodecopy(srcAddr, 0, 0, codeSize)
+    #
+    #    // Create
+    #    sstore(0,create2(0, 0, codeSize, 0x5A17))
+    #
+    #    // If we have a returned buffer, see what it is
+    #    sstore(1,returndatasize())
+    #    returndatacopy(0x200, 0, returndatasize())
+    #    sstore(2, mload(0x200))
+    #    sstore(3, mload(0x220))
+    # }
+    contract_4 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x10,
+            value=Op.CALL(
+                gas=Op.GAS,
+                address=contract_0,
+                value=Op.DUP1,
+                args_offset=Op.DUP1,
+                args_size=0x0,
+                ret_offset=0x100,
+                ret_size=0x40,
+            ),
+        )
+        + Op.SSTORE(key=0x11, value=Op.RETURNDATASIZE)
+        + Op.SSTORE(key=0x12, value=Op.MLOAD(offset=0x100))
+        + Op.SSTORE(key=0x13, value=Op.MLOAD(offset=0x120))
+        + Op.PUSH2[0x5A17]
+        + Op.PUSH1[0x0]
+        + Op.CALLDATALOAD(offset=Op.DUP1)
+        + Op.DUP2
+        + Op.EXTCODESIZE(address=Op.DUP2)
+        + Op.SWAP3
+        + Op.DUP4
+        + Op.SWAP3
+        + Op.EXTCODECOPY
+        + Op.PUSH1[0x0]
+        + Op.DUP1
+        + Op.SSTORE(key=0x0, value=Op.CREATE2)
         + Op.SSTORE(key=0x1, value=Op.RETURNDATASIZE)
         + Op.RETURNDATACOPY(
             dest_offset=0x200, offset=0x0, size=Op.RETURNDATASIZE

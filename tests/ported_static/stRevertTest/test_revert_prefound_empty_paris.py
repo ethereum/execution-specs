@@ -44,7 +44,7 @@ def test_revert_prefound_empty_paris(
         gas_limit=10000000,
     )
 
-    contract_0 = pre.fund_eoa(amount=10)
+    contract_0 = pre.fund_eoa(amount=10)  # noqa: F841
     # Source: lll
     # { [[0]] (CREATE 0 0 32) [[1]]12 }
     contract_1 = pre.deploy_contract(  # noqa: F841

@@ -42,7 +42,7 @@ def test_failed_create_reverts_deletion_paris(
         gas_limit=43218108416,
     )
 
-    addr = pre.fund_eoa(amount=10)
+    addr = pre.fund_eoa(amount=10)  # noqa: F841
 
     tx = Transaction(
         sender=sender,

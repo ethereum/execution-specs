@@ -45,8 +45,8 @@ def test_ext_code_copy_tests_paris(
         gas_limit=9223372036854775807,
     )
 
-    contract_1 = pre.fund_eoa(amount=10)
-    contract_2 = pre.fund_eoa(amount=0)
+    contract_1 = pre.fund_eoa(amount=10)  # noqa: F841
+    contract_2 = pre.fund_eoa(amount=0)  # noqa: F841
     # Source: raw
     # 0x1122334455667788991011121314151617181920212223242526272829303132
     contract_3 = pre.deploy_contract(  # noqa: F841

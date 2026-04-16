@@ -44,7 +44,7 @@ def test_high_gas_price_paris(
         gas_limit=89128960,
     )
 
-    addr = pre.fund_eoa(amount=10)
+    addr = pre.fund_eoa(amount=10)  # noqa: F841
 
     tx = Transaction(
         sender=sender,

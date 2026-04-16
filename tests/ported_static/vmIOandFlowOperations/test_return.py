@@ -167,24 +167,6 @@ def test_return(
     )
     # Source: lll
     # {
-    #    [0] 0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-    #    [[0xFF]] 0x600D
-    #    (return 0x00 0x1000)
-    # }
-    contract_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(
-            offset=0x0,
-            value=0x123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF,  # noqa: E501
-        )
-        + Op.SSTORE(key=0xFF, value=0x600D)
-        + Op.RETURN(offset=0x0, size=0x1000)
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001002),  # noqa: E501
-    )
-    # Source: lll
-    # {
     #     ; read 0x40 bytes of return data
     #     (delegatecall 0xffffff (+ 0x1000 $4) 0 0 0x00 0x40)
     #
@@ -209,6 +191,24 @@ def test_return(
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
+    )
+    # Source: lll
+    # {
+    #    [0] 0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    #    [[0xFF]] 0x600D
+    #    (return 0x00 0x1000)
+    # }
+    contract_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(
+            offset=0x0,
+            value=0x123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF,  # noqa: E501
+        )
+        + Op.SSTORE(key=0xFF, value=0x600D)
+        + Op.RETURN(offset=0x0, size=0x1000)
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=0,
+        address=Address(0x0000000000000000000000000000000000001002),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

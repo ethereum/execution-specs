@@ -772,13 +772,14 @@ def _find_address_refs_in_bytecode(
     code_bytes: bytes,
     known_addresses: set[Address],
 ) -> dict[Address, int]:
-    """Find which known addresses are referenced in bytecode via PUSH.
+    """
+    Find known addresses referenced in bytecode via PUSH.
 
-    Return a mapping ``address -> minimum PUSH size observed``. A push size
-    smaller than 20 means the baseline bytecode compiled the address down
-    to fewer bytes (the original address had leading zero bytes); the
-    referenced contract must stay hardcoded so that the compiler keeps
-    emitting the same short PUSH opcode and the trace stays aligned.
+    Return a mapping ``address -> minimum PUSH size observed``.
+    A push size < 20 means the baseline bytecode compiled the
+    address to fewer bytes (leading zero bytes); the referenced
+    contract must stay hardcoded so the compiler keeps emitting
+    the same short PUSH opcode and the trace stays aligned.
     """
     refs: dict[Address, int] = {}
     # Pre-compute int values for fast comparison
@@ -819,8 +820,8 @@ def _topological_sort_contracts(
     """
     addr_set = set(contract_addrs)
     # forward[B] = {A} means A depends on B, so B must come first
-    forward: dict[Address, set[Address]] = {a: set() for a in addr_set}
-    in_deg: dict[Address, int] = {a: 0 for a in addr_set}
+    forward: dict[Address, set[Address]] = {a: set() for a in addr_set}  # noqa: C420
+    in_deg: dict[Address, int] = dict.fromkeys(addr_set, 0)
     for a, dep_set in deps.items():
         if a not in addr_set:
             continue
@@ -1015,7 +1016,10 @@ def _build_accounts(
         changed = False
         for addr in list(non_dynamic_addrs):
             for ref in deps.get(addr, set()):
-                if ref not in non_dynamic_addrs and ref in known_contract_addrs:
+                if (
+                    ref not in non_dynamic_addrs
+                    and ref in known_contract_addrs
+                ):
                     non_dynamic_addrs.add(ref)
                     changed = True
 
@@ -1057,13 +1061,13 @@ def _build_accounts(
     # sequential addresses and cannot be dynamically assigned.
     # If found, disable dynamic for ALL contracts.
     # ------------------------------------------------------------------
-    _ARITH_OPS = {"Op.ADD(", "Op.SUB(", "Op.MUL(", "Op.DIV("}
+    arith_ops = {"Op.ADD(", "Op.SUB(", "Op.MUL(", "Op.DIV("}
     has_addr_arithmetic = False
     for acct in raw_accounts:
         if not acct.code_expr:
             continue
         for var_name in addr_var_names:
-            for arith_op in _ARITH_OPS:
+            for arith_op in arith_ops:
                 if f"{arith_op}{var_name}" in acct.code_expr:
                     has_addr_arithmetic = True
                     break
@@ -1078,7 +1082,7 @@ def _build_accounts(
     # do this usually rely on specific pre-state contract addresses
     # (dispatch-by-offset) and won't survive dynamic allocation.
     # ------------------------------------------------------------------
-    _COMPUTED_ADDR_PATTERNS = (
+    computed_addr_patterns = (
         "address=Op.ADD(",
         "address=Op.SUB(",
         "address=Op.MUL(",
@@ -1092,7 +1096,7 @@ def _build_accounts(
     for acct in raw_accounts:
         if not acct.code_expr:
             continue
-        for pat in _COMPUTED_ADDR_PATTERNS:
+        for pat in computed_addr_patterns:
             if pat in acct.code_expr:
                 has_computed_call_target = True
                 break

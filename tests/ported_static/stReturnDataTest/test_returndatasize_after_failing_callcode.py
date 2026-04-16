@@ -45,7 +45,7 @@ def test_returndatasize_after_failing_callcode(
         gas_limit=111669149696,
     )
 
-    addr = pre.fund_eoa(amount=0x10000000)
+    addr = pre.fund_eoa(amount=0x10000000)  # noqa: F841
     # Source: raw
     # 0xfd
     addr_2 = pre.deploy_contract(  # noqa: F841

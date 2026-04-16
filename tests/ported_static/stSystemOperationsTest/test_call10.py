@@ -43,7 +43,7 @@ def test_call10(
         gas_limit=9223372036854775807,
     )
 
-    addr = pre.fund_eoa(amount=7000)
+    addr = pre.fund_eoa(amount=7000)  # noqa: F841
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 10) [i](+ @i 1) [[ 0 ]](CALL 0xfffffffffff <eoa:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 1 0 50000 0 0) ) [[ 1 ]] @i}  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841

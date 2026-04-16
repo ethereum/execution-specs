@@ -149,7 +149,7 @@ def test_stack_overflow_m1_dup(
         gas_limit=42949672960,
     )
 
-    contract_0 = pre.fund_eoa(amount=0xE8D4A5100000000000)
+    contract_0 = pre.fund_eoa(amount=0xE8D4A5100000000000)  # noqa: F841
 
     tx_data = [
         Op.PUSH1[0x1] + Op.DUP1 * 1023,

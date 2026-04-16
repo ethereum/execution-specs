@@ -68,7 +68,7 @@ def test_call1024_oog(
         gas_limit=9223372036854775807,
     )
 
-    addr = pre.fund_eoa(amount=7000)
+    addr = pre.fund_eoa(amount=7000)  # noqa: F841
     # Source: lll
     # { [[ 0 ]] (ADD @@0 1) [[ 1 ]] (DELEGATECALL (MUL (SUB (GAS) 10000) (SUB 1 (DIV @@0 1025))) <contract:target:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) [[ 2 ]] (ADD 1(MUL @@0 1000)) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841

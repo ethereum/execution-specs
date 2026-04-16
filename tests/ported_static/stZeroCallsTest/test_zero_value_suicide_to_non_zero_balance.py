@@ -45,7 +45,7 @@ def test_zero_value_suicide_to_non_zero_balance(
         gas_limit=10000000,
     )
 
-    addr = pre.fund_eoa(amount=100)
+    addr = pre.fund_eoa(amount=100)  # noqa: F841
     # Source: lll
     # { (SELFDESTRUCT <eoa:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b>) }
     target = pre.deploy_contract(  # noqa: F841

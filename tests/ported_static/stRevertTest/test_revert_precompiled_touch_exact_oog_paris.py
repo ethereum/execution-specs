@@ -634,14 +634,14 @@ def test_revert_precompiled_touch_exact_oog_paris(
         gas_limit=4012015,
     )
 
-    addr_5 = pre.fund_eoa(amount=1)
-    addr_6 = pre.fund_eoa(amount=1)
-    addr_7 = pre.fund_eoa(amount=1)
-    addr_8 = pre.fund_eoa(amount=1)
-    addr_9 = pre.fund_eoa(amount=1)
-    addr_10 = pre.fund_eoa(amount=1)
-    addr_11 = pre.fund_eoa(amount=1)
-    addr_12 = pre.fund_eoa(amount=1)
+    addr_5 = pre.fund_eoa(amount=1)  # noqa: F841
+    addr_6 = pre.fund_eoa(amount=1)  # noqa: F841
+    addr_7 = pre.fund_eoa(amount=1)  # noqa: F841
+    addr_8 = pre.fund_eoa(amount=1)  # noqa: F841
+    addr_9 = pre.fund_eoa(amount=1)  # noqa: F841
+    addr_10 = pre.fund_eoa(amount=1)  # noqa: F841
+    addr_11 = pre.fund_eoa(amount=1)  # noqa: F841
+    addr_12 = pre.fund_eoa(amount=1)  # noqa: F841
     # Source: lll
     # {  (CALLCODE (GAS) (CALLDATALOAD 0) 0 0 (CALLDATALOAD 32) 0 0) }
     target = pre.deploy_contract(  # noqa: F841

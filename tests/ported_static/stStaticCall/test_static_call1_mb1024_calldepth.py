@@ -70,7 +70,7 @@ def test_static_call1_mb1024_calldepth(
         gas_limit=892500000000,
     )
 
-    addr = pre.fund_eoa(amount=0xFFFFFFFFFFFFF)
+    addr = pre.fund_eoa(amount=0xFFFFFFFFFFFFF)  # noqa: F841
     # Source: lll
     # { [[ 0 ]] (CALL (GAS) (CALLDATALOAD 0) 0 0 0 0 0)  }
     target = pre.deploy_contract(  # noqa: F841

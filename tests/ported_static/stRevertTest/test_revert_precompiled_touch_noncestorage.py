@@ -79,14 +79,14 @@ def test_revert_precompiled_touch_noncestorage(
         gas_limit=4012015,
     )
 
-    addr_5 = pre.fund_eoa(amount=0)
-    addr_6 = pre.fund_eoa(amount=0)
-    addr_7 = pre.fund_eoa(amount=0)
-    addr_8 = pre.fund_eoa(amount=0)
-    addr_9 = pre.fund_eoa(amount=0)
-    addr_10 = pre.fund_eoa(amount=0)
-    addr_11 = pre.fund_eoa(amount=0)
-    addr_12 = pre.fund_eoa(amount=0)
+    addr_5 = pre.fund_eoa(amount=0)  # noqa: F841
+    addr_6 = pre.fund_eoa(amount=0)  # noqa: F841
+    addr_7 = pre.fund_eoa(amount=0)  # noqa: F841
+    addr_8 = pre.fund_eoa(amount=0)  # noqa: F841
+    addr_9 = pre.fund_eoa(amount=0)  # noqa: F841
+    addr_10 = pre.fund_eoa(amount=0)  # noqa: F841
+    addr_11 = pre.fund_eoa(amount=0)  # noqa: F841
+    addr_12 = pre.fund_eoa(amount=0)  # noqa: F841
     # Source: lll
     # {  (CALLCODE (GAS) (CALLDATALOAD 0) 0 0 0 0 0) }
     target = pre.deploy_contract(  # noqa: F841

@@ -42,7 +42,7 @@ def test_revert_in_create_in_init_paris(
         gas_limit=42949672960,
     )
 
-    addr = pre.fund_eoa(amount=10)
+    addr = pre.fund_eoa(amount=10)  # noqa: F841
 
     tx = Transaction(
         sender=sender,

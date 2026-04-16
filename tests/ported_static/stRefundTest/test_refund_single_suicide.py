@@ -43,7 +43,7 @@ def test_refund_single_suicide(
         gas_limit=1000000,
     )
 
-    coinbase = pre.fund_eoa(amount=0)
+    coinbase = pre.fund_eoa(amount=0)  # noqa: F841
     # Source: raw
     # 0x606060405260e060020a600035046309e587a58114602e5780632e4699ed146049578063c040622614609b575b005b602c3373ffffffffffffffffffffffffffffffffffffffff16ff5b602c5b60003090508073ffffffffffffffffffffffffffffffffffffffff166309e587a56040518160e060020a0281526004018090506000604051808303816000876161da5a03f11560025750505050565b60a5600060b9604c565b604080519115158252519081900360200190f35b5060019056  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841

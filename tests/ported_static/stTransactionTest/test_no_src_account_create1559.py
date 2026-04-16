@@ -183,7 +183,7 @@ def test_no_src_account_create1559(
         gas_limit=89128960,
     )
 
-    addr = pre.fund_eoa(amount=0)
+    addr = pre.fund_eoa(amount=0)  # noqa: F841
 
     expect_entries_: list[dict] = [
         {

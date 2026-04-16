@@ -45,7 +45,7 @@ def test_returndatasize_after_oog_after_deeper(
         gas_limit=111669149696,
     )
 
-    addr = pre.fund_eoa(amount=0x1000000000)
+    addr = pre.fund_eoa(amount=0x1000000000)  # noqa: F841
     # Source: lll
     # { (seq (MSTORE 0 255) (RETURN 0 32) )}
     addr_3 = pre.deploy_contract(  # noqa: F841

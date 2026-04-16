@@ -43,7 +43,7 @@ def test_stacksanity_swap(
         gas_limit=42949672960,
     )
 
-    contract_0 = pre.fund_eoa(amount=0xE8D4A5100000000000)
+    contract_0 = pre.fund_eoa(amount=0xE8D4A5100000000000)  # noqa: F841
 
     tx = Transaction(
         sender=sender,

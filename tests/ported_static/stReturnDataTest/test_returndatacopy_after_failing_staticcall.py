@@ -45,7 +45,7 @@ def test_returndatacopy_after_failing_staticcall(
         gas_limit=111669149696,
     )
 
-    addr = pre.fund_eoa(amount=0x100000)
+    addr = pre.fund_eoa(amount=0x100000)  # noqa: F841
     # Source: lll
     # { (MSTORE 0x0 (CALLER)) (RETURN 0 32) }
     addr_2 = pre.deploy_contract(  # noqa: F841

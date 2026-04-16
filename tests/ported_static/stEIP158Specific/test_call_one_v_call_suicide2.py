@@ -43,7 +43,7 @@ def test_call_one_v_call_suicide2(
         gas_limit=10000000,
     )
 
-    addr_2 = pre.fund_eoa(amount=0)
+    addr_2 = pre.fund_eoa(amount=0)  # noqa: F841
     # Source: lll
     # { (SELFDESTRUCT <eoa:0xd94f5374fce5edbc8e2a8697c15331677e6ebf0b>) }
     addr = pre.deploy_contract(  # noqa: F841

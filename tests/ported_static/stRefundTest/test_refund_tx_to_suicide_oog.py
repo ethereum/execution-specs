@@ -43,7 +43,7 @@ def test_refund_tx_to_suicide_oog(
         gas_limit=10000000,
     )
 
-    coinbase = pre.fund_eoa(amount=0)
+    coinbase = pre.fund_eoa(amount=0)  # noqa: F841
     # Source: lll
     # { (SELFDESTRUCT 0x095e7baea6a6c7c4c2dfeb977efac326af552d87) }
     target = pre.deploy_contract(  # noqa: F841

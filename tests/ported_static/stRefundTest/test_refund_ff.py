@@ -43,7 +43,7 @@ def test_refund_ff(
         gas_limit=16777216,
     )
 
-    addr = pre.fund_eoa(amount=0)
+    addr = pre.fund_eoa(amount=0)  # noqa: F841
     # Source: yul
     # berlin
     # {

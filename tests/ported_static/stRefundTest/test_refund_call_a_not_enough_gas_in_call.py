@@ -43,7 +43,7 @@ def test_refund_call_a_not_enough_gas_in_call(
         gas_limit=1000000,
     )
 
-    coinbase = pre.fund_eoa(amount=0)
+    coinbase = pre.fund_eoa(amount=0)  # noqa: F841
     # Source: lll
     # { [[ 1 ]] 0 }
     addr = pre.deploy_contract(  # noqa: F841

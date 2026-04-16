@@ -79,7 +79,7 @@ def test_transaction_collision_to_empty2(
         gas_limit=10000000,
     )
 
-    contract_0 = pre.fund_eoa(amount=10)
+    contract_0 = pre.fund_eoa(amount=10)  # noqa: F841
 
     expect_entries_: list[dict] = [
         {

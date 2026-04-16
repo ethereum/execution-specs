@@ -70,7 +70,7 @@ def test_coinbase_t2(
         gas_limit=71794957647893862,
     )
 
-    coinbase = pre.fund_eoa(amount=0)
+    coinbase = pre.fund_eoa(amount=0)  # noqa: F841
     # Source: yul
     # berlin
     # {

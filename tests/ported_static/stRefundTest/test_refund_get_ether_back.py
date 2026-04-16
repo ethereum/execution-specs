@@ -43,7 +43,7 @@ def test_refund_get_ether_back(
         gas_limit=228500,
     )
 
-    coinbase = pre.fund_eoa(amount=0)
+    coinbase = pre.fund_eoa(amount=0)  # noqa: F841
     # Source: lll
     # { [[ 1 ]] 0 }
     target = pre.deploy_contract(  # noqa: F841

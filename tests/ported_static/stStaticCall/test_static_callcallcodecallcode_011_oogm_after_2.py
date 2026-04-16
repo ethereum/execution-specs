@@ -116,6 +116,26 @@ def test_static_callcallcodecallcode_011_oogm_after_2(
         address=Address(0x1E28DAA61AD32AAC8383A1F7B17986C69F0C3273),  # noqa: E501
     )
     # Source: lll
+    # {  (MSTORE 3 1) (CALLCODE 40080 <contract:0x1000000000000000000000000000000000000002> 0 0 64 0 64 ) (SSTORE 3 1) }  # noqa: E501
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x3, value=0x1)
+        + Op.POP(
+            Op.CALLCODE(
+                gas=0x9C90,
+                address=0x1E28DAA61AD32AAC8383A1F7B17986C69F0C3273,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x40,
+                ret_offset=0x0,
+                ret_size=0x40,
+            )
+        )
+        + Op.SSTORE(key=0x3, value=0x1)
+        + Op.STOP,
+        nonce=0,
+        address=Address(0x7DA35806C36EF9661EFA1128809B18A8ED9C78F0),  # noqa: E501
+    )
+    # Source: lll
     # {  (MSTORE 3 1) (CALLCODE 40080 <contract:0x1000000000000000000000000000000000000002> 0 0 64 0 64 ) (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (EXTCODESIZE 1)) }  # noqa: E501
     addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x3, value=0x1)
@@ -141,26 +161,6 @@ def test_static_callcallcodecallcode_011_oogm_after_2(
         + Op.STOP,
         nonce=0,
         address=Address(0x45445092B290295FB6C954103FF2CE24CF3CFAF5),  # noqa: E501
-    )
-    # Source: lll
-    # {  (MSTORE 3 1) (CALLCODE 40080 <contract:0x1000000000000000000000000000000000000002> 0 0 64 0 64 ) (SSTORE 3 1) }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x3, value=0x1)
-        + Op.POP(
-            Op.CALLCODE(
-                gas=0x9C90,
-                address=0x1E28DAA61AD32AAC8383A1F7B17986C69F0C3273,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x40,
-                ret_offset=0x0,
-                ret_size=0x40,
-            )
-        )
-        + Op.SSTORE(key=0x3, value=0x1)
-        + Op.STOP,
-        nonce=0,
-        address=Address(0x7DA35806C36EF9661EFA1128809B18A8ED9C78F0),  # noqa: E501
     )
 
     tx_data = [

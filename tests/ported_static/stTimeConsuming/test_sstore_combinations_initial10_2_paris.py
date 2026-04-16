@@ -2605,7 +2605,7 @@ def test_sstore_combinations_initial10_2_paris(
         gas_limit=10000000,
     )
 
-    contract_3 = pre.fund_eoa(amount=10)
+    contract_3 = pre.fund_eoa(amount=10)  # noqa: F841
     # Source: lll
     # { [[0]] 0  [[1]] 1  [[2]] 2 }
     contract_0 = pre.deploy_contract(  # noqa: F841

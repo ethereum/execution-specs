@@ -46,7 +46,7 @@ def test_static_call_oog_additional_gas_costs2_paris(
         gas_limit=3000000000,
     )
 
-    addr = pre.fund_eoa(amount=10)
+    addr = pre.fund_eoa(amount=10)  # noqa: F841
     # Source: lll
     # { [[ 0 ]] (STATICCALL 6000 <eoa:0x1000000000000000000000000000000000000001> 0 64 0 64 )  [[ 1 ]] (GAS) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841

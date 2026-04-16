@@ -43,7 +43,7 @@ def test_call_to_empty_then_call_error_paris(
         gas_limit=10000000,
     )
 
-    addr_2 = pre.fund_eoa(amount=10)
+    addr_2 = pre.fund_eoa(amount=10)  # noqa: F841
     # Source: lll
     # { (GAS) }
     addr = pre.deploy_contract(  # noqa: F841

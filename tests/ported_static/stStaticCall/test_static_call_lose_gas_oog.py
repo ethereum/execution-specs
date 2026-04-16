@@ -44,7 +44,7 @@ def test_static_call_lose_gas_oog(
         gas_limit=9223372036854775807,
     )
 
-    addr = pre.fund_eoa(amount=7000)
+    addr = pre.fund_eoa(amount=7000)  # noqa: F841
     # Source: lll
     # { [[ 0 ]] (ADD @@0 1) [[ 1 ]] (STATICCALL (ADD 1(MUL @@0 100000)) <contract:target:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) [[ 2 ]] (ADD 1(MUL @@0 1000)) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841

@@ -112,42 +112,6 @@ def test_static_raw_call_gas_ask(
         address=Address(0x1000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
-    # { (STATICCALL 130000 0x094f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0) [[1]] (GAS) }  # noqa: E501
-    contract_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.POP(
-            Op.STATICCALL(
-                gas=0x1FBD0,
-                address=0x94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            )
-        )
-        + Op.SSTORE(key=0x1, value=Op.GAS)
-        + Op.STOP,
-        nonce=0,
-        address=Address(0x2000000000000000000000000000000000000001),  # noqa: E501
-    )
-    # Source: lll
-    # { (STATICCALL 3000000 0x094f5374fce5edbc8e2a8697c15331677e6ebf0b 0 8000 0 8000) [[1]] (GAS) }  # noqa: E501
-    contract_4 = pre.deploy_contract(  # noqa: F841
-        code=Op.POP(
-            Op.STATICCALL(
-                gas=0x2DC6C0,
-                address=0x94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                args_offset=0x0,
-                args_size=0x1F40,
-                ret_offset=0x0,
-                ret_size=0x1F40,
-            )
-        )
-        + Op.SSTORE(key=0x1, value=Op.GAS)
-        + Op.STOP,
-        nonce=0,
-        address=Address(0x3000000000000000000000000000000000000001),  # noqa: E501
-    )
-    # Source: lll
     # { (STATICCALL 130000 0x094f5374fce5edbc8e2a8697c15331677e6ebf0b 0 8000 0 8000) [[1]] (GAS) }  # noqa: E501
     contract_5 = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
@@ -182,6 +146,42 @@ def test_static_raw_call_gas_ask(
         + Op.STOP,
         nonce=0,
         address=Address(0x1000000000000000000000000000000000000001),  # noqa: E501
+    )
+    # Source: lll
+    # { (STATICCALL 3000000 0x094f5374fce5edbc8e2a8697c15331677e6ebf0b 0 8000 0 8000) [[1]] (GAS) }  # noqa: E501
+    contract_4 = pre.deploy_contract(  # noqa: F841
+        code=Op.POP(
+            Op.STATICCALL(
+                gas=0x2DC6C0,
+                address=0x94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                args_offset=0x0,
+                args_size=0x1F40,
+                ret_offset=0x0,
+                ret_size=0x1F40,
+            )
+        )
+        + Op.SSTORE(key=0x1, value=Op.GAS)
+        + Op.STOP,
+        nonce=0,
+        address=Address(0x3000000000000000000000000000000000000001),  # noqa: E501
+    )
+    # Source: lll
+    # { (STATICCALL 130000 0x094f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0) [[1]] (GAS) }  # noqa: E501
+    contract_3 = pre.deploy_contract(  # noqa: F841
+        code=Op.POP(
+            Op.STATICCALL(
+                gas=0x1FBD0,
+                address=0x94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.SSTORE(key=0x1, value=Op.GAS)
+        + Op.STOP,
+        nonce=0,
+        address=Address(0x2000000000000000000000000000000000000001),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

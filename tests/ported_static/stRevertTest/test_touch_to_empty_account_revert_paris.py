@@ -43,7 +43,7 @@ def test_touch_to_empty_account_revert_paris(
         gas_limit=10000000,
     )
 
-    addr = pre.fund_eoa(amount=10)
+    addr = pre.fund_eoa(amount=10)  # noqa: F841
     # Source: lll
     # { [[1]](CALL 30000 <eoa:0x1000000000000000000000000000000000000000> 0 0 0 0 0) }  # noqa: E501
     addr_2 = pre.deploy_contract(  # noqa: F841

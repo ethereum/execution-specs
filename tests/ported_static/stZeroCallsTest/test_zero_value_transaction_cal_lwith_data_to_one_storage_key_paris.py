@@ -43,7 +43,7 @@ def test_zero_value_transaction_cal_lwith_data_to_one_storage_key_paris(
         gas_limit=10000000,
     )
 
-    addr = pre.fund_eoa(amount=10)
+    addr = pre.fund_eoa(amount=10)  # noqa: F841
 
     tx = Transaction(
         sender=sender,

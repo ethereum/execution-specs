@@ -73,25 +73,6 @@ def test_revert_depth2(
         nonce=0,
     )
     # Source: lll
-    # { [[0]] (ADD 1 (SLOAD 0)) [[1]] (CALL 50000 <contract:0xc000000000000000000000000000000000000000> 0 0 0 0 0)}  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=Op.ADD(0x1, Op.SLOAD(key=0x0)))
-        + Op.SSTORE(
-            key=0x1,
-            value=Op.CALL(
-                gas=0xC350,
-                address=addr_2,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.STOP,
-        nonce=0,
-    )
-    # Source: lll
     # { [[0]] (ADD 1 (SLOAD 0)) [[1]] (CALL 50000 <contract:0xc000000000000000000000000000000000000000> 0 0 0 0 0) [[2]] (GAS)}  # noqa: E501
     addr_3 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.ADD(0x1, Op.SLOAD(key=0x0)))
@@ -108,6 +89,25 @@ def test_revert_depth2(
             ),
         )
         + Op.SSTORE(key=0x2, value=Op.GAS)
+        + Op.STOP,
+        nonce=0,
+    )
+    # Source: lll
+    # { [[0]] (ADD 1 (SLOAD 0)) [[1]] (CALL 50000 <contract:0xc000000000000000000000000000000000000000> 0 0 0 0 0)}  # noqa: E501
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=Op.ADD(0x1, Op.SLOAD(key=0x0)))
+        + Op.SSTORE(
+            key=0x1,
+            value=Op.CALL(
+                gas=0xC350,
+                address=addr_2,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
         + Op.STOP,
         nonce=0,
     )

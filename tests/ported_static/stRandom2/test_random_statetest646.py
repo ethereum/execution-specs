@@ -46,7 +46,7 @@ def test_random_statetest646(
         gas_limit=18857228215205537,
     )
 
-    contract_0 = pre.fund_eoa(amount=0x33888D4CE6B934)
+    contract_0 = pre.fund_eoa(amount=0x33888D4CE6B934)  # noqa: F841
     # Source: raw
     # 0x64ba8b878e0154689b908f27acb42e5269603972609834bf9a7e578e45609242172907dd75a92555656c5aa6e9248162013ffa6203864863446d325df0336d2c38cfa2f1cdf8cb623c0591987419  # noqa: E501
     contract_1 = pre.deploy_contract(  # noqa: F841

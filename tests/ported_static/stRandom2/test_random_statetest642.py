@@ -42,7 +42,7 @@ def test_random_statetest642(
         gas_limit=18137262409615484,
     )
 
-    addr_2 = pre.fund_eoa(amount=0x11BAE0BB79D6A164)
+    addr_2 = pre.fund_eoa(amount=0x11BAE0BB79D6A164)  # noqa: F841
     # Source: raw
     # 0x62f46a4f547b169c9edf92f4b39273fe47accc75d1209ae58463c2585607ce051ff6714c4f0fbf6de0659784434fb240652ff52d08576408f168a43a6651f765a4788a05537086290691d5a3239db43eefea96b0012ea26534e99e4ba9ee7f92f37fa731707f800683bafb70815757d861ad8cc6804154ce5b9de3146b58cd53  # noqa: E501
     addr = pre.deploy_contract(  # noqa: F841

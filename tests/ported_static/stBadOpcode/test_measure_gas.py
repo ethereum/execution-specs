@@ -262,6 +262,24 @@ def test_measure_gas(
     )
     # Source: yul
     # berlin {
+    #    let retval := call(gas(), 0xCA11, 0, 0, 0x100, 0, 0x100)
+    # }
+    contract_3 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALL(
+            gas=Op.GAS,
+            address=contract_2,
+            value=Op.DUP1,
+            args_offset=Op.DUP2,
+            args_size=Op.DUP2,
+            ret_offset=0x0,
+            ret_size=0x100,
+        )
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=1,
+    )
+    # Source: yul
+    # berlin {
     #    let retval := callcode(gas(), 0xCA11, 0, 0, 0x100, 0, 0x100)
     # }
     contract_4 = pre.deploy_contract(  # noqa: F841
@@ -280,30 +298,12 @@ def test_measure_gas(
     )
     # Source: yul
     # berlin {
-    #    let retval := delegatecall(gas(), 0xCA11, 0, 0x100, 0, 0x100)
+    #    let retval := staticcall(gas(), 0xCA11, 0, 0x100, 0, 0x100)
     # }
-    contract_5 = pre.deploy_contract(  # noqa: F841
-        code=Op.DELEGATECALL(
+    contract_6 = pre.deploy_contract(  # noqa: F841
+        code=Op.STATICCALL(
             gas=Op.GAS,
             address=contract_2,
-            args_offset=Op.DUP2,
-            args_size=Op.DUP2,
-            ret_offset=0x0,
-            ret_size=0x100,
-        )
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-    )
-    # Source: yul
-    # berlin {
-    #    let retval := call(gas(), 0xCA11, 0, 0, 0x100, 0, 0x100)
-    # }
-    contract_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.CALL(
-            gas=Op.GAS,
-            address=contract_2,
-            value=Op.DUP1,
             args_offset=Op.DUP2,
             args_size=Op.DUP2,
             ret_offset=0x0,
@@ -331,10 +331,10 @@ def test_measure_gas(
     )
     # Source: yul
     # berlin {
-    #    let retval := staticcall(gas(), 0xCA11, 0, 0x100, 0, 0x100)
+    #    let retval := delegatecall(gas(), 0xCA11, 0, 0x100, 0, 0x100)
     # }
-    contract_6 = pre.deploy_contract(  # noqa: F841
-        code=Op.STATICCALL(
+    contract_5 = pre.deploy_contract(  # noqa: F841
+        code=Op.DELEGATECALL(
             gas=Op.GAS,
             address=contract_2,
             args_offset=Op.DUP2,

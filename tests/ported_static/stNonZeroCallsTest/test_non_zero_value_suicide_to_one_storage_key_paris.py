@@ -45,7 +45,7 @@ def test_non_zero_value_suicide_to_one_storage_key_paris(
         gas_limit=10000000,
     )
 
-    addr = pre.fund_eoa(amount=10)
+    addr = pre.fund_eoa(amount=10)  # noqa: F841
     # Source: lll
     # { (SELFDESTRUCT <eoa:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b>) }
     target = pre.deploy_contract(  # noqa: F841

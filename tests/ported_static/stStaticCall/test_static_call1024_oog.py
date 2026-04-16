@@ -69,7 +69,7 @@ def test_static_call1024_oog(
         gas_limit=9223372036854775807,
     )
 
-    addr = pre.fund_eoa(amount=7000)
+    addr = pre.fund_eoa(amount=7000)  # noqa: F841
     # Source: lll
     # {  [[ 0 ]] (CALL (GAS) (CALLDATALOAD 0) (CALLVALUE) 0 0 0 0) [[ 1 ]] 1 }
     target = pre.deploy_contract(  # noqa: F841

@@ -70,7 +70,7 @@ def test_callcode50000(
         gas_limit=8600000000,
     )
 
-    addr = pre.fund_eoa(amount=7000)
+    addr = pre.fund_eoa(amount=7000)  # noqa: F841
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) [[ 0 ]] (CALLCODE 1600 <eoa:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 1 0 50000 0 0) ) [[ 1 ]] @i}  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
