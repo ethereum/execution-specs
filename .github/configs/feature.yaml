@@ -2,7 +2,7 @@
 mainnet:
   evm-type: eels
   fill-params: --until=BPO2
-  splits: 10
+  splits: 5
 
 benchmark:
   evm-type: benchmark
