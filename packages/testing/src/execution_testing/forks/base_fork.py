@@ -1129,19 +1129,19 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         return set(cls._children)
 
     @classmethod
-    def with_env_gas_limit(
-        cls, env_gas_limit: int
-    ) -> Type["BaseFork"]:
+    def with_env_gas_limit(cls, env_gas_limit: int) -> Type["BaseFork"]:
         """Return a new fork class with the specified environment gas limit."""
         new_cls = type(cls.__name__, (cls,), {})
         # __init_subclass__ resets per-class overrides; restore from parent.
-        new_cls._env_gas_limit = env_gas_limit
-        new_cls._base_fork = cls._base_fork or cls
-        new_cls._transition_tool_name = cls._transition_tool_name
-        new_cls._solc_name = cls._solc_name
-        new_cls._ignore = cls._ignore
-        new_cls._bpo_fork = cls._bpo_fork
-        new_cls._ruleset_name = cls._ruleset_name
+        new_cls._env_gas_limit = env_gas_limit  # type: ignore[attr-defined]
+        new_cls._base_fork = cls._base_fork or cls  # type: ignore[attr-defined]
+        new_cls._transition_tool_name = (  # type: ignore[attr-defined]
+            cls._transition_tool_name
+        )
+        new_cls._solc_name = cls._solc_name  # type: ignore[attr-defined]
+        new_cls._ignore = cls._ignore  # type: ignore[attr-defined]
+        new_cls._bpo_fork = cls._bpo_fork  # type: ignore[attr-defined]
+        new_cls._ruleset_name = cls._ruleset_name  # type: ignore[attr-defined]
         # Prevent the variant from appearing in fork traversals.
         cls._children.discard(new_cls)
         return new_cls

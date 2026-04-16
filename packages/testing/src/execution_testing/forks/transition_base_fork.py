@@ -116,7 +116,7 @@ class TransitionBaseClass(metaclass=TransitionBaseMetaClass):
         gas limit.
         """
         new_cls = type(cls.__name__, (cls,), {})
-        new_cls._env_gas_limit = env_gas_limit
+        new_cls._env_gas_limit = env_gas_limit  # type: ignore[attr-defined]
         return new_cls
 
 
