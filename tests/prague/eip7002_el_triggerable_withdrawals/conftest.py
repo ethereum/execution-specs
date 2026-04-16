@@ -107,7 +107,7 @@ def blocks(
             block_number=len(blocks) + 1,
             timestamp=timestamp,
         )
-        if block_fork.is_eip_enabled(eip_number=8037):
+        if block_fork.is_eip_enabled(8037):
             gas_costs = block_fork.gas_costs()
             for r in block_requests:
                 if isinstance(r, WithdrawalRequestContract):

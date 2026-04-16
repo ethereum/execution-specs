@@ -565,7 +565,7 @@ def max_tx_gas_limit(fork: Fork) -> int:
 def tx_gas_limits(fork: Fork) -> List[int]:
     """List of tx gas limits."""
     limits = [max_tx_gas_limit(fork), 90_000, 110_000, 200_000]
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         limits = [
             max_tx_gas_limit(fork),
             200_000,

@@ -223,7 +223,7 @@ def test_scenarios(
 
         tx_max_gas = 7_000_000
         if test_program.id == ProgramInvalidOpcode().id:
-            if fork.is_eip_enabled(eip_number=8037):
+            if fork.is_eip_enabled(8037):
                 tx_max_gas = 5_000_000
             else:
                 tx_max_gas = 1_000_000

@@ -93,7 +93,7 @@ def ty(refund_type: RefundType) -> int:
 def state_gas_refund(fork: Fork, refund_type: RefundType) -> int:
     """Return the state gas refund (direct return, not subject to 1/5 cap)."""
     auth_existing = RefundType.AUTHORIZATION_EXISTING_AUTHORITY
-    if fork.is_eip_enabled(eip_number=8037) and auth_existing in refund_type:
+    if fork.is_eip_enabled(8037) and auth_existing in refund_type:
         gas_costs = fork.gas_costs()
         return gas_costs.REFUND_AUTH_PER_EXISTING_ACCOUNT
     return 0
@@ -109,10 +109,7 @@ def max_refund(fork: Fork, refund_type: RefundType) -> int:
         else 0
     )
     auth_existing = RefundType.AUTHORIZATION_EXISTING_AUTHORITY
-    if (
-        not fork.is_eip_enabled(eip_number=8037)
-        and auth_existing in refund_type
-    ):
+    if not fork.is_eip_enabled(8037) and auth_existing in refund_type:
         max_refund += gas_costs.REFUND_AUTH_PER_EXISTING_ACCOUNT
     return max_refund
 

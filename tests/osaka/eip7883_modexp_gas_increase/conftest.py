@@ -63,7 +63,7 @@ def total_tx_gas_needed(
     gas_costs = fork.gas_costs()
     sstore_gas = gas_costs.GAS_STORAGE_SET * (len(modexp_expected) // 32)
     extra_gas = 100_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         extra_gas = 500_000
 
     return (
@@ -83,7 +83,7 @@ def exceeds_tx_gas_cap(
     precompile_gas: int,
 ) -> bool:
     """Determine if total gas requirements exceed transaction gas cap."""
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         # EIP-8037: tx.gas can exceed TX_MAX_GAS_LIMIT; excess fills
         # state_gas_reservoir. But regular gas is still capped at
         # TX_MAX_GAS_LIMIT, so if the precompile alone needs more regular gas
@@ -288,7 +288,7 @@ def tx_gas_limit(
     """
     Transaction gas limit used for the test (Can be overridden in the test).
     """
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         # EIP-8037: tx gas limit can exceed TX_MAX_GAS_LIMIT.
         return min(total_tx_gas_needed, env.gas_limit)
     tx_gas_limit_cap = fork.transaction_gas_limit_cap() or env.gas_limit

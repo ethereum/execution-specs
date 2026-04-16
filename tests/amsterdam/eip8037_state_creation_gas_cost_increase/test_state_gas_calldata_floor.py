@@ -165,7 +165,7 @@ def test_calldata_floor_exceeding_tx_gas_limit_cap(
     tx_base = gas_costs.GAS_TX_BASE
     max_tokens = (gas_limit_cap - tx_base) // floor_token
 
-    if fork.is_eip_enabled(eip_number=7976):
+    if fork.is_eip_enabled(7976):
         # EIP-7976: all bytes contribute 4 floor tokens regardless of
         # value, so the token count is len(data) * 4.
         tokens_per_byte = 4

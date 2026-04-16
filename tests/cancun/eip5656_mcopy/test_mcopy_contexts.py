@@ -141,7 +141,7 @@ def callee_address(pre: Alloc, callee_bytecode: Bytecode) -> Address:  # noqa: D
 @pytest.fixture
 def tx(pre: Alloc, fork: Fork, caller_address: Address) -> Transaction:  # noqa: D103
     gas_limit = 1_000_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 5_000_000
     return Transaction(
         sender=pre.fund_eoa(),

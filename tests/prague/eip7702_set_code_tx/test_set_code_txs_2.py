@@ -84,7 +84,7 @@ def test_pointer_contract_pointer_loop(
     )
 
     storage_loop: Storage = Storage()
-    expected_loop_count = 117 if fork.is_eip_enabled(eip_number=8037) else 112
+    expected_loop_count = 117 if fork.is_eip_enabled(8037) else 112
     contract_worked = storage_loop.store_next(
         expected_loop_count, "contract_loop_worked"
     )
@@ -103,9 +103,7 @@ def test_pointer_contract_pointer_loop(
 
     tx = Transaction(
         to=pointer_a,
-        gas_limit=(
-            3_000_000 if fork.is_eip_enabled(eip_number=8037) else 1_000_000
-        ),
+        gas_limit=(3_000_000 if fork.is_eip_enabled(8037) else 1_000_000),
         data=b"",
         value=0,
         sender=sender,
@@ -1852,9 +1850,7 @@ def test_double_auth(
 
     tx = Transaction(
         to=contract_main,
-        gas_limit=(
-            500_000 if fork.is_eip_enabled(eip_number=8037) else 200_000
-        ),
+        gas_limit=(500_000 if fork.is_eip_enabled(8037) else 200_000),
         data=b"",
         value=0,
         sender=sender,
@@ -1938,7 +1934,7 @@ def test_pointer_resets_an_empty_code_account_with_storage(
     )
 
     gas_limit = 200_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 500_000
     tx_set_pointer_storage = Transaction(
         to=pointer,
