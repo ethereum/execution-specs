@@ -8,6 +8,7 @@ benchmark:
   evm-type: benchmark
   fill-params: --fork=Osaka --gas-benchmark-values 1,5,10,30,60,100,150 ./tests/benchmark/compute --maxprocesses=30 --dist=worksteal
   feature_only: true
+  splits: 4
 
 benchmark_fast:
   evm-type: benchmark
