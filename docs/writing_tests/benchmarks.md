@@ -71,7 +71,7 @@ This mode is designed for gas limit testing, and gas repricing, where it enables
 
 **Note:** For both benchmark modes, users may supply multiple values in a single invocation. For example:
 
-- `--gas-benchmark-values 1,2,3` runs the test with 1M, 2M, and 3M block gas limits
+- `--gas-benchmark-values 0.5,1,10` runs the test with 0.5M, 1M, and 10M block gas limits
 - `--fixed-opcode-count 4,5` runs the test with approximately 4K and 5K opcode executions
 
 **Output layout with gas benchmark values:** When `--gas-benchmark-values` is provided and benchmark tests are filled, fixtures are written into per‑fork, per‑gas‑limit subdirectories under each format directory:

@@ -3,9 +3,10 @@
 import re
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import ClassVar, Dict, List, Self
+from typing import Annotated, ClassVar, Dict, List, Self
 
 import pytest
+from annotated_types import Gt
 from pydantic import BaseModel, Field, RootModel
 
 from execution_testing.test_types import Environment, EnvironmentDefaults
@@ -33,7 +34,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=None,
         help=(
             "Gas limits (in millions) for benchmark tests. "
-            "Example: '100,500' runs tests with 100M and 500M gas. "
+            "Example: '0.5,1,10' runs tests with 0.5M, 1M and 10M gas. "
             "Benchmark outputs are grouped under "
             f"{FORK_SUBDIR_PREFIX}{{fork}}"
             f"{SUBFOLDER_LEVEL_SEPARATOR}XXXXM/ subdirectories. "
@@ -174,7 +175,7 @@ class BenchmarkParametrizer(ABC):
 class GasBenchmarkValues(RootModel, BenchmarkParametrizer):
     """Gas benchmark values configuration object."""
 
-    root: List[int]
+    root: List[Annotated[float, Gt(0)]]
 
     flag: ClassVar[str] = "--gas-benchmark-values"
     config_field: ClassVar[str] = "_gas_benchmark_values_config"
@@ -191,8 +192,8 @@ class GasBenchmarkValues(RootModel, BenchmarkParametrizer):
         """Get benchmark values. All tests have the same list."""
         return [
             pytest.param(
-                gas_value * 1_000_000,
-                id=f"benchmark-gas-value_{gas_value}M",
+                int(gas_value * 1_000_000),
+                id=f"benchmark-gas-value_{gas_value:g}M",
                 marks=[
                     pytest.mark.fixture_subfolder(
                         level=1,

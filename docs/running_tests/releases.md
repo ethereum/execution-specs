@@ -52,8 +52,8 @@ follow the same layout.
 
 When filling with `--gas-benchmark-values`, benchmark tests additionally
 include the gas limit in the subdirectory name (`for_{fork}_at_{gas}M`,
-where `{gas}` is in millions, zero-padded to four digits), with one
-subdirectory per gas value:
+where `{gas}` is in millions, zero-padded to at least four digits), with
+one subdirectory per gas value:
 
 ```text
 fixtures/

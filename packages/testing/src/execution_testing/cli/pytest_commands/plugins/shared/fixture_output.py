@@ -315,12 +315,14 @@ SUBFOLDER_LEVEL_SEPARATOR = "_at_"
 
 
 def format_gas_limit_prefix(
-    gas_value_millions: int, all_values_millions: list[int]
+    gas_value_millions: float, all_values_millions: list[float]
 ) -> str:
     """Return a stable, sortable gas-limit prefix for a fixture subfolder."""
     max_value = max(all_values_millions) if all_values_millions else 0
-    width = max(4, len(str(max_value)))
-    return f"{gas_value_millions:0{width}d}M"
+    width = max(4, len(str(int(max_value))))
+    if gas_value_millions == int(gas_value_millions):
+        return f"{int(gas_value_millions):0{width}d}M"
+    return f"{gas_value_millions:0{width + 2}.1f}M"
 
 
 def format_fork_subdir(

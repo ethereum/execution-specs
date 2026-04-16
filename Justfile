@@ -219,7 +219,7 @@ bench-gas *args:
     @mkdir -p "{{ output_dir }}/bench-gas/tmp" "{{ output_dir }}/bench-gas/logs"
     uv run fill \
         --evm-bin="{{ evm_bin }}" \
-        --gas-benchmark-values 1 \
+        --gas-benchmark-values 0.5 \
         --generate-pre-alloc-groups \
         --fork Osaka \
         -m "not slow" \
