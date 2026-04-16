@@ -488,6 +488,8 @@ def check_transaction(
     block_output: vm.BlockOutput,
     tx: Transaction,
     tx_state: TransactionState,
+    intrinsic_regular_gas: Uint,
+    intrinsic_state_gas: Uint,
 ) -> Tuple[Address, Uint, Tuple[VersionedHash, ...], U64]:
     """
     Check if the transaction is includable in the block.
@@ -502,6 +504,10 @@ def check_transaction(
         The transaction.
     tx_state :
         The transaction state tracker.
+    intrinsic_regular_gas :
+        The transaction's intrinsic regular gas.
+    intrinsic_state_gas :
+        The transaction's intrinsic state gas.
 
     Returns
     -------
@@ -549,16 +555,24 @@ def check_transaction(
         is empty.
 
     """
-    # Regular gas is capped at TX_MAX_GAS_LIMIT per EIP-7825.
-    # State gas is not checked per-tx; block-end validation enforces
-    # max(block_regular_gas_used, block_state_gas_used) <= gas_limit.
+    # Both regular and state gas are validated before execution.
     regular_gas_available = (
         block_env.block_gas_limit - block_output.block_gas_used
     )
+    state_gas_available = (
+        block_env.block_gas_limit - block_output.block_state_gas_used
+    )
     blob_gas_available = MAX_BLOB_GAS_PER_BLOCK - block_output.blob_gas_used
 
-    if min(TX_MAX_GAS_LIMIT, tx.gas) > regular_gas_available:
-        raise GasUsedExceedsLimitError("regular gas used exceeds limit")
+    regular_gas_contribution = min(
+        TX_MAX_GAS_LIMIT, tx.gas - intrinsic_state_gas
+    )
+    if regular_gas_contribution > regular_gas_available:
+        raise GasUsedExceedsLimitError("regular gas exceeds limit")
+
+    state_gas_contribution = tx.gas - intrinsic_regular_gas
+    if state_gas_contribution > state_gas_available:
+        raise GasUsedExceedsLimitError("state gas exceeds limit")
 
     tx_blob_gas_used = calculate_total_blob_gas(tx)
     if tx_blob_gas_used > blob_gas_available:
@@ -991,6 +1005,8 @@ def process_transaction(
         block_output=block_output,
         tx=tx,
         tx_state=tx_state,
+        intrinsic_regular_gas=intrinsic.regular,
+        intrinsic_state_gas=intrinsic.state,
     )
 
     sender_account = get_account(tx_state, sender)
