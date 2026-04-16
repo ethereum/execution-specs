@@ -1118,7 +1118,7 @@ def test_benchmark_default_uses_gas_benchmark_mode(
     [
         pytest.param(
             "--gas-benchmark-values",
-            "1",
+            "0.5",
             id="gas-benchmark-values",
         ),
         pytest.param(
@@ -1253,7 +1253,7 @@ def test_execute_benchmark_default_collects_without_flags(
     [
         pytest.param(
             "--gas-benchmark-values",
-            "1",
+            "0.5",
             id="gas-benchmark-values",
         ),
         pytest.param(

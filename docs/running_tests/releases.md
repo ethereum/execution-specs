@@ -52,15 +52,16 @@ follow the same layout.
 
 When filling with `--gas-benchmark-values`, benchmark tests additionally
 include the gas limit in the subdirectory name (`for_{fork}_at_{gas}M`,
-where `{gas}` is in millions, zero-padded to four digits), with one
+where `{gas}` is in millions and the integer part is zero-padded to four
+digits), with one
 subdirectory per gas value:
 
 ```text
 fixtures/
 └── blockchain_tests/
-    ├── for_osaka_at_0001M/           # 1M gas benchmark
+    ├── for_osaka_at_0000.5M/         # 0.5M gas benchmark
     │   └── benchmark/compute/...
-    └── for_osaka_at_0002M/           # 2M gas benchmark
+    └── for_osaka_at_0001.0M/         # 1M gas benchmark
         └── benchmark/compute/...
 ```
 

@@ -2,6 +2,7 @@
 
 import re
 from abc import ABC, abstractmethod
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import ClassVar, Dict, List, Self
 
@@ -19,6 +20,8 @@ from .fixture_output import (
     format_gas_limit_prefix,
 )
 
+GAS_PER_MEGAGAS = Decimal("1000000")
+
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Add command line options for benchmark tests."""
@@ -33,7 +36,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=None,
         help=(
             "Gas limits (in millions) for benchmark tests. "
-            "Example: '100,500' runs tests with 100M and 500M gas. "
+            "Example: '0.5,1,2' runs tests with 0.5M, 1M, and 2M gas. "
             "Benchmark outputs are grouped under "
             f"{FORK_SUBDIR_PREFIX}{{fork}}"
             f"{SUBFOLDER_LEVEL_SEPARATOR}XXXXM/ subdirectories. "
@@ -185,14 +188,18 @@ class GasBenchmarkValues(RootModel, BenchmarkParametrizer):
         cls, _config: pytest.Config, value: str
     ) -> Self | None:
         """Given the parameter value and config, return the expected object."""
-        return cls.model_validate(value.split(","))
+        gas_values = []
+        for raw_value in value.split(","):
+            gas_values.append(_parse_gas_limit_millions(raw_value))
+
+        return cls.model_validate(gas_values)
 
     def get_test_parameters(self, _test_name: str) -> list[ParameterSet]:
         """Get benchmark values. All tests have the same list."""
         return [
             pytest.param(
-                gas_value * 1_000_000,
-                id=f"benchmark-gas-value_{gas_value}M",
+                gas_value,
+                id=f"benchmark-gas-value_{format_gas_limit_label(gas_value)}M",
                 marks=[
                     pytest.mark.fixture_subfolder(
                         level=1,
@@ -202,6 +209,47 @@ class GasBenchmarkValues(RootModel, BenchmarkParametrizer):
             )
             for gas_value in self.root
         ]
+
+
+def _parse_gas_limit_millions(value: str) -> int:
+    """Parse a gas benchmark value expressed in millions into gas units."""
+    stripped = value.strip()
+    if stripped == "":
+        raise pytest.UsageError(
+            "Invalid value for --gas-benchmark-values: empty entry found. "
+            "Expected comma-separated positive numbers such as '0.5,1,2'."
+        )
+
+    try:
+        gas_limit_millions = Decimal(stripped)
+    except InvalidOperation as exc:
+        raise pytest.UsageError(
+            f"Invalid value for --gas-benchmark-values: '{value}'. "
+            "Expected comma-separated positive numbers such as '0.5,1,2'."
+        ) from exc
+
+    if not gas_limit_millions.is_finite() or gas_limit_millions <= 0:
+        raise pytest.UsageError(
+            f"Invalid value for --gas-benchmark-values: '{value}'. "
+            "Each gas benchmark value must be a positive number."
+        )
+
+    gas_limit = gas_limit_millions * GAS_PER_MEGAGAS
+    if gas_limit != gas_limit.to_integral_value():
+        raise pytest.UsageError(
+            f"Invalid value for --gas-benchmark-values: '{value}'. "
+            "Each gas benchmark value must resolve to a whole number of gas "
+            "units after multiplying by 1_000_000."
+        )
+
+    return int(gas_limit)
+
+
+def format_gas_limit_label(gas_limit: int) -> str:
+    """Format a gas benchmark value as a human-readable Mgas label."""
+    return format(Decimal(gas_limit) / GAS_PER_MEGAGAS, "f").rstrip(
+        "0"
+    ).rstrip(".")
 
 
 class OpcodeCountsConfig(BaseModel, BenchmarkParametrizer):

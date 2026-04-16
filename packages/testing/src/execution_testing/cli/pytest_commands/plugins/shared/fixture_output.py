@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import tarfile
 import warnings
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -312,15 +313,42 @@ class FixtureOutput(BaseModel):
 
 FORK_SUBDIR_PREFIX = "for_"
 SUBFOLDER_LEVEL_SEPARATOR = "_at_"
+GAS_PER_MEGAGAS = Decimal("1000000")
 
 
 def format_gas_limit_prefix(
-    gas_value_millions: int, all_values_millions: list[int]
+    gas_value: int, all_values: list[int]
 ) -> str:
     """Return a stable, sortable gas-limit prefix for a fixture subfolder."""
-    max_value = max(all_values_millions) if all_values_millions else 0
-    width = max(4, len(str(max_value)))
-    return f"{gas_value_millions:0{width}d}M"
+    width = max(
+        4,
+        max(
+            len(_split_gas_limit_millions(value)[0])
+            for value in (all_values or [gas_value])
+        ),
+    )
+    precision = max(
+        _split_gas_limit_millions(value)[1]
+        for value in (all_values or [gas_value])
+    )
+    mgas = Decimal(gas_value) / GAS_PER_MEGAGAS
+    if precision == 0:
+        return f"{int(mgas):0{width}d}M"
+
+    formatted = format(mgas, f".{precision}f")
+    integer_part, fractional_part = formatted.split(".")
+    return f"{int(integer_part):0{width}d}.{fractional_part}M"
+
+
+def _split_gas_limit_millions(gas_value: int) -> tuple[str, int]:
+    """Return the integer part width and fractional precision in Mgas."""
+    formatted = format(Decimal(gas_value) / GAS_PER_MEGAGAS, "f")
+    trimmed = formatted.rstrip("0").rstrip(".")
+    if "." not in trimmed:
+        return trimmed, 0
+
+    integer_part, fractional_part = trimmed.split(".")
+    return integer_part, len(fractional_part)
 
 
 def format_fork_subdir(

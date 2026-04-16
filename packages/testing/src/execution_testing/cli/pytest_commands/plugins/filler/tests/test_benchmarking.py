@@ -10,11 +10,14 @@ from unittest.mock import MagicMock
 import pytest
 
 from execution_testing.cli.pytest_commands.plugins.shared.benchmarking import (
+    GasBenchmarkValues,
     OpcodeCountsConfig,
+    format_gas_limit_label,
 )
 from execution_testing.cli.pytest_commands.plugins.shared.fixture_output import (  # noqa: E501
     FORK_SUBDIR_PREFIX,
     SUBFOLDER_LEVEL_SEPARATOR,
+    format_gas_limit_prefix,
     format_fork_subdir,
 )
 
@@ -186,7 +189,7 @@ def test_benchmarking_mode_configured_with_option(
         "--fork",
         "Prague",
         "--gas-benchmark-values",
-        "10,20,30",
+        "0.5,1,2",
         "tests/benchmark/dummy_test_module/",
         "--collect-only",
         "-q",
@@ -195,9 +198,74 @@ def test_benchmarking_mode_configured_with_option(
     assert result.ret == 0
     assert any("6 tests collected" in line for line in result.outlines)
     # Check that the test names include the benchmark gas values
-    assert any("benchmark-gas-value_10M" in line for line in result.outlines)
-    assert any("benchmark-gas-value_20M" in line for line in result.outlines)
-    assert any("benchmark-gas-value_30M" in line for line in result.outlines)
+    assert any("benchmark-gas-value_0.5M" in line for line in result.outlines)
+    assert any("benchmark-gas-value_1M" in line for line in result.outlines)
+    assert any("benchmark-gas-value_2M" in line for line in result.outlines)
+
+
+@pytest.mark.parametrize(
+    "cli_input,expected_gas_values,expected_ids",
+    [
+        pytest.param(
+            "0.5",
+            [500_000],
+            ["benchmark-gas-value_0.5M"],
+            id="single_fractional",
+        ),
+        pytest.param(
+            "0.5,1,2",
+            [500_000, 1_000_000, 2_000_000],
+            [
+                "benchmark-gas-value_0.5M",
+                "benchmark-gas-value_1M",
+                "benchmark-gas-value_2M",
+            ],
+            id="mixed_fractional_and_integer",
+        ),
+        pytest.param(
+            "1.25",
+            [1_250_000],
+            ["benchmark-gas-value_1.25M"],
+            id="fractional_precision",
+        ),
+    ],
+)
+def test_gas_benchmark_values_valid_input(
+    cli_input: str,
+    expected_gas_values: list[int],
+    expected_ids: list[str],
+) -> None:
+    """Valid decimal Mgas inputs are converted into integer gas budgets."""
+    mock_config = MagicMock()
+
+    result = GasBenchmarkValues.from_parameter_value(mock_config, cli_input)
+    assert result is not None
+    assert result.root == expected_gas_values
+
+    params = result.get_test_parameters("test_benchmark")
+    assert [param.values[0] for param in params] == expected_gas_values
+    assert [param.id for param in params] == expected_ids
+
+
+@pytest.mark.parametrize("cli_input", ["", "0", "-1", "abc", "0.0000001"])
+def test_gas_benchmark_values_invalid_input(cli_input: str) -> None:
+    """Invalid decimal Mgas inputs raise a usage error."""
+    mock_config = MagicMock()
+
+    with pytest.raises(pytest.UsageError):
+        GasBenchmarkValues.from_parameter_value(mock_config, cli_input)
+
+
+def test_gas_benchmark_value_formatting() -> None:
+    """Format decimal gas benchmark labels and subdirectories consistently."""
+    gas_values = [500_000, 1_000_000, 1_250_000]
+
+    assert format_gas_limit_label(500_000) == "0.5"
+    assert format_gas_limit_label(1_000_000) == "1"
+    assert format_gas_limit_label(1_250_000) == "1.25"
+    assert format_gas_limit_prefix(500_000, gas_values) == "0000.50M"
+    assert format_gas_limit_prefix(1_000_000, gas_values) == "0001.00M"
+    assert format_gas_limit_prefix(1_250_000, gas_values) == "0001.25M"
 
 
 def test_benchmark_gas_values_split_into_subdirs(
@@ -301,6 +369,62 @@ def test_benchmark_gas_values_split_into_subdirs(
     )
 
 
+def test_fractional_benchmark_gas_values_split_into_subdirs(
+    pytester: pytest.Pytester, tmp_path: Path
+) -> None:
+    """Ensure fractional Mgas outputs use distinct sortable directories."""
+    setup_test_directory_structure(
+        pytester, test_module_dummy, "test_dummy_benchmark.py"
+    )
+
+    output_dir = tmp_path / "fixtures"
+    result = pytester.runpytest(
+        "-c",
+        "pytest-fill.ini",
+        "--fork",
+        "Prague",
+        "--gas-benchmark-values",
+        "0.5,1",
+        "-m",
+        "blockchain_test and not derived_test",
+        "--no-html",
+        "--skip-index",
+        f"--output={output_dir}",
+        "tests/benchmark/dummy_test_module/",
+        "-q",
+    )
+
+    assert result.ret == 0, f"Fill command failed:\n{result.outlines}"
+
+    gas_half_subdir = format_fork_subdir("Prague", "0000.5M")
+    gas_one_subdir = format_fork_subdir("Prague", "0001.0M")
+    gas_half_dir = output_dir / "blockchain_tests" / gas_half_subdir
+    gas_one_dir = output_dir / "blockchain_tests" / gas_one_subdir
+    assert gas_half_dir.exists()
+    assert gas_one_dir.exists()
+
+    gas_half_files = list(gas_half_dir.rglob("*.json"))
+    gas_one_files = list(gas_one_dir.rglob("*.json"))
+    assert gas_half_files, f"Expected fixtures under {gas_half_subdir}"
+    assert gas_one_files, f"Expected fixtures under {gas_one_subdir}"
+
+    for file_path in gas_half_files:
+        data = json.loads(file_path.read_text())
+        for key in data:
+            assert "benchmark-gas-value_0.5M" in key, (
+                f"Expected benchmark-gas-value_0.5M in key {key} "
+                f"({file_path})"
+            )
+
+    for file_path in gas_one_files:
+        data = json.loads(file_path.read_text())
+        for key in data:
+            assert "benchmark-gas-value_1M" in key, (
+                f"Expected benchmark-gas-value_1M in key {key} "
+                f"({file_path})"
+            )
+
+
 def test_fixed_opcode_count_split_into_subdirs(
     pytester: pytest.Pytester, tmp_path: Path
 ) -> None:
@@ -382,13 +506,13 @@ def test_benchmarking_mode_not_configured_without_option(
     # Should generate normal test variants (2) without parametrization
     assert any("2 tests collected" in line for line in result.outlines)
     assert not any(
-        "benchmark-gas-value_10M" in line for line in result.outlines
+        "benchmark-gas-value_0.5M" in line for line in result.outlines
     )
     assert not any(
-        "benchmark-gas-value_20M" in line for line in result.outlines
+        "benchmark-gas-value_1M" in line for line in result.outlines
     )
     assert not any(
-        "benchmark-gas-value_30M" in line for line in result.outlines
+        "benchmark-gas-value_2M" in line for line in result.outlines
     )
 
 

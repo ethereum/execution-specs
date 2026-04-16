@@ -62,7 +62,7 @@ This mode is primarily used for gas repricing analysis, where it enables:
 ### Worst-Case Mode
 
 In worst-case mode, users specify a target block gas limit instead of an opcode count.
-By providing `--gas-benchmark-values N` (where N denotes the gas limit in millions), the benchmark construction process packs each block with as many instances as possible of the selected operation.
+By providing `--gas-benchmark-values N` (where N denotes the gas limit in millions), the benchmark construction process packs each block with as many instances as possible of the selected operation. Fractional Mgas values such as `0.5` are also supported.
 
 This mode is designed for gas limit testing, and gas repricing, where it enables:
 
@@ -71,6 +71,7 @@ This mode is designed for gas limit testing, and gas repricing, where it enables
 
 **Note:** For both benchmark modes, users may supply multiple values in a single invocation. For example:
 
+- `--gas-benchmark-values 0.5,1,2` runs the test with 0.5M, 1M, and 2M block gas limits
 - `--gas-benchmark-values 1,2,3` runs the test with 1M, 2M, and 3M block gas limits
 - `--fixed-opcode-count 4,5` runs the test with approximately 4K and 5K opcode executions
 
@@ -79,18 +80,18 @@ This mode is designed for gas limit testing, and gas repricing, where it enables
 ```text
 <output>/
   blockchain_tests/
-    for_osaka_at_0001M/...
-    for_osaka_at_0002M/...
+    for_osaka_at_0000.5M/...
+    for_osaka_at_0001.0M/...
   blockchain_tests_engine/
-    for_osaka_at_0001M/...
-    for_osaka_at_0002M/...
+    for_osaka_at_0000.5M/...
+    for_osaka_at_0001.0M/...
   blockchain_tests_engine_x/
     pre_alloc/...
-    for_osaka_at_0001M/...
-    for_osaka_at_0002M/...
+    for_osaka_at_0000.5M/...
+    for_osaka_at_0001.0M/...
 ```
 
-The subdirectory name follows the pattern `for_{fork}_at_{gas}M` (see [Fixture Output Directory Structure](../running_tests/releases.md#fixture-output-directory-structure) for details). Non-benchmark (consensus) fixtures use `for_{fork}` without the gas limit suffix.
+The subdirectory name follows the pattern `for_{fork}_at_{gas}M` (see [Fixture Output Directory Structure](../running_tests/releases.md#fixture-output-directory-structure) for details). Integer-only inputs keep the existing `0001M` style; fractional inputs add a decimal suffix while keeping the integer part zero-padded for sorting. Non-benchmark (consensus) fixtures use `for_{fork}` without the gas limit suffix.
 
 **Output layout with fixed opcode counts:** When `--fixed-opcode-count` is provided, the subdirectory name uses the opcode count instead of the gas limit (`for_{fork}_at_opcount_{N}K`):
 
@@ -123,7 +124,7 @@ def test_benchmark(
     ...
 ```
 
-For example, running the test with `--gas-benchmark-values 1,10,45,60`. will execute the test 4 times, passing `gas_benchmark_value` as 1M, 10M, 45M, and 60M respectively.
+For example, running the test with `--gas-benchmark-values 0.5,1,10,45`. will execute the test 4 times, passing `gas_benchmark_value` as 500k, 1M, 10M, and 45M gas respectively.
 
 Never configure the transaction / block gas limit to `env.gas_limit`. When running in benchmark mode, the test framework sets this value to a very large number (e.g., `1_000_000_000_000`), this setup allows the framework to reuse a single genesis file for all specified gas limits. I.e., the example below should be avoided:
 
