@@ -14,6 +14,7 @@ def _log(msg: str) -> None:
 
 def pytest_configure(config) -> None:
     """Monkey-patch pytest-split's algorithm to add diagnostics."""
+    del config
     from pytest_split import algorithms
 
     original_get = algorithms._get_items_with_durations
@@ -21,9 +22,11 @@ def pytest_configure(config) -> None:
     def patched_get(items, durations):
         filtered = algorithms._remove_irrelevant_durations(items, durations)
         avg = algorithms._get_avg_duration_per_test(filtered)
-        _log(f"_get_items_with_durations: items={len(items)} "
-             f"input_durations={len(durations)} "
-             f"filtered={len(filtered)} avg={avg:.4f}")
+        _log(
+            f"_get_items_with_durations: items={len(items)} "
+            f"input_durations={len(durations)} "
+            f"filtered={len(filtered)} avg={avg:.4f}"
+        )
         if len(filtered) == 0 and len(durations) > 0 and len(items) > 0:
             _log("ZERO FILTERED - nodeids don't match cached durations!")
             for i in range(min(3, len(items))):

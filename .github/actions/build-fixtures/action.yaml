@@ -47,10 +47,6 @@ runs:
       if: inputs.split_label != ''
       shell: bash
       run: uv run python .github/scripts/diagnose_durations.py
-    - name: Install split debug conftest
-      if: inputs.split_label != ''
-      shell: bash
-      run: cp .github/scripts/split_debug_plugin.py tests/conftest.py
     - name: Generate fixtures using fill
       shell: bash
       run: |
@@ -58,7 +54,7 @@ runs:
 
         if [ -n "$IS_SPLIT" ]; then
           OUTPUT_ARG="--output=fixtures_${{ inputs.release_name }}"
-          SPLIT_ARGS="--splitting-algorithm=least_duration --generate-all-formats --splits=${{ inputs.splits }} --group=${{ inputs.group }} --single-fixture-per-file"
+          SPLIT_ARGS="--grouped-split --generate-all-formats --splits=${{ inputs.splits }} --group=${{ inputs.group }} --single-fixture-per-file"
         else
           OUTPUT_ARG="--output=fixtures_${{ inputs.release_name }}.tar.gz"
           SPLIT_ARGS=""
