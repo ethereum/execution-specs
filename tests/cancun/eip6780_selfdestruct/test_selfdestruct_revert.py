@@ -429,7 +429,7 @@ def test_selfdestruct_created_in_same_tx_with_revert(  # noqa SC200
         post[selfdestruct_recipient_address] = Account.NONEXISTENT  # type: ignore
 
     gas_limit = 500_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 5_000_000
     tx = Transaction(
         value=0,
@@ -597,7 +597,7 @@ def test_selfdestruct_not_created_in_same_tx_with_revert(
         post[selfdestruct_recipient_address] = Account.NONEXISTENT  # type: ignore
 
     gas_limit = 500_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 5_000_000
     tx = Transaction(
         value=0,

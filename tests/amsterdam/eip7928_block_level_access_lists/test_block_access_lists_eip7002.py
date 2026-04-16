@@ -198,7 +198,7 @@ def test_bal_7002_clean_sweep(
     )
 
     gas_limit = 200_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 500_000
 
     # Transaction to system contract
@@ -301,7 +301,7 @@ def test_bal_7002_partial_sweep(
     senders = [pre.fund_eoa() for _ in range(num_requests)]
 
     gas_limit = 200_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 500_000
 
     # Block 1: 20 withdrawal requests
@@ -482,7 +482,7 @@ def test_bal_7002_no_withdrawal_requests(
     value = 10
 
     gas_limit = 200_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 500_000
 
     tx = Transaction(

@@ -263,8 +263,7 @@ def test_create_oog_from_eoa_refunds(
     """
     helpers = deploy_helper_contracts(pre)
     extra_gas = (
-        fork.is_eip_enabled(eip_number=8037)
-        and oog_scenario == OogScenario.NO_OOG
+        fork.is_eip_enabled(8037) and oog_scenario == OogScenario.NO_OOG
     )
     sender = pre.fund_eoa(amount=500_000_000 if extra_gas else 4_000_000)
     init_code = build_init_code(refund_type, oog_scenario, helpers)

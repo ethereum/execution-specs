@@ -298,7 +298,7 @@ def test_set_code_to_sstore_then_sload(
     set_code_2_address = pre.deploy_contract(set_code_2)
 
     gas_limit = 100_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 500_000  # TODO: auto gas limit will remove this
     tx_1 = Transaction(
         gas_limit=gas_limit,
@@ -394,7 +394,7 @@ def test_set_code_to_tstore_reentry(
     set_code_to_address = pre.deploy_contract(set_code)
 
     gas_limit = 100_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 500_000  # TODO: auto gas limit will remove this
     tx = Transaction(
         gas_limit=gas_limit,
@@ -471,7 +471,7 @@ def test_set_code_to_tstore_available_at_correct_address(
     target_call_chain_address = pre.deploy_contract(chain_code)
 
     gas_limit = 100_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 500_000  # TODO: auto gas limit will remove this
     tx = Transaction(
         gas_limit=gas_limit,
@@ -695,7 +695,7 @@ def test_delegated_eoa_can_send_creating_tx(
     assert initcode_len == len(initcode)
 
     gas_limit = 200_000 + (Op.SSTORE(key_warm=False) * 7).gas_cost(fork)
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 10_000_000
     tx = Transaction(
         ty=tx_type,
@@ -2370,7 +2370,7 @@ def test_set_code_using_chain_specific_id(
     set_code_to_address = pre.deploy_contract(set_code)
 
     gas_limit = 100_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 500_000  # TODO: auto gas limit will remove this
     tx = Transaction(
         gas_limit=gas_limit,
@@ -2453,7 +2453,7 @@ def test_set_code_using_valid_synthetic_signatures(
     auth_signer = authorization_tuple.signer
 
     gas_limit = 100_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 500_000  # TODO: auto gas limit will remove this
     tx = Transaction(
         gas_limit=gas_limit,
@@ -2546,7 +2546,7 @@ def test_valid_tx_invalid_auth_signature(
     )
 
     gas_limit = 100_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 500_000  # TODO: auto gas limit will remove this
 
     tx = Transaction(
@@ -2603,7 +2603,7 @@ def test_signature_s_out_of_range(
     entry_address = pre.deploy_contract(entry_code)
 
     gas_limit = 100_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 500_000  # TODO: auto gas limit will remove this
 
     tx = Transaction(
@@ -2724,7 +2724,7 @@ def test_valid_tx_invalid_chain_id(
     entry_address = pre.deploy_contract(entry_code)
 
     gas_limit = 100_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 500_000  # TODO: auto gas limit will remove this
 
     tx = Transaction(
@@ -2819,7 +2819,7 @@ def test_nonce_validity(
     entry_address = pre.deploy_contract(entry_code)
 
     gas_limit = 100_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 500_000  # TODO: auto gas limit will remove this
 
     tx = Transaction(
@@ -2976,7 +2976,7 @@ def test_nonce_overflow_after_first_authorization(
     entry_address = pre.deploy_contract(entry_code)
 
     gas_limit = 200_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 500_000  # TODO: auto gas limit will remove this
 
     tx = Transaction(
@@ -3650,7 +3650,7 @@ def test_contract_create(
         signer=pre.fund_eoa(),
     )
     gas_limit = 100_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 500_000  # TODO: auto gas limit will remove this
     tx = Transaction(
         gas_limit=gas_limit,
@@ -3759,7 +3759,7 @@ def test_delegation_clearing(
     )
 
     gas_limit = 200_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 500_000  # TODO: auto gas limit will remove this
 
     tx = Transaction(
@@ -3900,7 +3900,7 @@ def test_delegation_clearing_and_set(
     sender = pre.fund_eoa()
 
     gas_limit = 200_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 500_000  # TODO: auto gas limit will remove this
 
     tx = Transaction(
@@ -3970,7 +3970,7 @@ def test_delegation_clearing_failing_tx(
     )
 
     gas_limit = 100_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 500_000  # TODO: auto gas limit will remove this
 
     tx = Transaction(
@@ -4026,7 +4026,7 @@ def test_deploying_delegation_designation_contract(
         )
 
     gas_limit = 100_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 500_000  # TODO: auto gas limit will remove this
 
     tx = Transaction(
@@ -4339,7 +4339,7 @@ def test_set_code_from_account_with_non_delegating_code(
     callee_address = pre.deploy_contract(Op.SSTORE(0, 1) + Op.STOP)
 
     gas_limit = 100_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 500_000  # TODO: auto gas limit will remove this
 
     tx = Transaction(

@@ -375,7 +375,7 @@ def test_create_selfdestruct_same_tx(
     entry_code += Op.RETURN(max(len(selfdestruct_contract_initcode), 32), 1)
 
     gas_limit = 500_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 5_000_000
     tx = Transaction(
         value=entry_code_balance,
@@ -525,7 +525,7 @@ def test_self_destructing_initcode(
         )
 
     gas_limit = 500_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 5_000_000
     tx = Transaction(
         value=entry_code_balance,
@@ -609,7 +609,7 @@ def test_self_destructing_initcode_create_tx(
       - Different transaction value amounts
     """
     gas_limit = 500_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 5_000_000
     tx = Transaction(
         sender=sender,
@@ -763,7 +763,7 @@ def test_recreate_self_destructed_contract_different_txs(
             sendall_recipient_addresses[i] = selfdestruct_contract_address
 
     gas_limit = 500_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 5_000_000
     txs: List[Transaction] = []
     for i in range(recreate_times + 1):
@@ -1015,7 +1015,7 @@ def test_selfdestruct_pre_existing(
     entry_code += Op.RETURN(32, 1)
 
     gas_limit = 500_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 5_000_000
     tx = Transaction(
         value=entry_code_balance,
@@ -1188,7 +1188,7 @@ def test_selfdestruct_created_same_block_different_tx(
         tx2_receipt = TransactionReceipt(logs=tx2_logs)
 
     gas_limit = 500_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 5_000_000
     txs = [
         Transaction(
@@ -1349,7 +1349,7 @@ def test_calling_from_new_contract_to_pre_existing_contract(
     }
 
     gas_limit = 500_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 5_000_000
     tx = Transaction(
         value=entry_code_balance,
@@ -1517,7 +1517,7 @@ def test_calling_from_pre_existing_contract_to_new_contract(
     entry_code += Op.RETURN(max(len(selfdestruct_contract_initcode), 32), 1)
 
     gas_limit = 500_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 5_000_000
     tx = Transaction(
         value=entry_code_balance,
@@ -1766,7 +1766,7 @@ def test_create_selfdestruct_same_tx_increased_nonce(
     entry_code += Op.RETURN(max(len(selfdestruct_contract_initcode), 32), 1)
 
     gas_limit = 1_000_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 5_000_000
     tx = Transaction(
         value=entry_code_balance,
@@ -1916,7 +1916,7 @@ def test_create_and_destroy_multiple_contracts_same_tx(
     entry_code += Op.RETURN(32, 1)
 
     gas_limit = 1_000_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 5_000_000
     tx = Transaction(
         value=0,

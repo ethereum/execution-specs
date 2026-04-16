@@ -90,7 +90,7 @@ def test_combinations(
     # 401 cold zero-to-nonzero SSTOREs (~17.1M at cpsb=1174).
     # TODO: auto gas limit will remove this
     gas_limit = 16_000_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 25_000_000
 
     tx = Transaction(
