@@ -16,6 +16,7 @@ from execution_testing.cli.pytest_commands.plugins.shared.fixture_output import 
     FORK_SUBDIR_PREFIX,
     SUBFOLDER_LEVEL_SEPARATOR,
     format_fork_subdir,
+    format_gas_limit_prefix,
 )
 
 # EVM binary for fill tests; defaults to geth evm
@@ -198,6 +199,33 @@ def test_benchmarking_mode_configured_with_option(
     assert any("benchmark-gas-value_10M" in line for line in result.outlines)
     assert any("benchmark-gas-value_20M" in line for line in result.outlines)
     assert any("benchmark-gas-value_30M" in line for line in result.outlines)
+
+
+def test_benchmarking_mode_with_float_gas_values(
+    pytester: pytest.Pytester,
+) -> None:
+    """Test that float --gas-benchmark-values are accepted and formatted."""
+    setup_test_directory_structure(
+        pytester, test_module_dummy, "test_dummy_benchmark.py"
+    )
+
+    result = pytester.runpytest(
+        "-c",
+        "pytest-fill.ini",
+        "--fork",
+        "Prague",
+        "--gas-benchmark-values",
+        "0.5,1.5,10",
+        "tests/benchmark/dummy_test_module/",
+        "--collect-only",
+        "-q",
+    )
+
+    assert result.ret == 0
+    assert any("6 tests collected" in line for line in result.outlines)
+    assert any("benchmark-gas-value_0.5M" in line for line in result.outlines)
+    assert any("benchmark-gas-value_1.5M" in line for line in result.outlines)
+    assert any("benchmark-gas-value_10M" in line for line in result.outlines)
 
 
 def test_benchmark_gas_values_split_into_subdirs(
@@ -1209,3 +1237,20 @@ def test_consensus_fixtures_split_by_fork(
             assert "fork_Prague" not in key, (
                 f"Unexpected fork_Prague in key {key} ({file_path})"
             )
+
+
+@pytest.mark.parametrize(
+    "values,expected",
+    [
+        ([1.0, 10.0, 60.0], ["0001M", "0010M", "0060M"]),
+        ([0.5, 1.0, 10.0], ["0000.5M", "0001.0M", "0010.0M"]),
+        ([0.25, 0.5, 1.0], ["0000.25M", "0000.50M", "0001.00M"]),
+    ],
+    ids=["integers", "mixed", "fractional"],
+)
+def test_format_gas_limit_prefix(
+    values: List[float], expected: List[str]
+) -> None:
+    """Test gas limit prefix formatting for int and float values."""
+    result = [format_gas_limit_prefix(v, values) for v in values]
+    assert result == expected

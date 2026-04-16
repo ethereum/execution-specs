@@ -319,10 +319,18 @@ def format_gas_limit_prefix(
 ) -> str:
     """Return a stable, sortable gas-limit prefix for a fixture subfolder."""
     max_value = max(all_values_millions) if all_values_millions else 0
-    width = max(4, len(str(int(max_value))))
-    if gas_value_millions == int(gas_value_millions):
-        return f"{int(gas_value_millions):0{width}d}M"
-    return f"{gas_value_millions:0{width + 2}.1f}M"
+    int_width = max(4, len(str(int(max_value))))
+    # Find max decimal places across all fractional values for
+    # consistent padding (ensures lexicographic sortability).
+    max_decimals = 0
+    for v in all_values_millions:
+        label = f"{v:g}"
+        if "." in label:
+            max_decimals = max(max_decimals, len(label.split(".")[1]))
+    if gas_value_millions == int(gas_value_millions) and max_decimals == 0:
+        return f"{int(gas_value_millions):0{int_width}d}M"
+    total_width = int_width + 1 + max_decimals  # digits + dot + decimals
+    return f"{gas_value_millions:0{total_width}.{max_decimals}f}M"
 
 
 def format_fork_subdir(
