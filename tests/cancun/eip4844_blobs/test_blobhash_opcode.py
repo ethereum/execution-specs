@@ -266,7 +266,7 @@ def test_blobhash_scenarios(
     sender = pre.fund_eoa()
 
     gas_limit = 500_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 5_000_000
 
     blocks: List[Block] = []
@@ -335,7 +335,7 @@ def test_blobhash_invalid_blob_index(
     sender = pre.fund_eoa()
 
     gas_limit = 500_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 5_000_000
 
     blocks: List[Block] = []
@@ -400,7 +400,7 @@ def test_blobhash_multiple_txs_in_block(
     sender = pre.fund_eoa()
 
     gas_limit = 500_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 5_000_000
 
     def blob_tx(address: Address, tx_type: int) -> Transaction:

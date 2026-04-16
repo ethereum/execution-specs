@@ -116,9 +116,7 @@ def test_all_opcodes(
 
     # EIP-8037 needs gas_limit > TX_MAX_GAS_LIMIT
     # (16,777,216) for a state_gas_reservoir for SSTORE/CREATE.
-    gas_limit = (
-        50_000_000 if fork.is_eip_enabled(eip_number=8037) else 9_000_000
-    )
+    gas_limit = 50_000_000 if fork.is_eip_enabled(8037) else 9_000_000
 
     tx = Transaction(
         sender=pre.fund_eoa(),

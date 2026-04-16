@@ -315,14 +315,14 @@ def test_bal_callcode_nested_value_transfer(
     bob = pre.fund_eoa(amount=0)
 
     call_gas = 0
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         call_gas = 500_000
     # TargetContract sends 100 wei to bob
     target_code = Op.CALL(call_gas, bob, 100, 0, 0, 0, 0)
     target_contract = pre.deploy_contract(code=target_code)
 
     callcode_gas = 50_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         callcode_gas = 500_000
     # Oracle contract that uses CALLCODE to execute TargetContract's code
     oracle_code = Op.CALLCODE(callcode_gas, target_contract, 100, 0, 0, 0, 0)
@@ -711,7 +711,7 @@ def test_bal_2930_slot_listed_and_unlisted_writes(
 
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     gas_buffer = 50_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_buffer = 500_000
     gas_limit = (
         intrinsic_gas_calculator(
@@ -2093,7 +2093,7 @@ def test_bal_create_transaction_empty_code(
     contract_address = compute_create_address(address=alice, nonce=0)
 
     gas_limit = 100_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 500_000
 
     tx = Transaction(
@@ -2326,7 +2326,7 @@ def test_bal_all_transaction_types(
     from tests.prague.eip7702_set_code_tx.spec import Spec as Spec7702
 
     gas_limit = 100_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 500_000
 
     # Create senders for each transaction type

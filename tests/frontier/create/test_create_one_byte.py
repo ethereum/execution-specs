@@ -49,7 +49,7 @@ def test_create_one_byte(
     expect_post = Storage()
 
     call_gas = 50_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         call_gas = 200_000
 
     # make a subcontract that deploys code, because deploy 0xef eats ALL gas
@@ -101,7 +101,7 @@ def test_create_one_byte(
 
     # Osaka (EIP-7825) caps transaction gas limit at 16,777,216.
     # Amsterdam (EIP-8037) adds state gas for CREATEs and SSTOREs.
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 60_000_000
     elif fork >= Osaka:
         gas_limit = 16_000_000

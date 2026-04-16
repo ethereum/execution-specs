@@ -64,7 +64,7 @@ def test_precompile_absence(
     # lifts the cap and increases SSTORE state gas, needing 30M for
     # ~498 cold zero-to-nonzero SSTOREs (~21.2M at cpsb=1174).
     gas_limit = 16_000_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 30_000_000
 
     tx = Transaction(

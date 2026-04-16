@@ -62,7 +62,7 @@ def test_extcodehash_self(
     code_address = pre.deploy_contract(code, storage=storage.canary())
 
     gas_limit = 400_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
@@ -112,7 +112,7 @@ def test_extcodehash_of_empty(
     code_address = pre.deploy_contract(code, storage=storage.canary())
 
     gas_limit = 400_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 1_000_000
     tx = Transaction(
         sender=(pre.fund_eoa()),
@@ -170,7 +170,7 @@ def test_extcodehash_empty_send_value(
     )
 
     gas_limit = 400_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
@@ -286,7 +286,7 @@ def test_extcodehash_empty_account_variants(
     )
 
     gas_limit = 400_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
@@ -365,7 +365,7 @@ def test_extcodehash_empty_contract_creation(
     storage[created_slot] = created_address
 
     gas_limit = 400_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
@@ -558,7 +558,7 @@ def test_extcodehash_dynamic_account_overwrite(
 
     sender = pre.fund_eoa()
     gas_limit = 400_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 1_000_000
 
     tx = Transaction(
@@ -613,7 +613,7 @@ def test_extcodehash_precompile(
     code_address = pre.deploy_contract(code, storage=storage.canary())
 
     gas_limit = 400_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
@@ -688,7 +688,7 @@ def test_extcodehash_new_account(
     storage[created_slot] = created_address
 
     gas_limit = 400_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
@@ -759,7 +759,7 @@ def test_extcodehash_via_call(
     code_address = pre.deploy_contract(code, storage=storage.canary())
 
     gas_limit = 400_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
@@ -867,7 +867,7 @@ def test_extcodehash_after_selfdestruct(
         storage[created_slot] = target_address
 
     gas_limit = 400_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
@@ -938,7 +938,7 @@ def test_extcodehash_changed_account(
     )
 
     gas_limit = 400_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
@@ -997,7 +997,7 @@ def test_extcodehash_max_code_size(
     code_address = pre.deploy_contract(code, storage=storage.canary())
 
     gas_limit = 400_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
@@ -1053,7 +1053,7 @@ def test_extcodehash_in_init_code(
     initcode = checks + Op.RETURN(0, 0)
 
     gas_limit = 400_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 1_000_000
 
     if create_opcode is None:
@@ -1139,7 +1139,7 @@ def test_extcodehash_self_in_init(
     initcode = checks + Op.RETURN(0, 0)
 
     gas_limit = 400_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 1_000_000
 
     if create_opcode is None:
@@ -1252,7 +1252,7 @@ def test_extcodehash_dynamic_argument(
     code_address = pre.deploy_contract(code, storage=storage.canary())
 
     gas_limit = 400_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
@@ -1301,7 +1301,7 @@ def test_extcodehash_call_to_nonexistent(
     code_address = pre.deploy_contract(code, storage=storage.canary())
 
     gas_limit = 400_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
@@ -1357,7 +1357,7 @@ def test_extcodehash_call_to_selfdestruct(
     code_address = pre.deploy_contract(code, storage=storage.canary())
 
     gas_limit = 400_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
@@ -1463,7 +1463,7 @@ def test_extcodehash_created_and_deleted(
     storage[created_slot] = created
 
     gas_limit = 400_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
@@ -1573,7 +1573,7 @@ def test_extcodehash_created_and_deleted_recheck_outer(
     outer = pre.deploy_contract(outer_code, storage=outer_storage.canary())
 
     gas_limit = 400_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
@@ -1691,7 +1691,7 @@ def test_extcodehash_subcall_selfdestruct(
         storage[created_slot] = a
 
     gas_limit = 500_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
@@ -1808,7 +1808,7 @@ def test_extcodehash_subcall_create2_oog(
         post[created] = Account(nonce=1, code=deploy_code)
 
     gas_limit = 500_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
@@ -1879,7 +1879,7 @@ def test_extcodecopy_zero_code(
     code_address = pre.deploy_contract(code, storage=storage.canary())
 
     gas_limit = 400_000
-    if fork.is_eip_enabled(eip_number=8037):
+    if fork.is_eip_enabled(8037):
         gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
