@@ -7,6 +7,7 @@ state_tests/stPreCompiledContracts2/modexp_0_0_0_35000Filler.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -76,7 +77,9 @@ def test_modexp_0_0_0_35000(
     contract_6 = Address(0x0000000000000000000000000000000000000007)
     contract_7 = Address(0x0000000000000000000000000000000000000004)
     contract_8 = Address(0x0000000000000000000000000000000000000002)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A761FE12, nonce=1)
+    sender = EOA(
+        key=0x44852B2A670ADE5407E78FB2863C51DE9FCB96542A07186FE3AEDA6BB8A116D
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -87,6 +90,7 @@ def test_modexp_0_0_0_35000(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A761FE12, nonce=1)
     # Source: hex
     # 0x
     coinbase = pre.deploy_contract(  # noqa: F841

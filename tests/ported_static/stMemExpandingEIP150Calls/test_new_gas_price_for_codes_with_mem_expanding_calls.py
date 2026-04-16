@@ -7,6 +7,7 @@ state_tests/stMemExpandingEIP150Calls/NewGasPriceForCodesWithMemExpandingCallsFi
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -34,7 +35,9 @@ def test_new_gas_price_for_codes_with_mem_expanding_calls(
 ) -> None:
     """Test_new_gas_price_for_codes_with_mem_expanding_calls."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xE8D4A5100000)
+    sender = EOA(
+        key=0x3956FC06BD55836ACDB92DA0E38A15F2E568C088022CF2278180477F3F7702A
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -45,6 +48,7 @@ def test_new_gas_price_for_codes_with_mem_expanding_calls(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xE8D4A5100000)
     # Source: hex
     # 0x1122334455667788991011121314151617181920212223242526272829303132
     addr = pre.deploy_contract(  # noqa: F841
@@ -53,12 +57,14 @@ def test_new_gas_price_for_codes_with_mem_expanding_calls(
         ),
         balance=111,
         nonce=0,
+        address=Address(0x6B6AF3C6E1714081C8C3085ACBAC8C2B21FADF0B),  # noqa: E501
     )
     # Source: hex
     # 0x6011606455
     addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x64, value=0x11),
         nonce=0,
+        address=Address(0x7B8C83E74CC8DFADB03138C2743C70588ACE4222),  # noqa: E501
     )
     # Source: hex
     # 0x73<contract:0x1000000000000000000000000000000000000010>3b60015560146000600073<contract:0x1000000000000000000000000000000000000010>3c60005160025560005460045560ff60ff60ff60ff600173<contract:0x1000000000000000000000000000000000000011>617530f160055560ff60ff60ff60ff600173<contract:0x1000000000000000000000000000000000000011>617530f260065560ff60ff60ff60ff73<contract:0x1000000000000000000000000000000000000011>617530f460075560ff60ff60ff60ff6000731000000000000000000000000000000000000013617530f160085573<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>316003555a600a55  # noqa: E501
@@ -118,6 +124,7 @@ def test_new_gas_price_for_codes_with_mem_expanding_calls(
         + Op.SSTORE(key=0xA, value=Op.GAS),
         storage={0: 18},
         nonce=0,
+        address=Address(0x23A2EC54F5F8589778DA7C2199CAF3B179A24CB9),  # noqa: E501
     )
 
     tx = Transaction(

@@ -7,6 +7,7 @@ state_tests/stEIP150Specific/NewGasPriceForCodesFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -32,7 +33,9 @@ def test_new_gas_price_for_codes(
 ) -> None:
     """Test_new_gas_price_for_codes."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xE8D4A51000)
+    sender = EOA(
+        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -43,6 +46,7 @@ def test_new_gas_price_for_codes(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: raw
     # 0x1122334455667788991011121314151617181920212223242526272829303132
     addr = pre.deploy_contract(  # noqa: F841
@@ -51,12 +55,14 @@ def test_new_gas_price_for_codes(
         ),
         balance=111,
         nonce=0,
+        address=Address(0xC572A70AFAAB9D01D0A2AFB855BFBAFB47C8211B),  # noqa: E501
     )
     # Source: lll
     # { (SSTORE 100 0x11) }
     addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x64, value=0x11) + Op.STOP,
         nonce=0,
+        address=Address(0xAD9D325B811CB0701839C07C6F139F3799476798),  # noqa: E501
     )
     # Source: lll
     # { [999] (GAS) (SSTORE 1 (EXTCODESIZE <contract:0x1000000000000000000000000000000000000010>)) (EXTCODECOPY <contract:0x1000000000000000000000000000000000000010> 0 0 20) (SSTORE 2 (MLOAD 0)) (SSTORE 4 (SLOAD 0)) (SSTORE 5 (CALL 30000 <contract:0x1000000000000000000000000000000000000011> 1 0 0 0 0)) (SSTORE 6 (CALLCODE 30000 <contract:0x1000000000000000000000000000000000000011> 1 0 0 0 0)) (SSTORE 7 (DELEGATECALL 30000 <contract:0x1000000000000000000000000000000000000011> 0 0 0 0)) (SSTORE 8 (CALL 30000 0x1000000000000000000000000000000000000013 0 0 0 0 0)) (SSTORE 3 (BALANCE <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>)) (SSTORE 10 (SUB (MLOAD 999) (GAS))) }  # noqa: E501
@@ -118,6 +124,7 @@ def test_new_gas_price_for_codes(
         + Op.STOP,
         storage={0: 18},
         nonce=0,
+        address=Address(0xFD9AFC8315A88141164E2A753157EA3E0F72C707),  # noqa: E501
     )
 
     tx = Transaction(

@@ -7,6 +7,7 @@ state_tests/VMTests/vmIOandFlowOperations/mstoreFiller.yml
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -82,7 +83,9 @@ def test_mstore(
     contract_3 = Address(0x0000000000000000000000000000000000001003)
     contract_4 = Address(0x0000000000000000000000000000000000001004)
     contract_5 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = pre.fund_eoa(amount=0x100000000000)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -93,6 +96,7 @@ def test_mstore(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0x100000000000)
     # Source: lll
     # {
     #      (mstore 1 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)  # noqa: E501

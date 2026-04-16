@@ -7,6 +7,7 @@ state_tests/stShift/shl_2^255-1_1Filler.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -32,7 +33,9 @@ def test_shl_2_255_minus_1_1(
 ) -> None:
     """Test_shl_2_255_minus_1_1."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    sender = EOA(
+        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -43,6 +46,7 @@ def test_shl_2_255_minus_1_1(
         gas_limit=1000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: raw
     # 0x7f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff60011b600055  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -56,6 +60,7 @@ def test_shl_2_255_minus_1_1(
         storage={0: 3},
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0x3CE647DC9F67841B40DF3DDD90FEF6FA3C44CCBC),  # noqa: E501
     )
 
     tx = Transaction(

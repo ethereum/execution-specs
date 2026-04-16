@@ -7,6 +7,7 @@ state_tests/stPreCompiledContracts2/ecrecoverShortBuffFiller.yml
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -33,7 +34,9 @@ def test_ecrecover_short_buff(
     """Test_ecrecover_short_buff."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000, nonce=1)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -44,6 +47,7 @@ def test_ecrecover_short_buff(
         gas_limit=71794957647893862,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
     # Source: yul
     # berlin
     # {
@@ -144,6 +148,7 @@ def test_ecrecover_short_buff(
             4249: 24743,
         },
         nonce=1,
+        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
 
     tx = Transaction(

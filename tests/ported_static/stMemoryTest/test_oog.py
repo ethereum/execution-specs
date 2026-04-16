@@ -619,13 +619,12 @@ def test_oog(
     # Source: yul
     # berlin
     # {
-    #    pop(callcode(gas(), 0x111f1, 0, 0x10000, 0, 0, 0))
+    #    pop(delegatecall(gas(), 0x111f1, 0x10000, 0, 0, 0))
     # }
-    contract_18 = pre.deploy_contract(  # noqa: F841
-        code=Op.CALLCODE(
+    contract_19 = pre.deploy_contract(  # noqa: F841
+        code=Op.DELEGATECALL(
             gas=Op.GAS,
             address=0x111F1,
-            value=Op.DUP2,
             args_offset=0x10000,
             args_size=Op.DUP1,
             ret_offset=Op.DUP1,
@@ -634,7 +633,7 @@ def test_oog(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address(0x00000000000000000000000000000000000100F2),  # noqa: E501
+        address=Address(0x00000000000000000000000000000000000100F4),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -659,12 +658,13 @@ def test_oog(
     # Source: yul
     # berlin
     # {
-    #    pop(delegatecall(gas(), 0x111f1, 0x10000, 0, 0, 0))
+    #    pop(callcode(gas(), 0x111f1, 0, 0x10000, 0, 0, 0))
     # }
-    contract_19 = pre.deploy_contract(  # noqa: F841
-        code=Op.DELEGATECALL(
+    contract_18 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALLCODE(
             gas=Op.GAS,
             address=0x111F1,
+            value=Op.DUP2,
             args_offset=0x10000,
             args_size=Op.DUP1,
             ret_offset=Op.DUP1,
@@ -673,7 +673,7 @@ def test_oog(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address(0x00000000000000000000000000000000000100F4),  # noqa: E501
+        address=Address(0x00000000000000000000000000000000000100F2),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

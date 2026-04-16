@@ -7,6 +7,7 @@ state_tests/stMemoryTest/callDataCopyOffsetFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -34,7 +35,9 @@ def test_call_data_copy_offset(
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE)
     contract_1 = Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -45,6 +48,7 @@ def test_call_data_copy_offset(
         gas_limit=1000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { (MSTORE 0x00 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) (CALLDATACOPY 0x00 0xffff  0x10) (SSTORE 0x00 (MLOAD 0x00)) }  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -57,6 +61,7 @@ def test_call_data_copy_offset(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=1,
+        address=Address(0xEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE),  # noqa: E501
     )
     # Source: yul
     # berlin { mstore(0, 0x0123456789abcdef) pop(call(0xffff,0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee,0, 0,0x0f, 0,0))  }  # noqa: E501
@@ -74,6 +79,7 @@ def test_call_data_copy_offset(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=1,
+        address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
 
     tx = Transaction(

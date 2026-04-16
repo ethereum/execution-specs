@@ -112,23 +112,6 @@ def test_static_callcodecallcallcode_101_2(
         address=Address(0x3F13B55C156D810BC161E971891180011E088E6F),  # noqa: E501
     )
     # Source: lll
-    # {  (CALLCODE 250000 <contract:0x1000000000000000000000000000000000000003> 1 0 64 0 64 ) }  # noqa: E501
-    addr_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.CALLCODE(
-            gas=0x3D090,
-            address=0x2A142C79A9B097C111CE945214226126B75E332C,
-            value=0x1,
-            args_offset=0x0,
-            args_size=0x40,
-            ret_offset=0x0,
-            ret_size=0x40,
-        )
-        + Op.STOP,
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x3CEA889FD03A922CC673D25E5DB4E72743AA4878),  # noqa: E501
-    )
-    # Source: lll
     # {  (CALLCODE 250000 <contract:0x1000000000000000000000000000000000000003> 0 0 64 0 64 ) }  # noqa: E501
     addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.CALLCODE(
@@ -144,6 +127,23 @@ def test_static_callcodecallcallcode_101_2(
         balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address(0x709EB538153D5F98F0B8482C462070C26DB1CBAE),  # noqa: E501
+    )
+    # Source: lll
+    # {  (CALLCODE 250000 <contract:0x1000000000000000000000000000000000000003> 1 0 64 0 64 ) }  # noqa: E501
+    addr_3 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALLCODE(
+            gas=0x3D090,
+            address=0x2A142C79A9B097C111CE945214226126B75E332C,
+            value=0x1,
+            args_offset=0x0,
+            args_size=0x40,
+            ret_offset=0x0,
+            ret_size=0x40,
+        )
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
+        nonce=0,
+        address=Address(0x3CEA889FD03A922CC673D25E5DB4E72743AA4878),  # noqa: E501
     )
 
     tx_data = [

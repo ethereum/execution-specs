@@ -297,13 +297,22 @@ def analyze(
         model, tags, addr_to_var, all_fork_names, imports
     )
 
-    # 11b. If post-state has unresolvable addresses (Address(0x...)),
+    # 11b. If post-state has unresolvable addresses — either as account
+    # references (Address(0x...)) or as address-like storage values
+    # (large ints > 2^32 that weren't resolved to variable names) —
     # disable dynamic for ALL accounts (including sender) so every
     # address stays fixed and CREATE-derived addresses match baseline.
+    _ADDR_LIKE_THRESHOLD = 0x100000000  # values above this are likely addresses
     has_unresolved = any(
         "Address(0x" in a.var_ref
         for entry in expect_entries
         for a in entry.result
+    ) or any(
+        isinstance(v, int) and v >= _ADDR_LIKE_THRESHOLD
+        for entry in expect_entries
+        for a in entry.result
+        if a.storage is not None
+        for v in a.storage.values()
     )
     if has_unresolved:
         for acct in accounts:

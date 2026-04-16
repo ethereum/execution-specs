@@ -7,6 +7,7 @@ state_tests/stSystemOperationsTest/TestNameRegistratorFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -32,7 +33,9 @@ def test_test_name_registrator(
 ) -> None:
     """Test_test_name_registrator."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    sender = EOA(
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -43,6 +46,7 @@ def test_test_name_registrator(
         gas_limit=1000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: raw
     # 0x6000355415600957005b60203560003555
     target = pre.deploy_contract(  # noqa: F841
@@ -57,6 +61,7 @@ def test_test_name_registrator(
         ),
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0xFD6034FF12FAD248C17CA3C09F0D7B19243275CD),  # noqa: E501
     )
 
     tx = Transaction(

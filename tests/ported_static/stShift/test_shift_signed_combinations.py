@@ -7,6 +7,7 @@ state_tests/stShift/shiftSignedCombinationsFiller.yml
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -33,7 +34,9 @@ def test_shift_signed_combinations(
 ) -> None:
     """Https://github."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    sender = EOA(
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -44,6 +47,7 @@ def test_shift_signed_combinations(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {
     #   (def 'sstore_n 0)
@@ -305,6 +309,7 @@ def test_shift_signed_combinations(
         + Op.STOP * 2,
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0x6C08B7236EE4784E5499B9A576902679D8F863D5),  # noqa: E501
     )
 
     tx = Transaction(

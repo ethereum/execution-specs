@@ -113,23 +113,6 @@ def test_static_callcallcodecall_010_2(
         address=Address(0xEF859513AE36C397C43170A2980741575916167B),  # noqa: E501
     )
     # Source: lll
-    # {  (CALLCODE 300000 <contract:0x1000000000000000000000000000000000000002> 2 0 64 0 64 ) }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.CALLCODE(
-            gas=0x493E0,
-            address=0xEF859513AE36C397C43170A2980741575916167B,
-            value=0x2,
-            args_offset=0x0,
-            args_size=0x40,
-            ret_offset=0x0,
-            ret_size=0x40,
-        )
-        + Op.STOP,
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x6B21D14FFAE42852FC3A6F98DA6275E551C07008),  # noqa: E501
-    )
-    # Source: lll
     # {  (CALLCODE 300000 <contract:0x1000000000000000000000000000000000000002> 0 0 64 0 64 ) }  # noqa: E501
     addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.CALLCODE(
@@ -145,6 +128,23 @@ def test_static_callcallcodecall_010_2(
         balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address(0xD450D1D19AEFB5A30DC4A483DB88E86C215C67A0),  # noqa: E501
+    )
+    # Source: lll
+    # {  (CALLCODE 300000 <contract:0x1000000000000000000000000000000000000002> 2 0 64 0 64 ) }  # noqa: E501
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.CALLCODE(
+            gas=0x493E0,
+            address=0xEF859513AE36C397C43170A2980741575916167B,
+            value=0x2,
+            args_offset=0x0,
+            args_size=0x40,
+            ret_offset=0x0,
+            ret_size=0x40,
+        )
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
+        nonce=0,
+        address=Address(0x6B21D14FFAE42852FC3A6F98DA6275E551C07008),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

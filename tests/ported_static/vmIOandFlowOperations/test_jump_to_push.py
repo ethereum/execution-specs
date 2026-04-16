@@ -1579,16 +1579,6 @@ def test_jump_to_push(
         address=Address(0x000000000000000000000000000000000000001A),  # noqa: E501
     )
     # Source: raw
-    # 0x6001600055601B56715B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
-    contract_50 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.JUMP(pc=0x1B)
-        + Op.PUSH18[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
-        + Op.JUMPDEST,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000012A),  # noqa: E501
-    )
-    # Source: raw
     # 0x6001600055601B56725B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
     contract_55 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=0x1)
@@ -1599,14 +1589,14 @@ def test_jump_to_push(
         address=Address(0x000000000000000000000000000000000000013C),  # noqa: E501
     )
     # Source: raw
-    # 0x6001600055601A56705B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
-    contract_47 = pre.deploy_contract(  # noqa: F841
+    # 0x6001600055601B56715B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+    contract_50 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.JUMP(pc=0x1A)
-        + Op.PUSH17[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
+        + Op.JUMP(pc=0x1B)
+        + Op.PUSH18[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
         + Op.JUMPDEST,
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000011A),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000012A),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055601A56715B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1617,6 +1607,16 @@ def test_jump_to_push(
         + Op.JUMPDEST,
         nonce=0,
         address=Address(0x000000000000000000000000000000000000012C),  # noqa: E501
+    )
+    # Source: raw
+    # 0x6001600055601A56705B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+    contract_47 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=0x1)
+        + Op.JUMP(pc=0x1A)
+        + Op.PUSH17[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
+        + Op.JUMPDEST,
+        nonce=0,
+        address=Address(0x000000000000000000000000000000000000011A),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

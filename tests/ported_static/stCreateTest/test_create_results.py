@@ -7,6 +7,7 @@ state_tests/stCreateTest/CreateResultsFiller.yml
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -204,7 +205,9 @@ def test_create_results(
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
     contract_1 = Address(0x00000000000000000000000000000000000060A7)
-    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -215,6 +218,7 @@ def test_create_results(
         gas_limit=4294967296,
     )
 
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
     # Source: lll
     # {
     #   ; Variables are 0x20 bytes (= 256 bits) apart, except for

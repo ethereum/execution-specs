@@ -7,6 +7,7 @@ state_tests/stSpecialTest/eoaEmptyParisFiller.yml
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -103,7 +104,9 @@ def test_eoa_empty_paris(
     contract_3 = Address(0x000000000000000000000000000000000000BAD4)
     contract_4 = Address(0x000000000000000000000000000000000000DEAD)
     contract_5 = Address(0x000000000000000000000000000000000000C0DE)
-    sender = pre.fund_eoa(amount=0x3B9ACA00)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -114,6 +117,7 @@ def test_eoa_empty_paris(
         gas_limit=89128960,
     )
 
+    pre[sender] = Account(balance=0x3B9ACA00)
     # Source: hex
     # 0x
     contract_0 = pre.deploy_contract(  # noqa: F841

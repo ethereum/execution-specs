@@ -11,6 +11,7 @@ state_tests/stEIP1559/senderBalanceFiller.yml
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -36,7 +37,9 @@ def test_sender_balance(
 ) -> None:
     """The execution records the EIP-1559 transaction origin balance to..."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    sender = EOA(
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -47,6 +50,7 @@ def test_sender_balance(
         gas_limit=30000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: yul
     # london
     # {
@@ -55,6 +59,7 @@ def test_sender_balance(
     target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.BALANCE(address=Op.CALLER)) + Op.STOP,
         nonce=0,
+        address=Address(0x420132F96200BA8E5C98298A85633C35C4F052EF),  # noqa: E501
     )
 
     tx = Transaction(

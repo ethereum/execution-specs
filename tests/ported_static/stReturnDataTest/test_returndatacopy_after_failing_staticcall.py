@@ -7,6 +7,7 @@ state_tests/stReturnDataTest/returndatacopy_after_failing_staticcallFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -34,7 +35,10 @@ def test_returndatacopy_after_failing_staticcall(
 ) -> None:
     """Test_returndatacopy_after_failing_staticcall."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0x6400000000)
+    addr = Address(0x905C744ACAF4D8F5436C9C5E91E0626D44ADD821)
+    sender = EOA(
+        key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -45,7 +49,8 @@ def test_returndatacopy_after_failing_staticcall(
         gas_limit=111669149696,
     )
 
-    addr = pre.fund_eoa(amount=0x100000)  # noqa: F841
+    pre[addr] = Account(balance=0x100000)
+    pre[sender] = Account(balance=0x6400000000)
     # Source: lll
     # { (MSTORE 0x0 (CALLER)) (RETURN 0 32) }
     addr_2 = pre.deploy_contract(  # noqa: F841
@@ -54,6 +59,7 @@ def test_returndatacopy_after_failing_staticcall(
         + Op.STOP,
         balance=0x6400000000,
         nonce=0,
+        address=Address(0x52FD0CBC013EE33577EEC035031DBC4489A1E0BD),  # noqa: E501
     )
     # Source: lll
     # { (STATICCALL 0 <contract:0x1000000000000000000000000000000000000002> 0 0 0 0) (RETURNDATACOPY 0x0 0x0 32) ( SSTORE 0 (MLOAD 0))}  # noqa: E501
@@ -75,6 +81,7 @@ def test_returndatacopy_after_failing_staticcall(
             0: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
         },
         nonce=0,
+        address=Address(0x7ACAE812141B61313BEA3D8B33B2F9C69F4E6720),  # noqa: E501
     )
 
     tx = Transaction(

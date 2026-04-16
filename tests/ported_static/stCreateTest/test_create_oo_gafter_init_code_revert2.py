@@ -7,6 +7,7 @@ state_tests/stCreateTest/CreateOOGafterInitCodeRevert2Filler.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -62,7 +63,9 @@ def test_create_oo_gafter_init_code_revert2(
     contract_1 = Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_2 = Address(0xD94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_3 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = pre.fund_eoa(amount=0xE8D4A51000)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -73,6 +76,7 @@ def test_create_oo_gafter_init_code_revert2(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # { (CALL (GAS) (CALLDATALOAD 0) 0 0 0 0 0) }
     contract_0 = pre.deploy_contract(  # noqa: F841

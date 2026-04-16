@@ -7,6 +7,7 @@ state_tests/stPreCompiledContracts2/CALLCODESha256_0Filler.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -32,7 +33,9 @@ def test_callcode_sha256_0(
 ) -> None:
     """Test_callcode_sha256_0."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    sender = EOA(
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -43,6 +46,7 @@ def test_callcode_sha256_0(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: hex
     # 0x600160005260206000602060006000600260fff2600051600055
     target = pre.deploy_contract(  # noqa: F841
@@ -59,6 +63,7 @@ def test_callcode_sha256_0(
         + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0)),
         balance=0x1312D00,
         nonce=0,
+        address=Address(0xFAC135CDECD64B72CDA12C2B4764E9D4E474DE3E),  # noqa: E501
     )
 
     tx = Transaction(

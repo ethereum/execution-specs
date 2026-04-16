@@ -7,6 +7,7 @@ state_tests/stTransactionTest/PointAtInfinityECRecoverFiller.yml
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -31,7 +32,9 @@ def test_point_at_infinity_ec_recover(
 ) -> None:
     """Test_point_at_infinity_ec_recover."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    sender = EOA(
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -42,6 +45,7 @@ def test_point_at_infinity_ec_recover(
         gas_limit=89128960,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: yul
     # berlin { mstore(0, 0x6b8d2c81b11b2d699528dde488dbdf2f94293d0d33c32e347f255fa4a6c1f0a9) mstore(32, 0x1b) mstore(64, 0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798) mstore(96, 0x6b8d2c81b11b2d699528dde488dbdf2f94293d0d33c32e347f255fa4a6c1f0a9) sstore(0, call(1000000, 1, 0, 0, 128, 0, 32)) sstore(1, mload(0)) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -50,6 +54,7 @@ def test_point_at_infinity_ec_recover(
         ),
         balance=0xFFFFFFFF,
         nonce=0,
+        address=Address(0xB9F36F1CB467544974BB7E0F5E1F0A499D4E6D7D),  # noqa: E501
     )
 
     tx = Transaction(

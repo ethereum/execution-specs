@@ -7,6 +7,7 @@ state_tests/stQuadraticComplexityTest/Create1000ShnghaiFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -61,7 +62,9 @@ def test_create1000_shnghai(
     """Test_create1000_shnghai."""
     coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_0 = Address(0xBBBF5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -72,6 +75,7 @@ def test_create1000_shnghai(
         gas_limit=8600000000,
     )
 
+    pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 1000) [i](+ @i 1) [[ 0 ]] (CREATE 1 0 10) ) [[ 1 ]] @i}  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -87,6 +91,7 @@ def test_create1000_shnghai(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
+        address=Address(0xBBBF5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

@@ -10,6 +10,7 @@ state_tests/stStaticCall/StaticcallToPrecompileFromTransactionFiller.yml
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -39,7 +40,9 @@ def test_staticcall_to_precompile_from_transaction(
     """STATICCALL to precompiled contracts from transaction code."""
     coinbase = Address(0xCAFE000000000000000000000000000000000001)
     contract_0 = Address(0xA000000000000000000000000000000000000000)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -50,6 +53,7 @@ def test_staticcall_to_precompile_from_transaction(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {
     #   ;; Recovery of ECDSA signature
@@ -330,6 +334,7 @@ def test_staticcall_to_precompile_from_transaction(
         + Op.SSTORE(key=0x20, value=Op.MLOAD(offset=0x3E8))
         + Op.STOP,
         nonce=0,
+        address=Address(0xA000000000000000000000000000000000000000),  # noqa: E501
     )
 
     tx = Transaction(

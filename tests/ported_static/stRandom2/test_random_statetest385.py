@@ -7,6 +7,7 @@ state_tests/stRandom2/randomStatetest385Filler.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -32,7 +33,9 @@ def test_random_statetest385(
 ) -> None:
     """Test_random_statetest385."""
     coinbase = Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    sender = EOA(
+        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -43,6 +46,7 @@ def test_random_statetest385(
         gas_limit=9223372036854775807,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: raw
     # 0x6000355415600957005b60203560003555
     coinbase = pre.deploy_contract(  # noqa: F841
@@ -72,6 +76,7 @@ def test_random_statetest385(
             key=Op.MLOAD(offset=0x0), value=0x785188182063156955631A7A85093A55
         ),
         nonce=0,
+        address=Address(0x72E025A11FDE515931BA4AF263005C4A19385A5B),  # noqa: E501
     )
 
     tx = Transaction(

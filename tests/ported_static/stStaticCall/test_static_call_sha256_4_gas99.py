@@ -7,6 +7,7 @@ state_tests/stStaticCall/static_CallSha256_4_gas99Filler.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -33,7 +34,9 @@ def test_static_call_sha256_4_gas99(
 ) -> None:
     """Test_static_call_sha256_4_gas99."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    sender = EOA(
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -44,6 +47,7 @@ def test_static_call_sha256_4_gas99(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { (MSTORE 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) [[ 2 ]] (STATICCALL 99 2 0 32 0 32) [[ 0 ]] (MLOAD 0)}  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -66,6 +70,7 @@ def test_static_call_sha256_4_gas99(
         + Op.STOP,
         balance=0x1312D00,
         nonce=0,
+        address=Address(0xEDA46FA30192C0AB5A8E9C2567FAF9A110CE6720),  # noqa: E501
     )
 
     tx = Transaction(

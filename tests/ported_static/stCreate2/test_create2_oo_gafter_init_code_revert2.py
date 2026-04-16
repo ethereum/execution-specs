@@ -7,6 +7,7 @@ state_tests/stCreate2/Create2OOGafterInitCodeRevert2Filler.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -35,7 +36,9 @@ def test_create2_oo_gafter_init_code_revert2(
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_1 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = pre.fund_eoa(amount=0xE8D4A51000)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -46,6 +49,7 @@ def test_create2_oo_gafter_init_code_revert2(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # { (MSTORE 0 0x6460016001556000526005601bf3) (CREATE2 0 18 14 0) (REVERT 0 32) }  # noqa: E501
     contract_1 = pre.deploy_contract(  # noqa: F841
@@ -54,6 +58,7 @@ def test_create2_oo_gafter_init_code_revert2(
         + Op.REVERT(offset=0x0, size=0x20)
         + Op.STOP,
         nonce=0,
+        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
     # Source: lll
     # { (CALL 33000 0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0 32) [[ 1 ]] (MLOAD 0) }  # noqa: E501
@@ -73,6 +78,7 @@ def test_create2_oo_gafter_init_code_revert2(
         + Op.STOP,
         storage={1: 1},
         nonce=0,
+        address=Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     tx = Transaction(

@@ -7,6 +7,7 @@ state_tests/stRandom2/randomStatetest491Filler.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -32,7 +33,9 @@ def test_random_statetest491(
 ) -> None:
     """Test_random_statetest491."""
     coinbase = Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    sender = EOA(
+        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -43,6 +46,7 @@ def test_random_statetest491(
         gas_limit=9223372036854775807,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: raw
     # 0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f00000000000000000000000000000000000000000000000000000000000000007ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f00000000000000000000000100000000000000000000000000000000000000007f00000000000000000000000000000000000000000000000000000000000000007ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f00000000000000000000000000000000000000000000000000000000000000006fa0f670645a778c71127d3b5598308b1760005155  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -63,6 +67,7 @@ def test_random_statetest491(
             key=Op.MLOAD(offset=0x0), value=0xA0F670645A778C71127D3B5598308B17
         ),
         nonce=0,
+        address=Address(0x1716A97A6DBE8C31A23B2BCAB7DE7077D48BE880),  # noqa: E501
     )
     # Source: raw
     # 0x6000355415600957005b60203560003555

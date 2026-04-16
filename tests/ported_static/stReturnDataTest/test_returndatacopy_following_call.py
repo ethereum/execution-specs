@@ -7,6 +7,7 @@ state_tests/stReturnDataTest/returndatacopy_following_callFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -32,7 +33,9 @@ def test_returndatacopy_following_call(
 ) -> None:
     """Test_returndatacopy_following_call."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0x6400000000)
+    sender = EOA(
+        key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -43,6 +46,7 @@ def test_returndatacopy_following_call(
         gas_limit=111669149696,
     )
 
+    pre[sender] = Account(balance=0x6400000000)
     # Source: lll
     # { (seq (MSTORE 0 0x0000111122223333444455556666777788889999aaaabbbbccccddddeeeeffff) (RETURN 0 32)) }  # noqa: E501
     addr = pre.deploy_contract(  # noqa: F841
@@ -53,6 +57,7 @@ def test_returndatacopy_following_call(
         + Op.RETURN(offset=0x0, size=0x20)
         + Op.STOP,
         nonce=0,
+        address=Address(0x9898DD5E5C526B55EC49B1047E298705C13279F1),  # noqa: E501
     )
     # Source: lll
     # { (seq (CALL 0x0900000000 <contract:0x0aabbccdd5c57f15886f9b263e2f6d2d6c7b5ec6> 0 0 0 0 0) (RETURNDATACOPY 0 0 32) (SSTORE 0 (MLOAD 0)) )}  # noqa: E501
@@ -73,6 +78,7 @@ def test_returndatacopy_following_call(
         + Op.STOP,
         storage={0: 1},
         nonce=0,
+        address=Address(0x2FAF9D2A81304665C9A06A42935DDC42B24F488B),  # noqa: E501
     )
 
     tx = Transaction(

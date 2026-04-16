@@ -7,6 +7,7 @@ state_tests/stMemoryTest/memCopySelfFiller.yml
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -32,7 +33,9 @@ def test_mem_copy_self(
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE, nonce=1)
+    sender = EOA(
+        key=0x48DC5A9F099CAAAA557742CA3A990A94BE45B9969126A1BC74E5E8BE5A2B5B47
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -43,6 +46,7 @@ def test_mem_copy_self(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
     # Source: yul
     # berlin
     # {
@@ -100,6 +104,7 @@ def test_mem_copy_self(
         storage={0: 24743},
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
+        address=Address(0xB595300AC049B84C5277C7CA68A96D74AE377B85),  # noqa: E501
     )
 
     tx = Transaction(

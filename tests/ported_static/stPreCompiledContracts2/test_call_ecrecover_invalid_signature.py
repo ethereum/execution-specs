@@ -7,6 +7,7 @@ state_tests/stPreCompiledContracts2/CallEcrecoverInvalidSignatureFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -34,7 +35,9 @@ def test_call_ecrecover_invalid_signature(
 ) -> None:
     """CALL to ECREC precompile with input which is a completely invalid..."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    sender = EOA(
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -45,6 +48,7 @@ def test_call_ecrecover_invalid_signature(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { (MSTORE 128 0x1122334455667788991011121314151617181920212223242526272829303132) (CALL 300000 1 0 0 128 128 32) [[ 0 ]] (MLOAD 128) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -67,6 +71,7 @@ def test_call_ecrecover_invalid_signature(
         + Op.STOP,
         balance=0x1312D00,
         nonce=0,
+        address=Address(0x2B8FD4ADB0602FE9EE5823B0576F619DAEFBD369),  # noqa: E501
     )
 
     tx = Transaction(

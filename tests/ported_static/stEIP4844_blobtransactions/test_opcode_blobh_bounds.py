@@ -7,6 +7,7 @@ state_tests/Cancun/stEIP4844_blobtransactions/opcodeBlobhBoundsFiller.yml
 
 import pytest
 from execution_testing import (
+    EOA,
     AccessList,
     Account,
     Address,
@@ -36,7 +37,9 @@ def test_opcode_blobh_bounds(
 ) -> None:
     """BLOB005."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    sender = EOA(
+        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -48,6 +51,7 @@ def test_opcode_blobh_bounds(
         gas_limit=68719476736,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {
     #    ; Can also add lll style comments here
@@ -77,6 +81,7 @@ def test_opcode_blobh_bounds(
         storage={0: 1, 1: 1, 2: 1, 3: 1, 4: 1, 5: 1},
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0xC8126E943C569C35DF09619F8E1E67460ACFF695),  # noqa: E501
     )
 
     tx = Transaction(

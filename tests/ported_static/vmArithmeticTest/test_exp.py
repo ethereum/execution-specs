@@ -7,6 +7,7 @@ state_tests/VMTests/vmArithmeticTest/expFiller.yml
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -124,7 +125,9 @@ def test_exp(
     contract_9 = Address(0x0000000000000000000000000000000000001009)
     contract_10 = Address(0x000000000000000000000000000000000000100A)
     contract_11 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -135,6 +138,7 @@ def test_exp(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
     # Source: lll
     # {
     #    [[0]] (exp 2 2)

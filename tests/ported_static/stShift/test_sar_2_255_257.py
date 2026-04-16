@@ -7,6 +7,7 @@ state_tests/stShift/sar_2^255_257Filler.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -32,7 +33,9 @@ def test_sar_2_255_257(
 ) -> None:
     """Test_sar_2_255_257."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    sender = EOA(
+        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -43,6 +46,7 @@ def test_sar_2_255_257(
         gas_limit=1000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: raw
     # 0x7f80000000000000000000000000000000000000000000000000000000000000006101011d600055  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -56,6 +60,7 @@ def test_sar_2_255_257(
         storage={0: 3},
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0xF1B108EB4DE4C7A4C0B2258442C550D23DF640A0),  # noqa: E501
     )
 
     tx = Transaction(

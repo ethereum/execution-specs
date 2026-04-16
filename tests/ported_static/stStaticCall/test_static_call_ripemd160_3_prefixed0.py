@@ -7,6 +7,7 @@ state_tests/stStaticCall/static_CallRipemd160_3_prefixed0Filler.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -33,7 +34,9 @@ def test_static_call_ripemd160_3_prefixed0(
 ) -> None:
     """Test_static_call_ripemd160_3_prefixed0."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    sender = EOA(
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -44,6 +47,7 @@ def test_static_call_ripemd160_3_prefixed0(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { (MSTORE 0 0x00f34578907f) [[ 2 ]] (STATICCALL 6000 3 0 37 0 32) [[ 0 ]] (MLOAD 0)}  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -63,6 +67,7 @@ def test_static_call_ripemd160_3_prefixed0(
         + Op.STOP,
         balance=0x1312D00,
         nonce=0,
+        address=Address(0xA70CC468F5DF9F13D75A41B072FC82378BE1B31D),  # noqa: E501
     )
 
     tx = Transaction(

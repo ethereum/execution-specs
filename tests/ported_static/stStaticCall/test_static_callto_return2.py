@@ -7,6 +7,7 @@ state_tests/stStaticCall/static_CalltoReturn2Filler.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -33,7 +34,9 @@ def test_static_callto_return2(
 ) -> None:
     """Test_static_callto_return2."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    sender = EOA(
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -44,6 +47,7 @@ def test_static_callto_return2(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: raw
     # 0x603760005360026000f3
     addr = pre.deploy_contract(  # noqa: F841
@@ -51,6 +55,7 @@ def test_static_callto_return2(
         + Op.RETURN(offset=0x0, size=0x2),
         balance=23,
         nonce=0,
+        address=Address(0xD5D9E9E0158920B17B6DF82FAC474B3E2691EE99),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) (MSTORE 32 0xaaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffaa ) [[ 0 ]] (STATICCALL 5000 <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 0 64 0 2 ) [[ 1 ]] (MLOAD 0) }  # noqa: E501
@@ -78,6 +83,7 @@ def test_static_callto_return2(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0x547D0A349CCAB317152D172E2F2AE7556C334CF3),  # noqa: E501
     )
 
     tx = Transaction(

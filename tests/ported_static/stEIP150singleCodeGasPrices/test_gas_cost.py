@@ -7,6 +7,7 @@ state_tests/stEIP150singleCodeGasPrices/gasCostFiller.yml
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -714,7 +715,9 @@ def test_gas_cost(
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
+    sender = EOA(
+        key=0x40AC0FC28C27E961EE46EC43355A094DE205856EDBD4654CF2577C2608D4EC1E
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -725,6 +728,7 @@ def test_gas_cost(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
     # Source: lll
     # { ; LLL doesn't let us call arbitrary code, so we craft
     #   ; a new contract with the opcode and then call it to see

@@ -7,6 +7,7 @@ state_tests/stPreCompiledContracts2/CallEcrecover_OverflowFiller.yml
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -94,7 +95,9 @@ def test_call_ecrecover_overflow(
 ) -> None:
     """Test_call_ecrecover_overflow."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    sender = EOA(
+        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -105,6 +108,7 @@ def test_call_ecrecover_overflow(
         gas_limit=71794957647893862,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: yul
     # berlin
     # {
@@ -132,6 +136,7 @@ def test_call_ecrecover_overflow(
         + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x80))
         + Op.STOP,
         nonce=0,
+        address=Address(0xDB8963071FEAE3B63E19D9D7AF8EE89A92E99356),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

@@ -7,6 +7,7 @@ state_tests/stStaticCall/static_CallEcrecoverH_prefixed0Filler.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -33,7 +34,9 @@ def test_static_call_ecrecover_h_prefixed0(
 ) -> None:
     """Test_static_call_ecrecover_h_prefixed0."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    sender = EOA(
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -44,6 +47,7 @@ def test_static_call_ecrecover_h_prefixed0(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { (MSTORE 0 0x00c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c) (MSTORE 32 28) (MSTORE 64 0x73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75f) (MSTORE 96 0xeeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549) [[ 2 ]] (STATICCALL 300000 1 0 128 128 32) [[ 0 ]] (MOD (MLOAD 128) (EXP 2 160)) [[ 1 ]] (EQ (ORIGIN) (SLOAD 0))  }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -78,6 +82,7 @@ def test_static_call_ecrecover_h_prefixed0(
         + Op.STOP,
         balance=0x1312D00,
         nonce=0,
+        address=Address(0xEEAA46C8D2B439BCCC8BA7B735F1F68564C75801),  # noqa: E501
     )
 
     tx = Transaction(

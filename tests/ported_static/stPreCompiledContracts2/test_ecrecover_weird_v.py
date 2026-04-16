@@ -7,6 +7,7 @@ state_tests/stPreCompiledContracts2/ecrecoverWeirdVFiller.yml
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -262,7 +263,9 @@ def test_ecrecover_weird_v(
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000, nonce=1)
+    sender = EOA(
+        key=0xDE0C95357363DA5C1C5A73BD7C2781CA5C9FECC1014103B5E1D1E990AE8208EC
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -274,6 +277,7 @@ def test_ecrecover_weird_v(
     )
 
     pre[coinbase] = Account(balance=0, nonce=1)
+    pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
     # Source: yul
     # berlin
     # {
@@ -310,6 +314,7 @@ def test_ecrecover_weird_v(
         + Op.STOP,
         storage={0: 24743, 1: 24743, 2: 24743},
         nonce=1,
+        address=Address(0x9121BB12ADE6BF12796E6007B21A204E05B1BD49),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

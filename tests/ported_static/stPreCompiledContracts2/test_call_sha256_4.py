@@ -7,6 +7,7 @@ state_tests/stPreCompiledContracts2/CallSha256_4Filler.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -32,7 +33,9 @@ def test_call_sha256_4(
 ) -> None:
     """Test_call_sha256_4."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    sender = EOA(
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -43,6 +46,7 @@ def test_call_sha256_4(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { (MSTORE 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) [[ 2 ]] (CALL 100 2 0 0 32 0 32) [[ 0 ]] (MLOAD 0)}  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -66,6 +70,7 @@ def test_call_sha256_4(
         + Op.STOP,
         balance=0x1312D00,
         nonce=0,
+        address=Address(0x6EAF78B8968E1AD784F281CC9FFC2ED8BDB61FBE),  # noqa: E501
     )
 
     tx = Transaction(

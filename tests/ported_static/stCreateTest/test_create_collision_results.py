@@ -7,6 +7,7 @@ state_tests/stCreateTest/CreateCollisionResultsFiller.yml
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -57,7 +58,9 @@ def test_create_collision_results(
     contract_0 = Address(0x8AF6A7AF30D840BA137E8F3F34D54CFB8BEBA6E2)
     contract_1 = Address(0x40F1299359EA754AC29EB2662A1900752BF8275F)
     contract_2 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -68,6 +71,7 @@ def test_create_collision_results(
         gas_limit=4294967296,
     )
 
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
     # Source: lll
     # {
     #   [[0]] 0x001D
@@ -77,6 +81,7 @@ def test_create_collision_results(
         storage={0: 24743},
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x8AF6A7AF30D840BA137E8F3F34D54CFB8BEBA6E2),  # noqa: E501
     )
     # Source: lll
     # {
@@ -87,6 +92,7 @@ def test_create_collision_results(
         storage={0: 24743},
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x40F1299359EA754AC29EB2662A1900752BF8275F),  # noqa: E501
     )
     # Source: lll
     # {
@@ -228,6 +234,7 @@ def test_create_collision_results(
         },
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
 
     tx_data = [

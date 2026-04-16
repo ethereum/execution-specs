@@ -7,6 +7,7 @@ state_tests/stMemoryTest/codeCopyOffsetFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -32,7 +33,9 @@ def test_code_copy_offset(
 ) -> None:
     """Test_code_copy_offset."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    sender = EOA(
+        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -43,6 +46,7 @@ def test_code_copy_offset(
         gas_limit=1000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { (MSTORE 0x00 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) (CODECOPY 0x00 0xffff  0x10) (SSTORE 0x00 (MLOAD 0x00)) }  # noqa: E501
     addr = pre.deploy_contract(  # noqa: F841
@@ -55,6 +59,7 @@ def test_code_copy_offset(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=1,
+        address=Address(0x27D16E1D3CC862149F1E7162E612635FCAEF9FF4),  # noqa: E501
     )
     # Source: yul
     # berlin { mstore(0, 0x0123456789abcdef)  pop(call(0xffff, <contract:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee>, 0, 0, 0x0f, 0, 0))  }  # noqa: E501
@@ -72,6 +77,7 @@ def test_code_copy_offset(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=1,
+        address=Address(0xAF89A7504341A87E1CFDFFD483A00A4688469B3D),  # noqa: E501
     )
 
     tx = Transaction(
