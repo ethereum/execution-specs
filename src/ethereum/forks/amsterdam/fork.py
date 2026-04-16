@@ -547,15 +547,25 @@ def check_transaction(
 
     """
     # Regular gas is capped at TX_MAX_GAS_LIMIT per EIP-7825.
-    # State gas is not checked per-tx; block-end validation enforces
+    # State gas dimension is checked per-tx;
+    # block-end validation still enforces
     # max(block_regular_gas_used, block_state_gas_used) <= gas_limit.
     regular_gas_available = (
         block_env.block_gas_limit - block_output.block_gas_used
+    )
+    state_gas_available = (
+        block_env.block_gas_limit - block_output.block_state_gas_used
     )
     blob_gas_available = MAX_BLOB_GAS_PER_BLOCK - block_output.blob_gas_used
 
     if min(TX_MAX_GAS_LIMIT, tx.gas) > regular_gas_available:
         raise GasUsedExceedsLimitError("regular gas used exceeds limit")
+
+    state_gas_contribution = (
+        tx.gas - TX_MAX_GAS_LIMIT if tx.gas > TX_MAX_GAS_LIMIT else Uint(0)
+    )
+    if state_gas_contribution > state_gas_available:
+        raise GasUsedExceedsLimitError("state gas exceeds limit")
 
     tx_blob_gas_used = calculate_total_blob_gas(tx)
     if tx_blob_gas_used > blob_gas_available:
