@@ -84,6 +84,7 @@ def test_self_balance_call_types(
         + Op.STOP,
         balance=4096,
         nonce=0,
+        address=Address(0xA590BBF1B07B00FED987724E1DB1BF206C2BC37C),  # noqa: E501
     )
     # Source: lll
     # { [[ 0x21 ]] (SELFBALANCE) }
@@ -91,6 +92,7 @@ def test_self_balance_call_types(
         code=Op.SSTORE(key=0x21, value=Op.SELFBALANCE) + Op.STOP,
         balance=4352,
         nonce=0,
+        address=Address(0x76BAC61EE2056F42F6CC29F5400ADAE3E5705237),  # noqa: E501
     )
     # Source: lll
     # (asm GAS SELFBALANCE GAS SWAP1 POP SWAP1 SUB 2 SWAP1 SUB 0x31 SSTORE)
@@ -108,6 +110,7 @@ def test_self_balance_call_types(
         + Op.STOP,
         balance=4608,
         nonce=0,
+        address=Address(0x8537CE29429EA557E3903C255EE6554DD8D21D26),  # noqa: E501
     )
     # Source: lll
     # (asm SELFBALANCE DUP1 0x41 SSTORE 0 0 0 0 1 0 0 CALL POP SELFBALANCE DUP1 0x42 SSTORE SWAP1 SUB 0x43 SSTORE)  # noqa: E501
@@ -132,6 +135,7 @@ def test_self_balance_call_types(
         + Op.STOP,
         balance=4864,
         nonce=0,
+        address=Address(0xE1CE93B3251FB38AE74D41AF9F865978C572CF63),  # noqa: E501
     )
     # Source: lll
     # {(set 'i 0) (while @@ @i {(when (eq 0x01 $0x0) (call allgas @@ @i 0 0 0 0 0)) (when (eq 0x02 $0x0) (delegatecall allgas @@ @i 0 0 0 0)) (when (eq 0x03 $0x0) (callcode allgas @@ @i 0 0 0 0 0)) [i]:(+ @i 1)})}  # noqa: E501
@@ -195,6 +199,7 @@ def test_self_balance_call_types(
         storage={0: addr, 1: addr_2, 2: addr_3, 3: addr_4},
         balance=8192,
         nonce=0,
+        address=Address(0x84BF87FBEF135AFEA15330FDF5847EB504CFF901),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

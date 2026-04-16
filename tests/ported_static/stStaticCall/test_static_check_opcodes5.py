@@ -194,6 +194,7 @@ def test_static_check_opcodes5(
         )
         + Op.STOP,
         nonce=0,
+        address=Address(0x1FE115F5D840CD62E113B09755C50D8F3F358B96),  # noqa: E501
     )
     # Source: lll
     # { [[ 0 ]] (STATICCALL 50000 (CALLDATALOAD 0) 0 0 0 0) }

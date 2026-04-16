@@ -82,12 +82,14 @@ def test_static_callcallcodecall_010_ooge(
         + Op.MSTORE(offset=0x1, value=0x1)
         + Op.STOP,
         nonce=0,
+        address=Address(0x39C3AAD8C9ECF3BE71828CAFFEEE06727FDA4679),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 3 1) }
     addr_4 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x3, value=0x1) + Op.STOP,
         nonce=0,
+        address=Address(0x335C5531B84765A7626E6E76688F18B81BE5259C),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 0 (CALLDATALOAD 0)) [[ 0 ]] (STATICCALL 500000 <contract:0x1000000000000000000000000000000000000001> 0 64 0 64 ) [[ 1 ]] 1 }  # noqa: E501
@@ -97,7 +99,7 @@ def test_static_callcallcodecall_010_ooge(
             key=0x0,
             value=Op.STATICCALL(
                 gas=0x7A120,
-                address=addr,
+                address=0x39C3AAD8C9ECF3BE71828CAFFEEE06727FDA4679,
                 args_offset=0x0,
                 args_size=0x40,
                 ret_offset=0x0,
@@ -108,23 +110,7 @@ def test_static_callcallcodecall_010_ooge(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-    )
-    # Source: lll
-    # {  (STATICCALL 120020 <contract:0x1000000000000000000000000000000000000003> 0 64 0 64 ) (SSTORE 1 1) }  # noqa: E501
-    addr_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.POP(
-            Op.STATICCALL(
-                gas=0x1D4D4,
-                address=addr_4,
-                args_offset=0x0,
-                args_size=0x40,
-                ret_offset=0x0,
-                ret_size=0x40,
-            )
-        )
-        + Op.SSTORE(key=0x1, value=0x1)
-        + Op.STOP,
-        nonce=0,
+        address=Address(0x33344FF747B678F9E86028B0C745D8AB0E0D1792),  # noqa: E501
     )
     # Source: lll
     # {  (STATICCALL 120020 <contract:0x1000000000000000000000000000000000000003> 0 64 0 64 ) (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (EXTCODESIZE 1)) }  # noqa: E501
@@ -132,7 +118,7 @@ def test_static_callcallcodecall_010_ooge(
         code=Op.POP(
             Op.STATICCALL(
                 gas=0x1D4D4,
-                address=addr_4,
+                address=0x335C5531B84765A7626E6E76688F18B81BE5259C,
                 args_offset=0x0,
                 args_size=0x40,
                 ret_offset=0x0,
@@ -149,6 +135,25 @@ def test_static_callcallcodecall_010_ooge(
         + Op.JUMPDEST
         + Op.STOP,
         nonce=0,
+        address=Address(0x0D195FCCF4102D8B6B6798768727AE0915C88ED7),  # noqa: E501
+    )
+    # Source: lll
+    # {  (STATICCALL 120020 <contract:0x1000000000000000000000000000000000000003> 0 64 0 64 ) (SSTORE 1 1) }  # noqa: E501
+    addr_3 = pre.deploy_contract(  # noqa: F841
+        code=Op.POP(
+            Op.STATICCALL(
+                gas=0x1D4D4,
+                address=0x335C5531B84765A7626E6E76688F18B81BE5259C,
+                args_offset=0x0,
+                args_size=0x40,
+                ret_offset=0x0,
+                ret_size=0x40,
+            )
+        )
+        + Op.SSTORE(key=0x1, value=0x1)
+        + Op.STOP,
+        nonce=0,
+        address=Address(0xC45FE363C9AC4E1FEED02B03A212FDF979A74505),  # noqa: E501
     )
 
     tx_data = [

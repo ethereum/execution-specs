@@ -133,6 +133,7 @@ def test_static_check_opcodes3(
         )
         + Op.STOP,
         nonce=0,
+        address=Address(0x50F628D871A69F2DB31E98D7FBF8AE6F1FC0D55C),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 0 (STATICCALL 100000 (CALLDATALOAD 0) 0 0 0 0)) (if (= 1 (MLOAD 0)) (MSTORE 1 1) (SSTORE 1 2)) }  # noqa: E501

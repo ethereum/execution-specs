@@ -99,6 +99,7 @@ def test_static_call_contract_to_create_contract_and_call_it_oog(
         + Op.STOP,
         balance=1000,
         nonce=0,
+        address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

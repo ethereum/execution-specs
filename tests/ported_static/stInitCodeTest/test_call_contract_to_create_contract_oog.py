@@ -61,6 +61,7 @@ def test_call_contract_to_create_contract_oog(
         )
         + Op.STOP,
         nonce=0,
+        address=Address(0x1BC6342E077E772B0F4CC48116BC171F9A35D09E),  # noqa: E501
     )
 
     tx = Transaction(

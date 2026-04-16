@@ -86,6 +86,7 @@ def test_staticcall_createfails(
         + Op.STOP,
         storage={1: 1},
         nonce=63,
+        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 1 1) [[2]] (CREATE 1 1 1) }
@@ -94,12 +95,14 @@ def test_staticcall_createfails(
         + Op.SSTORE(key=0x2, value=Op.CREATE(value=0x1, offset=0x1, size=0x1))
         + Op.STOP,
         nonce=63,
+        address=Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
     # Source: raw
     # 0x60006000f0
     contract_2 = pre.deploy_contract(  # noqa: F841
         code=Op.PUSH1[0x0] * 2 + Op.CREATE,
         nonce=63,
+        address=Address(0xD94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     tx_data = [

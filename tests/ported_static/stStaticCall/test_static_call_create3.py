@@ -62,6 +62,7 @@ def test_static_call_create3(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0xA000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 0 0x6d600060006000600030620186a0fa600052600e6012f3) [[ 0 ]] (CREATE 1 9 23)  [[ 1 ]] (STATICCALL 30000 (SLOAD 0) 0 0 0 0) [[ 2 ]] 1 }  # noqa: E501
@@ -85,6 +86,7 @@ def test_static_call_create3(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0x1000000000000000000000000000000000000000),  # noqa: E501
     )
 
     tx = Transaction(

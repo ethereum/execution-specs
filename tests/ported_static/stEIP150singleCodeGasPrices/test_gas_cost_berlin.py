@@ -843,6 +843,7 @@ def test_gas_cost_berlin(
         storage={0: 24743},
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x2F170B2347023BB6BF3EEC84B53259B96E0268C3),  # noqa: E501
     )
 
     tx_data = [

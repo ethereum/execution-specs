@@ -3289,6 +3289,7 @@ def test_tx_e1c174e2(
             0x160000000000000000000000000000000000000000: 1,
         },
         nonce=0,
+        address=Address(0xF47BACB0D8F13FA44D31623C3D5AE72907D241C1),  # noqa: E501
     )
 
     tx = Transaction(

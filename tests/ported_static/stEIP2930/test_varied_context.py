@@ -304,66 +304,6 @@ def test_varied_context(
 
     # Source: lll
     # {
-    #    ; DELEGATE_VALID   DELEGATE_INVALID
-    #
-    #    (delegatecall (gas) 0xC057 0 0 0 0)
-    # }
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.DELEGATECALL(
-            gas=Op.GAS,
-            address=0xC057,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.STOP,
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001000),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #    ; CALL_VALID    CALL_INVALID
-    #    (call (gas) 0xC057 0 0 0 0 0)
-    # }
-    contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.CALL(
-            gas=Op.GAS,
-            address=0xC057,
-            value=0x0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.STOP,
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001001),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #    ; CALLCODE_VALID       CALLCODE_INVALID
-    #    (callcode (gas) 0xC057 0 0 0 0 0)
-    # }
-    contract_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.CALLCODE(
-            gas=Op.GAS,
-            address=0xC057,
-            value=0x0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.STOP,
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001002),  # noqa: E501
-    )
-    # Source: lll
-    # {
     #    ; 0xC057: DELEGATE_VALID DELEGATE_INVALID
     #    ;         CALL_INVALID CALL_VALID
     #    ;         CALLCODE_VALID CALLCODE_INVALID
@@ -519,35 +459,6 @@ def test_varied_context(
     )
     # Source: lll
     # {  ; STATIC_WRITE_VALID     STATIC_WRITE_INVALID
-    #
-    #    [0x00] 0x0BAD
-    #
-    #    ; If the call is successful @0 becomes 0x600D
-    #    (staticcall (gas) 0xF113 0 0 0 0x20)
-    #
-    #    [[0]] @0x00
-    # }
-    contract_11 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=0xBAD)
-        + Op.POP(
-            Op.STATICCALL(
-                gas=Op.GAS,
-                address=0xF113,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x20,
-            )
-        )
-        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
-        + Op.STOP,
-        storage={0: 24743},
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001013),  # noqa: E501
-    )
-    # Source: lll
-    # {  ; STATIC_WRITE_VALID     STATIC_WRITE_INVALID
     #    [[0]] 0xDEAD60A7
     #
     #    ; If we get here, GOOD
@@ -565,25 +476,6 @@ def test_varied_context(
     )
     # Source: lll
     # {  ; WRITE_INVALID_OOG    WRITE_VALID_NO_OOG
-    #    (call 0x0B65 0xF114 0 0 0 0 0x20)
-    # }
-    contract_13 = pre.deploy_contract(  # noqa: F841
-        code=Op.CALL(
-            gas=0xB65,
-            address=0xF114,
-            value=0x0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x20,
-        )
-        + Op.STOP,
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001014),  # noqa: E501
-    )
-    # Source: lll
-    # {  ; WRITE_INVALID_OOG    WRITE_VALID_NO_OOG
     #
     #   [[0]] 0x600D
     # }
@@ -593,25 +485,6 @@ def test_varied_context(
         balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address(0x000000000000000000000000000000000000F114),  # noqa: E501
-    )
-    # Source: lll
-    # {  ; READ_INVALID_OOG    READ_VALID_NO_OOG
-    #    (call 0x1800 0xF115 0 0 0 0 0x20)
-    # }
-    contract_15 = pre.deploy_contract(  # noqa: F841
-        code=Op.CALL(
-            gas=0x1800,
-            address=0xF115,
-            value=0x0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x20,
-        )
-        + Op.STOP,
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001015),  # noqa: E501
     )
     # Source: lll
     # {  ; READ_INVALID_OOG    READ_VALID_NO_OOG
@@ -626,97 +499,6 @@ def test_varied_context(
         balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address(0x000000000000000000000000000000000000F115),  # noqa: E501
-    )
-    # Source: lll
-    # {  ; RECURSE_VALID   RECURSE_INVALID
-    #    (def 'NOP 0)
-    #
-    #    ; Read storage cell zero, so the first time we read it to won't
-    #    ; be added to the cost
-    #    @@0
-    #
-    #    ; Write to [[0xBEEF]], and see how much gas that cost. It should
-    #    ; cost more when it is not declared storage
-    #      [0]   (gas)
-    #     [[0xBEEF]]  0x02
-    #      [0]   (- @0 (gas) 17)
-    #
-    #    ; Read [[0x60A7]], and see how much gas that cost. It should
-    #    ; cost more when it is not declared storage
-    #    [0x20] (gas)
-    #    [0xA0] @@0x60A7
-    #    [0x20] (- @0x20 (gas) 35)
-    #
-    #    ; Write to a different cell each time
-    #    [0x40] (gas)
-    #    [[(+ 0xF000 @@0)]] 0xBEEF
-    #    [0x40] (- @0x40 (gas) 0x78)
-    #
-    #    ; Read from a different cell each time
-    #    [0x60] (gas)
-    #    @@(+ 0xF010 @@0)
-    #    [0x60] (- @0x60 (gas) 0x7a)
-    #
-    #
-    # ... (13 more lines)
-    contract_17 = pre.deploy_contract(  # noqa: F841
-        code=Op.POP(Op.SLOAD(key=0x0))
-        + Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.SSTORE(key=0xBEEF, value=0x2)
-        + Op.MSTORE(
-            offset=0x0,
-            value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x0), Op.GAS), 0x11),
-        )
-        + Op.MSTORE(offset=0x20, value=Op.GAS)
-        + Op.MSTORE(offset=0xA0, value=Op.SLOAD(key=0x60A7))
-        + Op.MSTORE(
-            offset=0x20,
-            value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x20), Op.GAS), 0x23),
-        )
-        + Op.MSTORE(offset=0x40, value=Op.GAS)
-        + Op.SSTORE(key=Op.ADD(0xF000, Op.SLOAD(key=0x0)), value=0xBEEF)
-        + Op.MSTORE(
-            offset=0x40,
-            value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x40), Op.GAS), 0x78),
-        )
-        + Op.MSTORE(offset=0x60, value=Op.GAS)
-        + Op.POP(Op.SLOAD(key=Op.ADD(0xF010, Op.SLOAD(key=0x0))))
-        + Op.MSTORE(
-            offset=0x60,
-            value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x60), Op.GAS), 0x7A),
-        )
-        + Op.SSTORE(
-            key=Op.ADD(0x100, Op.SLOAD(key=0x0)), value=Op.MLOAD(offset=0x0)
-        )
-        + Op.SSTORE(
-            key=Op.ADD(0x200, Op.SLOAD(key=0x0)), value=Op.MLOAD(offset=0x20)
-        )
-        + Op.SSTORE(
-            key=Op.ADD(0x300, Op.SLOAD(key=0x0)), value=Op.MLOAD(offset=0x40)
-        )
-        + Op.SSTORE(
-            key=Op.ADD(0x400, Op.SLOAD(key=0x0)), value=Op.MLOAD(offset=0x60)
-        )
-        + Op.JUMPI(pc=0x9B, condition=Op.GT(Op.SLOAD(key=0x0), 0x0))
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=0xB4)
-        + Op.JUMPDEST
-        + Op.SSTORE(key=0x0, value=Op.SUB(Op.SLOAD(key=0x0), 0x1))
-        + Op.CALL(
-            gas=Op.GAS,
-            address=0x1016,
-            value=0x0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.JUMPDEST
-        + Op.STOP,
-        storage={0: 15, 24743: 57005},
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001016),  # noqa: E501
     )
     # Source: lll
     # {
@@ -1154,38 +936,6 @@ def test_varied_context(
     # Source: lll
     # {
     #   ; CALL_TWICE_VALID     CALL_TWICE_INVALID
-    #   (call (gas) 0xF126 0 0 0 0 0)
-    #   (call (gas) 0xF126 0 0 0 0 0)
-    # }
-    contract_24 = pre.deploy_contract(  # noqa: F841
-        code=Op.POP(
-            Op.CALL(
-                gas=Op.GAS,
-                address=0xF126,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            )
-        )
-        + Op.CALL(
-            gas=Op.GAS,
-            address=0xF126,
-            value=0x0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001026),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #   ; CALL_TWICE_VALID     CALL_TWICE_INVALID
     #   [0] (gas)
     #   [[0x00]] 0x60A7
     #   [0] (- @0 (gas))
@@ -1211,30 +961,63 @@ def test_varied_context(
     )
     # Source: lll
     # {
-    #     ; ccc...ccc  revert and suicide contract
-    #     (call (gas) (+ 0x1000 $4) 0 0 0 0 0x40)
-    #
-    #     ; Write the returned results, if any
-    #     [[0]] @0x00
-    #     [[1]] @0x20
+    #    ; CALLCODE_VALID       CALLCODE_INVALID
+    #    (callcode (gas) 0xC057 0 0 0 0 0)
     # }
-    contract_26 = pre.deploy_contract(  # noqa: F841
-        code=Op.POP(
-            Op.CALL(
-                gas=Op.GAS,
-                address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)),
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x40,
-            )
+    contract_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALLCODE(
+            gas=Op.GAS,
+            address=0xC057,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
         )
-        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
-        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x20))
         + Op.STOP,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000001002),  # noqa: E501
+    )
+    # Source: lll
+    # {
+    #    ; DELEGATE_VALID   DELEGATE_INVALID
+    #
+    #    (delegatecall (gas) 0xC057 0 0 0 0)
+    # }
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.DELEGATECALL(
+            gas=Op.GAS,
+            address=0xC057,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
+        nonce=0,
+        address=Address(0x0000000000000000000000000000000000001000),  # noqa: E501
+    )
+    # Source: lll
+    # {
+    #    ; CALL_VALID    CALL_INVALID
+    #    (call (gas) 0xC057 0 0 0 0 0)
+    # }
+    contract_1 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALL(
+            gas=Op.GAS,
+            address=0xC057,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
+        nonce=0,
+        address=Address(0x0000000000000000000000000000000000001001),  # noqa: E501
     )
     # Source: lll
     # {
@@ -1316,6 +1099,223 @@ def test_varied_context(
         balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address(0x0000000000000000000000000000000000001012),  # noqa: E501
+    )
+    # Source: lll
+    # {  ; STATIC_WRITE_VALID     STATIC_WRITE_INVALID
+    #
+    #    [0x00] 0x0BAD
+    #
+    #    ; If the call is successful @0 becomes 0x600D
+    #    (staticcall (gas) 0xF113 0 0 0 0x20)
+    #
+    #    [[0]] @0x00
+    # }
+    contract_11 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=0xBAD)
+        + Op.POP(
+            Op.STATICCALL(
+                gas=Op.GAS,
+                address=0xF113,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x20,
+            )
+        )
+        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
+        + Op.STOP,
+        storage={0: 24743},
+        balance=0xDE0B6B3A7640000,
+        nonce=0,
+        address=Address(0x0000000000000000000000000000000000001013),  # noqa: E501
+    )
+    # Source: lll
+    # {  ; WRITE_INVALID_OOG    WRITE_VALID_NO_OOG
+    #    (call 0x0B65 0xF114 0 0 0 0 0x20)
+    # }
+    contract_13 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALL(
+            gas=0xB65,
+            address=0xF114,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
+        nonce=0,
+        address=Address(0x0000000000000000000000000000000000001014),  # noqa: E501
+    )
+    # Source: lll
+    # {  ; READ_INVALID_OOG    READ_VALID_NO_OOG
+    #    (call 0x1800 0xF115 0 0 0 0 0x20)
+    # }
+    contract_15 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALL(
+            gas=0x1800,
+            address=0xF115,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
+        nonce=0,
+        address=Address(0x0000000000000000000000000000000000001015),  # noqa: E501
+    )
+    # Source: lll
+    # {
+    #   ; CALL_TWICE_VALID     CALL_TWICE_INVALID
+    #   (call (gas) 0xF126 0 0 0 0 0)
+    #   (call (gas) 0xF126 0 0 0 0 0)
+    # }
+    contract_24 = pre.deploy_contract(  # noqa: F841
+        code=Op.POP(
+            Op.CALL(
+                gas=Op.GAS,
+                address=0xF126,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.CALL(
+            gas=Op.GAS,
+            address=0xF126,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=0,
+        address=Address(0x0000000000000000000000000000000000001026),  # noqa: E501
+    )
+    # Source: lll
+    # {
+    #     ; ccc...ccc  revert and suicide contract
+    #     (call (gas) (+ 0x1000 $4) 0 0 0 0 0x40)
+    #
+    #     ; Write the returned results, if any
+    #     [[0]] @0x00
+    #     [[1]] @0x20
+    # }
+    contract_26 = pre.deploy_contract(  # noqa: F841
+        code=Op.POP(
+            Op.CALL(
+                gas=Op.GAS,
+                address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)),
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x40,
+            )
+        )
+        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
+        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x20))
+        + Op.STOP,
+        nonce=0,
+        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
+    )
+    # Source: lll
+    # {  ; RECURSE_VALID   RECURSE_INVALID
+    #    (def 'NOP 0)
+    #
+    #    ; Read storage cell zero, so the first time we read it to won't
+    #    ; be added to the cost
+    #    @@0
+    #
+    #    ; Write to [[0xBEEF]], and see how much gas that cost. It should
+    #    ; cost more when it is not declared storage
+    #      [0]   (gas)
+    #     [[0xBEEF]]  0x02
+    #      [0]   (- @0 (gas) 17)
+    #
+    #    ; Read [[0x60A7]], and see how much gas that cost. It should
+    #    ; cost more when it is not declared storage
+    #    [0x20] (gas)
+    #    [0xA0] @@0x60A7
+    #    [0x20] (- @0x20 (gas) 35)
+    #
+    #    ; Write to a different cell each time
+    #    [0x40] (gas)
+    #    [[(+ 0xF000 @@0)]] 0xBEEF
+    #    [0x40] (- @0x40 (gas) 0x78)
+    #
+    #    ; Read from a different cell each time
+    #    [0x60] (gas)
+    #    @@(+ 0xF010 @@0)
+    #    [0x60] (- @0x60 (gas) 0x7a)
+    #
+    #
+    # ... (13 more lines)
+    contract_17 = pre.deploy_contract(  # noqa: F841
+        code=Op.POP(Op.SLOAD(key=0x0))
+        + Op.MSTORE(offset=0x0, value=Op.GAS)
+        + Op.SSTORE(key=0xBEEF, value=0x2)
+        + Op.MSTORE(
+            offset=0x0,
+            value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x0), Op.GAS), 0x11),
+        )
+        + Op.MSTORE(offset=0x20, value=Op.GAS)
+        + Op.MSTORE(offset=0xA0, value=Op.SLOAD(key=0x60A7))
+        + Op.MSTORE(
+            offset=0x20,
+            value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x20), Op.GAS), 0x23),
+        )
+        + Op.MSTORE(offset=0x40, value=Op.GAS)
+        + Op.SSTORE(key=Op.ADD(0xF000, Op.SLOAD(key=0x0)), value=0xBEEF)
+        + Op.MSTORE(
+            offset=0x40,
+            value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x40), Op.GAS), 0x78),
+        )
+        + Op.MSTORE(offset=0x60, value=Op.GAS)
+        + Op.POP(Op.SLOAD(key=Op.ADD(0xF010, Op.SLOAD(key=0x0))))
+        + Op.MSTORE(
+            offset=0x60,
+            value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x60), Op.GAS), 0x7A),
+        )
+        + Op.SSTORE(
+            key=Op.ADD(0x100, Op.SLOAD(key=0x0)), value=Op.MLOAD(offset=0x0)
+        )
+        + Op.SSTORE(
+            key=Op.ADD(0x200, Op.SLOAD(key=0x0)), value=Op.MLOAD(offset=0x20)
+        )
+        + Op.SSTORE(
+            key=Op.ADD(0x300, Op.SLOAD(key=0x0)), value=Op.MLOAD(offset=0x40)
+        )
+        + Op.SSTORE(
+            key=Op.ADD(0x400, Op.SLOAD(key=0x0)), value=Op.MLOAD(offset=0x60)
+        )
+        + Op.JUMPI(pc=0x9B, condition=Op.GT(Op.SLOAD(key=0x0), 0x0))
+        + Op.PUSH1[0x0]
+        + Op.JUMP(pc=0xB4)
+        + Op.JUMPDEST
+        + Op.SSTORE(key=0x0, value=Op.SUB(Op.SLOAD(key=0x0), 0x1))
+        + Op.CALL(
+            gas=Op.GAS,
+            address=0x1016,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.JUMPDEST
+        + Op.STOP,
+        storage={0: 15, 24743: 57005},
+        balance=0xDE0B6B3A7640000,
+        nonce=0,
+        address=Address(0x0000000000000000000000000000000000001016),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

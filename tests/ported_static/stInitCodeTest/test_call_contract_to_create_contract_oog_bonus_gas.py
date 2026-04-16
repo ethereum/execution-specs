@@ -66,6 +66,7 @@ def test_call_contract_to_create_contract_oog_bonus_gas(
         + Op.STOP,
         balance=112,
         nonce=0,
+        address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
 
     tx = Transaction(

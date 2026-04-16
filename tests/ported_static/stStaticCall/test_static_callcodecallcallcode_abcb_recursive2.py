@@ -99,6 +99,7 @@ def test_static_callcodecallcallcode_abcb_recursive2(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0xBA3C5101AD0B43DE0F1853243EB3F9811EAEE1E0),  # noqa: E501
     )
     # Source: lll
     # {  (STATICCALL 1000000 <contract:0x1000000000000000000000000000000000000002> 0 64 0 64 ) }  # noqa: E501

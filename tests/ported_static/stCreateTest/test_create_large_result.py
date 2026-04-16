@@ -174,6 +174,7 @@ def test_create_large_result(
         + Op.CODECOPY(dest_offset=Op.DUP1, offset=0x100, size=0x20)
         + Op.RETURN(offset=0x0, size=Op.MLOAD(offset=0x100)),
         nonce=1,
+        address=Address(0x000000000000000000000000000000000000C0DE),  # noqa: E501
     )
     # Source: yul
     # london

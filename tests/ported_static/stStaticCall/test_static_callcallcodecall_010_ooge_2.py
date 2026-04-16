@@ -79,12 +79,14 @@ def test_static_callcallcodecall_010_ooge_2(
         )
         + Op.STOP,
         nonce=0,
+        address=Address(0x77E67836C6A30F95E117469CAEFB6C1FDCAD0C2E),  # noqa: E501
     )
     # Source: lll
     # {  (SSTORE 3 1) }
     addr_3 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x3, value=0x1) + Op.STOP,
         nonce=0,
+        address=Address(0xB126C622075B1189FB6C45E851641CFADDF65B36),  # noqa: E501
     )
     # Source: lll
     # {  (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (EXTCODESIZE 1)) }
@@ -99,6 +101,7 @@ def test_static_callcallcodecall_010_ooge_2(
         + Op.JUMPDEST
         + Op.STOP,
         nonce=0,
+        address=Address(0xFBEF21C5A6C2ADCF3D769F085E0CC9FE9A8DF954),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 0 (CALLDATALOAD 0)) (CALLCODE 200000 <contract:0x1000000000000000000000000000000000000002> 0 0 32 0 64 ) }  # noqa: E501
@@ -106,7 +109,7 @@ def test_static_callcallcodecall_010_ooge_2(
         code=Op.MSTORE(offset=0x0, value=Op.CALLDATALOAD(offset=0x0))
         + Op.CALLCODE(
             gas=0x30D40,
-            address=addr_2,
+            address=0x77E67836C6A30F95E117469CAEFB6C1FDCAD0C2E,
             value=0x0,
             args_offset=0x0,
             args_size=0x20,
@@ -115,6 +118,7 @@ def test_static_callcallcodecall_010_ooge_2(
         )
         + Op.STOP,
         nonce=0,
+        address=Address(0x87B79D9A4C004A23C7A12074BA8DA784E201EA8C),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 0 (CALLDATALOAD 0)) [[ 0 ]] (STATICCALL 350000 <contract:0x1000000000000000000000000000000000000001> 0 32 0 64 ) [[ 1 ]] 1 }  # noqa: E501
@@ -124,7 +128,7 @@ def test_static_callcallcodecall_010_ooge_2(
             key=0x0,
             value=Op.STATICCALL(
                 gas=0x55730,
-                address=addr,
+                address=0x87B79D9A4C004A23C7A12074BA8DA784E201EA8C,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -135,6 +139,7 @@ def test_static_callcallcodecall_010_ooge_2(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0x519393D984BEAF4FD226309E9F0704B2DB3164B5),  # noqa: E501
     )
 
     tx_data = [

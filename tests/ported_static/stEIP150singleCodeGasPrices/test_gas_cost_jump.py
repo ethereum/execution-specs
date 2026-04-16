@@ -83,6 +83,7 @@ def test_gas_cost_jump(
         code=Op.PUSH1[0x0] * 2 + Op.JUMPDEST * 2 + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001000),  # noqa: E501
     )
     # Source: raw
     # 0x60006005565B00
@@ -90,6 +91,7 @@ def test_gas_cost_jump(
         code=Op.PUSH1[0x0] + Op.JUMP(pc=0x5) + Op.JUMPDEST + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000002000),  # noqa: E501
     )
     # Source: raw
     # 0x60016005575B00
@@ -97,6 +99,7 @@ def test_gas_cost_jump(
         code=Op.JUMPI(pc=0x5, condition=0x1) + Op.JUMPDEST + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000003000),  # noqa: E501
     )
     # Source: raw
     # 0x60006005575B00
@@ -104,6 +107,7 @@ def test_gas_cost_jump(
         code=Op.JUMPI(pc=0x5, condition=0x0) + Op.JUMPDEST + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000004000),  # noqa: E501
     )
     # Source: lll
     # {

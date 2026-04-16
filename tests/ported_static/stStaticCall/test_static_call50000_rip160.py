@@ -85,6 +85,7 @@ def test_static_call50000_rip160(
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
         nonce=0,
+        address=Address(0xC0E4183389EB57F779A986D8C878F89B9401DC8E),  # noqa: E501
     )
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) [[ 0 ]] (STATICCALL 78200 3 0 50000 0 0) ) [[ 1 ]] @i}  # noqa: E501
@@ -111,6 +112,7 @@ def test_static_call50000_rip160(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
+        address=Address(0xF50714EA64904A573FEE759CA74A1C3C93FEF59F),  # noqa: E501
     )
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (MSTORE 0 (STATICCALL 78200 3 0 50000 0 0)) ) (MSTORE 32 @i) }  # noqa: E501
@@ -137,6 +139,7 @@ def test_static_call50000_rip160(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
+        address=Address(0x4689CAD8BBC0E90B346E8B4BC385E68BA03F307C),  # noqa: E501
     )
 
     tx_data = [

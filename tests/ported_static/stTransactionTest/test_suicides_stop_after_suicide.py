@@ -51,6 +51,7 @@ def test_suicides_stop_after_suicide(
         code=Op.SELFDESTRUCT(address=0x1) + Op.STOP,
         balance=1110,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # {(SELFDESTRUCT 0) (CALL 30000 0x0000000000000000000000000000000000000000 0 0 0 0 0) }  # noqa: E501

@@ -71,6 +71,88 @@ SLOW_CATEGORIES = {
     "stTimeConsuming",
 }
 
+# Ported tests (relative to ``tests/ported_static/``) that must keep
+# hardcoded addresses. These do not converge under ``exact-no-stack``
+# with dynamic addresses because of patterns the analyzer's heuristics
+# cannot cover:
+#
+# - EIP-2929 warm/cold gas accounting that depends on which addresses
+#   are warm at call time (baseline-specific layout).
+# - CREATE2 collision semantics that depend on specific pre-state
+#   addresses colliding with computed CREATE2 targets.
+# - Keccak-derived storage keys (Solidity mappings) baked into the
+#   pre-state on specific sender / contract addresses.
+# - Structural transaction rejections sensitive to exact pre-state
+#   collisions (empty-but-code, init-colliding-with-non-empty).
+# - Edge cases where dynamic allocation randomly picks an address
+#   with a leading zero byte, changing PUSH size.
+# - Tag resolution mismatches (analyzer resolves <contract:0x…hint>
+#   to a fresh deterministic address, but baseline used the hint).
+#
+# Treat this list as an allowlist of "we've accepted the divergence
+# here; don't try to make it dynamic". See trace-divergences.md for
+# the per-file rationale.
+FORCE_HARDCODED_TESTS: set[str] = {
+    # GAS_ONLY (29) — EIP-2929 warm/cold access cost differences
+    "stCallCodes/test_callcode_dynamic_code.py",
+    "stCallCodes/test_callcode_dynamic_code2_self_call.py",
+    "stCallCreateCallCodeTest/test_call1024_pre_calls.py",
+    "stCallCreateCallCodeTest/test_contract_creation_make_call_that_ask_more_gas_then_transaction_provided.py",  # noqa: E501
+    "stCreate2/test_returndatacopy_following_create.py",
+    "stCreateTest/test_create_collision_to_empty2.py",
+    "stCreateTest/test_create_transaction_refund_ef.py",
+    "stDelegatecallTestHomestead/test_call1024_pre_calls.py",
+    "stDelegatecallTestHomestead/test_delegatecode_dynamic_code2_self_call.py",  # noqa: E501
+    "stEIP150singleCodeGasPrices/test_eip2929_oog.py",
+    "stEIP2930/test_manual_create.py",
+    "stEIP3651_warmcoinbase/test_coinbase_warm_account_call_gas_fail.py",
+    "stEIP3855_push0/test_push0.py",
+    "stEIP3855_push0/test_push0_gas2.py",
+    "stHomesteadSpecific/test_contract_creation_oo_gdont_leave_empty_contract_via_transaction.py",  # noqa: E501
+    "stRandom/test_random_statetest282.py",
+    "stRandom/test_random_statetest287.py",
+    "stRandom/test_random_statetest384.py",
+    "stRandom2/test_random_statetest401.py",
+    "stRandom2/test_random_statetest508.py",
+    "stRevertTest/test_cost_revert.py",
+    "stRevertTest/test_revert_opcode_in_calls_on_non_empty_return_data.py",
+    "stRevertTest/test_revert_opcode_multiple_sub_calls.py",
+    "stRevertTest/test_revert_precompiled_touch_paris.py",
+    "stStackTests/test_underflow_test.py",
+    "stSystemOperationsTest/test_suicide_caller_addres_too_big_left.py",
+    "vmBitwiseLogicOperation/test_byte.py",
+    "vmIOandFlowOperations/test_jump_to_push.py",
+    "vmIOandFlowOperations/test_jumpi.py",
+    # EXECUTION_PATH_DIVERGED — remaining 8 (Categories B, C, D, E)
+    "stCreate2/test_create2_suicide.py",
+    "stCreate2/test_create2collision_code2.py",
+    "stCreate2/test_create2collision_selfdestructed2.py",
+    "stDelegatecallTestHomestead/test_delegatecall_in_initcode_to_existing_contract_oog.py",  # noqa: E501
+    "stLogTests/test_log1_non_empty_mem.py",
+    "stSystemOperationsTest/test_double_selfdestruct_touch_paris.py",
+    "stWalletTest/test_multi_owned_change_requirement_to1.py",
+    "stWalletTest/test_multi_owned_revoke_nothing.py",
+    # EXECUTION_PATH_DIVERGED + GAS (5)
+    "stCreate2/test_create2collision_code.py",
+    "stCreate2/test_create2collision_nonce.py",
+    "stCreate2/test_create2collision_selfdestructed.py",
+    "stCreate2/test_create2collision_selfdestructed_revert.py",
+    "stSStoreTest/test_sstore_gas_left.py",
+    # OUTPUT_DIFFERS — remaining 2 (Categories F, H)
+    "stEIP3651_warmcoinbase/test_coinbase_warm_account_call_gas.py",
+    "stWalletTest/test_multi_owned_is_owner_true.py",
+    # STRUCTURAL (2) — CREATE collision behaviour
+    "stCreateTest/test_transaction_collision_to_empty_but_code.py",
+    "stEIP3607/test_init_colliding_with_non_empty_account.py",
+}
+
+
+def _ported_rel_path(filler_path: Path) -> str:
+    """Return the ``<category>/test_<snake>.py`` path for a filler."""
+    category = filler_path.parent.name if filler_path.parent.name else ""
+    py_test_name = _filler_name_to_test_name(filler_path.stem)
+    return f"{category}/{py_test_name}.py"
+
 
 class _AnalyzerAlloc(Alloc):
     """Alloc subclass that supports fund_eoa for analysis."""
@@ -163,8 +245,14 @@ def analyze(
     is_fork_dependent = not is_multi_case and len(model.expect) > 1
 
     # 9. Build accounts
+    force_hardcoded = _ported_rel_path(filler_path) in FORCE_HARDCODED_TESTS
     accounts = _build_accounts(
-        model, tags, addr_to_var, sender_tag_name, imports
+        model,
+        tags,
+        addr_to_var,
+        sender_tag_name,
+        imports,
+        force_hardcoded=force_hardcoded,
     )
 
     # Track if sender is not in the pre-state (for fund_eoa handling).
@@ -173,8 +261,8 @@ def analyze(
     if sender_tag_name and not any(a.is_sender for a in accounts):
         sender_ir.not_in_pre = True
 
-    # Always use dynamic sender (pre.fund_eoa) for non-hardcoded tests
-    sender_ir.use_dynamic = True
+    # Dynamic sender unless this test is on the hardcoded allowlist.
+    sender_ir.use_dynamic = not force_hardcoded
 
     # 10. Build environment
     environment_ir = _build_environment(model, tags, addr_to_var)
@@ -195,6 +283,13 @@ def analyze(
         for acct in accounts:
             if not acct.is_eoa:
                 acct.use_dynamic = False
+
+    # 11c. Forced hardcoded (allowlist) also pins every EOA so coinbase
+    # rebinds and fund_eoa-generated EOAs don't leak into an otherwise
+    # hardcoded test.
+    if force_hardcoded:
+        for acct in accounts:
+            acct.use_dynamic = False
 
     # 12. Build transaction IR
     transaction_ir, access_list_entries = _build_transaction_ir(
@@ -747,6 +842,8 @@ def _build_accounts(
     addr_to_var: dict[Address | EOA, str],
     sender_tag_name: str | None,
     imports: ImportsIR,
+    *,
+    force_hardcoded: bool = False,
 ) -> list[AccountIR]:
     """Build AccountIR list with dependency-ordered contracts."""
     # ------------------------------------------------------------------
@@ -998,6 +1095,7 @@ def _build_accounts(
         has_addr_arithmetic
         or short_push_unpinnable
         or has_computed_call_target
+        or force_hardcoded
     ):
         # Disable dynamic for all contracts and re-generate Op
         # expressions without addr_to_var. Triggers:
@@ -1008,6 +1106,9 @@ def _build_accounts(
         #     resolved addresses.
         #   * computed call targets (CALL with address=Op.ADD/MLOAD/
         #     CALLDATALOAD/...) dispatch by baseline-relative offsets.
+        #   * the test is on the FORCE_HARDCODED_TESTS allowlist — we've
+        #     accepted that it can't converge under exact-no-stack with
+        #     dynamic addresses (see module docstring on that set).
         for acct in raw_accounts:
             if not acct.is_eoa:
                 acct.use_dynamic = False

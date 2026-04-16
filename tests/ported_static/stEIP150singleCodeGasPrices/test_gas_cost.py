@@ -846,6 +846,7 @@ def test_gas_cost(
         storage={0: 24743},
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0xCCDCF3FF42C8382ABEEF05BB8949F975A6BC345C),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

@@ -7,6 +7,7 @@ state_tests/stRevertTest/costRevertFiller.yml
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -223,7 +224,9 @@ def test_cost_revert(
     contract_5 = Address(0x0000000000000000000000000000000000001005)
     contract_6 = Address(0x0000000000000000000000000000000000001006)
     contract_7 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = pre.fund_eoa(amount=0x100000000000)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -234,6 +237,7 @@ def test_cost_revert(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0x100000000000)
     # Source: lll
     # {
     #     (revert 0 0x10)
@@ -242,6 +246,7 @@ def test_cost_revert(
         code=Op.REVERT(offset=0x0, size=0x10) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001000),  # noqa: E501
     )
     # Source: lll
     # {
@@ -256,6 +261,7 @@ def test_cost_revert(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001001),  # noqa: E501
     )
     # Source: lll
     # {
@@ -265,6 +271,7 @@ def test_cost_revert(
         code=Op.SHA3(offset=0x0, size=Op.SUB(0x0, 0x1)) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001002),  # noqa: E501
     )
     # Source: raw
     # 0x610103600155600060006000600061dead6175305a03f450BA
@@ -274,6 +281,7 @@ def test_cost_revert(
         ),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001003),  # noqa: E501
     )
     # Source: raw
     # 0x610104600155600060006000600061dead6175305a03f450600056
@@ -292,6 +300,7 @@ def test_cost_revert(
         + Op.JUMP(pc=0x0),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001004),  # noqa: E501
     )
     # Source: raw
     # 0x1000
@@ -299,6 +308,7 @@ def test_cost_revert(
         code=Op.LT + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001005),  # noqa: E501
     )
     # Source: raw
     # 0x5b586004580356
@@ -306,6 +316,7 @@ def test_cost_revert(
         code=Op.JUMPDEST + Op.PC + Op.JUMP(pc=Op.SUB(Op.PC, 0x4)),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001006),  # noqa: E501
     )
     # Source: lll
     # {
@@ -457,6 +468,7 @@ def test_cost_revert(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

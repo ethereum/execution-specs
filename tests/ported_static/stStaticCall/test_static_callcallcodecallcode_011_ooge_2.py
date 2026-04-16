@@ -89,12 +89,14 @@ def test_static_callcallcodecallcode_011_ooge_2(
         + Op.MSTORE(offset=0x3, value=0x1)
         + Op.STOP,
         nonce=0,
+        address=Address(0x11A4A9DAD43E6ED44E108EAF7FB160F9835068F4),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 3 1) }
     addr_4 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x3, value=0x1) + Op.STOP,
         nonce=0,
+        address=Address(0x335C5531B84765A7626E6E76688F18B81BE5259C),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 0 (CALLDATALOAD 0)) [[ 0 ]] (STATICCALL 150000 <contract:0x1000000000000000000000000000000000000001> 0 64 0 64 ) [[ 1 ]] 1 }  # noqa: E501
@@ -104,7 +106,7 @@ def test_static_callcallcodecallcode_011_ooge_2(
             key=0x0,
             value=Op.STATICCALL(
                 gas=0x249F0,
-                address=addr,
+                address=0x11A4A9DAD43E6ED44E108EAF7FB160F9835068F4,
                 args_offset=0x0,
                 args_size=0x40,
                 ret_offset=0x0,
@@ -115,6 +117,7 @@ def test_static_callcallcodecallcode_011_ooge_2(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0x6E143211E9D36EAEEBE65F6ED69D6C28500040D6),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 3 11) (CALLCODE 20020 <contract:0x1000000000000000000000000000000000000003> 1 0 64 0 64 ) (MSTORE 13 1)}  # noqa: E501
@@ -123,7 +126,7 @@ def test_static_callcallcodecallcode_011_ooge_2(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x4E34,
-                address=addr_4,
+                address=0x335C5531B84765A7626E6E76688F18B81BE5259C,
                 value=0x1,
                 args_offset=0x0,
                 args_size=0x40,
@@ -134,6 +137,7 @@ def test_static_callcallcodecallcode_011_ooge_2(
         + Op.MSTORE(offset=0xD, value=0x1)
         + Op.STOP,
         nonce=0,
+        address=Address(0xF43B4E8B779078758104039080947F8F74E663D3),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 3 11) (CALLCODE 20020 <contract:0x1000000000000000000000000000000000000003> 0 0 64 0 64 ) (MSTORE 13 1)}  # noqa: E501
@@ -142,7 +146,7 @@ def test_static_callcallcodecallcode_011_ooge_2(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x4E34,
-                address=addr_4,
+                address=0x335C5531B84765A7626E6E76688F18B81BE5259C,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x40,
@@ -153,6 +157,7 @@ def test_static_callcallcodecallcode_011_ooge_2(
         + Op.MSTORE(offset=0xD, value=0x1)
         + Op.STOP,
         nonce=0,
+        address=Address(0xBB2E6E56806816E94A356B0F0C8E53F98E44D6AD),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

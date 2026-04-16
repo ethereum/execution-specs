@@ -87,6 +87,7 @@ def test_static_ab_acalls3(
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
         nonce=0,
+        address=Address(0xC0E4183389EB57F779A986D8C878F89B9401DC8E),  # noqa: E501
     )
     # Source: lll
     # {  [[ 0 ]] (ADD (SLOAD 0) 1) (STATICCALL (- (GAS) 100000) <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 0 0 0 0) }  # noqa: E501

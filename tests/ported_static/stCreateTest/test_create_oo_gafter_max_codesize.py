@@ -116,6 +116,7 @@ def test_create_oo_gafter_max_codesize(
         + Op.JUMPDEST
         + Op.SELFDESTRUCT(address=0x0),
         nonce=0,
+        address=Address(0x00000000000000000000000000000000000C0DE0),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -134,6 +135,7 @@ def test_create_oo_gafter_max_codesize(
         + Op.EXTCODECOPY
         + Op.RETURN(offset=0x0, size=0x6000),
         nonce=0,
+        address=Address(0x00000000000000000000000000000000000C0DE1),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -192,6 +194,7 @@ def test_create_oo_gafter_max_codesize(
         + Op.ADD
         + Op.JUMP(pc=0x18),
         nonce=1,
+        address=Address(0x00000000000000000000000000000000000C0DEB),  # noqa: E501
     )
     # Source: yul
     # berlin

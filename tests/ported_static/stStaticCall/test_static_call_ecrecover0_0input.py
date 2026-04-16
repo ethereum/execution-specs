@@ -131,6 +131,7 @@ def test_static_call_ecrecover0_0input(
         + Op.STOP,
         balance=0x1312D00,
         nonce=0,
+        address=Address(0x1FD04A51AC69C94C58521D30E2DEFC4856A581B0),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

@@ -295,15 +295,7 @@ def test_eip2929(
         code=Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-    )
-    # Source: lll
-    # {
-    #      (balance 0xca11)
-    # }
-    contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.BALANCE(address=contract_0) + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
+        address=Address(0x000000000000000000000000000000000000CA11),  # noqa: E501
     )
     # Source: lll
     # {
@@ -313,6 +305,17 @@ def test_eip2929(
         code=Op.SLOAD(key=0x100) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x00000000000000000000000000000000CA110100),  # noqa: E501
+    )
+    # Source: lll
+    # {
+    #      (balance 0xca11)
+    # }
+    contract_1 = pre.deploy_contract(  # noqa: F841
+        code=Op.BALANCE(address=0xCA11) + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=0,
+        address=Address(0x000000000000000000000000000000CA1100CA11),  # noqa: E501
     )
     # Source: lll
     # {

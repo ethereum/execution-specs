@@ -656,6 +656,7 @@ def test_revert_precompiled_touch_exact_oog_paris(
         )
         + Op.STOP,
         nonce=0,
+        address=Address(0x6C7FAC59C79986689878E37545DF629F68278098),  # noqa: E501
     )
     # Source: lll
     # { (CALL (GAS) (CALLDATASIZE) 0 0 0 0 0) }
@@ -671,6 +672,7 @@ def test_revert_precompiled_touch_exact_oog_paris(
         )
         + Op.STOP,
         nonce=0,
+        address=Address(0xA2F144D2206204D88E039B31BB7DB14A28A06FED),  # noqa: E501
     )
     # Source: lll
     # { (DELEGATECALL (GAS) (CALLDATASIZE) 0 0 0 0) }
@@ -685,6 +687,7 @@ def test_revert_precompiled_touch_exact_oog_paris(
         )
         + Op.STOP,
         nonce=0,
+        address=Address(0x81F666FDC784482530048E74CEE651EA98A0733D),  # noqa: E501
     )
     # Source: lll
     # { (CALLCODE (GAS) (CALLDATASIZE) 0 0 0 0 0) }
@@ -700,6 +703,7 @@ def test_revert_precompiled_touch_exact_oog_paris(
         )
         + Op.STOP,
         nonce=0,
+        address=Address(0x33506407E929A3834EA7BFA65F86B41C7B7E57B9),  # noqa: E501
     )
     # Source: lll
     # { (STATICCALL (GAS) (CALLDATASIZE) 0 0 0 0)  }
@@ -714,6 +718,7 @@ def test_revert_precompiled_touch_exact_oog_paris(
         )
         + Op.STOP,
         nonce=0,
+        address=Address(0xC02FFF115E5EEE4FF4420EBA1CB7CB8772E0598E),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

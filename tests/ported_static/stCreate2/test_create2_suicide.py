@@ -7,6 +7,7 @@ state_tests/stCreate2/CREATE2_SuicideFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -117,7 +118,9 @@ def test_create2_suicide(
 ) -> None:
     """CREATE2 suicide with/without value, CREATE2 suicide to itself   + ..."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xE8D4A51000)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -127,6 +130,8 @@ def test_create2_suicide(
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
+
+    pre[sender] = Account(balance=0xE8D4A51000)
 
     expect_entries_: list[dict] = [
         {

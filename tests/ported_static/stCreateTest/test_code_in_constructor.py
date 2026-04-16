@@ -88,6 +88,7 @@ def test_code_in_constructor(
         storage={0: 1},
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000DA7A),  # noqa: E501
     )
     # Source: lll
     # {

@@ -539,6 +539,7 @@ def test_trans_storage_ok(
         + Op.JUMP,
         storage={0: 24743, 1: 24743},
         nonce=1,
+        address=Address(0x00000000000000000000000000000000CA11BACC),  # noqa: E501
     )
     # Source: yul
     # {
@@ -837,100 +838,7 @@ def test_trans_storage_ok(
         + Op.TSTORE
         + Op.JUMP,
         nonce=1,
-    )
-    # Source: yul
-    # {
-    #     function tload_temp(loc) -> val {
-    #       val := verbatim_1i_1o(hex"5C", loc)
-    #     }
-    #
-    #     function tstore_temp(loc, val) {
-    #       verbatim_2i_0o(hex"5D", loc, val)
-    #     }
-    #
-    #     // The initial value of the counter is zero
-    #     sstore(0, tload_temp(0))
-    #
-    #     // CALLCODE increments our Trans[0]
-    #     sstore(0x11, callcode(gas(), 0xadd1, 0, 0,0, 0,0))
-    #     sstore(1, tload_temp(0))
-    #
-    #     // DELEGATECALL increments our Trans[0]
-    #     sstore(0x12, delegatecall(gas(), 0xadd1, 0,0, 0,0))
-    #     sstore(2, tload_temp(0))
-    #
-    #     // CALL does not increment our Trans[0], it means a different
-    #     // transient storage
-    #     sstore(0x13, call(gas(), 0xadd1, 0, 0,0, 0,0))
-    #     sstore(3, tload_temp(0))
-    # }
-    contract_8 = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH1[0x6]
-        + Op.PUSH0
-        + Op.JUMP(pc=0x4E)
-        + Op.JUMPDEST
-        + Op.PUSH0
-        + Op.SSTORE
-        + Op.SSTORE(
-            key=0x11,
-            value=Op.CALLCODE(
-                gas=Op.GAS,
-                address=contract_7,
-                value=Op.DUP1,
-                args_offset=Op.DUP1,
-                args_size=Op.DUP1,
-                ret_offset=Op.DUP1,
-                ret_size=Op.PUSH0,
-            ),
-        )
-        + Op.PUSH1[0x1C]
-        + Op.PUSH0
-        + Op.JUMP(pc=0x4E)
-        + Op.JUMPDEST
-        + Op.PUSH1[0x1]
-        + Op.SSTORE
-        + Op.SSTORE(
-            key=0x12,
-            value=Op.DELEGATECALL(
-                gas=Op.GAS,
-                address=contract_7,
-                args_offset=Op.DUP1,
-                args_size=Op.DUP1,
-                ret_offset=Op.DUP1,
-                ret_size=Op.PUSH0,
-            ),
-        )
-        + Op.PUSH1[0x32]
-        + Op.PUSH0
-        + Op.JUMP(pc=0x4E)
-        + Op.JUMPDEST
-        + Op.PUSH1[0x2]
-        + Op.SSTORE
-        + Op.SSTORE(
-            key=0x13,
-            value=Op.CALL(
-                gas=Op.GAS,
-                address=contract_7,
-                value=Op.DUP1,
-                args_offset=Op.DUP1,
-                args_size=Op.DUP1,
-                ret_offset=Op.DUP1,
-                ret_size=Op.PUSH0,
-            ),
-        )
-        + Op.PUSH1[0x49]
-        + Op.PUSH0
-        + Op.JUMP(pc=0x4E)
-        + Op.JUMPDEST
-        + Op.PUSH1[0x3]
-        + Op.SSTORE
-        + Op.STOP
-        + Op.JUMPDEST
-        + Op.TLOAD
-        + Op.SWAP1
-        + Op.JUMP,
-        storage={0: 24743},
-        nonce=1,
+        address=Address(0x000000000000000000000000000000000000ADD1),  # noqa: E501
     )
     # Source: yul
     # {
@@ -1100,66 +1008,7 @@ def test_trans_storage_ok(
         + Op.TSTORE
         + Op.JUMP,
         nonce=1,
-    )
-    # Source: yul
-    # {
-    #     // Set up Trans[0] with a regular call.
-    #     sstore(0x10,call(gas(), 0x57A7, 0, 0,1, 0,32))
-    #     sstore(0, mload(0))
-    #
-    #     // Use staticcall to read Trans[0] of 0x0..57A7.
-    #     mstore(0,0)
-    #     sstore(0x11,staticcall(gas(), 0x57A7, 0,0, 0,32))
-    #     sstore(1, mload(0))
-    #
-    #     // Try to use staticall to write Trans[0]. This should fail.
-    #     mstore(0,0)
-    #     sstore(0x12,staticcall(gas(), 0x57A7, 0,1, 0,32))
-    #     sstore(2, mload(0))
-    # }
-    contract_11 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0x10,
-            value=Op.CALL(
-                gas=Op.GAS,
-                address=contract_10,
-                value=Op.DUP1,
-                args_offset=Op.DUP2,
-                args_size=0x1,
-                ret_offset=Op.PUSH0,
-                ret_size=0x20,
-            ),
-        )
-        + Op.SSTORE(key=Op.PUSH0, value=Op.MLOAD(offset=Op.PUSH0))
-        + Op.MSTORE(offset=Op.DUP1, value=Op.PUSH0)
-        + Op.SSTORE(
-            key=0x11,
-            value=Op.STATICCALL(
-                gas=Op.GAS,
-                address=contract_10,
-                args_offset=Op.DUP1,
-                args_size=Op.DUP1,
-                ret_offset=Op.PUSH0,
-                ret_size=0x20,
-            ),
-        )
-        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=Op.PUSH0))
-        + Op.MSTORE(offset=Op.DUP1, value=Op.PUSH0)
-        + Op.SSTORE(
-            key=0x12,
-            value=Op.STATICCALL(
-                gas=Op.GAS,
-                address=contract_10,
-                args_offset=Op.DUP2,
-                args_size=0x1,
-                ret_offset=Op.PUSH0,
-                ret_size=0x20,
-            ),
-        )
-        + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=Op.PUSH0))
-        + Op.STOP,
-        storage={2: 24743, 18: 24743},
-        nonce=1,
+        address=Address(0x00000000000000000000000000000000000057A7),  # noqa: E501
     )
     # Source: yul
     # {
@@ -1293,6 +1142,160 @@ def test_trans_storage_ok(
         + Op.JUMPDEST
         + Op.TSTORE
         + Op.JUMP,
+        nonce=1,
+    )
+    # Source: yul
+    # {
+    #     function tload_temp(loc) -> val {
+    #       val := verbatim_1i_1o(hex"5C", loc)
+    #     }
+    #
+    #     function tstore_temp(loc, val) {
+    #       verbatim_2i_0o(hex"5D", loc, val)
+    #     }
+    #
+    #     // The initial value of the counter is zero
+    #     sstore(0, tload_temp(0))
+    #
+    #     // CALLCODE increments our Trans[0]
+    #     sstore(0x11, callcode(gas(), 0xadd1, 0, 0,0, 0,0))
+    #     sstore(1, tload_temp(0))
+    #
+    #     // DELEGATECALL increments our Trans[0]
+    #     sstore(0x12, delegatecall(gas(), 0xadd1, 0,0, 0,0))
+    #     sstore(2, tload_temp(0))
+    #
+    #     // CALL does not increment our Trans[0], it means a different
+    #     // transient storage
+    #     sstore(0x13, call(gas(), 0xadd1, 0, 0,0, 0,0))
+    #     sstore(3, tload_temp(0))
+    # }
+    contract_8 = pre.deploy_contract(  # noqa: F841
+        code=Op.PUSH1[0x6]
+        + Op.PUSH0
+        + Op.JUMP(pc=0x4E)
+        + Op.JUMPDEST
+        + Op.PUSH0
+        + Op.SSTORE
+        + Op.SSTORE(
+            key=0x11,
+            value=Op.CALLCODE(
+                gas=Op.GAS,
+                address=contract_7,
+                value=Op.DUP1,
+                args_offset=Op.DUP1,
+                args_size=Op.DUP1,
+                ret_offset=Op.DUP1,
+                ret_size=Op.PUSH0,
+            ),
+        )
+        + Op.PUSH1[0x1C]
+        + Op.PUSH0
+        + Op.JUMP(pc=0x4E)
+        + Op.JUMPDEST
+        + Op.PUSH1[0x1]
+        + Op.SSTORE
+        + Op.SSTORE(
+            key=0x12,
+            value=Op.DELEGATECALL(
+                gas=Op.GAS,
+                address=contract_7,
+                args_offset=Op.DUP1,
+                args_size=Op.DUP1,
+                ret_offset=Op.DUP1,
+                ret_size=Op.PUSH0,
+            ),
+        )
+        + Op.PUSH1[0x32]
+        + Op.PUSH0
+        + Op.JUMP(pc=0x4E)
+        + Op.JUMPDEST
+        + Op.PUSH1[0x2]
+        + Op.SSTORE
+        + Op.SSTORE(
+            key=0x13,
+            value=Op.CALL(
+                gas=Op.GAS,
+                address=contract_7,
+                value=Op.DUP1,
+                args_offset=Op.DUP1,
+                args_size=Op.DUP1,
+                ret_offset=Op.DUP1,
+                ret_size=Op.PUSH0,
+            ),
+        )
+        + Op.PUSH1[0x49]
+        + Op.PUSH0
+        + Op.JUMP(pc=0x4E)
+        + Op.JUMPDEST
+        + Op.PUSH1[0x3]
+        + Op.SSTORE
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.TLOAD
+        + Op.SWAP1
+        + Op.JUMP,
+        storage={0: 24743},
+        nonce=1,
+    )
+    # Source: yul
+    # {
+    #     // Set up Trans[0] with a regular call.
+    #     sstore(0x10,call(gas(), 0x57A7, 0, 0,1, 0,32))
+    #     sstore(0, mload(0))
+    #
+    #     // Use staticcall to read Trans[0] of 0x0..57A7.
+    #     mstore(0,0)
+    #     sstore(0x11,staticcall(gas(), 0x57A7, 0,0, 0,32))
+    #     sstore(1, mload(0))
+    #
+    #     // Try to use staticall to write Trans[0]. This should fail.
+    #     mstore(0,0)
+    #     sstore(0x12,staticcall(gas(), 0x57A7, 0,1, 0,32))
+    #     sstore(2, mload(0))
+    # }
+    contract_11 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x10,
+            value=Op.CALL(
+                gas=Op.GAS,
+                address=contract_10,
+                value=Op.DUP1,
+                args_offset=Op.DUP2,
+                args_size=0x1,
+                ret_offset=Op.PUSH0,
+                ret_size=0x20,
+            ),
+        )
+        + Op.SSTORE(key=Op.PUSH0, value=Op.MLOAD(offset=Op.PUSH0))
+        + Op.MSTORE(offset=Op.DUP1, value=Op.PUSH0)
+        + Op.SSTORE(
+            key=0x11,
+            value=Op.STATICCALL(
+                gas=Op.GAS,
+                address=contract_10,
+                args_offset=Op.DUP1,
+                args_size=Op.DUP1,
+                ret_offset=Op.PUSH0,
+                ret_size=0x20,
+            ),
+        )
+        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=Op.PUSH0))
+        + Op.MSTORE(offset=Op.DUP1, value=Op.PUSH0)
+        + Op.SSTORE(
+            key=0x12,
+            value=Op.STATICCALL(
+                gas=Op.GAS,
+                address=contract_10,
+                args_offset=Op.DUP2,
+                args_size=0x1,
+                ret_offset=Op.PUSH0,
+                ret_size=0x20,
+            ),
+        )
+        + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=Op.PUSH0))
+        + Op.STOP,
+        storage={2: 24743, 18: 24743},
         nonce=1,
     )
 

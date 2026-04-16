@@ -119,15 +119,17 @@ def test_eip2929_minus_ff(
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.STOP,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000DE57),  # noqa: E501
     )
     # Source: lll
     # {
     #      (selfdestruct 0xDE57)
     # }
     contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.SELFDESTRUCT(address=contract_0) + Op.STOP,
+        code=Op.SELFDESTRUCT(address=0xDE57) + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000CA11),  # noqa: E501
     )
     # Source: lll
     # {

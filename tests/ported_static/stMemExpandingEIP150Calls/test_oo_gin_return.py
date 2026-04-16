@@ -104,6 +104,7 @@ def test_oo_gin_return(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x9F5C4C430E37B429D18F8ABA147E2302AF08F210),  # noqa: E501
     )
     # Source: lll
     # {
@@ -116,6 +117,7 @@ def test_oo_gin_return(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0xCEE9F0C6117CC881AD7B4C378C2BEBEE8FCD04A9),  # noqa: E501
     )
     # Source: lll
     # {
@@ -168,6 +170,7 @@ def test_oo_gin_return(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0xEBD3191DD8150F47E30F87927DB4592163EE9224),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

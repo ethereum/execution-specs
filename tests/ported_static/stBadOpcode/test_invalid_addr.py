@@ -575,6 +575,7 @@ def test_invalid_addr(
         + Op.STOP,
         balance=0x10000,
         nonce=0,
+        address=Address(0x1C60A961CFF23C82B2F809E76B815D003898E196),  # noqa: E501
     )
     # Source: lll
     # {
@@ -584,6 +585,7 @@ def test_invalid_addr(
         code=Op.SELFDESTRUCT(address=Op.CALLDATALOAD(offset=0x0)) + Op.STOP,
         balance=4096,
         nonce=0,
+        address=Address(0x9CB657C71386D578195B90DA7DE545482E0A9440),  # noqa: E501
     )
     # Source: lll
     # {
@@ -593,6 +595,7 @@ def test_invalid_addr(
         code=Op.SELFDESTRUCT(address=Op.CALLDATALOAD(offset=0x0)) + Op.STOP,
         balance=4096,
         nonce=0,
+        address=Address(0xE2CFFD6602680D87B7872C3B69F42FA631058CBF),  # noqa: E501
     )
     # Source: lll
     # {
@@ -634,7 +637,9 @@ def test_invalid_addr(
         + Op.POP(0x0)
         + Op.JUMP(pc=Op.PUSH2[0x2B])
         + Op.JUMPDEST
-        + Op.MSTORE(offset=0x2000, value=addr)
+        + Op.MSTORE(
+            offset=0x2000, value=0x1C60A961CFF23C82B2F809E76B815D003898E196
+        )
         + Op.JUMPDEST
         + Op.JUMPI(
             pc=Op.PUSH2[0x3D],
@@ -972,7 +977,7 @@ def test_invalid_addr(
         + Op.POP(
             Op.CALL(
                 gas=0x10000000,
-                address=dead1,
+                address=0x9CB657C71386D578195B90DA7DE545482E0A9440,
                 value=0x0,
                 args_offset=0x2000,
                 args_size=0x20,
@@ -986,7 +991,7 @@ def test_invalid_addr(
         + Op.POP(
             Op.CALL(
                 gas=0x10000000,
-                address=dead2,
+                address=0xE2CFFD6602680D87B7872C3B69F42FA631058CBF,
                 value=0x0,
                 args_offset=0x2040,
                 args_size=0x20,
@@ -1026,6 +1031,7 @@ def test_invalid_addr(
         storage={256: 24743},
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x2D876FD03A90703F170C256363BA225F9494E604),  # noqa: E501
     )
 
     tx_data = [

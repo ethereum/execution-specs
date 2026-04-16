@@ -77,6 +77,7 @@ def test_static_create_empty_contract_with_storage_and_call_it_0wei(
         + Op.SSTORE(key=0x64, value=Op.GAS)
         + Op.STOP,
         nonce=0,
+        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
     # Source: lll
     # {[[1]]12}
@@ -84,6 +85,7 @@ def test_static_create_empty_contract_with_storage_and_call_it_0wei(
         code=Op.SSTORE(key=0x1, value=0xC) + Op.STOP,
         balance=0xE8D4A51000,
         nonce=0,
+        address=Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     tx = Transaction(

@@ -90,6 +90,7 @@ def test_loop_stacklimit(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x15F0298E83391F673B708790F259F3F34DFBD788),  # noqa: E501
     )
     # Source: raw
     # 0x6000345b60019003906001018180600357600052600152600059f300
@@ -113,6 +114,7 @@ def test_loop_stacklimit(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x3B20573C5048E5BA16083407E59FC0BBC044B6C0),  # noqa: E501
     )
     # Source: lll
     # {
@@ -131,6 +133,7 @@ def test_loop_stacklimit(
         storage={0: 0},
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0xF9B46C1D708104B4E6007D17AE485B0A00D8E952),  # noqa: E501
     )
 
     tx_data = [

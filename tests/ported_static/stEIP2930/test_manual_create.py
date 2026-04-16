@@ -7,6 +7,7 @@ state_tests/stEIP2930/manualCreateFiller.yml
 
 import pytest
 from execution_testing import (
+    EOA,
     AccessList,
     Account,
     Address,
@@ -65,7 +66,9 @@ def test_manual_create(
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0x1000000000000000000, nonce=1)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -75,6 +78,8 @@ def test_manual_create(
         base_fee_per_gas=10,
         gas_limit=71794957647893862,
     )
+
+    pre[sender] = Account(balance=0x1000000000000000000, nonce=1)
 
     expect_entries_: list[dict] = [
         {

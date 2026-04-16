@@ -86,6 +86,7 @@ def test_revert_opcode_direct_call(
         + Op.STOP,
         balance=1,
         nonce=0,
+        address=Address(0xF94D87FAF19D8C731E70E1B0A25F9668718F6E17),  # noqa: E501
     )
     # Source: lll
     # { [[1]] 12 (REVERT 0 1) [[3]] 13 }
@@ -96,6 +97,7 @@ def test_revert_opcode_direct_call(
         + Op.STOP,
         balance=1,
         nonce=0,
+        address=Address(0x93A599BDE9A3B6390AFDB06952AA5EC0B8C44F3B),  # noqa: E501
     )
     # Source: lll
     # { [[0]] (CALL 50000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[2]] 14 }  # noqa: E501
@@ -104,7 +106,7 @@ def test_revert_opcode_direct_call(
             key=0x0,
             value=Op.CALL(
                 gas=0xC350,
-                address=addr_2,
+                address=0x93A599BDE9A3B6390AFDB06952AA5EC0B8C44F3B,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -116,6 +118,7 @@ def test_revert_opcode_direct_call(
         + Op.STOP,
         balance=1,
         nonce=0,
+        address=Address(0xCEB48D108C874B5B014ACDD1A2466D65A3D01DE6),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

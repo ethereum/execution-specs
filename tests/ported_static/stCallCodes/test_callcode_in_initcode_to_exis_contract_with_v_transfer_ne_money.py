@@ -112,7 +112,7 @@ def test_callcode_in_initcode_to_exis_contract_with_v_transfer_ne_money(
             key=0x1,
             value=Op.CALLCODE(
                 gas=0x7A120,
-                address=contract_3,
+                address=0x1000000000000000000000000000000000000001,
                 value=0x1,
                 args_offset=0x0,
                 args_size=0x0,
@@ -138,7 +138,7 @@ def test_callcode_in_initcode_to_exis_contract_with_v_transfer_ne_money(
             key=0x1,
             value=Op.CALLCODE(
                 gas=0x7A120,
-                address=contract_3,
+                address=0x1000000000000000000000000000000000000001,
                 value=0x1,
                 args_offset=0x0,
                 args_size=0x0,

@@ -82,12 +82,14 @@ def test_static_callcodecallcall_100_ooge(
         + Op.MSTORE(offset=0x3, value=0x1)
         + Op.STOP,
         nonce=0,
+        address=Address(0x5AC4EE179ABD5EA5F60962E651DED51161A55B6E),  # noqa: E501
     )
     # Source: lll
     # {  (SSTORE 3 1) }
     addr_3 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x3, value=0x1) + Op.STOP,
         nonce=0,
+        address=Address(0xB126C622075B1189FB6C45E851641CFADDF65B36),  # noqa: E501
     )
     # Source: lll
     # {  (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (EXTCODESIZE 1)) }
@@ -102,6 +104,7 @@ def test_static_callcodecallcall_100_ooge(
         + Op.JUMPDEST
         + Op.STOP,
         nonce=0,
+        address=Address(0xFBEF21C5A6C2ADCF3D769F085E0CC9FE9A8DF954),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 32 (CALLDATALOAD 0)) (STATICCALL 100000 <contract:0x1000000000000000000000000000000000000002> 0 64 0 64 ) (MSTORE 3 1) }  # noqa: E501
@@ -110,7 +113,7 @@ def test_static_callcodecallcall_100_ooge(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x186A0,
-                address=addr_2,
+                address=0x5AC4EE179ABD5EA5F60962E651DED51161A55B6E,
                 args_offset=0x0,
                 args_size=0x40,
                 ret_offset=0x0,
@@ -120,6 +123,7 @@ def test_static_callcodecallcall_100_ooge(
         + Op.MSTORE(offset=0x3, value=0x1)
         + Op.STOP,
         nonce=0,
+        address=Address(0xC4961FC5BDC17DA68E909D07947A5E030952891E),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 0 (CALLDATALOAD 0)) [[ 0 ]] (DELEGATECALL 150000 <contract:0x1000000000000000000000000000000000000001> 0 64 0 64 ) [[ 1 ]] 1 }  # noqa: E501
@@ -129,7 +133,7 @@ def test_static_callcodecallcall_100_ooge(
             key=0x0,
             value=Op.DELEGATECALL(
                 gas=0x249F0,
-                address=addr,
+                address=0xC4961FC5BDC17DA68E909D07947A5E030952891E,
                 args_offset=0x0,
                 args_size=0x40,
                 ret_offset=0x0,
@@ -140,6 +144,7 @@ def test_static_callcodecallcall_100_ooge(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0xDCFF1EF291EC7B6A606AC4284680DB5A06F33054),  # noqa: E501
     )
 
     tx_data = [

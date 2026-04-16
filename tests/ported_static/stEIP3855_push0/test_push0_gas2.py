@@ -7,6 +7,7 @@ state_tests/Shanghai/stEIP3855_push0/push0Gas2Filler.yml
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -59,7 +60,9 @@ def test_push0_gas2(
     contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_1 = Address(0x0000000000000000000000000000000000001000)
     contract_2 = Address(0x0000000000000000000000000000000000000200)
-    sender = pre.fund_eoa(amount=0x989680)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -70,6 +73,7 @@ def test_push0_gas2(
         gas_limit=89128960,
     )
 
+    pre[sender] = Account(balance=0x989680)
     # Source: yul
     # berlin
     # {
@@ -92,6 +96,7 @@ def test_push0_gas2(
         + Op.SSTORE(key=Op.DUP1, value=0x1)
         + Op.STOP,
         nonce=0,
+        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
     # Source: raw
     # 0x5a5f5a9091039055
@@ -105,6 +110,7 @@ def test_push0_gas2(
         + Op.SWAP1
         + Op.SSTORE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001000),  # noqa: E501
     )
     # Source: raw
     # 0x5a60005a9091039055
@@ -118,6 +124,7 @@ def test_push0_gas2(
         + Op.SWAP1
         + Op.SSTORE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000000200),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

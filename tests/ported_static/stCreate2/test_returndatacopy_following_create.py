@@ -7,6 +7,7 @@ state_tests/stCreate2/returndatacopy_following_createFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -60,7 +61,9 @@ def test_returndatacopy_following_create(
     contract_0 = Address(0x1AABBCCDD5C57F15886F9B263E2F6D2D6C7B5EC6)
     contract_1 = Address(0x0F572E5295C57F15886F9B263E2F6D2D6C7B5EC6)
     contract_2 = Address(0x1F572E5295C57F15886F9B263E2F6D2D6C7B5EC6)
-    sender = pre.fund_eoa(amount=0x6400000000)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -71,6 +74,7 @@ def test_returndatacopy_following_create(
         gas_limit=47244640256,
     )
 
+    pre[sender] = Account(balance=0x6400000000)
     # Source: lll
     # { (CALL (GAS) (CALLDATALOAD 0) 0 0 0 0 0) }
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -85,6 +89,7 @@ def test_returndatacopy_following_create(
         )
         + Op.STOP,
         nonce=0,
+        address=Address(0x1AABBCCDD5C57F15886F9B263E2F6D2D6C7B5EC6),  # noqa: E501
     )
     # Source: lll
     # { (CREATE2 0 0 (lll (seq (MSTORE 0 0x0000111122223333444455556666777788889999aaaabbbbccccddddeeeeffff) (RETURN 0 32)) 0) 0) (RETURNDATACOPY 0 0 32) (SSTORE 0 (MLOAD 0)) }  # noqa: E501
@@ -106,6 +111,7 @@ def test_returndatacopy_following_create(
         + Op.STOP,
         storage={0: 1},
         nonce=0,
+        address=Address(0x0F572E5295C57F15886F9B263E2F6D2D6C7B5EC6),  # noqa: E501
     )
     # Source: lll
     # { (seq (create2 0 0 (lll (STOP) 0) 0) (RETURNDATACOPY 0 0 32) (SSTORE 0 (MLOAD 0)) )}  # noqa: E501
@@ -122,6 +128,7 @@ def test_returndatacopy_following_create(
         + Op.STOP * 2,
         storage={0: 1},
         nonce=0,
+        address=Address(0x1F572E5295C57F15886F9B263E2F6D2D6C7B5EC6),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

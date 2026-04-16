@@ -10,6 +10,7 @@ state_tests/stSystemOperationsTest/doubleSelfdestructTouch_ParisFiller.yml
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -68,7 +69,11 @@ def test_double_selfdestruct_touch_paris(
 ) -> None:
     """A single contract can execute SELFDESTRUCT multiple times using by..."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0x5F5E102)
+    empty_account_1 = Address(0x68FA59E127B7526718EB0A4E113DF5793628CB91)
+    empty_account_2 = Address(0x76FAE819612A29489A1A43208613D8F8557B8898)
+    sender = EOA(
+        key=0xE92C121432830128CA66D3D8C4E6D8D96CC4BEFA7C612D28415082EB3C8339C5
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -79,8 +84,9 @@ def test_double_selfdestruct_touch_paris(
         gas_limit=30000000,
     )
 
-    empty_account_1 = pre.fund_eoa(amount=10)
-    empty_account_2 = pre.fund_eoa(amount=10)
+    pre[sender] = Account(balance=0x5F5E102)
+    pre[empty_account_1] = Account(balance=10)
+    pre[empty_account_2] = Account(balance=10)
     # Source: yul
     # berlin
     # {
@@ -94,6 +100,7 @@ def test_double_selfdestruct_touch_paris(
         + Op.SELFDESTRUCT(address=Op.SLOAD),
         storage={0: 0, 1: empty_account_1, 2: empty_account_2},
         nonce=0,
+        address=Address(0x29E4504A3D2A0E0AE0EBBBEFEDD4570639B3EBEE),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -113,7 +120,7 @@ def test_double_selfdestruct_touch_paris(
         + Op.POP(
             Op.CALL(
                 gas=0x11170,
-                address=addr,
+                address=0x29E4504A3D2A0E0AE0EBBBEFEDD4570639B3EBEE,
                 value=Op.DUP6,
                 args_offset=Op.DUP1,
                 args_size=Op.DUP1,
@@ -127,6 +134,7 @@ def test_double_selfdestruct_touch_paris(
         + Op.CALL
         + Op.STOP,
         nonce=0,
+        address=Address(0x8EC7465877D3957084DC907C0F6D8F2911A17A52),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

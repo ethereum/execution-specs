@@ -7,6 +7,7 @@ state_tests/stSStoreTest/sstore_gasLeftFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -98,7 +99,9 @@ def test_sstore_gas_left(
 ) -> None:
     """Checks EIP-1706/EIP-2200 out of gas requirement for non-mutating..."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xE8D4A51000)
+    sender = EOA(
+        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -109,18 +112,21 @@ def test_sstore_gas_left(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # { [[1]] 1 }
     addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x1, value=0x1) + Op.STOP,
         storage={1: 1},
         nonce=0,
+        address=Address(0xB0409D84AB61455CB8BEC14B94F635146AB55613),  # noqa: E501
     )
     # Source: lll
     # { [[1]] 1 }
     addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x1, value=0x1) + Op.STOP,
         nonce=0,
+        address=Address(0x4092B3905CFEA2485EA53222F41EB26E67587802),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

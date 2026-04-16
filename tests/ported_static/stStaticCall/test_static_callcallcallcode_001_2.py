@@ -87,18 +87,21 @@ def test_static_callcallcallcode_001_2(
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
         nonce=0,
+        address=Address(0xE4552FDC3736D39144E64AD1A1E8253017B0C974),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 1 0x11223344) }
     addr_4 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x1, value=0x11223344) + Op.STOP,
         nonce=0,
+        address=Address(0x2881A083EA775F78057A93F73110241FDB7398A9),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 3 1) }
     addr_8 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x3, value=0x1) + Op.STOP,
         nonce=0,
+        address=Address(0x335C5531B84765A7626E6E76688F18B81BE5259C),  # noqa: E501
     )
     # Source: lll
     # {  [[ 2 ]] (CALLCODE 250000 <contract:0x1000000000000000000000000000000000000003> 3 0 64 0 64 ) }  # noqa: E501
@@ -107,7 +110,7 @@ def test_static_callcallcallcode_001_2(
             key=0x2,
             value=Op.CALLCODE(
                 gas=0x3D090,
-                address=addr_4,
+                address=0x2881A083EA775F78057A93F73110241FDB7398A9,
                 value=0x3,
                 args_offset=0x0,
                 args_size=0x40,
@@ -118,6 +121,7 @@ def test_static_callcallcallcode_001_2(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0x0FFFFAEB931552E5F094CA96A70BE612DA56B887),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 4 1) (CALLCODE 250000 <contract:0x2000000000000000000000000000000000000003> 0 0 64 0 64 ) (MSTORE 6 1) }  # noqa: E501
@@ -126,7 +130,7 @@ def test_static_callcallcallcode_001_2(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x3D090,
-                address=addr_8,
+                address=0x335C5531B84765A7626E6E76688F18B81BE5259C,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x40,
@@ -138,6 +142,7 @@ def test_static_callcallcallcode_001_2(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0x5517C40699CEB16C4EB71F2B0D841078C198560E),  # noqa: E501
     )
     # Source: lll
     # {  (STATICCALL 300000 <contract:0x1000000000000000000000000000000000000002> 0 64 0 64 ) (MSTORE 3 1) }  # noqa: E501
@@ -145,7 +150,7 @@ def test_static_callcallcallcode_001_2(
         code=Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=addr_3,
+                address=0xFFFFAEB931552E5F094CA96A70BE612DA56B887,
                 args_offset=0x0,
                 args_size=0x40,
                 ret_offset=0x0,
@@ -156,6 +161,7 @@ def test_static_callcallcallcode_001_2(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0x52BC8086D7F6AC48937CF1B98DFC6F4BE0F75112),  # noqa: E501
     )
     # Source: lll
     # {  (STATICCALL 300000 <contract:0x2000000000000000000000000000000000000002> 0 64 0 64 ) (MSTORE 3 1) }  # noqa: E501
@@ -163,7 +169,7 @@ def test_static_callcallcallcode_001_2(
         code=Op.POP(
             Op.STATICCALL(
                 gas=0x493E0,
-                address=addr_7,
+                address=0x5517C40699CEB16C4EB71F2B0D841078C198560E,
                 args_offset=0x0,
                 args_size=0x40,
                 ret_offset=0x0,
@@ -174,6 +180,7 @@ def test_static_callcallcallcode_001_2(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0xB4631A307A08ABC5D5A582549B23CB98A7C5BEB2),  # noqa: E501
     )
     # Source: lll
     # {  [[ 0 ]] (STATICCALL 350000 <contract:0x1000000000000000000000000000000000000001> 0 64 0 64 ) }  # noqa: E501
@@ -182,7 +189,7 @@ def test_static_callcallcallcode_001_2(
             key=0x0,
             value=Op.STATICCALL(
                 gas=0x55730,
-                address=addr_2,
+                address=0x52BC8086D7F6AC48937CF1B98DFC6F4BE0F75112,
                 args_offset=0x0,
                 args_size=0x40,
                 ret_offset=0x0,
@@ -192,6 +199,7 @@ def test_static_callcallcallcode_001_2(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0x2F9EC0AFCB4EDCD7D38C6A48F5E36038263CA3CD),  # noqa: E501
     )
     # Source: lll
     # {  [[ 0 ]] (STATICCALL 350000 <contract:0x2000000000000000000000000000000000000001> 0 64 0 64 ) }  # noqa: E501
@@ -200,7 +208,7 @@ def test_static_callcallcallcode_001_2(
             key=0x0,
             value=Op.STATICCALL(
                 gas=0x55730,
-                address=addr_6,
+                address=0xB4631A307A08ABC5D5A582549B23CB98A7C5BEB2,
                 args_offset=0x0,
                 args_size=0x40,
                 ret_offset=0x0,
@@ -210,6 +218,7 @@ def test_static_callcallcallcode_001_2(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0xBF23F3306533431B2EE5E4CA95E0A0834C090105),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

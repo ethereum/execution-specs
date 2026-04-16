@@ -89,6 +89,7 @@ def test_static_call1_mb1024_calldepth(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
+        address=Address(0xB16DBBE237612935E6611C3F5FB7D80EB0046801),  # noqa: E501
     )
     # Source: lll
     # { (def 'i 0x80) [[ 0 ]] (+ @@0 1) (if (LT @@0 1024) [[ 1 ]] (STATICCALL (- (GAS) 1005000) <contract:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 1000000 0 0) [[ 2 ]] 1 )  }  # noqa: E501

@@ -7,6 +7,7 @@ state_tests/stCallCodes/callcodeDynamicCodeFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -75,7 +76,9 @@ def test_callcode_dynamic_code(
     contract_2 = Address(0x2000000000000000000000000000000000000000)
     contract_3 = Address(0x3000000000000000000000000000000000000000)
     contract_4 = Address(0x4000000000000000000000000000000000000000)
-    sender = pre.fund_eoa(amount=0x2386F26FC10000)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -86,6 +89,7 @@ def test_callcode_dynamic_code(
         gas_limit=1000000,
     )
 
+    pre[sender] = Account(balance=0x2386F26FC10000)
     # Source: lll
     # { (CALL 800000 (CALLDATALOAD 0) 0 0 0 0 0) }
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -100,6 +104,7 @@ def test_callcode_dynamic_code(
         )
         + Op.STOP,
         nonce=0,
+        address=Address(0x1100000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # {(seq [[10]] (CREATE 0 0 (lll(seq  (RETURN 0 (lll(seq [[0]] 1  [[20]] (ADDRESS) [[21]] (ORIGIN) [[22]] (CALLER)   )0) )  )0)   )  [[11]] (CALLCODE 100000 (SLOAD 10) 0 0 64 0 64)                   )}  # noqa: E501
@@ -135,6 +140,7 @@ def test_callcode_dynamic_code(
         + Op.STOP,
         balance=10000,
         nonce=0,
+        address=Address(0x1000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # {(seq [[10]] (CREATE2 0 0 (lll(seq  (RETURN 0 (lll(seq [[0]] 1  [[20]] (ADDRESS) [[21]] (ORIGIN) [[22]] (CALLER)  )0) )  )0)  0 )  [[11]] (CALLCODE 100000 (SLOAD 10) 0 0 64 0 64)                   )}  # noqa: E501
@@ -171,6 +177,7 @@ def test_callcode_dynamic_code(
         + Op.STOP,
         balance=1000,
         nonce=0,
+        address=Address(0x2000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # {(seq (CREATE 0 0 (lll(seq       [[10]] (CREATE 0 0 (lll(seq  (RETURN 0 (lll(seq [[0]] 1  [[20]] (ADDRESS)  [[21]] (ORIGIN) [[22]] (CALLER)  )0) )  )0)   )  [[11]] (CALLCODE 100000 (SLOAD 10) 0 0 64 0 64)            )0))       )}  # noqa: E501
@@ -212,6 +219,7 @@ def test_callcode_dynamic_code(
         + Op.STOP,
         balance=10000,
         nonce=0,
+        address=Address(0x3000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # {(seq (CREATE 0 0 (lll(seq       [[10]] (CREATE2 0 0 (lll(seq  (RETURN 0 (lll(seq [[0]] 1  [[20]] (ADDRESS)  [[21]] (ORIGIN) [[22]] (CALLER)  )0) )  )0)  0 )  [[11]] (CALLCODE 100000 (SLOAD 10) 0 0 64 0 64)            )0))       )}  # noqa: E501
@@ -254,6 +262,7 @@ def test_callcode_dynamic_code(
         + Op.STOP,
         balance=10000,
         nonce=0,
+        address=Address(0x4000000000000000000000000000000000000000),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

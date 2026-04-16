@@ -104,6 +104,7 @@ def test_state_revert(
         code=Op.SSTORE(key=0x2, value=0x60A7) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x4EDC28FF01C9F8731EDE6D0FD953DA91F749A659),  # noqa: E501
     )
     # Source: lll
     # {
@@ -127,6 +128,7 @@ def test_state_revert(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x71A06D553F1AC38B5E568CE5A1B5DF253AD08D73),  # noqa: E501
     )
     # Source: lll
     # {
@@ -154,6 +156,7 @@ def test_state_revert(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x16D83DA4C22C26F92C5A8D4CEDF367E171F60977),  # noqa: E501
     )
     # Source: lll
     # {
@@ -177,6 +180,7 @@ def test_state_revert(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0xEBE3A4514FECA3EB2819BF83EBD926C5E4143739),  # noqa: E501
     )
     # Source: raw
     # 0x610103600155600060006000600061dead6175305a03f450BA
@@ -186,6 +190,7 @@ def test_state_revert(
         ),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x1985064D96BAAF3305FEE248DE22965FBF7FBAB6),  # noqa: E501
     )
     # Source: raw
     # 0x610104600155600060006000600061dead6175305a03f450600056
@@ -204,6 +209,7 @@ def test_state_revert(
         + Op.JUMP(pc=0x0),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0xDD77382F06BFEEA4258E6F7BFFC6D9D31B885815),  # noqa: E501
     )
     # Source: raw
     # 0x610105600155600060006000600061dead6175305a03f450010101
@@ -222,6 +228,7 @@ def test_state_revert(
         + Op.ADD(Op.ADD, Op.ADD),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0xBF0FC73E06F3B2ECA8CB8094BDB81D4D2AA2F9B0),  # noqa: E501
     )
     # Source: raw
     # 0x610106600155600060006000600061dead6175305a03f4505b586004580356
@@ -242,6 +249,7 @@ def test_state_revert(
         + Op.JUMP(pc=Op.SUB(Op.PC, 0x4)),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0xE08A8DE27B3798640D504F1431A360F276B9F2AE),  # noqa: E501
     )
     # Source: lll
     # {
@@ -261,6 +269,7 @@ def test_state_revert(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x3559AFE49654B532B7E67E6ACD87DEB8C569E7AD),  # noqa: E501
     )
 
     tx_data = [

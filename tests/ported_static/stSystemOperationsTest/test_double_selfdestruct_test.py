@@ -173,7 +173,7 @@ def test_double_selfdestruct_test(
         + Op.POP(
             Op.STATICCALL(
                 gas=Op.GAS,
-                address=contract_0,
+                address=0xC0DE,
                 args_offset=Op.DUP2,
                 args_size=0x2,
                 ret_offset=Op.DUP1,
@@ -185,7 +185,7 @@ def test_double_selfdestruct_test(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=Op.GAS,
-                address=contract_0,
+                address=0xC0DE,
                 args_offset=Op.DUP2,
                 args_size=0x2,
                 ret_offset=Op.DUP1,
@@ -197,7 +197,7 @@ def test_double_selfdestruct_test(
         + Op.POP(
             Op.CALLCODE(
                 gas=Op.GAS,
-                address=contract_0,
+                address=0xC0DE,
                 value=Op.DUP1,
                 args_offset=Op.DUP2,
                 args_size=0x2,
@@ -210,7 +210,7 @@ def test_double_selfdestruct_test(
         + Op.POP(
             Op.CALL(
                 gas=Op.GAS,
-                address=contract_0,
+                address=0xC0DE,
                 value=Op.DUP1,
                 args_offset=Op.DUP2,
                 args_size=0x2,

@@ -127,22 +127,6 @@ def test_codecopy(
     )
     # Source: lll
     # {
-    #    ; Copy our code into [[0]] and [[1]]
-    #    (codecopy 0 0 0x1000)
-    #    [[0]] @0
-    #    [[1]] @0x20
-    # }
-    contract_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.CODECOPY(dest_offset=0x0, offset=0x0, size=0x1000)
-        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
-        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x20))
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001002),  # noqa: E501
-    )
-    # Source: lll
-    # {
     #    ; Waste some space so we'll be over 0x20 bytes of code
     #    [0x100] (+ 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16)
     #
@@ -267,6 +251,22 @@ def test_codecopy(
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address(0x0000000000000000000000000000000000001004),  # noqa: E501
+    )
+    # Source: lll
+    # {
+    #    ; Copy our code into [[0]] and [[1]]
+    #    (codecopy 0 0 0x1000)
+    #    [[0]] @0
+    #    [[1]] @0x20
+    # }
+    contract_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.CODECOPY(dest_offset=0x0, offset=0x0, size=0x1000)
+        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
+        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x20))
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=0,
+        address=Address(0x0000000000000000000000000000000000001002),  # noqa: E501
     )
     # Source: lll
     # {

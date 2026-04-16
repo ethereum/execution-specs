@@ -7,6 +7,7 @@ state_tests/VMTests/vmIOandFlowOperations/jumpiFiller.yml
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -229,7 +230,9 @@ def test_jumpi(
     contract_24 = Address(0x0000000000000000000000000000000000000110)
     contract_25 = Address(0x0000000000000000000000000000000000000111)
     contract_26 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = pre.fund_eoa(amount=0x100000000000)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -240,6 +243,7 @@ def test_jumpi(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0x100000000000)
     # Source: lll
     # {
     #   [[0]] 0x600D
@@ -252,6 +256,7 @@ def test_jumpi(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001000),  # noqa: E501
     )
     # Source: lll
     # {
@@ -265,6 +270,7 @@ def test_jumpi(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001001),  # noqa: E501
     )
     # Source: lll
     # {
@@ -278,6 +284,7 @@ def test_jumpi(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000000200),  # noqa: E501
     )
     # Source: lll
     # {
@@ -291,6 +298,7 @@ def test_jumpi(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000000201),  # noqa: E501
     )
     # Source: raw
     # 0x6001600657005B61600D60005500
@@ -302,6 +310,7 @@ def test_jumpi(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001002),  # noqa: E501
     )
     # Source: raw
     # 0x6000600657005B61600D60005500
@@ -313,6 +322,7 @@ def test_jumpi(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000000202),  # noqa: E501
     )
     # Source: lll
     # {
@@ -325,6 +335,7 @@ def test_jumpi(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001003),  # noqa: E501
     )
     # Source: lll
     # {
@@ -337,6 +348,7 @@ def test_jumpi(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000000203),  # noqa: E501
     )
     # Source: raw
     # 0x6023600160085760015b600255
@@ -349,6 +361,7 @@ def test_jumpi(
         + Op.SSTORE,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001004),  # noqa: E501
     )
     # Source: raw
     # 0x61600D6000555B6006600657
@@ -358,6 +371,7 @@ def test_jumpi(
         + Op.JUMPI(pc=0x6, condition=0x6),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001005),  # noqa: E501
     )
     # Source: raw
     # 0x61600D6001600A5760FF5B600055
@@ -370,6 +384,7 @@ def test_jumpi(
         + Op.SSTORE,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001006),  # noqa: E501
     )
     # Source: raw
     # 0x600B565B61600D600055005B6001600357
@@ -382,6 +397,7 @@ def test_jumpi(
         + Op.JUMPI(pc=0x3, condition=0x1),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001007),  # noqa: E501
     )
     # Source: raw
     # 0x6001600460050157005B61600D600055
@@ -392,6 +408,7 @@ def test_jumpi(
         + Op.SSTORE(key=0x0, value=0x600D),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001008),  # noqa: E501
     )
     # Source: raw
     # 0x6000600460050157005B61600D600055
@@ -402,6 +419,7 @@ def test_jumpi(
         + Op.SSTORE(key=0x0, value=0x600D),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000000208),  # noqa: E501
     )
     # Source: raw
     # 0x600160075700605B61600D600055
@@ -412,6 +430,7 @@ def test_jumpi(
         + Op.SSTORE(key=0x0, value=0x600D),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001009),  # noqa: E501
     )
     # Source: raw
     # 0x600160075700600161600D600055
@@ -422,6 +441,7 @@ def test_jumpi(
         + Op.SSTORE(key=0x0, value=0x600D),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000100A),  # noqa: E501
     )
     # Source: raw
     # 0x61600D6000556001600D575A5B5A600155
@@ -433,6 +453,7 @@ def test_jumpi(
         + Op.SSTORE(key=0x1, value=Op.GAS),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000100B),  # noqa: E501
     )
     # Source: raw
     # 0x61600D6000556001600B575A5B5A600155
@@ -444,6 +465,7 @@ def test_jumpi(
         + Op.SSTORE(key=0x1, value=Op.GAS),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000100C),  # noqa: E501
     )
     # Source: raw
     # 0x60116801000000000000000D575b5b61600D600055
@@ -453,6 +475,7 @@ def test_jumpi(
         + Op.SSTORE(key=0x0, value=0x600D),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000100D),  # noqa: E501
     )
     # Source: raw
     # 0x60006801000000000000000D575b5b61600D600055
@@ -462,6 +485,7 @@ def test_jumpi(
         + Op.SSTORE(key=0x0, value=0x600D),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000020D),  # noqa: E501
     )
     # Source: raw
     # 0x6011640100000009575b5b61600D600055
@@ -471,6 +495,7 @@ def test_jumpi(
         + Op.SSTORE(key=0x0, value=0x600D),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000100E),  # noqa: E501
     )
     # Source: raw
     # 0x6000640100000009575b5b61600D600055
@@ -480,6 +505,7 @@ def test_jumpi(
         + Op.SSTORE(key=0x0, value=0x600D),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000020E),  # noqa: E501
     )
     # Source: lll
     # {
@@ -494,6 +520,7 @@ def test_jumpi(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000100F),  # noqa: E501
     )
     # Source: lll
     # {
@@ -508,6 +535,7 @@ def test_jumpi(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000020F),  # noqa: E501
     )
     # Source: raw
     # 0x6001600E575B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B61600D600055
@@ -517,6 +545,7 @@ def test_jumpi(
         + Op.SSTORE(key=0x0, value=0x600D),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000000110),  # noqa: E501
     )
     # Source: raw
     # 0x61600D60005560106000525B60016000510380600052600B57
@@ -530,6 +559,7 @@ def test_jumpi(
         + Op.JUMPI,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000000111),  # noqa: E501
     )
     # Source: lll
     # {
@@ -549,6 +579,7 @@ def test_jumpi(
         storage={0: 2989},
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

@@ -80,6 +80,7 @@ def test_static_callcallcode_01_ooge_2(
         )
         + Op.STOP,
         nonce=0,
+        address=Address(0x85DDAAC1762B4B9A01861C244947C3D6F40FD709),  # noqa: E501
     )
     # Source: lll
     # {  (SSTORE 2 1) (MSTORE 2 1)}
@@ -88,6 +89,7 @@ def test_static_callcallcode_01_ooge_2(
         + Op.MSTORE(offset=0x2, value=0x1)
         + Op.STOP,
         nonce=0,
+        address=Address(0xCE21F15217A7B94DB9C505A66C9549E803BF141C),  # noqa: E501
     )
     # Source: lll
     # {  (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (EXTCODESIZE 1)  ) }
@@ -102,6 +104,7 @@ def test_static_callcallcode_01_ooge_2(
         + Op.JUMPDEST
         + Op.STOP,
         nonce=0,
+        address=Address(0x609E4DFE6190235B9A0362084C741D9EC330FB1E),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 0 (CALLDATALOAD 0)) [[ 0 ]] (STATICCALL 150000 <contract:0x1000000000000000000000000000000000000001> 0 32 0 64 ) [[ 1 ]] 1 }  # noqa: E501
@@ -111,7 +114,7 @@ def test_static_callcallcode_01_ooge_2(
             key=0x0,
             value=Op.STATICCALL(
                 gas=0x249F0,
-                address=addr,
+                address=0x85DDAAC1762B4B9A01861C244947C3D6F40FD709,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -122,6 +125,7 @@ def test_static_callcallcode_01_ooge_2(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0xC4C9495535A13D71C26E498898C90576F7C64218),  # noqa: E501
     )
 
     tx_data = [

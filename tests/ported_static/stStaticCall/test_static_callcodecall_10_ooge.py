@@ -79,12 +79,14 @@ def test_static_callcodecall_10_ooge(
         )
         + Op.STOP,
         nonce=0,
+        address=Address(0x33E1AD2A3AE944798E9ED4689B85D9136B59EBD2),  # noqa: E501
     )
     # Source: lll
     # {  (SSTORE 2 1)}
     addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x2, value=0x1) + Op.STOP,
         nonce=0,
+        address=Address(0x9791FA194F36C71F8BD64A757B7283707075BA99),  # noqa: E501
     )
     # Source: lll
     # {  (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (EXTCODESIZE 1)) }
@@ -99,6 +101,7 @@ def test_static_callcodecall_10_ooge(
         + Op.JUMPDEST
         + Op.STOP,
         nonce=0,
+        address=Address(0xFBEF21C5A6C2ADCF3D769F085E0CC9FE9A8DF954),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 0 (CALLDATALOAD 0)) [[ 0 ]] (DELEGATECALL 150000 <contract:0x1000000000000000000000000000000000000001> 0 64 0 64 ) [[ 1 ]] 1 }  # noqa: E501
@@ -108,7 +111,7 @@ def test_static_callcodecall_10_ooge(
             key=0x0,
             value=Op.DELEGATECALL(
                 gas=0x249F0,
-                address=addr,
+                address=0x33E1AD2A3AE944798E9ED4689B85D9136B59EBD2,
                 args_offset=0x0,
                 args_size=0x40,
                 ret_offset=0x0,
@@ -119,6 +122,7 @@ def test_static_callcodecall_10_ooge(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
+        address=Address(0xDCFF1EF291EC7B6A606AC4284680DB5A06F33054),  # noqa: E501
     )
 
     tx_data = [

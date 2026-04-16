@@ -134,6 +134,7 @@ def test_multi_selfdestruct(
         + Op.STOP,
         balance=3,
         nonce=1,
+        address=Address(0x000000000000000000000000000000000000DEAD),  # noqa: E501
     )
     # Source: yul
     # berlin

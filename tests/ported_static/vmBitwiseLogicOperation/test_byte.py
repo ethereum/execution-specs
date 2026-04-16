@@ -7,6 +7,7 @@ state_tests/VMTests/vmBitwiseLogicOperation/byteFiller.yml
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -131,7 +132,9 @@ def test_byte(
     contract_10 = Address(0x000000000000000000000000000000000000100A)
     contract_11 = Address(0x0000000000000000000000000000000000000200)
     contract_12 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -142,6 +145,7 @@ def test_byte(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
     # Source: lll
     # {
     #    [[0]] (byte (- 31 0) 0x8040201008040201)
@@ -153,6 +157,7 @@ def test_byte(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001000),  # noqa: E501
     )
     # Source: lll
     # {
@@ -165,6 +170,7 @@ def test_byte(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001001),  # noqa: E501
     )
     # Source: lll
     # {
@@ -177,6 +183,7 @@ def test_byte(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001002),  # noqa: E501
     )
     # Source: lll
     # {
@@ -189,6 +196,7 @@ def test_byte(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001003),  # noqa: E501
     )
     # Source: lll
     # {
@@ -201,6 +209,7 @@ def test_byte(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001004),  # noqa: E501
     )
     # Source: lll
     # {
@@ -213,6 +222,7 @@ def test_byte(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001005),  # noqa: E501
     )
     # Source: lll
     # {
@@ -225,6 +235,7 @@ def test_byte(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001006),  # noqa: E501
     )
     # Source: lll
     # {
@@ -237,6 +248,7 @@ def test_byte(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001007),  # noqa: E501
     )
     # Source: lll
     # {
@@ -249,6 +261,7 @@ def test_byte(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001008),  # noqa: E501
     )
     # Source: lll
     # {
@@ -261,6 +274,7 @@ def test_byte(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000001009),  # noqa: E501
     )
     # Source: raw
     # 0x641234523456601F1A8001600155
@@ -270,6 +284,7 @@ def test_byte(
         ),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000100A),  # noqa: E501
     )
     # Source: lll
     # {
@@ -304,6 +319,7 @@ def test_byte(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x0000000000000000000000000000000000000200),  # noqa: E501
     )
     # Source: lll
     # {
@@ -322,6 +338,7 @@ def test_byte(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

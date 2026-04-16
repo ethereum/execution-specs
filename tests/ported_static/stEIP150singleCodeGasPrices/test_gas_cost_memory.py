@@ -522,6 +522,7 @@ def test_gas_cost_memory(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000000BA5E),  # noqa: E501
     )
     # Source: lll
     # {
@@ -536,6 +537,7 @@ def test_gas_cost_memory(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000010BA5E),  # noqa: E501
     )
     # Source: lll
     # {
@@ -550,6 +552,7 @@ def test_gas_cost_memory(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
+        address=Address(0x000000000000000000000000000000000011BA5E),  # noqa: E501
     )
     # Source: lll
     # {

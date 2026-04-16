@@ -7,6 +7,7 @@ state_tests/stCallCreateCallCodeTest/contractCreationMakeCallThatAskMoreGasThenT
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -61,7 +62,9 @@ def test_contract_creation_make_call_that_ask_more_gas_then_transaction_provided
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_1 = Address(0x1000000000000000000000000000000000000001)
-    sender = pre.fund_eoa(amount=0x10C8E0)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -72,19 +75,21 @@ def test_contract_creation_make_call_that_ask_more_gas_then_transaction_provided
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0x10C8E0)
     # Source: lll
     # {(SSTORE 1 1)}
     contract_1 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x1, value=0x1) + Op.STOP,
         balance=0x186A0,
         nonce=0,
+        address=Address(0x1000000000000000000000000000000000000001),  # noqa: E501
     )
     # Source: lll
     # {(CALL 50000 0x1000000000000000000000000000000000000001 0 0 64 0 64)}
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.CALL(
             gas=0xC350,
-            address=contract_1,
+            address=0x1000000000000000000000000000000000000001,
             value=0x0,
             args_offset=0x0,
             args_size=0x40,
@@ -94,6 +99,7 @@ def test_contract_creation_make_call_that_ask_more_gas_then_transaction_provided
         + Op.STOP,
         balance=0x186A0,
         nonce=0,
+        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

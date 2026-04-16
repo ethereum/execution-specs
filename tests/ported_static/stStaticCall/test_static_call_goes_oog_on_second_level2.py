@@ -83,12 +83,14 @@ def test_static_call_goes_oog_on_second_level2(
         )
         + Op.STOP,
         nonce=0,
+        address=Address(0x666EBB8AFC7A9BA4BEDB7D78F85184B65639531D),  # noqa: E501
     )
     # Source: lll
     # { (SSTORE 1 1) }
     addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x1, value=0x1) + Op.STOP,
         nonce=0,
+        address=Address(0xF2774CEE95A518A51CD32426D3CE8DB19F095B37),  # noqa: E501
     )
     # Source: lll
     # {  (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (EXTCODESIZE 1))  }
@@ -103,6 +105,7 @@ def test_static_call_goes_oog_on_second_level2(
         + Op.JUMPDEST
         + Op.STOP,
         nonce=0,
+        address=Address(0x45E70D14D712A8898DCE133FE063F71179F04059),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 0 (CALLDATALOAD 0)) [[ 0 ]] (STATICCALL 600000 <contract:0x1000000000000000000000000000000000000113> 0 32 0 0) [[ 1 ]] 1 }  # noqa: E501
@@ -112,7 +115,7 @@ def test_static_call_goes_oog_on_second_level2(
             key=0x0,
             value=Op.STATICCALL(
                 gas=0x927C0,
-                address=addr,
+                address=0x666EBB8AFC7A9BA4BEDB7D78F85184B65639531D,
                 args_offset=0x0,
                 args_size=0x20,
                 ret_offset=0x0,
@@ -122,6 +125,7 @@ def test_static_call_goes_oog_on_second_level2(
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
         nonce=0,
+        address=Address(0xB9C1C6C39CB3E528B2EF06493C17D63B7827077B),  # noqa: E501
     )
 
     tx_data = [

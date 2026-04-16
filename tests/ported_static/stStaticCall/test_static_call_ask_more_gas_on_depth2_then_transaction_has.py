@@ -89,18 +89,21 @@ def test_static_call_ask_more_gas_on_depth2_then_transaction_has(
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
         nonce=0,
+        address=Address(0xC0E4183389EB57F779A986D8C878F89B9401DC8E),  # noqa: E501
     )
     # Source: lll
     # { (SSTORE 8 1)}
     addr_3 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x8, value=0x1) + Op.STOP,
         nonce=0,
+        address=Address(0x5044BFB29664A79DE12215897C630DC8A11B0B97),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 8 (GAS))}
     addr_6 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x8, value=Op.GAS) + Op.STOP,
         nonce=0,
+        address=Address(0x91B291A3336BC1357388354DF18CA061B39E3745),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 8 (GAS)) (MSTORE 9 (STATICCALL 600000 <contract:0x1000000000000000000000000000000000000108> 0 0 0 0)) }  # noqa: E501
@@ -110,7 +113,7 @@ def test_static_call_ask_more_gas_on_depth2_then_transaction_has(
             offset=0x9,
             value=Op.STATICCALL(
                 gas=0x927C0,
-                address=addr_3,
+                address=0x5044BFB29664A79DE12215897C630DC8A11B0B97,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -119,6 +122,7 @@ def test_static_call_ask_more_gas_on_depth2_then_transaction_has(
         )
         + Op.STOP,
         nonce=0,
+        address=Address(0xD9539C5A3DC4713D47A547BFC9A075BD97287080),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 8 (GAS)) (MSTORE 9 (STATICCALL 600000 <contract:0x2000000000000000000000000000000000000108> 0 0 0 0)) }  # noqa: E501
@@ -128,7 +132,7 @@ def test_static_call_ask_more_gas_on_depth2_then_transaction_has(
             offset=0x9,
             value=Op.STATICCALL(
                 gas=0x927C0,
-                address=addr_6,
+                address=0x91B291A3336BC1357388354DF18CA061B39E3745,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -137,6 +141,7 @@ def test_static_call_ask_more_gas_on_depth2_then_transaction_has(
         )
         + Op.STOP,
         nonce=0,
+        address=Address(0xE5A4D8074950EC8067D602848B666CA151B09C9F),  # noqa: E501
     )
     # Source: lll
     # { (SSTORE 8 1) (SSTORE 9 (STATICCALL 200000 <contract:0x1000000000000000000000000000000000000107> 0 0 0 0)) }  # noqa: E501
@@ -146,7 +151,7 @@ def test_static_call_ask_more_gas_on_depth2_then_transaction_has(
             key=0x9,
             value=Op.STATICCALL(
                 gas=0x30D40,
-                address=addr_2,
+                address=0xD9539C5A3DC4713D47A547BFC9A075BD97287080,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -155,6 +160,7 @@ def test_static_call_ask_more_gas_on_depth2_then_transaction_has(
         )
         + Op.STOP,
         nonce=0,
+        address=Address(0xEF69A9B2C20255FB7BD2B0AC7D45601A03D570B0),  # noqa: E501
     )
     # Source: lll
     # { (SSTORE 8 1) (SSTORE 9 (STATICCALL 200000 <contract:0x2000000000000000000000000000000000000107> 0 0 0 0)) }  # noqa: E501
@@ -164,7 +170,7 @@ def test_static_call_ask_more_gas_on_depth2_then_transaction_has(
             key=0x9,
             value=Op.STATICCALL(
                 gas=0x30D40,
-                address=addr_5,
+                address=0xE5A4D8074950EC8067D602848B666CA151B09C9F,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -173,6 +179,7 @@ def test_static_call_ask_more_gas_on_depth2_then_transaction_has(
         )
         + Op.STOP,
         nonce=0,
+        address=Address(0x8169DC735802BB5C18A777052CF4CE326B5FD725),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

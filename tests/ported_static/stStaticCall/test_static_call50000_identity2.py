@@ -88,6 +88,7 @@ def test_static_call50000_identity2(
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
         nonce=0,
+        address=Address(0xC0E4183389EB57F779A986D8C878F89B9401DC8E),  # noqa: E501
     )
     # Source: lll
     # { (def 'i 0x80) [ 1 ] 42 (for {} (< @i 50000) [i](+ @i 1) [[ 0 ]] (STATICCALL 1564 4 0 50000 1 50000) ) [[ 1 ]] @i [[ 2 ]] @1 }  # noqa: E501
@@ -116,6 +117,7 @@ def test_static_call50000_identity2(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
+        address=Address(0xCFB4C99D22928822FEFFA77A1A6DE64042E48DD3),  # noqa: E501
     )
     # Source: lll
     # { (def 'i 0x80) [ 1 ] 42 (for {} (< @i 50000) [i](+ @i 1) (MSTORE 0 (STATICCALL 1564 4 0 50000 1 50000)) ) (MSTORE 32 @i) (MSTORE 64 @1 ) }  # noqa: E501
@@ -144,6 +146,7 @@ def test_static_call50000_identity2(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
+        address=Address(0xB02BD8691A1A4F5FD4432B5B17C68DDE3013FC35),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
