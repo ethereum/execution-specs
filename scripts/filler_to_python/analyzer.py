@@ -141,9 +141,17 @@ FORCE_HARDCODED_TESTS: set[str] = {
     # OUTPUT_DIFFERS — remaining 2 (Categories F, H)
     "stEIP3651_warmcoinbase/test_coinbase_warm_account_call_gas.py",
     "stWalletTest/test_multi_owned_is_owner_true.py",
-    # STRUCTURAL (2) — CREATE collision behaviour
+    # STRUCTURAL — CREATE collision / EIP-3607 rejection behaviour.
+    # With dynamic addresses the collision doesn't happen, so the tx
+    # runs instead of being rejected → traces appear where baseline
+    # had none.
     "stCreateTest/test_transaction_collision_to_empty_but_code.py",
+    "stCreateTest/test_transaction_collision_to_empty_but_nonce.py",
     "stEIP3607/test_init_colliding_with_non_empty_account.py",
+    "stEIP3607/test_transaction_colliding_with_non_empty_account_calls.py",
+    "stEIP3607/test_transaction_colliding_with_non_empty_account_calls_itself.py",
+    "stEIP3607/test_transaction_colliding_with_non_empty_account_init_paris.py",
+    "stEIP3607/test_transaction_colliding_with_non_empty_account_send_paris.py",
 }
 
 

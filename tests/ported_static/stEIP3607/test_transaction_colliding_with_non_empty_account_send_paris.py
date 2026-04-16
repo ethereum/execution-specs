@@ -7,6 +7,8 @@ state_tests/stEIP3607/transactionCollidingWithNonEmptyAccount_send_ParisFiller.y
 
 import pytest
 from execution_testing import (
+    EOA,
+    Account,
     Address,
     Alloc,
     Bytes,
@@ -15,6 +17,7 @@ from execution_testing import (
     Transaction,
     TransactionException,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -34,7 +37,10 @@ def test_transaction_colliding_with_non_empty_account_send_paris(
 ) -> None:
     """Account with non-empty code attempts to send tx to another account..."""
     coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    addr = Address(0x76FAE819612A29489A1A43208613D8F8557B8898)
+    sender = EOA(
+        key=0x402790500EA083A617EC567407D9EC3BBB3A5C8B812547D9F66E8D7878B8A75D
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -45,8 +51,11 @@ def test_transaction_colliding_with_non_empty_account_send_paris(
         gas_limit=71794957647893862,
     )
 
-    coinbase = pre.fund_eoa(amount=0)
-    addr = pre.fund_eoa(amount=10)
+    pre[coinbase] = Account(balance=0, nonce=1)
+    pre[sender] = Account(
+        balance=0xDE0B6B3A7640000, code=Op.SSTORE(key=0x1, value=0x0)
+    )
+    pre[addr] = Account(balance=10)
 
     tx = Transaction(
         sender=sender,

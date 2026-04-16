@@ -7,6 +7,8 @@ state_tests/stEIP3607/transactionCollidingWithNonEmptyAccount_init_ParisFiller.y
 
 import pytest
 from execution_testing import (
+    EOA,
+    Account,
     Address,
     Alloc,
     Environment,
@@ -74,7 +76,10 @@ def test_transaction_colliding_with_non_empty_account_init_paris(
 ) -> None:
     """Account with non-empty code attempts to send tx to create a contract."""
     coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    addr = Address(0x76FAE819612A29489A1A43208613D8F8557B8898)
+    sender = EOA(
+        key=0x3696BFBDBC65B14F4DC76D7762E0567E1DD55F053314276E47969D22E70A554E
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -85,14 +90,16 @@ def test_transaction_colliding_with_non_empty_account_init_paris(
         gas_limit=71794957647893862,
     )
 
-    coinbase = pre.fund_eoa(amount=0)
-    addr = pre.fund_eoa(amount=10)
+    pre[coinbase] = Account(balance=0, nonce=1)
+    pre[sender] = Account(balance=0xDE0B6B3A7640000, code=Op.STOP)
+    pre[addr] = Account(balance=10)
     # Source: raw
     # 0x00
     addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.STOP,
         balance=10,
         nonce=0,
+        address=Address(0xCC7C3C64708397216F5F8AEB34A43F1749693FA9),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

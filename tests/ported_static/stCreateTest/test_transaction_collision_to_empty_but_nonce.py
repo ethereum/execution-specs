@@ -7,6 +7,7 @@ state_tests/stCreateTest/TransactionCollisionToEmptyButNonceFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -67,7 +68,10 @@ def test_transaction_collision_to_empty_but_nonce(
 ) -> None:
     """Test_transaction_collision_to_empty_but_nonce."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xE8D4A51000)
+    contract_0 = Address(0x6295EE1B4F6DD65047762F924ECD367C17EABF8F)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -78,7 +82,8 @@ def test_transaction_collision_to_empty_but_nonce(
         gas_limit=10000000,
     )
 
-    contract_0 = pre.fund_eoa(amount=0)
+    pre[sender] = Account(balance=0xE8D4A51000)
+    pre[contract_0] = Account(balance=0, nonce=1)
 
     tx_data = [
         Op.SSTORE(key=0x1, value=0x1),
