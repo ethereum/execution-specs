@@ -51,9 +51,7 @@ class TestGenerateBuildMatrix:
         assert out["feature_name"] == "mainnet"
         assert out["combine_labels"] != ""
         splits = matrix[0]["splits"]
-        assert [e["group"] for e in matrix] == list(
-            range(1, splits + 1)
-        )
+        assert [e["group"] for e in matrix] == list(range(1, splits + 1))
         assert all(e["splits"] == splits for e in matrix)
         assert all(e["label"] == str(e["group"]) for e in matrix)
 
@@ -69,17 +67,35 @@ class TestGenerateBuildMatrix:
         assert out["pre_alloc_labels"] != ""
 
     def test_unsplit_feature_produces_single_entry(self):
-        """Verify a single-fork feature produces one unsplit entry."""
-        result = run_script(BUILD_MATRIX_SCRIPT, "benchmark")
+        """Verify a feature without splits configured produces one entry."""
+        result = run_script(BUILD_MATRIX_SCRIPT, "benchmark_fast")
         assert result.returncode == 0
         out = parse_matrix_output(result.stdout)
         matrix = json.loads(out["build_matrix"])
         assert len(matrix) == 1
-        assert out["feature_name"] == "benchmark"
+        assert out["feature_name"] == "benchmark_fast"
         assert out["combine_labels"] == ""
         assert matrix[0]["label"] == ""
         assert matrix[0]["splits"] == 0
         assert matrix[0]["group"] == 0
+
+    def test_split_feature_with_fork_param(self):
+        """Verify splits apply to --fork features, not just --until."""
+        result = run_script(BUILD_MATRIX_SCRIPT, "benchmark")
+        assert result.returncode == 0
+        out = parse_matrix_output(result.stdout)
+        matrix = json.loads(out["build_matrix"])
+        assert len(matrix) > 1
+        assert out["feature_name"] == "benchmark"
+        splits = matrix[0]["splits"]
+        assert [e["group"] for e in matrix] == list(range(1, splits + 1))
+        assert all(e["splits"] == splits for e in matrix)
+        assert all(e["label"] == str(e["group"]) for e in matrix)
+        assert out["combine_labels"] == " ".join(
+            str(i) for i in range(1, splits + 1)
+        )
+        # --fork features should not generate a pre-alloc matrix.
+        assert json.loads(out["pre_alloc_matrix"]) == []
 
     def test_feature_only_can_be_requested_explicitly(self):
         """Verify feature_only entries work when named directly."""

@@ -210,7 +210,7 @@ jobs:
           splits: ${{ matrix.splits }}
           group: ${{ matrix.group }}
           store_durations: "true"
-          use_pre_alloc_groups: ${{ matrix.label != '' && 'true' || 'false' }}
+          use_pre_alloc_groups: ${{ needs.setup.outputs.pre_alloc_labels != '' && 'true' || 'false' }}
 
   combine:
     name: combine (${{ needs.setup.outputs.feature_name }})
@@ -287,6 +287,17 @@ jobs:
         with:
           name: fixtures_${{ needs.setup.outputs.feature_name }}
           path: fixtures_${{ needs.setup.outputs.feature_name }}.tar.gz
+      - name: Generate Benchmark Genesis Files
+        if: contains(needs.setup.outputs.feature_name, 'benchmark')
+        uses: ./.github/actions/build-benchmark-genesis
+        with:
+          fixtures_path: fixtures_${{ needs.setup.outputs.feature_name }}.tar.gz
+      - name: Upload Benchmark Genesis Artifact
+        if: contains(needs.setup.outputs.feature_name, 'benchmark')
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: benchmark_genesis_${{ needs.setup.outputs.feature_name }}
+          path: benchmark_genesis.tar.gz
 
   release:
     runs-on: ubuntu-latest

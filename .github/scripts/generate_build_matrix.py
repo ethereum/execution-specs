@@ -102,7 +102,7 @@ def build_matrix(feature: dict, name: str) -> tuple[list[dict], str]:
     """
     splits = feature.get("splits", 0)
 
-    if splits > 1 and parse_until_fork(feature["fill-params"]):
+    if splits > 1:
         build = [
             {
                 "feature": name,
