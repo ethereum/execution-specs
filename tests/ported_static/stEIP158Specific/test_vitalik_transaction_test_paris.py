@@ -7,6 +7,7 @@ state_tests/stEIP158Specific/vitalikTransactionTestParisFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -33,7 +34,9 @@ def test_vitalik_transaction_test_paris(
     """Test_vitalik_transaction_test_paris."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xEE098E6C2A43D9E2C04F08F0C3A87B0BA59079D4)
-    sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFF, nonce=335)
+    sender = EOA(
+        key=0xC85EF7D79691FE79573B1A7064C19C1A9819EBDBD1FAAAB1A8EC92344438AAF4
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -45,6 +48,7 @@ def test_vitalik_transaction_test_paris(
     )
 
     pre[coinbase] = Account(balance=0, nonce=1)
+    pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFF, nonce=335)
     # Source: hex
     # 0x
     contract_0 = pre.deploy_contract(  # noqa: F841

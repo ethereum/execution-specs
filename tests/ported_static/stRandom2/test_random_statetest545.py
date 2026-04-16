@@ -77,6 +77,7 @@ def test_random_statetest545(
         ),
         balance=46,
         nonce=0,
+        address=Address(0x945304EB96065B2A98B57A48A06AE28D285A71B5),  # noqa: E501
     )
 
     tx = Transaction(

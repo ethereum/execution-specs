@@ -43,7 +43,7 @@ def test_transaction_create_random_init_code(
         gas_limit=10000000000,
     )
 
-    coinbase = pre.fund_eoa(amount=0)  # noqa: F841
+    pre[coinbase] = Account(balance=0, nonce=1)
 
     tx = Transaction(
         sender=sender,

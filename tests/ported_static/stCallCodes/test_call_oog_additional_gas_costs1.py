@@ -43,7 +43,7 @@ def test_call_oog_additional_gas_costs1(
         gas_limit=3000000000,
     )
 
-    coinbase = pre.fund_eoa(amount=0)  # noqa: F841
+    pre[coinbase] = Account(balance=0, nonce=1)
     # Source: raw
     # 0x6000
     addr = pre.deploy_contract(  # noqa: F841

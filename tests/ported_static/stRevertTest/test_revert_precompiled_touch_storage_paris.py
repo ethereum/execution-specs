@@ -7,6 +7,7 @@ state_tests/stRevertTest/RevertPrecompiledTouch_storage_ParisFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -71,7 +72,17 @@ def test_revert_precompiled_touch_storage_paris(
 ) -> None:
     """Test_revert_precompiled_touch_storage_paris."""
     coinbase = Address(0x68795C4AA09D6F4ED3E5DEDDF8C2AD3049A601DA)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000, nonce=1)
+    addr_5 = Address(0x9DEB46A3B3E955BD56ECC4072DA4B42BD9B5DB2C)
+    addr_6 = Address(0xA8FD4CB9C2C538ED7FF94C3B711B2E08A08C7FB8)
+    addr_7 = Address(0x6D15138CE372D9B89EE38FC3973B715477426F11)
+    addr_8 = Address(0x46AC2E7E1550D911E5A72FBC51C15CA817DBB1D5)
+    addr_9 = Address(0x0DC4B229346287FE9FA441960081A9886B71C42D)
+    addr_10 = Address(0x3A3EEE808C401A574F92824DC64D89EDB05FAFE4)
+    addr_11 = Address(0xDA7F8ADD6896B7E58F28331A97B315DDE5FB8CD1)
+    addr_12 = Address(0x4757608F18B70777AE788DD4056EEED52F7AA68F)
+    sender = EOA(
+        key=0xFF8D58222F34F6890DDAA468C023B77D6691ED7D3C4DCDDAE38336212FAF54B
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -82,14 +93,15 @@ def test_revert_precompiled_touch_storage_paris(
         gas_limit=4012015,
     )
 
-    addr_5 = pre.fund_eoa(amount=10)  # noqa: F841
-    addr_6 = pre.fund_eoa(amount=10)  # noqa: F841
-    addr_7 = pre.fund_eoa(amount=10)  # noqa: F841
-    addr_8 = pre.fund_eoa(amount=10)  # noqa: F841
-    addr_9 = pre.fund_eoa(amount=10)  # noqa: F841
-    addr_10 = pre.fund_eoa(amount=10)  # noqa: F841
-    addr_11 = pre.fund_eoa(amount=10)  # noqa: F841
-    addr_12 = pre.fund_eoa(amount=10)  # noqa: F841
+    pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
+    pre[addr_5] = Account(balance=10, storage={0: 1})
+    pre[addr_6] = Account(balance=10, storage={0: 1})
+    pre[addr_7] = Account(balance=10, storage={0: 1})
+    pre[addr_8] = Account(balance=10, storage={0: 1})
+    pre[addr_9] = Account(balance=10, storage={0: 1})
+    pre[addr_10] = Account(balance=10, storage={0: 1})
+    pre[addr_11] = Account(balance=10, storage={0: 1})
+    pre[addr_12] = Account(balance=10, storage={0: 1})
     # Source: lll
     # {  (CALLCODE (GAS) (CALLDATALOAD 0) 0 0 0 0 0) }
     target = pre.deploy_contract(  # noqa: F841

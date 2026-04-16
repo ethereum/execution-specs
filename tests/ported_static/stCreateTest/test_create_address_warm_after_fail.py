@@ -13,6 +13,7 @@ state_tests/stCreateTest/CreateAddressWarmAfterFailFiller.yml
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -240,7 +241,9 @@ def test_create_address_warm_after_fail(
     contract_1 = Address(0x00000000000000000000000000000000C0DE1006)
     contract_2 = Address(0x00000000000000000000000000000020C0DE1006)
     contract_3 = Address(0x00000000000000000000000000000000C0DEFFFF)
-    sender = pre.fund_eoa(amount=0xE8D4A51001)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -251,6 +254,7 @@ def test_create_address_warm_after_fail(
         gas_limit=3000000000,
     )
 
+    pre[sender] = Account(balance=0xE8D4A51001)
     # Source: yul
     # berlin
     #   object "C" {

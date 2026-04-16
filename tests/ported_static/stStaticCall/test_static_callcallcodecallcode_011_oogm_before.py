@@ -116,25 +116,6 @@ def test_static_callcallcodecallcode_011_oogm_before(
         address=Address(0xD28B8E27785DDEE975645E09E8631D7BCB4133F3),  # noqa: E501
     )
     # Source: lll
-    # {  (SSTORE 3 1)  (DELEGATECALL 20020 <contract:0x1000000000000000000000000000000000000003> 0 64 0 64 ) (MSTORE 3 1) }  # noqa: E501
-    addr_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x3, value=0x1)
-        + Op.POP(
-            Op.DELEGATECALL(
-                gas=0x4E34,
-                address=0x335C5531B84765A7626E6E76688F18B81BE5259C,
-                args_offset=0x0,
-                args_size=0x40,
-                ret_offset=0x0,
-                ret_size=0x40,
-            )
-        )
-        + Op.MSTORE(offset=0x3, value=0x1)
-        + Op.STOP,
-        nonce=0,
-        address=Address(0x25A467084F1402E7813D24D9904C6FAEFC4241C8),  # noqa: E501
-    )
-    # Source: lll
     # {  (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (EXTCODESIZE 1))  (DELEGATECALL 20020 <contract:0x1000000000000000000000000000000000000003> 0 64 0 64 ) (MSTORE 3 1) }  # noqa: E501
     addr_3 = pre.deploy_contract(  # noqa: F841
         code=Op.JUMPDEST
@@ -159,6 +140,25 @@ def test_static_callcallcodecallcode_011_oogm_before(
         + Op.STOP,
         nonce=0,
         address=Address(0x9D3E6C1D2BC6290F0E7161ADBB3AD1EC4770D0D3),  # noqa: E501
+    )
+    # Source: lll
+    # {  (SSTORE 3 1)  (DELEGATECALL 20020 <contract:0x1000000000000000000000000000000000000003> 0 64 0 64 ) (MSTORE 3 1) }  # noqa: E501
+    addr_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x3, value=0x1)
+        + Op.POP(
+            Op.DELEGATECALL(
+                gas=0x4E34,
+                address=0x335C5531B84765A7626E6E76688F18B81BE5259C,
+                args_offset=0x0,
+                args_size=0x40,
+                ret_offset=0x0,
+                ret_size=0x40,
+            )
+        )
+        + Op.MSTORE(offset=0x3, value=0x1)
+        + Op.STOP,
+        nonce=0,
+        address=Address(0x25A467084F1402E7813D24D9904C6FAEFC4241C8),  # noqa: E501
     )
 
     tx_data = [

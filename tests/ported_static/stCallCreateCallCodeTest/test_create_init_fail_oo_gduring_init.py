@@ -7,6 +7,7 @@ state_tests/stCallCreateCallCodeTest/createInitFail_OOGduringInitFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -35,7 +36,9 @@ def test_create_init_fail_oo_gduring_init(
     """Create fails because init code has OOG."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -46,6 +49,7 @@ def test_create_init_fail_oo_gduring_init(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {(MSTORE8 0 0x5a ) (SELFDESTRUCT (CREATE 1 0 1)) }
     contract_0 = pre.deploy_contract(  # noqa: F841

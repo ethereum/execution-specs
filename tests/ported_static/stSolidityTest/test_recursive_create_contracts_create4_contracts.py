@@ -258,9 +258,10 @@ def test_recursive_create_contracts_create4_contracts(
 
     post = {
         contract_0: Account(storage={0: contract_0, 1: 4}, nonce=3),
-        Address(0x2B25AE4B13CB6E06869F694D29DE45E7614EBD97): Account(
-            storage={0: 1}, nonce=1
-        ),
+        compute_create_address(
+            address=compute_create_address(address=contract_0, nonce=1),
+            nonce=1,
+        ): Account(storage={0: 1}, nonce=1),
         compute_create_address(address=contract_0, nonce=2): Account(
             balance=2, nonce=1
         ),

@@ -7,6 +7,7 @@ state_tests/stTransactionTest/HighGasLimitFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -31,8 +32,8 @@ def test_high_gas_limit(
 ) -> None:
     """Test_high_gas_limit."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(
-        amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
+    sender = EOA(
+        key=0x50EADFB1030587AB3A993A6ECC073041FC3B45E119DAA31A13D78C7E209631A5
     )
 
     env = Environment(
@@ -42,6 +43,10 @@ def test_high_gas_limit(
         prev_randao=0x20000,
         base_fee_per_gas=10,
         gas_limit=9223372036854775807,
+    )
+
+    pre[sender] = Account(
+        balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
     )
 
     tx = Transaction(

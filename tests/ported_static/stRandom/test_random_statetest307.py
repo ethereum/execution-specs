@@ -76,7 +76,6 @@ def test_random_statetest307(
         + Op.CREATE
         + Op.SSTORE,
         nonce=0,
-        address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
 
     tx = Transaction(
@@ -91,11 +90,13 @@ def test_random_statetest307(
 
     post = {
         contract_0: Account(storage={}, nonce=0),
-        Address(
-            0x62C01474F089B07DAE603491675DC5B5748F7049
+        compute_create_address(
+            address=compute_create_address(address=contract_0, nonce=0),
+            nonce=0,
         ): Account.NONEXISTENT,
-        Address(
-            0x91ED00A0A906270D466AF043C4E111DADCA970A3
+        compute_create_address(
+            address=compute_create_address(address=contract_0, nonce=0),
+            nonce=1,
         ): Account.NONEXISTENT,
         coinbase: Account(storage={}, nonce=0),
         compute_create_address(

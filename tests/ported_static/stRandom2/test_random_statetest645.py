@@ -90,6 +90,7 @@ def test_random_statetest645(
         ),
         balance=0x2BE1CFD5D6D6B0B7,
         nonce=175,
+        address=Address(0xAA0103980A7C3113D3A8F81478B0281492EB3D38),  # noqa: E501
     )
 
     tx_data = [

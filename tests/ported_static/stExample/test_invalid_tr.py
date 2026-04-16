@@ -45,7 +45,7 @@ def test_invalid_tr(
         gas_limit=71794957647893862,
     )
 
-    coinbase = pre.fund_eoa(amount=0)  # noqa: F841
+    pre[coinbase] = Account(balance=0, nonce=1)
     # Source: lll
     # { [[0]] (ADD 1 1) }
     target = pre.deploy_contract(  # noqa: F841

@@ -7,6 +7,7 @@ state_tests/VMTests/vmTests/suicideFiller.yml
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -68,7 +69,9 @@ def test_suicide(
     contract_1 = Address(0x0000000000000000000000000000000000001001)
     contract_2 = Address(0x0000000000000000000000000000000000001002)
     contract_3 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = pre.fund_eoa(amount=0x5AF3107A4000)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -79,6 +82,7 @@ def test_suicide(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0x5AF3107A4000)
     # Source: lll
     # {
     #    (selfdestruct (caller))

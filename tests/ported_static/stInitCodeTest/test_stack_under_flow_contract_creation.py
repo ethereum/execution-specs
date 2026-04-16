@@ -43,7 +43,7 @@ def test_stack_under_flow_contract_creation(
         gas_limit=1000000000000000,
     )
 
-    coinbase = pre.fund_eoa(amount=0)  # noqa: F841
+    pre[coinbase] = Account(balance=0, nonce=1)
 
     tx = Transaction(
         sender=sender,

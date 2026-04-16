@@ -7,6 +7,7 @@ state_tests/stCallCreateCallCodeTest/createInitFailStackUnderflowFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -34,7 +35,9 @@ def test_create_init_fail_stack_underflow(
 ) -> None:
     """Create fails because init code has stack underflow, trying to..."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    sender = EOA(
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -45,6 +48,7 @@ def test_create_init_fail_stack_underflow(
         gas_limit=1000000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {(MSTORE8 0 0x01 ) (SELFDESTRUCT (CREATE 1 0 1)) }
     target = pre.deploy_contract(  # noqa: F841

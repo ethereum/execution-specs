@@ -7,6 +7,7 @@ state_tests/stCreateTest/CREATE_EContract_ThenCALLToNonExistentAccFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -36,7 +37,9 @@ def test_create_e_contract_then_call_to_non_existent_acc(
     """Test_create_e_contract_then_call_to_non_existent_acc."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = pre.fund_eoa(amount=0xE8D4A51000)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -47,6 +50,7 @@ def test_create_e_contract_then_call_to_non_existent_acc(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # { [[0]](GAS) [[1]] (CREATE 0 0 32) [[2]](GAS) [[3]] (CALL 60000 0xe1ecf98489fa9ed60a664fc4998db699cfa39d40 0 0 0 0 0) [[100]] (GAS) }  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841

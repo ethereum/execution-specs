@@ -7,6 +7,7 @@ state_tests/stWalletTest/walletConfirmFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -34,7 +35,9 @@ def test_wallet_confirm(
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_1 = Address(0xEC0E71AD0A90FFE1909D27DAC207F7680ABBA42D)
-    sender = pre.fund_eoa(amount=0x5AF3107A4000)
+    sender = EOA(
+        key=0xA95DEFE70EBEA7804F9C3BE42D20D24375E2A92B9D9666B832069C5F3CD423DD
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -45,6 +48,7 @@ def test_wallet_confirm(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0x5AF3107A4000)
     # Source: hex
     # 0x
     contract_0 = pre.deploy_contract(  # noqa: F841

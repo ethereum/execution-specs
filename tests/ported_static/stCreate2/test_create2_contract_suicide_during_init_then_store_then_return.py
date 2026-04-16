@@ -7,6 +7,7 @@ state_tests/stCreate2/CREATE2_ContractSuicideDuringInit_ThenStoreThenReturnFille
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -36,7 +37,9 @@ def test_create2_contract_suicide_during_init_then_store_then_return(
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_1 = Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = pre.fund_eoa(amount=0xE8D4A51000)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -47,6 +50,7 @@ def test_create2_contract_suicide_during_init_then_store_then_return(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # { (MSTORE 0 0x6d64600c6000556000526005601bf36000526001ff) (CREATE2 1 11 21 0) [[0]] 11 (RETURN 18 14) }  # noqa: E501
     contract_1 = pre.deploy_contract(  # noqa: F841

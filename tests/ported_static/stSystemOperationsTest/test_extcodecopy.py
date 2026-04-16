@@ -7,6 +7,7 @@ state_tests/stSystemOperationsTest/extcodecopyFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -32,7 +33,9 @@ def test_extcodecopy(
 ) -> None:
     """God knows what is happening in this test."""
     coinbase = Address(0x4401FCAF7D64D53FB1CFC5C9045C32AA919A8C82)
-    sender = pre.fund_eoa(amount=0x4F6CA7B90CEB5FD4)
+    sender = EOA(
+        key=0x7446B5F5F4C3994BA600DA46B6CA0E5DBD71BCE76740B040BA716507ECB75BB9
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -43,6 +46,7 @@ def test_extcodecopy(
         gas_limit=1478962728,
     )
 
+    pre[sender] = Account(balance=0x4F6CA7B90CEB5FD4)
     # Source: raw
     # 0x7f15688566a82f5f946c68028bf626b349e495daa43e33529a76437ac416cd1b7d6e7dae7454bb193b1c28e64a6a935bc373cea0c5cc171fa61277e5604a3bc8aef4de3d38820658600b80797ada6e82e95f6520383f95f5c7dae56b4dc13b6f22ecabfce07c3cff51  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841

@@ -7,6 +7,7 @@ state_tests/stCallCodes/callcodeInInitcodeToEmptyContractFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -61,7 +62,9 @@ def test_callcode_in_initcode_to_empty_contract(
     contract_0 = Address(0x1100000000000000000000000000000000000000)
     contract_1 = Address(0x1000000000000000000000000000000000000000)
     contract_2 = Address(0x2000000000000000000000000000000000000000)
-    sender = pre.fund_eoa(amount=0x2386F26FC10000)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -72,6 +75,7 @@ def test_callcode_in_initcode_to_empty_contract(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0x2386F26FC10000)
     # Source: lll
     # { (CALL 300000 (CALLDATALOAD 0) 0 0 0 0 0) }
     contract_0 = pre.deploy_contract(  # noqa: F841

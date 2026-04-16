@@ -58,6 +58,7 @@ def test_random_statetest64(
         ),
         balance=46,
         nonce=0,
+        address=Address(0x945304EB96065B2A98B57A48A06AE28D285A71B5),  # noqa: E501
     )
     # Source: raw
     # 0x427f00000000000000000000000000000000000000000000000000000000000000017ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe087f000000000000000000000000945304eb96065b2a98b57a48a06ae28d285a71b50a5560005155  # noqa: E501

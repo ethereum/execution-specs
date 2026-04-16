@@ -7,6 +7,7 @@ state_tests/stCreate2/CREATE2_HighNonceDelegatecallFiller.yml
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -190,7 +191,9 @@ def test_create2_high_nonce_delegatecall(
 ) -> None:
     """Delegate calls CREATE/CREATE2 from an account with max allowed..."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0x3B9ACA00)
+    sender = EOA(
+        key=0xF79127A3004ABDE26A4CBD80C428CB10F829FA11B54D36E7B326F4F4A5927ACF
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -201,6 +204,7 @@ def test_create2_high_nonce_delegatecall(
         gas_limit=89128960,
     )
 
+    pre[sender] = Account(balance=0x3B9ACA00)
     # Source: yul
     # berlin
     # {

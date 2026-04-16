@@ -55,7 +55,6 @@ def test_call_contract_to_create_contract_which_would_create_contract_in_init_co
         + Op.STOP,
         balance=1,
         nonce=0,
-        address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
 
     tx = Transaction(
@@ -67,8 +66,9 @@ def test_call_contract_to_create_contract_which_would_create_contract_in_init_co
 
     post = {
         contract_0: Account(balance=1, nonce=1),
-        Address(
-            0x62C01474F089B07DAE603491675DC5B5748F7049
+        compute_create_address(
+            address=compute_create_address(address=contract_0, nonce=0),
+            nonce=0,
         ): Account.NONEXISTENT,
         sender: Account(nonce=1),
         compute_create_address(address=contract_0, nonce=0): Account(

@@ -45,7 +45,7 @@ def test_suicides_and_send_money_to_itself_ether_destroyed(
         gas_limit=1000000,
     )
 
-    coinbase = pre.fund_eoa(amount=0)  # noqa: F841
+    pre[coinbase] = Account(balance=0, nonce=1)
     # Source: lll
     # {(SELFDESTRUCT <contract:target:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b>)}  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841

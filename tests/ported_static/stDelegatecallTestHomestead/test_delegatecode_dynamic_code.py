@@ -66,7 +66,6 @@ def test_delegatecode_dynamic_code(
         + Op.STOP,
         balance=10000,
         nonce=0,
-        address=Address(0x1000000000000000000000000000000000000000),  # noqa: E501
     )
 
     tx = Transaction(
@@ -77,8 +76,9 @@ def test_delegatecode_dynamic_code(
     )
 
     post = {
-        Address(
-            0xFFE4EBD2A68C02D9DCB0A17283D13346BEB2D8B6
+        compute_create_address(
+            address=compute_create_address(address=contract_0, nonce=0),
+            nonce=0,
         ): Account.NONEXISTENT,
         compute_create_address(address=contract_0, nonce=0): Account(
             storage={

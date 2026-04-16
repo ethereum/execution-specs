@@ -262,6 +262,23 @@ def test_measure_gas(
     )
     # Source: yul
     # berlin {
+    #    let retval := delegatecall(gas(), 0xCA11, 0, 0x100, 0, 0x100)
+    # }
+    contract_5 = pre.deploy_contract(  # noqa: F841
+        code=Op.DELEGATECALL(
+            gas=Op.GAS,
+            address=contract_2,
+            args_offset=Op.DUP2,
+            args_size=Op.DUP2,
+            ret_offset=0x0,
+            ret_size=0x100,
+        )
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=1,
+    )
+    # Source: yul
+    # berlin {
     #    let retval := call(gas(), 0xCA11, 0, 0, 0x100, 0, 0x100)
     # }
     contract_3 = pre.deploy_contract(  # noqa: F841
@@ -274,6 +291,22 @@ def test_measure_gas(
             ret_offset=0x0,
             ret_size=0x100,
         )
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=1,
+    )
+    # Source: yul
+    # berlin {
+    #   let addr := 0xCA11
+    #   extcodecopy(addr, 0, 0, extcodesize(addr))
+    # }
+    contract_11 = pre.deploy_contract(  # noqa: F841
+        code=Op.PUSH2[0xCA11]
+        + Op.PUSH1[0x0]
+        + Op.DUP1
+        + Op.EXTCODESIZE(address=Op.DUP3)
+        + Op.SWAP3
+        + Op.EXTCODECOPY
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
@@ -302,39 +335,6 @@ def test_measure_gas(
     # }
     contract_6 = pre.deploy_contract(  # noqa: F841
         code=Op.STATICCALL(
-            gas=Op.GAS,
-            address=contract_2,
-            args_offset=Op.DUP2,
-            args_size=Op.DUP2,
-            ret_offset=0x0,
-            ret_size=0x100,
-        )
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-    )
-    # Source: yul
-    # berlin {
-    #   let addr := 0xCA11
-    #   extcodecopy(addr, 0, 0, extcodesize(addr))
-    # }
-    contract_11 = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH2[0xCA11]
-        + Op.PUSH1[0x0]
-        + Op.DUP1
-        + Op.EXTCODESIZE(address=Op.DUP3)
-        + Op.SWAP3
-        + Op.EXTCODECOPY
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-    )
-    # Source: yul
-    # berlin {
-    #    let retval := delegatecall(gas(), 0xCA11, 0, 0x100, 0, 0x100)
-    # }
-    contract_5 = pre.deploy_contract(  # noqa: F841
-        code=Op.DELEGATECALL(
             gas=Op.GAS,
             address=contract_2,
             args_offset=Op.DUP2,

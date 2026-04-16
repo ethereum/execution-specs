@@ -7,6 +7,7 @@ state_tests/stCodeCopyTest/ExtCodeCopyTestsParisFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -33,8 +34,12 @@ def test_ext_code_copy_tests_paris(
     """Test_ext_code_copy_tests_paris."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xAAAF5374FCE5EDBC8E2A8697C15331677E6EBF0B)
+    contract_1 = Address(0xCCCF5374FCE5EDBC8E2A8697C15331677E6EBF0B)
+    contract_2 = Address(0xDDDF5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_3 = Address(0xEEEF5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -45,8 +50,9 @@ def test_ext_code_copy_tests_paris(
         gas_limit=9223372036854775807,
     )
 
-    contract_1 = pre.fund_eoa(amount=10)  # noqa: F841
-    contract_2 = pre.fund_eoa(amount=0)  # noqa: F841
+    pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+    pre[contract_1] = Account(balance=10)
+    pre[contract_2] = Account(balance=0, nonce=1)
     # Source: raw
     # 0x1122334455667788991011121314151617181920212223242526272829303132
     contract_3 = pre.deploy_contract(  # noqa: F841

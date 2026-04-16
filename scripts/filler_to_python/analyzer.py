@@ -141,6 +141,12 @@ FORCE_HARDCODED_TESTS: set[str] = {
     # OUTPUT_DIFFERS — remaining 2 (Categories F, H)
     "stEIP3651_warmcoinbase/test_coinbase_warm_account_call_gas.py",
     "stWalletTest/test_multi_owned_is_owner_true.py",
+    # Precompile-as-EOA — tests fund precompile addresses as EOAs,
+    # then check nonce after calling the precompile. Dynamic EOAs
+    # land at different addresses than the precompile targets.
+    "stRevertTest/test_revert_precompiled_touch_nonce.py",
+    "stRevertTest/test_revert_precompiled_touch_noncestorage.py",
+    "stRevertTest/test_revert_precompiled_touch_storage_paris.py",
     # STRUCTURAL — CREATE collision / EIP-3607 rejection behaviour.
     # With dynamic addresses the collision doesn't happen, so the tx
     # runs instead of being rejected → traces appear where baseline
@@ -283,9 +289,6 @@ def analyze(
     if sender_tag_name and not any(a.is_sender for a in accounts):
         sender_ir.not_in_pre = True
 
-    # Dynamic sender unless this test is on the hardcoded allowlist.
-    sender_ir.use_dynamic = not force_hardcoded
-
     # 10. Build environment
     environment_ir = _build_environment(model, tags, addr_to_var)
 
@@ -295,7 +298,8 @@ def analyze(
     )
 
     # 11b. If post-state has unresolvable addresses (Address(0x...)),
-    # disable dynamic for all contracts so their addresses stay fixed.
+    # disable dynamic for ALL accounts (including sender) so every
+    # address stays fixed and CREATE-derived addresses match baseline.
     has_unresolved = any(
         "Address(0x" in a.var_ref
         for entry in expect_entries
@@ -303,8 +307,10 @@ def analyze(
     )
     if has_unresolved:
         for acct in accounts:
-            if not acct.is_eoa:
-                acct.use_dynamic = False
+            acct.use_dynamic = False
+
+    # Sender: dynamic unless unresolvable post-state or hardcoded allowlist.
+    sender_ir.use_dynamic = not force_hardcoded and not has_unresolved
 
     # 11c. Forced hardcoded (allowlist) also pins every EOA so coinbase
     # rebinds and fund_eoa-generated EOAs don't leak into an otherwise
@@ -1712,5 +1718,20 @@ def _resolve_address(
             if addr == compute_create_address(address=var_addr, nonce=nonce):
                 imports.needs_compute_create_address = True
                 return f"compute_create_address(address={var}, nonce={nonce})"
+
+    # Nested CREATE: address created by a contract that was itself created
+    # by a known address (2 levels deep, small nonce range to keep
+    # generation fast — most contracts CREATE only a few children).
+    for var_addr, var in addr_to_var.items():
+        for n1 in range(16):
+            child = compute_create_address(address=var_addr, nonce=n1)
+            for n2 in range(16):
+                if addr == compute_create_address(address=child, nonce=n2):
+                    imports.needs_compute_create_address = True
+                    return (
+                        f"compute_create_address("
+                        f"address=compute_create_address("
+                        f"address={var}, nonce={n1}), nonce={n2})"
+                    )
 
     return f"Address({addr})"

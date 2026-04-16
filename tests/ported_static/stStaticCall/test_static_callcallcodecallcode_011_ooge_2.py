@@ -120,26 +120,6 @@ def test_static_callcallcodecallcode_011_ooge_2(
         address=Address(0x6E143211E9D36EAEEBE65F6ED69D6C28500040D6),  # noqa: E501
     )
     # Source: lll
-    # {  (MSTORE 3 11) (CALLCODE 20020 <contract:0x1000000000000000000000000000000000000003> 0 0 64 0 64 ) (MSTORE 13 1)}  # noqa: E501
-    addr_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x3, value=0xB)
-        + Op.POP(
-            Op.CALLCODE(
-                gas=0x4E34,
-                address=0x335C5531B84765A7626E6E76688F18B81BE5259C,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x40,
-                ret_offset=0x0,
-                ret_size=0x40,
-            )
-        )
-        + Op.MSTORE(offset=0xD, value=0x1)
-        + Op.STOP,
-        nonce=0,
-        address=Address(0xBB2E6E56806816E94A356B0F0C8E53F98E44D6AD),  # noqa: E501
-    )
-    # Source: lll
     # {  (MSTORE 3 11) (CALLCODE 20020 <contract:0x1000000000000000000000000000000000000003> 1 0 64 0 64 ) (MSTORE 13 1)}  # noqa: E501
     addr_3 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x3, value=0xB)
@@ -158,6 +138,26 @@ def test_static_callcallcodecallcode_011_ooge_2(
         + Op.STOP,
         nonce=0,
         address=Address(0xF43B4E8B779078758104039080947F8F74E663D3),  # noqa: E501
+    )
+    # Source: lll
+    # {  (MSTORE 3 11) (CALLCODE 20020 <contract:0x1000000000000000000000000000000000000003> 0 0 64 0 64 ) (MSTORE 13 1)}  # noqa: E501
+    addr_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x3, value=0xB)
+        + Op.POP(
+            Op.CALLCODE(
+                gas=0x4E34,
+                address=0x335C5531B84765A7626E6E76688F18B81BE5259C,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x40,
+                ret_offset=0x0,
+                ret_size=0x40,
+            )
+        )
+        + Op.MSTORE(offset=0xD, value=0x1)
+        + Op.STOP,
+        nonce=0,
+        address=Address(0xBB2E6E56806816E94A356B0F0C8E53F98E44D6AD),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

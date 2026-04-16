@@ -51,6 +51,7 @@ def test_store_gas_on_create(
         + Op.CREATE(value=0x0, offset=0x1C, size=0x4)
         + Op.STOP,
         nonce=0,
+        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     tx = Transaction(

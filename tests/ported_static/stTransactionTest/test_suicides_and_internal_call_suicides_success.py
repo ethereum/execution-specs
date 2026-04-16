@@ -7,6 +7,7 @@ state_tests/stTransactionTest/SuicidesAndInternalCallSuicidesSuccessFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -61,7 +62,9 @@ def test_suicides_and_internal_call_suicides_success(
     coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_0 = Address(0x0000000000000000000000000000000000000000)
     contract_1 = Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = pre.fund_eoa(amount=0xABA9500)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -72,6 +75,7 @@ def test_suicides_and_internal_call_suicides_success(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xABA9500)
     # Source: lll
     # {(SELFDESTRUCT 0x0000000000000000000000000000000000000001)}
     contract_0 = pre.deploy_contract(  # noqa: F841

@@ -83,8 +83,9 @@ def test_call_contract_to_create_contract_which_would_create_contract_if_called(
             },
             nonce=1,
         ),
-        Address(
-            0x62C01474F089B07DAE603491675DC5B5748F7049
+        compute_create_address(
+            address=compute_create_address(address=contract_0, nonce=0),
+            nonce=0,
         ): Account.NONEXISTENT,
         sender: Account(nonce=1),
         compute_create_address(address=contract_0, nonce=0): Account(

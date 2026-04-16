@@ -8,6 +8,7 @@ state_tests/stCreateTest/CREATE2_CallDataFiller.yml
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -33,7 +34,9 @@ def test_create2_call_data(
 ) -> None:
     """Test if calldata is empty in initcode context."""
     contract_0 = Address(0x000000000000000000000000000000000C5EA705)
-    sender = pre.fund_eoa(amount=0x5AF3107A4000)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=sender,
@@ -44,6 +47,7 @@ def test_create2_call_data(
         gas_limit=1000000,
     )
 
+    pre[sender] = Account(balance=0x5AF3107A4000)
     # Source: yul
     # berlin object "C" {
     #   code {

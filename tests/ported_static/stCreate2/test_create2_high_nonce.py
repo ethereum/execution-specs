@@ -7,6 +7,7 @@ state_tests/stCreate2/CREATE2_HighNonceFiller.yml
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -33,7 +34,9 @@ def test_create2_high_nonce(
     """Test_create2_high_nonce."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = pre.fund_eoa(amount=0x3B9ACA00)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -44,6 +47,7 @@ def test_create2_high_nonce(
         gas_limit=89128960,
     )
 
+    pre[sender] = Account(balance=0x3B9ACA00)
     # Source: yul
     # berlin
     # {

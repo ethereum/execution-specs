@@ -7,6 +7,7 @@ state_tests/stCreate2/returndatacopy_0_0_following_successful_createFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -35,7 +36,9 @@ def test_returndatacopy_0_0_following_successful_create(
     """Test_returndatacopy_0_0_following_successful_create."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x0F572E5295C57F15886F9B263E2F6D2D6C7B5EC6)
-    sender = pre.fund_eoa(amount=0x6400000000)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -46,6 +49,7 @@ def test_returndatacopy_0_0_following_successful_create(
         gas_limit=47244640256,
     )
 
+    pre[sender] = Account(balance=0x6400000000)
     # Source: lll
     # { (create2 0 0 (lll (seq (SSTORE 0 1) (STOP) ) 0) 0) (RETURNDATACOPY 0 0 0) (SSTORE 0 0) (STOP) }  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841

@@ -7,6 +7,7 @@ state_tests/stSStoreTest/sstore_XtoYtoZFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -168,7 +169,9 @@ def test_sstore_xto_yto_z(
     contract_0 = Address(0xB000000000000000000000000000000000000000)
     contract_1 = Address(0xC000000000000000000000000000000000000000)
     contract_2 = Address(0xDEA0000000000000000000000000000000000000)
-    sender = pre.fund_eoa(amount=0xE8D4A51000)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -179,6 +182,7 @@ def test_sstore_xto_yto_z(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # { [[1]] 2 [[1]] 3 }
     contract_0 = pre.deploy_contract(  # noqa: F841

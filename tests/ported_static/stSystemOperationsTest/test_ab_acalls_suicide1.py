@@ -7,6 +7,7 @@ state_tests/stSystemOperationsTest/ABAcallsSuicide1Filler.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -56,7 +57,9 @@ def test_ab_acalls_suicide1(
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87)
     contract_1 = Address(0x945304EB96065B2A98B57A48A06AE28D285A71B5)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -67,6 +70,7 @@ def test_ab_acalls_suicide1(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {  (MSTORE 0 (CALLDATALOAD 0)) [[ (PC) ]] (CALL (CALLDATALOAD 0) 0x945304eb96065b2a98b57a48a06ae28d285a71b5 24 0 32 0 0)   }  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841

@@ -43,7 +43,7 @@ def test_call_infinite_loop(
         gas_limit=100000000,
     )
 
-    coinbase = pre.fund_eoa(amount=0)  # noqa: F841
+    pre[coinbase] = Account(balance=0, nonce=1)
     # Source: raw
     # 0x60003560e060020a90048063296df0df1460295780634893d88a146035578063981a316514604157005b602f604d565b60006000f35b603b6062565b60006000f35b6047605a565b60006000f35b5b600115605857604e565b565b60606062565b565b6068605a565b56  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841

@@ -11,6 +11,7 @@ state_tests/stStaticFlagEnabled/DelegatecallToPrecompileFromContractInitializati
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -40,7 +41,9 @@ def test_delegatecall_to_precompile_from_contract_initialization(
     coinbase = Address(0xCAFE000000000000000000000000000000000001)
     contract_0 = Address(0xB000000000000000000000000000000000000000)
     contract_1 = Address(0xA000000000000000000000000000000000000000)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -51,6 +54,7 @@ def test_delegatecall_to_precompile_from_contract_initialization(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {
     #   [[ 0x00 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed  # noqa: E501

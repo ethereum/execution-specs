@@ -87,8 +87,9 @@ def test_static_loop_calls_depth_then_revert3(
         compute_create_address(
             address=contract_0, nonce=0
         ): Account.NONEXISTENT,
-        Address(
-            0xCD6807039CAFFDDBD1C28A749EC91BEF15F448E5
+        compute_create_address(
+            address=compute_create_address(address=contract_0, nonce=0),
+            nonce=1,
         ): Account.NONEXISTENT,
     }
 

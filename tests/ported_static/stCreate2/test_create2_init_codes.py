@@ -7,6 +7,7 @@ state_tests/stCreate2/create2InitCodesFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -99,7 +100,9 @@ def test_create2_init_codes(
 ) -> None:
     """Testing different byte opcodes inside create2 init code."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -109,6 +112,8 @@ def test_create2_init_codes(
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
+
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     expect_entries_: list[dict] = [
         {

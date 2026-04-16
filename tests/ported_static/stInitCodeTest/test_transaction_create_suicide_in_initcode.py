@@ -45,7 +45,7 @@ def test_transaction_create_suicide_in_initcode(
         gas_limit=100000000,
     )
 
-    coinbase = pre.fund_eoa(amount=0)  # noqa: F841
+    pre[coinbase] = Account(balance=0, nonce=1)
 
     tx = Transaction(
         sender=sender,

@@ -83,9 +83,10 @@ def test_loop_calls_depth_then_revert3(
         compute_create_address(address=contract_0, nonce=0): Account(
             balance=1, nonce=2
         ),
-        Address(0xCD6807039CAFFDDBD1C28A749EC91BEF15F448E5): Account(
-            balance=2, nonce=1
-        ),
+        compute_create_address(
+            address=compute_create_address(address=contract_0, nonce=0),
+            nonce=1,
+        ): Account(balance=2, nonce=1),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

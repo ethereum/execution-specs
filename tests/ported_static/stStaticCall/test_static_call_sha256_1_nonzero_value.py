@@ -7,6 +7,7 @@ state_tests/stStaticCall/static_CallSha256_1_nonzeroValueFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -33,7 +34,9 @@ def test_static_call_sha256_1_nonzero_value(
 ) -> None:
     """Test_static_call_sha256_1_nonzero_value."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    sender = EOA(
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -44,6 +47,7 @@ def test_static_call_sha256_1_nonzero_value(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { [[ 2 ]] (STATICCALL 200000 2 0 0 0 32) [[ 0 ]] (MLOAD 0) (CALL (GAS) 2 19 0 0 0 0) (CALLCODE (GAS) 2 19 0 0 0 0) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841

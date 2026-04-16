@@ -14,6 +14,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.vm import Op
 
@@ -53,7 +54,6 @@ def test_create_contract_via_contract_oog_init_code(
         + Op.CREATE(value=0x0, offset=0x14, size=0xC)
         + Op.STOP,
         nonce=0,
-        address=Address(0x1000000000000000000000000000000000000001),  # noqa: E501
     )
 
     tx = Transaction(
@@ -64,8 +64,9 @@ def test_create_contract_via_contract_oog_init_code(
     )
 
     post = {
-        Address(
-            0x4FF884BFFC83E888AE11B32B1D94BF9BC8D1732F
+        compute_create_address(
+            address=compute_create_address(address=contract_0, nonce=0),
+            nonce=0,
         ): Account.NONEXISTENT,
     }
 

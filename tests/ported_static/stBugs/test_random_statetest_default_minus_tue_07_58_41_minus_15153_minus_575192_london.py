@@ -66,6 +66,7 @@ def test_random_statetest_default_minus_tue_07_58_41_minus_15153_minus_575192_lo
         )
         + Op.SSTORE(key=0x1, value=Op.EXTCODEHASH(address=0xABCDEF)),
         nonce=28,
+        address=Address(0xDF5277352F687058BEC2D433F2E2D1B7F0C970AE),  # noqa: E501
     )
 
     tx = Transaction(
