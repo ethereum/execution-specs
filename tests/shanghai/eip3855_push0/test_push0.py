@@ -158,7 +158,7 @@ class TestPush0CallContext:
     ) -> None:
         """Test PUSH0 during various call contexts."""
         gas_limit = 100_000
-        if fork.is_eip_enabled(eip_number=8037):
+        if fork.is_eip_enabled(8037):
             gas_limit = 500_000
 
         tx = Transaction(
