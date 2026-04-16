@@ -92,15 +92,19 @@ jobs:
         with:
           type: ${{ steps.properties.outputs.evm-type }}
 
-      - name: Generate pre-alloc groups (phase 1, fork range)
+      - name: Generate pre-alloc groups (phase 1)
         shell: bash
         run: |
           FEATURE_NAME="${{ needs.setup.outputs.feature_name }}"
+          RANGE_ARGS=""
+          if [ -n "${{ matrix.from_fork }}" ]; then
+            RANGE_ARGS="--from=${{ matrix.from_fork }} --until=${{ matrix.until_fork }}"
+          fi
           EXIT_CODE=0
           if [ "${{ steps.evm-builder.outputs.impl }}" = "eels" ]; then
-            uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} ${{ steps.properties.outputs.fill-params }} --generate-pre-alloc-groups --from=${{ matrix.from_fork }} --until=${{ matrix.until_fork }} --output=fixtures_${FEATURE_NAME} --build-name ${FEATURE_NAME} --no-html -qq || EXIT_CODE=$?
+            uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} ${{ steps.properties.outputs.fill-params }} --generate-pre-alloc-groups $RANGE_ARGS --output=fixtures_${FEATURE_NAME} --build-name ${FEATURE_NAME} --no-html -qq || EXIT_CODE=$?
           else
-            uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} --evm-bin=${{ steps.evm-builder.outputs.evm-bin }} ${{ steps.properties.outputs.fill-params }} --generate-pre-alloc-groups --from=${{ matrix.from_fork }} --until=${{ matrix.until_fork }} --output=fixtures_${FEATURE_NAME} --build-name ${FEATURE_NAME} --no-html -qq || EXIT_CODE=$?
+            uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} --evm-bin=${{ steps.evm-builder.outputs.evm-bin }} ${{ steps.properties.outputs.fill-params }} --generate-pre-alloc-groups $RANGE_ARGS --output=fixtures_${FEATURE_NAME} --build-name ${FEATURE_NAME} --no-html -qq || EXIT_CODE=$?
           fi
           if [ "$EXIT_CODE" -ne 0 ] && [ "$EXIT_CODE" -ne 5 ]; then
             exit "$EXIT_CODE"

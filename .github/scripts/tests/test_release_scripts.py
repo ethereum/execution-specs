@@ -94,8 +94,16 @@ class TestGenerateBuildMatrix:
         assert out["combine_labels"] == " ".join(
             str(i) for i in range(1, splits + 1)
         )
-        # --fork features should not generate a pre-alloc matrix.
-        assert json.loads(out["pre_alloc_matrix"]) == []
+        # --fork features emit a single pre-alloc entry with empty fork
+        # range so the workflow step omits --from/--until (which would
+        # otherwise conflict with --fork in fill-params).
+        pa_matrix = json.loads(out["pre_alloc_matrix"])
+        assert len(pa_matrix) == 1
+        assert pa_matrix[0]["feature"] == "benchmark"
+        assert pa_matrix[0]["label"] == "osaka"
+        assert pa_matrix[0]["from_fork"] == ""
+        assert pa_matrix[0]["until_fork"] == ""
+        assert out["pre_alloc_labels"] == "osaka"
 
     def test_feature_only_can_be_requested_explicitly(self):
         """Verify feature_only entries work when named directly."""

@@ -76,6 +76,12 @@ def parse_until_fork(fill_params: str) -> str | None:
     return m.group(1) if m else None
 
 
+def parse_fork_arg(fill_params: str) -> str | None:
+    """Extract the ``--fork`` value from fill-params."""
+    m = re.search(r"--fork[=\s]+(\S+)", fill_params)
+    return m.group(1) if m else None
+
+
 def applicable_ranges(fork_ranges: list[dict], until_fork: str) -> list[dict]:
     """
     Return fork ranges whose ``from`` is at or before *until_fork*.
@@ -131,12 +137,31 @@ def pre_alloc_matrix(
     fork_ranges: list[dict],
 ) -> list[dict]:
     """
-    Build the fork-range matrix for pre-alloc generation (phase 1).
+    Build the matrix for pre-alloc generation (phase 1).
 
-    Pre-alloc groups must be generated with complete per-fork coverage,
-    so they are split by fork range rather than by pytest-split groups.
-    Returns an empty list for unsplit features.
+    ``--until=`` features split pre-alloc generation across fork ranges
+    so each range runs in parallel. ``--fork=`` features emit a single
+    entry with empty ``from_fork``/``until_fork``; the feature's own
+    ``--fork=`` already scopes the run, and passing ``--from``/
+    ``--until`` alongside ``--fork`` is rejected by ``fill``.
+
+    Returns an empty list for features without splits or without a
+    usable fork boundary.
     """
+    if feature.get("splits", 0) < 2:
+        return []
+
+    fork_arg = parse_fork_arg(feature["fill-params"])
+    if fork_arg:
+        return [
+            {
+                "feature": name,
+                "label": fork_arg.lower(),
+                "from_fork": "",
+                "until_fork": "",
+            }
+        ]
+
     until = parse_until_fork(feature["fill-params"])
     if not until or not fork_ranges:
         return []
