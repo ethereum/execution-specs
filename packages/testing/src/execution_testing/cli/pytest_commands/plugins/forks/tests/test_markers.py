@@ -591,14 +591,13 @@ def test_function_level_valid_from_eip_is_selectable_by_mark(
         "EIP3675",
     )
     assert result.ret == pytest.ExitCode.OK
-    result.stdout.fnmatch_lines(
-        [
-            "*test_function_level_eip_marker[fork_Paris]",
-            "*test_function_level_eip_marker[fork_Shanghai]",
-            "*test_function_level_eip_marker[fork_Cancun]",
-            "*test_function_level_eip_marker[fork_Prague]",
-        ]
+    stdout = "\n".join(result.stdout.lines)
+    assert "test_function_level_eip_marker[fork_Paris-state_test]" in stdout
+    assert (
+        "test_function_level_eip_marker[fork_Shanghai-state_test]" in stdout
     )
+    assert "test_function_level_eip_marker[fork_Cancun-state_test]" in stdout
+    assert "test_function_level_eip_marker[fork_Prague-state_test]" in stdout
 
 
 def test_param_level_valid_from_eip_is_selectable_by_mark(
@@ -619,11 +618,11 @@ def test_param_level_valid_from_eip_is_selectable_by_mark(
         "EIP7928",
     )
     assert result.ret == pytest.ExitCode.OK
-    result.stdout.fnmatch_lines(
-        ["*test_param_level_eip_marker[fork_Amsterdam-post_eip]"]
-    )
-    result.stdout.no_fnmatch_line(
-        "*test_param_level_eip_marker[fork_Amsterdam-post_paris]"
+    stdout = "\n".join(result.stdout.lines)
+    assert "test_param_level_eip_marker[fork_Amsterdam-state_test-post_eip]" in stdout
+    assert (
+        "test_param_level_eip_marker[fork_Amsterdam-state_test-post_paris]"
+        not in stdout
     )
 
 
@@ -645,4 +644,5 @@ def test_negative_eip_selectors_do_not_add_eip_markers(
         "EIP7928",
     )
     assert result.ret == pytest.ExitCode.NO_TESTS_COLLECTED
-    result.stdout.no_fnmatch_line("*test_negative_eip_marker*")
+    stdout = "\n".join(result.stdout.lines)
+    assert "test_negative_eip_marker" not in stdout
