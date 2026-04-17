@@ -150,14 +150,12 @@ def test_blockchain_via_engine(
                         )
                         status = payload_response.status
                         logger.info(f"Payload response status: {status}")
-                        expected_validity = (
-                            PayloadStatusEnum.VALID
-                            if payload.valid()
-                            else PayloadStatusEnum.INVALID
+                        expected_status = PayloadStatusEnum(
+                            payload.expected_status()
                         )
-                        if payload_response.status != expected_validity:
+                        if payload_response.status != expected_status:
                             raise LoggedError(
-                                f"unexpected status: want {expected_validity},"
+                                f"unexpected status: want {expected_status},"
                                 f" got {payload_response.status}"
                             )
                         if payload.error_code is not None:
