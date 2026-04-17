@@ -457,6 +457,7 @@ skip = [
     "*.tar.gz",
     "*.png",
     "*/tests/fixtures",
+    "*/json_infra/fixtures",
     "*/json_loader/fixtures",
     "fixtures.*",
     "tmp",
