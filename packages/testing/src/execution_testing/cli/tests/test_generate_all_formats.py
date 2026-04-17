@@ -177,5 +177,3 @@ def test_regular_output_does_not_auto_trigger_two_phase() -> None:
     assert "--generate-pre-alloc-groups" not in execution.args
     assert "--use-pre-alloc-groups" not in execution.args
     assert "--generate-all-formats" not in execution.args
-
-
