@@ -84,6 +84,7 @@ from execution_testing.fixtures.common import (
 )
 from execution_testing.fixtures.post_verifications import PostVerifications
 from execution_testing.forks import Fork, TransitionFork
+from execution_testing.rpc.rpc_types import PayloadStatusEnum
 from execution_testing.test_types import (
     Alloc,
     Environment,
@@ -336,6 +337,8 @@ class Block(Header):
     """
     txs: List[Transaction] = Field(default_factory=list)
     """List of transactions included in the block."""
+    inclusion_list_txs: List[Transaction] | None = None
+    """Transactions supplied as the block's inclusion list."""
     ommers: List[Header] | None = None
     """List of ommer headers included in the block."""
     withdrawals: List[Withdrawal] | None = None
@@ -451,6 +454,7 @@ class BuiltBlock(CamelModel):
     alloc: LazyAlloc
     state_root: Hash
     txs: List[Transaction]
+    inclusion_list_txs: List[Transaction] | None
     ommers: List[FixtureHeader]
     withdrawals: List[Withdrawal] | None
     requests: List[Bytes] | None
@@ -468,6 +472,11 @@ class BuiltBlock(CamelModel):
         fixture_block = FixtureBlockBase(
             header=self.header,
             txs=[FixtureTransaction.from_transaction(tx) for tx in self.txs],
+            inclusion_list_transactions=(
+                [tx.rlp() for tx in self.inclusion_list_txs]
+                if self.inclusion_list_txs is not None
+                else None
+            ),
             withdrawals=(
                 [
                     FixtureWithdrawal.from_withdrawal(w)
@@ -552,6 +561,7 @@ class BuiltBlock(CamelModel):
             transactions=self.txs,
             withdrawals=self.withdrawals,
             requests=self.requests,
+            inclusion_list_transactions=self.inclusion_list_txs,
             block_access_list=self.block_access_list.rlp
             if self.block_access_list
             else None,
@@ -559,6 +569,11 @@ class BuiltBlock(CamelModel):
                 self.rlp_modifier, self.block_access_list
             ),
             validation_error=self.expected_exception,
+            status=(
+                PayloadStatusEnum.INCLUSION_LIST_UNSATISFIED.value
+                if self.result.is_inclusion_list_satisfied is False
+                else None
+            ),
             error_code=self.engine_api_error_code,
         )
 
@@ -824,6 +839,11 @@ class BlockchainTest(BaseTest):
         )
         env = env.set_fork_requirements(fork)
         txs = [tx.with_signature_and_sender() for tx in block.txs]
+        inclusion_list_txs = (
+            [tx.with_signature_and_sender() for tx in block.inclusion_list_txs]
+            if block.inclusion_list_txs is not None
+            else None
+        )
 
         if failing_tx_count := len([tx for tx in txs if tx.error]) > 0:
             if failing_tx_count > 1:
@@ -846,6 +866,7 @@ class BlockchainTest(BaseTest):
                 chain_id=self.chain_id,
                 reward=fork.get_reward(),
                 blob_schedule=fork.blob_schedule(),
+                inclusion_list_txs=inclusion_list_txs,
             ),
             slow_request=self.is_tx_gas_heavy_test,
         )
@@ -986,6 +1007,7 @@ class BlockchainTest(BaseTest):
             state_root=transition_tool_output.result.state_root,
             env=env,
             txs=txs,
+            inclusion_list_txs=inclusion_list_txs,
             ommers=[],
             withdrawals=env.withdrawals,
             requests=requests_list,

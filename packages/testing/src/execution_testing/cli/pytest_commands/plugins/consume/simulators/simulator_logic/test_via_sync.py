@@ -41,19 +41,7 @@ from ..helpers.timing import TimingData
 logger = get_logger(__name__)
 
 
-def test_blockchain_via_sync(
-    timing_data: TimingData,
-    eth_rpc: EthRPC,
-    engine_rpc: EngineRPC,
-    net_rpc: NetRPC,
-    sync_eth_rpc: EthRPC,
-    sync_engine_rpc: EngineRPC,
-    sync_net_rpc: NetRPC,
-    sync_admin_rpc: AdminRPC,
-    client_enode_url: str,
-    fixture: BlockchainEngineSyncFixture,
-    strict_exception_matching: bool,
-) -> None:
+def test_blockchain_via_sync(request: pytest.FixtureRequest) -> None:
     """
     Test blockchain synchronization between two clients.
 
@@ -64,6 +52,23 @@ def test_blockchain_via_sync(
        synchronization
     5. Verify that the sync client successfully syncs to the same state
     """
+    if not hasattr(request.config, "fixtures_source"):
+        pytest.skip("requires consume simulator context")
+
+    timing_data: TimingData = request.getfixturevalue("timing_data")
+    eth_rpc: EthRPC = request.getfixturevalue("eth_rpc")
+    engine_rpc: EngineRPC = request.getfixturevalue("engine_rpc")
+    net_rpc: NetRPC = request.getfixturevalue("net_rpc")
+    sync_eth_rpc: EthRPC = request.getfixturevalue("sync_eth_rpc")
+    sync_engine_rpc: EngineRPC = request.getfixturevalue("sync_engine_rpc")
+    sync_net_rpc: NetRPC = request.getfixturevalue("sync_net_rpc")
+    sync_admin_rpc: AdminRPC = request.getfixturevalue("sync_admin_rpc")
+    client_enode_url: str = request.getfixturevalue("client_enode_url")
+    fixture: BlockchainEngineSyncFixture = request.getfixturevalue("fixture")
+    strict_exception_matching: bool = request.getfixturevalue(
+        "strict_exception_matching"
+    )
+
     # Initialize client under test
     with timing_data.time("Initialize client under test"):
         logger.info("Initializing client under test with genesis block...")
@@ -127,20 +132,21 @@ def test_blockchain_via_sync(
                     logger.info(f"Sending engine_newPayloadV{version}...")
                     # Note: This is similar to the logic in test_via_engine.py
                     try:
+                        params = list(payload.params)
+                        if payload.inclusion_list_transactions is not None:
+                            params.append(payload.inclusion_list_transactions)
                         payload_response = engine_rpc.new_payload(
-                            *payload.params,
+                            *params,
                             version=payload.new_payload_version,
                         )
                         status = payload_response.status
                         logger.info(f"Payload response status: {status}")
-                        expected_validity = (
-                            PayloadStatusEnum.VALID
-                            if payload.valid()
-                            else PayloadStatusEnum.INVALID
+                        expected_status = PayloadStatusEnum(
+                            payload.expected_status()
                         )
-                        if payload_response.status != expected_validity:
+                        if payload_response.status != expected_status:
                             raise LoggedError(
-                                f"unexpected status: want {expected_validity},"
+                                f"unexpected status: want {expected_status},"
                                 f" got {payload_response.status}"
                             )
                         if payload.error_code is not None:

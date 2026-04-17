@@ -326,6 +326,7 @@ class TransitionTool(EthereumCLI):
         chain_id: int
         reward: int
         blob_schedule: BlobSchedule | None
+        inclusion_list_txs: List[Transaction] | None = None
         state_test: bool = False
 
         @property
@@ -362,10 +363,17 @@ class TransitionTool(EthereumCLI):
 
         def to_input(self) -> TransitionToolInput:
             """Convert the data to a TransactionToolInput object."""
+            env = self.env
+            if self.inclusion_list_txs is not None:
+                env = env.copy(
+                    inclusion_list_transactions=[
+                        tx.rlp() for tx in self.inclusion_list_txs
+                    ]
+                )
             return TransitionToolInput(
                 alloc=self.alloc,
                 txs=self.txs,
-                env=self.env,
+                env=env,
                 blob_params=self.blob_params,
             )
 

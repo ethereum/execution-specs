@@ -145,6 +145,9 @@ class Environment(EnvironmentGeneric[ZeroPaddedHexNumber]):
     # EIP-7928: Block-level access lists
     block_access_list_hash: Hash | None = Field(None)
     block_access_lists: Bytes | None = Field(None)
+    inclusion_list_transactions: List[Bytes] | None = Field(
+        None, alias="inclusionListTransactions"
+    )
 
     @computed_field  # type: ignore[prop-decorator]
     @cached_property
