@@ -12,7 +12,7 @@ class ReferenceSpec:
 
 
 ref_spec_7981 = ReferenceSpec(
-    "EIPS/eip-7981.md", "be5f9861f233bfd0c0576cfa3dd027a2c4edcd4e"
+    "EIPS/eip-7981.md", "f0f874b8ed796a4e172fcaf2339c3bfaade92860"
 )
 
 
@@ -26,4 +26,3 @@ class Spec:
 
     ACCESS_LIST_ADDRESS_COST = 2400
     ACCESS_LIST_STORAGE_KEY_COST = 1900
-    TOTAL_COST_FLOOR_PER_TOKEN = 16

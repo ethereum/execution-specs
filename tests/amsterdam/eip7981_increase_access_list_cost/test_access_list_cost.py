@@ -8,6 +8,7 @@ from execution_testing import (
     Address,
     Alloc,
     Bytes,
+    Fork,
     Hash,
     StateTestFiller,
     Transaction,
@@ -98,6 +99,7 @@ pytestmark = pytest.mark.valid_at("EIP7981")
 )
 def test_access_list_token_calculation(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
     tx: Transaction,
     access_list: list,
@@ -106,18 +108,25 @@ def test_access_list_token_calculation(
     """
     Test that access list floor tokens are calculated correctly.
 
-    This test verifies the token counting mechanism:
-    - Each access list byte contributes 4 floor tokens
+    Every access list byte contributes four floor tokens regardless of
+    whether it is zero or non-zero. Verify both the reference helper and
+    the fork's floor cost calculator agree with the expected token count.
     """
-    # Verify our helper calculates floor tokens correctly
-    calculated_floor_tokens = calculate_access_list_floor_tokens(access_list)
-    assert calculated_floor_tokens == expected_floor_tokens, (
-        "Expected "
-        f"{expected_floor_tokens} tokens, got "
-        f"{calculated_floor_tokens}"
+    assert (
+        calculate_access_list_floor_tokens(access_list)
+        == expected_floor_tokens
     )
 
-    # The transaction should be valid with correct gas
+    gas_costs = fork.gas_costs()
+    expected_floor_cost = (
+        expected_floor_tokens * gas_costs.GAS_TX_DATA_TOKEN_FLOOR
+        + gas_costs.GAS_TX_BASE
+    )
+    actual_floor_cost = fork.transaction_data_floor_cost_calculator()(
+        data=b"", access_list=access_list
+    )
+    assert actual_floor_cost == expected_floor_cost
+
     state_test(
         pre=pre,
         post={},
