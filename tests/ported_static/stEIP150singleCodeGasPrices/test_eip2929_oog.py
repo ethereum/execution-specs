@@ -188,40 +188,13 @@ def test_eip2929_oog(
     )
     # Source: lll
     # {
-    #    (callcode 0x06A5 0xACC7 0 0 0 0 0)
+    #    (balance 0xACC7)
     # }
-    contract_7 = pre.deploy_contract(  # noqa: F841
-        code=Op.CALLCODE(
-            gas=0x6A5,
-            address=0xACC7,
-            value=0x0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.STOP,
+    contract_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.BALANCE(address=0xACC7) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address(0x00000000000000000000000000000000000010F2),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #    (delegatecall 0x06A5 0xACC7 0 0 0 0)
-    # }
-    contract_8 = pre.deploy_contract(  # noqa: F841
-        code=Op.DELEGATECALL(
-            gas=0x6A5,
-            address=0xACC7,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000000010F4),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000001031),  # noqa: E501
     )
     # Source: lll
     # {
@@ -262,23 +235,40 @@ def test_eip2929_oog(
     )
     # Source: lll
     # {
-    #    (balance 0xACC7)
+    #    (delegatecall 0x06A5 0xACC7 0 0 0 0)
     # }
-    contract_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.BALANCE(address=0xACC7) + Op.STOP,
+    contract_8 = pre.deploy_contract(  # noqa: F841
+        code=Op.DELEGATECALL(
+            gas=0x6A5,
+            address=0xACC7,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address(0x0000000000000000000000000000000000001031),  # noqa: E501
+        address=Address(0x00000000000000000000000000000000000010F4),  # noqa: E501
     )
     # Source: lll
     # {
-    #    (extcodesize 0x1031)
+    #    (callcode 0x06A5 0xACC7 0 0 0 0 0)
     # }
-    contract_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.EXTCODESIZE(address=0x1031) + Op.STOP,
+    contract_7 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALLCODE(
+            gas=0x6A5,
+            address=0xACC7,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address(0x000000000000000000000000000000000000103B),  # noqa: E501
+        address=Address(0x00000000000000000000000000000000000010F2),  # noqa: E501
     )
     # Source: lll
     # {
@@ -289,6 +279,16 @@ def test_eip2929_oog(
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
         address=Address(0x000000000000000000000000000000000000103F),  # noqa: E501
+    )
+    # Source: lll
+    # {
+    #    (extcodesize 0x1031)
+    # }
+    contract_3 = pre.deploy_contract(  # noqa: F841
+        code=Op.EXTCODESIZE(address=0x1031) + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=1,
+        address=Address(0x000000000000000000000000000000000000103B),  # noqa: E501
     )
     # Source: lll
     # {

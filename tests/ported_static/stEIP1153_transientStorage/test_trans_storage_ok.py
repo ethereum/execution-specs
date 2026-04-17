@@ -7,6 +7,7 @@ state_tests/Cancun/stEIP1153_transientStorage/transStorageOKFiller.yml
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -154,7 +155,9 @@ def test_trans_storage_ok(
     contract_9 = Address(0x00000000000000000000000000000000C54B5829)
     contract_10 = Address(0x00000000000000000000000000000000000057A7)
     contract_11 = Address(0x000000000000000000000000000000005D7935DF)
-    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE, nonce=1)
+    sender = EOA(
+        key=0x48DC5A9F099CAAAA557742CA3A990A94BE45B9969126A1BC74E5E8BE5A2B5B47
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -165,6 +168,7 @@ def test_trans_storage_ok(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
     # Source: yul
     # {
     #     // These two functions use transient storage.
@@ -274,6 +278,7 @@ def test_trans_storage_ok(
         + Op.TSTORE
         + Op.JUMP,
         nonce=1,
+        address=Address(0x00000000000000000000000000000000EBD141D5),  # noqa: E501
     )
     # Source: yul
     # {
@@ -384,6 +389,7 @@ def test_trans_storage_ok(
         + Op.TSTORE
         + Op.JUMP,
         nonce=1,
+        address=Address(0x000000000000000000000000000000006E3A7204),  # noqa: E501
     )
     # Source: yul
     # {
@@ -493,6 +499,7 @@ def test_trans_storage_ok(
         + Op.TSTORE
         + Op.JUMP,
         nonce=1,
+        address=Address(0x00000000000000000000000000000000C1C922F1),  # noqa: E501
     )
     # Source: yul
     # {
@@ -673,6 +680,7 @@ def test_trans_storage_ok(
         + Op.TSTORE
         + Op.JUMP,
         nonce=1,
+        address=Address(0x00000000000000000000000000000000264BB86A),  # noqa: E501
     )
     # Source: yul
     # {
@@ -805,6 +813,7 @@ def test_trans_storage_ok(
         + Op.TSTORE
         + Op.JUMP,
         nonce=1,
+        address=Address(0x000000000000000000000000000000007074A486),  # noqa: E501
     )
     # Source: yul
     # {
@@ -962,6 +971,7 @@ def test_trans_storage_ok(
         + Op.TSTORE
         + Op.JUMP,
         nonce=1,
+        address=Address(0x00000000000000000000000000000000C54B5829),  # noqa: E501
     )
     # Source: yul
     # {
@@ -1033,6 +1043,7 @@ def test_trans_storage_ok(
         + Op.SSTORE(key=0x1, value=Op.CALL)
         + Op.STOP,
         nonce=1,
+        address=Address(0xDD53B677A6FD4E871A6355F283B1BD7CEB95A95E),  # noqa: E501
     )
     # Source: yul
     # {
@@ -1067,9 +1078,9 @@ def test_trans_storage_ok(
     #     // If called by a different address from 0xca11bacc, we are the first
     # ... (12 more lines)
     contract_4 = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMPI(pc=0x3F, condition=Op.EQ(Op.CALLER, contract_3))
+        code=Op.JUMPI(pc=0x3F, condition=Op.EQ(Op.CALLER, 0xCA11BACC))
         + Op.JUMPDEST
-        + Op.JUMPI(pc=0x16, condition=Op.SUB(Op.CALLER, contract_3))
+        + Op.JUMPI(pc=0x16, condition=Op.SUB(Op.CALLER, 0xCA11BACC))
         + Op.STOP
         + Op.JUMPDEST
         + Op.PUSH1[0x23]
@@ -1082,7 +1093,7 @@ def test_trans_storage_ok(
             key=0x2,
             value=Op.CALL(
                 gas=Op.GAS,
-                address=contract_3,
+                address=0xCA11BACC,
                 value=Op.DUP1,
                 args_offset=Op.DUP1,
                 args_size=Op.DUP1,
@@ -1124,7 +1135,7 @@ def test_trans_storage_ok(
             pc=0xA,
             condition=Op.CALL(
                 gas=Op.GAS,
-                address=contract_3,
+                address=0xCA11BACC,
                 value=Op.DUP1,
                 args_offset=Op.DUP1,
                 args_size=Op.DUP1,
@@ -1143,6 +1154,7 @@ def test_trans_storage_ok(
         + Op.TSTORE
         + Op.JUMP,
         nonce=1,
+        address=Address(0x000000000000000000000000000000005114E2C8),  # noqa: E501
     )
     # Source: yul
     # {
@@ -1181,7 +1193,7 @@ def test_trans_storage_ok(
             key=0x11,
             value=Op.CALLCODE(
                 gas=Op.GAS,
-                address=contract_7,
+                address=0xADD1,
                 value=Op.DUP1,
                 args_offset=Op.DUP1,
                 args_size=Op.DUP1,
@@ -1199,7 +1211,7 @@ def test_trans_storage_ok(
             key=0x12,
             value=Op.DELEGATECALL(
                 gas=Op.GAS,
-                address=contract_7,
+                address=0xADD1,
                 args_offset=Op.DUP1,
                 args_size=Op.DUP1,
                 ret_offset=Op.DUP1,
@@ -1216,7 +1228,7 @@ def test_trans_storage_ok(
             key=0x13,
             value=Op.CALL(
                 gas=Op.GAS,
-                address=contract_7,
+                address=0xADD1,
                 value=Op.DUP1,
                 args_offset=Op.DUP1,
                 args_size=Op.DUP1,
@@ -1237,6 +1249,7 @@ def test_trans_storage_ok(
         + Op.JUMP,
         storage={0: 24743},
         nonce=1,
+        address=Address(0x000000000000000000000000000000007F9317BD),  # noqa: E501
     )
     # Source: yul
     # {
@@ -1259,7 +1272,7 @@ def test_trans_storage_ok(
             key=0x10,
             value=Op.CALL(
                 gas=Op.GAS,
-                address=contract_10,
+                address=0x57A7,
                 value=Op.DUP1,
                 args_offset=Op.DUP2,
                 args_size=0x1,
@@ -1273,7 +1286,7 @@ def test_trans_storage_ok(
             key=0x11,
             value=Op.STATICCALL(
                 gas=Op.GAS,
-                address=contract_10,
+                address=0x57A7,
                 args_offset=Op.DUP1,
                 args_size=Op.DUP1,
                 ret_offset=Op.PUSH0,
@@ -1286,7 +1299,7 @@ def test_trans_storage_ok(
             key=0x12,
             value=Op.STATICCALL(
                 gas=Op.GAS,
-                address=contract_10,
+                address=0x57A7,
                 args_offset=Op.DUP2,
                 args_size=0x1,
                 ret_offset=Op.PUSH0,
@@ -1297,6 +1310,7 @@ def test_trans_storage_ok(
         + Op.STOP,
         storage={2: 24743, 18: 24743},
         nonce=1,
+        address=Address(0x000000000000000000000000000000005D7935DF),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

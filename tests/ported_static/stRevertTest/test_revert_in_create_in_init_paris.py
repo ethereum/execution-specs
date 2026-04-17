@@ -7,6 +7,7 @@ state_tests/stRevertTest/RevertInCreateInInit_ParisFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -31,7 +32,10 @@ def test_revert_in_create_in_init_paris(
 ) -> None:
     """Test_revert_in_create_in_init_paris."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0x6400000000)
+    addr = Address(0x4757608F18B70777AE788DD4056EEED52F7AA68F)
+    sender = EOA(
+        key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -42,7 +46,8 @@ def test_revert_in_create_in_init_paris(
         gas_limit=42949672960,
     )
 
-    addr = pre.fund_eoa(amount=10)  # noqa: F841
+    pre[addr] = Account(balance=10, storage={0: 1})
+    pre[sender] = Account(balance=0x6400000000)
 
     tx = Transaction(
         sender=sender,

@@ -7,6 +7,7 @@ state_tests/stDelegatecallTestHomestead/delegatecallInInitcodeToExistingContract
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -38,7 +39,9 @@ def test_delegatecall_in_initcode_to_existing_contract(
     contract_0 = Address(0x1000000000000000000000000000000000000000)
     contract_1 = Address(0x1000000000000000000000000000000000000001)
     contract_2 = Address(0x945304EB96065B2A98B57A48A06AE28D285A71B5)
-    sender = pre.fund_eoa(amount=0x2386F26FC10000)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -49,6 +52,7 @@ def test_delegatecall_in_initcode_to_existing_contract(
         gas_limit=1000000,
     )
 
+    pre[sender] = Account(balance=0x2386F26FC10000)
     # Source: lll
     # { (MSTORE 0 0x604060006040600073945304eb96065b2a98b57a48a06ae28d285a71b5620186) (MSTORE 32 0xa0f4600055336001550000000000000000000000000000000000000000000000) (CREATE 1 0 64) }  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -64,6 +68,7 @@ def test_delegatecall_in_initcode_to_existing_contract(
         + Op.STOP,
         balance=10000,
         nonce=0,
+        address=Address(0x1000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 0 0x6001600055) (CREATE 1 27 5) }
@@ -73,6 +78,7 @@ def test_delegatecall_in_initcode_to_existing_contract(
         + Op.STOP,
         balance=1000,
         nonce=0,
+        address=Address(0x1000000000000000000000000000000000000001),  # noqa: E501
     )
     # Source: lll
     # { (SSTORE 2 1) [[ 11 ]] (CALLER) }
@@ -81,6 +87,7 @@ def test_delegatecall_in_initcode_to_existing_contract(
         + Op.SSTORE(key=0xB, value=Op.CALLER)
         + Op.STOP,
         nonce=0,
+        address=Address(0x945304EB96065B2A98B57A48A06AE28D285A71B5),  # noqa: E501
     )
 
     tx = Transaction(

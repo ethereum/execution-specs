@@ -7,6 +7,7 @@ state_tests/stRevertTest/RevertPrefoundEmpty_ParisFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -32,8 +33,11 @@ def test_revert_prefound_empty_paris(
 ) -> None:
     """Test_revert_prefound_empty_paris."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    contract_0 = Address(0x7DB299E0885C85039F56FA504A13DD8CE8A56AA7)
     contract_1 = Address(0xA000000000000000000000000000000000000000)
-    sender = pre.fund_eoa(amount=0xE8D4A51000)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -44,7 +48,8 @@ def test_revert_prefound_empty_paris(
         gas_limit=10000000,
     )
 
-    contract_0 = pre.fund_eoa(amount=10)  # noqa: F841
+    pre[sender] = Account(balance=0xE8D4A51000)
+    pre[contract_0] = Account(balance=10)
     # Source: lll
     # { [[0]] (CREATE 0 0 32) [[1]]12 }
     contract_1 = pre.deploy_contract(  # noqa: F841
@@ -55,6 +60,7 @@ def test_revert_prefound_empty_paris(
         + Op.STOP,
         balance=1,
         nonce=0,
+        address=Address(0xA000000000000000000000000000000000000000),  # noqa: E501
     )
 
     tx = Transaction(

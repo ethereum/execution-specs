@@ -7,6 +7,7 @@ state_tests/stNonZeroCallsTest/NonZeroValue_CALL_ToOneStorageKey_ParisFiller.jso
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -34,7 +35,10 @@ def test_non_zero_value_call_to_one_storage_key_paris(
 ) -> None:
     """Test_non_zero_value_call_to_one_storage_key_paris."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xE8D4A51000)
+    addr = Address(0x4757608F18B70777AE788DD4056EEED52F7AA68F)
+    sender = EOA(
+        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -45,7 +49,8 @@ def test_non_zero_value_call_to_one_storage_key_paris(
         gas_limit=10000000,
     )
 
-    addr = pre.fund_eoa(amount=10)  # noqa: F841
+    pre[sender] = Account(balance=0xE8D4A51000)
+    pre[addr] = Account(balance=10, storage={0: 1})
     # Source: lll
     # { [0](GAS) [[1]] (CALL 60000 <eoa:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 1 0 0 0 0) [[100]] (SUB @0 (GAS)) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -54,7 +59,7 @@ def test_non_zero_value_call_to_one_storage_key_paris(
             key=0x1,
             value=Op.CALL(
                 gas=0xEA60,
-                address=addr,
+                address=0x4757608F18B70777AE788DD4056EEED52F7AA68F,
                 value=0x1,
                 args_offset=0x0,
                 args_size=0x0,
@@ -66,6 +71,7 @@ def test_non_zero_value_call_to_one_storage_key_paris(
         + Op.STOP,
         balance=1000,
         nonce=0,
+        address=Address(0xF6029618CF51CA5236AFC14EAD1FBE0739573C23),  # noqa: E501
     )
 
     tx = Transaction(

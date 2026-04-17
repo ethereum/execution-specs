@@ -7,6 +7,7 @@ state_tests/stCreate2/create2collisionBalanceFiller.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -72,7 +73,9 @@ def test_create2collision_balance(
     contract_0 = Address(0xE2B35478FDD26477CC576DD906E6277761246A3C)
     contract_1 = Address(0xAF3ECBA2FE09A4F6C19F16A9D119E44E08C2DA01)
     contract_2 = Address(0xEC2C6832D00680ECE8FF9254F81FDAB0A5A2AC50)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -83,12 +86,14 @@ def test_create2collision_balance(
         gas_limit=1000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: hex
     # 0x
     contract_0 = pre.deploy_contract(  # noqa: F841
         code="",
         balance=1,
         nonce=0,
+        address=Address(0xE2B35478FDD26477CC576DD906E6277761246A3C),  # noqa: E501
     )
     # Source: hex
     # 0x
@@ -96,6 +101,7 @@ def test_create2collision_balance(
         code="",
         balance=1,
         nonce=0,
+        address=Address(0xAF3ECBA2FE09A4F6C19F16A9D119E44E08C2DA01),  # noqa: E501
     )
     # Source: hex
     # 0x
@@ -103,6 +109,7 @@ def test_create2collision_balance(
         code="",
         balance=1,
         nonce=0,
+        address=Address(0xEC2C6832D00680ECE8FF9254F81FDAB0A5A2AC50),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

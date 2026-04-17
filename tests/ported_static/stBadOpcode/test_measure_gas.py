@@ -7,6 +7,7 @@ state_tests/stBadOpcode/measureGasFiller.yml
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -125,7 +126,9 @@ def test_measure_gas(
     contract_10 = Address(0x0000000000000000000000000000000000C0DE20)
     contract_11 = Address(0x0000000000000000000000000000000000C0DE3B)
     contract_12 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE, nonce=1)
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -136,6 +139,7 @@ def test_measure_gas(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
     # Source: yul
     # berlin {
     #    pop(create(0, 0, 0x200))
@@ -144,6 +148,7 @@ def test_measure_gas(
         code=Op.CREATE(value=Op.DUP1, offset=0x0, size=0x200) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
+        address=Address(0x0000000000000000000000000000000000C0DEF0),  # noqa: E501
     )
     # Source: yul
     # berlin {
@@ -157,6 +162,7 @@ def test_measure_gas(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
+        address=Address(0x0000000000000000000000000000000000C0DEF5),  # noqa: E501
     )
     # Source: yul
     # berlin {
@@ -176,6 +182,7 @@ def test_measure_gas(
         code=Op.MLOAD(offset=0xB000) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
+        address=Address(0x0000000000000000000000000000000000C0DE51),  # noqa: E501
     )
     # Source: yul
     # berlin {
@@ -185,6 +192,7 @@ def test_measure_gas(
         code=Op.MSTORE(offset=0xB000, value=0xFF) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
+        address=Address(0x0000000000000000000000000000000000C0DE52),  # noqa: E501
     )
     # Source: yul
     # berlin {
@@ -194,6 +202,7 @@ def test_measure_gas(
         code=Op.MSTORE8(offset=0xB000, value=0xFF) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
+        address=Address(0x0000000000000000000000000000000000C0DE53),  # noqa: E501
     )
     # Source: yul
     # berlin {
@@ -203,6 +212,7 @@ def test_measure_gas(
         code=Op.SHA3(offset=0x0, size=0xBEEF) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
+        address=Address(0x0000000000000000000000000000000000C0DE20),  # noqa: E501
     )
     # Source: yul
     # berlin {
@@ -259,59 +269,7 @@ def test_measure_gas(
         + Op.JUMP(pc=0x31),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-    )
-    # Source: yul
-    # berlin {
-    #    let retval := staticcall(gas(), 0xCA11, 0, 0x100, 0, 0x100)
-    # }
-    contract_6 = pre.deploy_contract(  # noqa: F841
-        code=Op.STATICCALL(
-            gas=Op.GAS,
-            address=contract_2,
-            args_offset=Op.DUP2,
-            args_size=Op.DUP2,
-            ret_offset=0x0,
-            ret_size=0x100,
-        )
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-    )
-    # Source: yul
-    # berlin {
-    #    let retval := callcode(gas(), 0xCA11, 0, 0, 0x100, 0, 0x100)
-    # }
-    contract_4 = pre.deploy_contract(  # noqa: F841
-        code=Op.CALLCODE(
-            gas=Op.GAS,
-            address=contract_2,
-            value=Op.DUP1,
-            args_offset=Op.DUP2,
-            args_size=Op.DUP2,
-            ret_offset=0x0,
-            ret_size=0x100,
-        )
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-    )
-    # Source: yul
-    # berlin {
-    #    let retval := call(gas(), 0xCA11, 0, 0, 0x100, 0, 0x100)
-    # }
-    contract_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.CALL(
-            gas=Op.GAS,
-            address=contract_2,
-            value=Op.DUP1,
-            args_offset=Op.DUP2,
-            args_size=Op.DUP2,
-            ret_offset=0x0,
-            ret_size=0x100,
-        )
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
+        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
     # Source: yul
     # berlin {
@@ -328,15 +286,16 @@ def test_measure_gas(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
+        address=Address(0x0000000000000000000000000000000000C0DE3B),  # noqa: E501
     )
     # Source: yul
     # berlin {
-    #    let retval := delegatecall(gas(), 0xCA11, 0, 0x100, 0, 0x100)
+    #    let retval := staticcall(gas(), 0xCA11, 0, 0x100, 0, 0x100)
     # }
-    contract_5 = pre.deploy_contract(  # noqa: F841
-        code=Op.DELEGATECALL(
+    contract_6 = pre.deploy_contract(  # noqa: F841
+        code=Op.STATICCALL(
             gas=Op.GAS,
-            address=contract_2,
+            address=0xCA11,
             args_offset=Op.DUP2,
             args_size=Op.DUP2,
             ret_offset=0x0,
@@ -345,6 +304,63 @@ def test_measure_gas(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
+        address=Address(0x0000000000000000000000000000000000C0DEFA),  # noqa: E501
+    )
+    # Source: yul
+    # berlin {
+    #    let retval := callcode(gas(), 0xCA11, 0, 0, 0x100, 0, 0x100)
+    # }
+    contract_4 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALLCODE(
+            gas=Op.GAS,
+            address=0xCA11,
+            value=Op.DUP1,
+            args_offset=Op.DUP2,
+            args_size=Op.DUP2,
+            ret_offset=0x0,
+            ret_size=0x100,
+        )
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=1,
+        address=Address(0x0000000000000000000000000000000000C0DEF2),  # noqa: E501
+    )
+    # Source: yul
+    # berlin {
+    #    let retval := delegatecall(gas(), 0xCA11, 0, 0x100, 0, 0x100)
+    # }
+    contract_5 = pre.deploy_contract(  # noqa: F841
+        code=Op.DELEGATECALL(
+            gas=Op.GAS,
+            address=0xCA11,
+            args_offset=Op.DUP2,
+            args_size=Op.DUP2,
+            ret_offset=0x0,
+            ret_size=0x100,
+        )
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=1,
+        address=Address(0x0000000000000000000000000000000000C0DEF4),  # noqa: E501
+    )
+    # Source: yul
+    # berlin {
+    #    let retval := call(gas(), 0xCA11, 0, 0, 0x100, 0, 0x100)
+    # }
+    contract_3 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALL(
+            gas=Op.GAS,
+            address=0xCA11,
+            value=Op.DUP1,
+            args_offset=Op.DUP2,
+            args_size=Op.DUP2,
+            ret_offset=0x0,
+            ret_size=0x100,
+        )
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=1,
+        address=Address(0x0000000000000000000000000000000000C0DEF1),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
