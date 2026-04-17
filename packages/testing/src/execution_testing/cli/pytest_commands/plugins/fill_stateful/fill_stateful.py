@@ -46,7 +46,6 @@ from execution_testing.rpc.rpc_types import (
 from execution_testing.specs.benchmark import BenchmarkTest
 from execution_testing.specs.blockchain import BlockchainTest
 from execution_testing.test_types import EOA
-from execution_testing.test_types.transaction_types import TransactionDefaults
 
 from ..execute import contracts
 from ..execute.rpc.chain_builder_eth_rpc import ChainBuilderEthRPC
@@ -64,12 +63,8 @@ logger = get_logger(__name__)
 # BlockchainTest is the generic class; BenchmarkTest is its subclass
 # used by all tests under ``tests/benchmark/``. Both override the
 # ClassVar so both need patching.
-BlockchainTest.supported_fixture_formats = [
-    BlockchainEngineStatefulFixture
-]
-BenchmarkTest.supported_fixture_formats = [
-    BlockchainEngineStatefulFixture
-]
+BlockchainTest.supported_fixture_formats = [BlockchainEngineStatefulFixture]
+BenchmarkTest.supported_fixture_formats = [BlockchainEngineStatefulFixture]
 
 
 # ---------------------------------------------------------------------------
@@ -182,11 +177,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     """
     Add fill-stateful-specific command-line options.
 
-    Also registers a minimal subset of ``execute.execute``'s options that
-    downstream fixtures from ``execute.pre_alloc`` / ``execute.rpc.remote``
-    still read. We avoid loading the full ``execute.execute`` plugin
-    because its ``pytest_addoption`` (``--no-html`` etc.) and its
-    ``pytest_generate_tests`` both conflict with filler's.
+    Live-client flags (``--default-gas-price``, ``--get-payload-wait-time``,
+    ``--max-tx-per-batch``, ``--transaction-gas-limit``, ...) live in
+    :mod:`plugins.shared.live_client_flags`, loaded by our ini.
     """
     group = parser.getgroup(
         "fill_stateful", "Arguments for stateful fixture filling"
@@ -201,59 +194,6 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "Private key for signing transactions. Optional — a random "
             "key is generated and funded via CL withdrawal if omitted."
         ),
-    )
-    # Options that downstream execute/* fixtures require but which live in
-    # execute.execute (a plugin we deliberately do not load — see above).
-    group.addoption(
-        "--get-payload-wait-time",
-        action="store",
-        dest="get_payload_wait_time",
-        type=float,
-        default=0.3,
-        help=(
-            "Seconds to wait between engine_forkchoiceUpdated and "
-            "engine_getPayload."
-        ),
-    )
-    group.addoption(
-        "--max-tx-per-batch",
-        action="store",
-        dest="max_tx_per_batch",
-        type=int,
-        default=None,
-        help="Max transactions per JSON-RPC batch (None = unlimited).",
-    )
-    group.addoption(
-        "--transaction-gas-limit",
-        action="store",
-        dest="transaction_gas_limit",
-        type=int,
-        default=None,
-        help="Max gas per setup transaction (None = env default).",
-    )
-    group.addoption(
-        "--max-gas-per-test",
-        action="store",
-        dest="max_gas_per_test",
-        type=int,
-        default=None,
-        help="Max gas limit across a test's transactions (None = unlimited).",
-    )
-    group.addoption(
-        "--transactions-per-block",
-        action="store",
-        dest="transactions_per_block",
-        type=int,
-        default=None,
-        help="Transactions per block before producing the next (None = all).",
-    )
-    group.addoption(
-        "--default-max-fee-per-blob-gas",
-        action="store",
-        dest="default_max_fee_per_blob_gas",
-        type=int,
-        default=None,
-        help="Default blob gas max fee (None = 2× current).",
     )
 
 
@@ -287,20 +227,6 @@ def pytest_configure(config: pytest.Config) -> None:
         rpc = EthRPC(config.getoption("rpc_endpoint"))
         config.option.chain_id = rpc.chain_id()
         logger.info(f"Auto-detected chain ID: {config.option.chain_id}")
-
-    # Scale TransactionDefaults to match the live client's fee market so
-    # queued pre-alloc setup txs (which fall back to these defaults) are
-    # accepted. The t8n-oriented defaults (10 wei) are not usable against
-    # a live chain with any base-fee history.
-    live_gas_price = EthRPC(config.getoption("rpc_endpoint")).gas_price()
-    TransactionDefaults.gas_price = max(live_gas_price * 2, 10**10)
-    TransactionDefaults.max_fee_per_gas = TransactionDefaults.gas_price
-    TransactionDefaults.max_priority_fee_per_gas = 10**9
-    logger.info(
-        f"Set TransactionDefaults: gas_price="
-        f"{TransactionDefaults.gas_price} wei "
-        f"(~{TransactionDefaults.gas_price / 10**9:.2f} gwei)"
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -368,62 +294,13 @@ def sender_fund_refund_gas_limit() -> int:
     return 21_000
 
 
-@pytest.fixture(scope="session")
-def max_transactions_per_batch() -> int | None:
-    """
-    Cap for JSON-RPC transaction batch size (replaces execute.execute).
-
-    Fill-stateful is single-worker; no batching cap is needed.
-    """
-    return None
-
-
-@pytest.fixture(scope="session")
-def use_testing_build_block() -> bool:
-    """Always build blocks via testing_buildBlockV1 in fill-stateful mode."""
-    return True
-
-
-@pytest.fixture(scope="session")
-def skip_cleanup() -> bool:
-    """Skip per-test cleanup — debug_setHead handles state reset."""
-    return True
-
-
-@pytest.fixture(scope="session")
-def dry_run() -> bool:
-    """Fill-stateful always executes against the live client."""
-    return False
-
-
-@pytest.fixture(scope="session")
-def max_fee_per_gas(eth_rpc: EthRPC) -> int:
-    """Default max_fee_per_gas derived from the connected client."""
-    return eth_rpc.gas_price() * 2
-
-
-@pytest.fixture(scope="session")
-def max_priority_fee_per_gas() -> int:
-    """Modest priority fee for fill-stateful setup transactions."""
-    return 10**9
-
-
-@pytest.fixture(scope="session")
-def default_max_fee_per_gas(max_fee_per_gas: int) -> int:
-    """Alias — execute.execute exposes this name."""
-    return max_fee_per_gas
-
-
-@pytest.fixture(scope="session")
-def default_max_priority_fee_per_gas(max_priority_fee_per_gas: int) -> int:
-    """Alias — execute.execute exposes this name."""
-    return max_priority_fee_per_gas
-
-
-@pytest.fixture(scope="session")
-def default_gas_price(max_fee_per_gas: int) -> int:
-    """Gas price alias for legacy tx helpers."""
-    return max_fee_per_gas
+# NOTE: ``max_transactions_per_batch``, ``use_testing_build_block``,
+# ``dry_run``, ``max_fee_per_gas``, ``max_priority_fee_per_gas``,
+# ``max_fee_per_blob_gas``, ``gas_price``, ``default_*``, and
+# ``max_gas_limit_per_test`` are provided by the shared
+# ``live_client_flags`` plugin loaded from our ini. ``skip_cleanup`` is
+# provided by ``execute.pre_alloc`` and reads ``config.option.skip_cleanup``,
+# which we force-enable in ``pytest_configure`` above.
 
 
 # ---------------------------------------------------------------------------
@@ -441,8 +318,18 @@ def debug_rpc(eth_rpc: EthRPC) -> DebugRPC:
 def client_backend(
     eth_rpc: ChainBuilderEthRPC,
     session_fork: Fork | TransitionFork,
+    default_gas_price: int | None,
+    default_max_fee_per_gas: int | None,
+    default_max_priority_fee_per_gas: int | None,
+    default_max_fee_per_blob_gas: int | None,
 ) -> ClientBackend:
-    """Create the ClientBackend; snapshot/start block populated later."""
+    """
+    Create the ClientBackend; snapshot/start block populated later.
+
+    Session fees are pinned here (CLI defaults, else a one-shot live query
+    bumped by 1.5x) so ``make_stateful_fixture`` can size pre-alloc funding
+    without mutating ``TransactionDefaults``.
+    """
     assert eth_rpc.testing_rpc is not None, (
         "fill-stateful requires a client exposing the `testing` namespace"
     )
@@ -454,6 +341,35 @@ def client_backend(
         engine_rpc=eth_rpc.engine_rpc,
         eth_rpc=eth_rpc,
         fork=session_fork,
+    )
+
+    priority_fee = default_max_priority_fee_per_gas
+    if priority_fee is None:
+        priority_fee = int(eth_rpc.max_priority_fee_per_gas() * 1.5)
+    max_fee = default_max_fee_per_gas
+    if max_fee is None:
+        max_fee = int(eth_rpc.gas_price() * 1.5)
+    if priority_fee > max_fee:
+        max_fee = priority_fee + 1
+    blob_fee = default_max_fee_per_blob_gas
+    if blob_fee is None:
+        blob_fee = int(eth_rpc.blob_base_fee() * 1.5)
+    gas_price = (
+        default_gas_price
+        if default_gas_price is not None
+        else max_fee + priority_fee
+    )
+
+    backend.gas_price = gas_price
+    backend.max_fee_per_gas = max_fee
+    backend.max_priority_fee_per_gas = priority_fee
+    backend.max_fee_per_blob_gas = blob_fee
+    logger.info(
+        "ClientBackend fees pinned: "
+        f"gas_price={gas_price / 10**9:.2f} Gwei, "
+        f"max_fee={max_fee / 10**9:.2f} Gwei, "
+        f"priority={priority_fee / 10**9:.2f} Gwei, "
+        f"blob={blob_fee / 10**9:.2f} Gwei"
     )
     return backend
 
@@ -500,9 +416,7 @@ def _session_pre_run(
         eth_rpc.fund_via_withdrawals(
             [(Address(session_worker_key), funding_wei)]
         )
-        logger.info(
-            f"Funded {Address(session_worker_key)} via withdrawal"
-        )
+        logger.info(f"Funded {Address(session_worker_key)} via withdrawal")
 
         # 4. Deploy deterministic factory if not already present.
         lock_file = session_temp_folder / "fill_stateful_setup.lock"
@@ -551,9 +465,7 @@ def _session_pre_run(
             payloads=payloads,
         )
         (pre_run_dir / "global_setup.json").write_text(
-            fixture.model_dump_json(
-                by_alias=True, indent=2, exclude_none=True
-            )
+            fixture.model_dump_json(by_alias=True, indent=2, exclude_none=True)
         )
         logger.info(
             f"Wrote {len(payloads)} pre-run payloads to "
@@ -608,6 +520,4 @@ def _reset_chain_between_tests(
     try:
         debug_rpc.set_head(start_hex)
     except Exception as e:
-        pytest.exit(
-            f"debug_setHead failed — subsequent fixtures invalid: {e}"
-        )
+        pytest.exit(f"debug_setHead failed — subsequent fixtures invalid: {e}")

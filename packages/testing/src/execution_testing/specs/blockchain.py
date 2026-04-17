@@ -95,7 +95,6 @@ from execution_testing.test_types.block_access_list import (
     BlockAccessListExpectation,
 )
 from execution_testing.test_types.chain_config_types import ChainConfigDefaults
-from execution_testing.test_types.transaction_types import TransactionDefaults
 
 from .base import BaseTest, FillResult, OpMode, verify_result
 from .debugging import print_traces
@@ -1264,29 +1263,46 @@ class BlockchainTest(BaseTest):
                 # Non-TransactionPost-capable test spec; skip.
                 execute_plan = None
             if execute_plan is not None:
-                session_fork = self.fork.fork_at(
-                    block_number=0, timestamp=0
+                session_fork = self.fork.fork_at(block_number=0, timestamp=0)
+                # Pinned live fees flow in via the backend (populated by the
+                # fill-stateful plugin from ``eth_rpc`` + CLI defaults).
+                gas_price = getattr(t8n, "gas_price", 0)
+                max_fee_per_gas = getattr(t8n, "max_fee_per_gas", 0)
+                max_priority_fee_per_gas = getattr(
+                    t8n, "max_priority_fee_per_gas", 0
                 )
-                required_balances = (
-                    execute_plan.get_required_sender_balances(
-                        gas_price=TransactionDefaults.gas_price,
-                        max_fee_per_gas=TransactionDefaults.max_fee_per_gas,
-                        max_priority_fee_per_gas=(
-                            TransactionDefaults.max_priority_fee_per_gas
-                        ),
-                        max_fee_per_blob_gas=TransactionDefaults.max_fee_per_gas,
-                        fork=session_fork,
+                max_fee_per_blob_gas = getattr(t8n, "max_fee_per_blob_gas", 0)
+                if not all(
+                    [
+                        gas_price,
+                        max_fee_per_gas,
+                        max_priority_fee_per_gas,
+                        max_fee_per_blob_gas,
+                    ]
+                ):
+                    raise RuntimeError(
+                        "make_stateful_fixture requires the backend to "
+                        "carry non-zero session fees; got "
+                        f"gas_price={gas_price}, "
+                        f"max_fee_per_gas={max_fee_per_gas}, "
+                        f"max_priority_fee_per_gas="
+                        f"{max_priority_fee_per_gas}, "
+                        f"max_fee_per_blob_gas={max_fee_per_blob_gas}."
                     )
+                required_balances = execute_plan.get_required_sender_balances(
+                    gas_price=gas_price,
+                    max_fee_per_gas=max_fee_per_gas,
+                    max_priority_fee_per_gas=max_priority_fee_per_gas,
+                    max_fee_per_blob_gas=max_fee_per_blob_gas,
+                    fork=session_fork,
                 )
                 resolve_deferred()
                 min_balance(
                     required_balances,
-                    gas_price=TransactionDefaults.gas_price,
-                    max_fee_per_gas=TransactionDefaults.max_fee_per_gas,
-                    max_priority_fee_per_gas=(
-                        TransactionDefaults.max_priority_fee_per_gas
-                    ),
-                    max_fee_per_blob_gas=TransactionDefaults.max_fee_per_gas,
+                    gas_price=gas_price,
+                    max_fee_per_gas=max_fee_per_gas,
+                    max_priority_fee_per_gas=max_priority_fee_per_gas,
+                    max_fee_per_blob_gas=max_fee_per_blob_gas,
                 )
 
         # Materialise queued pre-alloc txs into a synthetic setup block.

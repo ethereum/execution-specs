@@ -566,6 +566,7 @@ class FixtureEngineNewPayload(CamelModel):
             "re-inferring from tx metadata."
         ),
     )
+
     def valid(self) -> bool:
         """Return whether the payload is valid."""
         return self.validation_error is None

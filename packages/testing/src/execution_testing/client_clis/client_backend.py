@@ -94,6 +94,15 @@ class ClientBackend:
     last_forkchoice_updated_version: int = 0
     last_parent_beacon_block_root: Hash | None = None
 
+    # Live-network fee values pinned for this session. Populated by the
+    # fill-stateful plugin from ``eth_rpc`` + CLI defaults
+    # (``shared.live_client_flags``) and read by ``make_stateful_fixture``
+    # to size pre-alloc funding without mutating ``TransactionDefaults``.
+    gas_price: int = 0
+    max_fee_per_gas: int = 0
+    max_priority_fee_per_gas: int = 0
+    max_fee_per_blob_gas: int = 0
+
     def __init__(
         self,
         *,
@@ -111,6 +120,10 @@ class ClientBackend:
         self.snapshot_block = None
         self.start_block = None
         self._info_metadata = {}
+        self.gas_price = 0
+        self.max_fee_per_gas = 0
+        self.max_priority_fee_per_gas = 0
+        self.max_fee_per_blob_gas = 0
 
     def version(self) -> str:
         """Return an identifier for this backend."""
@@ -215,9 +228,7 @@ class ClientBackend:
             withdrawals = list(env.withdrawals or [])
         parent_beacon_block_root = None
         if block_fork.header_beacon_root_required():
-            parent_beacon_block_root = Hash(
-                env.parent_beacon_block_root or 0
-            )
+            parent_beacon_block_root = Hash(env.parent_beacon_block_root or 0)
         target_blobs_per_block = None
         max_blobs_per_block = None
         if block_fork.engine_payload_attribute_target_blobs_per_block():
@@ -309,9 +320,7 @@ class ClientBackend:
         requests_hash: Hash | None = None
         if block_fork.header_requests_required():
             requests = list(execution_requests or [])
-            requests_hash = Hash(
-                Requests(requests_lists=list(requests))
-            )
+            requests_hash = Hash(Requests(requests_lists=list(requests)))
 
         block_access_list_hash: Hash | None = None
         bal_rlp = getattr(built_payload, "block_access_list", None)

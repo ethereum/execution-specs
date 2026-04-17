@@ -52,8 +52,7 @@ def is_help_or_collectonly_mode(config: pytest.Config) -> bool:
         or config.getoption("links_as_filled", default=False)
         or config.getoption("help", default=False)
         or any(
-            config.getoption(flag, default=False)
-            for flag in show_help_flags
+            config.getoption(flag, default=False) for flag in show_help_flags
         )
         or config.pluginmanager.has_plugin(
             "execution_testing.cli.pytest_commands.plugins.filler.eip_checklist"

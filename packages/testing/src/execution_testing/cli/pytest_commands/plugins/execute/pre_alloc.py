@@ -973,7 +973,7 @@ class Alloc(SharedAlloc):
         txs: List[Transaction] = []
         for tx in self._pending_txs:
             if tx.value is None:
-                tx.value = 0
+                tx.value = HexNumber(0)
             txs.append(tx.with_signature_and_sender())
         self._pending_txs.clear()
         return txs

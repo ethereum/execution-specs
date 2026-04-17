@@ -37,8 +37,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="show_fill_stateful_help",
         default=False,
         help=(
-            "Show help options only for the fill-stateful command "
-            "and exit."
+            "Show help options only for the fill-stateful command and exit."
         ),
     )
     help_group.addoption(
