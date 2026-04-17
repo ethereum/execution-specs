@@ -9,5 +9,5 @@ static:
   targets: ["evmone-t8n"]
 benchmark:
   impl: geth
-  repo: ethereum/go-ethereum
-  ref: master
+  repo: fselmo/go-ethereum
+  ref: feat/stream-t8n
