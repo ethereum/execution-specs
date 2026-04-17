@@ -990,6 +990,13 @@ class Frontier(
         return False
 
     @classmethod
+    def engine_new_payload_inclusion_list_transactions(cls) -> bool:
+        """
+        At genesis, payloads do not have inclusion lists.
+        """
+        return False
+
+    @classmethod
     def engine_execution_payload_block_access_list(cls) -> bool:
         """At genesis, payloads do not have block access list."""
         return False
