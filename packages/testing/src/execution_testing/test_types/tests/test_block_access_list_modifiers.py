@@ -21,6 +21,11 @@ from execution_testing.test_types.block_access_list.modifiers import (
     duplicate_storage_read,
     duplicate_storage_slot,
     insert_storage_read,
+    modify_balance,
+    modify_code,
+    modify_nonce,
+    modify_storage,
+    reorder_accounts,
 )
 
 ALICE = Address(0xA)
@@ -217,3 +222,57 @@ def test_insert_storage_read_missing_address_raises() -> None:
     bal = BlockAccessList([BalAccountChange(address=ALICE, nonce_changes=[])])
     with pytest.raises(ValueError, match="not found"):
         insert_storage_read(CONTRACT, 1)(bal)
+
+
+def test_modify_nonce_missing_index_raises(
+    sample_bal: BlockAccessList,
+) -> None:
+    """Raise when the block_access_index is absent from nonce_changes."""
+    with pytest.raises(ValueError, match="not found"):
+        modify_nonce(ALICE, 99, 42)(sample_bal)
+
+
+def test_modify_balance_missing_index_raises(
+    sample_bal: BlockAccessList,
+) -> None:
+    """Raise when the block_access_index is absent from balance_changes."""
+    with pytest.raises(ValueError, match="not found"):
+        modify_balance(ALICE, 99, 9999)(sample_bal)
+
+
+def test_modify_code_missing_index_raises(sample_bal: BlockAccessList) -> None:
+    """Raise when the block_access_index is absent from code_changes."""
+    with pytest.raises(ValueError, match="not found"):
+        modify_code(ALICE, 99, b"\x00")(sample_bal)
+
+
+def test_modify_storage_missing_index_raises(
+    sample_bal: BlockAccessList,
+) -> None:
+    """Raise when block_access_index is absent within the storage slot."""
+    with pytest.raises(ValueError, match="not found"):
+        modify_storage(CONTRACT, 99, 1, 0xFF)(sample_bal)
+
+
+def test_modify_storage_missing_slot_raises(
+    sample_bal: BlockAccessList,
+) -> None:
+    """Raise when the storage slot itself is absent."""
+    with pytest.raises(ValueError, match="not found"):
+        modify_storage(CONTRACT, 1, 99, 0xFF)(sample_bal)
+
+
+def test_reorder_accounts_duplicate_index_raises(
+    sample_bal: BlockAccessList,
+) -> None:
+    """Raise when indices contain duplicates (not a valid permutation)."""
+    with pytest.raises(ValueError, match="valid permutation"):
+        reorder_accounts([0, 0])(sample_bal)
+
+
+def test_reorder_accounts_out_of_range_raises(
+    sample_bal: BlockAccessList,
+) -> None:
+    """Raise when indices are not a valid permutation (skipped index)."""
+    with pytest.raises(ValueError, match="valid permutation"):
+        reorder_accounts([0, 2])(sample_bal)

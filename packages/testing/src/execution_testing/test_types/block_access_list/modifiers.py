@@ -71,9 +71,10 @@ def _modify_field_value(
     transaction.
     """
     found_address = False
+    found_index = False
 
     def transform(bal: BlockAccessList) -> BlockAccessList:
-        nonlocal found_address
+        nonlocal found_address, found_index
         new_root = []
         for account_change in bal.root:
             if account_change.address == address:
@@ -84,8 +85,10 @@ def _modify_field_value(
                 if changes:
                     if nested and slot is not None:
                         # nested structure (storage)
+                        found_slot = False
                         for storage_slot in changes:
                             if storage_slot.slot == slot:
+                                found_slot = True
                                 for j, change in enumerate(
                                     storage_slot.slot_changes
                                 ):
@@ -93,6 +96,7 @@ def _modify_field_value(
                                         change.block_access_index
                                         == block_access_index
                                     ):
+                                        found_index = True
                                         kwargs = {
                                             "block_access_index": (
                                                 block_access_index
@@ -104,10 +108,16 @@ def _modify_field_value(
                                         )
                                         break
                                 break
+                        if not found_slot:
+                            raise ValueError(
+                                f"Storage slot {slot} not found in "
+                                f"storage_changes of account {address}"
+                            )
                     else:
                         # flat structure (nonce, balance, code)
                         for i, change in enumerate(changes):
                             if change.block_access_index == block_access_index:
+                                found_index = True
                                 kwargs = {
                                     "block_access_index": block_access_index,
                                     value_field: new_value,
@@ -120,9 +130,13 @@ def _modify_field_value(
                 new_root.append(account_change)
 
         if not found_address:
-            # sanity check that we actually found the address
             raise ValueError(
                 f"Address {address} not found in BAL to modify {field_name}"
+            )
+        if not found_index:
+            raise ValueError(
+                f"Block access index {block_access_index} not found in "
+                f"{field_name} of account {address}"
             )
 
         return BlockAccessList(root=new_root)
@@ -721,8 +735,14 @@ def reorder_accounts(
     """Reorder accounts according to the provided index list."""
 
     def transform(bal: BlockAccessList) -> BlockAccessList:
-        if len(indices) != len(bal.root):
+        n = len(bal.root)
+        if len(indices) != n:
             raise ValueError("Index list length must match number of accounts")
+        if sorted(indices) != list(range(n)):
+            raise ValueError(
+                f"Indices must be a valid permutation of 0..{n - 1}, "
+                f"got {indices}"
+            )
         new_root = [bal.root[i] for i in indices]
         return BlockAccessList(root=new_root)
 
