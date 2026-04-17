@@ -24,6 +24,7 @@ from ..forks.forks import (
     Paris,
     Prague,
     Shanghai,
+    SpuriousDragon,
 )
 from ..forks.transition import (
     BerlinToLondonAt5,
@@ -731,3 +732,25 @@ def test_eips() -> None:  # noqa: D103
     assert not Paris.is_eip_enabled(3675, 3855)
     assert not Paris.is_eip_enabled(3855, 3675)
     assert Shanghai.is_eip_enabled(3855)
+
+
+def test_fork_variant_ordering() -> None:
+    """
+    Variants from `with_env_gas_limit` must compare consistently with
+    their canonical parent: equal to the parent, ordered identically
+    against other canonical forks.
+    """
+    variant = London.with_env_gas_limit(30_000_000)
+
+    assert variant == London
+    assert hash(variant) == hash(London)
+
+    assert variant > SpuriousDragon
+    assert variant >= SpuriousDragon
+    assert variant < Cancun
+    assert variant <= Cancun
+
+    assert not (variant > London)
+    assert not (variant < London)
+    assert variant >= London
+    assert variant <= London

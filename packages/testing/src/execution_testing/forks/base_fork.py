@@ -198,9 +198,13 @@ class BaseForkMeta(ABCMeta):
     @staticmethod
     def _is_subclass_of(a: "BaseForkMeta", b: "BaseForkMeta") -> bool:
         """
-        Check if `a` is a subclass of `b`, taking fork transitions into
-        account.
+        Check if `a` is a subclass of `b`, taking fork transitions and
+        variants (created by `with_env_gas_limit`) into account.
         """
+        # Resolve variants to canonical identity so comparisons between
+        # a variant and a canonical descendant fork work as expected.
+        a = BaseForkMeta._identity(a)
+        b = BaseForkMeta._identity(b)
         a = BaseForkMeta._maybe_transitioned(a)
         b = BaseForkMeta._maybe_transitioned(b)
         return issubclass(a, b)
