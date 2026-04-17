@@ -495,10 +495,18 @@ EngineNewPayloadV4Parameters = Tuple[
     List[Bytes],
 ]
 EngineNewPayloadV5Parameters = EngineNewPayloadV4Parameters
+EngineNewPayloadV6Parameters = Tuple[
+    FixtureExecutionPayload,
+    List[Hash],
+    Hash,
+    List[Bytes],
+    List[Bytes],
+]
 
-# Important: We check EngineNewPayloadV3Parameters first as it has more fields,
+# Important: We check EngineNewPayloadV6Parameters first as it has more fields,
 # and pydantic has a weird behavior when the smaller tuple is checked first.
 EngineNewPayloadParameters = Union[
+    EngineNewPayloadV6Parameters,
     EngineNewPayloadV5Parameters,
     EngineNewPayloadV4Parameters,
     EngineNewPayloadV3Parameters,
@@ -516,6 +524,17 @@ class FixtureEngineNewPayload(CamelModel):
     new_payload_version: Number
     forkchoice_updated_version: Number
     validation_error: ExceptionInstanceOrList | None = None
+    status: (
+        Literal[
+            "VALID",
+            "INVALID",
+            "SYNCING",
+            "ACCEPTED",
+            "INVALID_BLOCK_HASH",
+            "INCLUSION_LIST_UNSATISFIED",
+        ]
+        | None
+    ) = None
     error_code: (
         Annotated[
             EngineAPIError,
@@ -540,7 +559,13 @@ class FixtureEngineNewPayload(CamelModel):
 
     def valid(self) -> bool:
         """Return whether the payload is valid."""
-        return self.validation_error is None
+        return self.expected_status() == "VALID"
+
+    def expected_status(self) -> str:
+        """Return the expected Engine API payload status."""
+        if self.status is not None:
+            return self.status
+        return "INVALID" if self.validation_error is not None else "VALID"
 
     def get_payload_attributes(self) -> "PayloadAttributes":
         """Return the ``PayloadAttributes`` corresponding to this payload."""
@@ -610,6 +635,7 @@ class FixtureEngineNewPayload(CamelModel):
         transactions: List[Transaction],
         withdrawals: List[Withdrawal] | None,
         requests: List[Bytes] | None,
+        inclusion_list_transactions: List[Transaction] | None = None,
         block_access_list: Bytes | None = None,
         execution_payload_modifier: (
             "FixtureExecutionPayloadModifier | None"
@@ -671,6 +697,13 @@ class FixtureEngineNewPayload(CamelModel):
             if requests is None:
                 raise ValueError(f"Requests are required for ${fork}.")
             params.append(requests)
+
+        if fork.engine_new_payload_inclusion_list_transactions():
+            if inclusion_list_transactions is None:
+                raise ValueError(
+                    f"Inclusion list transactions are required for ${fork}."
+                )
+            params.append(inclusion_list_transactions)
 
         payload_params: EngineNewPayloadParameters = cast(
             EngineNewPayloadParameters,

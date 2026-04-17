@@ -84,6 +84,7 @@ from execution_testing.fixtures.common import (
 )
 from execution_testing.fixtures.post_verifications import PostVerifications
 from execution_testing.forks import Fork
+from execution_testing.rpc.rpc_types import PayloadStatusEnum
 from execution_testing.test_types import (
     Alloc,
     Environment,
@@ -353,6 +354,8 @@ class Block(Header):
     """EIP-7843: override only the engine payload slotNumber field."""
     expected_gas_used: int | None = None
     """Expected gas used for the block."""
+    inclusion_list_txs: List[Transaction] | None = None
+    """Transactions supplied as the block's inclusion list."""
 
     @property
     def phase(self) -> TestPhase | None:
@@ -456,6 +459,7 @@ class BuiltBlock(CamelModel):
     alloc: LazyAlloc | Alloc
     state_root: Hash
     txs: List[Transaction]
+    inclusion_list_txs: List[Transaction] | None
     ommers: List[FixtureHeader]
     withdrawals: List[Withdrawal] | None
     requests: List[Bytes] | None
@@ -585,11 +589,17 @@ class BuiltBlock(CamelModel):
             transactions=self.txs,
             withdrawals=self.withdrawals,
             requests=self.requests,
+            inclusion_list_transactions=self.inclusion_list_txs,
             block_access_list=self.block_access_list.rlp
             if self.block_access_list
             else None,
             execution_payload_modifier=self.engine_payload_modifier(),
             validation_error=self.expected_exception,
+            status=(
+                PayloadStatusEnum.INCLUSION_LIST_UNSATISFIED.value
+                if self.result.is_inclusion_list_satisfied is False
+                else None
+            ),
             error_code=self.engine_api_error_code,
         )
 
@@ -879,9 +889,17 @@ class BlockchainTest(BaseTest):
         )
         env = env.set_fork_requirements(fork)
         txs = block.txs[:]
-        if any("gas_limit" not in tx.model_fields_set for tx in block.txs):
+        inclusion_list_txs = (
+            block.inclusion_list_txs[:]
+            if block.inclusion_list_txs is not None
+            else None
+        )
+        all_txs = txs[:]
+        if inclusion_list_txs is not None:
+            all_txs += inclusion_list_txs
+        if any("gas_limit" not in tx.model_fields_set for tx in all_txs):
             max_tx_gas_limit = Transaction.calculate_max_gas_limit(
-                txs=txs,
+                txs=all_txs,
                 env_gas_limit=int(env.gas_limit),
                 transaction_gas_limit_cap=fork.transaction_gas_limit_cap(),
                 state_gas_reservoir_enabled=fork.state_gas_reservoir_enabled(),
@@ -899,7 +917,24 @@ class BlockchainTest(BaseTest):
                 )
                 for tx in txs
             ]
+            inclusion_list_txs = (
+                [
+                    tx.with_gas_limit(
+                        max_gas_limit=max_tx_gas_limit,
+                        transaction_gas_limit_cap=fork.transaction_gas_limit_cap(),
+                        state_gas_reservoir_enabled=fork.state_gas_reservoir_enabled(),
+                    )
+                    for tx in inclusion_list_txs
+                ]
+                if inclusion_list_txs is not None
+                else None
+            )
         txs = [tx.with_signature_and_sender() for tx in txs]
+        inclusion_list_txs = (
+            [tx.with_signature_and_sender() for tx in inclusion_list_txs]
+            if inclusion_list_txs is not None
+            else None
+        )
 
         if (failing_tx_count := len([tx for tx in txs if tx.error])) > 0:
             if failing_tx_count > 1:
@@ -922,6 +957,7 @@ class BlockchainTest(BaseTest):
                 chain_id=self.chain_id,
                 reward=fork.get_reward(),
                 blob_schedule=fork.blob_schedule(),
+                inclusion_list_txs=inclusion_list_txs,
             ),
             slow_request=self.is_tx_gas_heavy_test,
         )
@@ -1062,6 +1098,7 @@ class BlockchainTest(BaseTest):
             state_root=transition_tool_output.result.state_root,
             env=env,
             txs=txs,
+            inclusion_list_txs=inclusion_list_txs,
             ommers=[],
             withdrawals=env.withdrawals,
             requests=requests_list,

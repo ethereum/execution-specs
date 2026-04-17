@@ -370,6 +370,7 @@ class TransitionTool(EthereumCLI):
                 txs=self.txs,
                 env=self.env,
                 blob_params=self.blob_params,
+                inclusion_list_txs=self.inclusion_list_txs,
             )
 
         def get_request_data(self) -> TransitionToolRequest:

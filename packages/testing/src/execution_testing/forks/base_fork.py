@@ -1111,6 +1111,15 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def engine_new_payload_inclusion_list_transactions(cls) -> bool:
+        """
+        Return true if the engine api version requires new payload calls to
+        include requests.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
     def engine_new_payload_target_blobs_per_block(cls) -> bool:
         """
         Return true if the engine api version requires new payload calls to
