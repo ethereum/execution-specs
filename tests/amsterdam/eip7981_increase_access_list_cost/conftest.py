@@ -209,31 +209,6 @@ def tx_intrinsic_gas_cost_including_floor_data_cost(
 
 
 @pytest.fixture
-def tx_floor_data_cost(
-    fork: Fork,
-    tx_data: Bytes,
-    access_list: List[AccessList] | None,
-) -> int:
-    """
-    Floor data cost for the given transaction data and access list.
-
-    This includes both calldata tokens and access list tokens.
-
-    Note: This is calculated by the fork's intrinsic cost calculator,
-    so we return the same value as
-    tx_intrinsic_gas_cost_including_floor_data_cost.
-    """
-    fork_data_floor_cost_calculator = (
-        fork.transaction_data_floor_cost_calculator()
-    )
-
-    # Calculate calldata floor cost
-    return fork_data_floor_cost_calculator(
-        data=tx_data, access_list=access_list
-    )
-
-
-@pytest.fixture
 def tx_gas_limit(
     tx_intrinsic_gas_cost_including_floor_data_cost: int,
     tx_gas_delta: int,

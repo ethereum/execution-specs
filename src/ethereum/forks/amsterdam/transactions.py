@@ -459,6 +459,7 @@ Transaction = (
 Union type representing any valid transaction type.
 """
 
+
 AccessListCapableTransaction = (
     AccessListTransaction
     | FeeMarketTransaction
