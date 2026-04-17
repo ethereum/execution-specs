@@ -65,6 +65,22 @@ GAS_TX_ACCESS_LIST_STORAGE_KEY = Uint(1900)
 Gas cost for including a storage key in the access list of a transaction.
 """
 
+ACCESS_LIST_ADDRESS_FLOOR_TOKENS = Uint(80)
+"""
+Floor data tokens contributed by a single access list address per
+[EIP-7981] (address byte length multiplied by four tokens per byte).
+
+[EIP-7981]: https://eips.ethereum.org/EIPS/eip-7981
+"""
+
+ACCESS_LIST_STORAGE_KEY_FLOOR_TOKENS = Uint(128)
+"""
+Floor data tokens contributed by a single access list storage key per
+[EIP-7981] (storage key byte length multiplied by four tokens per byte).
+
+[EIP-7981]: https://eips.ethereum.org/EIPS/eip-7981
+"""
+
 TX_MAX_GAS_LIMIT = Uint(16_777_216)
 
 
@@ -638,6 +654,10 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
             access_list_cost += GAS_TX_ACCESS_LIST_ADDRESS
             access_list_cost += (
                 ulen(access.slots) * GAS_TX_ACCESS_LIST_STORAGE_KEY
+            )
+            tokens_in_access_list += ACCESS_LIST_ADDRESS_FLOOR_TOKENS
+            tokens_in_access_list += (
+                ulen(access.slots) * ACCESS_LIST_STORAGE_KEY_FLOOR_TOKENS
             )
 
     # Data token floor cost for access list bytes.
