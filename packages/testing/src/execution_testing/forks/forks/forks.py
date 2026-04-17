@@ -745,11 +745,10 @@ class Frontier(
         )
 
     @classmethod
-    def cost_per_state_byte(cls, gas_limit: int = 0) -> int:
+    def cost_per_state_byte(cls) -> int:
         """
-        Calculate the state gas cost per byte based on the block gas limit.
+        Calculate the state gas cost per byte based on `cls._env_gas_limit`.
         """
-        del gas_limit
         return 0
 
     @classmethod

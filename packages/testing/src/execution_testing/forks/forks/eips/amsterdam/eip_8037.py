@@ -18,14 +18,10 @@ from ....gas_costs import GasCosts
 class EIP8037(BaseFork):
     """EIP-8037 class."""
 
-    # TODO: return the computed value once non-default block gas
-    # limits are supported in the test framework.
-    _COST_PER_STATE_BYTE = 1174  # at 100M-120M gas limit
-
     @classmethod
-    def cost_per_state_byte(cls, gas_limit: int = 0) -> int:
+    def cost_per_state_byte(cls) -> int:
         """
-        Calculate the state gas cost per byte based on the block gas limit.
+        Calculate the state gas cost per byte based on `cls._env_gas_limit`.
 
         Mirror the EELS `state_gas_per_byte()` function with binary
         floating-point quantization (EIP-8037).
@@ -36,11 +32,12 @@ class EIP8037(BaseFork):
         BLOCKS_PER_YEAR = 2_628_000  # noqa: N806
         SIG_BITS = 5  # noqa: N806
         OFFSET = 9578  # noqa: N806
+        gas_limit = cls._env_gas_limit
         raw = (gas_limit * BLOCKS_PER_YEAR + 2 * TARGET - 1) // (2 * TARGET)
         shifted = raw + OFFSET
         shift = max(shifted.bit_length() - SIG_BITS, 0)
-        quantized = (shifted >> shift) << shift  # noqa: F841
-        return cls._COST_PER_STATE_BYTE
+        quantized = (shifted >> shift) << shift
+        return max(quantized - OFFSET, 1)
 
     @classmethod
     def sstore_state_gas(cls) -> int:

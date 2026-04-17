@@ -603,9 +603,9 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def cost_per_state_byte(cls, gas_limit: int = 0) -> int:
+    def cost_per_state_byte(cls) -> int:
         """
-        Calculate the state gas cost per byte based on the block gas limit.
+        Calculate the state gas cost per byte based on `cls._env_gas_limit`.
         """
         pass
 
