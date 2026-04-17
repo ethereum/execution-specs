@@ -12,12 +12,8 @@ Implementation of pre-compiles in G1 (curve over base prime field).
 """
 
 from ethereum_types.numeric import U256, Uint
-from py_ecc.bls.hash_to_curve import clear_cofactor_G1, map_to_curve_G1
-from py_ecc.optimized_bls12_381.optimized_curve import FQ
-from py_ecc.optimized_bls12_381.optimized_curve import add as bls12_add
-from py_ecc.optimized_bls12_381.optimized_curve import (
-    multiply as bls12_multiply,
-)
+
+from ethereum.crypto.bls12_381 import g1_add, g1_msm, map_fp_to_g1
 
 from ....vm import Evm
 from ....vm.gas import (
@@ -32,9 +28,9 @@ from . import (
     G1_K_DISCOUNT,
     G1_MAX_DISCOUNT,
     MULTIPLIER,
-    bytes_to_g1,
-    decode_g1_scalar_pair,
-    g1_to_bytes,
+    pad_g1,
+    unpad_fp,
+    unpad_g1,
 )
 
 LENGTH_PER_PAIR = 160
@@ -63,12 +59,15 @@ def bls12_g1_add(evm: Evm) -> None:
     charge_gas(evm, Uint(GAS_PRECOMPILE_BLS_G1ADD))
 
     # OPERATION
-    p1 = bytes_to_g1(buffer_read(data, U256(0), U256(128)))
-    p2 = bytes_to_g1(buffer_read(data, U256(128), U256(128)))
+    p1 = unpad_g1(data[:128])
+    p2 = unpad_g1(data[128:256])
 
-    result = bls12_add(p1, p2)
+    try:
+        raw = g1_add(p1, p2)
+    except ValueError as e:
+        raise InvalidParameter(str(e)) from None
 
-    evm.output = g1_to_bytes(result)
+    evm.output = pad_g1(raw)
 
 
 def bls12_g1_msm(evm: Evm) -> None:
@@ -105,19 +104,19 @@ def bls12_g1_msm(evm: Evm) -> None:
     charge_gas(evm, gas_cost)
 
     # OPERATION
+    points = []
+    scalars = []
     for i in range(k):
-        start_index = i * LENGTH_PER_PAIR
-        end_index = start_index + LENGTH_PER_PAIR
+        start = i * LENGTH_PER_PAIR
+        points.append(unpad_g1(data[start : start + 128]))
+        scalars.append(bytes(buffer_read(data, U256(start + 128), U256(32))))
 
-        p, m = decode_g1_scalar_pair(data[start_index:end_index])
-        product = bls12_multiply(p, m)
+    try:
+        raw = g1_msm(points, scalars)
+    except ValueError as e:
+        raise InvalidParameter(str(e)) from None
 
-        if i == 0:
-            result = product
-        else:
-            result = bls12_add(result, product)
-
-    evm.output = g1_to_bytes(result)
+    evm.output = pad_g1(raw)
 
 
 def bls12_map_fp_to_g1(evm: Evm) -> None:
@@ -143,9 +142,11 @@ def bls12_map_fp_to_g1(evm: Evm) -> None:
     charge_gas(evm, Uint(GAS_PRECOMPILE_BLS_G1MAP))
 
     # OPERATION
-    fp = int.from_bytes(data, "big")
-    if fp >= FQ.field_modulus:
-        raise InvalidParameter("coordinate >= field modulus")
+    fp = unpad_fp(data)
 
-    g1_optimized_3d = clear_cofactor_G1(map_to_curve_G1(FQ(fp)))
-    evm.output = g1_to_bytes(g1_optimized_3d)
+    try:
+        raw = map_fp_to_g1(bytes(fp))
+    except ValueError as e:
+        raise InvalidParameter(str(e)) from None
+
+    evm.output = pad_g1(raw)
