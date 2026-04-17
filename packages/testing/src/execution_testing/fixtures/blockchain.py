@@ -996,7 +996,13 @@ class BlockchainEngineStatefulFixture(BlockchainEngineFixtureCommon):
         ),
     )
     setup_payloads: List[FixtureEngineNewPayload] = Field(
-        ..., alias="setupEngineNewPayloads"
+        default_factory=list,
+        alias="setupEngineNewPayloads",
+        description=(
+            "Per-test setup-phase payloads. Empty when ``setup_group_hash`` "
+            "is set — consumers must load the referenced "
+            "``setup_groups/<hash>.json`` file instead of replaying these."
+        ),
     )
     payloads: List[FixtureEngineNewPayload] = Field(
         ..., alias="engineNewPayloads"

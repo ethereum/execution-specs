@@ -1,5 +1,6 @@
 """Ethereum blockchain test spec definition and filler."""
 
+import secrets
 from pprint import pprint
 from typing import (
     Any,
@@ -80,6 +81,10 @@ from execution_testing.fixtures.common import (
     FixtureTransactionReceipt,
 )
 from execution_testing.fixtures.post_verifications import PostVerifications
+from execution_testing.fixtures.setup_groups import (
+    StatefulSetupGroup,
+    write_partial_setup_group,
+)
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.test_types import (
     Alloc,
@@ -1410,6 +1415,29 @@ class BlockchainTest(BaseTest):
                     )
                     head_hash = actual_hash
 
+        # When the backend exposes a setup-groups directory and this test
+        # has a non-null ``setup_group_hash``, dedup the setup payloads to
+        # a shared ``setup_groups/<hash>.json`` file and clear the inline
+        # array. Consumers read the group file once per hash and skip
+        # replaying setup per-test. Without ``setup_groups_dir`` the
+        # payloads stay inlined (legacy / non-dedup mode).
+        setup_groups_dir = getattr(t8n, "setup_groups_dir", None)
+        inlined_setup_payloads = setup_payloads
+        if setup_group_hash is not None and setup_groups_dir is not None:
+            session_fork = self.fork.fork_at(block_number=0, timestamp=0)
+            group = StatefulSetupGroup(
+                network=str(session_fork),
+                setup_group_hash=setup_group_hash,
+                test_ids=[],
+                payloads=setup_payloads,
+            )
+            write_partial_setup_group(
+                folder=setup_groups_dir,
+                group=group,
+                test_suffix=secrets.token_hex(8),
+            )
+            inlined_setup_payloads = []
+
         fixture = BlockchainEngineStatefulFixture(
             fork=self.fork,
             last_block_hash=head_hash,
@@ -1419,7 +1447,7 @@ class BlockchainTest(BaseTest):
             start_block_number=HexNumber(start_block_number),
             start_block_hash=start_block_hash,
             setup_group_hash=setup_group_hash,
-            setup_payloads=setup_payloads,
+            setup_payloads=inlined_setup_payloads,
             payloads=execution_payloads,
         )
         return FillResult(

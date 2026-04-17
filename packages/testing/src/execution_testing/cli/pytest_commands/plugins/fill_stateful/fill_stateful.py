@@ -13,6 +13,7 @@ transactions that ``make_stateful_fixture`` materialises as a
 setup-phase block prepended to ``self.blocks``.
 """
 
+import os
 import secrets
 from dataclasses import dataclass
 from pathlib import Path
@@ -34,6 +35,9 @@ from execution_testing.fixtures.blockchain import (
     BlockchainEngineStatefulFixture,
     FixtureEngineNewPayload,
     StatefulPreRunFixture,
+)
+from execution_testing.fixtures.setup_groups import (
+    merge_partial_setup_group_files,
 )
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.logging import get_logger
@@ -322,6 +326,7 @@ def client_backend(
     default_max_fee_per_gas: int | None,
     default_max_priority_fee_per_gas: int | None,
     default_max_fee_per_blob_gas: int | None,
+    request: pytest.FixtureRequest,
 ) -> ClientBackend:
     """
     Create the ClientBackend; snapshot/start block populated later.
@@ -364,6 +369,7 @@ def client_backend(
     backend.max_fee_per_gas = max_fee
     backend.max_priority_fee_per_gas = priority_fee
     backend.max_fee_per_blob_gas = blob_fee
+    backend.setup_groups_dir = _setup_groups_dir(request.config)
     logger.info(
         "ClientBackend fees pinned: "
         f"gas_price={gas_price / 10**9:.2f} Gwei, "
@@ -372,6 +378,31 @@ def client_backend(
         f"blob={blob_fee / 10**9:.2f} Gwei"
     )
     return backend
+
+
+def _setup_groups_dir(config: pytest.Config) -> Path:
+    """Return the directory where setup-group partials/merged files live."""
+    output_dir = Path(config.getoption("output"))
+    return output_dir / "blockchain_tests_stateful_engine" / "setup_groups"
+
+
+def pytest_sessionfinish(
+    session: pytest.Session, exitstatus: int
+) -> None:
+    """Merge per-test setup-group partials into final ``<hash>.json`` files."""
+    del exitstatus
+    if is_help_or_collectonly_mode(session.config):
+        return
+    # Only the xdist master (or non-xdist) master merges. Workers just
+    # flush their partials and exit.
+    worker = os.environ.get("PYTEST_XDIST_WORKER")
+    if worker is not None:
+        return
+    try:
+        folder = _setup_groups_dir(session.config)
+    except Exception:  # pragma: no cover — output option may be unset
+        return
+    merge_partial_setup_group_files(folder)
 
 
 @pytest.fixture(scope="session", autouse=True)

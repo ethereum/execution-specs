@@ -103,6 +103,12 @@ class ClientBackend:
     max_priority_fee_per_gas: int = 0
     max_fee_per_blob_gas: int = 0
 
+    # Destination for per-test setup-group partial files. Populated by the
+    # fill-stateful plugin once ``pytest_configure`` knows the output dir.
+    # ``make_stateful_fixture`` checks this to decide whether to dedup
+    # setup payloads to the shared folder instead of inlining them.
+    setup_groups_dir: Path | None = None
+
     def __init__(
         self,
         *,
@@ -124,6 +130,7 @@ class ClientBackend:
         self.max_fee_per_gas = 0
         self.max_priority_fee_per_gas = 0
         self.max_fee_per_blob_gas = 0
+        self.setup_groups_dir = None
 
     def version(self) -> str:
         """Return an identifier for this backend."""
