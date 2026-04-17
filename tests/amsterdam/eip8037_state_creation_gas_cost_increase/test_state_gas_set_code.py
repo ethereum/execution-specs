@@ -20,6 +20,7 @@ from execution_testing import (
     Bytecode,
     Environment,
     Fork,
+    Header,
     Op,
     StateTestFiller,
     Storage,
@@ -295,11 +296,14 @@ def test_auth_refund_block_gas_accounting(
     fork: Fork,
 ) -> None:
     """
-    Test block gas accounting with authorization existing-account refund.
+    Verify block gas accounting with an authorization refund for an
+    existing account.
 
-    The auth refund goes to state_gas_reservoir, not to refund_counter.
-    Block regular gas is unaffected by the auth refund — it reduces
-    intrinsic_state_gas, which only affects block_state_gas_used.
+    The refund for an existing authority goes to the state gas
+    reservoir and does not alter the intrinsic state gas carried into
+    block accounting. Block state gas used reflects the worst case
+    intrinsic state gas component regardless of how many authorities
+    were existing accounts.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -326,9 +330,15 @@ def test_auth_refund_block_gas_accounting(
         sender=sender,
     )
 
+    # State gas component dominates the tx regular component, so the
+    # block header gas_used equals the worst case intrinsic state gas.
+    # A mutating refund would reduce this value; the immutable behavior
+    # keeps it at the worst case.
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[tx])],
+        blocks=[
+            Block(txs=[tx], header_verify=Header(gas_used=auth_state_gas))
+        ],
         post={},
     )
 
@@ -1022,3 +1032,187 @@ def test_auth_refund_bypasses_one_fifth_cap(
 
     post = {contract: Account(storage=storage)}
     state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "num_auths",
+    [
+        pytest.param(1, id="one_auth"),
+        pytest.param(3, id="three_auths"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_existing_account_auth_header_gas_used_uses_worst_case(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    num_auths: int,
+) -> None:
+    """
+    Verify the block header gas_used reflects the worst case intrinsic
+    state gas when all authorities are existing accounts.
+
+    Intrinsic state gas is set at transaction validation and does not
+    change during execution. When an authorization targets an existing
+    account, the account creation component of state gas is refunded
+    to the reservoir only and is not subtracted from the intrinsic
+    state gas that feeds block accounting.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    worst_case_state_gas = fork.transaction_intrinsic_state_gas(
+        authorization_count=num_auths,
+    )
+
+    contract = pre.deploy_contract(code=Op.STOP)
+
+    # All authorities exist in pre state.
+    authorization_list = [
+        AuthorizationTuple(address=contract, nonce=0, signer=pre.fund_eoa())
+        for _ in range(num_auths)
+    ]
+
+    tx = Transaction(
+        to=contract,
+        gas_limit=gas_limit_cap + worst_case_state_gas,
+        authorization_list=authorization_list,
+        sender=pre.fund_eoa(),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=worst_case_state_gas),
+            ),
+        ],
+        post={},
+    )
+
+
+@pytest.mark.parametrize(
+    "num_existing,num_new",
+    [
+        pytest.param(1, 1, id="one_existing_one_new"),
+        pytest.param(2, 2, id="two_existing_two_new"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_mixed_auths_header_gas_used_uses_worst_case(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    num_existing: int,
+    num_new: int,
+) -> None:
+    """
+    Verify the block header gas_used reflects the worst case intrinsic
+    state gas across a mix of existing and new account authorizations.
+
+    Refunds for the existing accounts go to the state gas reservoir,
+    and the intrinsic state gas carried into block accounting covers
+    the full authorization count as if every authority were a new
+    account.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    num_auths = num_existing + num_new
+    worst_case_state_gas = fork.transaction_intrinsic_state_gas(
+        authorization_count=num_auths,
+    )
+
+    contract = pre.deploy_contract(code=Op.STOP)
+
+    authorization_list = []
+    for _ in range(num_existing):
+        authorization_list.append(
+            AuthorizationTuple(
+                address=contract,
+                nonce=0,
+                signer=pre.fund_eoa(),
+            )
+        )
+    for _ in range(num_new):
+        authorization_list.append(
+            AuthorizationTuple(
+                address=contract,
+                nonce=0,
+                signer=pre.fund_eoa(amount=0),
+            )
+        )
+
+    tx = Transaction(
+        to=contract,
+        gas_limit=gas_limit_cap + worst_case_state_gas,
+        authorization_list=authorization_list,
+        sender=pre.fund_eoa(),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=worst_case_state_gas),
+            ),
+        ],
+        post={},
+    )
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_existing_auth_with_reverted_execution_preserves_intrinsic(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify the worst case intrinsic state gas survives both the
+    existing account authorization refund and the top level failure
+    refund.
+
+    Scenario: a tx with a single authorization to an existing
+    account executes an SSTORE then REVERTs. `set_delegation` adds
+    the account creation portion to `state_gas_reservoir` without
+    mutating the intrinsic state gas. The top level revert refund
+    zeroes execution state gas. Block accounting reflects the worst
+    case intrinsic state gas unchanged. Under a mutating
+    implementation the intrinsic would be reduced and the block
+    header would fall back to the regular gas component.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    worst_case_state_gas = fork.transaction_intrinsic_state_gas(
+        authorization_count=1,
+    )
+
+    contract = pre.deploy_contract(
+        code=Op.SSTORE(0, 1) + Op.REVERT(0, 0),
+    )
+
+    # Existing signer: the set_delegation refund is routed to the
+    # reservoir. Under the correct spec the intrinsic state gas is
+    # not mutated.
+    signer = pre.fund_eoa()
+    authorization_list = [
+        AuthorizationTuple(address=contract, nonce=0, signer=signer),
+    ]
+
+    tx = Transaction(
+        to=contract,
+        gas_limit=gas_limit_cap + worst_case_state_gas,
+        authorization_list=authorization_list,
+        sender=pre.fund_eoa(),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=worst_case_state_gas),
+            ),
+        ],
+        post={contract: Account(storage={})},
+    )
