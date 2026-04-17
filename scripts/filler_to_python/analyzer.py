@@ -381,13 +381,14 @@ def analyze(
     # (large ints > 2^32 that weren't resolved to variable names) —
     # disable dynamic for ALL accounts (including sender) so every
     # address stays fixed and CREATE-derived addresses match baseline.
-    _ADDR_LIKE_THRESHOLD = 0x100000000  # values above this are likely addresses
+    # Values above 2**32 are likely addresses, not small ints.
+    addr_like_threshold = 0x100000000
     has_unresolved = any(
         "Address(0x" in a.var_ref
         for entry in expect_entries
         for a in entry.result
     ) or any(
-        isinstance(v, int) and v >= _ADDR_LIKE_THRESHOLD
+        isinstance(v, int) and v >= addr_like_threshold
         for entry in expect_entries
         for a in entry.result
         if a.storage is not None
