@@ -619,43 +619,17 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     gas cost of the transaction and the minimum gas cost used by the
     transaction based on the calldata size.
     """
-    from .vm.eoa_delegation import GAS_AUTH_PER_EMPTY_ACCOUNT
-    from .vm.gas import init_code_cost
-
     tokens_in_calldata = count_tokens_in_data(tx.data)
-
-    data_cost = tokens_in_calldata * GAS_TX_DATA_TOKEN_STANDARD
-
-    if tx.to == Bytes0(b""):
-        create_cost = GAS_TX_CREATE + init_code_cost(ulen(tx.data))
-    else:
-        create_cost = Uint(0)
-
-    access_list_cost = Uint(0)
-    tokens_in_access_list = Uint(0)
-    if has_access_list(tx):
-        for access in tx.access_list:
-            access_list_cost += GAS_TX_ACCESS_LIST_ADDRESS
-            access_list_cost += (
-                ulen(access.slots) * GAS_TX_ACCESS_LIST_STORAGE_KEY
-            )
-
-    # Data token floor cost for access list bytes.
-    access_list_cost += tokens_in_access_list * GAS_TX_DATA_TOKEN_FLOOR
-
-    auth_cost = Uint(0)
-    if isinstance(tx, SetCodeTransaction):
-        auth_cost += Uint(GAS_AUTH_PER_EMPTY_ACCOUNT * len(tx.authorizations))
-
-    # Floor tokens from calldata.
-    floor_tokens_in_calldata = tokens_in_calldata
-
-    # Total floor tokens.
-    total_floor_tokens = floor_tokens_in_calldata + tokens_in_access_list
-
-    # Floor gas cost (EIP-7623: minimum gas for data-heavy transactions).
-    data_floor_gas_cost = (
-        total_floor_tokens * GAS_TX_DATA_TOKEN_FLOOR + GAS_TX_BASE
+    tokens_in_access_list = calculate_floor_tokens_in_access_list(tx)
+    data_cost = calculate_intrinsic_data_cost(tokens_in_calldata)
+    create_cost = calculate_intrinsic_create_cost(tx)
+    access_list_cost = calculate_intrinsic_access_list_cost(
+        tx, tokens_in_access_list
+    )
+    auth_cost = calculate_intrinsic_authorization_cost(tx)
+    state_cost = calculate_intrinsic_state_cost(tx, tx.gas)
+    data_floor_gas_cost = calculate_data_floor_gas_cost(
+        tokens_in_calldata, tokens_in_access_list
     )
 
     return (
@@ -665,9 +639,87 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
             + create_cost
             + access_list_cost
             + auth_cost
+            + state_cost
         ),
         data_floor_gas_cost,
     )
+
+
+def calculate_intrinsic_data_cost(tokens_in_calldata: Uint) -> Uint:
+    """
+    Calculate the intrinsic calldata contribution.
+    """
+    return tokens_in_calldata * GAS_TX_DATA_TOKEN_STANDARD
+
+
+def calculate_intrinsic_create_cost(tx: Transaction) -> Uint:
+    """
+    Calculate the intrinsic contract creation contribution.
+    """
+    from .vm.gas import init_code_cost
+
+    if tx.to == Bytes0(b""):
+        return GAS_TX_CREATE + init_code_cost(ulen(tx.data))
+
+    return Uint(0)
+
+
+def calculate_floor_tokens_in_access_list(_tx: Transaction) -> Uint:
+    """
+    Calculate the access-list contribution to floor tokens.
+
+    Amsterdam does not charge additional floor tokens for access-list bytes.
+    """
+    return Uint(0)
+
+
+def calculate_intrinsic_access_list_cost(
+    tx: Transaction, tokens_in_access_list: Uint
+) -> Uint:
+    """
+    Calculate the intrinsic access-list contribution.
+    """
+    access_list_cost = Uint(0)
+    if has_access_list(tx):
+        for access in tx.access_list:
+            access_list_cost += GAS_TX_ACCESS_LIST_ADDRESS
+            access_list_cost += (
+                ulen(access.slots) * GAS_TX_ACCESS_LIST_STORAGE_KEY
+            )
+
+    return access_list_cost + tokens_in_access_list * GAS_TX_DATA_TOKEN_FLOOR
+
+
+def calculate_intrinsic_authorization_cost(tx: Transaction) -> Uint:
+    """
+    Calculate the intrinsic authorization contribution.
+    """
+    from .vm.eoa_delegation import GAS_AUTH_PER_EMPTY_ACCOUNT
+
+    if isinstance(tx, SetCodeTransaction):
+        return Uint(GAS_AUTH_PER_EMPTY_ACCOUNT * len(tx.authorizations))
+
+    return Uint(0)
+
+
+def calculate_intrinsic_state_cost(_tx: Transaction, _gas_limit: Uint) -> Uint:
+    """
+    Calculate state-dependent intrinsic gas.
+
+    Amsterdam has no state-dependent intrinsic gas component.
+    """
+    return Uint(0)
+
+
+def calculate_data_floor_gas_cost(
+    tokens_in_calldata: Uint, tokens_in_access_list: Uint
+) -> Uint:
+    """
+    Calculate the EIP-7623 floor gas contribution.
+    """
+    total_floor_tokens = tokens_in_calldata + tokens_in_access_list
+
+    return total_floor_tokens * GAS_TX_DATA_TOKEN_FLOOR + GAS_TX_BASE
 
 
 def count_tokens_in_data(data: bytes) -> Uint:
