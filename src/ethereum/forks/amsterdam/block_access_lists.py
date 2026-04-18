@@ -18,7 +18,7 @@ from typing import Dict, List, Optional, Set, Tuple, TypeAlias
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.frozen import slotted_freezable
-from ethereum_types.numeric import U16, U64, U256, Uint
+from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.state import EMPTY_CODE_HASH, Account, Address, PreState
@@ -46,7 +46,7 @@ CodeData: TypeAlias = Bytes
 Bytecode associated with an [`Account`](ref:ethereum.state.Account).
 """
 
-BlockAccessIndex: TypeAlias = U16
+BlockAccessIndex: TypeAlias = U64
 """
 Position within the set of all changes in a [`Block`].
 
