@@ -33,33 +33,45 @@ class FillCommand(PytestCommand):
         self, pytest_args: List[str]
     ) -> List[PytestExecution]:
         """
-        Create execution plan that supports two-phase pre-allocation group
+        Create execution plan supporting two-phase pre-allocation group
         generation.
 
-        Returns single execution for normal filling, or two-phase execution
-        when --generate-pre-alloc-groups or --generate-all-formats is
-        specified.
+        Returns:
+        - Single-phase execution when `--use-pre-alloc-groups` is set,
+          regardless of `--generate-all-formats` (pre-alloc groups
+          already exist on disk from a previous run).
+        - Phase-1-only execution when `--generate-pre-alloc-groups` is
+          set without `--generate-all-formats` (CI generates pre-alloc
+          on a dedicated runner without wasting time on phase 2).
+        - Two-phase execution when `--generate-all-formats` is set.
+        - Normal single-phase execution otherwise.
+
         """
         processed_args = self.process_arguments(pytest_args)
         processed_args = self._add_default_ignores(processed_args)
 
-        # Check if we need two-phase execution
-        if self._should_use_two_phase_execution(processed_args):
-            return self._create_two_phase_executions(processed_args)
-        elif "--use-pre-alloc-groups" in processed_args:
-            # Only phase 2: using existing pre-allocation groups
+        if "--use-pre-alloc-groups" in processed_args:
+            # Pre-alloc groups already exist: single-phase fill only.
             return self._create_single_phase_with_pre_alloc_groups(
                 processed_args
             )
-        else:
-            # Normal single-phase execution
-            return [
-                PytestExecution(
-                    config_file=self.config_path,
-                    args=processed_args,
-                    allowed_exit_codes=self.allowed_exit_codes,
-                )
-            ]
+        if self._should_use_two_phase_execution(processed_args):
+            two_phase = self._create_two_phase_executions(processed_args)
+            if (
+                "--generate-pre-alloc-groups" in processed_args
+                and "--generate-all-formats" not in processed_args
+            ):
+                # Phase 1 only: generate pre-alloc groups without filling.
+                return [two_phase[0]]
+            return two_phase
+        # Normal single-phase execution
+        return [
+            PytestExecution(
+                config_file=self.config_path,
+                args=processed_args,
+                allowed_exit_codes=self.allowed_exit_codes,
+            )
+        ]
 
     def _create_two_phase_executions(
         self, args: List[str]
