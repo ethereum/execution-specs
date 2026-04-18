@@ -321,11 +321,13 @@ def test_bal_4788_query(
         else [timestamp_slot]
     )
 
-    # Add balance changes if value is transferred
-    if value > 0 and is_valid:
-        account_expectations[BEACON_ROOTS_ADDRESS].balance_changes = [
-            BalBalanceChange(block_access_index=1, post_balance=value)
-        ]
+    # Balance changes for callee: credited if valid, must be empty if invalid
+    if value > 0:
+        account_expectations[BEACON_ROOTS_ADDRESS].balance_changes = (
+            [BalBalanceChange(block_access_index=1, post_balance=value)]
+            if is_valid
+            else []
+        )
 
     # Add transaction-specific expectations
     account_expectations[alice] = BalAccountExpectation(
