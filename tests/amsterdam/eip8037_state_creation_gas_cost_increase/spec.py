@@ -2,6 +2,17 @@
 
 from dataclasses import dataclass
 
+from execution_testing.vm import Bytecode, Op
+
+
+def init_code_at_high_bytes(
+    init_code: Op | Bytecode | bytes,
+) -> tuple[int, int]:
+    """Return (mstore_value, size) to place init_code at memory[0:size]."""
+    code_bytes = bytes(init_code)
+    size = len(code_bytes)
+    return int.from_bytes(code_bytes, "big") << (256 - 8 * size), size
+
 
 @dataclass(frozen=True)
 class ReferenceSpec:
