@@ -229,18 +229,306 @@ def test_block_regular_gas_limit(
                 to=gas_spender,
                 sender=pre.fund_eoa(),
                 gas_limit=gas_limit_cap,
-                error=TransactionException.GAS_ALLOWANCE_EXCEEDED
-                if i >= tx_count
-                else None,
+                error=(
+                    TransactionException.GAS_ALLOWANCE_EXCEEDED
+                    if i >= tx_count
+                    else None
+                ),
             )
             for i in range(total_txs)
         ],
-        exception=TransactionException.GAS_ALLOWANCE_EXCEEDED
-        if exceed_block_gas_limit
-        else None,
+        exception=(
+            TransactionException.GAS_ALLOWANCE_EXCEEDED
+            if exceed_block_gas_limit
+            else None
+        ),
     )
 
     blockchain_test(pre=pre, post={}, blocks=[block])
+
+
+@pytest.mark.parametrize(
+    "delta",
+    [
+        pytest.param(0, id="exact_fit"),
+        pytest.param(1, id="exceeded", marks=pytest.mark.exception_test),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_block_state_gas_limit_boundary(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    delta: int,
+) -> None:
+    """
+    Verify the per-tx state check at the strict-greater-than boundary.
+
+    tx1 consumes `tx1_state` via cold SSTOREs. tx2 is sized so that
+    its worst-case state contribution `tx.gas - intrinsic_regular`
+    equals `state_available` (delta=0, accepted because the check is
+    strict `>`) or exceeds it by 1 (delta=1, rejected with
+    `GAS_ALLOWANCE_EXCEEDED`).
+
+    The regular check is asserted to pass so rejection on delta=1 is
+    pinned to the state dimension.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
+
+    num_sstores = 50
+    tx1_code = Bytecode()
+    for i in range(num_sstores):
+        tx1_code = tx1_code + Op.SSTORE(i, 1)
+    tx1_contract = pre.deploy_contract(code=tx1_code)
+
+    tx1_state = num_sstores * sstore_state_gas
+    tx1_regular = intrinsic_cost() + tx1_code.gas_cost(fork) - tx1_state
+    tx1_gas = gas_limit_cap + tx1_state
+
+    state_headroom = tx1_state + 100_000
+    block_gas_limit = gas_limit_cap + state_headroom
+
+    # tx2: worst-case state contribution = state_available + delta.
+    # Plain call, so intrinsic_state is zero.
+    tx2_intrinsic_regular = intrinsic_cost()
+    state_available = block_gas_limit - tx1_state
+    tx2_gas = tx2_intrinsic_regular + state_available + delta
+
+    # Pin the rejection (when delta > 0) to the state check: the
+    # regular check must not fire.
+    regular_available = block_gas_limit - tx1_regular
+    assert min(gas_limit_cap, tx2_gas) < regular_available, (
+        "tx2 would fail the regular check instead of the state check"
+    )
+
+    tx2_error = (
+        TransactionException.GAS_ALLOWANCE_EXCEEDED if delta > 0 else None
+    )
+    block_exception = (
+        TransactionException.GAS_ALLOWANCE_EXCEEDED if delta > 0 else None
+    )
+
+    tx1 = Transaction(
+        to=tx1_contract,
+        gas_limit=tx1_gas,
+        sender=pre.fund_eoa(),
+    )
+    tx2 = Transaction(
+        to=pre.deploy_contract(code=Op.STOP),
+        gas_limit=tx2_gas,
+        sender=pre.fund_eoa(),
+        error=tx2_error,
+    )
+
+    blockchain_test(
+        genesis_environment=Environment(gas_limit=block_gas_limit),
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx1, tx2],
+                gas_limit=block_gas_limit,
+                exception=block_exception,
+            )
+        ],
+        post={},
+    )
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_creation_tx_regular_check_subtracts_intrinsic_state(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify the regular check subtracts `intrinsic.state` from tx.gas.
+
+    The EIP regular check is
+    `min(TX_MAX, tx.gas - intrinsic.state) > regular_available`. For a
+    creation tx, `intrinsic.state = GAS_NEW_ACCOUNT`. This test sizes a
+    creation tx whose raw `tx.gas` exceeds `regular_available` but
+    `tx.gas - intrinsic.state` fits; it must be accepted. The old
+    formula `min(TX_MAX, tx.gas)` would reject the same tx, proving
+    the subtraction is honored.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
+
+    intrinsic_state = fork.transaction_intrinsic_state_gas(
+        contract_creation=True,
+    )
+    intrinsic_total = intrinsic_cost(contract_creation=True)
+    intrinsic_regular = intrinsic_total - intrinsic_state
+
+    # Filler consumes the full regular cap (OOG on INVALID).
+    filler = pre.deploy_contract(code=Op.INVALID)
+
+    # After filler, the remaining regular budget is exactly
+    # `intrinsic_regular + 1`. The creation tx has
+    # `tx.gas = intrinsic_total = intrinsic_regular + intrinsic_state`,
+    # which exceeds the remaining budget under the old formula but
+    # equals `intrinsic_regular` after the `- intrinsic.state`
+    # subtraction — so the new formula accepts it.
+    remaining_regular = intrinsic_regular + 1
+    block_gas_limit = gas_limit_cap + remaining_regular
+    create_tx_gas = intrinsic_total
+
+    assert create_tx_gas > remaining_regular, (
+        "old formula must reject to prove new formula differs"
+    )
+    assert create_tx_gas - intrinsic_state <= remaining_regular, (
+        "new formula must accept"
+    )
+
+    filler_tx = Transaction(
+        to=filler,
+        gas_limit=gas_limit_cap,
+        sender=pre.fund_eoa(),
+    )
+    create_tx = Transaction(
+        to=None,
+        gas_limit=create_tx_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    blockchain_test(
+        genesis_environment=Environment(gas_limit=block_gas_limit),
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[filler_tx, create_tx],
+                gas_limit=block_gas_limit,
+            )
+        ],
+        post={},
+    )
+
+
+@pytest.mark.exception_test
+@pytest.mark.valid_from("EIP8037")
+def test_single_tx_state_check_exceeds_block_limit(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify a single tx is rejected when its state contribution exceeds
+    the entire block gas limit.
+
+    No prior txs needed. A tx whose tx.gas - intrinsic_regular exceeds
+    block_gas_limit must be rejected at inclusion.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
+    intrinsic_regular = intrinsic_cost()
+
+    block_gas_limit = gas_limit_cap + 100
+    tx_gas = block_gas_limit + intrinsic_regular + 1
+
+    tx = Transaction(
+        to=pre.deploy_contract(code=Op.STOP),
+        gas_limit=tx_gas,
+        sender=pre.fund_eoa(),
+        error=TransactionException.GAS_ALLOWANCE_EXCEEDED,
+    )
+
+    blockchain_test(
+        genesis_environment=Environment(gas_limit=block_gas_limit),
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                gas_limit=block_gas_limit,
+                exception=TransactionException.GAS_ALLOWANCE_EXCEEDED,
+            )
+        ],
+        post={},
+    )
+
+
+@pytest.mark.exception_test
+@pytest.mark.valid_from("EIP8037")
+def test_creation_tx_state_check_exceeded(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify a creation tx is rejected by the state check.
+
+    A creation tx has non-zero intrinsic_state (new account) AND
+    intrinsic_regular (base + CREATE cost). Both formulas are
+    exercised: the regular check subtracts intrinsic_state, the state
+    check subtracts intrinsic_regular.
+
+    A filler tx consumes state budget. The creation tx's state
+    contribution (tx.gas - intrinsic_regular) exceeds the remaining
+    state budget while its regular contribution
+    (tx.gas - intrinsic_state) fits the regular budget.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
+
+    create_intrinsic_total = intrinsic_cost(contract_creation=True)
+    create_intrinsic_state = fork.transaction_intrinsic_state_gas(
+        contract_creation=True,
+    )
+    create_intrinsic_regular = create_intrinsic_total - create_intrinsic_state
+
+    num_sstores = 50
+    tx1_code = Bytecode()
+    for i in range(num_sstores):
+        tx1_code = tx1_code + Op.SSTORE(i, 1)
+    tx1_contract = pre.deploy_contract(code=tx1_code)
+
+    tx1_state = num_sstores * sstore_state_gas
+    tx1_regular = intrinsic_cost() + tx1_code.gas_cost(fork) - tx1_state
+    tx1_gas = gas_limit_cap + tx1_state
+
+    state_headroom = tx1_state + 100_000
+    block_gas_limit = gas_limit_cap + state_headroom
+    state_available = block_gas_limit - tx1_state
+
+    # tx2 state contribution = state_available + 1 → rejected
+    tx2_gas = create_intrinsic_regular + state_available + 1
+
+    # Regular check must pass so rejection is pinned to state.
+    regular_available = block_gas_limit - tx1_regular
+    assert min(gas_limit_cap, tx2_gas - create_intrinsic_state) < (
+        regular_available
+    )
+
+    tx1 = Transaction(
+        to=tx1_contract,
+        gas_limit=tx1_gas,
+        sender=pre.fund_eoa(),
+    )
+    tx2 = Transaction(
+        to=None,
+        gas_limit=tx2_gas,
+        sender=pre.fund_eoa(),
+        error=TransactionException.GAS_ALLOWANCE_EXCEEDED,
+    )
+
+    blockchain_test(
+        genesis_environment=Environment(gas_limit=block_gas_limit),
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx1, tx2],
+                gas_limit=block_gas_limit,
+                exception=TransactionException.GAS_ALLOWANCE_EXCEEDED,
+            )
+        ],
+        post={},
+    )
 
 
 @pytest.mark.valid_from("EIP8037")

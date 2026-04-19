@@ -80,6 +80,7 @@ from .transactions import (
     TX_MAX_GAS_LIMIT,
     BlobTransaction,
     FeeMarketTransaction,
+    IntrinsicGasCost,
     LegacyTransaction,
     SetCodeTransaction,
     Transaction,
@@ -488,6 +489,7 @@ def check_transaction(
     block_output: vm.BlockOutput,
     tx: Transaction,
     tx_state: TransactionState,
+    intrinsic: IntrinsicGasCost,
 ) -> Tuple[Address, Uint, Tuple[VersionedHash, ...], U64]:
     """
     Check if the transaction is includable in the block.
@@ -502,6 +504,9 @@ def check_transaction(
         The transaction.
     tx_state :
         The transaction state tracker.
+    intrinsic :
+        The transaction's intrinsic gas cost, split into regular and
+        state components.
 
     Returns
     -------
@@ -549,16 +554,29 @@ def check_transaction(
         is empty.
 
     """
-    # Regular gas is capped at TX_MAX_GAS_LIMIT per EIP-7825.
-    # State gas is not checked per-tx; block-end validation enforces
+    # Per-tx 2D gas inclusion check: for each dimension the worst-case
+    # contribution must fit in the remaining budget.  Block-end
+    # validation still enforces
     # max(block_regular_gas_used, block_state_gas_used) <= gas_limit.
     regular_gas_available = (
         block_env.block_gas_limit - block_output.block_gas_used
     )
+    state_gas_available = (
+        block_env.block_gas_limit - block_output.block_state_gas_used
+    )
     blob_gas_available = MAX_BLOB_GAS_PER_BLOCK - block_output.blob_gas_used
 
-    if min(TX_MAX_GAS_LIMIT, tx.gas) > regular_gas_available:
-        raise GasUsedExceedsLimitError("regular gas used exceeds limit")
+    # Worst-case regular contribution: tx.gas minus the portion that
+    # must go to intrinsic state gas, capped at TX_MAX_GAS_LIMIT.
+    if min(TX_MAX_GAS_LIMIT, tx.gas - intrinsic.state) > (
+        regular_gas_available
+    ):
+        raise GasUsedExceedsLimitError("gas used exceeds limit")
+
+    # Worst-case state contribution: tx.gas minus the portion that
+    # must go to intrinsic regular gas.
+    if tx.gas - intrinsic.regular > state_gas_available:
+        raise GasUsedExceedsLimitError("gas used exceeds limit")
 
     tx_blob_gas_used = calculate_total_blob_gas(tx)
     if tx_blob_gas_used > blob_gas_available:
@@ -991,6 +1009,7 @@ def process_transaction(
         block_output=block_output,
         tx=tx,
         tx_state=tx_state,
+        intrinsic=intrinsic,
     )
 
     sender_account = get_account(tx_state, sender)
