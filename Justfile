@@ -220,7 +220,7 @@ bench-gas *args:
     uv run fill \
         --evm-bin="{{ evm_bin }}" \
         --gas-benchmark-values 1 \
-        --generate-pre-alloc-groups \
+        --generate-all-formats \
         --fork Osaka \
         -m "not slow" \
         -n auto --maxprocesses 10 --dist=loadgroup \
