@@ -88,6 +88,12 @@ class PytestRunner:
         if self._is_verbose(execution.args) or "CI" in os.environ:
             pytest_cmd = f"pytest {' '.join(pytest_args)}"
             self.error_console.print(f"Executing: [bold]{pytest_cmd}[/bold]")
+            summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+            if summary_path:
+                with Path(summary_path).open("a") as summary:
+                    summary.write(
+                        f"### Executing\n\n```bash\n{pytest_cmd}\n```\n\n"
+                    )
 
         return pytest.main(pytest_args)
 

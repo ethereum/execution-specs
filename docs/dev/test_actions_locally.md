@@ -120,4 +120,4 @@ The pytest-based CLIs (`fill`, `execute`, ...) print the resolved `pytest ...` i
 Executing: pytest ...
 ```
 
-Copy this line verbatim from the failing Github Actions log and run it locally to reproduce the exact command, including all plugin and marker arguments injected by the CLI.
+When run under Github Actions, the same command is also appended to the job summary (via `$GITHUB_STEP_SUMMARY`), so it can be copied directly from the "Summary" panel of the failing run without scrolling through the log.
