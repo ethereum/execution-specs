@@ -128,14 +128,22 @@ def tx(  # noqa: D103
     initial_memory: bytes,
     tx_gas_limit: int,
     tx_access_list: List[AccessList],
+    fork: Fork,
+    successful: bool,
 ) -> Transaction:
+    # EIP-8037: on top-level OOG, execution state gas is returned to the
+    # reservoir and not billed. The callee's SSTORE contributes state
+    # gas that gets refunded on failure.
+    expected_gas = tx_gas_limit
+    if not successful and fork.is_eip_enabled(8037):
+        expected_gas -= fork.sstore_state_gas()
     return Transaction(
         sender=sender,
         to=caller_address,
         access_list=tx_access_list,
         data=initial_memory,
         gas_limit=tx_gas_limit,
-        expected_receipt=TransactionReceipt(cumulative_gas_used=tx_gas_limit),
+        expected_receipt=TransactionReceipt(cumulative_gas_used=expected_gas),
     )
 
 

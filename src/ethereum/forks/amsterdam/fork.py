@@ -1050,6 +1050,10 @@ def process_transaction(
 
     tx_output = process_message_call(message)
 
+    if tx_output.error is not None:
+        tx_output.state_gas_left += tx_output.state_gas_used
+        tx_output.state_gas_used = Uint(0)
+
     tx_gas_used_before_refund = (
         tx.gas - tx_output.gas_left - tx_output.state_gas_left
     )
