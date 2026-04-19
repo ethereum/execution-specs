@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from typing import NamedTuple
 
 import pytest
@@ -10,6 +11,7 @@ from execution_testing.cli.pytest_commands.plugins.split.scheduling import (
     assign_runners,
     build_group_durations,
     lpt_schedule,
+    sort_items_within_groups,
 )
 
 
@@ -206,3 +208,93 @@ class TestLPTSchedule:
         assert sum(len(k) for k in keys) == 1
         assert sum(totals) == pytest.approx(7.0)
         assert max(max_group) == pytest.approx(7.0)
+
+
+class TestSortItemsWithinGroups:
+    """Tests for :func:`sort_items_within_groups`."""
+
+    def test_items_sorted_slowest_first(self) -> None:
+        """Each group's items come out in duration-DESC order."""
+        fast = Item("t.py::f[fast]")
+        mid = Item("t.py::f[mid]")
+        slow = Item("t.py::f[slow]")
+        groups = OrderedDict([("g", [fast, mid, slow])])
+        durations = {fast.nodeid: 1.0, mid.nodeid: 5.0, slow.nodeid: 10.0}
+        out = sort_items_within_groups(groups, durations)
+        assert out["g"] == [slow, mid, fast]
+
+    def test_group_order_preserved(self) -> None:
+        """Sort mutates within groups only; group key order is kept."""
+        a, b = Item("t.py::a"), Item("t.py::b")
+        groups = OrderedDict([("k1", [a]), ("k2", [b])])
+        out = sort_items_within_groups(groups, {})
+        assert list(out.keys()) == ["k1", "k2"]
+
+    def test_stable_on_ties(self) -> None:
+        """Items with identical durations keep their input order."""
+        x = Item("t.py::f[x]")
+        y = Item("t.py::f[y]")
+        z = Item("t.py::f[z]")
+        groups = OrderedDict([("g", [x, y, z])])
+        out = sort_items_within_groups(
+            groups, {x.nodeid: 1.0, y.nodeid: 1.0, z.nodeid: 1.0}
+        )
+        assert out["g"] == [x, y, z]
+
+    def test_unknown_items_use_known_mean(self) -> None:
+        """Unknown items are weighted at the known-items mean."""
+        known_slow = Item("t.py::known_slow")
+        unknown = Item("t.py::unknown")
+        known_fast = Item("t.py::known_fast")
+        groups = OrderedDict([("g", [known_fast, unknown, known_slow])])
+        out = sort_items_within_groups(
+            groups,
+            {known_slow.nodeid: 100.0, known_fast.nodeid: 1.0},
+        )
+        # Mean is ~50.5, so unknown > known_fast but < known_slow.
+        assert out["g"] == [known_slow, unknown, known_fast]
+
+
+class TestAssignRunnersIntraGroupSort:
+    """End-to-end: :func:`assign_runners` + ``sort_intra_group``."""
+
+    def test_default_sorts_slowest_first_within_group(self) -> None:
+        """With ``sort_intra_group`` (default) slow items lead each group."""
+        fast = Item("t.py::f[fast]")
+        slow = Item("t.py::f[slow]")
+        keyed = [("g", fast), ("g", slow)]
+        durations = {fast.nodeid: 1.0, slow.nodeid: 100.0}
+        groups = assign_runners(1, keyed, durations)
+        assert groups[0].selected == [slow, fast]
+
+    def test_disabled_preserves_collection_order(self) -> None:
+        """``sort_intra_group=False`` keeps the original input order."""
+        fast = Item("t.py::f[fast]")
+        slow = Item("t.py::f[slow]")
+        keyed = [("g", fast), ("g", slow)]
+        durations = {fast.nodeid: 1.0, slow.nodeid: 100.0}
+        groups = assign_runners(1, keyed, durations, sort_intra_group=False)
+        assert groups[0].selected == [fast, slow]
+
+    def test_sort_does_not_cross_group_boundaries(self) -> None:
+        """Groups stay contiguous; sort only applies within each group."""
+        a_fast = Item("t.py::a[fast]")
+        a_slow = Item("t.py::a[slow]")
+        b_fast = Item("t.py::b[fast]")
+        b_slow = Item("t.py::b[slow]")
+        keyed = [
+            ("a", a_fast),
+            ("a", a_slow),
+            ("b", b_fast),
+            ("b", b_slow),
+        ]
+        durations = {
+            a_fast.nodeid: 1.0,
+            a_slow.nodeid: 10.0,
+            b_fast.nodeid: 2.0,
+            b_slow.nodeid: 20.0,
+        }
+        groups = assign_runners(1, keyed, durations)
+        # Heaviest group first (b total 22 > a total 11), each
+        # internally slowest-first, and no interleaving.
+        assert groups[0].selected == [b_slow, b_fast, a_slow, a_fast]
