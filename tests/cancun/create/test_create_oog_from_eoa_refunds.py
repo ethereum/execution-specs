@@ -326,12 +326,16 @@ def test_create_oog_from_eoa_refunds(
             )
         post[sender] = Account(nonce=1)
     else:
-        # OOG case: contract not created, sender balance is fully consumed
+        # OOG case: contract not created
         post[created_address] = Account.NONEXISTENT
-        post[sender] = Account(
-            nonce=1,
-            balance=0,
-        )
+        if fork.is_eip_enabled(8037):
+            # EIP-8037: execution state gas is returned to the
+            # reservoir on top-level failure, so the sender retains
+            # some balance (the refunded state gas × gas_price).
+            post[sender] = Account(nonce=1)
+        else:
+            # Pre-EIP-8037: sender balance is fully consumed
+            post[sender] = Account(nonce=1, balance=0)
 
     if refund_type == RefundType.SELFDESTRUCT:
         selfdestruct_code = Op.SELFDESTRUCT(Op.ORIGIN) + Op.STOP
