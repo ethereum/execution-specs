@@ -1289,3 +1289,178 @@ def test_call_value_to_pre_existing_selfdestructed_account(
         ],
         post={},
     )
+
+
+@pytest.mark.parametrize(
+    "reservoir_delta",
+    [
+        pytest.param(-1, id="reservoir_one_short"),
+        pytest.param(0, id="reservoir_exact"),
+        pytest.param(1, id="reservoir_one_over"),
+    ],
+)
+@pytest.mark.parametrize(
+    "child_termination",
+    [
+        pytest.param("revert", id="child_revert"),
+        pytest.param("halt", id="child_halt"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_top_level_halt_preserves_restored_reservoir(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    child_termination: str,
+    reservoir_delta: int,
+) -> None:
+    """
+    Verify reservoir preserved on top-level halt after child restore.
+
+    The child runs an SSTORE drawing state gas from the reservoir
+    and then fails (revert or exceptional halt). All state gas is
+    restored to the parent's reservoir via
+    `incorporate_child_on_error`. The parent then hits INVALID,
+    triggering a top-level exceptional halt. Under PR #2689 the
+    top-level failure refund zeroes execution state gas and
+    credits it back to the reservoir for sender billing.
+
+    Parametrized over `reservoir_delta` in -1, 0, +1 around the
+    exact SSTORE state gas cost. Catches the bal-devnet-3 Besu
+    bug (#2644) where the reservoir was incorrectly consumed on
+    top-level halt instead of preserved for refund.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
+
+    if child_termination == "revert":
+        child_code: Bytecode = Op.SSTORE(0, 1) + Op.REVERT(0, 0)
+    else:
+        child_code = Op.SSTORE(0, 1) + Op.INVALID
+
+    child = pre.deploy_contract(code=child_code)
+
+    parent = pre.deploy_contract(
+        code=(Op.POP(Op.CALL(gas=500_000, address=child)) + Op.INVALID),
+    )
+
+    tx = Transaction(
+        to=parent,
+        gas_limit=gas_limit_cap + sstore_state_gas + reservoir_delta,
+        sender=pre.fund_eoa(),
+    )
+
+    # On top-level halt, the reservoir (plus any spill-restore
+    # balance from the child failure path) is refunded to the
+    # sender. When `reservoir_delta < 0` the child spills
+    # `|delta|` gas from `gas_left`; the restore folds that back
+    # into the reservoir so block_regular drops by the same amount.
+    expected_gas_used = gas_limit_cap + min(reservoir_delta, 0)
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=expected_gas_used),
+            ),
+        ],
+        post={child: Account(storage={0: 0})},
+    )
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_callcode_value_no_new_account_state_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify CALLCODE with value does not charge GAS_NEW_ACCOUNT.
+
+    CALLCODE transfers value to the caller (self), not to the
+    target. No new account is ever created on the target regardless
+    of whether it exists, so no state gas should be charged. A
+    subsequent SSTORE must succeed from the full reservoir.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
+
+    target = pre.fund_eoa(amount=0)
+
+    storage = Storage()
+    contract = pre.deploy_contract(
+        code=(
+            Op.POP(
+                Op.CALLCODE(
+                    gas=Op.GAS,
+                    address=target,
+                    value=1,
+                )
+            )
+            + Op.SSTORE(storage.store_next(1, "reservoir_ok"), 1)
+        ),
+        balance=10**18,
+    )
+
+    tx = Transaction(
+        to=contract,
+        gas_limit=gas_limit_cap + sstore_state_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {contract: Account(storage=storage)}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_create_oog_during_state_gas_charge(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify CREATE child OOG on state gas charge refunds parent reservoir.
+
+    A parent CALLs an `inner` contract with only 20,000 gas
+    forwarded; the inner's CREATE charges GAS_NEW_ACCOUNT state
+    gas, which exceeds the forwarded budget (both reservoir and
+    gas_left) and raises OutOfGasError before the charge lands.
+    Per PR #2704 the parent's reservoir is refunded on child
+    failure and the subsequent SSTORE succeeds from the refunded
+    reservoir. Without the refund the SSTORE would OOG.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
+
+    init_code = Op.STOP
+
+    inner = pre.deploy_contract(
+        code=(
+            Op.MSTORE(
+                0,
+                int.from_bytes(bytes(init_code), "big") << 248,
+            )
+            + Op.POP(Op.CREATE(0, 31, 1))
+        ),
+    )
+
+    storage = Storage()
+    parent = pre.deploy_contract(
+        code=(
+            Op.POP(Op.CALL(gas=20_000, address=inner))
+            + Op.SSTORE(storage.store_next(1), 1)
+        ),
+    )
+
+    tx = Transaction(
+        to=parent,
+        gas_limit=gas_limit_cap + sstore_state_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {parent: Account(storage=storage)}
+    state_test(pre=pre, post=post, tx=tx)
