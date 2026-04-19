@@ -15,6 +15,7 @@ Tests for [EIP-8037: State Creation Gas Cost Increase]
 
 import pytest
 from execution_testing import (
+    AccessList,
     Account,
     Alloc,
     Block,
@@ -1020,3 +1021,130 @@ def test_top_level_failure_refunds_state_gas_propagated_from_child(
     )
 
     state_test(pre=pre, post={child: Account(storage={})}, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "num_access_list_entries",
+    [
+        pytest.param(1, id="one_entry"),
+        pytest.param(10, id="ten_entries"),
+    ],
+)
+@pytest.mark.parametrize(
+    "slots_per_entry",
+    [
+        pytest.param(0, id="addresses_only"),
+        pytest.param(3, id="with_storage_keys"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_access_list_gas_is_regular_not_state(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    num_access_list_entries: int,
+    slots_per_entry: int,
+) -> None:
+    """
+    Verify EIP-2930 access list gas is classified as regular intrinsic.
+
+    A tx with an access list and no state operations must have
+    `block_state_gas_used == 0`, so the header `gas_used` equals
+    the regular intrinsic total. A client that incorrectly classified
+    access list gas into the state dimension would produce a
+    different `max(regular, state)` in the header.
+    """
+    contract = pre.deploy_contract(code=Op.STOP)
+
+    access_list = []
+    for _ in range(num_access_list_entries):
+        target = pre.fund_eoa(amount=0)
+        storage_keys = list(range(slots_per_entry))
+        access_list.append(
+            AccessList(address=target, storage_keys=storage_keys)
+        )
+
+    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
+    gas_needed = intrinsic_calc(access_list=access_list)
+
+    tx = Transaction(
+        to=contract,
+        gas_limit=gas_needed,
+        sender=pre.fund_eoa(),
+        access_list=access_list,
+    )
+
+    # No state ops, so block_state_gas = 0. header gas_used = regular.
+    # A client routing access list gas to the state dimension would
+    # produce a different header gas_used.
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=gas_needed),
+            ),
+        ],
+        post={},
+    )
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_access_list_warm_savings_stay_regular(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify warm-access savings from an access list stay in regular gas.
+
+    A tx pre-warms a storage slot via its access list. The contract
+    then SLOADs (warm) and SSTOREs (warm, nonzero-to-nonzero) that
+    slot. All execution costs are regular gas; state gas is zero.
+    A client that credited the cold-to-warm difference to the state
+    dimension would produce a different `header.gas_used`.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
+
+    contract = pre.deploy_contract(
+        code=Op.SSTORE(0, Op.SLOAD(0)),
+        storage={0: 1},
+    )
+
+    access_list = [AccessList(address=contract, storage_keys=[0])]
+
+    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
+    intrinsic_gas = intrinsic_calc(access_list=access_list)
+
+    # Warm SLOAD + warm nonzero-to-nonzero SSTORE = all regular.
+    # No state gas (not zero-to-nonzero).
+    contract_code = Op.SSTORE.with_metadata(
+        key_warm=True,
+        original_value=1,
+        current_value=1,
+        new_value=1,
+    )(0, Op.SLOAD.with_metadata(key_warm=True)(0))
+    evm_gas = contract_code.gas_cost(fork)
+
+    expected_gas_used = intrinsic_gas + evm_gas
+    gas_limit = gas_limit_cap + sstore_state_gas
+
+    tx = Transaction(
+        to=contract,
+        gas_limit=gas_limit,
+        sender=pre.fund_eoa(),
+        access_list=access_list,
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=expected_gas_used),
+            ),
+        ],
+        post={contract: Account(storage={0: 1})},
+    )
