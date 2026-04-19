@@ -1928,3 +1928,287 @@ def test_inner_create_succeeds_code_deposit_state_gas(
         ],
         post=post,
     )
+
+
+@pytest.mark.parametrize(
+    "parent_reverts",
+    [
+        pytest.param(True, id="parent_reverts"),
+        pytest.param(False, id="parent_succeeds"),
+    ],
+)
+@pytest.mark.parametrize(
+    "child_failure",
+    [
+        pytest.param("revert", id="child_revert"),
+        pytest.param("halt", id="child_halt"),
+    ],
+)
+@pytest.mark.with_all_create_opcodes()
+@pytest.mark.valid_from("EIP8037")
+def test_nested_create_fail_parent_revert_state_gas(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    parent_reverts: bool,
+    child_failure: str,
+    create_opcode: Op,
+) -> None:
+    """
+    Verify 2-layer refund composition: child CREATE fail + parent revert.
+
+    A caller CALLs a factory that performs CREATE/CREATE2 whose
+    initcode fails via REVERT or INVALID. Under PR #2704 the
+    factory's `GAS_NEW_ACCOUNT` for the inner CREATE is refunded
+    end-of-frame via `incorporate_child_on_error` in the caller.
+    The factory then either REVERTs (caller sees factory as an
+    error frame too) or STOPs (caller sees factory as success).
+
+    Verifies the nonce-mutation side effect:
+    * `parent_succeeds`: factory's CREATE attempted, nonce
+      incremented to 2 (CREATE always bumps nonce on its frame).
+    * `parent_reverts`: factory's state is rolled back, so nonce
+      stays at 1.
+
+    Distinct from single-layer tests added by PR #2704 which verify
+    the refund within a single failing frame; this test covers the
+    compound caller → factory → child failure flow.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    gas_costs = fork.gas_costs()
+    create_state_gas = gas_costs.GAS_NEW_ACCOUNT
+
+    if child_failure == "revert":
+        init_code = Op.REVERT(0, 0)
+    else:
+        init_code = Op.INVALID
+
+    create_call = (
+        create_opcode(value=0, offset=0, size=len(init_code), salt=0)
+        if create_opcode == Op.CREATE2
+        else create_opcode(value=0, offset=0, size=len(init_code))
+    )
+
+    factory = pre.deploy_contract(
+        code=(
+            Op.MSTORE(
+                0,
+                int.from_bytes(bytes(init_code), "big")
+                << (256 - 8 * len(init_code)),
+            )
+            + Op.POP(create_call)
+            + (Op.REVERT(0, 0) if parent_reverts else Op.STOP)
+        ),
+    )
+
+    # Nested CALL required: `incorporate_child_on_error` only
+    # restores state gas when there is a parent frame to receive it.
+    caller = pre.deploy_contract(
+        code=Op.POP(Op.CALL(gas=500_000, address=factory)),
+    )
+
+    tx = Transaction(
+        to=caller,
+        gas_limit=gas_limit_cap + create_state_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    if parent_reverts:
+        # Factory reverted: state rolled back, nonce unchanged.
+        post = {factory: Account(nonce=1)}
+    else:
+        # Factory succeeded: CREATE bumped the factory nonce to 2.
+        post = {factory: Account(nonce=2)}
+
+    blockchain_test(
+        pre=pre,
+        blocks=[Block(txs=[tx])],
+        post=post,
+    )
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_create_stack_depth_state_gas_consumed(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Deep-recursion robustness for state gas reservoir handling.
+
+    A contract CALLs itself recursively until gas is exhausted
+    (the EIP-150 63/64 rule caps effective recursion depth far
+    below `STACK_DEPTH_LIMIT`; reaching depth 1024 with
+    `gas_limit_cap = 16.7M` is physically infeasible since the
+    cumulative survival factor is `(63/64)**1024` ≈ 1e-7). As the
+    recursion unwinds, each frame attempts an SSTORE. The
+    outermost frame's SSTORE must succeed, proving the reservoir
+    threads through nested CALLs and survives the deepest child's
+    silent failure (CALL returns 0 when depth+1 > STACK_DEPTH_LIMIT
+    or when gas runs out, preserving `state_gas_reservoir`).
+
+    Despite the name (retained for continuity with the closed
+    PR #2639), this does NOT exercise `generic_create`'s
+    depth-1024 silent-failure branch directly, because that branch
+    is unreachable at the current gas limit. It instead exercises
+    CALL's depth/gas silent-failure branch and the reservoir
+    preservation that threads through many levels.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
+
+    storage = Storage()
+    recursive = pre.deploy_contract(
+        code=(
+            # Recursive CALL until gas / depth is exhausted. The
+            # child's CALL silently fails either at depth+1 > 1024
+            # or when forwarded gas can't afford the next frame's
+            # overhead; in either case the reservoir is returned
+            # to the caller intact.
+            Op.POP(Op.CALL(Op.GAS, Op.ADDRESS, 0, 0, 0, 0, 0))
+            # Probe: the outermost (and any frame with enough
+            # remaining gas) sets slot 0. Storage check ensures
+            # the probe succeeded, i.e. the reservoir remained
+            # available after the nested CALLs unwound.
+            + Op.SSTORE(storage.store_next(1, "reservoir_ok"), 1)
+        ),
+    )
+
+    tx = Transaction(
+        to=recursive,
+        gas_limit=gas_limit_cap + sstore_state_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {recursive: Account(storage=storage)}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "num_inner_ops",
+    [
+        pytest.param(1, id="single"),
+        pytest.param(3, id="accumulate"),
+    ],
+)
+@pytest.mark.parametrize(
+    "outer_outcome",
+    [
+        pytest.param("succeeds", id="outer_succeeds"),
+        pytest.param("reverts", id="outer_reverts"),
+    ],
+)
+@pytest.mark.with_all_create_opcodes()
+@pytest.mark.valid_from("EIP8037")
+def test_inner_create_fail_refunds_in_creation_tx(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    create_opcode: Op,
+    outer_outcome: str,
+    num_inner_ops: int,
+) -> None:
+    """
+    Cross-over: PR #2704 CREATE failure refund in a creation-tx context.
+
+    The original closed PR #2639 test asserted inner CREATE's
+    `GAS_NEW_ACCOUNT` PERSISTS on child failure (targeting a
+    bal-devnet-3 geth behavior where geth incorrectly refunded).
+    PR #2704 later changed the spec to refund the charge, which
+    codifies what geth was already doing and inverts the original
+    test's premise. This test covers the CURRENT spec behavior in
+    a scenario not exercised by PR #2704's own tests (which all
+    use non-creation factories):
+
+    A creation tx (to=None) whose initcode performs `num_inner_ops`
+    inner CREATE/CREATE2 calls with REVERT initcode. Each inner
+    CREATE charges `GAS_NEW_ACCOUNT` state then refunds it via the
+    child-error branch (PR #2704). The outer initcode then
+    terminates via RETURN (succeeds) or REVERT.
+
+    Both outcomes yield `block_state = outer intrinsic` because inner
+    refunds net the state gas back to zero; PR #2689's top-level
+    refund (applied on revert) is a no-op over an already-zeroed
+    `state_gas_used`. A client regressing to the pre-#2704 "persist"
+    behavior would inflate `block_state` by
+    `num_inner_ops * GAS_NEW_ACCOUNT` and fail both variants.
+
+    The `outer_halts` variant is omitted: INVALID absorbs remaining
+    gas into `regular_gas_used`, making `block_regular` dominate the
+    header and dilute the state-dimension signal. PR #2689's
+    `test_creation_tx_failure_preserves_intrinsic_state_gas` already
+    covers the creation-tx + top-level halt interaction.
+    """
+    gas_costs = fork.gas_costs()
+    outer_state_gas = fork.create_state_gas(code_size=0)
+
+    inner_initcode = bytes(Op.REVERT(0, 0))
+
+    setup = Op.MSTORE(
+        0,
+        int.from_bytes(inner_initcode, "big")
+        << (256 - 8 * len(inner_initcode)),
+    )
+
+    inner_ops = Bytecode()
+    for i in range(num_inner_ops):
+        if create_opcode == Op.CREATE2:
+            inner_ops += Op.POP(Op.CREATE2(0, 0, len(inner_initcode), i))
+        else:
+            inner_ops += Op.POP(Op.CREATE(0, 0, len(inner_initcode)))
+
+    if outer_outcome == "succeeds":
+        termination = Op.RETURN(0, 0)
+    else:
+        termination = Op.REVERT(0, 0)
+
+    initcode = setup + inner_ops + termination
+
+    sender = pre.fund_eoa()
+    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
+    intrinsic_total = intrinsic_calc(
+        calldata=bytes(initcode), contract_creation=True
+    )
+
+    # Gas budget: enough for each inner CREATE to charge
+    # GAS_NEW_ACCOUNT (spill into gas_left, then get refunded on
+    # child failure) and for the outer termination to run.
+    initcode_gas = initcode.gas_cost(fork)
+    per_inner_slack = 2_000
+    gas_limit = (
+        intrinsic_total
+        + initcode_gas
+        + num_inner_ops * (gas_costs.GAS_NEW_ACCOUNT + per_inner_slack)
+    )
+
+    # Expected: only outer intrinsic remains in block_state. Each
+    # inner CREATE's charge is refunded by PR #2704; any residue
+    # left in state_gas_used is zeroed on outer failure by PR #2689.
+    expected_state = outer_state_gas
+
+    create_address = compute_create_address(address=sender, nonce=0)
+
+    tx = Transaction(
+        sender=sender,
+        to=None,
+        data=initcode,
+        gas_limit=gas_limit,
+    )
+
+    if outer_outcome == "succeeds":
+        post: dict = {create_address: Account(code=b"")}
+    else:
+        post = {create_address: Account.NONEXISTENT}
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=expected_state),
+            ),
+        ],
+        post=post,
+    )
