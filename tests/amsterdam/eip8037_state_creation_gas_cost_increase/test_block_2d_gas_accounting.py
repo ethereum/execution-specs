@@ -227,11 +227,11 @@ def test_block_gas_refund_eip7778_no_block_reduction(
     fork: Fork,
 ) -> None:
     """
-    Verify block gas accounting excludes refunds per EIP-7778.
+    Verify block gas accounting for SSTORE 0→x→0 refund paths.
 
-    Each tx does SSTORE(0,1) then SSTORE(0,0), set then restore.
-    The user gets a refund (reduced receipt gas_used), but EIP-7778
-    says block gas is NOT reduced by refunds.
+    Regular gas refund via `refund_counter` does NOT reduce block gas
+    (EIP-7778). State gas refund goes to the reservoir and DOES reduce
+    `block_state_gas_used` (net zero state growth).
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -247,7 +247,7 @@ def test_block_gas_refund_eip7778_no_block_reduction(
         new_value=0,
     )(0, 0)
     tx_regular = intrinsic_gas + code.gas_cost(fork) - sstore_state_gas
-    expected = max(num_txs * tx_regular, num_txs * sstore_state_gas)
+    expected = num_txs * tx_regular
     txs = []
     for _ in range(num_txs):
         contract = pre.deploy_contract(code=code)

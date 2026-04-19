@@ -127,13 +127,16 @@ def sstore(evm: Evm) -> None:
         if original_value == new_value:
             # Storage slot being restored to its original value
             if original_value == 0:
-                # Slot was originally empty and was SET earlier.
-                # Refund state gas and the write cost (the write
-                # is cancelled — clients batch trie writes to slot
-                # boundaries, so no IO actually happens).
+                # Slot set then cleared: refund state gas to the
+                # reservoir and regular cost via refund_counter. The
+                # state-gas credit is tracked in state_gas_refund so it
+                # can be unwound on revert or exceptional halt of this
+                # frame or any ancestor that inherits it.
+                evm.state_gas_left += state_gas_storage_set
+                evm.state_gas_used -= state_gas_storage_set
+                evm.state_gas_refund += state_gas_storage_set
                 evm.refund_counter += int(
-                    state_gas_storage_set
-                    + GAS_STORAGE_UPDATE
+                    GAS_STORAGE_UPDATE
                     - GAS_COLD_STORAGE_ACCESS
                     - GAS_WARM_ACCESS
                 )
