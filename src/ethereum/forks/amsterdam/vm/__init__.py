@@ -173,6 +173,7 @@ class Evm:
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
     regular_gas_used: Uint = Uint(0)
     state_gas_used: Uint = Uint(0)
+    state_gas_refund: Uint = Uint(0)
 
 
 def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
@@ -196,6 +197,7 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
     evm.accessed_storage_keys.update(child_evm.accessed_storage_keys)
     evm.regular_gas_used += child_evm.regular_gas_used
     evm.state_gas_used += child_evm.state_gas_used
+    evm.state_gas_refund += child_evm.state_gas_refund
 
 
 def incorporate_child_on_error(
@@ -210,6 +212,12 @@ def incorporate_child_on_error(
     that spilled into `gas_left`, is restored to the parent's reservoir and
     the child's `state_gas_used` is not accumulated.
 
+    Inline state-gas refunds (SSTORE 0 to x to 0) accumulated in the child or
+    its successful descendants are dropped: `state_gas_refund` is subtracted
+    from the amount returned to the parent's reservoir and is not propagated.
+    This matches `refund_counter`'s error-path behavior and keeps the refund
+    frame-scoped.
+
     Parameters
     ----------
     evm :
@@ -219,5 +227,9 @@ def incorporate_child_on_error(
 
     """
     evm.gas_left += child_evm.gas_left
-    evm.state_gas_left += child_evm.state_gas_used + child_evm.state_gas_left
+    evm.state_gas_left += (
+        child_evm.state_gas_used
+        + child_evm.state_gas_left
+        - child_evm.state_gas_refund
+    )
     evm.regular_gas_used += child_evm.regular_gas_used

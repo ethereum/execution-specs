@@ -124,6 +124,7 @@ def generic_create(
         # No account created — refund state gas to reservoir.
         evm.state_gas_left += create_account_state_gas
         evm.state_gas_used -= create_account_state_gas
+        evm.state_gas_refund += create_account_state_gas
         push(evm.stack, U256(0))
         return
 
@@ -138,6 +139,7 @@ def generic_create(
         # Address collision — no account created, refund state gas.
         evm.state_gas_left += create_account_state_gas
         evm.state_gas_used -= create_account_state_gas
+        evm.state_gas_refund += create_account_state_gas
         push(evm.stack, U256(0))
         return
 
@@ -170,6 +172,7 @@ def generic_create(
         # No account created, refund parent's CREATE state gas.
         evm.state_gas_left += create_account_state_gas
         evm.state_gas_used -= create_account_state_gas
+        evm.state_gas_refund += create_account_state_gas
         evm.return_data = child_evm.output
         push(evm.stack, U256(0))
     else:
