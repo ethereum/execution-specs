@@ -516,6 +516,124 @@ def test_finalization_burn_logs(
 
 
 @pytest.mark.parametrize(
+    "num_accounts",
+    [
+        pytest.param(2, id="two_accounts"),
+        pytest.param(5, id="five_accounts"),
+    ],
+)
+def test_finalization_burn_logs_multi_account_ordering(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Alloc,
+    sender: EOA,
+    fork: Fork,
+    num_accounts: int,
+) -> None:
+    """
+    Verify finalization burn logs are sorted lexicographically by address
+    when multiple accounts are marked for deletion in the same transaction.
+
+    N accounts are created and SELFDESTRUCT'd in the same tx, then each
+    is funded by a dedicated payer contract called in REVERSE sorted
+    address order with a distinct nonzero amount. Every destroyed account
+    ends with a distinct nonzero balance at finalization, so a Burn log
+    is emitted for each. The resulting sequence of finalization burn logs
+    must appear in ascending address order regardless of call order.
+    """
+    beneficiary = pre.deploy_contract(Op.STOP)
+
+    factory_address = compute_create_address(
+        address=sender, nonce=sender.nonce
+    )
+    created_addrs = [
+        compute_create_address(address=factory_address, nonce=i + 1)
+        for i in range(num_accounts)
+    ]
+    sorted_addrs = sorted(created_addrs)
+    reverse_sorted = list(reversed(sorted_addrs))
+
+    runtime = (
+        Op.TLOAD(0)
+        + Op.ISZERO
+        + Op.PUSH1(8)
+        + Op.JUMPI
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.TSTORE(0, 1)
+        + Op.SELFDESTRUCT(beneficiary)
+    )
+    initcode = Initcode(deploy_code=runtime)
+    initcode_len = len(initcode)
+
+    create_balances = [1000 * (i + 1) for i in range(num_accounts)]
+    factory_balance = sum(create_balances)
+    pre.fund_address(factory_address, factory_balance)
+
+    payer_code = Op.SELFDESTRUCT(Op.CALLDATALOAD(0))
+    funding_amounts = [100 * (i + 1) for i in range(num_accounts)]
+    payers = [
+        pre.deploy_contract(payer_code, balance=funding_amounts[i])
+        for i in range(num_accounts)
+    ]
+
+    factory_code: Bytecode = Om.MSTORE(initcode, 0)
+    for i in range(num_accounts):
+        factory_code += Op.TSTORE(
+            i,
+            Op.CREATE(value=create_balances[i], offset=0, size=initcode_len),
+        )
+    for i in range(num_accounts):
+        factory_code += Op.CALL(gas=Op.GAS, address=Op.TLOAD(i), value=0)
+    for i in range(num_accounts):
+        factory_code += Op.MSTORE(0, reverse_sorted[i])
+        factory_code += Op.CALL(
+            gas=Op.GAS,
+            address=payers[i],
+            args_offset=0,
+            args_size=32,
+        )
+
+    execution_logs = [
+        transfer_log(factory_address, addr, create_balances[i])
+        for i, addr in enumerate(created_addrs)
+    ]
+    execution_logs.extend(
+        transfer_log(addr, beneficiary, create_balances[i])
+        for i, addr in enumerate(created_addrs)
+    )
+    execution_logs.extend(
+        transfer_log(payers[i], reverse_sorted[i], funding_amounts[i])
+        for i in range(num_accounts)
+    )
+
+    amount_by_addr = dict(zip(reverse_sorted, funding_amounts, strict=True))
+    finalization_logs = [
+        burn_log(addr, amount_by_addr[addr]) for addr in sorted_addrs
+    ]
+
+    tx = Transaction(
+        sender=sender,
+        to=None,
+        value=0,
+        data=factory_code,
+        gas_limit=fork.transaction_gas_limit_cap(),
+        expected_receipt=TransactionReceipt(
+            logs=execution_logs + finalization_logs
+        ),
+    )
+
+    post: dict[Address, Account | None] = dict.fromkeys(
+        created_addrs, Account.NONEXISTENT
+    )
+    post[beneficiary] = Account(balance=factory_balance)
+    for payer in payers:
+        post[payer] = Account(balance=0)
+
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
     "funded_after_selfdestruct",
     [
         pytest.param(True, id="funded_after_selfdestruct"),
