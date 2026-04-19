@@ -28,6 +28,7 @@ from execution_testing import (
     Storage,
     Transaction,
     TransactionException,
+    TransactionReceipt,
 )
 from execution_testing.checklists import EIPChecklist
 
@@ -415,3 +416,319 @@ def test_create_tx_reservoir(
     )
 
     state_test(env=env, pre=pre, post={}, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "failure_mode",
+    [
+        pytest.param("revert", id="revert"),
+        pytest.param("halt", id="halt"),
+        pytest.param("oog", id="oog"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_top_level_failure_refunds_execution_state_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    failure_mode: str,
+) -> None:
+    """
+    Verify top level tx failure returns execution state gas to the
+    reservoir across revert, exceptional halt, and out of gas paths.
+
+    On top level failure no state was created, so execution state gas
+    is credited back to the reservoir and `state_gas_used` is zeroed.
+    The billing formula `tx.gas - gas_left - state_gas_left` sees a
+    restored reservoir and refunds the sender. Without the refund the
+    receipt would bill the consumed state gas despite the failure.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+
+    if failure_mode == "revert":
+        code = Op.SSTORE(0, 1) + Op.REVERT(0, 0)
+    elif failure_mode == "halt":
+        code = Op.SSTORE(0, 1) + Op.INVALID
+    else:
+        # OOG: perform the SSTORE then spin with JUMPDEST loop until
+        # gas runs out.
+        code = Op.SSTORE(0, 1) + Op.JUMPDEST + Op.JUMP(0x5)
+    contract = pre.deploy_contract(code=code)
+
+    tx_gas = gas_limit_cap + sstore_state_gas
+
+    if failure_mode == "revert":
+        # REVERT preserves unused gas_left.
+        expected_cumulative = (
+            intrinsic_cost + code.gas_cost(fork) - sstore_state_gas
+        )
+    else:
+        # Exceptional halt and out of gas zero gas_left.
+        expected_cumulative = tx_gas - sstore_state_gas
+
+    tx = Transaction(
+        to=contract,
+        gas_limit=tx_gas,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_cumulative,
+        ),
+    )
+
+    state_test(pre=pre, post={contract: Account(storage={})}, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "failure_mode",
+    [
+        pytest.param("revert", id="revert"),
+        pytest.param("halt", id="halt"),
+        pytest.param("oog", id="oog"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_top_level_failure_zeros_block_state_gas(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    failure_mode: str,
+) -> None:
+    """
+    Verify the block header reflects zero execution state gas after a
+    top level failure.
+
+    With `state_gas_used` zeroed on failure, `block_state_gas_used`
+    excludes any state gas consumed during the failed transaction and
+    the block header `gas_used` falls back to the regular gas
+    component alone.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+
+    if failure_mode == "revert":
+        code = Op.SSTORE(0, 1) + Op.REVERT(0, 0)
+    elif failure_mode == "halt":
+        code = Op.SSTORE(0, 1) + Op.INVALID
+    else:
+        code = Op.SSTORE(0, 1) + Op.JUMPDEST + Op.JUMP(0x5)
+    contract = pre.deploy_contract(code=code)
+
+    tx_gas = gas_limit_cap + sstore_state_gas
+    tx = Transaction(
+        to=contract,
+        gas_limit=tx_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    if failure_mode == "revert":
+        expected_block_regular = (
+            intrinsic_cost + code.gas_cost(fork) - sstore_state_gas
+        )
+    else:
+        # Exceptional halt and out of gas zero gas_left.
+        expected_block_regular = tx_gas - sstore_state_gas
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=expected_block_regular),
+            ),
+        ],
+        post={contract: Account(storage={})},
+    )
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_creation_tx_failure_preserves_intrinsic_state_gas(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Regression test for the creation tx failure path.
+
+    A creation tx (to=None) whose initcode halts exercises both the
+    intrinsic state gas for the new account and the top level failure
+    refund of execution state gas. The test asserts the block header
+    `gas_used` equals `max(block_regular, intrinsic_state_gas)`,
+    guarding that the failure path does not raise and that block
+    accounting does not underflow when the refund is applied.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+
+    create_intrinsic_state = fork.transaction_intrinsic_state_gas(
+        contract_creation=True,
+    )
+    sstore_state_gas = fork.sstore_state_gas()
+    tx_gas = gas_limit_cap + create_intrinsic_state + sstore_state_gas
+
+    tx = Transaction(
+        to=None,
+        data=Op.SSTORE(0, 1) + Op.INVALID,
+        gas_limit=tx_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    block_regular = tx_gas - create_intrinsic_state - sstore_state_gas
+    expected_gas_used = max(block_regular, create_intrinsic_state)
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=expected_gas_used),
+            ),
+        ],
+        post={},
+    )
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_subcall_failure_does_not_zero_top_level_state_gas(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify a subcall failure does not zero the top level execution
+    state gas.
+
+    The top level tx succeeds end to end even though a subcall
+    reverts, so the top level failure refund does not apply. The
+    parent's own SSTORE contributes state gas that appears in
+    `block_state_gas_used`.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
+
+    child = pre.deploy_contract(code=Op.REVERT(0, 0))
+    parent_storage = Storage()
+    parent = pre.deploy_contract(
+        code=(
+            Op.POP(Op.CALL(gas=Op.GAS, address=child))
+            + Op.SSTORE(parent_storage.store_next(1, "parent_sstore"), 1)
+        ),
+    )
+
+    tx = Transaction(
+        to=parent,
+        gas_limit=gas_limit_cap + sstore_state_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    # Parent's SSTORE state gas dominates tx_regular and surfaces in
+    # the block header, proving the top level refund is scoped to
+    # top level failures and not child reverts.
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=sstore_state_gas),
+            ),
+        ],
+        post={parent: Account(storage=parent_storage)},
+    )
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_top_level_failure_refunds_spilled_state_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify the top level failure refund covers state gas that
+    spilled from the reservoir into gas_left.
+
+    When the reservoir is smaller than the state gas charge, the
+    overflow spills and is drawn from gas_left. On top level failure
+    the full consumed state gas (reservoir portion plus spilled
+    portion) is credited back to the reservoir so the sender is not
+    billed for any of it.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+
+    code = Op.SSTORE(0, 1) + Op.REVERT(0, 0)
+    contract = pre.deploy_contract(code=code)
+
+    # Reservoir sized to cover only half the SSTORE state gas; the
+    # other half must spill into gas_left.
+    tx_gas = gas_limit_cap + sstore_state_gas // 2
+    expected_cumulative = (
+        intrinsic_cost + code.gas_cost(fork) - sstore_state_gas
+    )
+
+    tx = Transaction(
+        to=contract,
+        gas_limit=tx_gas,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_cumulative,
+        ),
+    )
+
+    state_test(pre=pre, post={contract: Account(storage={})}, tx=tx)
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_top_level_failure_refunds_state_gas_propagated_from_child(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify the top level failure refund catches state gas propagated
+    from a successful subcall.
+
+    The parent calls a child that runs SSTORE and returns. The
+    child's state gas usage is folded into the parent frame via the
+    success path. When the parent then reverts at the top level, the
+    full propagated state gas must be refunded so the sender fee
+    excludes it.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+
+    child_code = Op.SSTORE(0, 1)
+    child = pre.deploy_contract(code=child_code)
+    parent_code = Op.POP(Op.CALL(gas=Op.GAS, address=child)) + Op.REVERT(0, 0)
+    parent = pre.deploy_contract(code=parent_code)
+
+    # Reservoir sized for the child's SSTORE. After the propagated
+    # state gas is refunded, the sender is billed only the regular
+    # gas: parent + CALL dispatch + child regular (SSTORE minus its
+    # state component).
+    tx_gas = gas_limit_cap + sstore_state_gas
+    expected_cumulative = (
+        intrinsic_cost
+        + parent_code.gas_cost(fork)
+        + child_code.gas_cost(fork)
+        - sstore_state_gas
+    )
+
+    tx = Transaction(
+        to=parent,
+        gas_limit=tx_gas,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_cumulative,
+        ),
+    )
+
+    state_test(pre=pre, post={child: Account(storage={})}, tx=tx)
