@@ -1594,3 +1594,155 @@ def test_failed_create_tx_state_gas_dominates(
         ],
         post={},
     )
+
+
+@pytest.mark.parametrize(
+    "initcode_size_delta",
+    [
+        pytest.param(0, id="at_max"),
+        pytest.param(1, id="over_max", marks=pytest.mark.exception_test),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_oversized_initcode_tx_no_state_gas(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    initcode_size_delta: int,
+) -> None:
+    """
+    Verify CREATE tx with oversized initcode charges no state gas.
+
+    EIP-8037 moves the initcode size validation to run before
+    account-creation state gas is charged (see PR #2608). A CREATE
+    tx whose initcode exceeds MAX_INITCODE_SIZE must be rejected
+    with no state gas consumed; otherwise block_state_gas_used
+    would include a spurious GAS_NEW_ACCOUNT charge for an account
+    that is never created.
+
+    The at_max variant succeeds and charges state gas normally.
+    The over_max variant is rejected with no state gas.
+    """
+    max_size = fork.max_initcode_size()
+    size = max_size + initcode_size_delta
+    initcode = Initcode(deploy_code=Op.STOP, initcode_length=size)
+
+    sender = pre.fund_eoa()
+    create_address = compute_create_address(address=sender, nonce=0)
+
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    create_state_gas = fork.create_state_gas(code_size=len(Op.STOP))
+
+    tx = Transaction(
+        sender=sender,
+        to=None,
+        data=initcode,
+        gas_limit=gas_limit_cap + create_state_gas,
+    )
+
+    if initcode_size_delta > 0:
+        tx.error = TransactionException.INITCODE_SIZE_EXCEEDED
+        post: dict = {create_address: Account.NONEXISTENT}
+    else:
+        post = {create_address: Account(code=Op.STOP)}
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                exception=(
+                    TransactionException.INITCODE_SIZE_EXCEEDED
+                    if initcode_size_delta > 0
+                    else None
+                ),
+            ),
+        ],
+        post=post,
+    )
+
+
+@pytest.mark.parametrize(
+    "initcode_size_delta",
+    [
+        pytest.param(0, id="at_max"),
+        pytest.param(1, id="over_max"),
+    ],
+)
+@pytest.mark.with_all_create_opcodes()
+@pytest.mark.valid_from("EIP8037")
+def test_oversized_initcode_opcode_no_state_gas(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    create_opcode: Op,
+    initcode_size_delta: int,
+) -> None:
+    """
+    Verify CREATE/CREATE2 with oversized initcode charges no state gas.
+
+    A factory calls CREATE/CREATE2 with initcode exceeding
+    MAX_INITCODE_SIZE. The opcode must fail the size check before
+    charging account-creation state gas (PR #2608 ordering). If
+    state gas were charged first, block_state_gas_used would be
+    inflated by GAS_NEW_ACCOUNT for an account never created.
+
+    The at_max variant succeeds. The over_max variant returns 0
+    from CREATE and charges no state gas.
+    """
+    max_size = fork.max_initcode_size()
+    size = max_size + initcode_size_delta
+    initcode = Initcode(deploy_code=Op.STOP, initcode_length=size)
+    initcode_bytes = bytes(initcode)
+
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    gas_costs = fork.gas_costs()
+    create_state_gas = gas_costs.GAS_NEW_ACCOUNT
+
+    create_call = (
+        create_opcode(
+            value=0,
+            offset=0,
+            size=Op.CALLDATASIZE,
+            salt=0,
+            init_code_size=len(initcode_bytes),
+        )
+        if create_opcode == Op.CREATE2
+        else create_opcode(value=0, offset=0, size=Op.CALLDATASIZE)
+    )
+
+    factory = pre.deploy_contract(
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE) + Op.SSTORE(0, create_call)
+    )
+
+    create_address = compute_create_address(
+        address=factory,
+        nonce=1,
+        salt=0,
+        initcode=initcode,
+        opcode=create_opcode,
+    )
+
+    storage = Storage()
+    storage[0] = create_address if initcode_size_delta == 0 else 0
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=factory,
+        data=initcode_bytes,
+        gas_limit=gas_limit_cap + create_state_gas,
+    )
+
+    post: dict = {factory: Account(storage=storage)}
+    if initcode_size_delta == 0:
+        post[create_address] = Account(code=Op.STOP)
+    else:
+        post[create_address] = Account.NONEXISTENT
+
+    blockchain_test(
+        pre=pre,
+        blocks=[Block(txs=[tx])],
+        post=post,
+    )
