@@ -288,21 +288,28 @@ def test_block_2d_gas_boundary_exact_fit(
     num_sstores: int,
 ) -> None:
     """
-    Verify a block is valid when max(regular, state) == gas_limit.
+    Verify a block is valid when state gas dominates regular gas.
 
-    Set block_gas_limit = block_state_gas (the dominant dimension).
     Clients that sum regular + state will reject this valid block.
     """
     tx_regular, tx_state = sstore_tx_gas(fork, num_sstores)
-    block_state = num_txs * tx_state
-    block_gas_limit = block_state
+    intrinsic_regular = fork.transaction_intrinsic_cost_calculator()()
 
-    # tx_limit must exceed tx_regular + tx_state so the tx is valid,
-    # but the per-tx regular reservation against block gas must still
-    # leave room for all txs.
     tx_limit = tx_regular + tx_state + tx_regular // 10
-    worst = block_gas_limit - (num_txs - 1) * tx_regular
-    assert worst >= tx_limit, "per-tx regular gas check fails"
+
+    # Per-tx worst-case state contribution: tx.gas - intrinsic_regular.
+    # The block_gas_limit must leave enough state budget for every tx.
+    worst_state_per_tx = tx_limit - intrinsic_regular
+    block_gas_limit = max(
+        # Regular dimension: last tx must fit.
+        (num_txs - 1) * tx_regular + tx_limit,
+        # State dimension: cumulative worst-case must fit.
+        num_txs * worst_state_per_tx,
+    )
+
+    block_regular = num_txs * tx_regular
+    block_state = num_txs * tx_state
+    expected_gas_used = max(block_regular, block_state)
 
     txs, post = sstore_txs(
         pre,
@@ -320,7 +327,7 @@ def test_block_2d_gas_boundary_exact_fit(
             Block(
                 txs=txs,
                 gas_limit=block_gas_limit,
-                header_verify=Header(gas_used=block_gas_limit),
+                header_verify=Header(gas_used=expected_gas_used),
             )
         ],
         post=post,
