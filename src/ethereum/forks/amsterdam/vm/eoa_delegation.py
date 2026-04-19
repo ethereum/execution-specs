@@ -163,8 +163,8 @@ def set_delegation(message: Message) -> None:
     """
     Set the delegation code for the authorities in the message.
 
-    For existing accounts, adjusts intrinsic_state_gas downward since
-    no account creation is needed (only delegation code write).
+    For existing accounts, refunds the account-creation component of
+    state gas to the reservoir (no mutation of intrinsic_state_gas).
 
     Parameters
     ----------
@@ -199,11 +199,10 @@ def set_delegation(message: Message) -> None:
             continue
 
         # For existing accounts, no account creation needed.
-        # Refund the account creation state gas to the reservoir
-        # and adjust intrinsic accounting to avoid double-counting.
+        # Refund the account creation state gas to the reservoir.
+        # intrinsic_state_gas is immutable after validation.
         if account_exists(tx_state, authority):
             refund = STATE_BYTES_PER_NEW_ACCOUNT * cost_per_state_byte
-            message.tx_env.intrinsic_state_gas -= refund
             message.state_gas_reservoir += refund
 
         if auth.address == NULL_ADDRESS:
