@@ -2,6 +2,9 @@
 
 from unittest.mock import patch
 
+import click
+import pytest
+
 from execution_testing.cli.pytest_commands.fill import (
     FillCommand,
 )
@@ -115,6 +118,40 @@ def test_use_pre_alloc_groups_forces_single_phase() -> None:
     assert len(executions) == 1
     assert "--use-pre-alloc-groups" in executions[0].args
     assert "--generate-all-formats" in executions[0].args
+
+
+def test_use_and_generate_pre_alloc_groups_together_is_rejected() -> None:
+    """
+    --use-pre-alloc-groups + --generate-pre-alloc-groups are contradictory:
+    the first asserts the groups exist, the second regenerates them.
+    """
+    command = FillCommand()
+
+    with patch.object(command, "process_arguments", side_effect=lambda x: x):
+        pytest_args = [
+            "--use-pre-alloc-groups",
+            "--generate-pre-alloc-groups",
+            "tests/somedir/",
+        ]
+        with pytest.raises(click.UsageError, match="mutually exclusive"):
+            command.create_executions(pytest_args)
+
+
+def test_use_pre_alloc_groups_with_clean_is_rejected() -> None:
+    """
+    --use-pre-alloc-groups + --clean is contradictory: --clean wipes the
+    output directory that holds the pre-alloc groups.
+    """
+    command = FillCommand()
+
+    with patch.object(command, "process_arguments", side_effect=lambda x: x):
+        pytest_args = [
+            "--use-pre-alloc-groups",
+            "--clean",
+            "tests/somedir/",
+        ]
+        with pytest.raises(click.UsageError, match="--clean"):
+            command.create_executions(pytest_args)
 
 
 def test_single_phase_without_flags() -> None:
