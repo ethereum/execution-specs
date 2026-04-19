@@ -48,6 +48,7 @@ class FillCommand(PytestCommand):
         """
         processed_args = self.process_arguments(pytest_args)
         processed_args = self._add_default_ignores(processed_args)
+        self._validate_flag_combinations(processed_args)
 
         if "--use-pre-alloc-groups" in processed_args:
             # Pre-alloc groups already exist: single-phase fill only.
@@ -73,6 +74,26 @@ class FillCommand(PytestCommand):
                 allowed_exit_codes=self.allowed_exit_codes,
             )
         ]
+
+    def _validate_flag_combinations(self, args: List[str]) -> None:
+        """
+        Reject contradictory flag combinations up front so phase 2 never
+        runs against a missing pre-alloc folder.
+        """
+        if "--use-pre-alloc-groups" not in args:
+            return
+        if "--generate-pre-alloc-groups" in args:
+            raise click.UsageError(
+                "--use-pre-alloc-groups and --generate-pre-alloc-groups "
+                "are mutually exclusive: the first asserts the groups "
+                "already exist on disk, the second regenerates them."
+            )
+        if "--clean" in args:
+            raise click.UsageError(
+                "--use-pre-alloc-groups cannot be combined with --clean: "
+                "--clean wipes the output directory that holds the "
+                "pre-alloc groups."
+            )
 
     def _create_phase1_only_execution(
         self, args: List[str]
