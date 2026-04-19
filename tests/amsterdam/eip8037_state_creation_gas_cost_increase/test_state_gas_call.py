@@ -21,6 +21,7 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    Bytecode,
     Environment,
     Fork,
     Header,
@@ -936,13 +937,16 @@ def test_call_value_to_self_destructed_same_tx_account(
     create_opcode: Op,
 ) -> None:
     """
-    Verify CALL with value to a same transaction selfdestructed
-    account succeeds and charges no new account state gas.
+    Smoke test for CALL with value to a same transaction
+    selfdestructed account.
 
-    The account still has its CREATE nonce when the CALL runs, so it
-    is neither empty nor nonexistent and the new account creation
-    gate does not fire. End of the transaction destruction removes
-    the account regardless, and the value transferred is burned.
+    Confirms the happy path runs to completion. The account still
+    has its CREATE nonce when the CALL runs, so it is neither empty
+    nor nonexistent and the new account creation gate does not fire;
+    end of the transaction destruction removes the account regardless
+    and the value transferred is burned. Strict discrimination of
+    the no charge behavior lives in
+    `test_call_value_to_self_destructed_header_gas_used`.
     """
     env = Environment()
     gas_limit_cap = fork.transaction_gas_limit_cap()
@@ -1142,9 +1146,17 @@ def test_call_value_to_self_destructed_burns_value(
         sender=pre.fund_eoa(),
     )
 
+    # Header reflects the CREATE's single new account state gas
+    # charge. A spurious charge on the value bearing CALL would
+    # double the state gas component.
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[tx])],
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=new_account_state_gas),
+            ),
+        ],
         post={
             created_address: Account.NONEXISTENT,
             orchestrator: Account(balance=0),
@@ -1161,7 +1173,7 @@ def test_call_value_to_self_destructed_burns_value(
 )
 @pytest.mark.valid_from("EIP8037")
 def test_call_zero_value_to_self_destructed_same_tx_account(
-    state_test: StateTestFiller,
+    blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
     create_opcode: Op,
@@ -1170,11 +1182,11 @@ def test_call_zero_value_to_self_destructed_same_tx_account(
     Verify CALL with zero value to a same transaction selfdestructed
     account charges no new account state gas.
 
-    Value transfer gates the new account creation charge, so a zero
-    value CALL never triggers it regardless of the target's state.
-    The reservoir covers only the CREATE's charge; any spurious
-    charge on the zero value CALL would spill and run the
-    orchestrator out of gas.
+    Value transfer gates the new account creation charge. Under the
+    correct spec the block header reflects only the CREATE's single
+    new account state gas charge. A spurious charge on the zero
+    value CALL (value gate broken) would double the state gas
+    component.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -1183,7 +1195,6 @@ def test_call_zero_value_to_self_destructed_same_tx_account(
     inner_code = Op.SELFDESTRUCT(Op.ADDRESS)
     mstore_value, size = init_code_at_high_bytes(inner_code)
 
-    storage = Storage()
     orchestrator = pre.deploy_contract(
         code=(
             Op.MSTORE(0, mstore_value)
@@ -1194,10 +1205,7 @@ def test_call_zero_value_to_self_destructed_same_tx_account(
             )
             + Op.MSTORE(0x20, Op.DUP1)
             + Op.POP
-            + Op.SSTORE(
-                storage.store_next(1, "call_succeeds"),
-                Op.CALL(gas=Op.GAS, address=Op.MLOAD(0x20), value=0),
-            )
+            + Op.POP(Op.CALL(gas=Op.GAS, address=Op.MLOAD(0x20), value=0))
         ),
         balance=3,
     )
@@ -1208,8 +1216,16 @@ def test_call_zero_value_to_self_destructed_same_tx_account(
         sender=pre.fund_eoa(),
     )
 
-    post = {orchestrator: Account(storage=storage)}
-    state_test(pre=pre, post=post, tx=tx)
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=new_account_state_gas),
+            ),
+        ],
+        post={},
+    )
 
 
 @pytest.mark.parametrize(
@@ -1221,7 +1237,7 @@ def test_call_zero_value_to_self_destructed_same_tx_account(
 )
 @pytest.mark.valid_from("EIP8037")
 def test_call_value_to_pre_existing_selfdestructed_account(
-    state_test: StateTestFiller,
+    blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
     beneficiary_type: str,
@@ -1233,12 +1249,23 @@ def test_call_value_to_pre_existing_selfdestructed_account(
     Per EIP-6780 a pre existing contract that executes SELFDESTRUCT
     is not queued for end of the transaction destruction, so a
     subsequent CALL sees an existing, code carrying account and the
-    new account creation gate does not fire. No reservoir is needed
-    for the value bearing CALL. Covered for both an EOA beneficiary
-    and a pre existing contract beneficiary.
+    new account creation gate does not fire.
+
+    Several cold SSTOREs after the CALLs make block state gas
+    dominate the block regular gas component, so the block header
+    reflects exactly `num_probes * sstore_state_gas`. A spurious
+    new account charge on the value bearing CALL would push the
+    header up by that charge, breaking the assertion.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
+
+    # Enough probes that the combined probe state gas dominates the
+    # transaction's regular gas component and the header reflects
+    # block state gas alone.
+    num_probes = 6
+    probe_state_gas = num_probes * sstore_state_gas
 
     # Beneficiary must be alive so the target's SELFDESTRUCT itself
     # does not charge for creating a new beneficiary.
@@ -1252,26 +1279,31 @@ def test_call_value_to_pre_existing_selfdestructed_account(
         balance=1,
     )
 
-    storage = Storage()
+    probes = Bytecode()
+    for slot in range(num_probes):
+        probes += Op.SSTORE(slot, 1)
     orchestrator = pre.deploy_contract(
         code=(
-            Op.SSTORE(
-                storage.store_next(1, "selfdestruct_call_succeeds"),
-                Op.CALL(gas=Op.GAS, address=target),
-            )
-            + Op.SSTORE(
-                storage.store_next(1, "value_call_succeeds"),
-                Op.CALL(gas=Op.GAS, address=target, value=1),
-            )
+            Op.POP(Op.CALL(gas=Op.GAS, address=target))
+            + Op.POP(Op.CALL(gas=Op.GAS, address=target, value=1))
+            + probes
         ),
         balance=3,
     )
 
     tx = Transaction(
         to=orchestrator,
-        gas_limit=gas_limit_cap,
+        gas_limit=gas_limit_cap + probe_state_gas,
         sender=pre.fund_eoa(),
     )
 
-    post = {orchestrator: Account(storage=storage)}
-    state_test(pre=pre, post=post, tx=tx)
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=probe_state_gas),
+            ),
+        ],
+        post={},
+    )
