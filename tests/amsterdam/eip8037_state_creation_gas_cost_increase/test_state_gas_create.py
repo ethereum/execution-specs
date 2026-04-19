@@ -1746,3 +1746,185 @@ def test_oversized_initcode_opcode_no_state_gas(
         blocks=[Block(txs=[tx])],
         post=post,
     )
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_selfdestruct_in_create_tx_initcode(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify state gas for a creation tx whose initcode SELFDESTRUCTs.
+
+    A creation tx (to=None) with value=1 whose initcode immediately
+    SELFDESTRUCTs to a new beneficiary. Under EIP-6780 the outer
+    contract is marked for deletion (created in the same tx). The
+    SELFDESTRUCT charges `GAS_NEW_ACCOUNT` for the beneficiary.
+
+    Post-PR #2707: the outer account is in `created_accounts` AND
+    `accounts_to_delete`, so its `GAS_NEW_ACCOUNT` is refunded
+    end-of-tx. The beneficiary charge (new, live) is NOT refunded
+    because the beneficiary itself is not in `created_accounts`.
+    After the refund, `state_gas_used = 0` (refund == beneficiary
+    charge amount). Intrinsic state gas for the outer account is
+    preserved (tracked separately from execution state gas).
+
+    Expected block state gas = intrinsic_state = `GAS_NEW_ACCOUNT`.
+    A client that skips the end-of-tx refund for the creation-tx
+    path would report `2 * GAS_NEW_ACCOUNT`.
+    """
+    gas_costs = fork.gas_costs()
+    create_state_gas = fork.create_state_gas(code_size=0)
+
+    beneficiary = 0xDEAD
+    initcode = Op.SELFDESTRUCT(beneficiary)
+
+    sender = pre.fund_eoa()
+    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
+    intrinsic_total = intrinsic_calc(
+        calldata=bytes(initcode), contract_creation=True
+    )
+
+    # Refund zeroes state_gas_used from the beneficiary charge;
+    # only intrinsic state (outer account) remains in the header.
+    expected_state = create_state_gas
+
+    # Gas budget: enough for initcode + beneficiary state charge
+    # so the SELFDESTRUCT reaches completion.
+    initcode_gas = initcode.gas_cost(fork)
+    gas_limit = (
+        intrinsic_total + initcode_gas + gas_costs.GAS_NEW_ACCOUNT + 1000
+    )
+
+    tx = Transaction(
+        sender=sender,
+        to=None,
+        data=initcode,
+        value=1,
+        gas_limit=gas_limit,
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=expected_state),
+            ),
+        ],
+        post={},
+    )
+
+
+@pytest.mark.parametrize(
+    "outer_outcome",
+    [
+        pytest.param("succeeds", id="outer_succeeds"),
+        pytest.param("reverts", id="outer_reverts"),
+        pytest.param("halts", id="outer_halts"),
+    ],
+)
+@pytest.mark.with_all_create_opcodes()
+@pytest.mark.valid_from("EIP8037")
+def test_inner_create_succeeds_code_deposit_state_gas(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    create_opcode: Op,
+    outer_outcome: str,
+) -> None:
+    """
+    Verify state gas for creation tx with a successful inner CREATE.
+
+    A creation tx (to=None) whose initcode runs an inner
+    CREATE/CREATE2 that succeeds and deploys 1 byte of code. The
+    outer initcode then terminates via RETURN, REVERT, or INVALID.
+
+    Post-PR #2704/#2689:
+    * outer_succeeds: the inner's `GAS_NEW_ACCOUNT` plus 1-byte
+      code deposit accumulate into the outer's `state_gas_used`
+      (via `incorporate_child_on_success`). No refund applies.
+      Block state = outer intrinsic + inner account + inner code
+      deposit.
+    * outer_reverts / outer_halts: top-level failure refund zeroes
+      `state_gas_used` (PR #2689). Only the outer's intrinsic
+      state gas remains. Block state = outer intrinsic only.
+
+    A client that fails to accumulate inner state gas on success,
+    or fails to refund on top-level failure, will produce the wrong
+    header.
+    """
+    gas_costs = fork.gas_costs()
+    outer_state_gas = fork.create_state_gas(code_size=0)
+    inner_code_deposit = fork.code_deposit_state_gas(code_size=1)
+    inner_state_gas = gas_costs.GAS_NEW_ACCOUNT + inner_code_deposit
+
+    # Inner initcode: MSTORE one byte of 0x00, RETURN(31, 1).
+    deploy_code = Op.STOP
+    inner_initcode = Op.MSTORE(
+        0,
+        int.from_bytes(bytes(deploy_code), "big") << 248,
+    ) + Op.RETURN(31, 1)
+    inner_bytes = bytes(inner_initcode)
+
+    setup = Op.MSTORE(
+        0,
+        int.from_bytes(inner_bytes, "big") << (256 - 8 * len(inner_bytes)),
+    )
+    if create_opcode == Op.CREATE2:
+        inner_create = Op.POP(Op.CREATE2(0, 0, len(inner_bytes), 0))
+    else:
+        inner_create = Op.POP(Op.CREATE(0, 0, len(inner_bytes)))
+
+    if outer_outcome == "succeeds":
+        termination = Op.RETURN(0, 0)
+    elif outer_outcome == "reverts":
+        termination = Op.REVERT(0, 0)
+    else:
+        termination = Op.INVALID
+
+    initcode = setup + inner_create + termination
+
+    sender = pre.fund_eoa()
+    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
+    intrinsic_total = intrinsic_calc(
+        calldata=bytes(initcode), contract_creation=True
+    )
+
+    # Static cost excludes inner code-deposit, so add it to give
+    # the initcode enough to reach RETURN in the child frame.
+    initcode_gas = initcode.gas_cost(fork)
+    gas_limit = intrinsic_total + initcode_gas + inner_code_deposit + 1000
+
+    if outer_outcome == "succeeds":
+        expected_state = outer_state_gas + inner_state_gas
+    else:
+        # Top-level failure refund (PR #2689) zeroes execution
+        # state gas, so only the outer intrinsic charge remains.
+        expected_state = outer_state_gas
+
+    create_address = compute_create_address(address=sender, nonce=0)
+
+    tx = Transaction(
+        sender=sender,
+        to=None,
+        data=initcode,
+        gas_limit=gas_limit,
+    )
+
+    if outer_outcome == "succeeds":
+        post: dict = {create_address: Account(code=b"")}
+    else:
+        post = {create_address: Account.NONEXISTENT}
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=expected_state),
+            ),
+        ],
+        post=post,
+    )
