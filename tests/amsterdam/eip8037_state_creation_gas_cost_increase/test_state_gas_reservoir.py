@@ -552,13 +552,14 @@ def test_creation_tx_failure_preserves_intrinsic_state_gas(
     fork: Fork,
 ) -> None:
     """
-    Verify a failed creation tx still counts intrinsic state gas.
+    Regression test for the creation tx failure path.
 
-    A creation tx (to=None) whose initcode halts carries intrinsic
-    state gas for the new account. The top level failure refund
-    zeroes execution state gas but preserves intrinsic state gas, so
-    the block header reflects the intrinsic state gas rather than
-    zero.
+    A creation tx (to=None) whose initcode halts exercises both the
+    intrinsic state gas for the new account and the top level failure
+    refund of execution state gas. The test asserts the block header
+    `gas_used` equals `max(block_regular, intrinsic_state_gas)`,
+    guarding that the failure path does not raise and that block
+    accounting does not underflow when the refund is applied.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
