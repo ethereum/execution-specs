@@ -1533,3 +1533,64 @@ def test_create_code_deposit_oog_refunds_state_gas(
     )
 
     state_test(pre=pre, post={factory: Account(storage=storage)}, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "init_code",
+    [
+        pytest.param(Op.REVERT(0, 0), id="revert"),
+        pytest.param(Op.INVALID, id="halt"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_failed_create_tx_state_gas_dominates(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    init_code: Bytecode,
+) -> None:
+    """
+    Verify 2D header gas_used when a failed creation tx's state dominates.
+
+    A creation tx (to=None) with a tight gas limit whose initcode
+    fails via REVERT or INVALID. The intrinsic state gas for the
+    new account is preserved across the top-level failure refund
+    (only execution state gas is zeroed). With a tight regular
+    budget the state dimension dominates and the header must
+    equal `create_state_gas`. A client using 1D sum-based
+    accounting would produce a different header value.
+
+    Complements PR #2689's
+    `test_creation_tx_failure_preserves_intrinsic_state_gas` by
+    exercising the REVERT path and the tight-gas scenario.
+    """
+    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
+    create_state_gas = fork.create_state_gas(code_size=0)
+
+    intrinsic_total = intrinsic_calc(
+        calldata=bytes(init_code), contract_creation=True
+    )
+    intrinsic_regular = intrinsic_total - create_state_gas
+    gas_limit = intrinsic_total + 1000
+
+    assert intrinsic_regular + 1000 < create_state_gas, (
+        "tight gas budget must keep block_regular below create_state_gas"
+    )
+
+    tx = Transaction(
+        to=None,
+        data=init_code,
+        gas_limit=gas_limit,
+        sender=pre.fund_eoa(),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=create_state_gas),
+            ),
+        ],
+        post={},
+    )
