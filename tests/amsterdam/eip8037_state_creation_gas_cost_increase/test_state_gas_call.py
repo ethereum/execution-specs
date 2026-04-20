@@ -29,6 +29,7 @@ from execution_testing import (
     StateTestFiller,
     Storage,
     Transaction,
+    TransactionReceipt,
     compute_create2_address,
     compute_create_address,
 )
@@ -1542,10 +1543,22 @@ def test_child_failure_refunds_state_gas_to_reservoir_not_gas_left(
         ),
     )
 
+    # Empirical per-tx cumulative. Pinning this catches a mutation
+    # that correctly restores the reservoir but also double-refunds
+    # to regular gas (or otherwise leaks extra gas to the sender),
+    # which the storage probe alone cannot discriminate.
+    expected_cumulative = {
+        Op.CALL: 73_831,
+        Op.DELEGATECALL: 73_825,
+    }[call_opcode]
+
     tx = Transaction(
         to=parent,
         gas_limit=gas_limit_cap + sstore_state_gas,
         sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_cumulative,
+        ),
     )
 
     # DELEGATECALL executes the callee in the caller's storage
