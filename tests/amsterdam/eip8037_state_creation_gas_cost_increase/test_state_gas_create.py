@@ -1887,8 +1887,8 @@ def test_nested_create_fail_parent_revert_state_gas(
     create_opcode: Op,
 ) -> None:
     """
-    Verify factory nonce across the compound caller to factory to
-    child-create failure flow when the parent reverts or succeeds.
+    Verify factory nonce is rolled back when the factory reverts after
+    a failed inner CREATE, and preserved when the factory returns.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
