@@ -55,11 +55,9 @@ class EIP2930(BaseFork):
             )
             if access_list is not None:
                 for access in access_list:
-                    intrinsic_cost += gas_costs.GAS_TX_ACCESS_LIST_ADDRESS
+                    intrinsic_cost += gas_costs.TX_ACCESS_LIST_ADDRESS
                     for _ in access.storage_keys:
-                        intrinsic_cost += (
-                            gas_costs.GAS_TX_ACCESS_LIST_STORAGE_KEY
-                        )
+                        intrinsic_cost += gas_costs.TX_ACCESS_LIST_STORAGE_KEY
             return intrinsic_cost
 
         return fn

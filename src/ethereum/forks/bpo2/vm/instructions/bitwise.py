@@ -14,7 +14,7 @@ Implementations of the EVM bitwise instructions.
 from ethereum_types.numeric import U256, Uint
 
 from .. import Evm
-from ..gas import GAS_LOW, GAS_VERY_LOW, charge_gas
+from ..gas import GasCosts, charge_gas
 from ..stack import pop, push
 
 
@@ -34,7 +34,7 @@ def bitwise_and(evm: Evm) -> None:
     y = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_VERY_LOW)
+    charge_gas(evm, GasCosts.OPCODE_AND)
 
     # OPERATION
     push(evm.stack, x & y)
@@ -59,7 +59,7 @@ def bitwise_or(evm: Evm) -> None:
     y = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_VERY_LOW)
+    charge_gas(evm, GasCosts.OPCODE_OR)
 
     # OPERATION
     push(evm.stack, x | y)
@@ -84,7 +84,7 @@ def bitwise_xor(evm: Evm) -> None:
     y = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_VERY_LOW)
+    charge_gas(evm, GasCosts.OPCODE_XOR)
 
     # OPERATION
     push(evm.stack, x ^ y)
@@ -108,7 +108,7 @@ def bitwise_not(evm: Evm) -> None:
     x = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_VERY_LOW)
+    charge_gas(evm, GasCosts.OPCODE_NOT)
 
     # OPERATION
     push(evm.stack, ~x)
@@ -134,7 +134,7 @@ def get_byte(evm: Evm) -> None:
     word = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_VERY_LOW)
+    charge_gas(evm, GasCosts.OPCODE_BYTE)
 
     # OPERATION
     if byte_index >= U256(32):
@@ -169,7 +169,7 @@ def bitwise_shl(evm: Evm) -> None:
     value = Uint(pop(evm.stack))
 
     # GAS
-    charge_gas(evm, GAS_VERY_LOW)
+    charge_gas(evm, GasCosts.OPCODE_SHL)
 
     # OPERATION
     if shift < Uint(256):
@@ -199,7 +199,7 @@ def bitwise_shr(evm: Evm) -> None:
     value = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_VERY_LOW)
+    charge_gas(evm, GasCosts.OPCODE_SHR)
 
     # OPERATION
     if shift < U256(256):
@@ -229,7 +229,7 @@ def bitwise_sar(evm: Evm) -> None:
     signed_value = pop(evm.stack).to_signed()
 
     # GAS
-    charge_gas(evm, GAS_VERY_LOW)
+    charge_gas(evm, GasCosts.OPCODE_SAR)
 
     # OPERATION
     if shift < 256:
@@ -262,7 +262,7 @@ def count_leading_zeros(evm: Evm) -> None:
     x = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_LOW)
+    charge_gas(evm, GasCosts.OPCODE_CLZ)
 
     # OPERATION
     bit_length = U256(x.bit_length())

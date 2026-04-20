@@ -24,43 +24,125 @@ from ..state import State, account_exists
 from . import Evm
 from .exceptions import OutOfGasError
 
-GAS_JUMPDEST = Uint(1)
-GAS_BASE = Uint(2)
-GAS_VERY_LOW = Uint(3)
-GAS_SLOAD = Uint(50)
-GAS_STORAGE_SET = Uint(20000)
-GAS_COLD_STORAGE_WRITE = Uint(5000)
-REFUND_STORAGE_CLEAR = 15000
-GAS_LOW = Uint(5)
-GAS_MID = Uint(8)
-GAS_HIGH = Uint(10)
-GAS_EXPONENTIATION = Uint(10)
-GAS_EXPONENTIATION_PER_BYTE = Uint(10)
-GAS_MEMORY = Uint(3)
-GAS_KECCAK256 = Uint(30)
-GAS_KECCAK256_PER_WORD = Uint(6)
-GAS_COPY = Uint(3)
-GAS_BLOCK_HASH = Uint(20)
-GAS_EXTERNAL = Uint(20)
-GAS_BALANCE = Uint(20)
-GAS_LOG = Uint(375)
-GAS_LOG_DATA_PER_BYTE = Uint(8)
-GAS_LOG_TOPIC = Uint(375)
-GAS_CREATE = Uint(32000)
-GAS_CODE_DEPOSIT_PER_BYTE = Uint(200)
-GAS_ZERO = Uint(0)
-GAS_CALL = Uint(40)
-GAS_NEW_ACCOUNT = Uint(25000)
-GAS_CALL_VALUE = Uint(9000)
-GAS_CALL_STIPEND = Uint(2300)
-REFUND_SELF_DESTRUCT = Uint(24000)
-GAS_PRECOMPILE_ECRECOVER = Uint(3000)
-GAS_PRECOMPILE_SHA256_BASE = Uint(60)
-GAS_PRECOMPILE_SHA256_PER_WORD = Uint(12)
-GAS_PRECOMPILE_RIPEMD160_BASE = Uint(600)
-GAS_PRECOMPILE_RIPEMD160_PER_WORD = Uint(120)
-GAS_PRECOMPILE_IDENTITY_BASE = Uint(15)
-GAS_PRECOMPILE_IDENTITY_PER_WORD = Uint(3)
+
+# These values may be patched at runtime by a future gas repricing utility
+class GasCosts:
+    """
+    Constant gas values for the EVM.
+    """
+
+    # Tiers
+    BASE = Uint(2)
+    VERY_LOW = Uint(3)
+    LOW = Uint(5)
+    MID = Uint(8)
+    HIGH = Uint(10)
+
+    # Access
+    SLOAD = Uint(50)
+
+    # Storage
+    STORAGE_SET = Uint(20000)
+    COLD_STORAGE_WRITE = Uint(5000)
+
+    # Call
+    CALL_VALUE = Uint(9000)
+    CALL_STIPEND = Uint(2300)
+    NEW_ACCOUNT = Uint(25000)
+
+    # Contract Creation
+    CODE_DEPOSIT_PER_BYTE = Uint(200)
+
+    # Utility
+    ZERO = Uint(0)
+    MEMORY_PER_WORD = Uint(3)
+
+    # Refunds
+    REFUND_STORAGE_CLEAR = 15000
+    REFUND_SELF_DESTRUCT = Uint(24000)
+
+    # Precompiles
+    PRECOMPILE_ECRECOVER = Uint(3000)
+    PRECOMPILE_SHA256_BASE = Uint(60)
+    PRECOMPILE_SHA256_PER_WORD = Uint(12)
+    PRECOMPILE_RIPEMD160_BASE = Uint(600)
+    PRECOMPILE_RIPEMD160_PER_WORD = Uint(120)
+    PRECOMPILE_IDENTITY_BASE = Uint(15)
+    PRECOMPILE_IDENTITY_PER_WORD = Uint(3)
+
+    # Transactions
+    TX_BASE = Uint(21000)
+    TX_DATA_PER_ZERO = Uint(4)
+    TX_DATA_PER_NON_ZERO = Uint(68)
+
+    # Block
+    LIMIT_ADJUSTMENT_FACTOR = Uint(1024)
+    LIMIT_MINIMUM = Uint(5000)
+
+    # Static Opcodes
+    OPCODE_ADD = VERY_LOW
+    OPCODE_SUB = VERY_LOW
+    OPCODE_MUL = LOW
+    OPCODE_DIV = LOW
+    OPCODE_SDIV = LOW
+    OPCODE_MOD = LOW
+    OPCODE_SMOD = LOW
+    OPCODE_ADDMOD = MID
+    OPCODE_MULMOD = MID
+    OPCODE_SIGNEXTEND = LOW
+    OPCODE_LT = VERY_LOW
+    OPCODE_GT = VERY_LOW
+    OPCODE_SLT = VERY_LOW
+    OPCODE_SGT = VERY_LOW
+    OPCODE_EQ = VERY_LOW
+    OPCODE_ISZERO = VERY_LOW
+    OPCODE_AND = VERY_LOW
+    OPCODE_OR = VERY_LOW
+    OPCODE_XOR = VERY_LOW
+    OPCODE_NOT = VERY_LOW
+    OPCODE_BYTE = VERY_LOW
+    OPCODE_JUMP = MID
+    OPCODE_JUMPI = HIGH
+    OPCODE_JUMPDEST = Uint(1)
+    OPCODE_CALLDATALOAD = VERY_LOW
+    OPCODE_BLOCKHASH = Uint(20)
+    OPCODE_COINBASE = BASE
+    OPCODE_POP = BASE
+    OPCODE_MSIZE = BASE
+    OPCODE_PC = BASE
+    OPCODE_GAS = BASE
+    OPCODE_ADDRESS = BASE
+    OPCODE_ORIGIN = BASE
+    OPCODE_CALLER = BASE
+    OPCODE_CALLVALUE = BASE
+    OPCODE_CALLDATASIZE = BASE
+    OPCODE_CODESIZE = BASE
+    OPCODE_GASPRICE = BASE
+    OPCODE_TIMESTAMP = BASE
+    OPCODE_NUMBER = BASE
+    OPCODE_GASLIMIT = BASE
+    OPCODE_DIFFICULTY = BASE
+    OPCODE_PUSH = VERY_LOW
+    OPCODE_DUP = VERY_LOW
+    OPCODE_SWAP = VERY_LOW
+
+    OPCODE_CALLDATACOPY_BASE = VERY_LOW
+    OPCODE_CODECOPY_BASE = VERY_LOW
+    OPCODE_MLOAD_BASE = VERY_LOW
+    OPCODE_MSTORE_BASE = VERY_LOW
+    OPCODE_MSTORE8_BASE = VERY_LOW
+    OPCODE_COPY_PER_WORD = Uint(3)
+    OPCODE_CREATE_BASE = Uint(32000)
+    OPCODE_EXP_BASE = Uint(10)
+    OPCODE_EXP_PER_BYTE = Uint(10)
+    OPCODE_KECCAK256_BASE = Uint(30)
+    OPCODE_KECCACK256_PER_WORD = Uint(6)
+    OPCODE_LOG_BASE = Uint(375)
+    OPCODE_LOG_DATA_PER_BYTE = Uint(8)
+    OPCODE_LOG_TOPIC = Uint(375)
+    OPCODE_EXTERNAL_BASE = Uint(20)
+    OPCODE_BALANCE = Uint(20)
+    OPCODE_CALL_BASE = Uint(40)
 
 
 @dataclass
@@ -81,8 +163,8 @@ class ExtendMemory:
 @dataclass
 class MessageCallGas:
     """
-    Define the gas cost and gas given to the sub-call for
-    executing the call opcodes.
+    Define the gas cost and gas given to the sub-call for executing the call
+    opcodes.
 
     `cost`: `ethereum.base_types.Uint`
         The gas required to execute the call opcode, excludes
@@ -134,7 +216,7 @@ def calculate_memory_gas_cost(size_in_bytes: Uint) -> Uint:
 
     """
     size_in_words = ceil32(size_in_bytes) // Uint(32)
-    linear_cost = size_in_words * GAS_MEMORY
+    linear_cost = size_in_words * GasCosts.MEMORY_PER_WORD
     quadratic_cost = size_in_words ** Uint(2) // Uint(512)
     total_gas_cost = linear_cost + quadratic_cost
     try:
@@ -205,8 +287,12 @@ def calculate_message_call_gas(
     message_call_gas: `MessageCallGas`
 
     """
-    create_gas_cost = Uint(0) if account_exists(state, to) else GAS_NEW_ACCOUNT
-    transfer_gas_cost = Uint(0) if value == 0 else GAS_CALL_VALUE
-    cost = GAS_CALL + gas + create_gas_cost + transfer_gas_cost
-    stipend = gas if value == 0 else GAS_CALL_STIPEND + gas
+    create_gas_cost = (
+        Uint(0) if account_exists(state, to) else GasCosts.NEW_ACCOUNT
+    )
+    transfer_gas_cost = Uint(0) if value == 0 else GasCosts.CALL_VALUE
+    cost = (
+        GasCosts.OPCODE_CALL_BASE + gas + create_gas_cost + transfer_gas_cost
+    )
+    stipend = gas if value == 0 else GasCosts.CALL_STIPEND + gas
     return MessageCallGas(cost, stipend)

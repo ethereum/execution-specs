@@ -5,12 +5,6 @@ from ethereum_types.numeric import U8, U64, U256, Uint
 
 from ethereum.forks.amsterdam.fork_types import Authorization
 from ethereum.forks.amsterdam.transactions import (
-    GAS_TX_ACCESS_LIST_ADDRESS,
-    GAS_TX_ACCESS_LIST_STORAGE_KEY,
-    GAS_TX_BASE,
-    GAS_TX_CREATE,
-    GAS_TX_DATA_TOKEN_FLOOR,
-    GAS_TX_DATA_TOKEN_STANDARD,
     Access,
     AccessListTransaction,
     LegacyTransaction,
@@ -24,10 +18,7 @@ from ethereum.forks.amsterdam.transactions import (
     calculate_regular_intrinsic_cost,
     count_tokens_in_data,
 )
-from ethereum.forks.amsterdam.vm.eoa_delegation import (
-    GAS_AUTH_PER_EMPTY_ACCOUNT,
-)
-from ethereum.forks.amsterdam.vm.gas import init_code_cost
+from ethereum.forks.amsterdam.vm.gas import GasCosts, init_code_cost
 from ethereum.state import Address
 
 
@@ -50,10 +41,11 @@ def test_legacy_tx_intrinsic_and_floor_gas() -> None:
     intrinsic_gas, floor_gas = calculate_intrinsic_cost(tx)
 
     assert intrinsic_gas == Uint(
-        GAS_TX_BASE + tokens_in_calldata * GAS_TX_DATA_TOKEN_STANDARD
+        GasCosts.TX_BASE
+        + tokens_in_calldata * GasCosts.TX_DATA_TOKEN_STANDARD
     )
     assert floor_gas == Uint(
-        GAS_TX_BASE + tokens_in_calldata * GAS_TX_DATA_TOKEN_FLOOR
+        GasCosts.TX_BASE + tokens_in_calldata * GasCosts.TX_DATA_TOKEN_FLOOR
     )
     assert calculate_regular_intrinsic_cost(tx) == intrinsic_gas
     assert calculate_intrinsic_state_cost(tx, tx.gas) == Uint(0)
@@ -78,13 +70,13 @@ def test_contract_creation_intrinsic_gas_includes_create_cost() -> None:
     intrinsic_gas, floor_gas = calculate_intrinsic_cost(tx)
 
     assert intrinsic_gas == Uint(
-        GAS_TX_BASE
-        + tokens_in_calldata * GAS_TX_DATA_TOKEN_STANDARD
-        + GAS_TX_CREATE
+        GasCosts.TX_BASE
+        + tokens_in_calldata * GasCosts.TX_DATA_TOKEN_STANDARD
+        + GasCosts.TX_CREATE
         + init_code_cost(Uint(len(tx.data)))
     )
     assert floor_gas == Uint(
-        GAS_TX_BASE + tokens_in_calldata * GAS_TX_DATA_TOKEN_FLOOR
+        GasCosts.TX_BASE + tokens_in_calldata * GasCosts.TX_DATA_TOKEN_FLOOR
     )
 
 
@@ -114,13 +106,13 @@ def test_access_list_intrinsic_gas_excludes_access_list_floor_tokens() -> None:
     intrinsic_gas, floor_gas = calculate_intrinsic_cost(tx)
 
     assert intrinsic_gas == Uint(
-        GAS_TX_BASE
-        + tokens_in_calldata * GAS_TX_DATA_TOKEN_STANDARD
-        + GAS_TX_ACCESS_LIST_ADDRESS
-        + Uint(2) * GAS_TX_ACCESS_LIST_STORAGE_KEY
+        GasCosts.TX_BASE
+        + tokens_in_calldata * GasCosts.TX_DATA_TOKEN_STANDARD
+        + GasCosts.TX_ACCESS_LIST_ADDRESS
+        + Uint(2) * GasCosts.TX_ACCESS_LIST_STORAGE_KEY
     )
     assert floor_gas == Uint(
-        GAS_TX_BASE + tokens_in_calldata * GAS_TX_DATA_TOKEN_FLOOR
+        GasCosts.TX_BASE + tokens_in_calldata * GasCosts.TX_DATA_TOKEN_FLOOR
     )
     assert calculate_regular_intrinsic_cost(tx) == intrinsic_gas
 
@@ -166,15 +158,17 @@ def test_access_list_helpers_keep_intrinsic_and_floor_separate() -> None:
     )
 
     assert calculate_intrinsic_access_list_cost(tx) == Uint(
-        GAS_TX_ACCESS_LIST_ADDRESS + Uint(2) * GAS_TX_ACCESS_LIST_STORAGE_KEY
+        GasCosts.TX_ACCESS_LIST_ADDRESS
+        + Uint(2) * GasCosts.TX_ACCESS_LIST_STORAGE_KEY
     )
     assert calculate_floor_tokens_in_access_list(tx) == Uint(0)
     assert calculate_data_floor_gas_cost(
         calculate_floor_tokens_in_calldata(tx),
         calculate_floor_tokens_in_access_list(tx),
     ) == Uint(
-        GAS_TX_BASE
-        + calculate_floor_tokens_in_calldata(tx) * GAS_TX_DATA_TOKEN_FLOOR
+        GasCosts.TX_BASE
+        + calculate_floor_tokens_in_calldata(tx)
+        * GasCosts.TX_DATA_TOKEN_FLOOR
     )
 
 
@@ -218,11 +212,11 @@ def test_set_code_tx_intrinsic_gas_includes_authorization_cost() -> None:
     intrinsic_gas, floor_gas = calculate_intrinsic_cost(tx)
 
     assert intrinsic_gas == Uint(
-        GAS_TX_BASE
-        + tokens_in_calldata * GAS_TX_DATA_TOKEN_STANDARD
-        + Uint(GAS_AUTH_PER_EMPTY_ACCOUNT * 2)
+        GasCosts.TX_BASE
+        + tokens_in_calldata * GasCosts.TX_DATA_TOKEN_STANDARD
+        + Uint(GasCosts.AUTH_PER_EMPTY_ACCOUNT * 2)
     )
     assert floor_gas == Uint(
-        GAS_TX_BASE + tokens_in_calldata * GAS_TX_DATA_TOKEN_FLOOR
+        GasCosts.TX_BASE + tokens_in_calldata * GasCosts.TX_DATA_TOKEN_FLOOR
     )
     assert calculate_regular_intrinsic_cost(tx) == intrinsic_gas

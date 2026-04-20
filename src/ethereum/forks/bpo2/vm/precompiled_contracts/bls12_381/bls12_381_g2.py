@@ -20,12 +20,7 @@ from py_ecc.optimized_bls12_381.optimized_curve import (
 )
 
 from ....vm import Evm
-from ....vm.gas import (
-    GAS_PRECOMPILE_BLS_G2ADD,
-    GAS_PRECOMPILE_BLS_G2MAP,
-    GAS_PRECOMPILE_BLS_G2MUL,
-    charge_gas,
-)
+from ....vm.gas import GasCosts, charge_gas
 from ....vm.memory import buffer_read
 from ...exceptions import InvalidParameter
 from . import (
@@ -61,7 +56,7 @@ def bls12_g2_add(evm: Evm) -> None:
         raise InvalidParameter("Invalid Input Length")
 
     # GAS
-    charge_gas(evm, Uint(GAS_PRECOMPILE_BLS_G2ADD))
+    charge_gas(evm, Uint(GasCosts.PRECOMPILE_BLS_G2ADD))
 
     # OPERATION
     p1 = bytes_to_g2(buffer_read(data, U256(0), U256(256)))
@@ -102,7 +97,7 @@ def bls12_g2_msm(evm: Evm) -> None:
     else:
         discount = Uint(G2_MAX_DISCOUNT)
 
-    gas_cost = Uint(k) * GAS_PRECOMPILE_BLS_G2MUL * discount // MULTIPLIER
+    gas_cost = Uint(k) * GasCosts.PRECOMPILE_BLS_G2MUL * discount // MULTIPLIER
     charge_gas(evm, gas_cost)
 
     # OPERATION
@@ -141,7 +136,7 @@ def bls12_map_fp2_to_g2(evm: Evm) -> None:
         raise InvalidParameter("Invalid Input Length")
 
     # GAS
-    charge_gas(evm, Uint(GAS_PRECOMPILE_BLS_G2MAP))
+    charge_gas(evm, Uint(GasCosts.PRECOMPILE_BLS_G2MAP))
 
     # OPERATION
     field_element = bytes_to_fq2(data)

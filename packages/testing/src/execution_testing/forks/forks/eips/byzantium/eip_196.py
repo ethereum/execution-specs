@@ -30,6 +30,6 @@ class EIP196(BaseFork):
         """Set gas costs for BN254 addition and multiplication."""
         return replace(
             super(EIP196, cls).gas_costs(),
-            GAS_PRECOMPILE_ECADD=500,
-            GAS_PRECOMPILE_ECMUL=40_000,
+            PRECOMPILE_ECADD=500,
+            PRECOMPILE_ECMUL=40_000,
         )

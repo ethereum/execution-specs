@@ -24,7 +24,7 @@ class EIP3198(BaseFork):
         """Add BASEFEE opcode gas cost."""
         gas_costs = cls.gas_costs()
         base_map = super(EIP3198, cls).opcode_gas_map()
-        return {**base_map, Opcodes.BASEFEE: gas_costs.GAS_BASE}
+        return {**base_map, Opcodes.BASEFEE: gas_costs.BASE}
 
     @classmethod
     def valid_opcodes(cls) -> List[Opcodes]:

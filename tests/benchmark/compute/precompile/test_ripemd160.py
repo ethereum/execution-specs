@@ -32,8 +32,8 @@ def test_ripemd160(
     optimal_input_length = calculate_optimal_input_length(
         available_gas=gas_available,
         fork=fork,
-        static_cost=gas_costs.GAS_PRECOMPILE_RIPEMD160_BASE,
-        per_word_dynamic_cost=gas_costs.GAS_PRECOMPILE_RIPEMD160_PER_WORD,
+        static_cost=gas_costs.PRECOMPILE_RIPEMD160_BASE,
+        per_word_dynamic_cost=gas_costs.PRECOMPILE_RIPEMD160_PER_WORD,
         bytes_per_unit_of_work=64,
     )
 
@@ -86,9 +86,9 @@ def test_ripemd160_uncachable(
 
     precompile_cost = (
         # static cost
-        gsc.GAS_PRECOMPILE_RIPEMD160_BASE
+        gsc.PRECOMPILE_RIPEMD160_BASE
         # dynamic cost
-        + math.ceil(size / 32) * gsc.GAS_PRECOMPILE_RIPEMD160_PER_WORD
+        + math.ceil(size / 32) * gsc.PRECOMPILE_RIPEMD160_PER_WORD
     )
 
     attack_block = Op.POP(

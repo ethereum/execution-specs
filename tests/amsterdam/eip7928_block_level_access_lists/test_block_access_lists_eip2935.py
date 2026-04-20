@@ -226,11 +226,13 @@ def test_bal_2935_query(
         [block_hash_slot] if is_valid else []
     )
 
-    # Add balance changes if value is transferred and query is valid
-    if value > 0 and is_valid:
-        account_expectations[HISTORY_STORAGE_ADDRESS].balance_changes = [
-            BalBalanceChange(block_access_index=1, post_balance=value)
-        ]
+    # Balance changes for callee: credited if valid, must be empty if invalid
+    if value > 0:
+        account_expectations[HISTORY_STORAGE_ADDRESS].balance_changes = (
+            [BalBalanceChange(block_access_index=1, post_balance=value)]
+            if is_valid
+            else []
+        )
 
     account_expectations[alice] = BalAccountExpectation(
         nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
@@ -426,6 +428,8 @@ def test_bal_2935_invalid_calldata_size(
     account_expectations = block_hash_system_call_expectations(1)
     # History storage contract reverts before any storage access
     account_expectations[HISTORY_STORAGE_ADDRESS].storage_reads = []
+    if value > 0:
+        account_expectations[HISTORY_STORAGE_ADDRESS].balance_changes = []
 
     account_expectations[alice] = BalAccountExpectation(
         nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],

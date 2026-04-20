@@ -24,5 +24,5 @@ class Spec:
     https://eips.ethereum.org/EIPS/eip-7623.
     """
 
-    GAS_TX_DATA_TOKEN_STANDARD = 4
-    GAS_TX_DATA_TOKEN_FLOOR = 10
+    TX_DATA_TOKEN_STANDARD = 4
+    TX_DATA_TOKEN_FLOOR = 10

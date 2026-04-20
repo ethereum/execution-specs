@@ -321,11 +321,13 @@ def test_bal_4788_query(
         else [timestamp_slot]
     )
 
-    # Add balance changes if value is transferred
-    if value > 0 and is_valid:
-        account_expectations[BEACON_ROOTS_ADDRESS].balance_changes = [
-            BalBalanceChange(block_access_index=1, post_balance=value)
-        ]
+    # Balance changes for callee: credited if valid, must be empty if invalid
+    if value > 0:
+        account_expectations[BEACON_ROOTS_ADDRESS].balance_changes = (
+            [BalBalanceChange(block_access_index=1, post_balance=value)]
+            if is_valid
+            else []
+        )
 
     # Add transaction-specific expectations
     account_expectations[alice] = BalAccountExpectation(
@@ -382,6 +384,120 @@ def test_bal_4788_query(
     blockchain_test(
         pre=pre,
         blocks=[block1, block2],
+        post=post_state,
+    )
+
+
+@pytest.mark.parametrize(
+    "calldata_size",
+    [
+        pytest.param(0, id="empty_calldata"),
+        pytest.param(31, id="calldata_too_short"),
+        pytest.param(33, id="calldata_too_long"),
+    ],
+)
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param(0, id="no_value"),
+        pytest.param(100, id="with_value"),
+    ],
+)
+def test_bal_4788_invalid_calldata_size(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    fork: Fork,
+    calldata_size: int,
+    value: int,
+) -> None:
+    """
+    Ensure BAL correctly handles EIP-4788 queries with invalid calldata size.
+
+    EIP-4788 requires exactly 32 bytes of calldata (a timestamp). Any other
+    size causes immediate revert before any storage access occurs.
+
+    Test scenarios with and without value transfer:
+    1. Empty calldata (0 bytes): Reverts immediately
+    2. Too short (31 bytes): Reverts before storage access
+    3. Too long (33 bytes): Reverts before storage access
+    """
+    alice = pre.fund_eoa()
+
+    block_timestamp = 12
+    beacon_root = Hash(0xABCDEF)
+
+    # Contract that calls beacon roots contract with variable-size calldata
+    # and stores returned beacon root in slot 0
+    query_code = (
+        Op.CALLDATACOPY(0, 0, calldata_size)
+        + Op.CALL(
+            Spec.BEACON_ROOTS_CALL_GAS,
+            BEACON_ROOTS_ADDRESS,
+            Op.CALLVALUE,
+            0,
+            calldata_size,
+            32,
+            32,
+        )
+        + Op.SSTORE(0, Op.MLOAD(32))
+    )
+    query_contract = pre.deploy_contract(query_code)
+
+    # Pad calldata to requested size
+    calldata = b"\x00" * calldata_size
+
+    tx = Transaction(
+        sender=alice,
+        to=query_contract,
+        data=calldata,
+        value=value,
+        gas_limit=fork.transaction_gas_limit_cap(),
+    )
+
+    account_expectations = beacon_root_system_call_expectations(
+        block_timestamp, beacon_root
+    )
+    # Beacon roots contract reverts before any storage access
+    account_expectations[BEACON_ROOTS_ADDRESS].storage_reads = []
+    if value > 0:
+        account_expectations[BEACON_ROOTS_ADDRESS].balance_changes = []
+
+    account_expectations[alice] = BalAccountExpectation(
+        nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
+    )
+
+    account_expectations[query_contract] = BalAccountExpectation(
+        # SSTORE(0, 0) is a no-op write, becomes implicit read
+        storage_reads=[0],
+        storage_changes=[],
+        # Value stays in query contract when call reverts
+        balance_changes=[
+            BalBalanceChange(block_access_index=1, post_balance=value)
+        ]
+        if value > 0
+        else [],
+    )
+
+    block = Block(
+        txs=[tx],
+        parent_beacon_block_root=beacon_root,
+        timestamp=block_timestamp,
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations=account_expectations
+        ),
+    )
+
+    post_state: dict[Address, Account] = {
+        alice: Account(nonce=1),
+        query_contract: Account(storage={0: 0}),
+    }
+
+    if value > 0:
+        post_state[query_contract] = Account(storage={0: 0}, balance=value)
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
         post=post_state,
     )
 

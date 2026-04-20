@@ -60,6 +60,10 @@ from execution_testing.test_types.block_access_list.modifiers import (
 )
 
 from .spec import ref_spec_7928
+from .test_block_access_lists_eip4788 import (
+    SYSTEM_ADDRESS,
+    beacon_root_system_call_expectations,
+)
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7928.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7928.version
@@ -570,51 +574,79 @@ def test_bal_invalid_complex_corruption(
 
 @pytest.mark.valid_from("Amsterdam")
 @pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "scenario",
+    ["balance_change", "access_only"],
+)
 def test_bal_invalid_missing_account(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    scenario: str,
 ) -> None:
     """
-    Test that clients reject blocks where BAL is missing an entire account.
+    Test that clients reject blocks where BAL omits an account that was
+    touched during block execution.
+
+    Covers both the case where the omitted account has a balance change
+    (value transfer recipient) and the access-only case (account read via
+    ``BALANCE`` with no state change).
     """
     sender = pre.fund_eoa(amount=10**18)
-    receiver = pre.fund_eoa(amount=0)
-
-    tx = Transaction(
-        sender=sender,
-        to=receiver,
-        value=10**15,
-        gas_limit=21_000,
+    sender_expectation = BalAccountExpectation(
+        nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
     )
+
+    if scenario == "balance_change":
+        omitted = pre.fund_eoa(amount=0)
+        tx = Transaction(
+            sender=sender,
+            to=omitted,
+            value=10**15,
+            gas_limit=21_000,
+        )
+        post: dict = {
+            sender: Account(balance=10**18, nonce=0),
+            omitted: None,
+        }
+        account_expectations: dict = {
+            sender: sender_expectation,
+            omitted: BalAccountExpectation(
+                balance_changes=[
+                    BalBalanceChange(block_access_index=1, post_balance=10**15)
+                ],
+            ),
+        }
+    elif scenario == "access_only":
+        omitted = pre.fund_eoa(amount=1)
+        checker = pre.deploy_contract(code=Op.BALANCE(omitted))
+        tx = Transaction(
+            sender=sender,
+            to=checker,
+            gas_limit=100_000,
+        )
+        post = {
+            sender: Account(balance=10**18, nonce=0),
+            omitted: Account(balance=1),
+            checker: Account(),
+        }
+        account_expectations = {
+            sender: sender_expectation,
+            checker: BalAccountExpectation.empty(),
+            omitted: BalAccountExpectation.empty(),
+        }
+    else:
+        raise ValueError(f"Unknown scenario: {scenario}")
 
     blockchain_test(
         pre=pre,
-        post={
-            sender: Account(balance=10**18, nonce=0),
-            receiver: None,
-        },
+        post=post,
         blocks=[
             Block(
                 txs=[tx],
                 exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
                 expected_block_access_list=BlockAccessListExpectation(
-                    account_expectations={
-                        sender: BalAccountExpectation(
-                            nonce_changes=[
-                                BalNonceChange(
-                                    block_access_index=1, post_nonce=1
-                                )
-                            ],
-                        ),
-                        receiver: BalAccountExpectation(
-                            balance_changes=[
-                                BalBalanceChange(
-                                    block_access_index=1, post_balance=10**15
-                                )
-                            ],
-                        ),
-                    }
-                ).modify(remove_accounts(receiver)),
+                    account_expectations=account_expectations,
+                ).modify(remove_accounts(omitted)),
             )
         ],
     )
@@ -741,6 +773,43 @@ def test_bal_invalid_missing_withdrawal_account_empty_block(
                         ),
                     }
                 ).modify(remove_accounts(charlie)),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+def test_bal_invalid_surplus_system_address_from_system_call(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test that clients reject a BAL that includes SYSTEM_ADDRESS solely because
+    it was the synthetic caller of a pre-execution system operation.
+    """
+    block_timestamp = 12
+    beacon_root = Hash(0xABCDEF)
+
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=[],
+                parent_beacon_block_root=beacon_root,
+                timestamp=block_timestamp,
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations=beacon_root_system_call_expectations(
+                        block_timestamp,
+                        beacon_root,
+                    )
+                ).modify(
+                    append_account(
+                        BalAccountChange(address=SYSTEM_ADDRESS),
+                    )
+                ),
             )
         ],
     )

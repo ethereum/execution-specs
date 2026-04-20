@@ -32,8 +32,8 @@ def test_identity(
     optimal_input_length = calculate_optimal_input_length(
         available_gas=gas_available,
         fork=fork,
-        static_cost=gas_costs.GAS_PRECOMPILE_IDENTITY_BASE,
-        per_word_dynamic_cost=gas_costs.GAS_PRECOMPILE_IDENTITY_PER_WORD,
+        static_cost=gas_costs.PRECOMPILE_IDENTITY_BASE,
+        per_word_dynamic_cost=gas_costs.PRECOMPILE_IDENTITY_PER_WORD,
         bytes_per_unit_of_work=1,
     )
 
@@ -86,9 +86,9 @@ def test_identity_uncachable(
 
     precompile_cost = (
         # static cost
-        gsc.GAS_PRECOMPILE_IDENTITY_BASE
+        gsc.PRECOMPILE_IDENTITY_BASE
         # dynamic cost
-        + math.ceil(size / 32) * gsc.GAS_PRECOMPILE_IDENTITY_PER_WORD
+        + math.ceil(size / 32) * gsc.PRECOMPILE_IDENTITY_PER_WORD
     )
 
     attack_block = Op.MSTORE(

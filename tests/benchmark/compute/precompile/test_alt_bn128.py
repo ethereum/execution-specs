@@ -458,8 +458,8 @@ def test_bn128_pairings_amortized(
     size_per_pairing = 192
 
     gsc = fork.gas_costs()
-    base_cost = gsc.GAS_PRECOMPILE_ECPAIRING_BASE
-    pairing_cost = gsc.GAS_PRECOMPILE_ECPAIRING_PER_POINT
+    base_cost = gsc.PRECOMPILE_ECPAIRING_BASE
+    pairing_cost = gsc.PRECOMPILE_ECPAIRING_PER_POINT
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     mem_exp_gas_calculator = fork.memory_expansion_gas_calculator()
     warm_account_access_cost = Op.STATICCALL(
@@ -572,8 +572,8 @@ def test_ec_pairing(
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     mem_exp = fork.memory_expansion_gas_calculator()
     precompile_cost = (
-        gsc.GAS_PRECOMPILE_ECPAIRING_BASE
-        + gsc.GAS_PRECOMPILE_ECPAIRING_PER_POINT * num_pairs
+        gsc.PRECOMPILE_ECPAIRING_BASE
+        + gsc.PRECOMPILE_ECPAIRING_PER_POINT * num_pairs
     )
 
     # Each iteration: STATICCALL ecpairing at advancing calldata offset,
@@ -612,7 +612,7 @@ def test_ec_pairing(
     per_variant_gas = (
         iteration_cost
         + pair_size * 16
-        + words_per_variant * (gsc.GAS_COPY + gsc.GAS_MEMORY)
+        + words_per_variant * (gsc.OPCODE_COPY_PER_WORD + gsc.MEMORY_PER_WORD)
     )
     empty_intrinsic = intrinsic_gas_calculator(
         calldata=[], return_cost_deducted_prior_execution=True
@@ -644,7 +644,7 @@ def test_ec_pairing(
             per_tx_gas
             - execution_intrinsic
             - setup_cost
-            - math.ceil(len(calldata) / 32) * gsc.GAS_COPY
+            - math.ceil(len(calldata) / 32) * gsc.OPCODE_COPY_PER_WORD
             - mem_exp(new_bytes=len(calldata) + 32)
         )
 
@@ -722,9 +722,9 @@ def test_alt_bn128_uncachable(
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     gsc = fork.gas_costs()
     precompile_cost = (
-        gsc.GAS_PRECOMPILE_ECMUL
+        gsc.PRECOMPILE_ECMUL
         if precompile_address == 0x07
-        else gsc.GAS_PRECOMPILE_ECADD
+        else gsc.PRECOMPILE_ECADD
     )
     attack_block = Op.POP(
         Op.STATICCALL(

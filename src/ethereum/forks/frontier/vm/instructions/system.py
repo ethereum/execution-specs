@@ -32,9 +32,7 @@ from .. import (
     incorporate_child_on_success,
 )
 from ..gas import (
-    GAS_CREATE,
-    GAS_ZERO,
-    REFUND_SELF_DESTRUCT,
+    GasCosts,
     calculate_gas_extend_memory,
     calculate_message_call_gas,
     charge_gas,
@@ -67,7 +65,7 @@ def create(evm: Evm) -> None:
         evm.memory, [(memory_start_position, memory_size)]
     )
 
-    charge_gas(evm, GAS_CREATE + extend_memory.cost)
+    charge_gas(evm, GasCosts.OPCODE_CREATE_BASE + extend_memory.cost)
 
     create_message_gas = evm.gas_left
     evm.gas_left = Uint(0)
@@ -155,7 +153,7 @@ def return_(evm: Evm) -> None:
         evm.memory, [(memory_start_position, memory_size)]
     )
 
-    charge_gas(evm, GAS_ZERO + extend_memory.cost)
+    charge_gas(evm, GasCosts.ZERO + extend_memory.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -362,7 +360,7 @@ def selfdestruct(evm: Evm) -> None:
     beneficiary = to_address_masked(pop(evm.stack))
 
     # GAS
-    gas_cost = GAS_ZERO
+    gas_cost = GasCosts.ZERO
 
     originator = evm.message.current_target
 
@@ -373,7 +371,7 @@ def selfdestruct(evm: Evm) -> None:
         parent_evm = parent_evm.message.parent_evm
 
     if originator not in refunded_accounts:
-        evm.refund_counter += int(REFUND_SELF_DESTRUCT)
+        evm.refund_counter += int(GasCosts.REFUND_SELF_DESTRUCT)
 
     charge_gas(evm, gas_cost)
 
