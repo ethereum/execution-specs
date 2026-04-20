@@ -28,6 +28,7 @@ from execution_testing import (
     compute_create2_address,
     compute_create_address,
 )
+from execution_testing.base_types import ZeroPaddedHexNumber
 
 from .spec import Spec, ref_spec_7708, transfer_log
 
@@ -1301,6 +1302,7 @@ def test_call_to_delegated_account_with_value(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.execute(pytest.mark.skip("Requires specific base fee"))
 def test_call_with_value_to_coinbase_no_priority_fee_log(
     state_test: StateTestFiller,
     env: Environment,
@@ -1326,12 +1328,15 @@ def test_call_with_value_to_coinbase_no_priority_fee_log(
 
     caller_code = Op.CALL(gas=Op.GAS, address=coinbase, value=call_value)
     caller = pre.deploy_contract(caller_code, balance=call_value)
-
+    env.base_fee_per_gas = ZeroPaddedHexNumber(7)
+    max_fee_per_gas = int(env.base_fee_per_gas) * 2
     tx = Transaction(
         sender=sender,
         to=caller,
         value=0,
         gas_limit=fork.transaction_gas_limit_cap(),
+        max_fee_per_gas=max_fee_per_gas,
+        max_priority_fee_per_gas=max_fee_per_gas,
         expected_receipt=TransactionReceipt(
             logs=[transfer_log(caller, coinbase, call_value)]
         ),

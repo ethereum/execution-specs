@@ -668,7 +668,7 @@ def test_finalization_burn_log_single_account_multiple_transfers(
     pre.fund_address(factory_address, create_balance)
 
     # N payer contracts, each sending a distinct nonzero amount to x
-    payer_code = Op.SELFDESTRUCT(Op.CALLDATALOAD(0))
+    payer_code = Op.SELFDESTRUCT(x)
     funding_amounts = [100 * (i + 1) for i in range(num_transfers)]
     payers = [
         pre.deploy_contract(payer_code, balance=funding_amounts[i])
@@ -685,7 +685,6 @@ def test_finalization_burn_log_single_account_multiple_transfers(
         + Op.CALL(gas=Op.GAS, address=Op.TLOAD(0), value=0)
     )
     for i in range(num_transfers):
-        factory_code += Op.MSTORE(0, x)
         factory_code += Op.CALL(
             gas=Op.GAS,
             address=payers[i],
