@@ -218,6 +218,11 @@ def constant_gas_opcodes(fork: Fork) -> Generator[ParameterSet, None, None]:
         # SSTORE - untestable due to 2300 gas stipend rule
         if opcode == Op.SSTORE:
             continue
+        # EIP-8037: CREATE/CREATE2 have a state gas component charged from
+        # the state reservoir that cannot be measured via the GAS opcode
+        # delta used by gas_test. Excluded to keep the test meaningful.
+        if fork.is_eip_enabled(8037) and opcode in (Op.CREATE, Op.CREATE2):
+            continue
         if opcode.gas_cost(fork) == 0:
             # zero constant gas opcodes - untestable
             continue
