@@ -413,6 +413,82 @@ def test_create_selfdestruct_refunds_code_deposit_state_gas(
 
 
 @pytest.mark.valid_from("EIP8037")
+def test_create_selfdestruct_code_deposit_refund_header_check(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify block header gas reflects the code-deposit state-gas
+    refund on a same-tx CREATE plus SELFDESTRUCT.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    gas_costs = fork.gas_costs()
+    new_account_state_gas = gas_costs.GAS_NEW_ACCOUNT
+
+    # Deployed code is sized so the code-deposit state gas would
+    # dominate block regular gas if the refund did not land.
+    selfdestruct = Op.SELFDESTRUCT(Op.ADDRESS)
+    sd_len = len(bytes(selfdestruct))
+    code_size = 256
+    assert code_size >= sd_len
+    deployed = bytes(selfdestruct) + b"\x00" * (code_size - sd_len)
+    initcode = Initcode(deploy_code=deployed)
+    initcode_len = len(initcode)
+    code_deposit_state_gas = fork.code_deposit_state_gas(code_size=code_size)
+
+    factory_code = Op.CALLDATACOPY(
+        0,
+        0,
+        Op.CALLDATASIZE,
+        data_size=initcode_len,
+        new_memory_size=initcode_len,
+    ) + Op.POP(
+        Op.CALL(
+            gas=Op.GAS,
+            address=Op.CREATE(
+                value=0,
+                offset=0,
+                size=Op.CALLDATASIZE,
+                init_code_size=initcode_len,
+            ),
+        )
+    )
+    factory = pre.deploy_contract(code=factory_code)
+    created_address = compute_create_address(address=factory, nonce=1)
+
+    total_state_refund = new_account_state_gas + code_deposit_state_gas
+    tx = Transaction(
+        to=factory,
+        data=bytes(initcode),
+        gas_limit=gas_limit_cap + total_state_refund,
+        sender=pre.fund_eoa(),
+    )
+
+    # Empirical baseline: block_state_gas refunds to zero so the
+    # header reports block regular only. Baseline regular must stay
+    # below the code-deposit state gas so a missing refund would
+    # push the header above this value.
+    baseline_block_regular = 0x8EAE
+    assert baseline_block_regular < code_deposit_state_gas, (
+        "Baseline regular must be below code_deposit_state_gas so "
+        "the mutation's un-refunded state_gas dominates the header."
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=baseline_block_regular),
+            ),
+        ],
+        post={created_address: Account.NONEXISTENT},
+    )
+
+
+@pytest.mark.valid_from("EIP8037")
 def test_create_selfdestruct_no_double_refund_with_sstore_restoration(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -634,3 +710,38 @@ def test_selfdestruct_via_delegatecall_chain(
             factory: Account(storage=factory_storage),
         },
     )
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_selfdestruct_new_beneficiary_no_regular_account_creation_cost(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify SELFDESTRUCT to a new beneficiary does not charge a
+    regular account-creation cost on top of state gas.
+    """
+    gas_costs = fork.gas_costs()
+    new_account_state_gas = gas_costs.GAS_NEW_ACCOUNT
+
+    beneficiary = pre.fund_eoa(amount=0)
+
+    victim_code = Op.SELFDESTRUCT(beneficiary)
+    victim = pre.deploy_contract(code=victim_code, balance=1)
+
+    # Tight budget: slack is less than the old pre-Amsterdam regular
+    # account-creation cost, so any extra regular draw would OOG.
+    intrinsic = fork.transaction_intrinsic_cost_calculator()()
+    tx = Transaction(
+        to=victim,
+        gas_limit=(
+            intrinsic
+            + victim_code.gas_cost(fork)
+            + new_account_state_gas
+            + 20_000
+        ),
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(pre=pre, post={beneficiary: Account(balance=1)}, tx=tx)
