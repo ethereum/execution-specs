@@ -18,6 +18,7 @@ from execution_testing import (
     Bytecode,
     Bytes,
     Environment,
+    Fork,
     Initcode,
     Op,
     StateTestFiller,
@@ -27,6 +28,7 @@ from execution_testing import (
     compute_create2_address,
     compute_create_address,
 )
+from execution_testing.base_types import ZeroPaddedHexNumber
 
 from .spec import Spec, ref_spec_7708, transfer_log
 
@@ -1298,3 +1300,46 @@ def test_call_to_delegated_account_with_value(
 
     post = {delegated_eoa: Account(balance=100)}
     state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.execute(pytest.mark.skip("Requires specific base fee"))
+def test_call_with_value_to_coinbase_no_priority_fee_log(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Alloc,
+    sender: EOA,
+    fork: Fork,
+) -> None:
+    """
+    Verify no Transfer log is emitted for the coinbase priority fee.
+
+    A contract executes CALL with nonzero value to the coinbase address,
+    and the transaction pays a nonzero priority fee to that same
+    coinbase. Only the CALL-with-value must produce a Transfer log; the
+    priority fee crediting happens outside the EVM as a protocol-level
+    balance change and must not emit a log.
+
+    An implementation that hooks all balance additions (instead of only
+    CALL / SELFDESTRUCT / tx-level value transfers) would emit an extra
+    Transfer log for the fee and fail the exact-log assertion.
+    """
+    coinbase = env.fee_recipient
+    call_value = 1
+
+    caller_code = Op.CALL(gas=Op.GAS, address=coinbase, value=call_value)
+    caller = pre.deploy_contract(caller_code, balance=call_value)
+    env.base_fee_per_gas = ZeroPaddedHexNumber(7)
+    max_fee_per_gas = int(env.base_fee_per_gas) * 2
+    tx = Transaction(
+        sender=sender,
+        to=caller,
+        value=0,
+        gas_limit=fork.transaction_gas_limit_cap(),
+        max_fee_per_gas=max_fee_per_gas,
+        max_priority_fee_per_gas=max_fee_per_gas,
+        expected_receipt=TransactionReceipt(
+            logs=[transfer_log(caller, coinbase, call_value)]
+        ),
+    )
+
+    state_test(env=env, pre=pre, post={}, tx=tx)
