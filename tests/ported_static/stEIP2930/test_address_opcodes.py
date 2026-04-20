@@ -348,7 +348,6 @@ def test_address_opcodes(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=71794957647893862,
     )
 
     # Source: lll

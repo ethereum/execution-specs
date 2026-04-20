@@ -45,7 +45,6 @@ def test_basefee_example(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=70000000,
-        gas_limit=68719476736,
     )
 
     # Source: lll

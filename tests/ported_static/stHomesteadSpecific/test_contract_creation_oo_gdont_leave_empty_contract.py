@@ -47,7 +47,6 @@ def test_contract_creation_oo_gdont_leave_empty_contract(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=1000000,
     )
 
     pre[sender] = Account(balance=0xF4240)

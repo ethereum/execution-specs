@@ -91,7 +91,6 @@ def test_multi_selfdestruct(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=1000,
-        gas_limit=71794957647893862,
     )
 
     # Source: yul

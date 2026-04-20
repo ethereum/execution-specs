@@ -68,7 +68,6 @@ def test_create_collision_results(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=4294967296,
     )
 
     # Source: lll

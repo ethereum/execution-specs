@@ -539,7 +539,6 @@ def test_shallow_stack(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=42949672960,
     )
 
     pre[sender] = Account(balance=0x271000000000)

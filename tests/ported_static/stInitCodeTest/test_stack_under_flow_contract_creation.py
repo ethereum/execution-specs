@@ -46,7 +46,6 @@ def test_stack_under_flow_contract_creation(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=1000000000000000,
     )
 
     pre[coinbase] = Account(balance=0, nonce=1)

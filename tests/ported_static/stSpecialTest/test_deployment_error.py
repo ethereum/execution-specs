@@ -46,7 +46,6 @@ def test_deployment_error(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=314159200,
     )
 
     pre[sender] = Account(balance=0xDE0B6B3A7640000)

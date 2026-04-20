@@ -70,7 +70,6 @@ def test_call_to_name_registrator_zeor_size_mem_expansion(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=10000000,
     )
 
     # Source: lll

@@ -48,7 +48,6 @@ def test_call_then_create_successful_then_returndatasize(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=111669149696,
     )
 
     # Source: lll

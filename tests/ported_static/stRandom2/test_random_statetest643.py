@@ -41,7 +41,6 @@ def test_random_statetest643(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=35761922600709271,
     )
 
     # Source: raw

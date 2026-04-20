@@ -46,7 +46,6 @@ def test_mem64kb_minus_32(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=42949672960,
     )
 
     # Source: lll

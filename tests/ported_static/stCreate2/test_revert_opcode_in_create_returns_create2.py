@@ -47,7 +47,6 @@ def test_revert_opcode_in_create_returns_create2(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=47244640256,
     )
 
     # Source: lll

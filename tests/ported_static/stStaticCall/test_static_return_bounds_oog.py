@@ -69,7 +69,6 @@ def test_static_return_bounds_oog(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
     )
 
     # Source: lll

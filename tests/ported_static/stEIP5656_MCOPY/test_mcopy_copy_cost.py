@@ -440,7 +440,6 @@ def test_mcopy_copy_cost(
         timestamp=1687174231,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=1000000,
     )
 
     # Source: yul

@@ -45,7 +45,6 @@ def test_selfdestruct_eip2929(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=10944489199640098,
     )
 
     pre[addr] = Account(balance=0, nonce=1)

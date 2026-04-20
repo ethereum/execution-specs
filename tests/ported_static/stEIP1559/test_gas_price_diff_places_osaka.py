@@ -271,7 +271,6 @@ def test_gas_price_diff_places(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=4503599627370496,
     )
 
     # Source: yul

@@ -49,7 +49,6 @@ def test_create_blobhash_tx(
         prev_randao=0x20000,
         base_fee_per_gas=7,
         excess_blob_gas=0,
-        gas_limit=68719476736,
     )
 
     # Source: lll

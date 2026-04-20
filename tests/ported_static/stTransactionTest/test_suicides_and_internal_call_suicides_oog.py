@@ -45,7 +45,6 @@ def test_suicides_and_internal_call_suicides_oog(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=1000000,
     )
 
     # Source: lll

@@ -50,7 +50,6 @@ def test_call_contract_to_create_contract_which_would_create_contract_in_init_co
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=1000000000,
     )
 
     # Source: lll
