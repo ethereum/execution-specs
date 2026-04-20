@@ -14,6 +14,8 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    Block,
+    BlockchainTestFiller,
     Environment,
     Fork,
     Op,
@@ -195,3 +197,44 @@ def test_calldata_floor_exceeding_tx_gas_limit_cap(
 
     post = {contract: Account(code=Op.STOP)} if not exceeds_cap else {}
     state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_calldata_floor_applied_to_sender_refund(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify the calldata floor is applied to the sender gas refund.
+
+    With a STOP callee and large all-nonzero calldata, execution gas
+    falls below the calldata floor. The sender must be charged
+    `calldata_floor * gas_price`, so the final balance reflects the
+    floor-applied value, not the pre-floor execution cost.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    calldata = b"\xff" * 1024
+    calldata_floor = fork.transaction_intrinsic_cost_calculator()(
+        calldata=calldata,
+    )
+    gas_price = 10**9
+    initial = gas_limit_cap * gas_price
+
+    contract = pre.deploy_contract(code=Op.STOP)
+    sender = pre.fund_eoa(amount=initial)
+
+    tx = Transaction(
+        to=contract,
+        data=calldata,
+        gas_limit=gas_limit_cap,
+        gas_price=gas_price,
+        sender=sender,
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[Block(txs=[tx])],
+        post={sender: Account(balance=initial - calldata_floor * gas_price)},
+    )
