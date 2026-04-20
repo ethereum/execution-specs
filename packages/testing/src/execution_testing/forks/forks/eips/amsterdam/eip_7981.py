@@ -59,7 +59,7 @@ class EIP7981(BaseFork):
             return (
                 super_fn(data=data)
                 + cls._access_list_floor_tokens(access_list)
-                * gas_costs.GAS_TX_DATA_TOKEN_FLOOR
+                * gas_costs.TX_DATA_TOKEN_FLOOR
             )
 
         return fn
@@ -95,7 +95,7 @@ class EIP7981(BaseFork):
             )
             intrinsic_cost += (
                 cls._access_list_floor_tokens(access_list)
-                * gas_costs.GAS_TX_DATA_TOKEN_FLOOR
+                * gas_costs.TX_DATA_TOKEN_FLOOR
             )
 
             if return_cost_deducted_prior_execution:
