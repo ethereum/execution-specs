@@ -262,6 +262,34 @@ def test_modify_storage_missing_slot_raises(
         modify_storage(CONTRACT, 1, 99, 0xFF)(sample_bal)
 
 
+def test_modify_nonce_reused_callable_missing_index_still_raises() -> None:
+    """Raise even when the same modifier callable is reused across BALs."""
+    modifier = modify_nonce(ALICE, 1, 42)
+    valid_bal = BlockAccessList(
+        [
+            BalAccountChange(
+                address=ALICE,
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1),
+                ],
+            )
+        ]
+    )
+    missing_index_bal = BlockAccessList(
+        [
+            BalAccountChange(
+                address=ALICE,
+                nonce_changes=[],
+            )
+        ]
+    )
+
+    modifier(valid_bal)
+
+    with pytest.raises(ValueError, match="not found"):
+        modifier(missing_index_bal)
+
+
 def test_reorder_accounts_duplicate_index_raises(
     sample_bal: BlockAccessList,
 ) -> None:
