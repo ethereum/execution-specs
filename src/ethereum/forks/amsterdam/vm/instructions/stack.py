@@ -228,7 +228,7 @@ def dupn(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_VERY_LOW)
+    charge_gas(evm, GasCosts.OPCODE_DUPN)
 
     # OPERATION
     immediate_data = U8(
@@ -260,7 +260,7 @@ def swapn(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_VERY_LOW)
+    charge_gas(evm, GasCosts.OPCODE_SWAPN)
 
     # OPERATION
     immediate_data = U8(
@@ -296,7 +296,7 @@ def exchange(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_VERY_LOW)
+    charge_gas(evm, GasCosts.OPCODE_EXCHANGE)
 
     # OPERATION
     immediate_data = U8(
