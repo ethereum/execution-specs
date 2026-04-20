@@ -1930,10 +1930,24 @@ def test_nested_create_fail_parent_revert_state_gas(
         sender=pre.fund_eoa(),
     )
 
+    inner_address = compute_create_address(
+        address=factory,
+        nonce=1,
+        salt=0,
+        initcode=bytes(init_code),
+        opcode=create_opcode,
+    )
+
     if parent_reverts:
-        post = {factory: Account(nonce=1)}
+        post = {
+            factory: Account(nonce=1),
+            inner_address: Account.NONEXISTENT,
+        }
     else:
-        post = {factory: Account(nonce=2)}
+        post = {
+            factory: Account(nonce=2),
+            inner_address: Account.NONEXISTENT,
+        }
 
     blockchain_test(
         pre=pre,

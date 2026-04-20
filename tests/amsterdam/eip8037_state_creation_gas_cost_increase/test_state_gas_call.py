@@ -1393,25 +1393,38 @@ def test_callcode_value_no_new_account_state_gas(
         sender=pre.fund_eoa(),
     )
 
-    post = {contract: Account(storage=storage)}
+    post = {
+        contract: Account(storage=storage),
+        target: Account.NONEXISTENT,
+    }
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.with_all_create_opcodes()
 @pytest.mark.valid_from("EIP8037")
 def test_create_oog_during_state_gas_charge(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    create_opcode: Op,
 ) -> None:
     """
     Verify the parent reservoir is refunded when a child's CREATE
-    OOGs while charging account-creation state gas.
+    OOGs while charging account-creation state gas. The grandchild
+    SSTORE is forwarded only its regular stipend, so it succeeds
+    only if the refund landed in the reservoir (not in `gas_left`).
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
+    gas_costs = fork.gas_costs()
     sstore_state_gas = fork.sstore_state_gas()
 
     init_code = Op.STOP
+    inner_create_call = (
+        create_opcode(value=0, offset=31, size=1, salt=0)
+        if create_opcode == Op.CREATE2
+        else create_opcode(value=0, offset=31, size=1)
+    )
 
     inner = pre.deploy_contract(
         code=(
@@ -1419,15 +1432,20 @@ def test_create_oog_during_state_gas_charge(
                 0,
                 int.from_bytes(bytes(init_code), "big") << 248,
             )
-            + Op.POP(Op.CREATE(0, 31, 1))
+            + Op.POP(inner_create_call)
         ),
     )
 
-    storage = Storage()
+    grandchild = pre.deploy_contract(code=Op.SSTORE(0, 1))
+
+    push_cost = 2 * gas_costs.GAS_VERY_LOW
+    sstore_regular = gas_costs.GAS_COLD_STORAGE_WRITE
+    grandchild_stipend = push_cost + sstore_regular
+
     parent = pre.deploy_contract(
         code=(
             Op.POP(Op.CALL(gas=20_000, address=inner))
-            + Op.SSTORE(storage.store_next(1), 1)
+            + Op.POP(Op.CALL(gas=grandchild_stipend, address=grandchild))
         ),
     )
 
@@ -1437,8 +1455,11 @@ def test_create_oog_during_state_gas_charge(
         sender=pre.fund_eoa(),
     )
 
-    post = {parent: Account(storage=storage)}
-    state_test(pre=pre, post=post, tx=tx)
+    state_test(
+        pre=pre,
+        post={grandchild: Account(storage={0: 1})},
+        tx=tx,
+    )
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -1477,16 +1498,26 @@ def test_call_new_account_no_regular_account_creation_cost(
     state_test(pre=pre, post={target: Account(balance=1)}, tx=tx)
 
 
+@pytest.mark.parametrize(
+    "call_opcode",
+    [
+        pytest.param(Op.CALL, id="call"),
+        pytest.param(Op.DELEGATECALL, id="delegatecall"),
+    ],
+)
 @pytest.mark.valid_from("EIP8037")
 def test_child_failure_refunds_state_gas_to_reservoir_not_gas_left(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    call_opcode: Op,
 ) -> None:
     """
     Verify state gas from a failing child is restored to the
     reservoir (not regular gas), so a grandchild SSTORE can draw
-    from it under a tight regular stipend.
+    from it under a tight regular stipend. Parametrized across CALL
+    (grandchild writes to its own storage) and DELEGATECALL
+    (grandchild writes to the parent's storage via shared context).
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -1506,8 +1537,8 @@ def test_child_failure_refunds_state_gas_to_reservoir_not_gas_left(
 
     parent = pre.deploy_contract(
         code=(
-            Op.POP(Op.CALL(gas=Op.GAS, address=child))
-            + Op.POP(Op.CALL(gas=grandchild_stipend, address=grandchild))
+            Op.POP(call_opcode(gas=Op.GAS, address=child))
+            + Op.POP(call_opcode(gas=grandchild_stipend, address=grandchild))
         ),
     )
 
@@ -1517,8 +1548,12 @@ def test_child_failure_refunds_state_gas_to_reservoir_not_gas_left(
         sender=pre.fund_eoa(),
     )
 
-    state_test(
-        pre=pre,
-        post={grandchild: Account(storage={0: 1})},
-        tx=tx,
-    )
+    # DELEGATECALL executes the callee in the caller's storage
+    # context, so grandchild's SSTORE lands on `parent` instead of
+    # `grandchild`.
+    if call_opcode == Op.DELEGATECALL:
+        post: dict = {parent: Account(storage={0: 1})}
+    else:
+        post = {grandchild: Account(storage={0: 1})}
+
+    state_test(pre=pre, post=post, tx=tx)

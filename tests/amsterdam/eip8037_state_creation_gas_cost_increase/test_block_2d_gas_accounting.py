@@ -23,6 +23,7 @@ from execution_testing import (
     Storage,
     Transaction,
     TransactionException,
+    TransactionReceipt,
 )
 
 from .spec import ref_spec_8037
@@ -593,15 +594,36 @@ def test_receipt_cumulative_differs_from_header_gas_used(
     tx_regular, tx_state = sstore_tx_gas(fork)
     num_txs = 3
 
-    txs, post = sstore_txs(pre, fork, num_txs)
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    tx_gas_limit = gas_limit_cap + fork.sstore_state_gas()
+    per_tx_gas_used = tx_regular + tx_state
+
+    txs: list[Transaction] = []
+    post: dict = {}
+    for i in range(num_txs):
+        storage = Storage()
+        contract = pre.deploy_contract(
+            code=Op.SSTORE(storage.store_next(1), 1) + Op.STOP,
+        )
+        txs.append(
+            Transaction(
+                to=contract,
+                gas_limit=tx_gas_limit,
+                sender=pre.fund_eoa(),
+                expected_receipt=TransactionReceipt(
+                    cumulative_gas_used=(i + 1) * per_tx_gas_used,
+                ),
+            )
+        )
+        post[contract] = Account(storage=storage)
 
     block_regular = num_txs * tx_regular
     block_state = num_txs * tx_state
     header_gas_used = max(block_regular, block_state)
-    receipt_cumulative = num_txs * (tx_regular + tx_state)
 
     assert block_state > block_regular
-    assert header_gas_used < receipt_cumulative
+    assert header_gas_used < num_txs * per_tx_gas_used
 
     blockchain_test(
         pre=pre,
