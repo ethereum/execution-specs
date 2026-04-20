@@ -937,16 +937,16 @@ def test_call_value_to_self_destructed_same_tx_account(
     create_opcode: Op,
 ) -> None:
     """
-    Smoke test for CALL with value to a same transaction
-    selfdestructed account.
+    Smoke test for CALL with value to a same-transaction selfdestructed
+    account.
 
-    Confirms the happy path runs to completion. The account still
-    has its CREATE nonce when the CALL runs, so it is neither empty
-    nor nonexistent and the new account creation gate does not fire;
-    end of the transaction destruction removes the account regardless
-    and the value transferred is burned. Strict discrimination of
-    the no charge behavior lives in
-    `test_call_value_to_self_destructed_header_gas_used`.
+    Confirms the happy path runs to completion. The created contract still
+    has its CREATE nonce when the CALL runs, so it is neither empty nor
+    nonexistent and the new-account creation gate does not apply on CALL.
+    End-of-transaction cleanup removes the account and the transferred value
+    is burned. Blockchain coverage for the CREATE/CREATE2 and beneficiary
+    variants lives in
+    `test_call_value_to_self_destructed_same_tx_block_inclusion`.
     """
     env = Environment()
     gas_limit_cap = fork.transaction_gas_limit_cap()
@@ -1001,7 +1001,7 @@ def test_call_value_to_self_destructed_same_tx_account(
     ],
 )
 @pytest.mark.valid_from("EIP8037")
-def test_call_value_to_self_destructed_header_gas_used(
+def test_call_value_to_self_destructed_same_tx_block_inclusion(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -1009,16 +1009,16 @@ def test_call_value_to_self_destructed_header_gas_used(
     selfdestruct_beneficiary: str,
 ) -> None:
     """
-    Verify block gas accounting for CALL with value to a same
-    transaction selfdestructed account.
+    Build blockchain fixtures for CALL with value to a same-transaction
+    selfdestructed account.
 
-    Reservoir is sized for the CREATE's state charge only. Under
-    the spec no new account charge fires on the CALL, so block
-    state gas used equals exactly the single account creation
-    charge and the header reports that value. The created account
-    is queued for destruction regardless of whether SELFDESTRUCT
-    targeted itself or an external beneficiary, so the no charge
-    behavior holds across both cases.
+    Parametrizes CREATE vs CREATE2 and SELFDESTRUCT to self vs to an
+    existing EOA beneficiary (so SELFDESTRUCT does not create a new
+    beneficiary account).
+    The transaction gas limit adds reservoir only for the CREATE state charge;
+    the value-bearing CALL must succeed without an extra new-account state
+    charge on the outer frame. Post-state is empty; the scenario is accepted
+    as a valid block.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -1056,12 +1056,7 @@ def test_call_value_to_self_destructed_header_gas_used(
 
     blockchain_test(
         pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                header_verify=Header(gas_used=new_account_state_gas),
-            ),
-        ],
+        blocks=[Block(txs=[tx])],
         post={},
     )
 
@@ -1089,14 +1084,12 @@ def test_call_value_to_self_destructed_burns_value(
     call_value: int,
 ) -> None:
     """
-    Verify value transferred to a same transaction selfdestructed
-    account is burned when end of the transaction destruction runs.
+    Verify value sent to a same-transaction selfdestructed account is burned.
 
-    The orchestrator funds the inner contract via CREATE, the
-    initcode immediately selfdestructs, and then the orchestrator
-    transfers more value into the now queued for destruction
-    address. At the end of the transaction the account is removed
-    and the accumulated balance is lost.
+    The orchestrator CREATE-deploys initcode that SELFDESTRUCTs, then CALLs
+    that address again with value. Post-state requires the create target to be
+    absent and the orchestrator balance to be zero after end-of-transaction
+    cleanup.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -1146,17 +1139,9 @@ def test_call_value_to_self_destructed_burns_value(
         sender=pre.fund_eoa(),
     )
 
-    # Header reflects the CREATE's single new account state gas
-    # charge. A spurious charge on the value bearing CALL would
-    # double the state gas component.
     blockchain_test(
         pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                header_verify=Header(gas_used=new_account_state_gas),
-            ),
-        ],
+        blocks=[Block(txs=[tx])],
         post={
             created_address: Account.NONEXISTENT,
             orchestrator: Account(balance=0),
@@ -1179,14 +1164,12 @@ def test_call_zero_value_to_self_destructed_same_tx_account(
     create_opcode: Op,
 ) -> None:
     """
-    Verify CALL with zero value to a same transaction selfdestructed
-    account charges no new account state gas.
+    Verify a zero-value CALL to a same-transaction selfdestructed account.
 
-    Value transfer gates the new account creation charge. Under the
-    correct spec the block header reflects only the CREATE's single
-    new account state gas charge. A spurious charge on the zero
-    value CALL (value gate broken) would double the state gas
-    component.
+    After CREATE plus SELFDESTRUCT in the same transaction, CALL with zero
+    value targets that address. The transaction gas limit adds reservoir only
+    for the CREATE state charge; the block must still accept the transaction
+    with empty post-state.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -1218,12 +1201,7 @@ def test_call_zero_value_to_self_destructed_same_tx_account(
 
     blockchain_test(
         pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                header_verify=Header(gas_used=new_account_state_gas),
-            ),
-        ],
+        blocks=[Block(txs=[tx])],
         post={},
     )
 
