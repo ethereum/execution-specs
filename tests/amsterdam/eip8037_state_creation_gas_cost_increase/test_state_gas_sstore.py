@@ -735,6 +735,88 @@ def test_sstore_restoration_cross_frame(
     )
 
 
+@pytest.mark.parametrize(
+    "num_hops",
+    [
+        pytest.param(1, id="single_hop"),
+        pytest.param(2, id="two_hops"),
+        pytest.param(3, id="three_hops"),
+    ],
+)
+@pytest.mark.with_all_call_opcodes(
+    selector=lambda call_opcode: call_opcode in (Op.DELEGATECALL, Op.CALLCODE)
+)
+@pytest.mark.valid_from("EIP8037")
+def test_sstore_restoration_charge_in_ancestor(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    call_opcode: Op,
+    num_hops: int,
+) -> None:
+    """
+    Verify 0 to x to 0 refund when the 0 to x charge is in the parent
+    and x to 0 runs `num_hops` DELEGATECALL/CALLCODE frames below,
+    each sharing storage with the parent.
+
+    Every intermediate frame has zero local `state_gas_used`, so the
+    refund must propagate up the chain to the ancestor that charged
+    the 0 to x.  A probe SSTORE sized to OOG by 1 detects any loss.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    gas_costs = fork.gas_costs()
+    sstore_state_gas = fork.sstore_state_gas()
+    probe_gas = (
+        2 * gas_costs.GAS_VERY_LOW
+        + gas_costs.GAS_COLD_STORAGE_WRITE
+        + sstore_state_gas
+        - 1
+    )
+
+    # Innermost frame does x to 0; each hop above delegates down.
+    delegate_target = pre.deploy_contract(
+        code=(
+            Op.SSTORE.with_metadata(
+                key_warm=True,
+                original_value=0,
+                current_value=1,
+                new_value=0,
+            )(0, 0)
+            + Op.STOP
+        )
+    )
+    for _ in range(num_hops - 1):
+        delegate_target = pre.deploy_contract(
+            code=Op.POP(call_opcode(gas=Op.GAS, address=delegate_target))
+            + Op.STOP,
+        )
+
+    probe = pre.deploy_contract(code=Op.SSTORE(0, 1))
+
+    parent_storage = Storage()
+    parent_code = (
+        Op.SSTORE(parent_storage.store_next(0, "cycle_restored"), 1)
+        + Op.POP(call_opcode(gas=Op.GAS, address=delegate_target))
+        + Op.SSTORE(
+            parent_storage.store_next(1, "probe_must_succeed"),
+            Op.CALL(gas=probe_gas, address=probe),
+        )
+    )
+    parent = pre.deploy_contract(code=parent_code)
+
+    # Reservoir starts at exactly sstore_state_gas; the parent's 0 to 1
+    # drains it to zero before entering the delegation chain.
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=parent,
+        gas_limit=gas_limit_cap + sstore_state_gas,
+    )
+
+    post = {parent: Account(storage=parent_storage)}
+    state_test(pre=pre, tx=tx, post=post)
+
+
 @pytest.mark.with_all_call_opcodes(
     selector=lambda call_opcode: call_opcode != Op.STATICCALL
 )

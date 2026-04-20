@@ -38,6 +38,7 @@ from ...vm.eoa_delegation import (
 from .. import (
     Evm,
     Message,
+    credit_state_gas_refund,
     incorporate_child_on_error,
     incorporate_child_on_success,
 )
@@ -122,9 +123,7 @@ def generic_create(
         evm.gas_left += create_message_gas
         evm.state_gas_left += create_message_state_gas_reservoir
         # No account created — refund state gas to reservoir.
-        evm.state_gas_left += create_account_state_gas
-        evm.state_gas_used -= create_account_state_gas
-        evm.state_gas_refund += create_account_state_gas
+        credit_state_gas_refund(evm, create_account_state_gas)
         push(evm.stack, U256(0))
         return
 
@@ -137,9 +136,7 @@ def generic_create(
         evm.regular_gas_used += create_message_gas
         evm.state_gas_left += create_message_state_gas_reservoir
         # Address collision — no account created, refund state gas.
-        evm.state_gas_left += create_account_state_gas
-        evm.state_gas_used -= create_account_state_gas
-        evm.state_gas_refund += create_account_state_gas
+        credit_state_gas_refund(evm, create_account_state_gas)
         push(evm.stack, U256(0))
         return
 
@@ -170,9 +167,7 @@ def generic_create(
     if child_evm.error:
         incorporate_child_on_error(evm, child_evm)
         # No account created, refund parent's CREATE state gas.
-        evm.state_gas_left += create_account_state_gas
-        evm.state_gas_used -= create_account_state_gas
-        evm.state_gas_refund += create_account_state_gas
+        credit_state_gas_refund(evm, create_account_state_gas)
         evm.return_data = child_evm.output
         push(evm.stack, U256(0))
     else:
