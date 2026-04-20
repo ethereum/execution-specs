@@ -35,7 +35,7 @@ class EIP8024(BaseFork):
         base_map = super(EIP8024, cls).opcode_gas_map()
         return {
             **base_map,
-            Opcodes.SWAPN: gas_costs.GAS_VERY_LOW,
-            Opcodes.DUPN: gas_costs.GAS_VERY_LOW,
-            Opcodes.EXCHANGE: gas_costs.GAS_VERY_LOW,
+            Opcodes.SWAPN: gas_costs.VERY_LOW,
+            Opcodes.DUPN: gas_costs.VERY_LOW,
+            Opcodes.EXCHANGE: gas_costs.VERY_LOW,
         }
