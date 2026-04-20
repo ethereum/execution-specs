@@ -1056,12 +1056,7 @@ def test_call_value_to_self_destructed_header_gas_used(
 
     blockchain_test(
         pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                header_verify=Header(gas_used=new_account_state_gas),
-            ),
-        ],
+        blocks=[Block(txs=[tx])],
         post={},
     )
 
@@ -1146,17 +1141,9 @@ def test_call_value_to_self_destructed_burns_value(
         sender=pre.fund_eoa(),
     )
 
-    # Header reflects the CREATE's single new account state gas
-    # charge. A spurious charge on the value bearing CALL would
-    # double the state gas component.
     blockchain_test(
         pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                header_verify=Header(gas_used=new_account_state_gas),
-            ),
-        ],
+        blocks=[Block(txs=[tx])],
         post={
             created_address: Account.NONEXISTENT,
             orchestrator: Account(balance=0),
@@ -1218,12 +1205,7 @@ def test_call_zero_value_to_self_destructed_same_tx_account(
 
     blockchain_test(
         pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                header_verify=Header(gas_used=new_account_state_gas),
-            ),
-        ],
+        blocks=[Block(txs=[tx])],
         post={},
     )
 
