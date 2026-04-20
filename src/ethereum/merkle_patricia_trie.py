@@ -56,6 +56,10 @@ if TYPE_CHECKING:
 #   1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347 # noqa: E501
 #
 # which is the sha3Uncles hash in block header with no uncles
+#
+# Note: `Hash32` is used here rather than `Root` because `Root` is defined in
+# `ethereum.state`, which imports from this module — referring to it at module
+# scope would create a circular import.
 EMPTY_TRIE_ROOT = Hash32(
     hex_to_bytes(
         "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
@@ -179,9 +183,7 @@ def encode_internal_node(node: Optional[InternalNode]) -> Extended:
         return keccak256(encoded)
 
 
-def encode_node(
-    node: Extended | None, storage_root: Optional[Bytes] = None
-) -> Bytes:
+def encode_node(node: Extended, storage_root: Bytes | None = None) -> Bytes:
     """
     Encode a Node for storage in the Merkle Trie.
     """
@@ -193,7 +195,6 @@ def encode_node(
     elif isinstance(node, Bytes):
         return node
     else:
-        assert node is not None
         return rlp.encode(node)
 
 
