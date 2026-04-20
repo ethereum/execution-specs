@@ -17,7 +17,7 @@ from typing import List, Optional, Tuple
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
 from ethereum_types.frozen import slotted_freezable
-from ethereum_types.numeric import U64, U256, Uint
+from ethereum_types.numeric import U64, U256, Uint, ulen
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import (
@@ -850,7 +850,7 @@ def apply_body(
 
     # EIP-7928: Post-execution operations use index N+1
     block_env.block_access_list_builder.block_access_index = BlockAccessIndex(
-        Uint(len(transactions)) + Uint(1)
+        ulen(transactions) + Uint(1)
     )
 
     process_withdrawals(block_env, block_output, withdrawals)

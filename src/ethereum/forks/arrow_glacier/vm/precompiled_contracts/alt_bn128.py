@@ -12,7 +12,7 @@ Implementation of the ALT_BN128 precompiled contracts.
 """
 
 from ethereum_types.bytes import Bytes
-from ethereum_types.numeric import U256, Uint
+from ethereum_types.numeric import U256, Uint, ulen
 from py_ecc.optimized_bn128.optimized_curve import (
     FQ,
     FQ2,
@@ -207,7 +207,7 @@ def alt_bn128_pairing_check(evm: Evm) -> None:
     # GAS
     charge_gas(
         evm,
-        GasCosts.PRECOMPILE_ECPAIRING_PER_POINT * Uint(len(data) // 192)
+        GasCosts.PRECOMPILE_ECPAIRING_PER_POINT * (ulen(data) // Uint(192))
         + GasCosts.PRECOMPILE_ECPAIRING_BASE,
     )
 

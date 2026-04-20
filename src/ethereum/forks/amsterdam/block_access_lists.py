@@ -18,7 +18,7 @@ from typing import Dict, List, Optional, Set, Tuple, TypeAlias
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.frozen import slotted_freezable
-from ethereum_types.numeric import U32, U64, U256, Uint
+from ethereum_types.numeric import U32, U64, U256, Uint, ulen
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.state import EMPTY_CODE_HASH, Account, Address, PreState
@@ -760,7 +760,7 @@ def validate_block_access_list_gas_limit(
             unique_slots.add(slot)
 
         # Count each unique storage key as one item
-        bal_items += Uint(len(unique_slots))
+        bal_items += ulen(unique_slots)
 
     if bal_items > block_gas_limit // GasCosts.BLOCK_ACCESS_LIST_ITEM:
         raise BlockAccessListGasLimitExceededError(

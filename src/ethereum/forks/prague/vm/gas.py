@@ -14,7 +14,7 @@ EVM gas constants and calculators.
 from dataclasses import dataclass
 from typing import List, Tuple
 
-from ethereum_types.numeric import U64, U256, Uint
+from ethereum_types.numeric import U64, U256, Uint, ulen
 
 from ethereum.trace import GasAndRefund, evm_trace
 from ethereum.utils.numeric import ceil32, taylor_exponential
@@ -285,7 +285,7 @@ def calculate_gas_extend_memory(
     """
     size_to_extend = Uint(0)
     to_be_paid = Uint(0)
-    current_size = Uint(len(memory))
+    current_size = ulen(memory)
     for start_position, size in extensions:
         if size == 0:
             continue
