@@ -11,28 +11,134 @@ Introduction
 Precompile for BLS12-381 curve operations.
 """
 
-from functools import lru_cache
-from typing import Tuple
-
 from ethereum_types.bytes import Bytes
-from ethereum_types.numeric import U256, Uint
-from py_ecc.optimized_bls12_381.optimized_curve import (
-    FQ,
-    FQ2,
-    b,
-    b2,
-    curve_order,
-    is_inf,
-    is_on_curve,
-    normalize,
-)
-from py_ecc.optimized_bls12_381.optimized_curve import (
-    multiply as bls12_multiply,
-)
-from py_ecc.typing import Optimized_Point3D as Point3D
+from ethereum_types.numeric import Uint
 
-from ....vm.memory import buffer_read
 from ...exceptions import InvalidParameter
+
+ZERO_PAD = b"\x00" * 16
+
+
+def unpad_fp(data: Bytes) -> Bytes:
+    """
+    Remove the 16-byte zero padding from a 64-byte field element.
+
+    Parameters
+    ----------
+    data :
+        The 64-byte big-endian padded field element.
+
+    Returns
+    -------
+    raw : Bytes
+        The 48-byte unpadded field element.
+
+    Raises
+    ------
+    InvalidParameter
+        If the leading 16 bytes are not zero.
+
+    """
+    if data[:16] != ZERO_PAD:
+        raise InvalidParameter("Invalid field element")
+    return data[16:]
+
+
+def unpad_g1(data: Bytes) -> bytes:
+    """
+    Strip padding from a 128-byte G1 encoding to 96 raw bytes.
+
+    Parameters
+    ----------
+    data :
+        The 128-byte padded G1 point.
+
+    Returns
+    -------
+    raw : bytes
+        The 96-byte unpadded G1 point.
+
+    Raises
+    ------
+    InvalidParameter
+        If the padding is invalid.
+
+    """
+    x = unpad_fp(data[:64])
+    y = unpad_fp(data[64:])
+    return bytes(x + y)
+
+
+def unpad_g2(data: Bytes) -> bytes:
+    """
+    Strip padding from a 256-byte G2 encoding to 192 raw bytes.
+
+    Parameters
+    ----------
+    data :
+        The 256-byte padded G2 point.
+
+    Returns
+    -------
+    raw : bytes
+        The 192-byte unpadded G2 point.
+
+    Raises
+    ------
+    InvalidParameter
+        If the padding is invalid.
+
+    """
+    c0_x = unpad_fp(data[:64])
+    c1_x = unpad_fp(data[64:128])
+    c0_y = unpad_fp(data[128:192])
+    c1_y = unpad_fp(data[192:256])
+    return bytes(c0_x + c1_x + c0_y + c1_y)
+
+
+def pad_g1(raw: bytes) -> Bytes:
+    """
+    Add 16-byte zero padding to a 96-byte G1 point.
+
+    Parameters
+    ----------
+    raw :
+        The 96-byte raw G1 point.
+
+    Returns
+    -------
+    padded : Bytes
+        The 128-byte padded G1 point.
+
+    """
+    x = raw[:48]
+    y = raw[48:]
+    return ZERO_PAD + x + ZERO_PAD + y
+
+
+def pad_g2(raw: bytes) -> Bytes:
+    """
+    Add 16-byte zero padding to a 192-byte G2 point.
+
+    Parameters
+    ----------
+    raw :
+        The 192-byte raw G2 point.
+
+    Returns
+    -------
+    padded : Bytes
+        The 256-byte padded G2 point.
+
+    """
+    c0_x = raw[:48]
+    c1_x = raw[48:96]
+    c0_y = raw[96:144]
+    c1_y = raw[144:]
+    return (
+        ZERO_PAD + c0_x + ZERO_PAD + c1_x + ZERO_PAD + c0_y + ZERO_PAD + c1_y
+    )
+
 
 G1_K_DISCOUNT = [
     1000,
@@ -299,324 +405,3 @@ G2_K_DISCOUNT = [
 G1_MAX_DISCOUNT = 519
 G2_MAX_DISCOUNT = 524
 MULTIPLIER = Uint(1000)
-
-
-# Note: Caching as a way to optimize client performance can create a DoS
-# attack vector for worst-case inputs that trigger only cache misses. This
-# should not be relied upon for client performance optimization in
-# production systems.
-@lru_cache(maxsize=128)
-def _bytes_to_g1_cached(
-    data: bytes,
-    subgroup_check: bool = False,
-) -> Point3D[FQ]:
-    """
-    Internal cached version of `bytes_to_g1` that works with hashable `bytes`.
-    """
-    if len(data) != 128:
-        raise InvalidParameter("Input should be 128 bytes long")
-
-    x = bytes_to_fq(data[:64])
-    y = bytes_to_fq(data[64:])
-
-    if x >= FQ.field_modulus:
-        raise InvalidParameter("x >= field modulus")
-    if y >= FQ.field_modulus:
-        raise InvalidParameter("y >= field modulus")
-
-    z = 1
-    if x == 0 and y == 0:
-        z = 0
-    point = FQ(x), FQ(y), FQ(z)
-
-    if not is_on_curve(point, b):
-        raise InvalidParameter("G1 point is not on curve")
-
-    if subgroup_check and not is_inf(bls12_multiply(point, curve_order)):
-        raise InvalidParameter("Subgroup check failed for G1 point.")
-
-    return point
-
-
-def bytes_to_g1(
-    data: Bytes,
-    subgroup_check: bool = False,
-) -> Point3D[FQ]:
-    """
-    Decode 128 bytes to a G1 point with or without subgroup check.
-
-    Parameters
-    ----------
-    data :
-        The bytes data to decode.
-    subgroup_check : bool
-        Whether to perform a subgroup check on the G1 point.
-
-    Returns
-    -------
-    point : Point3D[FQ]
-        The G1 point.
-
-    Raises
-    ------
-    InvalidParameter
-        If a field element is invalid, the point is not on the curve, or the
-        subgroup check fails.
-
-    """
-    # This is needed bc when we slice `Bytes` we get a `bytearray`,
-    # which is not hashable
-    return _bytes_to_g1_cached(bytes(data), subgroup_check)
-
-
-def g1_to_bytes(
-    g1_point: Point3D[FQ],
-) -> Bytes:
-    """
-    Encode a G1 point to 128 bytes.
-
-    Parameters
-    ----------
-    g1_point :
-        The G1 point to encode.
-
-    Returns
-    -------
-    data : Bytes
-        The encoded data.
-
-    """
-    g1_normalized = normalize(g1_point)
-    x, y = g1_normalized
-    return int(x).to_bytes(64, "big") + int(y).to_bytes(64, "big")
-
-
-def decode_g1_scalar_pair(
-    data: Bytes,
-) -> Tuple[Point3D[FQ], int]:
-    """
-    Decode 160 bytes to a G1 point and a scalar.
-
-    Parameters
-    ----------
-    data :
-        The bytes data to decode.
-
-    Returns
-    -------
-    point : Tuple[Point3D[FQ], int]
-        The G1 point and the scalar.
-
-    Raises
-    ------
-    InvalidParameter
-        If the subgroup check failed.
-
-    """
-    if len(data) != 160:
-        InvalidParameter("Input should be 160 bytes long")
-
-    point = bytes_to_g1(data[:128], subgroup_check=True)
-
-    m = int.from_bytes(buffer_read(data, U256(128), U256(32)), "big")
-
-    return point, m
-
-
-def bytes_to_fq(data: Bytes) -> FQ:
-    """
-    Decode 64 bytes to a FQ element.
-
-    Parameters
-    ----------
-    data :
-        The bytes data to decode.
-
-    Returns
-    -------
-    fq : FQ
-        The FQ element.
-
-    Raises
-    ------
-    InvalidParameter
-        If the field element is invalid.
-
-    """
-    if len(data) != 64:
-        raise InvalidParameter("FQ should be 64 bytes long")
-
-    c = int.from_bytes(data[:64], "big")
-
-    if c >= FQ.field_modulus:
-        raise InvalidParameter("Invalid field element")
-
-    return FQ(c)
-
-
-def bytes_to_fq2(data: Bytes) -> FQ2:
-    """
-    Decode 128 bytes to an FQ2 element.
-
-    Parameters
-    ----------
-    data :
-        The bytes data to decode.
-
-    Returns
-    -------
-    fq2 : FQ2
-        The FQ2 element.
-
-    Raises
-    ------
-    InvalidParameter
-        If the field element is invalid.
-
-    """
-    if len(data) != 128:
-        raise InvalidParameter("FQ2 input should be 128 bytes long")
-    c_0 = int.from_bytes(data[:64], "big")
-    c_1 = int.from_bytes(data[64:], "big")
-
-    if c_0 >= FQ.field_modulus:
-        raise InvalidParameter("Invalid field element")
-    if c_1 >= FQ.field_modulus:
-        raise InvalidParameter("Invalid field element")
-
-    return FQ2((c_0, c_1))
-
-
-# Note: Caching as a way to optimize client performance can create a DoS
-# attack vector for worst-case inputs that trigger only cache misses. This
-# should not be relied upon for client performance optimization in
-# production systems.
-@lru_cache(maxsize=128)
-def _bytes_to_g2_cached(
-    data: bytes,
-    subgroup_check: bool = False,
-) -> Point3D[FQ2]:
-    """
-    Internal cached version of `bytes_to_g2` that works with hashable `bytes`.
-    """
-    if len(data) != 256:
-        raise InvalidParameter("G2 should be 256 bytes long")
-
-    x = bytes_to_fq2(data[:128])
-    y = bytes_to_fq2(data[128:])
-
-    z = (1, 0)
-    if x == FQ2((0, 0)) and y == FQ2((0, 0)):
-        z = (0, 0)
-
-    point = x, y, FQ2(z)
-
-    if not is_on_curve(point, b2):
-        raise InvalidParameter("Point is not on curve")
-
-    if subgroup_check and not is_inf(bls12_multiply(point, curve_order)):
-        raise InvalidParameter("Subgroup check failed for G2 point.")
-
-    return point
-
-
-def bytes_to_g2(
-    data: Bytes,
-    subgroup_check: bool = False,
-) -> Point3D[FQ2]:
-    """
-    Decode 256 bytes to a G2 point with or without subgroup check.
-
-    Parameters
-    ----------
-    data :
-        The bytes data to decode.
-    subgroup_check : bool
-        Whether to perform a subgroup check on the G2 point.
-
-    Returns
-    -------
-    point : Point3D[FQ2]
-        The G2 point.
-
-    Raises
-    ------
-    InvalidParameter
-        If a field element is invalid, the point is not on the curve, or the
-        subgroup check fails.
-
-    """
-    # This is needed bc when we slice `Bytes` we get a `bytearray`,
-    # which is not hashable
-    return _bytes_to_g2_cached(data, subgroup_check)
-
-
-def fq2_to_bytes(fq2: FQ2) -> Bytes:
-    """
-    Encode a FQ2 point to 128 bytes.
-
-    Parameters
-    ----------
-    fq2 :
-        The FQ2 point to encode.
-
-    Returns
-    -------
-    data : Bytes
-        The encoded data.
-
-    """
-    coord0, coord1 = fq2.coeffs
-    return int(coord0).to_bytes(64, "big") + int(coord1).to_bytes(64, "big")
-
-
-def g2_to_bytes(
-    g2_point: Point3D[FQ2],
-) -> Bytes:
-    """
-    Encode a G2 point to 256 bytes.
-
-    Parameters
-    ----------
-    g2_point :
-        The G2 point to encode.
-
-    Returns
-    -------
-    data : Bytes
-        The encoded data.
-
-    """
-    x_coords, y_coords = normalize(g2_point)
-    return fq2_to_bytes(x_coords) + fq2_to_bytes(y_coords)
-
-
-def decode_g2_scalar_pair(
-    data: Bytes,
-) -> Tuple[Point3D[FQ2], int]:
-    """
-    Decode 288 bytes to a G2 point and a scalar.
-
-    Parameters
-    ----------
-    data :
-        The bytes data to decode.
-
-    Returns
-    -------
-    point : Tuple[Point3D[FQ2], int]
-        The G2 point and the scalar.
-
-    Raises
-    ------
-    InvalidParameter
-        If the subgroup check failed.
-
-    """
-    if len(data) != 288:
-        InvalidParameter("Input should be 288 bytes long")
-
-    point = bytes_to_g2(data[:256], subgroup_check=True)
-    n = int.from_bytes(data[256 : 256 + 32], "big")
-
-    return point, n
