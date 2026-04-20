@@ -296,7 +296,7 @@ class TestContractCreationGasUsage:
         cost_per_state_byte and a code hash cost is added.
         """
         code_size = len(bytes(initcode.deploy_code))
-        if hasattr(fork, "cost_per_state_byte"):
+        if fork.is_eip_enabled(8037):
             gas_costs = fork.gas_costs()
             cpsb = fork.cost_per_state_byte()
             return (
@@ -597,7 +597,7 @@ class TestCreateInitcode:
         cost_per_state_byte and a code hash cost is added.
         """
         code_size = len(bytes(initcode.deploy_code))
-        if hasattr(fork, "cost_per_state_byte"):
+        if fork.is_eip_enabled(8037):
             gas_costs = fork.gas_costs()
             cpsb = fork.cost_per_state_byte()
             return (
