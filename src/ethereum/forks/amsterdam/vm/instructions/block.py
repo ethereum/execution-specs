@@ -285,7 +285,7 @@ def slot_number(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, GasCosts.OPCODE_SLOTNUM)
 
     # OPERATION
     push(evm.stack, U256(evm.message.block_env.slot_number))

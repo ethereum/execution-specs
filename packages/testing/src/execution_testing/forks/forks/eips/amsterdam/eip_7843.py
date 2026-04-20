@@ -45,7 +45,7 @@ class EIP7843(
         base_map = super(EIP7843, cls).opcode_gas_map()
         return {
             **base_map,
-            Opcodes.SLOTNUM: gas_costs.GAS_BASE,
+            Opcodes.SLOTNUM: gas_costs.BASE,
         }
 
     @classmethod
