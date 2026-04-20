@@ -553,16 +553,10 @@ def test_finalization_burn_logs_multi_account_ordering(
     sorted_addrs = sorted(created_addrs)
     reverse_sorted = list(reversed(sorted_addrs))
 
-    runtime = (
-        Op.TLOAD(0)
-        + Op.ISZERO
-        + Op.PUSH1(8)
-        + Op.JUMPI
-        + Op.STOP
-        + Op.JUMPDEST
-        + Op.TSTORE(0, 1)
-        + Op.SELFDESTRUCT(beneficiary)
-    )
+    # Each created contract is CALLed exactly once (to trigger SELFDESTRUCT);
+    # payers then forward via their own SELFDESTRUCT, so the created
+    # contracts are never re-invoked — no call-once guard is needed.
+    runtime = Op.SELFDESTRUCT(beneficiary)
     initcode = Initcode(deploy_code=runtime)
     initcode_len = len(initcode)
 
@@ -627,6 +621,106 @@ def test_finalization_burn_logs_multi_account_ordering(
         created_addrs, Account.NONEXISTENT
     )
     post[beneficiary] = Account(balance=factory_balance)
+    for payer in payers:
+        post[payer] = Account(balance=0)
+
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "num_transfers",
+    [
+        pytest.param(2, id="two_transfers"),
+        pytest.param(5, id="five_transfers"),
+    ],
+)
+def test_finalization_burn_log_single_account_multiple_transfers(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Alloc,
+    sender: EOA,
+    fork: Fork,
+    num_transfers: int,
+) -> None:
+    """
+    Verify finalization emits a single Burn log summing multiple ETH transfers
+    to one to-be-destructed account.
+
+    A single account is created and SELFDESTRUCT'd in the same tx, then N
+    payer contracts each send a distinct nonzero amount to it. Exactly ONE
+    Burn log MUST be emitted at finalization with the combined residual
+    balance, a client emitting one log per transfer would fail.
+    """
+    beneficiary = pre.deploy_contract(Op.STOP)
+
+    factory_address = compute_create_address(
+        address=sender, nonce=sender.nonce
+    )
+    x = compute_create_address(address=factory_address, nonce=1)
+
+    # x is only CALLed once (to trigger SELFDESTRUCT); payers forward via
+    # their own SELFDESTRUCT, so no call-once guard is needed.
+    runtime = Op.SELFDESTRUCT(beneficiary)
+    initcode = Initcode(deploy_code=runtime)
+    initcode_len = len(initcode)
+
+    create_balance = 1000
+    pre.fund_address(factory_address, create_balance)
+
+    # N payer contracts, each sending a distinct nonzero amount to x
+    payer_code = Op.SELFDESTRUCT(Op.CALLDATALOAD(0))
+    funding_amounts = [100 * (i + 1) for i in range(num_transfers)]
+    payers = [
+        pre.deploy_contract(payer_code, balance=funding_amounts[i])
+        for i in range(num_transfers)
+    ]
+
+    # Factory creates x, triggers its SELFDESTRUCT, then calls each payer with
+    # x as the beneficiary so each payer's balance is forwarded to x.
+    factory_code: Bytecode = (
+        Om.MSTORE(initcode, 0)
+        + Op.TSTORE(
+            0, Op.CREATE(value=create_balance, offset=0, size=initcode_len)
+        )
+        + Op.CALL(gas=Op.GAS, address=Op.TLOAD(0), value=0)
+    )
+    for i in range(num_transfers):
+        factory_code += Op.MSTORE(0, x)
+        factory_code += Op.CALL(
+            gas=Op.GAS,
+            address=payers[i],
+            args_offset=0,
+            args_size=32,
+        )
+
+    execution_logs = [
+        transfer_log(factory_address, x, create_balance),
+        transfer_log(x, beneficiary, create_balance),
+    ]
+    execution_logs.extend(
+        transfer_log(payers[i], x, funding_amounts[i])
+        for i in range(num_transfers)
+    )
+
+    # Exactly one burn log with the SUM of transferred amounts
+    total_residual = sum(funding_amounts)
+    finalization_logs = [burn_log(x, total_residual)]
+
+    tx = Transaction(
+        sender=sender,
+        to=None,
+        value=0,
+        data=factory_code,
+        gas_limit=fork.transaction_gas_limit_cap(),
+        expected_receipt=TransactionReceipt(
+            logs=execution_logs + finalization_logs
+        ),
+    )
+
+    post: dict[Address, Account | None] = {
+        x: Account.NONEXISTENT,
+        beneficiary: Account(balance=create_balance),
+    }
     for payer in payers:
         post[payer] = Account(balance=0)
 
