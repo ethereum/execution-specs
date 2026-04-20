@@ -129,7 +129,7 @@ class TestTokenCalculation:
         # floor_cost = 21000 + (floor_tokens * floor_token_cost)
         # where floor_tokens = 4 * calldata_bytes
         gas_costs = fork.gas_costs()
-        floor_token_cost = gas_costs.GAS_TX_DATA_TOKEN_FLOOR
+        floor_token_cost = gas_costs.TX_DATA_TOKEN_FLOOR
         expected_floor_tokens = len(calldata) * 4
         expected_floor_cost = 21000 + (
             expected_floor_tokens * floor_token_cost
@@ -142,7 +142,7 @@ class TestTokenCalculation:
         )
 
         expected_intrinsic_cost = 21000 + (
-            expected_standard_tokens * gas_costs.GAS_TX_DATA_TOKEN_STANDARD
+            expected_standard_tokens * gas_costs.TX_DATA_TOKEN_STANDARD
         )
         assert intrinsic_cost_before_execution == expected_intrinsic_cost, (
             f"Intrinsic cost mismatch for {description}: "
@@ -206,7 +206,7 @@ class TestMaximumCalldata:
         # For non-zero bytes: tokens = bytes * 4
         gas_costs = fork.gas_costs()
         target_gas = 10_000_000
-        floor_token_cost = gas_costs.GAS_TX_DATA_TOKEN_FLOOR
+        floor_token_cost = gas_costs.TX_DATA_TOKEN_FLOOR
         target_tokens = (target_gas - 21000) // floor_token_cost
         # Use all non-zero bytes for maximum token density
         num_bytes = target_tokens // 4
@@ -331,9 +331,9 @@ class TestMemoryExpansion:
         # and memory expansion
         gas_costs = fork.gas_costs()
         execution_gas = (
-            gas_costs.GAS_BASE  # CALLDATASIZE
-            + gas_costs.GAS_VERY_LOW * 2  # PUSH1 * 2
-            + gas_costs.GAS_VERY_LOW  # CALLDATACOPY base
+            gas_costs.BASE  # CALLDATASIZE
+            + gas_costs.VERY_LOW * 2  # PUSH1 * 2
+            + gas_costs.VERY_LOW  # CALLDATACOPY base
             + memory_expansion_cost  # Memory expansion
             + 3 * calldata_size  # CALLDATACOPY per-byte cost
         )
@@ -444,7 +444,7 @@ class TestNestedContractCalls:
         tokens_tx = len(tx_calldata) * 4  # All non-zero bytes
         gas_costs = fork.gas_costs()
         expected_floor_cost = 21000 + (
-            tokens_tx * gas_costs.GAS_TX_DATA_TOKEN_FLOOR
+            tokens_tx * gas_costs.TX_DATA_TOKEN_FLOOR
         )
         assert floor_cost == expected_floor_cost
 
@@ -816,9 +816,9 @@ class TestRefundCapInteraction:
         gas_costs = fork.gas_costs()
         # Op.SSTORE(0, 0) generates: PUSH1(0) PUSH1(0) SSTORE
         execution_gas = (
-            gas_costs.GAS_COLD_STORAGE_ACCESS  # First access to storage slot
-            + gas_costs.GAS_STORAGE_RESET  # SSTORE reset cost
-            + gas_costs.GAS_VERY_LOW * 2  # PUSH1 * 2 for Op.SSTORE helper
+            gas_costs.COLD_STORAGE_ACCESS  # First access to storage slot
+            + gas_costs.STORAGE_RESET  # SSTORE reset cost
+            + gas_costs.VERY_LOW * 2  # PUSH1 * 2 for Op.SSTORE helper
         )
 
         # Total gas before refund
@@ -910,9 +910,9 @@ class TestRefundCapInteraction:
         execution_gas = 0
         for _ in range(num_slots):
             # Each storage slot is accessed cold (different slots)
-            execution_gas += gas_costs.GAS_COLD_STORAGE_ACCESS
-            execution_gas += gas_costs.GAS_STORAGE_RESET
-            execution_gas += gas_costs.GAS_VERY_LOW * 2  # PUSH1 * 2
+            execution_gas += gas_costs.COLD_STORAGE_ACCESS
+            execution_gas += gas_costs.STORAGE_RESET
+            execution_gas += gas_costs.VERY_LOW * 2  # PUSH1 * 2
 
         total_gas_before_refund = (
             intrinsic_cost_before_execution + execution_gas
@@ -997,9 +997,9 @@ class TestRefundCapInteraction:
         # Minimal execution gas
         gas_costs = fork.gas_costs()
         execution_gas = (
-            gas_costs.GAS_COLD_STORAGE_ACCESS
-            + gas_costs.GAS_STORAGE_RESET
-            + gas_costs.GAS_VERY_LOW * 2
+            gas_costs.COLD_STORAGE_ACCESS
+            + gas_costs.STORAGE_RESET
+            + gas_costs.VERY_LOW * 2
         )
 
         total_gas_before_refund = (

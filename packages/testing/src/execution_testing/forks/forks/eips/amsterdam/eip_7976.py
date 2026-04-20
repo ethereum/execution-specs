@@ -24,7 +24,7 @@ class EIP7976(BaseFork):
         """Transaction data floor token cost is increased from 10 to 16."""
         return replace(
             super(EIP7976, cls).gas_costs(),
-            GAS_TX_DATA_TOKEN_FLOOR=16,
+            TX_DATA_TOKEN_FLOOR=16,
         )
 
     @classmethod
@@ -40,8 +40,8 @@ class EIP7976(BaseFork):
         def fn(*, data: BytesConvertible) -> int:
             floor_tokens = len(Bytes(data)) * 4
             return (
-                floor_tokens * gas_costs.GAS_TX_DATA_TOKEN_FLOOR
-                + gas_costs.GAS_TX_BASE
+                floor_tokens * gas_costs.TX_DATA_TOKEN_FLOOR
+                + gas_costs.TX_BASE
             )
 
         return fn
