@@ -119,8 +119,8 @@ def test_access_list_token_calculation(
 
     gas_costs = fork.gas_costs()
     expected_floor_cost = (
-        expected_floor_tokens * gas_costs.GAS_TX_DATA_TOKEN_FLOOR
-        + gas_costs.GAS_TX_BASE
+        expected_floor_tokens * gas_costs.TX_DATA_TOKEN_FLOOR
+        + gas_costs.TX_BASE
     )
     actual_floor_cost = fork.transaction_data_floor_cost_calculator()(
         data=b"", access_list=access_list
