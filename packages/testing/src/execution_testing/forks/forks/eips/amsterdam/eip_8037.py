@@ -368,10 +368,11 @@ class EIP8037(BaseFork):
         cls, opcode: OpcodeBase, gas_costs: GasCosts
     ) -> int:
         """
-        Calculate updated SSTORE gas refund.
+        Calculate SSTORE state gas refund.
 
-        When restoring a slot originally empty back to zero, the
-        refund includes the state gas for storage set.
+        Return the state-gas portion (`32 * cpsb`) when a slot that
+        was originally empty is restored back to zero within the
+        transaction; otherwise return 0.
         """
         del gas_costs
         metadata = opcode.metadata
@@ -412,11 +413,11 @@ class EIP8037(BaseFork):
         cls, opcode: OpcodeBase, gas_costs: GasCosts
     ) -> int:
         """
-        Calculate updated RETURN gas cost.
+        Calculate RETURN state gas cost.
 
-        Replace G_CODE_DEPOSIT_BYTE with cpsb per byte for code
-        deposit, and add code hash gas (keccak256 of deployed
-        bytecode).
+        Return `cpsb` per deposited code byte (the state-gas portion
+        replacing G_CODE_DEPOSIT_BYTE). Code hash gas is accounted
+        for separately in `_calculate_return_gas`.
         """
         del gas_costs
         metadata = opcode.metadata
