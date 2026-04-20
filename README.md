@@ -62,7 +62,7 @@ For other help, see the [Documentation](#documentation) section above, or reach 
 - [ethereum/execution-apis](https://github.com/ethereum/execution-apis): The JSON-RPC API specification, which lives in a separate repository.
 - [ethereum/consensus-specs](https://github.com/ethereum/consensus-specs): The consensus-layer counterpart to this repository.
 
-Production execution clients that implement the spec include [geth](https://github.com/ethereum/go-ethereum), [nethermind](https://github.com/NethermindEth/nethermind), [besu](https://github.com/hyperledger/besu), [reth](https://github.com/paradigmxyz/reth), [erigon](https://github.com/erigontech/erigon), and [ethereumjs](https://github.com/ethereumjs/ethereumjs-monorepo).
+Production execution clients that implement the spec include [besu](https://github.com/besu-eth/besu), [erigon](https://github.com/erigontech/erigon), [ethrex](https://github.com/lambdaclass/ethrex), [geth](https://github.com/ethereum/go-ethereum), [nethermind](https://github.com/NethermindEth/nethermind), and [reth](https://github.com/paradigmxyz/reth).
 
 ## Responsible Disclosure of Vulnerabilities
 
