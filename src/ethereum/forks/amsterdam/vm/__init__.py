@@ -174,11 +174,43 @@ class Evm:
     regular_gas_used: Uint = Uint(0)
     state_gas_used: Uint = Uint(0)
     state_gas_refund: Uint = Uint(0)
+    state_gas_refund_pending: Uint = Uint(0)
+
+
+def credit_state_gas_refund(evm: Evm, amount: Uint) -> None:
+    """
+    Credit an inline state gas refund to `evm.state_gas_left`.
+
+    Clamp the applied portion to this frame's `state_gas_used` — the
+    matching charge may sit in an ancestor sharing storage via
+    CALLCODE/DELEGATECALL.  Track it in `state_gas_refund` so
+    `incorporate_child_on_error` can undo the inflation, and defer the
+    unapplied remainder in `state_gas_refund_pending` for propagation
+    on success.
+
+    Parameters
+    ----------
+    evm :
+        The frame crediting the refund.
+    amount :
+        The refund amount to credit.
+
+    """
+    applied = min(amount, evm.state_gas_used)
+    evm.state_gas_left += applied
+    evm.state_gas_used -= applied
+    evm.state_gas_refund += applied
+    evm.state_gas_refund_pending += amount - applied
 
 
 def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
     """
     Incorporate the state of a successful `child_evm` into the parent `evm`.
+
+    Propagate `state_gas_refund` (inline credits the child applied) so
+    an ancestor revert can undo the inflation, and apply
+    `state_gas_refund_pending` (the unapplied remainder) to the parent
+    via `credit_state_gas_refund`; any leftover propagates further up.
 
     Parameters
     ----------
@@ -198,6 +230,7 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
     evm.regular_gas_used += child_evm.regular_gas_used
     evm.state_gas_used += child_evm.state_gas_used
     evm.state_gas_refund += child_evm.state_gas_refund
+    credit_state_gas_refund(evm, child_evm.state_gas_refund_pending)
 
 
 def incorporate_child_on_error(
@@ -212,11 +245,11 @@ def incorporate_child_on_error(
     that spilled into `gas_left`, is restored to the parent's reservoir and
     the child's `state_gas_used` is not accumulated.
 
-    Inline state-gas refunds (SSTORE 0 to x to 0) accumulated in the child or
-    its successful descendants are dropped: `state_gas_refund` is subtracted
-    from the amount returned to the parent's reservoir and is not propagated.
-    This matches `refund_counter`'s error-path behavior and keeps the refund
-    frame-scoped.
+    Inline state-gas refunds (SSTORE 0 to x to 0, CREATE silent failure)
+    credited by the child inflated its `state_gas_left`; subtract
+    `state_gas_refund` from the amount returned to the parent's
+    reservoir so the inflation does not leak across the error boundary.
+    `state_gas_refund_pending` is discarded with the child frame.
 
     Parameters
     ----------
