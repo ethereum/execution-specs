@@ -12,7 +12,7 @@ from dataclasses import replace
 from execution_testing.base_types import Bytes
 from execution_testing.base_types.conversions import BytesConvertible
 
-from ....base_fork import BaseFork, TransactionDataFloorCostCalculator
+from ....base_fork import BaseFork, CalldataGasCalculator
 from ....gas_costs import GasCosts
 
 
@@ -28,20 +28,20 @@ class EIP7976(BaseFork):
         )
 
     @classmethod
-    def transaction_data_floor_cost_calculator(
-        cls,
-    ) -> TransactionDataFloorCostCalculator:
+    def calldata_gas_calculator(cls) -> CalldataGasCalculator:
         """
-        The data floor uses floor tokens based on calldata bytes:
-        ``4 * bytes`` (64/64 per byte), not EIP-7623 calldata tokens.
+        In floor mode, count four tokens per calldata byte uniformly so
+        the data floor cost becomes ``4 * bytes * TX_DATA_TOKEN_FLOOR``
+        (64/64 gas per byte). Standard mode keeps EIP-7623 semantics so
+        that composition with downstream EIPs (e.g. EIP-7981) stays
+        intact via ``super().transaction_data_floor_cost_calculator()``.
         """
+        super_fn = super(EIP7976, cls).calldata_gas_calculator()
         gas_costs = cls.gas_costs()
 
-        def fn(*, data: BytesConvertible) -> int:
-            floor_tokens = len(Bytes(data)) * 4
-            return (
-                floor_tokens * gas_costs.TX_DATA_TOKEN_FLOOR
-                + gas_costs.TX_BASE
-            )
+        def fn(*, data: BytesConvertible, floor: bool = False) -> int:
+            if floor:
+                return len(Bytes(data)) * 4 * gas_costs.TX_DATA_TOKEN_FLOOR
+            return super_fn(data=data, floor=False)
 
         return fn
