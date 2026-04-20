@@ -2212,3 +2212,82 @@ def test_inner_create_fail_refunds_in_creation_tx(
         ],
         post=post,
     )
+
+
+@pytest.mark.pre_alloc_mutable
+@pytest.mark.with_all_create_opcodes()
+@pytest.mark.valid_from("EIP8037")
+def test_create_collision_burned_gas_counted_in_block_regular(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    create_opcode: Op,
+) -> None:
+    """
+    Regression: on CREATE/CREATE2 address collision the forwarded
+    `create_message_gas` is burned and must count toward
+    `block_regular_gas_used`, not vanish from the block formula.
+
+    Surfaced by evmone mutation testing (PR #2639 review comment):
+    skipping the `evm.regular_gas_used += create_message_gas`
+    accounting on the collision branch passes the existing suite
+    because the only collision test uses `state_test` (no
+    block-level header check) and state-gas accounting is unchanged.
+
+    Block-level `Header(gas_used)` discriminator. `block_state_gas`
+    is zero (non-creation tx, collision refunds the state charge),
+    so `header.gas_used == block_regular`. The burned
+    `create_message_gas` dominates the regular dimension and its
+    removal under the mutation reduces `header.gas_used` by that
+    exact amount.
+    """
+    init_code = Op.STOP
+    mstore_value, size = init_code_at_high_bytes(init_code)
+    salt = 0
+
+    create_call = (
+        create_opcode(value=0, offset=0, size=size, salt=salt)
+        if create_opcode == Op.CREATE2
+        else create_opcode(value=0, offset=0, size=size)
+    )
+    factory_code = Op.MSTORE(0, mstore_value) + Op.POP(create_call) + Op.STOP
+    factory = pre.deploy_contract(code=factory_code)
+
+    collision_target = compute_create_address(
+        address=factory,
+        nonce=1,
+        salt=salt,
+        initcode=bytes(init_code),
+        opcode=create_opcode,
+    )
+    pre.deploy_contract(code=Op.STOP, address=collision_target)
+
+    # Fixed-size budget so `gas_left` at the CREATE/CREATE2 opcode
+    # (and hence `create_message_gas`) is deterministic and the
+    # `Header(gas_used)` baseline below is reproducible.
+    gas_limit = 250_000
+
+    tx = Transaction(
+        to=factory,
+        gas_limit=gas_limit,
+        sender=pre.fund_eoa(),
+    )
+
+    # Empirical baseline. `block_state_gas` is zero for this tx, so
+    # the header just reports `intrinsic.regular + factory_regular +
+    # create_message_gas + POP + STOP`. Removing the collision's
+    # `regular_gas_used += create_message_gas` accounting subtracts
+    # `create_message_gas` from this baseline, so the test catches
+    # the mutation on both CREATE and CREATE2 paths.
+    baseline_gas_used = 0x01C98C  # 117,132 empirical header.gas_used
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=baseline_gas_used),
+            ),
+        ],
+        post={},
+    )

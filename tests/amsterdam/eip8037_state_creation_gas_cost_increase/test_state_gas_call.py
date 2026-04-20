@@ -1464,3 +1464,116 @@ def test_create_oog_during_state_gas_charge(
 
     post = {parent: Account(storage=storage)}
     state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_call_new_account_no_regular_account_creation_cost(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Regression: CALL with value to a non-existent account must NOT
+    charge the pre-Amsterdam 25,000 regular `ACCOUNT_CREATION_COST`.
+
+    Surfaced by evmone mutation testing (PR #2639 review comment):
+    keeping `25_000` regular on top of `GAS_NEW_ACCOUNT` state gas
+    passes the existing suite because no test budgets the CALL
+    tightly enough to reject the extra regular draw.
+
+    Tight-gas discriminator. `tx.gas_limit` is sized at the exact
+    regular cost of the caller code plus `GAS_NEW_ACCOUNT` (which
+    spills from `gas_left` since the reservoir is zero for
+    `tx.gas < TX_MAX_GAS_LIMIT`) plus a small slack. Under the
+    correct spec the CALL completes and transfers the value. Under
+    the mutation the extra 25,000 regular pushes the caller OOG,
+    the CALL aborts, and the target's balance stays at 0.
+    """
+    gas_costs = fork.gas_costs()
+    new_account_state_gas = gas_costs.GAS_NEW_ACCOUNT
+
+    target = pre.fund_eoa(amount=0)
+
+    caller_code = Op.POP(Op.CALL(gas=0, address=target, value=1)) + Op.STOP
+    caller = pre.deploy_contract(code=caller_code, balance=1)
+
+    # Pre-Amsterdam CALL_NEW_ACCOUNT_COST was 25,000 regular. Budget
+    # 20,000 slack (< 25,000) so the correct spec fits and the
+    # mutation runs out of regular gas. `caller_code.gas_cost`
+    # already includes the cold access, so only the value-transfer
+    # extra needs adding.
+    intrinsic = fork.transaction_intrinsic_cost_calculator()()
+    tx = Transaction(
+        to=caller,
+        gas_limit=(
+            intrinsic
+            + caller_code.gas_cost(fork)
+            + gas_costs.GAS_CALL_VALUE
+            + new_account_state_gas
+            + 20_000
+        ),
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(pre=pre, post={target: Account(balance=1)}, tx=tx)
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_child_failure_refunds_state_gas_to_reservoir_not_gas_left(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Regression: on child failure, state gas must be returned to the
+    parent's state gas reservoir, not to `gas_left`.
+
+    Surfaced by evmone mutation testing (PR #2639 review comment):
+    routing `incorporate_child_on_error`'s state-gas restoration to
+    `gas_left` (regular) rather than `state_gas_left` passes the
+    existing suite because every reservoir-restoration test leaves
+    `gas_left` large enough to absorb the subsequent SSTORE spill.
+
+    Grandchild discriminator. After a failing child restores the
+    reservoir, the parent forwards a tight `gas` stipend to a
+    grandchild that attempts an SSTORE. Under the correct spec the
+    grandchild inherits the restored reservoir and the SSTORE
+    consumes from it. Under the mutation the grandchild's reservoir
+    is zero, the SSTORE's state gas has to spill into the tight
+    `gas_left`, and the grandchild OOGs.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    gas_costs = fork.gas_costs()
+    sstore_state_gas = fork.sstore_state_gas()
+
+    grandchild = pre.deploy_contract(code=Op.SSTORE(0, 1))
+
+    child = pre.deploy_contract(code=Op.SSTORE(0, 1) + Op.REVERT(0, 0))
+
+    # Tight stipend: one cold SSTORE regular plus its two stack
+    # pushes. The grandchild has no spare `gas_left` to absorb a
+    # state-gas spill; the SSTORE only completes if state gas comes
+    # from the forwarded reservoir.
+    push_cost = 2 * gas_costs.GAS_VERY_LOW
+    sstore_regular = gas_costs.GAS_COLD_STORAGE_WRITE
+    grandchild_stipend = push_cost + sstore_regular
+
+    parent = pre.deploy_contract(
+        code=(
+            Op.POP(Op.CALL(gas=Op.GAS, address=child))
+            + Op.POP(Op.CALL(gas=grandchild_stipend, address=grandchild))
+        ),
+    )
+
+    tx = Transaction(
+        to=parent,
+        gas_limit=gas_limit_cap + sstore_state_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(
+        pre=pre,
+        post={grandchild: Account(storage={0: 1})},
+        tx=tx,
+    )

@@ -413,6 +413,97 @@ def test_create_selfdestruct_refunds_code_deposit_state_gas(
 
 
 @pytest.mark.valid_from("EIP8037")
+def test_create_selfdestruct_code_deposit_refund_header_check(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Regression: block_state_gas_used must drop by the deployed
+    code's byte cost on a same-tx CREATE+SELFDESTRUCT refund.
+
+    Surfaced via targeted mutation testing: dropping the
+    `selfdestruct_refund += len(code) * cost_per_state_byte` line
+    in `fork.py` passes the existing suite because
+    `test_create_selfdestruct_refunds_code_deposit_state_gas` only
+    provisions enough gas for the refund to land and asserts the
+    destroyed account is gone — it never checks the refund
+    actually reduced `block_state_gas_used`.
+
+    Header discriminator: deploy a large enough contract that the
+    code-deposit state gas dominates the regular dimension. Under
+    the correct spec the refund zeros `state_gas_used` and the
+    header reports `block_regular`. Under the mutation `state_gas`
+    keeps the code-deposit charge and dominates the header.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    gas_costs = fork.gas_costs()
+    new_account_state_gas = gas_costs.GAS_NEW_ACCOUNT
+
+    # 256-byte deployed code so code_deposit_state_gas (≈ 300,544)
+    # would dominate `block_regular` if not refunded.
+    selfdestruct = Op.SELFDESTRUCT(Op.ADDRESS)
+    sd_len = len(bytes(selfdestruct))
+    code_size = 256
+    assert code_size >= sd_len
+    deployed = bytes(selfdestruct) + b"\x00" * (code_size - sd_len)
+    initcode = Initcode(deploy_code=deployed)
+    initcode_len = len(initcode)
+    code_deposit_state_gas = fork.code_deposit_state_gas(code_size=code_size)
+
+    factory_code = Op.CALLDATACOPY(
+        0,
+        0,
+        Op.CALLDATASIZE,
+        data_size=initcode_len,
+        new_memory_size=initcode_len,
+    ) + Op.POP(
+        Op.CALL(
+            gas=Op.GAS,
+            address=Op.CREATE(
+                value=0,
+                offset=0,
+                size=Op.CALLDATASIZE,
+                init_code_size=initcode_len,
+            ),
+        )
+    )
+    factory = pre.deploy_contract(code=factory_code)
+    created_address = compute_create_address(address=factory, nonce=1)
+
+    total_state_refund = new_account_state_gas + code_deposit_state_gas
+    tx = Transaction(
+        to=factory,
+        data=bytes(initcode),
+        gas_limit=gas_limit_cap + total_state_refund,
+        sender=pre.fund_eoa(),
+    )
+
+    # Empirical baseline: `block_state_gas` refunds to zero, so
+    # `header.gas_used == block_regular`. Dropping the
+    # code-deposit portion of the refund leaves `block_state_gas`
+    # at `code_deposit_state_gas (~300,544)`, which dominates and
+    # pushes `header.gas_used` above this baseline.
+    baseline_block_regular = 0x8EAE  # 36_526 empirical
+    assert baseline_block_regular < code_deposit_state_gas, (
+        "Baseline regular must be below code_deposit_state_gas so "
+        "the mutation's un-refunded state_gas dominates the header."
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=baseline_block_regular),
+            ),
+        ],
+        post={created_address: Account.NONEXISTENT},
+    )
+
+
+@pytest.mark.valid_from("EIP8037")
 def test_create_selfdestruct_no_double_refund_with_sstore_restoration(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -634,3 +725,52 @@ def test_selfdestruct_via_delegatecall_chain(
             factory: Account(storage=factory_storage),
         },
     )
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_selfdestruct_new_beneficiary_no_regular_account_creation_cost(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Regression: SELFDESTRUCT to a non-existent beneficiary with a
+    nonzero contract balance must NOT charge the pre-Amsterdam
+    25,000 regular `SELF_DESTRUCT_NEW_ACCOUNT` cost.
+
+    Surfaced by evmone mutation testing (PR #2639 review comment):
+    keeping the `25_000` regular on top of the `GAS_NEW_ACCOUNT`
+    state gas passes the existing suite because no test budgets
+    SELFDESTRUCT tightly enough to reject the extra regular draw.
+
+    Tight-gas discriminator. `tx.gas_limit` allows for the correct
+    spec plus 20,000 slack (< 25,000). Under the correct spec the
+    SELFDESTRUCT completes and transfers the balance to the new
+    beneficiary. Under the mutation the extra 25,000 regular
+    pushes the SELFDESTRUCT OOG, the state and balance transfer
+    roll back, and the beneficiary's balance stays at 0.
+    """
+    gas_costs = fork.gas_costs()
+    new_account_state_gas = gas_costs.GAS_NEW_ACCOUNT
+
+    beneficiary = pre.fund_eoa(amount=0)
+
+    victim_code = Op.SELFDESTRUCT(beneficiary)
+    victim = pre.deploy_contract(code=victim_code, balance=1)
+
+    # `victim_code.gas_cost` already accounts for the SELFDESTRUCT
+    # opcode and the cold beneficiary access; no extra regular
+    # charge is needed beyond the intrinsic and the state gas.
+    intrinsic = fork.transaction_intrinsic_cost_calculator()()
+    tx = Transaction(
+        to=victim,
+        gas_limit=(
+            intrinsic
+            + victim_code.gas_cost(fork)
+            + new_account_state_gas
+            + 20_000
+        ),
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(pre=pre, post={beneficiary: Account(balance=1)}, tx=tx)
