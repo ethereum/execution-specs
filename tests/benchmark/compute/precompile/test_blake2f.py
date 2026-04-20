@@ -121,8 +121,8 @@ def test_blake2f_uncachable(
     # BLAKE2F costs num_rounds gas.
     gsc = fork.gas_costs()
     precompile_cost = (
-        num_rounds * gsc.GAS_PRECOMPILE_BLAKE2F_PER_ROUND
-    ) + gsc.GAS_PRECOMPILE_BLAKE2F_BASE
+        num_rounds * gsc.PRECOMPILE_BLAKE2F_PER_ROUND
+    ) + gsc.PRECOMPILE_BLAKE2F_BASE
 
     attack_block = Op.POP(
         Op.STATICCALL(

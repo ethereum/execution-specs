@@ -86,9 +86,9 @@ def test_sha256_uncachable(
 
     precompile_cost = (
         # static cost
-        gsc.GAS_PRECOMPILE_SHA256_BASE
+        gsc.PRECOMPILE_SHA256_BASE
         # dynamic cost
-        + math.ceil(size / 32) * gsc.GAS_PRECOMPILE_SHA256_PER_WORD
+        + math.ceil(size / 32) * gsc.PRECOMPILE_SHA256_PER_WORD
     )
     attack_block = Op.POP(
         Op.STATICCALL(

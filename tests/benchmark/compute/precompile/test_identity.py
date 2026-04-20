@@ -86,9 +86,9 @@ def test_identity_uncachable(
 
     precompile_cost = (
         # static cost
-        gsc.GAS_PRECOMPILE_IDENTITY_BASE
+        gsc.PRECOMPILE_IDENTITY_BASE
         # dynamic cost
-        + math.ceil(size / 32) * gsc.GAS_PRECOMPILE_IDENTITY_PER_WORD
+        + math.ceil(size / 32) * gsc.PRECOMPILE_IDENTITY_PER_WORD
     )
 
     attack_block = Op.MSTORE(

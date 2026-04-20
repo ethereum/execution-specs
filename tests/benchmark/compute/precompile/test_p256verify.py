@@ -130,7 +130,7 @@ def test_p256verify_uncachable(
     gsc = fork.gas_costs()
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
 
-    precompile_cost = gsc.GAS_PRECOMPILE_P256VERIFY
+    precompile_cost = gsc.PRECOMPILE_P256VERIFY
 
     # h: data[0:32] 32 bytes
     # r: data[32:64] 32 bytes

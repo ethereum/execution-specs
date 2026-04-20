@@ -86,9 +86,9 @@ def test_ripemd160_uncachable(
 
     precompile_cost = (
         # static cost
-        gsc.GAS_PRECOMPILE_RIPEMD160_BASE
+        gsc.PRECOMPILE_RIPEMD160_BASE
         # dynamic cost
-        + math.ceil(size / 32) * gsc.GAS_PRECOMPILE_RIPEMD160_PER_WORD
+        + math.ceil(size / 32) * gsc.PRECOMPILE_RIPEMD160_PER_WORD
     )
 
     attack_block = Op.POP(

@@ -113,7 +113,7 @@ def test_point_evaluation_uncachable(
     gsc = fork.gas_costs()
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     mem_exp = fork.memory_expansion_gas_calculator()
-    precompile_cost = gsc.GAS_PRECOMPILE_POINT_EVALUATION
+    precompile_cost = gsc.PRECOMPILE_POINT_EVALUATION
 
     # Each iteration: STATICCALL point_evaluation at advancing calldata
     # offset, then advance offset at MEM[CALLDATASIZE].
@@ -148,8 +148,8 @@ def test_point_evaluation_uncachable(
     words_per_variant = math.ceil(INPUT_SIZE / 32)
     per_variant_gas = (
         iteration_cost
-        + INPUT_SIZE * gsc.GAS_TX_DATA_TOKEN_FLOOR
-        + words_per_variant * (gsc.GAS_COPY + gsc.GAS_MEMORY)
+        + INPUT_SIZE * gsc.TX_DATA_TOKEN_FLOOR
+        + words_per_variant * (gsc.OPCODE_COPY_PER_WORD + gsc.MEMORY_PER_WORD)
     )
     empty_intrinsic = intrinsic_gas_calculator(
         calldata=[], return_cost_deducted_prior_execution=True
@@ -193,7 +193,7 @@ def test_point_evaluation_uncachable(
                 per_tx_gas
                 - execution_intrinsic
                 - setup_cost
-                - math.ceil(len(calldata) / 32) * gsc.GAS_COPY
+                - math.ceil(len(calldata) / 32) * gsc.OPCODE_COPY_PER_WORD
                 - mem_exp(new_bytes=len(calldata) + 32)
             )
 

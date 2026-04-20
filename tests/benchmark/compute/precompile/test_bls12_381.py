@@ -531,8 +531,8 @@ def test_bls12_pairing_uncachable(
     attack_contract_address = pre.deploy_contract(code=code)
 
     precompile_cost = (
-        gsc.GAS_PRECOMPILE_BLS_PAIRING_BASE
-        + gsc.GAS_PRECOMPILE_BLS_PAIRING_PER_PAIR * num_pairs
+        gsc.PRECOMPILE_BLS_PAIRING_BASE
+        + gsc.PRECOMPILE_BLS_PAIRING_PER_PAIR * num_pairs
     )
 
     iteration_cost = loop.gas_cost(fork) + precompile_cost
@@ -545,8 +545,8 @@ def test_bls12_pairing_uncachable(
     tokens_per_variant = pair_size * 4  # worst case: all non-zero
     per_variant_gas = (
         iteration_cost
-        + tokens_per_variant * gsc.GAS_TX_DATA_TOKEN_FLOOR
-        + words_per_variant * (gsc.GAS_COPY + gsc.GAS_MEMORY)
+        + tokens_per_variant * gsc.TX_DATA_TOKEN_FLOOR
+        + words_per_variant * (gsc.OPCODE_COPY_PER_WORD + gsc.MEMORY_PER_WORD)
     )
     empty_intrinsic = intrinsic_gas_calculator(
         calldata=[],
@@ -579,7 +579,7 @@ def test_bls12_pairing_uncachable(
             per_tx_gas
             - execution_intrinsic
             - setup_cost
-            - math.ceil(len(calldata) / 32) * gsc.GAS_COPY
+            - math.ceil(len(calldata) / 32) * gsc.OPCODE_COPY_PER_WORD
             - mem_exp(new_bytes=len(calldata) + 32)
         )
 

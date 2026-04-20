@@ -722,9 +722,9 @@ def test_alt_bn128_uncachable(
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     gsc = fork.gas_costs()
     precompile_cost = (
-        gsc.GAS_PRECOMPILE_ECMUL
+        gsc.PRECOMPILE_ECMUL
         if precompile_address == 0x07
-        else gsc.GAS_PRECOMPILE_ECADD
+        else gsc.PRECOMPILE_ECADD
     )
     attack_block = Op.POP(
         Op.STATICCALL(
