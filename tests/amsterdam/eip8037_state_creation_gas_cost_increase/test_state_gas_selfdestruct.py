@@ -419,30 +419,16 @@ def test_create_selfdestruct_code_deposit_refund_header_check(
     fork: Fork,
 ) -> None:
     """
-    Regression: block_state_gas_used must drop by the deployed
-    code's byte cost on a same-tx CREATE+SELFDESTRUCT refund.
-
-    Surfaced via targeted mutation testing: dropping the
-    `selfdestruct_refund += len(code) * cost_per_state_byte` line
-    in `fork.py` passes the existing suite because
-    `test_create_selfdestruct_refunds_code_deposit_state_gas` only
-    provisions enough gas for the refund to land and asserts the
-    destroyed account is gone — it never checks the refund
-    actually reduced `block_state_gas_used`.
-
-    Header discriminator: deploy a large enough contract that the
-    code-deposit state gas dominates the regular dimension. Under
-    the correct spec the refund zeros `state_gas_used` and the
-    header reports `block_regular`. Under the mutation `state_gas`
-    keeps the code-deposit charge and dominates the header.
+    Verify block header gas reflects the code-deposit state-gas
+    refund on a same-tx CREATE plus SELFDESTRUCT.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     gas_costs = fork.gas_costs()
     new_account_state_gas = gas_costs.GAS_NEW_ACCOUNT
 
-    # 256-byte deployed code so code_deposit_state_gas (≈ 300,544)
-    # would dominate `block_regular` if not refunded.
+    # Deployed code is sized so the code-deposit state gas would
+    # dominate block regular gas if the refund did not land.
     selfdestruct = Op.SELFDESTRUCT(Op.ADDRESS)
     sd_len = len(bytes(selfdestruct))
     code_size = 256
@@ -480,12 +466,11 @@ def test_create_selfdestruct_code_deposit_refund_header_check(
         sender=pre.fund_eoa(),
     )
 
-    # Empirical baseline: `block_state_gas` refunds to zero, so
-    # `header.gas_used == block_regular`. Dropping the
-    # code-deposit portion of the refund leaves `block_state_gas`
-    # at `code_deposit_state_gas (~300,544)`, which dominates and
-    # pushes `header.gas_used` above this baseline.
-    baseline_block_regular = 0x8EAE  # 36_526 empirical
+    # Empirical baseline: block_state_gas refunds to zero so the
+    # header reports block regular only. Baseline regular must stay
+    # below the code-deposit state gas so a missing refund would
+    # push the header above this value.
+    baseline_block_regular = 0x8EAE
     assert baseline_block_regular < code_deposit_state_gas, (
         "Baseline regular must be below code_deposit_state_gas so "
         "the mutation's un-refunded state_gas dominates the header."
@@ -734,21 +719,8 @@ def test_selfdestruct_new_beneficiary_no_regular_account_creation_cost(
     fork: Fork,
 ) -> None:
     """
-    Regression: SELFDESTRUCT to a non-existent beneficiary with a
-    nonzero contract balance must NOT charge the pre-Amsterdam
-    25,000 regular `SELF_DESTRUCT_NEW_ACCOUNT` cost.
-
-    Surfaced by evmone mutation testing (PR #2639 review comment):
-    keeping the `25_000` regular on top of the `GAS_NEW_ACCOUNT`
-    state gas passes the existing suite because no test budgets
-    SELFDESTRUCT tightly enough to reject the extra regular draw.
-
-    Tight-gas discriminator. `tx.gas_limit` allows for the correct
-    spec plus 20,000 slack (< 25,000). Under the correct spec the
-    SELFDESTRUCT completes and transfers the balance to the new
-    beneficiary. Under the mutation the extra 25,000 regular
-    pushes the SELFDESTRUCT OOG, the state and balance transfer
-    roll back, and the beneficiary's balance stays at 0.
+    Verify SELFDESTRUCT to a new beneficiary does not charge a
+    regular account-creation cost on top of state gas.
     """
     gas_costs = fork.gas_costs()
     new_account_state_gas = gas_costs.GAS_NEW_ACCOUNT
@@ -758,9 +730,8 @@ def test_selfdestruct_new_beneficiary_no_regular_account_creation_cost(
     victim_code = Op.SELFDESTRUCT(beneficiary)
     victim = pre.deploy_contract(code=victim_code, balance=1)
 
-    # `victim_code.gas_cost` already accounts for the SELFDESTRUCT
-    # opcode and the cold beneficiary access; no extra regular
-    # charge is needed beyond the intrinsic and the state gas.
+    # Tight budget: slack is less than the old pre-Amsterdam regular
+    # account-creation cost, so any extra regular draw would OOG.
     intrinsic = fork.transaction_intrinsic_cost_calculator()()
     tx = Transaction(
         to=victim,

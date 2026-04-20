@@ -1550,19 +1550,8 @@ def test_failed_create_tx_state_gas_dominates(
     init_code: Bytecode,
 ) -> None:
     """
-    Verify 2D header gas_used when a failed creation tx's state dominates.
-
-    A creation tx (to=None) with a tight gas limit whose initcode
-    fails via REVERT or INVALID. The intrinsic state gas for the
-    new account is preserved across the top-level failure refund
-    (only execution state gas is zeroed). With a tight regular
-    budget the state dimension dominates and the header must
-    equal `create_state_gas`. A client using 1D sum-based
-    accounting would produce a different header value.
-
-    Complements PR #2689's
-    `test_creation_tx_failure_preserves_intrinsic_state_gas` by
-    exercising the REVERT path and the tight-gas scenario.
+    Verify the header gas is set by intrinsic state gas when a
+    creation tx fails with a tight regular budget.
     """
     intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
     create_state_gas = fork.create_state_gas(code_size=0)
@@ -1611,17 +1600,8 @@ def test_oversized_initcode_tx_no_state_gas(
     initcode_size_delta: int,
 ) -> None:
     """
-    Verify CREATE tx with oversized initcode charges no state gas.
-
-    EIP-8037 moves the initcode size validation to run before
-    account-creation state gas is charged (see PR #2608). A CREATE
-    tx whose initcode exceeds MAX_INITCODE_SIZE must be rejected
-    with no state gas consumed; otherwise block_state_gas_used
-    would include a spurious GAS_NEW_ACCOUNT charge for an account
-    that is never created.
-
-    The at_max variant succeeds and charges state gas normally.
-    The over_max variant is rejected with no state gas.
+    Verify a creation tx with oversized initcode is rejected before
+    any state gas is charged.
     """
     max_size = fork.max_initcode_size()
     size = max_size + initcode_size_delta
@@ -1680,16 +1660,8 @@ def test_oversized_initcode_opcode_no_state_gas(
     initcode_size_delta: int,
 ) -> None:
     """
-    Verify CREATE/CREATE2 with oversized initcode charges no state gas.
-
-    A factory calls CREATE/CREATE2 with initcode exceeding
-    MAX_INITCODE_SIZE. The opcode must fail the size check before
-    charging account-creation state gas (PR #2608 ordering). If
-    state gas were charged first, block_state_gas_used would be
-    inflated by GAS_NEW_ACCOUNT for an account never created.
-
-    The at_max variant succeeds. The over_max variant returns 0
-    from CREATE and charges no state gas.
+    Verify CREATE/CREATE2 with oversized initcode fails the size
+    check before any state gas is charged.
     """
     max_size = fork.max_initcode_size()
     size = max_size + initcode_size_delta
@@ -1755,24 +1727,8 @@ def test_selfdestruct_in_create_tx_initcode(
     fork: Fork,
 ) -> None:
     """
-    Verify state gas for a creation tx whose initcode SELFDESTRUCTs.
-
-    A creation tx (to=None) with value=1 whose initcode immediately
-    SELFDESTRUCTs to a new beneficiary. Under EIP-6780 the outer
-    contract is marked for deletion (created in the same tx). The
-    SELFDESTRUCT charges `GAS_NEW_ACCOUNT` for the beneficiary.
-
-    Post-PR #2707: the outer account is in `created_accounts` AND
-    `accounts_to_delete`, so its `GAS_NEW_ACCOUNT` is refunded
-    end-of-tx. The beneficiary charge (new, live) is NOT refunded
-    because the beneficiary itself is not in `created_accounts`.
-    After the refund, `state_gas_used = 0` (refund == beneficiary
-    charge amount). Intrinsic state gas for the outer account is
-    preserved (tracked separately from execution state gas).
-
-    Expected block state gas = intrinsic_state = `GAS_NEW_ACCOUNT`.
-    A client that skips the end-of-tx refund for the creation-tx
-    path would report `2 * GAS_NEW_ACCOUNT`.
+    Verify state gas accounting when a creation tx's initcode
+    immediately SELFDESTRUCTs to a new beneficiary.
     """
     gas_costs = fork.gas_costs()
     create_state_gas = fork.create_state_gas(code_size=0)
@@ -1786,12 +1742,8 @@ def test_selfdestruct_in_create_tx_initcode(
         calldata=bytes(initcode), contract_creation=True
     )
 
-    # Refund zeroes state_gas_used from the beneficiary charge;
-    # only intrinsic state (outer account) remains in the header.
     expected_state = create_state_gas
 
-    # Gas budget: enough for initcode + beneficiary state charge
-    # so the SELFDESTRUCT reaches completion.
     initcode_gas = initcode.gas_cost(fork)
     gas_limit = (
         intrinsic_total + initcode_gas + gas_costs.GAS_NEW_ACCOUNT + 1000
@@ -1835,32 +1787,14 @@ def test_inner_create_succeeds_code_deposit_state_gas(
     outer_outcome: str,
 ) -> None:
     """
-    Verify state gas for creation tx with a successful inner CREATE.
-
-    A creation tx (to=None) whose initcode runs an inner
-    CREATE/CREATE2 that succeeds and deploys 1 byte of code. The
-    outer initcode then terminates via RETURN, REVERT, or INVALID.
-
-    Post-PR #2704/#2689:
-    * outer_succeeds: the inner's `GAS_NEW_ACCOUNT` plus 1-byte
-      code deposit accumulate into the outer's `state_gas_used`
-      (via `incorporate_child_on_success`). No refund applies.
-      Block state = outer intrinsic + inner account + inner code
-      deposit.
-    * outer_reverts / outer_halts: top-level failure refund zeroes
-      `state_gas_used` (PR #2689). Only the outer's intrinsic
-      state gas remains. Block state = outer intrinsic only.
-
-    A client that fails to accumulate inner state gas on success,
-    or fails to refund on top-level failure, will produce the wrong
-    header.
+    Verify state gas accumulation and top-level failure refund in a
+    creation tx whose initcode runs a successful inner CREATE.
     """
     gas_costs = fork.gas_costs()
     outer_state_gas = fork.create_state_gas(code_size=0)
     inner_code_deposit = fork.code_deposit_state_gas(code_size=1)
     inner_state_gas = gas_costs.GAS_NEW_ACCOUNT + inner_code_deposit
 
-    # Inner initcode: MSTORE one byte of 0x00, RETURN(31, 1).
     deploy_code = Op.STOP
     inner_initcode = Op.MSTORE(
         0,
@@ -1900,8 +1834,6 @@ def test_inner_create_succeeds_code_deposit_state_gas(
     if outer_outcome == "succeeds":
         expected_state = outer_state_gas + inner_state_gas
     else:
-        # Top-level failure refund (PR #2689) zeroes execution
-        # state gas, so only the outer intrinsic charge remains.
         expected_state = outer_state_gas
 
     create_address = compute_create_address(address=sender, nonce=0)
@@ -1955,24 +1887,8 @@ def test_nested_create_fail_parent_revert_state_gas(
     create_opcode: Op,
 ) -> None:
     """
-    Verify 2-layer refund composition: child CREATE fail + parent revert.
-
-    A caller CALLs a factory that performs CREATE/CREATE2 whose
-    initcode fails via REVERT or INVALID. Under PR #2704 the
-    factory's `GAS_NEW_ACCOUNT` for the inner CREATE is refunded
-    end-of-frame via `incorporate_child_on_error` in the caller.
-    The factory then either REVERTs (caller sees factory as an
-    error frame too) or STOPs (caller sees factory as success).
-
-    Verifies the nonce-mutation side effect:
-    * `parent_succeeds`: factory's CREATE attempted, nonce
-      incremented to 2 (CREATE always bumps nonce on its frame).
-    * `parent_reverts`: factory's state is rolled back, so nonce
-      stays at 1.
-
-    Distinct from single-layer tests added by PR #2704 which verify
-    the refund within a single failing frame; this test covers the
-    compound caller → factory → child failure flow.
+    Verify factory nonce across the compound caller to factory to
+    child-create failure flow when the parent reverts or succeeds.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -2002,8 +1918,8 @@ def test_nested_create_fail_parent_revert_state_gas(
         ),
     )
 
-    # Nested CALL required: `incorporate_child_on_error` only
-    # restores state gas when there is a parent frame to receive it.
+    # Nested CALL required so the child-error path has a parent
+    # frame to receive the restored state gas.
     caller = pre.deploy_contract(
         code=Op.POP(Op.CALL(gas=500_000, address=factory)),
     )
@@ -2015,10 +1931,8 @@ def test_nested_create_fail_parent_revert_state_gas(
     )
 
     if parent_reverts:
-        # Factory reverted: state rolled back, nonce unchanged.
         post = {factory: Account(nonce=1)}
     else:
-        # Factory succeeded: CREATE bumped the factory nonce to 2.
         post = {factory: Account(nonce=2)}
 
     blockchain_test(
@@ -2035,25 +1949,8 @@ def test_create_stack_depth_state_gas_consumed(
     fork: Fork,
 ) -> None:
     """
-    Deep-recursion robustness for state gas reservoir handling.
-
-    A contract CALLs itself recursively until gas is exhausted
-    (the EIP-150 63/64 rule caps effective recursion depth far
-    below `STACK_DEPTH_LIMIT`; reaching depth 1024 with
-    `gas_limit_cap = 16.7M` is physically infeasible since the
-    cumulative survival factor is `(63/64)**1024` ≈ 1e-7). As the
-    recursion unwinds, each frame attempts an SSTORE. The
-    outermost frame's SSTORE must succeed, proving the reservoir
-    threads through nested CALLs and survives the deepest child's
-    silent failure (CALL returns 0 when depth+1 > STACK_DEPTH_LIMIT
-    or when gas runs out, preserving `state_gas_reservoir`).
-
-    Despite the name (retained for continuity with the closed
-    PR #2639), this does NOT exercise `generic_create`'s
-    depth-1024 silent-failure branch directly, because that branch
-    is unreachable at the current gas limit. It instead exercises
-    CALL's depth/gas silent-failure branch and the reservoir
-    preservation that threads through many levels.
+    Verify the state gas reservoir survives a deep recursion of
+    nested CALLs that silently fail on gas or depth exhaustion.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -2062,16 +1959,7 @@ def test_create_stack_depth_state_gas_consumed(
     storage = Storage()
     recursive = pre.deploy_contract(
         code=(
-            # Recursive CALL until gas / depth is exhausted. The
-            # child's CALL silently fails either at depth+1 > 1024
-            # or when forwarded gas can't afford the next frame's
-            # overhead; in either case the reservoir is returned
-            # to the caller intact.
             Op.POP(Op.CALL(Op.GAS, Op.ADDRESS, 0, 0, 0, 0, 0))
-            # Probe: the outermost (and any frame with enough
-            # remaining gas) sets slot 0. Storage check ensures
-            # the probe succeeded, i.e. the reservoir remained
-            # available after the nested CALLs unwound.
             + Op.SSTORE(storage.store_next(1, "reservoir_ok"), 1)
         ),
     )
@@ -2111,35 +1999,8 @@ def test_inner_create_fail_refunds_in_creation_tx(
     num_inner_ops: int,
 ) -> None:
     """
-    Cross-over: PR #2704 CREATE failure refund in a creation-tx context.
-
-    The original closed PR #2639 test asserted inner CREATE's
-    `GAS_NEW_ACCOUNT` PERSISTS on child failure (targeting a
-    bal-devnet-3 geth behavior where geth incorrectly refunded).
-    PR #2704 later changed the spec to refund the charge, which
-    codifies what geth was already doing and inverts the original
-    test's premise. This test covers the CURRENT spec behavior in
-    a scenario not exercised by PR #2704's own tests (which all
-    use non-creation factories):
-
-    A creation tx (to=None) whose initcode performs `num_inner_ops`
-    inner CREATE/CREATE2 calls with REVERT initcode. Each inner
-    CREATE charges `GAS_NEW_ACCOUNT` state then refunds it via the
-    child-error branch (PR #2704). The outer initcode then
-    terminates via RETURN (succeeds) or REVERT.
-
-    Both outcomes yield `block_state = outer intrinsic` because inner
-    refunds net the state gas back to zero; PR #2689's top-level
-    refund (applied on revert) is a no-op over an already-zeroed
-    `state_gas_used`. A client regressing to the pre-#2704 "persist"
-    behavior would inflate `block_state` by
-    `num_inner_ops * GAS_NEW_ACCOUNT` and fail both variants.
-
-    The `outer_halts` variant is omitted: INVALID absorbs remaining
-    gas into `regular_gas_used`, making `block_regular` dominate the
-    header and dilute the state-dimension signal. PR #2689's
-    `test_creation_tx_failure_preserves_intrinsic_state_gas` already
-    covers the creation-tx + top-level halt interaction.
+    Verify failed inner CREATEs inside a creation tx refund state
+    gas so only the outer intrinsic state gas remains.
     """
     gas_costs = fork.gas_costs()
     outer_state_gas = fork.create_state_gas(code_size=0)
@@ -2172,9 +2033,6 @@ def test_inner_create_fail_refunds_in_creation_tx(
         calldata=bytes(initcode), contract_creation=True
     )
 
-    # Gas budget: enough for each inner CREATE to charge
-    # GAS_NEW_ACCOUNT (spill into gas_left, then get refunded on
-    # child failure) and for the outer termination to run.
     initcode_gas = initcode.gas_cost(fork)
     per_inner_slack = 2_000
     gas_limit = (
@@ -2183,9 +2041,6 @@ def test_inner_create_fail_refunds_in_creation_tx(
         + num_inner_ops * (gas_costs.GAS_NEW_ACCOUNT + per_inner_slack)
     )
 
-    # Expected: only outer intrinsic remains in block_state. Each
-    # inner CREATE's charge is refunded by PR #2704; any residue
-    # left in state_gas_used is zeroed on outer failure by PR #2689.
     expected_state = outer_state_gas
 
     create_address = compute_create_address(address=sender, nonce=0)
@@ -2224,22 +2079,8 @@ def test_create_collision_burned_gas_counted_in_block_regular(
     create_opcode: Op,
 ) -> None:
     """
-    Regression: on CREATE/CREATE2 address collision the forwarded
-    `create_message_gas` is burned and must count toward
-    `block_regular_gas_used`, not vanish from the block formula.
-
-    Surfaced by evmone mutation testing (PR #2639 review comment):
-    skipping the `evm.regular_gas_used += create_message_gas`
-    accounting on the collision branch passes the existing suite
-    because the only collision test uses `state_test` (no
-    block-level header check) and state-gas accounting is unchanged.
-
-    Block-level `Header(gas_used)` discriminator. `block_state_gas`
-    is zero (non-creation tx, collision refunds the state charge),
-    so `header.gas_used == block_regular`. The burned
-    `create_message_gas` dominates the regular dimension and its
-    removal under the mutation reduces `header.gas_used` by that
-    exact amount.
+    Verify gas burned by a CREATE/CREATE2 address collision counts
+    toward block regular gas used in the header.
     """
     init_code = Op.STOP
     mstore_value, size = init_code_at_high_bytes(init_code)
@@ -2262,9 +2103,8 @@ def test_create_collision_burned_gas_counted_in_block_regular(
     )
     pre.deploy_contract(code=Op.STOP, address=collision_target)
 
-    # Fixed-size budget so `gas_left` at the CREATE/CREATE2 opcode
-    # (and hence `create_message_gas`) is deterministic and the
-    # `Header(gas_used)` baseline below is reproducible.
+    # Fixed-size budget so the forwarded create_message_gas is
+    # deterministic and the empirical baseline below is reproducible.
     gas_limit = 250_000
 
     tx = Transaction(
@@ -2273,13 +2113,11 @@ def test_create_collision_burned_gas_counted_in_block_regular(
         sender=pre.fund_eoa(),
     )
 
-    # Empirical baseline. `block_state_gas` is zero for this tx, so
-    # the header just reports `intrinsic.regular + factory_regular +
-    # create_message_gas + POP + STOP`. Removing the collision's
-    # `regular_gas_used += create_message_gas` accounting subtracts
-    # `create_message_gas` from this baseline, so the test catches
-    # the mutation on both CREATE and CREATE2 paths.
-    baseline_gas_used = 0x01C98C  # 117,132 empirical header.gas_used
+    # Empirical baseline: block_state_gas is zero for this tx, so
+    # header.gas_used equals the regular-gas total. A mutation that
+    # drops the burned create_message_gas from regular accounting
+    # would reduce this value.
+    baseline_gas_used = 0x01C98C
 
     blockchain_test(
         pre=pre,

@@ -1315,20 +1315,8 @@ def test_top_level_halt_preserves_restored_reservoir(
     reservoir_delta: int,
 ) -> None:
     """
-    Verify reservoir preserved on top-level halt after child restore.
-
-    The child runs an SSTORE drawing state gas from the reservoir
-    and then fails (revert or exceptional halt). All state gas is
-    restored to the parent's reservoir via
-    `incorporate_child_on_error`. The parent then hits INVALID,
-    triggering a top-level exceptional halt. Under PR #2689 the
-    top-level failure refund zeroes execution state gas and
-    credits it back to the reservoir for sender billing.
-
-    Parametrized over `reservoir_delta` in -1, 0, +1 around the
-    exact SSTORE state gas cost. Catches the bal-devnet-3 Besu
-    bug (#2644) where the reservoir was incorrectly consumed on
-    top-level halt instead of preserved for refund.
+    Verify the reservoir is refunded on a top-level halt after a
+    failing child restored state gas to the parent frame.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -1351,11 +1339,9 @@ def test_top_level_halt_preserves_restored_reservoir(
         sender=pre.fund_eoa(),
     )
 
-    # On top-level halt, the reservoir (plus any spill-restore
-    # balance from the child failure path) is refunded to the
-    # sender. When `reservoir_delta < 0` the child spills
-    # `|delta|` gas from `gas_left`; the restore folds that back
-    # into the reservoir so block_regular drops by the same amount.
+    # When the reservoir is one short of the child's SSTORE, the
+    # spill from regular gas is restored on the child's failure,
+    # lowering the block regular total by the same amount.
     expected_gas_used = gas_limit_cap + min(reservoir_delta, 0)
 
     blockchain_test(
@@ -1377,12 +1363,8 @@ def test_callcode_value_no_new_account_state_gas(
     fork: Fork,
 ) -> None:
     """
-    Verify CALLCODE with value does not charge GAS_NEW_ACCOUNT.
-
-    CALLCODE transfers value to the caller (self), not to the
-    target. No new account is ever created on the target regardless
-    of whether it exists, so no state gas should be charged. A
-    subsequent SSTORE must succeed from the full reservoir.
+    Verify CALLCODE with value does not charge new-account state
+    gas, since the value stays with the caller.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -1422,15 +1404,8 @@ def test_create_oog_during_state_gas_charge(
     fork: Fork,
 ) -> None:
     """
-    Verify CREATE child OOG on state gas charge refunds parent reservoir.
-
-    A parent CALLs an `inner` contract with only 20,000 gas
-    forwarded; the inner's CREATE charges GAS_NEW_ACCOUNT state
-    gas, which exceeds the forwarded budget (both reservoir and
-    gas_left) and raises OutOfGasError before the charge lands.
-    Per PR #2704 the parent's reservoir is refunded on child
-    failure and the subsequent SSTORE succeeds from the refunded
-    reservoir. Without the refund the SSTORE would OOG.
+    Verify the parent reservoir is refunded when a child's CREATE
+    OOGs while charging account-creation state gas.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -1473,21 +1448,8 @@ def test_call_new_account_no_regular_account_creation_cost(
     fork: Fork,
 ) -> None:
     """
-    Regression: CALL with value to a non-existent account must NOT
-    charge the pre-Amsterdam 25,000 regular `ACCOUNT_CREATION_COST`.
-
-    Surfaced by evmone mutation testing (PR #2639 review comment):
-    keeping `25_000` regular on top of `GAS_NEW_ACCOUNT` state gas
-    passes the existing suite because no test budgets the CALL
-    tightly enough to reject the extra regular draw.
-
-    Tight-gas discriminator. `tx.gas_limit` is sized at the exact
-    regular cost of the caller code plus `GAS_NEW_ACCOUNT` (which
-    spills from `gas_left` since the reservoir is zero for
-    `tx.gas < TX_MAX_GAS_LIMIT`) plus a small slack. Under the
-    correct spec the CALL completes and transfers the value. Under
-    the mutation the extra 25,000 regular pushes the caller OOG,
-    the CALL aborts, and the target's balance stays at 0.
+    Verify CALL with value to a non-existent account does not
+    charge a regular account-creation cost on top of state gas.
     """
     gas_costs = fork.gas_costs()
     new_account_state_gas = gas_costs.GAS_NEW_ACCOUNT
@@ -1497,11 +1459,8 @@ def test_call_new_account_no_regular_account_creation_cost(
     caller_code = Op.POP(Op.CALL(gas=0, address=target, value=1)) + Op.STOP
     caller = pre.deploy_contract(code=caller_code, balance=1)
 
-    # Pre-Amsterdam CALL_NEW_ACCOUNT_COST was 25,000 regular. Budget
-    # 20,000 slack (< 25,000) so the correct spec fits and the
-    # mutation runs out of regular gas. `caller_code.gas_cost`
-    # already includes the cold access, so only the value-transfer
-    # extra needs adding.
+    # Tight budget: slack is less than the old pre-Amsterdam regular
+    # account-creation cost, so any extra regular draw would OOG.
     intrinsic = fork.transaction_intrinsic_cost_calculator()()
     tx = Transaction(
         to=caller,
@@ -1525,22 +1484,9 @@ def test_child_failure_refunds_state_gas_to_reservoir_not_gas_left(
     fork: Fork,
 ) -> None:
     """
-    Regression: on child failure, state gas must be returned to the
-    parent's state gas reservoir, not to `gas_left`.
-
-    Surfaced by evmone mutation testing (PR #2639 review comment):
-    routing `incorporate_child_on_error`'s state-gas restoration to
-    `gas_left` (regular) rather than `state_gas_left` passes the
-    existing suite because every reservoir-restoration test leaves
-    `gas_left` large enough to absorb the subsequent SSTORE spill.
-
-    Grandchild discriminator. After a failing child restores the
-    reservoir, the parent forwards a tight `gas` stipend to a
-    grandchild that attempts an SSTORE. Under the correct spec the
-    grandchild inherits the restored reservoir and the SSTORE
-    consumes from it. Under the mutation the grandchild's reservoir
-    is zero, the SSTORE's state gas has to spill into the tight
-    `gas_left`, and the grandchild OOGs.
+    Verify state gas from a failing child is restored to the
+    reservoir (not regular gas), so a grandchild SSTORE can draw
+    from it under a tight regular stipend.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -1551,10 +1497,9 @@ def test_child_failure_refunds_state_gas_to_reservoir_not_gas_left(
 
     child = pre.deploy_contract(code=Op.SSTORE(0, 1) + Op.REVERT(0, 0))
 
-    # Tight stipend: one cold SSTORE regular plus its two stack
-    # pushes. The grandchild has no spare `gas_left` to absorb a
-    # state-gas spill; the SSTORE only completes if state gas comes
-    # from the forwarded reservoir.
+    # Tight stipend: just enough regular gas for the grandchild's
+    # SSTORE opcode plus its two stack pushes, leaving no slack to
+    # absorb a state-gas spill.
     push_cost = 2 * gas_costs.GAS_VERY_LOW
     sstore_regular = gas_costs.GAS_COLD_STORAGE_WRITE
     grandchild_stipend = push_cost + sstore_regular

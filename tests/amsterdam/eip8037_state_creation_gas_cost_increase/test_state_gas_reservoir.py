@@ -1045,15 +1045,7 @@ def test_access_list_gas_is_regular_not_state(
     num_access_list_entries: int,
     slots_per_entry: int,
 ) -> None:
-    """
-    Verify EIP-2930 access list gas is classified as regular intrinsic.
-
-    A tx with an access list and no state operations must have
-    `block_state_gas_used == 0`, so the header `gas_used` equals
-    the regular intrinsic total. A client that incorrectly classified
-    access list gas into the state dimension would produce a
-    different `max(regular, state)` in the header.
-    """
+    """Verify EIP-2930 access list gas counts as regular, not state."""
     contract = pre.deploy_contract(code=Op.STOP)
 
     access_list = []
@@ -1074,9 +1066,6 @@ def test_access_list_gas_is_regular_not_state(
         access_list=access_list,
     )
 
-    # No state ops, so block_state_gas = 0. header gas_used = regular.
-    # A client routing access list gas to the state dimension would
-    # produce a different header gas_used.
     blockchain_test(
         pre=pre,
         blocks=[
@@ -1095,15 +1084,7 @@ def test_access_list_warm_savings_stay_regular(
     pre: Alloc,
     fork: Fork,
 ) -> None:
-    """
-    Verify warm-access savings from an access list stay in regular gas.
-
-    A tx pre-warms a storage slot via its access list. The contract
-    then SLOADs (warm) and SSTOREs (warm, nonzero-to-nonzero) that
-    slot. All execution costs are regular gas; state gas is zero.
-    A client that credited the cold-to-warm difference to the state
-    dimension would produce a different `header.gas_used`.
-    """
+    """Verify access-list warm savings stay in regular gas."""
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     sstore_state_gas = fork.sstore_state_gas()
@@ -1118,8 +1099,6 @@ def test_access_list_warm_savings_stay_regular(
     intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
     intrinsic_gas = intrinsic_calc(access_list=access_list)
 
-    # Warm SLOAD + warm nonzero-to-nonzero SSTORE = all regular.
-    # No state gas (not zero-to-nonzero).
     contract_code = Op.SSTORE.with_metadata(
         key_warm=True,
         original_value=1,

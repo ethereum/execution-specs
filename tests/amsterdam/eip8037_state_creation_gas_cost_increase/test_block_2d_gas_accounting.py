@@ -476,15 +476,7 @@ def test_tx_rejected_when_regular_gas_exceeds_block_limit_small(
     pre: Alloc,
     fork: Fork,
 ) -> None:
-    """
-    Reject a small-gas tx whose regular contribution overflows the block.
-
-    Complements `test_block_regular_gas_limit` which covers
-    `TX_MAX_GAS_LIMIT`-sized transactions. Here the block has a
-    tight gas_limit (2 * intrinsic) and the second tx's gas_limit
-    sits just one gas above the remaining regular budget, so the
-    pre-execution check rejects it without executing.
-    """
+    """Reject a small-gas tx whose regular gas overflows the block."""
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
@@ -537,14 +529,8 @@ def test_block_2d_gas_tx_gas_limit_exceeds_regular_remaining(
     tx2_gas_limit_equals_block_gas_limit: bool,
 ) -> None:
     """
-    Verify block validity when tx.gas_limit exceeds regular remaining.
-
-    After a preceding STOP tx consumes regular gas, the second tx
-    has `gas_limit >> TX_MAX_GAS_LIMIT`. The pre-execution inclusion
-    check must use `min(TX_MAX_GAS_LIMIT, tx.gas - intrinsic.state)`
-    against the cumulative regular budget, not the raw tx.gas_limit.
-    A client that subtracts the full `tx.gas_limit` from the regular
-    pool would reject this otherwise-valid block.
+    Verify a block is valid when a later tx's gas_limit exceeds the
+    regular budget remaining but its capped regular contribution fits.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -601,14 +587,8 @@ def test_receipt_cumulative_differs_from_header_gas_used(
     fork: Fork,
 ) -> None:
     """
-    Verify receipt cumulative_gas_used can diverge from header gas_used.
-
-    Under 2D accounting, `header.gas_used = max(sum_regular, sum_state)`
-    while a receipt's `cumulative_gas_used` accumulates per-tx
-    `regular + state`. In a block dominated by state gas, the
-    header is strictly less than the receipt cumulative. A client
-    that uses either value for the other check would reject valid
-    blocks.
+    Verify receipt cumulative_gas_used can diverge from header
+    gas_used under 2D accounting when state gas dominates.
     """
     tx_regular, tx_state = sstore_tx_gas(fork)
     num_txs = 3
