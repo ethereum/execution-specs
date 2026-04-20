@@ -20,7 +20,7 @@ from ...state_tracker import (
     set_storage,
     set_transient_storage,
 )
-from .. import Evm
+from .. import Evm, credit_state_gas_refund
 from ..exceptions import WriteInStaticContext
 from ..gas import (
     GAS_CALL_STIPEND,
@@ -127,28 +127,11 @@ def sstore(evm: Evm) -> None:
         if original_value == new_value:
             # Storage slot being restored to its original value
             if original_value == 0:
-                # Slot set then cleared: credit refund, clamped to this
-                # frame's state_gas_used since the 0 to N SSTORE may
-                # have charged state gas in an ancestor sharing storage
-                # via CALLCODE/DELEGATECALL.
-                state_gas_refund_applied = min(
-                    state_gas_storage_set, evm.state_gas_used
-                )
-                evm.state_gas_left += state_gas_refund_applied
-                evm.state_gas_used -= state_gas_refund_applied
-                evm.state_gas_refund += state_gas_storage_set
-                evm.refund_counter += int(
-                    GAS_STORAGE_UPDATE
-                    - GAS_COLD_STORAGE_ACCESS
-                    - GAS_WARM_ACCESS
-                )
-            else:
-                # Slot was originally non-empty and was UPDATED earlier
-                evm.refund_counter += int(
-                    GAS_STORAGE_UPDATE
-                    - GAS_COLD_STORAGE_ACCESS
-                    - GAS_WARM_ACCESS
-                )
+                # Slot set then cleared: refund the state gas charge.
+                credit_state_gas_refund(evm, state_gas_storage_set)
+            evm.refund_counter += int(
+                GAS_STORAGE_UPDATE - GAS_COLD_STORAGE_ACCESS - GAS_WARM_ACCESS
+            )
 
     # Charge regular gas before state gas so that a regular-gas OOG
     # does not consume state gas that would inflate the parent's

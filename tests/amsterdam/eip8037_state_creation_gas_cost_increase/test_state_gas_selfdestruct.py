@@ -528,3 +528,109 @@ def test_selfdestruct_pre_existing_account_no_refund(
         blocks=[Block(txs=[tx], header_verify=Header(gas_used=tx_regular))],
         post={victim: Account(code=victim_code)},
     )
+
+
+@pytest.mark.parametrize(
+    "num_hops",
+    [
+        pytest.param(1, id="single_hop"),
+        pytest.param(2, id="two_hops"),
+    ],
+)
+@pytest.mark.with_all_call_opcodes(
+    selector=lambda call_opcode: call_opcode in (Op.DELEGATECALL, Op.CALLCODE)
+)
+@pytest.mark.valid_from("EIP8037")
+def test_selfdestruct_via_delegatecall_chain(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    num_hops: int,
+    call_opcode: Op,
+) -> None:
+    """
+    Verify SELFDESTRUCT refund when the opcode executes in a nested
+    DELEGATECALL/CALLCODE frame below a same-tx-created contract.
+
+    A factory CREATEs contract A; A delegates down `num_hops` frames
+    into a helper that runs SELFDESTRUCT(Op.ADDRESS). `current_target`
+    is preserved by DELEGATECALL/CALLCODE, so A is queued for deletion
+    and its account + code-deposit state gas is refunded at tx end.
+    Exercises `accounts_to_delete` propagation across multiple
+    `incorporate_child_on_success` hops.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    new_account_state_gas = fork.gas_costs().GAS_NEW_ACCOUNT
+    sstore_state_gas = fork.sstore_state_gas()
+
+    # Bottom of the chain does the SELFDESTRUCT; intermediate helpers
+    # just delegate further down.
+    delegate_target = pre.deploy_contract(code=Op.SELFDESTRUCT(Op.ADDRESS))
+    for _ in range(num_hops - 1):
+        delegate_target = pre.deploy_contract(
+            code=Op.POP(call_opcode(gas=Op.GAS, address=delegate_target))
+            + Op.STOP,
+        )
+
+    # A's deployed runtime: one delegation into the top of the chain.
+    deployed = bytes(
+        Op.POP(call_opcode(gas=Op.GAS, address=delegate_target)) + Op.STOP
+    )
+    code_deposit_state_gas = fork.code_deposit_state_gas(
+        code_size=len(deployed)
+    )
+    initcode = Initcode(deploy_code=deployed)
+    initcode_len = len(initcode)
+
+    # Slots 0 and 1 guard against a vacuously-NONEXISTENT A: slot 0
+    # fails if CREATE silently returned 0, slot 1 fails if the factory
+    # OOGed before completing the nested CALL.  TSTORE caches the
+    # CREATE return so both can reuse it.
+    factory_storage = Storage()
+    factory_code = (
+        Op.CALLDATACOPY(
+            0,
+            0,
+            Op.CALLDATASIZE,
+            data_size=initcode_len,
+            new_memory_size=initcode_len,
+        )
+        + Op.TSTORE(
+            0,
+            Op.CREATE(
+                value=0,
+                offset=0,
+                size=Op.CALLDATASIZE,
+                init_code_size=initcode_len,
+            ),
+        )
+        + Op.SSTORE(
+            factory_storage.store_next(1, "create_returned_nonzero"),
+            Op.ISZERO(Op.ISZERO(Op.TLOAD(0))),
+        )
+        + Op.SSTORE(
+            factory_storage.store_next(1, "call_returned_success"),
+            Op.CALL(gas=Op.GAS, address=Op.TLOAD(0)),
+        )
+    )
+    factory = pre.deploy_contract(code=factory_code)
+    created_address = compute_create_address(address=factory, nonce=1)
+
+    # Reservoir must also cover the two fresh SSTORE markers.
+    total_state_refund = new_account_state_gas + code_deposit_state_gas
+    tx = Transaction(
+        to=factory,
+        data=bytes(initcode),
+        gas_limit=gas_limit_cap + total_state_refund + 2 * sstore_state_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[Block(txs=[tx])],
+        post={
+            created_address: Account.NONEXISTENT,
+            factory: Account(storage=factory_storage),
+        },
+    )
