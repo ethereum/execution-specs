@@ -276,6 +276,7 @@ def test_block_gas_refund_eip7778_no_block_reduction(
 @pytest.mark.parametrize(
     "num_txs,num_sstores",
     [
+        pytest.param(1, 1, id="single_sstore_single_tx"),
         pytest.param(5, 1, id="single_sstore"),
         pytest.param(20, 1, id="single_sstore_many_txs"),
         pytest.param(10, 5, id="multi_sstore_many_txs"),
@@ -294,20 +295,33 @@ def test_block_2d_gas_boundary_exact_fit(
 
     Clients that sum regular + state will reject this valid block.
     """
-    tx_regular, tx_state = sstore_tx_gas(fork, num_sstores)
-    intrinsic_regular = fork.transaction_intrinsic_cost_calculator()()
+    block_gas_limit = 30_000_000
+    while True:
+        # We have a circular dependency to calculate the block gas limit based
+        # on the transactions required gas (tx gas increments as we increase
+        # the block gas limit to fit). This loops tries incrementing the
+        # block gas limit by consistent steps in order to find the minimum gas
+        # allows the transactions required to fit.
+        env = Environment(
+            gas_limit=block_gas_limit,
+        )
+        tx_regular, tx_state = sstore_tx_gas(fork, num_sstores)
+        intrinsic_regular = fork.transaction_intrinsic_cost_calculator()()
 
-    tx_limit = tx_regular + tx_state + tx_regular // 10
+        tx_limit = tx_regular + tx_state + tx_regular // 10
 
-    # Per-tx worst-case state contribution: tx.gas - intrinsic_regular.
-    # The block_gas_limit must leave enough state budget for every tx.
-    worst_state_per_tx = tx_limit - intrinsic_regular
-    block_gas_limit = max(
-        # Regular dimension: last tx must fit.
-        (num_txs - 1) * tx_regular + tx_limit,
-        # State dimension: cumulative worst-case must fit.
-        num_txs * worst_state_per_tx,
-    )
+        # Per-tx worst-case state contribution: tx.gas - intrinsic_regular.
+        # The block_gas_limit must leave enough state budget for every tx.
+        worst_state_per_tx = tx_limit - intrinsic_regular
+        minimum_block_gas_limit = max(
+            # Regular dimension: last tx must fit.
+            (num_txs - 1) * tx_regular + tx_limit,
+            # State dimension: cumulative worst-case must fit.
+            num_txs * worst_state_per_tx,
+        )
+        if block_gas_limit >= minimum_block_gas_limit:
+            break
+        block_gas_limit += 1_000_000
 
     block_regular = num_txs * tx_regular
     block_state = num_txs * tx_state
@@ -320,10 +334,9 @@ def test_block_2d_gas_boundary_exact_fit(
         num_sstores=num_sstores,
         tx_gas_limit=tx_limit,
     )
+
     blockchain_test(
-        genesis_environment=Environment(
-            gas_limit=block_gas_limit,
-        ),
+        genesis_environment=env,
         pre=pre,
         blocks=[
             Block(
