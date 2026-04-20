@@ -20,6 +20,8 @@ from ethereum.forks.amsterdam.transactions import (
     calculate_floor_tokens_in_calldata,
     calculate_intrinsic_access_list_cost,
     calculate_intrinsic_cost,
+    calculate_intrinsic_state_cost,
+    calculate_regular_intrinsic_cost,
     count_tokens_in_data,
 )
 from ethereum.forks.amsterdam.vm.eoa_delegation import (
@@ -53,6 +55,8 @@ def test_legacy_tx_intrinsic_and_floor_gas() -> None:
     assert floor_gas == Uint(
         GAS_TX_BASE + tokens_in_calldata * GAS_TX_DATA_TOKEN_FLOOR
     )
+    assert calculate_regular_intrinsic_cost(tx) == intrinsic_gas
+    assert calculate_intrinsic_state_cost(tx, tx.gas) == Uint(0)
 
 
 def test_contract_creation_intrinsic_gas_includes_create_cost() -> None:
@@ -118,6 +122,7 @@ def test_access_list_intrinsic_gas_excludes_access_list_floor_tokens() -> None:
     assert floor_gas == Uint(
         GAS_TX_BASE + tokens_in_calldata * GAS_TX_DATA_TOKEN_FLOOR
     )
+    assert calculate_regular_intrinsic_cost(tx) == intrinsic_gas
 
 
 def test_calldata_floor_tokens_match_raw_data_token_count() -> None:
@@ -220,3 +225,4 @@ def test_set_code_tx_intrinsic_gas_includes_authorization_cost() -> None:
     assert floor_gas == Uint(
         GAS_TX_BASE + tokens_in_calldata * GAS_TX_DATA_TOKEN_FLOOR
     )
+    assert calculate_regular_intrinsic_cost(tx) == intrinsic_gas
