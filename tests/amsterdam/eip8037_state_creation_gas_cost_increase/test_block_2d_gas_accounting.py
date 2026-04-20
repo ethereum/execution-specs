@@ -528,6 +528,52 @@ def test_tx_rejected_when_regular_gas_exceeds_block_limit_small(
     )
 
 
+@pytest.mark.valid_from("EIP8037")
+def test_tx_accepted_when_regular_gas_exactly_fits_block_limit_small(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Accept a small-gas tx whose regular gas exactly fits the block.
+
+    Boundary counterpart to
+    ``test_tx_rejected_when_regular_gas_exceeds_block_limit_small``.
+    The second tx's gas_limit equals the remaining regular budget
+    exactly. The inclusion check uses strict ``>``, so equal must
+    pass. Catches an off-by-one ``>=`` bug.
+    """
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
+
+    block_gas_limit = intrinsic_gas * 2
+
+    filler = pre.deploy_contract(code=Op.STOP)
+    filler_tx = Transaction(
+        to=filler,
+        gas_limit=intrinsic_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    accepted = pre.deploy_contract(code=Op.STOP)
+    accepted_tx = Transaction(
+        to=accepted,
+        gas_limit=intrinsic_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    blockchain_test(
+        genesis_environment=Environment(gas_limit=block_gas_limit),
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[filler_tx, accepted_tx],
+                gas_limit=block_gas_limit,
+            )
+        ],
+        post={},
+    )
+
+
 @pytest.mark.parametrize(
     "tx2_gas_limit_equals_block_gas_limit",
     [

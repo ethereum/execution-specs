@@ -1938,6 +1938,57 @@ def test_create_tx_collision_refunds_intrinsic_new_account(
 
 
 @pytest.mark.parametrize(
+    "failure_mode",
+    [
+        pytest.param("revert", id="revert"),
+        pytest.param("halt", id="halt"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_failed_create_tx_sender_billing(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    failure_mode: str,
+) -> None:
+    """
+    Verify sender billing for a failed creation tx with tight gas.
+
+    Complements ``test_failed_create_tx_state_gas_dominates`` which
+    checks the header. This pins ``cumulative_gas_used`` to verify
+    the execution state gas refund reaches the sender.
+    """
+    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
+
+    if failure_mode == "revert":
+        init_code = Op.REVERT(0, 0)
+    else:
+        init_code = Op.INVALID
+
+    intrinsic_total = intrinsic_calc(
+        calldata=bytes(init_code), contract_creation=True
+    )
+    gas_limit = intrinsic_total + 1000
+
+    if failure_mode == "revert":
+        expected_cumulative = intrinsic_total + init_code.gas_cost(fork)
+    else:
+        expected_cumulative = gas_limit
+
+    tx = Transaction(
+        to=None,
+        data=init_code,
+        gas_limit=gas_limit,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_cumulative,
+        ),
+    )
+
+    state_test(pre=pre, post={}, tx=tx)
+
+
+@pytest.mark.parametrize(
     "initcode_size_delta",
     [
         pytest.param(0, id="at_max"),
