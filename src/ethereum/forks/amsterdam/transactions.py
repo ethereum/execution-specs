@@ -619,17 +619,15 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     gas cost of the transaction and the minimum gas cost used by the
     transaction based on the calldata size.
     """
-    tokens_in_calldata = count_tokens_in_data(tx.data)
-    tokens_in_access_list = calculate_floor_tokens_in_access_list(tx)
-    data_cost = calculate_intrinsic_data_cost(tokens_in_calldata)
+    floor_tokens_in_calldata = calculate_floor_tokens_in_calldata(tx)
+    floor_tokens_in_access_list = calculate_floor_tokens_in_access_list(tx)
+    data_cost = calculate_intrinsic_data_cost(tx)
     create_cost = calculate_intrinsic_create_cost(tx)
-    access_list_cost = calculate_intrinsic_access_list_cost(
-        tx, tokens_in_access_list
-    )
+    access_list_cost = calculate_intrinsic_access_list_cost(tx)
     auth_cost = calculate_intrinsic_authorization_cost(tx)
     state_cost = calculate_intrinsic_state_cost(tx, tx.gas)
     data_floor_gas_cost = calculate_data_floor_gas_cost(
-        tokens_in_calldata, tokens_in_access_list
+        floor_tokens_in_calldata, floor_tokens_in_access_list
     )
 
     return (
@@ -645,11 +643,18 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     )
 
 
-def calculate_intrinsic_data_cost(tokens_in_calldata: Uint) -> Uint:
+def calculate_intrinsic_data_cost(tx: Transaction) -> Uint:
     """
     Calculate the intrinsic calldata contribution.
     """
-    return tokens_in_calldata * GAS_TX_DATA_TOKEN_STANDARD
+    return count_tokens_in_data(tx.data) * GAS_TX_DATA_TOKEN_STANDARD
+
+
+def calculate_floor_tokens_in_calldata(tx: Transaction) -> Uint:
+    """
+    Calculate the calldata contribution to floor tokens.
+    """
+    return count_tokens_in_data(tx.data)
 
 
 def calculate_intrinsic_create_cost(tx: Transaction) -> Uint:
@@ -673,9 +678,7 @@ def calculate_floor_tokens_in_access_list(_tx: Transaction) -> Uint:
     return Uint(0)
 
 
-def calculate_intrinsic_access_list_cost(
-    tx: Transaction, tokens_in_access_list: Uint
-) -> Uint:
+def calculate_intrinsic_access_list_cost(tx: Transaction) -> Uint:
     """
     Calculate the intrinsic access-list contribution.
     """
@@ -687,7 +690,7 @@ def calculate_intrinsic_access_list_cost(
                 ulen(access.slots) * GAS_TX_ACCESS_LIST_STORAGE_KEY
             )
 
-    return access_list_cost + tokens_in_access_list * GAS_TX_DATA_TOKEN_FLOOR
+    return access_list_cost
 
 
 def calculate_intrinsic_authorization_cost(tx: Transaction) -> Uint:
