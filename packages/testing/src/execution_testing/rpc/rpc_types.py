@@ -2,11 +2,18 @@
 
 import json
 from binascii import crc32
+from dataclasses import dataclass, field
 from enum import Enum
 from hashlib import sha256
 from typing import Annotated, Any, Dict, List, Protocol, Self
 
+import ethereum_rlp as eth_rlp
 from pydantic import AliasChoices, BaseModel, Field, model_validator
+from remerkleable.basic import uint8
+from remerkleable.byte_arrays import ByteList, ByteVector
+from remerkleable.complex import Container
+from remerkleable.complex import List as SszList
+from remerkleable.union import Union as SszUnion
 
 from execution_testing.base_types import (
     Address,
@@ -29,6 +36,7 @@ from execution_testing.fixtures.blockchain import (
     FixtureExecutionPayload,
 )
 from execution_testing.test_types import EOA, Transaction, Withdrawal
+from execution_testing.test_types.execution_witness import ExecutionWitness
 
 
 class JSONRPCError(Exception):
@@ -322,6 +330,150 @@ class EthConfigResponse(CamelModel):
     current: ForkConfig
     next: ForkConfig | None = None
     last: ForkConfig | None = None
+
+
+# SSZ schema for POST /new-payload-with-witness response per execution-apis
+# PR #773 (https://github.com/ethereum/execution-apis/pull/773).
+
+VALIDATION_ERROR_MAX = 8192
+MAX_WITNESS_BYTES = 2**30  # 1 GiB
+MAX_WITNESS_ITEMS = 2**20
+MAX_WITNESS_ITEM_BYTES = 2**20
+
+
+class _SszExecutionWitness(Container):
+    state: SszList[
+        ByteList[MAX_WITNESS_ITEM_BYTES], MAX_WITNESS_ITEMS
+    ]
+    codes: SszList[
+        ByteList[MAX_WITNESS_ITEM_BYTES], MAX_WITNESS_ITEMS
+    ]
+    headers: SszList[
+        ByteList[MAX_WITNESS_ITEM_BYTES], MAX_WITNESS_ITEMS
+    ]
+
+
+class _SszNewPayloadWithWitnessResponse(Container):
+    status: uint8
+    latest_valid_hash: SszUnion[None, ByteVector[32]]  # type: ignore[valid-type]
+    validation_error: SszUnion[None, ByteList[VALIDATION_ERROR_MAX]]  # type: ignore[valid-type]
+    witness: ByteList[MAX_WITNESS_BYTES]
+
+
+_SSZ_STATUS_TO_ENUM: Dict[int, PayloadStatusEnum] = {
+    0: PayloadStatusEnum.VALID,
+    1: PayloadStatusEnum.INVALID,
+    2: PayloadStatusEnum.SYNCING,
+    3: PayloadStatusEnum.ACCEPTED,
+    4: PayloadStatusEnum.INVALID_BLOCK_HASH,
+}
+
+
+@dataclass
+class NewPayloadWithWitnessResponse:
+    """
+    Decoded response of POST /new-payload-with-witness (PR #773).
+
+    The witness field is ``None`` whenever status is not ``VALID`` (the spec
+    mandates an empty SSZ witness in that case).
+    """
+
+    status: PayloadStatusEnum
+    latest_valid_hash: Hash | None
+    validation_error: str | None
+    witness: ExecutionWitness | None = field(default=None)
+
+    @classmethod
+    def from_ssz_bytes(cls, data: bytes) -> Self:
+        """Decode an SSZ-encoded NewPayloadWithWitnessResponseV1 body."""
+        resp = _SszNewPayloadWithWitnessResponse.decode_bytes(data)
+
+        status_int = int(resp.status)
+        try:
+            status = _SSZ_STATUS_TO_ENUM[status_int]
+        except KeyError as e:
+            raise ValueError(
+                f"Unknown SSZ status byte: {status_int}"
+            ) from e
+
+        latest_valid_hash: Hash | None = None
+        if resp.latest_valid_hash.selector() == 1:
+            latest_valid_hash = Hash(bytes(resp.latest_valid_hash.value()))
+
+        validation_error: str | None = None
+        if resp.validation_error.selector() == 1:
+            raw = bytes(resp.validation_error.value())
+            validation_error = raw.decode("utf-8", errors="replace")
+
+        witness: ExecutionWitness | None = None
+        witness_bytes = bytes(resp.witness)
+        if witness_bytes:
+            inner = _SszExecutionWitness.decode_bytes(witness_bytes)
+            witness = ExecutionWitness(
+                state=[Bytes(bytes(x)) for x in inner.state],
+                codes=[Bytes(bytes(x)) for x in inner.codes],
+                headers=[Bytes(bytes(x)) for x in inner.headers],
+            )
+
+        return cls(
+            status=status,
+            latest_valid_hash=latest_valid_hash,
+            validation_error=validation_error,
+            witness=witness,
+        )
+
+    @classmethod
+    def from_geth_json(cls, data: Dict[str, Any]) -> Self:
+        """
+        Decode the response of geth's JSON-RPC `engine_newPayloadWithWitnessVX`.
+
+        The `witness` field is a hex-encoded RLP list
+        `[Headers, Codes, State, Keys]` where Headers are RLP-encoded header
+        structures. Re-encode each header to RLP bytes so the resulting
+        ExecutionWitness has the same `headers: List[Bytes]` shape as the
+        fixture.
+        """
+        status = PayloadStatusEnum(data["status"])
+
+        raw_hash = data.get("latestValidHash")
+        latest_valid_hash: Hash | None = (
+            Hash(raw_hash) if raw_hash is not None else None
+        )
+
+        raw_err = data.get("validationError")
+        validation_error: str | None = (
+            raw_err if raw_err is not None else None
+        )
+
+        witness: ExecutionWitness | None = None
+        raw_witness = data.get("witness")
+        if raw_witness is not None:
+            witness_bytes = (
+                bytes.fromhex(raw_witness[2:])
+                if isinstance(raw_witness, str)
+                else bytes(raw_witness)
+            )
+            if witness_bytes:
+                parsed = eth_rlp.decode(witness_bytes)
+                if not isinstance(parsed, list) or len(parsed) < 3:
+                    raise ValueError(
+                        "Unexpected geth ExtWitness RLP structure: "
+                        f"{type(parsed).__name__} of length "
+                        f"{len(parsed) if isinstance(parsed, list) else 0}"
+                    )
+                headers_raw, codes_raw, state_raw = parsed[0:3]
+                witness = ExecutionWitness(
+                    state=[Bytes(bytes(x)) for x in state_raw],
+                    codes=[Bytes(bytes(x)) for x in codes_raw],
+                    headers=[Bytes(eth_rlp.encode(h)) for h in headers_raw],
+                )
+
+        return cls(
+            status=status,
+            latest_valid_hash=latest_valid_hash,
+            validation_error=validation_error,
+            witness=witness,
+        )
 
 
 class TransactionProtocol(Protocol):
