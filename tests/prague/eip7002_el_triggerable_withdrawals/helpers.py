@@ -200,7 +200,7 @@ class WithdrawalRequestContract(WithdrawalRequestInteractionBase):
             # Each withdrawal request writes 3 new storage slots
             # in the system contract queue (source, pubkey, amount).
             gas_costs = fork.gas_costs()
-            gas_limit += len(self.requests) * 3 * gas_costs.GAS_STORAGE_SET
+            gas_limit += len(self.requests) * 3 * gas_costs.STORAGE_SET
         return [
             Transaction(
                 gas_limit=gas_limit,

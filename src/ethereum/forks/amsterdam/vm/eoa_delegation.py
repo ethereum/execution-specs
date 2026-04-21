@@ -22,9 +22,8 @@ from ..state_tracker import (
 )
 from ..utils.hexadecimal import hex_to_address
 from ..vm.gas import (
-    GAS_COLD_ACCOUNT_ACCESS,
-    GAS_WARM_ACCESS,
     STATE_BYTES_PER_NEW_ACCOUNT,
+    GasCosts,
     state_gas_per_byte,
 )
 from . import Evm, Message

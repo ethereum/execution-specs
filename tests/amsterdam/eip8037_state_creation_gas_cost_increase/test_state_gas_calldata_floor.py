@@ -163,8 +163,8 @@ def test_calldata_floor_exceeding_tx_gas_limit_cap(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
 
-    floor_token = gas_costs.GAS_TX_DATA_TOKEN_FLOOR
-    tx_base = gas_costs.GAS_TX_BASE
+    floor_token = gas_costs.TX_DATA_TOKEN_FLOOR
+    tx_base = gas_costs.TX_BASE
     max_tokens = (gas_limit_cap - tx_base) // floor_token
 
     if fork.is_eip_enabled(7976):

@@ -59,10 +59,10 @@ def test_exact_coinbase_fee_simple_sstore(
 
     # Gas breakdown for tx 1 (SSTORE zero-to-nonzero, no calldata):
     # PUSH1(1) + PUSH1(0) + SSTORE(cold, zero-to-nonzero) + STOP
-    intrinsic_regular = gas_costs.GAS_TX_BASE
+    intrinsic_regular = gas_costs.TX_BASE
     evm_regular = (
-        2 * gas_costs.GAS_VERY_LOW  # PUSH1 + PUSH1
-        + gas_costs.GAS_COLD_STORAGE_WRITE  # SSTORE cold zero-to-nonzero
+        2 * gas_costs.VERY_LOW  # PUSH1 + PUSH1
+        + gas_costs.COLD_STORAGE_WRITE  # SSTORE cold zero-to-nonzero
     )
     tx1_gas_used = intrinsic_regular + evm_regular + sstore_state_gas
     expected_coinbase = tx1_gas_used

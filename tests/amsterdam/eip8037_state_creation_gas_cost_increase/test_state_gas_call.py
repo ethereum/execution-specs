@@ -413,7 +413,7 @@ def test_call_value_transfer_new_account(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment()
-    new_account_state_gas = gas_costs.GAS_NEW_ACCOUNT
+    new_account_state_gas = gas_costs.NEW_ACCOUNT
 
     # Target address that doesn't exist in pre-state
     target = 0xDEAD
@@ -689,7 +689,7 @@ def test_call_insufficient_balance_returns_reservoir(
     else:
         target = 0xDEAD
         # New account needs new-account state gas too
-        reservoir = sstore_state_gas + gas_costs.GAS_NEW_ACCOUNT
+        reservoir = sstore_state_gas + gas_costs.NEW_ACCOUNT
 
     storage = Storage()
     contract = pre.deploy_contract(
@@ -827,15 +827,13 @@ def test_call_pre_charged_costs_excluded_from_forwarding(
     child_code = Op.SSTORE(child_storage.store_next(1, "child_ran"), 1)
     child = pre.deploy_contract(child_code)
 
-    child_regular_gas = (
-        2 * gas_costs.GAS_VERY_LOW + gas_costs.GAS_COLD_STORAGE_WRITE
-    )
+    child_regular_gas = 2 * gas_costs.VERY_LOW + gas_costs.COLD_STORAGE_WRITE
 
     # Memory expansion triggered by ret_size on the wrapper's CALL
     ret_size = 512 * 32  # 512 words
     memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
 
-    extra_gas = gas_costs.GAS_COLD_ACCOUNT_ACCESS  # cold call, value=0
+    extra_gas = gas_costs.COLD_ACCOUNT_ACCESS  # cold call, value=0
 
     # Wrapper: CALL child requesting max gas with memory expansion
     wrapper_code = Op.CALL(
@@ -849,7 +847,7 @@ def test_call_pre_charged_costs_excluded_from_forwarding(
     )
     wrapper = pre.deploy_contract(wrapper_code)
 
-    wrapper_pushes = 7 * gas_costs.GAS_VERY_LOW  # 7 CALL args
+    wrapper_pushes = 7 * gas_costs.VERY_LOW  # 7 CALL args
 
     # After the pre-charge of extra_gas + memory_cost, the wrapper has
     # gas_remaining left.  The 63/64 rule should forward
@@ -892,7 +890,7 @@ def test_call_new_account_header_gas_used(
     gas_costs = fork.gas_costs()
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    new_account_state_gas = gas_costs.GAS_NEW_ACCOUNT
+    new_account_state_gas = gas_costs.NEW_ACCOUNT
 
     target = pre.fund_eoa(amount=0)
 
@@ -952,7 +950,7 @@ def test_call_value_to_self_destructed_same_tx_account(
     env = Environment()
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    new_account_state_gas = fork.gas_costs().GAS_NEW_ACCOUNT
+    new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
     sstore_state_gas = fork.sstore_state_gas()
 
     inner_code = Op.SELFDESTRUCT(Op.ADDRESS)
@@ -1023,7 +1021,7 @@ def test_call_value_to_self_destructed_header_gas_used(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    new_account_state_gas = fork.gas_costs().GAS_NEW_ACCOUNT
+    new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
 
     if selfdestruct_beneficiary == "self":
         inner_code = Op.SELFDESTRUCT(Op.ADDRESS)
@@ -1096,7 +1094,7 @@ def test_call_value_to_self_destructed_burns_value(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    new_account_state_gas = fork.gas_costs().GAS_NEW_ACCOUNT
+    new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
 
     inner_code = Op.SELFDESTRUCT(Op.ADDRESS)
     mstore_value, size = init_code_at_high_bytes(inner_code)
@@ -1178,7 +1176,7 @@ def test_call_zero_value_to_self_destructed_same_tx_account(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    new_account_state_gas = fork.gas_costs().GAS_NEW_ACCOUNT
+    new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
 
     inner_code = Op.SELFDESTRUCT(Op.ADDRESS)
     mstore_value, size = init_code_at_high_bytes(inner_code)
@@ -1439,8 +1437,8 @@ def test_create_oog_during_state_gas_charge(
 
     grandchild = pre.deploy_contract(code=Op.SSTORE(0, 1))
 
-    push_cost = 2 * gas_costs.GAS_VERY_LOW
-    sstore_regular = gas_costs.GAS_COLD_STORAGE_WRITE
+    push_cost = 2 * gas_costs.VERY_LOW
+    sstore_regular = gas_costs.COLD_STORAGE_WRITE
     grandchild_stipend = push_cost + sstore_regular
 
     parent = pre.deploy_contract(
@@ -1474,7 +1472,7 @@ def test_call_new_account_no_regular_account_creation_cost(
     charge a regular account-creation cost on top of state gas.
     """
     gas_costs = fork.gas_costs()
-    new_account_state_gas = gas_costs.GAS_NEW_ACCOUNT
+    new_account_state_gas = gas_costs.NEW_ACCOUNT
 
     target = pre.fund_eoa(amount=0)
 
@@ -1489,7 +1487,7 @@ def test_call_new_account_no_regular_account_creation_cost(
         gas_limit=(
             intrinsic
             + caller_code.gas_cost(fork)
-            + gas_costs.GAS_CALL_VALUE
+            + gas_costs.CALL_VALUE
             + new_account_state_gas
             + 20_000
         ),
@@ -1532,8 +1530,8 @@ def test_child_failure_refunds_state_gas_to_reservoir_not_gas_left(
     # Tight stipend: just enough regular gas for the grandchild's
     # SSTORE opcode plus its two stack pushes, leaving no slack to
     # absorb a state-gas spill.
-    push_cost = 2 * gas_costs.GAS_VERY_LOW
-    sstore_regular = gas_costs.GAS_COLD_STORAGE_WRITE
+    push_cost = 2 * gas_costs.VERY_LOW
+    sstore_regular = gas_costs.COLD_STORAGE_WRITE
     grandchild_stipend = push_cost + sstore_regular
 
     parent = pre.deploy_contract(

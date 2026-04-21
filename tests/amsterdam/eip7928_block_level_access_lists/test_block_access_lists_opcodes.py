@@ -128,10 +128,10 @@ def test_bal_sstore_and_oog(
     # Costs:
     # - PUSH1 (value and slot) = G_VERY_LOW * 2
     # - SSTORE cold (to zero slot) = G_STORAGE_SET + G_COLD_SLOAD
-    sload_cost = gas_costs.GAS_COLD_STORAGE_ACCESS
-    sstore_cold_cost = gas_costs.GAS_STORAGE_SET + sload_cost
-    push_cost = gas_costs.GAS_VERY_LOW * 2
-    stipend = gas_costs.GAS_CALL_STIPEND
+    sload_cost = gas_costs.COLD_STORAGE_ACCESS
+    sstore_cold_cost = gas_costs.STORAGE_SET + sload_cost
+    push_cost = gas_costs.VERY_LOW * 2
+    stipend = gas_costs.CALL_STIPEND
 
     if out_of_gas_at == OutOfGasAt.EIP_2200_STIPEND:
         # 2300 after PUSHes (fails stipend check: 2300 <= 2300)
@@ -227,8 +227,8 @@ def test_bal_sload_and_oog(
     # Costs:
     # - PUSH1 (slot) = G_VERY_LOW
     # - SLOAD cold = G_COLD_SLOAD
-    push_cost = gas_costs.GAS_VERY_LOW
-    sload_cold_cost = gas_costs.GAS_COLD_STORAGE_ACCESS
+    push_cost = gas_costs.VERY_LOW
+    sload_cold_cost = gas_costs.COLD_STORAGE_ACCESS
     tx_gas_limit = intrinsic_gas_cost + push_cost + sload_cold_cost
 
     if fails_at_sload:
@@ -293,8 +293,8 @@ def test_bal_balance_and_oog(
     # Costs:
     # - PUSH20 = G_VERY_LOW
     # - BALANCE cold = G_COLD_ACCOUNT_ACCESS
-    push_cost = gas_costs.GAS_VERY_LOW
-    balance_cold_cost = gas_costs.GAS_COLD_ACCOUNT_ACCESS
+    push_cost = gas_costs.VERY_LOW
+    balance_cold_cost = gas_costs.COLD_ACCOUNT_ACCESS
     tx_gas_limit = intrinsic_gas_cost + push_cost + balance_cold_cost
 
     if fails_at_balance:
@@ -431,8 +431,8 @@ def test_bal_extcodesize_and_oog(
     # Costs:
     # - PUSH20 = G_VERY_LOW
     # - EXTCODESIZE cold = G_COLD_ACCOUNT_ACCESS
-    push_cost = gas_costs.GAS_VERY_LOW
-    extcodesize_cold_cost = gas_costs.GAS_COLD_ACCOUNT_ACCESS
+    push_cost = gas_costs.VERY_LOW
+    extcodesize_cold_cost = gas_costs.COLD_ACCOUNT_ACCESS
     tx_gas_limit = intrinsic_gas_cost + push_cost + extcodesize_cold_cost
 
     if fails_at_extcodesize:
@@ -528,19 +528,19 @@ def test_bal_call_no_delegation_and_oog_before_target_access(
         access_list=access_list
     )
 
-    bytecode_cost = gas_costs.GAS_VERY_LOW * 7
+    bytecode_cost = gas_costs.VERY_LOW * 7
 
     access_cost = (
-        gas_costs.GAS_WARM_ACCESS
+        gas_costs.WARM_ACCESS
         if target_is_warm
-        else gas_costs.GAS_COLD_ACCOUNT_ACCESS
+        else gas_costs.COLD_ACCOUNT_ACCESS
     )
-    transfer_cost = gas_costs.GAS_CALL_VALUE if value > 0 else 0
+    transfer_cost = gas_costs.CALL_VALUE if value > 0 else 0
     memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
 
     # Create cost: only if value > 0 AND target is empty
     create_cost = (
-        gas_costs.GAS_NEW_ACCOUNT if (value > 0 and target_is_empty) else 0
+        gas_costs.NEW_ACCOUNT if (value > 0 and target_is_empty) else 0
     )
 
     # static gas (before state access): access + transfer + memory
@@ -684,15 +684,15 @@ def test_bal_call_no_delegation_oog_after_target_access(
     )
 
     # Bytecode cost: 7 pushes for Op.CALL (no warmup code)
-    bytecode_cost = gas_costs.GAS_VERY_LOW * 7
+    bytecode_cost = gas_costs.VERY_LOW * 7
 
     # Access cost for CALL - warm if in tx access list
     access_cost = (
-        gas_costs.GAS_WARM_ACCESS
+        gas_costs.WARM_ACCESS
         if target_is_warm
-        else gas_costs.GAS_COLD_ACCOUNT_ACCESS
+        else gas_costs.COLD_ACCOUNT_ACCESS
     )
-    transfer_cost = gas_costs.GAS_CALL_VALUE  # value > 0, so always charged
+    transfer_cost = gas_costs.CALL_VALUE  # value > 0, so always charged
     memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
 
     # static gas cost (before state access): access + transfer + memory
@@ -800,19 +800,19 @@ def test_bal_call_7702_delegation_and_oog(
         access_list=access_list
     )
 
-    bytecode_cost = gas_costs.GAS_VERY_LOW * 7
+    bytecode_cost = gas_costs.VERY_LOW * 7
 
     access_cost = (
-        gas_costs.GAS_WARM_ACCESS
+        gas_costs.WARM_ACCESS
         if target_is_warm
-        else gas_costs.GAS_COLD_ACCOUNT_ACCESS
+        else gas_costs.COLD_ACCOUNT_ACCESS
     )
-    transfer_cost = gas_costs.GAS_CALL_VALUE if value > 0 else 0
+    transfer_cost = gas_costs.CALL_VALUE if value > 0 else 0
     memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
     delegation_cost = (
-        gas_costs.GAS_WARM_ACCESS
+        gas_costs.WARM_ACCESS
         if delegation_is_warm
-        else gas_costs.GAS_COLD_ACCOUNT_ACCESS
+        else gas_costs.COLD_ACCOUNT_ACCESS
     )
 
     static_gas_cost = access_cost + transfer_cost + memory_cost
@@ -956,12 +956,12 @@ def test_bal_delegatecall_no_delegation_and_oog_before_target_access(
     )
 
     # 6 pushes: retSize, retOffset, argsSize, argsOffset, address, gas
-    bytecode_cost = gas_costs.GAS_VERY_LOW * 6
+    bytecode_cost = gas_costs.VERY_LOW * 6
 
     access_cost = (
-        gas_costs.GAS_WARM_ACCESS
+        gas_costs.WARM_ACCESS
         if target_is_warm
-        else gas_costs.GAS_COLD_ACCOUNT_ACCESS
+        else gas_costs.COLD_ACCOUNT_ACCESS
     )
 
     memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
@@ -1076,18 +1076,18 @@ def test_bal_delegatecall_7702_delegation_and_oog(
         access_list=access_list
     )
 
-    bytecode_cost = gas_costs.GAS_VERY_LOW * 6
+    bytecode_cost = gas_costs.VERY_LOW * 6
 
     access_cost = (
-        gas_costs.GAS_WARM_ACCESS
+        gas_costs.WARM_ACCESS
         if target_is_warm
-        else gas_costs.GAS_COLD_ACCOUNT_ACCESS
+        else gas_costs.COLD_ACCOUNT_ACCESS
     )
     memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
     delegation_cost = (
-        gas_costs.GAS_WARM_ACCESS
+        gas_costs.WARM_ACCESS
         if delegation_is_warm
-        else gas_costs.GAS_COLD_ACCOUNT_ACCESS
+        else gas_costs.COLD_ACCOUNT_ACCESS
     )
 
     static_gas_cost = access_cost + memory_cost
@@ -1205,14 +1205,14 @@ def test_bal_callcode_no_delegation_and_oog_before_target_access(
         access_list=access_list
     )
 
-    bytecode_cost = gas_costs.GAS_VERY_LOW * 7
+    bytecode_cost = gas_costs.VERY_LOW * 7
 
     access_cost = (
-        gas_costs.GAS_WARM_ACCESS
+        gas_costs.WARM_ACCESS
         if target_is_warm
-        else gas_costs.GAS_COLD_ACCOUNT_ACCESS
+        else gas_costs.COLD_ACCOUNT_ACCESS
     )
-    transfer_cost = gas_costs.GAS_CALL_VALUE if value > 0 else 0
+    transfer_cost = gas_costs.CALL_VALUE if value > 0 else 0
     memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
 
     # static gas: access + transfer + memory (== second check, no delegation)
@@ -1333,19 +1333,19 @@ def test_bal_callcode_7702_delegation_and_oog(
         access_list=access_list
     )
 
-    bytecode_cost = gas_costs.GAS_VERY_LOW * 7
+    bytecode_cost = gas_costs.VERY_LOW * 7
 
     access_cost = (
-        gas_costs.GAS_WARM_ACCESS
+        gas_costs.WARM_ACCESS
         if target_is_warm
-        else gas_costs.GAS_COLD_ACCOUNT_ACCESS
+        else gas_costs.COLD_ACCOUNT_ACCESS
     )
-    transfer_cost = gas_costs.GAS_CALL_VALUE if value > 0 else 0
+    transfer_cost = gas_costs.CALL_VALUE if value > 0 else 0
     memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
     delegation_cost = (
-        gas_costs.GAS_WARM_ACCESS
+        gas_costs.WARM_ACCESS
         if delegation_is_warm
-        else gas_costs.GAS_COLD_ACCOUNT_ACCESS
+        else gas_costs.COLD_ACCOUNT_ACCESS
     )
 
     static_gas_cost = access_cost + transfer_cost + memory_cost
@@ -1466,12 +1466,12 @@ def test_bal_staticcall_no_delegation_and_oog_before_target_access(
     )
 
     # 6 pushes: retSize, retOffset, argsSize, argsOffset, address, gas
-    bytecode_cost = gas_costs.GAS_VERY_LOW * 6
+    bytecode_cost = gas_costs.VERY_LOW * 6
 
     access_cost = (
-        gas_costs.GAS_WARM_ACCESS
+        gas_costs.WARM_ACCESS
         if target_is_warm
-        else gas_costs.GAS_COLD_ACCOUNT_ACCESS
+        else gas_costs.COLD_ACCOUNT_ACCESS
     )
 
     memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
@@ -1586,18 +1586,18 @@ def test_bal_staticcall_7702_delegation_and_oog(
         access_list=access_list
     )
 
-    bytecode_cost = gas_costs.GAS_VERY_LOW * 6
+    bytecode_cost = gas_costs.VERY_LOW * 6
 
     access_cost = (
-        gas_costs.GAS_WARM_ACCESS
+        gas_costs.WARM_ACCESS
         if target_is_warm
-        else gas_costs.GAS_COLD_ACCOUNT_ACCESS
+        else gas_costs.COLD_ACCOUNT_ACCESS
     )
     memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
     delegation_cost = (
-        gas_costs.GAS_WARM_ACCESS
+        gas_costs.WARM_ACCESS
         if delegation_is_warm
-        else gas_costs.GAS_COLD_ACCOUNT_ACCESS
+        else gas_costs.COLD_ACCOUNT_ACCESS
     )
 
     static_gas_cost = access_cost + memory_cost
@@ -1737,9 +1737,9 @@ def test_bal_extcodecopy_and_oog(
     intrinsic_gas_cost = intrinsic_gas_calculator()
 
     # Calculate costs
-    push_cost = gas_costs.GAS_VERY_LOW * 4
-    cold_access_cost = gas_costs.GAS_COLD_ACCOUNT_ACCESS
-    copy_cost = gas_costs.GAS_COPY * ((copy_size + 31) // 32)
+    push_cost = gas_costs.VERY_LOW * 4
+    cold_access_cost = gas_costs.COLD_ACCOUNT_ACCESS
+    copy_cost = gas_costs.OPCODE_COPY_PER_WORD * ((copy_size + 31) // 32)
 
     if oog_scenario == "success":
         # Provide enough gas for everything including memory expansion

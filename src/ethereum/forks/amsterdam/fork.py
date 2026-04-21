@@ -97,10 +97,9 @@ from .utils.message import prepare_message
 from .vm import Message
 from .vm.eoa_delegation import is_valid_delegation
 from .vm.gas import (
-    BLOB_SCHEDULE_MAX,
-    GAS_PER_BLOB,
     STATE_BYTES_PER_NEW_ACCOUNT,
     STATE_BYTES_PER_STORAGE_SET,
+    GasCosts,
     calculate_blob_gas_price,
     calculate_data_fee,
     calculate_excess_blob_gas,

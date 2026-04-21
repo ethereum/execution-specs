@@ -301,7 +301,7 @@ class TestContractCreationGasUsage:
             cpsb = fork.cost_per_state_byte()
             return (
                 cpsb * code_size
-                + gas_costs.GAS_KECCAK256_PER_WORD
+                + gas_costs.OPCODE_KECCACK256_PER_WORD
                 * ceiling_division(code_size, 32)
             )
         dep = initcode.deployment_gas
@@ -547,10 +547,10 @@ class TestCreateInitcode:
         """Calculate gas cost of the contract creation operation."""
         gas_costs = fork.gas_costs()
 
-        create_contract_base_gas = gas_costs.GAS_CREATE
-        gas_opcode_gas = gas_costs.GAS_BASE
-        push_dup_opcode_gas = gas_costs.GAS_VERY_LOW
-        calldatasize_opcode_gas = gas_costs.GAS_BASE
+        create_contract_base_gas = gas_costs.OPCODE_CREATE_BASE
+        gas_opcode_gas = gas_costs.BASE
+        push_dup_opcode_gas = gas_costs.VERY_LOW
+        calldatasize_opcode_gas = gas_costs.BASE
         contract_creation_gas_usage = (
             create_contract_base_gas
             + gas_opcode_gas
@@ -566,8 +566,7 @@ class TestCreateInitcode:
         """Calculate gas cost charged for the initcode length."""
         gas_costs = fork.gas_costs()
         return (
-            ceiling_division(len(initcode), 32)
-            * gas_costs.GAS_CODE_INIT_PER_WORD
+            ceiling_division(len(initcode), 32) * gas_costs.CODE_INIT_PER_WORD
         )
 
     @pytest.fixture
@@ -581,7 +580,7 @@ class TestCreateInitcode:
         gas_costs = fork.gas_costs()
         return (
             ceiling_division(len(initcode), 32)
-            * gas_costs.GAS_KECCAK256_PER_WORD
+            * gas_costs.OPCODE_KECCACK256_PER_WORD
         )
 
     @pytest.fixture
@@ -602,7 +601,7 @@ class TestCreateInitcode:
             cpsb = fork.cost_per_state_byte()
             return (
                 cpsb * code_size
-                + gas_costs.GAS_KECCAK256_PER_WORD
+                + gas_costs.OPCODE_KECCACK256_PER_WORD
                 * ceiling_division(code_size, 32)
             )
         dep = initcode.deployment_gas

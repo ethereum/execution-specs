@@ -39,9 +39,9 @@ def _single_sstore_probe_gas(fork: Fork) -> int:
     The probe bytecode is Op.SSTORE(0, 1): two pushes + SSTORE.
     """
     gas_costs = fork.gas_costs()
-    sstore_regular = gas_costs.GAS_COLD_STORAGE_WRITE
+    sstore_regular = gas_costs.COLD_STORAGE_WRITE
     sstore_state = fork.sstore_state_gas()
-    push_gas = 2 * gas_costs.GAS_VERY_LOW
+    push_gas = 2 * gas_costs.VERY_LOW
     return push_gas + sstore_regular + sstore_state - 1
 
 
@@ -100,9 +100,9 @@ def test_sstore_oog_reservoir_inflation_detection(
 
     # Compute probe gas: enough for 4 SSTOREs' regular gas + pushes,
     # but after 4th regular charge, gas_left < the state gas spill.
-    sstore_regular = gas_costs.GAS_COLD_STORAGE_WRITE
+    sstore_regular = gas_costs.COLD_STORAGE_WRITE
     sstore_state = fork.sstore_state_gas()
-    push_per_sstore = 2 * gas_costs.GAS_VERY_LOW
+    push_per_sstore = 2 * gas_costs.VERY_LOW
     create_state_gas = fork.create_state_gas(
         code_size=len(initcode.deploy_code)
     )
@@ -161,7 +161,7 @@ def test_call_oog_reservoir_inflation_detection(
     (0) it OOGs; with inflated reservoir it succeeds.
     """
     gas_costs = fork.gas_costs()
-    new_account_state_gas = gas_costs.GAS_NEW_ACCOUNT
+    new_account_state_gas = gas_costs.NEW_ACCOUNT
 
     dead_address = 0xDEAD
     child_code = Op.CALL(
@@ -173,10 +173,8 @@ def test_call_oog_reservoir_inflation_detection(
         ret_offset=0,
         ret_size=0,
     )
-    pushes_gas = 7 * gas_costs.GAS_VERY_LOW
-    call_regular_gas = (
-        gas_costs.GAS_COLD_ACCOUNT_ACCESS + gas_costs.GAS_CALL_VALUE
-    )
+    pushes_gas = 7 * gas_costs.VERY_LOW
+    call_regular_gas = gas_costs.COLD_ACCOUNT_ACCESS + gas_costs.CALL_VALUE
     child_gas = pushes_gas + call_regular_gas + new_account_state_gas - 1
     child = pre.deploy_contract(child_code)
 
@@ -219,13 +217,13 @@ def test_selfdestruct_oog_reservoir_inflation_detection(
     Single-SSTORE probe detects the inflation.
     """
     gas_costs = fork.gas_costs()
-    new_account_state_gas = gas_costs.GAS_NEW_ACCOUNT
+    new_account_state_gas = gas_costs.NEW_ACCOUNT
 
     dead_beneficiary = 0xBEEF
     child_code = Op.SELFDESTRUCT(dead_beneficiary)
-    pushes_gas = gas_costs.GAS_VERY_LOW
+    pushes_gas = gas_costs.VERY_LOW
     selfdestruct_regular_gas = (
-        gas_costs.GAS_SELF_DESTRUCT + gas_costs.GAS_COLD_ACCOUNT_ACCESS
+        gas_costs.OPCODE_SELFDESTRUCT_BASE + gas_costs.COLD_ACCOUNT_ACCESS
     )
     child_gas = (
         pushes_gas + selfdestruct_regular_gas + new_account_state_gas - 1
@@ -274,16 +272,16 @@ def test_create_oog_reservoir_inflation_detection(
     Single-SSTORE probe detects potential inflation.
     """
     gas_costs = fork.gas_costs()
-    new_account_state_gas = gas_costs.GAS_NEW_ACCOUNT
+    new_account_state_gas = gas_costs.NEW_ACCOUNT
 
     if create_opcode == Op.CREATE:
         child_code = create_opcode(value=0, offset=0, size=0)
-        pushes_gas = 3 * gas_costs.GAS_VERY_LOW
+        pushes_gas = 3 * gas_costs.VERY_LOW
     else:
         child_code = create_opcode(value=0, offset=0, size=0, salt=0)
-        pushes_gas = 4 * gas_costs.GAS_VERY_LOW
+        pushes_gas = 4 * gas_costs.VERY_LOW
 
-    create_regular_gas = gas_costs.GAS_CREATE - new_account_state_gas
+    create_regular_gas = gas_costs.OPCODE_CREATE_BASE - new_account_state_gas
     child_gas = pushes_gas + create_regular_gas + new_account_state_gas - 1
     child = pre.deploy_contract(child_code)
 

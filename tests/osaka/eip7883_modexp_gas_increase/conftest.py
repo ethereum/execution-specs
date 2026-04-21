@@ -61,7 +61,7 @@ def total_tx_gas_needed(
     )
     memory_expansion_gas_calculator = fork.memory_expansion_gas_calculator()
     gas_costs = fork.gas_costs()
-    sstore_gas = gas_costs.GAS_STORAGE_SET * (len(modexp_expected) // 32)
+    sstore_gas = gas_costs.STORAGE_SET * (len(modexp_expected) // 32)
     extra_gas = 100_000
     if fork.is_eip_enabled(8037):
         extra_gas = 500_000
@@ -167,10 +167,10 @@ def gas_measure_contract(
 
     gas_costs = fork.gas_costs()
     extra_gas = (
-        gas_costs.GAS_WARM_ACCESS
-        + (gas_costs.GAS_VERY_LOW * (len(call_opcode.kwargs) - 1))
-        + gas_costs.GAS_BASE  # CALLDATASIZE
-        + gas_costs.GAS_BASE  # GAS
+        gas_costs.WARM_ACCESS
+        + (gas_costs.VERY_LOW * (len(call_opcode.kwargs) - 1))
+        + gas_costs.BASE  # CALLDATASIZE
+        + gas_costs.BASE  # GAS
     )
 
     # Build the gas measurement contract code

@@ -59,7 +59,7 @@ class EIP8037(BaseFork):
     def create_state_gas(cls, *, code_size: int = 0) -> int:
         """Return total state gas for CREATE (EIP-8037)."""
         gas_costs = cls.gas_costs()
-        return gas_costs.GAS_NEW_ACCOUNT + cls.code_deposit_state_gas(
+        return gas_costs.NEW_ACCOUNT + cls.code_deposit_state_gas(
             code_size=code_size
         )
 
@@ -82,17 +82,17 @@ class EIP8037(BaseFork):
         return replace(
             parent,
             # EIP-7928: block access list item cost
-            GAS_BLOCK_ACCESS_LIST_ITEM=2000,
+            BLOCK_ACCESS_LIST_ITEM=2000,
             # EIP-8037: state gas folded into totals
-            GAS_STORAGE_SET=(
-                parent.GAS_COLD_STORAGE_WRITE
-                - parent.GAS_COLD_STORAGE_ACCESS
+            STORAGE_SET=(
+                parent.COLD_STORAGE_WRITE
+                - parent.COLD_STORAGE_ACCESS
                 + STATE_BYTES_PER_STORAGE_SET * cpsb
             ),
-            GAS_NEW_ACCOUNT=new_acct,
-            GAS_CREATE=REGULAR_GAS_CREATE + new_acct,
-            GAS_TX_CREATE=(REGULAR_GAS_CREATE + new_acct),
-            GAS_AUTH_PER_EMPTY_ACCOUNT=(
+            NEW_ACCOUNT=new_acct,
+            OPCODE_CREATE_BASE=REGULAR_GAS_CREATE + new_acct,
+            TX_CREATE=(REGULAR_GAS_CREATE + new_acct),
+            AUTH_PER_EMPTY_ACCOUNT=(
                 PER_AUTH_BASE_COST
                 + (STATE_BYTES_PER_NEW_ACCOUNT + STATE_BYTES_PER_AUTH_BASE)
                 * cpsb
@@ -290,17 +290,14 @@ class EIP8037(BaseFork):
             current_value = original_value
         new_value = metadata["new_value"]
 
-        gas_cost = (
-            0 if metadata["key_warm"] else gas_costs.GAS_COLD_STORAGE_ACCESS
-        )
+        gas_cost = 0 if metadata["key_warm"] else gas_costs.COLD_STORAGE_ACCESS
 
         if original_value == current_value and current_value != new_value:
             gas_cost += (
-                gas_costs.GAS_COLD_STORAGE_WRITE
-                - gas_costs.GAS_COLD_STORAGE_ACCESS
+                gas_costs.COLD_STORAGE_WRITE - gas_costs.COLD_STORAGE_ACCESS
             )
         else:
-            gas_cost += gas_costs.GAS_WARM_SLOAD
+            gas_cost += gas_costs.WARM_SLOAD
 
         return gas_cost
 
@@ -356,9 +353,9 @@ class EIP8037(BaseFork):
 
             if original_value == new_value:
                 refund += (
-                    gas_costs.GAS_COLD_STORAGE_WRITE
-                    - gas_costs.GAS_COLD_STORAGE_ACCESS
-                    - gas_costs.GAS_WARM_SLOAD
+                    gas_costs.COLD_STORAGE_WRITE
+                    - gas_costs.COLD_STORAGE_ACCESS
+                    - gas_costs.WARM_SLOAD
                 )
 
         return refund
@@ -404,7 +401,7 @@ class EIP8037(BaseFork):
         code_deposit_size = metadata["code_deposit_size"]
         if code_deposit_size > 0:
             code_words = (code_deposit_size + 31) // 32
-            hash_gas = gas_costs.GAS_KECCAK256_PER_WORD * code_words
+            hash_gas = gas_costs.OPCODE_KECCACK256_PER_WORD * code_words
             return hash_gas
         return 0
 
