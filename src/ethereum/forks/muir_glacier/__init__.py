@@ -26,7 +26,7 @@ in this fork.
 [EIP-2384]: https://eips.ethereum.org/EIPS/eip-2384
 [Geth 1.9.9]: https://github.com/ethereum/go-ethereum/releases/tag/v1.9.9
 [p]: https://github.com/paritytech/parity-ethereum/releases/tag/v2.6.8
-[Besu 1.3.7]: https://github.com/hyperledger/besu/releases/tag/1.3.7
+[Besu 1.3.7]: https://github.com/besu-eth/besu/releases/tag/1.3.7
 [n]: https://github.com/NethermindEth/nethermind/releases/tag/1.2.6
 [js]: https://github.com/ethereumjs/ethereumjs-vm/releases/tag/v4.1.2
 [a]: https://github.com/ethereum/aleth/releases/tag/v1.8.0
