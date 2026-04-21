@@ -53,7 +53,7 @@ def test_max_code_size(
         to=None,
         data=initcode,
         gas_limit=(
-            fork.transaction_gas_limit_cap()
+            (fork.transaction_gas_limit_cap() or 0)
             + fork.create_state_gas(code_size=code_size)
         ),
     )
@@ -113,7 +113,7 @@ def test_max_code_size_via_create(
         to=factory,
         data=initcode_bytes,
         gas_limit=(
-            fork.transaction_gas_limit_cap()
+            (fork.transaction_gas_limit_cap() or 0)
             + fork.create_state_gas(code_size=code_size)
         ),
     )
@@ -199,7 +199,7 @@ def test_max_code_size_with_max_initcode(
         to=None,
         data=initcode,
         gas_limit=(
-            fork.transaction_gas_limit_cap()
+            (fork.transaction_gas_limit_cap() or 0)
             + fork.create_state_gas(code_size=code_size)
         ),
     )

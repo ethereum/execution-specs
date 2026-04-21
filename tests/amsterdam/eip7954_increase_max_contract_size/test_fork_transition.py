@@ -50,9 +50,8 @@ def test_max_code_size_fork_transition(
     create_address_post = compute_create_address(address=bob, nonce=0)
 
     post_fork_gas_limit = (
-        post_fork.transaction_gas_limit_cap()
-        + post_fork.create_state_gas(code_size=code_size)
-    )
+        post_fork.transaction_gas_limit_cap() or 0
+    ) + post_fork.create_state_gas(code_size=code_size)
     blocks = [
         Block(
             timestamp=14_999,
@@ -155,7 +154,7 @@ def test_max_code_size_via_create_fork_transition(
                     to=factory_post,
                     data=initcode_bytes,
                     gas_limit=(
-                        post_fork.transaction_gas_limit_cap()
+                        (post_fork.transaction_gas_limit_cap() or 0)
                         + post_fork.create_state_gas(code_size=code_size)
                     ),
                 )
@@ -357,7 +356,7 @@ def test_max_code_size_with_max_initcode_fork_transition(
                     to=None,
                     data=initcode,
                     gas_limit=(
-                        post_fork.transaction_gas_limit_cap()
+                        (post_fork.transaction_gas_limit_cap() or 0)
                         + post_fork.create_state_gas(code_size=code_size)
                     ),
                 )
@@ -412,7 +411,7 @@ def test_parent_max_code_size_across_fork(
                     to=None,
                     data=initcode,
                     gas_limit=(
-                        post_fork.transaction_gas_limit_cap()
+                        (post_fork.transaction_gas_limit_cap() or 0)
                         + post_fork.create_state_gas(code_size=code_size)
                     ),
                 )
