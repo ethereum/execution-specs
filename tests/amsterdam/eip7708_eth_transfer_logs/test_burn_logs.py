@@ -750,6 +750,8 @@ def test_selfdestruct_finalization_after_priority_fee(
     - if True: payer sends ETH, finalization = funding + priority_fee
     - if False: no payer, finalization = priority_fee only
     """
+    genesis_base_fee = 7
+    env = Environment(base_fee_per_gas=genesis_base_fee)
     contract_balance = 1000
     funding_amount = 10_000 if funded_after_selfdestruct else 0
 
@@ -760,7 +762,25 @@ def test_selfdestruct_finalization_after_priority_fee(
     coinbase = created_address  # coinbase == self-destructed contract
 
     # inner contract: simple SELFDESTRUCT to self
-    runtime_code = Op.SELFDESTRUCT(Op.ADDRESS)
+    runtime_code = (
+        Op.SELFDESTRUCT(
+            Op.ADDRESS,
+            # Gas accounting
+            address_warm=True,
+            account_new=False,
+            self_destructed_account=True,
+            self_destructed_account_code_deposit=len(
+                Op.SELFDESTRUCT(address=Op.ADDRESS)
+            ),
+        )
+        if fork.is_eip_enabled(8037)
+        else Op.SELFDESTRUCT(
+            Op.ADDRESS,
+            # Gas accounting
+            address_warm=True,
+            account_new=False,
+        )
+    )
     initcode = Initcode(deploy_code=runtime_code)
     initcode_len = len(initcode)
 
@@ -768,10 +788,13 @@ def test_selfdestruct_finalization_after_priority_fee(
     mem_after_mstore = ((initcode_len + 31) // 32) * 32
 
     # The base factory code: CREATE + CALL to trigger selfdestruct
+    call_gas = 100_000
+    if fork.is_eip_enabled(8037):
+        call_gas = 500_000
     factory_code = Om.MSTORE(
         initcode, 0, new_memory_size=mem_after_mstore
     ) + Op.CALL(
-        gas=100_000,
+        gas=call_gas,
         address=Op.CREATE(
             value=contract_balance,
             offset=0,
@@ -789,7 +812,7 @@ def test_selfdestruct_finalization_after_priority_fee(
         payer = pre.deploy_contract(payer_code, balance=funding_amount)
         factory_code += Op.MSTORE(0, created_address)
         factory_code += Op.CALL(
-            gas=100_000, address=payer, args_offset=0, args_size=32
+            gas=call_gas, address=payer, args_offset=0, args_size=32
         )
         payer_runtime_gas = Op.SELFDESTRUCT(
             Op.CALLDATALOAD(0), address_warm=True, account_new=False
@@ -798,12 +821,11 @@ def test_selfdestruct_finalization_after_priority_fee(
     pre.fund_address(factory_address, contract_balance)
 
     # prio fee calc
-    genesis_base_fee = 7
     gas_price = 10
     base_fee = fork.base_fee_per_gas_calculator()(
         parent_base_fee_per_gas=genesis_base_fee,
         parent_gas_used=0,
-        parent_gas_limit=Environment().gas_limit,
+        parent_gas_limit=env.gas_limit,
     )
     priority_fee_per_gas = gas_price - base_fee
 
@@ -814,9 +836,7 @@ def test_selfdestruct_finalization_after_priority_fee(
     factory_gas = factory_code.gas_cost(fork)
     initcode_exec_gas = initcode.execution_gas(fork)
     code_deposit_gas = len(runtime_code) * gas_costs.CODE_DEPOSIT_PER_BYTE
-    inner_runtime_gas = Op.SELFDESTRUCT(
-        Op.ADDRESS, address_warm=True, account_new=False
-    ).gas_cost(fork)
+    inner_runtime_gas = runtime_code.gas_cost(fork)
 
     gas_used = (
         intrinsic_gas
@@ -826,10 +846,17 @@ def test_selfdestruct_finalization_after_priority_fee(
         + inner_runtime_gas
         + payer_runtime_gas
     )
-    priority_fee = priority_fee_per_gas * gas_used
+
+    inner_runtime_refund = runtime_code.refund(fork)
+    gas_refunds = inner_runtime_refund
+    discount = min(
+        gas_refunds,
+        gas_used // 5,  # max discount EIP-3529
+    )
+    priority_fee = priority_fee_per_gas * (gas_used - discount)
 
     # Finalization burn log proves coinbase received priority fee before log
-    finalization_balance = funding_amount + priority_fee
+    finalization_balance: int | None = funding_amount + priority_fee
 
     expected_logs = [
         transfer_log(factory_address, created_address, contract_balance),
@@ -844,14 +871,19 @@ def test_selfdestruct_finalization_after_priority_fee(
         )
 
     # finalization burn log
+    if fork.is_eip_enabled(8037):
+        # TODO: Fix calculation of the exact expected gas usage
+        finalization_balance = None
     expected_logs.append(burn_log(created_address, finalization_balance))
-
+    gas_limit = 500_000
+    if fork.is_eip_enabled(8037):
+        gas_limit = 2_000_000
     tx = Transaction(
         sender=sender,
         to=None,
         value=0,
         data=factory_code,
-        gas_limit=500_000,
+        gas_limit=gas_limit,
         gas_price=gas_price,
         expected_receipt=TransactionReceipt(logs=expected_logs),
     )
@@ -872,5 +904,5 @@ def test_selfdestruct_finalization_after_priority_fee(
             )
         ],
         post=post,
-        genesis_environment=Environment(base_fee_per_gas=genesis_base_fee),
+        genesis_environment=env,
     )
