@@ -30,6 +30,7 @@ from execution_testing import (
     Hash,
     Initcode,
     Op,
+    RecipientType,
     Requests,
     StateTestFiller,
     Storage,
@@ -42,6 +43,7 @@ from execution_testing import (
 )
 from execution_testing import Macros as Om
 from execution_testing.base_types import HexNumber
+from execution_testing.forks import Amsterdam
 
 from ...cancun.eip4844_blobs.spec import Spec as Spec4844
 from ..eip6110_deposits.helpers import DepositRequest
@@ -858,7 +860,12 @@ def test_set_code_max_depth_call_stack(
             max_depth = 1025
         case 16_777_216:
             gas_limit = tx_gas_limit_cap
-            max_depth = 389
+            if fork >= Amsterdam:
+                # The initial cost of accessing
+                # an EOA is lower due to EIP-2780
+                max_depth = 390
+            else:
+                max_depth = 389
         case _:
             raise NotImplementedError(
                 f"Unexpected transaction gas limit cap: {tx_gas_limit_cap}"
@@ -2916,6 +2923,8 @@ def test_set_code_to_precompile_not_enough_gas_for_precompile_execution(
 
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
         authorization_list_or_count=[auth],
+        recipient_type=RecipientType.EOA,
+        sends_value=True,
     )
     discount = min(
         Spec.AUTH_PER_EMPTY_ACCOUNT - Spec.REFUND_AUTH_PER_EXISTING_ACCOUNT,
@@ -3844,7 +3853,8 @@ def test_many_delegations(
         max_gas = tx_gas_limit_cap
     else:
         max_gas = env.gas_limit
-    gas_for_delegations = max_gas - 21_000 - 20_000 - (3 * 2)
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
+    gas_for_delegations = max_gas - intrinsic_gas - 20_000 - (3 * 2)
 
     delegation_count = gas_for_delegations // Spec.AUTH_PER_EMPTY_ACCOUNT
 
@@ -3891,6 +3901,7 @@ def test_many_delegations(
 @pytest.mark.exception_test
 def test_invalid_transaction_after_authorization(
     blockchain_test: BlockchainTestFiller,
+    fork: Fork,
     pre: Alloc,
 ) -> None:
     """
@@ -3899,6 +3910,10 @@ def test_invalid_transaction_after_authorization(
     """
     auth_signer = pre.fund_eoa()
     recipient = pre.fund_eoa(amount=0)
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+        sends_value=True,
+    )
 
     txs = [
         Transaction(
@@ -3917,7 +3932,7 @@ def test_invalid_transaction_after_authorization(
         Transaction(
             sender=auth_signer,
             nonce=0,
-            gas_limit=21_000,
+            gas_limit=intrinsic_gas,
             to=recipient,
             value=1,
             error=TransactionException.NONCE_MISMATCH_TOO_LOW,
@@ -3953,7 +3968,7 @@ def test_authorization_reusing_nonce(
         Transaction(
             sender=auth_signer,
             nonce=0,
-            gas_limit=21_000,
+            gas_limit=500_000,
             to=recipient,
             value=1,
         ),

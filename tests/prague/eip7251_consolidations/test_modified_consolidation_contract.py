@@ -12,6 +12,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
+    Fork,
     Op,
     Requests,
     Transaction,
@@ -87,6 +88,7 @@ def consolidation_list_with_custom_fee(n: int) -> List[ConsolidationRequest]:  #
 )
 def test_extra_consolidations(
     blockchain_test: BlockchainTestFiller,
+    fork: Fork,
     pre: Alloc,
     requests_list: List[ConsolidationRequest],
 ) -> None:
@@ -127,7 +129,9 @@ def test_extra_consolidations(
     # prepare consolidation senders
     consolidation_request_transaction.update_pre(pre=pre)
     # get transaction list
-    txs: List[Transaction] = consolidation_request_transaction.transactions()
+    txs: List[Transaction] = consolidation_request_transaction.transactions(
+        _fork=fork
+    )
 
     blockchain_test(
         pre=pre,

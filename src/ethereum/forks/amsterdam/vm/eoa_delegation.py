@@ -150,7 +150,7 @@ def calculate_delegation_cost(
     if delegated_address in evm.accessed_addresses:
         delegation_gas_cost = GasCosts.WARM_ACCESS
     else:
-        delegation_gas_cost = GasCosts.COLD_ACCOUNT_ACCESS
+        delegation_gas_cost = GasCosts.COLD_ACCOUNT_COST_CODE
 
     return True, delegated_address, delegation_gas_cost
 

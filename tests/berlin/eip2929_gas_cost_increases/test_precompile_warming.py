@@ -161,9 +161,12 @@ def test_precompile_warming(
     successor = get_transition_fork_successor(fork)
 
     def get_expected_gas(precompile_present: bool, fork: Fork) -> int:
-        balance_cost = Op.BALANCE(address_warm=precompile_present).gas_cost(
-            fork
-        )
+        balance_cost = Op.BALANCE(
+            address_warm=precompile_present,
+            # Precompiles have no EVM bytecode in state, and
+            # non-precompile addresses tested here are empty.
+            address_has_code=False,
+        ).gas_cost(fork)
         # Overhead: GAS + POP + SUB
         overhead_cost = (Op.GAS + Op.POP + Op.SUB).gas_cost(fork)
         return balance_cost + overhead_cost

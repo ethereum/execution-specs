@@ -16,6 +16,7 @@ from execution_testing import (
     Header,
     Op,
     ParameterSet,
+    RecipientType,
     Transaction,
     TransitionFork,
     add_kzg_version,
@@ -51,9 +52,14 @@ def gas_spender_contract(pre: Alloc) -> Address:
 
 
 @pytest.fixture
-def tx_gas() -> int:
+def tx_gas(fork: Fork) -> int:
     """Gas limit for blob transactions sent during test."""
-    return 21_000
+    return (
+        fork.transaction_intrinsic_cost_calculator()(
+            recipient_type=RecipientType.CONTRACT,
+        )
+        + 1_000
+    )
 
 
 @pytest.fixture
@@ -265,7 +271,12 @@ def parent_block_txs(
     blob_txs_execution_gas = sum(tx.gas_limit for tx in parent_block_blob_txs)
     assert blob_txs_execution_gas <= required_gas_used
     extra_tx_gas_limit = required_gas_used - blob_txs_execution_gas
-    assert extra_tx_gas_limit >= 21_000
+    intrinsic_gas = (
+        fork.transitions_from().transaction_intrinsic_cost_calculator()(
+            recipient_type=RecipientType.CONTRACT,
+        )
+    )
+    assert extra_tx_gas_limit >= intrinsic_gas
 
     extra_tx = Transaction(
         sender=sender,

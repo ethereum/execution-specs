@@ -331,7 +331,7 @@ def test_bloatnet_call_value_new_account(
     value=1 wei. Since these addresses have no code, the subcall succeeds
     (via the 2300 gas stipend), transferring value and creating a new
     account in the trie. Each iteration costs ~36,600 gas:
-    - GAS_COLD_ACCOUNT_ACCESS: 2,600
+    - COLD_ACCOUNT_ACCESS: 2,600
     - CALL_VALUE: 9,000
     - NEW_ACCOUNT: 25,000
 

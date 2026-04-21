@@ -61,7 +61,10 @@ def test_call_large_offset_mstore(
     )
 
     # this call cost is just the address_access_cost
-    call_cost = Op.CALL(address_warm=False).gas_cost(fork)
+    # Target is address 0x0 which has no code.
+    call_cost = Op.CALL(address_warm=False, address_has_code=False).gas_cost(
+        fork
+    )
 
     # mstore cost: base cost + expansion cost
     mstore_cost = Op.MSTORE(new_memory_size=mem_offset + 32).gas_cost(fork)
@@ -142,6 +145,7 @@ def test_call_memory_expands_on_early_revert(
     call_cost = (
         Op.CALL(
             address_warm=False,
+            address_has_code=False,  # Target is address 0x0
             value_transfer=True,
             account_new=True,
             new_memory_size=ret_size,
@@ -206,7 +210,10 @@ def test_call_large_args_offset_size_zero(
     )
 
     # this call cost is just the address_access_cost
-    call_cost = call_opcode(address_warm=False).gas_cost(fork)
+    # Target is address 0x0 which has no code.
+    call_cost = call_opcode(
+        address_warm=False, address_has_code=False
+    ).gas_cost(fork)
 
     state_test(
         env=Environment(),

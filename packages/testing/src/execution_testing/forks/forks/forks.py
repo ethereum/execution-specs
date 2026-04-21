@@ -2,7 +2,15 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, Dict, List, Mapping, Sized
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Sized,
+)
 
 if TYPE_CHECKING:
     from execution_testing.fixtures.blockchain import FixtureHeader
@@ -21,6 +29,7 @@ from execution_testing.vm import (
     Opcodes,
 )
 
+from ...recipient_type import RecipientType
 from ..base_fork import (
     BaseFeeChangeCalculator,
     BaseFeePerGasCalculator,
@@ -835,8 +844,14 @@ class Frontier(
             access_list: List[AccessList] | None = None,
             authorization_list_or_count: Sized | int | None = None,
             return_cost_deducted_prior_execution: bool = False,
+            sends_value: bool = False,
+            recipient_type: RecipientType = RecipientType.CONTRACT,
+            recipient_is_warm: bool = False,
+            recipient_delegation_is_warm: Optional[bool] = None,
         ) -> int:
             del return_cost_deducted_prior_execution
+            del sends_value, recipient_type, recipient_is_warm
+            del recipient_delegation_is_warm
 
             assert access_list is None, (
                 f"Access list is not supported in {cls.name()}"

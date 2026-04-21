@@ -146,3 +146,8 @@ class GasCosts:
     OPCODE_BLOBHASH: int = 0
     OPCODE_MCOPY_BASE: int = 0
     OPCODE_CLZ: int = 0
+
+    # EIP-2780: Reduced intrinsic transaction gas costs (Amsterdam)
+    COLD_ACCOUNT_COST_CODE: int = 0
+    COLD_ACCOUNT_COST_NO_CODE: int = 0
+    STATE_UPDATE: int = 0

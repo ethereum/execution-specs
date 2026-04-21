@@ -10,6 +10,7 @@ from execution_testing import (
     Address,
     Alloc,
     Bytecode,
+    Fork,
     Op,
     Transaction,
 )
@@ -29,6 +30,18 @@ class ConsolidationRequest(ConsolidationRequestBase):
     """Whether the consolidation request is valid or not."""
     gas_limit: int = 1_000_000
     """Gas limit for the call."""
+    gas_limit_calculator: Callable[[Fork], int] | None = None
+    """
+    Optional fork-aware gas limit calculator.
+
+    When set, `ConsolidationRequestTransaction` uses it to compute the outer
+    transaction gas limit dynamically, overriding `gas_limit`.  Use this
+    for out-of-gas test cases where the correct limit depends on the fork's
+    intrinsic gas cost (which changes between forks).
+
+    Not used by `ConsolidationRequestContract` (inner CALL gas has no
+    intrinsic component and does not change between forks).
+    """
     calldata_modifier: Callable[[bytes], bytes] = lambda x: x
     """Calldata modifier function."""
 
@@ -75,7 +88,7 @@ class ConsolidationRequestInteractionBase:
     requests: List[ConsolidationRequest]
     """Consolidation requests to be included in the block."""
 
-    def transactions(self) -> List[Transaction]:
+    def transactions(self, _fork: Fork | None = None) -> List[Transaction]:
         """Return a transaction for the consolidation request."""
         raise NotImplementedError
 
@@ -100,14 +113,19 @@ class ConsolidationRequestTransaction(ConsolidationRequestInteractionBase):
     owned account.
     """
 
-    def transactions(self) -> List[Transaction]:
+    def transactions(self, _fork: Fork | None = None) -> List[Transaction]:
         """Return a transaction for the consolidation request."""
         assert self.sender_account is not None, (
             "Sender account not initialized"
         )
         return [
             Transaction(
-                gas_limit=request.gas_limit,
+                gas_limit=(
+                    request.gas_limit_calculator(_fork)
+                    if request.gas_limit_calculator is not None
+                    and _fork is not None
+                    else request.gas_limit
+                ),
                 gas_price=1_000_000_000,
                 to=request.interaction_contract_address,
                 value=request.value,
@@ -185,7 +203,7 @@ class ConsolidationRequestContract(ConsolidationRequestInteractionBase):
             current_offset += len(r.calldata)
         return code + self.extra_code
 
-    def transactions(self) -> List[Transaction]:
+    def transactions(self, _fork: Fork | None = None) -> List[Transaction]:
         """Return a transaction for the consolidation request."""
         assert self.entry_address is not None, "Entry address not initialized"
         return [

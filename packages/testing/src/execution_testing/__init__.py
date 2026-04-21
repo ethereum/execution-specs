@@ -31,6 +31,7 @@ from .exceptions import (
 )
 from .fixtures import BaseFixture, FixtureCollector
 from .forks import Fork, GasCosts, TransitionFork
+from .recipient_type import RecipientType
 from .specs import (
     BaseTest,
     BenchmarkTest,
@@ -183,6 +184,7 @@ __all__ = (
     "ParameterSet",
     "ReferenceSpec",
     "ReferenceSpecTypes",
+    "RecipientType",
     "Removable",
     "Requests",
     "SequentialAddressLayout",

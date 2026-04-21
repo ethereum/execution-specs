@@ -66,7 +66,7 @@ REFERENCE_SPEC_VERSION = "1.0"
 # |                            |       |           | through delegation|
 #
 # Gas breakdown per hop (cold DELEGATECALL):
-#   - GAS_COLD_ACCOUNT_ACCESS: 2,600 (includes DELEGATECALL base)
+#   - COLD_ACCOUNT_ACCESS: 2,600 (includes DELEGATECALL base)
 #   - Code loading overhead:   varies by library size
 #
 # At depth 5 (all cold):

@@ -28,13 +28,14 @@ def update_pre(pre: Alloc, requests: List[DepositInteractionBase]) -> None:
 
 @pytest.fixture
 def txs(
+    fork: Fork,
     requests: List[DepositInteractionBase],
     update_pre: None,  # Fixture is used for its side effects
 ) -> List[Transaction]:
     """List of transactions to include in the block."""
     txs = []
     for r in requests:
-        txs += r.transactions()
+        txs += r.transactions(fork)
     return txs
 
 
