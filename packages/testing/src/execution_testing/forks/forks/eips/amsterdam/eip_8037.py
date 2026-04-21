@@ -183,9 +183,10 @@ class EIP8037(BaseFork):
 
         def fn(opcode: OpcodeBase) -> int:
             # Get the gas refund or calculator
+            state_refund = opcode_state_refund_calculator(opcode)
             if opcode not in opcode_refund_map:
                 # Most opcodes don't provide refunds
-                return 0
+                return state_refund
             refund_or_calculator = opcode_refund_map[opcode]
 
             # If it's a callable, call it with the opcode
@@ -196,7 +197,7 @@ class EIP8037(BaseFork):
                 regular_refund = refund_or_calculator
 
             # EIP-8037 adds the state refund on top of the regular refund.
-            return regular_refund + opcode_state_refund_calculator(opcode)
+            return regular_refund + state_refund
 
         return fn
 
@@ -216,6 +217,11 @@ class EIP8037(BaseFork):
         return {
             Opcodes.SSTORE: lambda op: cls._calculate_sstore_state_refund(
                 op, gas_costs
+            ),
+            Opcodes.SELFDESTRUCT: (
+                lambda op: cls._calculate_selfdestruct_state_refund(
+                    op, gas_costs
+                )
             ),
         }
 
@@ -385,6 +391,37 @@ class EIP8037(BaseFork):
                 if original_value == 0:
                     return 32 * cpsb
         return 0
+
+    @classmethod
+    def _calculate_selfdestruct_state_refund(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """
+        Calculate SELFDESTRUCT state gas refund.
+
+        Account creation: 112 × cost_per_state_byte
+        Created storage slots: 32 × cost_per_state_byte per non-zero slot
+        Code deposit: len(code) × cost_per_state_byte
+        """
+        del gas_costs
+        metadata = opcode.metadata
+        cpsb = cls.cost_per_state_byte()
+
+        self_destructed_account = metadata["self_destructed_account"]
+        self_destructed_account_storage_slot_count = metadata[
+            "self_destructed_account_storage_slot_count"
+        ]
+        self_destructed_account_code_deposit = metadata[
+            "self_destructed_account_code_deposit"
+        ]
+        state_refund = 0
+        if self_destructed_account:
+            state_refund = 112 * cpsb
+            state_refund += (
+                32 * cpsb * self_destructed_account_storage_slot_count
+            )
+            state_refund += cpsb * self_destructed_account_code_deposit
+        return state_refund
 
     @classmethod
     def _calculate_return_gas(
