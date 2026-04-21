@@ -7,6 +7,7 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    Fork,
     Op,
     StateTestFiller,
     Transaction,
@@ -73,6 +74,7 @@ def test_call_with_value_mainnet(
 def test_selfdestruct_mainnet(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test that SELFDESTRUCT emits a transfer log on mainnet."""
     sender = pre.fund_eoa()
@@ -81,12 +83,16 @@ def test_selfdestruct_mainnet(
     contract_code = Op.SELFDESTRUCT(beneficiary)
     contract = pre.deploy_contract(contract_code, balance=500)
 
+    gas_limit = 100_000
+    if fork.is_eip_enabled(8037):
+        gas_limit = 500_000
+
     tx = Transaction(
         ty=0x02,
         sender=sender,
         to=contract,
         value=0,
-        gas_limit=100_000,
+        gas_limit=gas_limit,
         expected_receipt=TransactionReceipt(
             logs=[transfer_log(contract, beneficiary, 500)]
         ),

@@ -49,7 +49,7 @@ def transfer_log(
     )
 
 
-def burn_log(contract_address: Address, amount: int) -> TransactionLog:
+def burn_log(contract_address: Address, amount: int | None) -> TransactionLog:
     """Create an expected Burn log for EIP-7708."""
     return TransactionLog(
         address=Spec.SYSTEM_ADDRESS,
@@ -57,5 +57,5 @@ def burn_log(contract_address: Address, amount: int) -> TransactionLog:
             Spec.BURN_TOPIC,
             Hash(bytes(contract_address).rjust(32, b"\x00")),
         ],
-        data=Bytes(amount.to_bytes(32, "big")),
+        data=Bytes(amount.to_bytes(32, "big")) if amount is not None else None,
     )

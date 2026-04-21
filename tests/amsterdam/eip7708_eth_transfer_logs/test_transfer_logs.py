@@ -140,6 +140,7 @@ def test_contract_creation_tx(
     env: Environment,
     pre: Alloc,
     sender: EOA,
+    fork: Fork,
     tx_value: int,
     expect_log: bool,
 ) -> None:
@@ -150,12 +151,14 @@ def test_contract_creation_tx(
     expected_logs = (
         [transfer_log(sender, created_address, tx_value)] if expect_log else []
     )
-
+    gas_limit = 100_000
+    if fork.is_eip_enabled(8037):
+        gas_limit = 500_000
     tx = Transaction(
         sender=sender,
         to=None,
         value=tx_value,
-        gas_limit=100_000,
+        gas_limit=gas_limit,
         data=bytes(initcode),
         expected_receipt=TransactionReceipt(logs=expected_logs),
     )
@@ -271,6 +274,7 @@ def test_create_opcode_emits_log(
     env: Environment,
     pre: Alloc,
     sender: EOA,
+    fork: Fork,
     create_opcode: Op,
     create_value: int,
 ) -> None:
@@ -301,11 +305,15 @@ def test_create_opcode_emits_log(
             transfer_log(contract, created_address, create_value)
         )
 
+    gas_limit = 200_000
+    if fork.is_eip_enabled(8037):
+        gas_limit = 1_000_000
+
     tx = Transaction(
         sender=sender,
         to=contract,
         value=1,
-        gas_limit=200_000,
+        gas_limit=gas_limit,
         expected_receipt=TransactionReceipt(logs=expected_logs),
     )
 
@@ -517,11 +525,14 @@ def test_create_out_of_gas_no_log(
     env: Environment,
     pre: Alloc,
     sender: EOA,
+    fork: Fork,
     initcode: Bytecode,
 ) -> None:
     """Test that CREATE running out of gas does NOT emit transfer log."""
     tx_value = 1000
     gas_limit = 100_000
+    if fork.is_eip_enabled(8037):
+        gas_limit = 500_000
     create_value = 500
     contract_code = Op.CALLDATACOPY(
         dest_offset=0,
@@ -646,6 +657,7 @@ def test_selfdestruct_with_value_emits_log(
     state_test: StateTestFiller,
     env: Environment,
     pre: Alloc,
+    fork: Fork,
     sender: EOA,
 ) -> None:
     """Test that SELFDESTRUCT with value emits a transfer log."""
@@ -655,11 +667,15 @@ def test_selfdestruct_with_value_emits_log(
     contract_code = Op.SELFDESTRUCT(beneficiary)
     contract = pre.deploy_contract(contract_code, balance=contract_balance)
 
+    gas_limit = 100_000
+    if fork.is_eip_enabled(8037):
+        gas_limit = 500_000
+
     tx = Transaction(
         sender=sender,
         to=contract,
         value=0,
-        gas_limit=100_000,
+        gas_limit=gas_limit,
         expected_receipt=TransactionReceipt(
             logs=[transfer_log(contract, beneficiary, contract_balance)]
         ),
@@ -674,6 +690,7 @@ def test_selfdestruct_to_system_address(
     env: Environment,
     pre: Alloc,
     sender: EOA,
+    fork: Fork,
 ) -> None:
     """
     Test SELFDESTRUCT sending ETH to the EIP-7708 system address.
@@ -683,11 +700,15 @@ def test_selfdestruct_to_system_address(
     contract_code = Op.SELFDESTRUCT(Spec.SYSTEM_ADDRESS)
     contract = pre.deploy_contract(contract_code, balance=1)
 
+    gas_limit = 100_000
+    if fork.is_eip_enabled(8037):
+        gas_limit = 500_000
+
     tx = Transaction(
         sender=sender,
         to=contract,
         value=0,
-        gas_limit=100_000,
+        gas_limit=gas_limit,
         expected_receipt=TransactionReceipt(
             logs=[transfer_log(contract, Spec.SYSTEM_ADDRESS, 1)]
         ),
@@ -1144,7 +1165,7 @@ def test_multiple_transfers_same_block(
 
 
 def test_selfdestruct_then_transfer_same_block(
-    blockchain_test: BlockchainTestFiller, pre: Alloc
+    blockchain_test: BlockchainTestFiller, pre: Alloc, fork: Fork
 ) -> None:
     """
     Test transfer to address that selfdestructed earlier in the same block.
@@ -1163,6 +1184,10 @@ def test_selfdestruct_then_transfer_same_block(
     contract_code = Op.SELFDESTRUCT(beneficiary)
     contract = pre.deploy_contract(contract_code, balance=500)
 
+    gas_limit = 100_000
+    if fork.is_eip_enabled(8037):
+        gas_limit = 500_000
+
     blocks = [
         Block(
             txs=[
@@ -1171,7 +1196,7 @@ def test_selfdestruct_then_transfer_same_block(
                     sender=sender,
                     nonce=0,
                     value=0,
-                    gas_limit=100_000,
+                    gas_limit=gas_limit,
                     expected_receipt=TransactionReceipt(
                         logs=[transfer_log(contract, beneficiary, 500)]
                     ),
@@ -1181,7 +1206,7 @@ def test_selfdestruct_then_transfer_same_block(
                     sender=sender,
                     nonce=1,
                     value=100,
-                    gas_limit=100_000,
+                    gas_limit=gas_limit,
                     expected_receipt=TransactionReceipt(
                         logs=[
                             transfer_log(sender, contract, 100),
