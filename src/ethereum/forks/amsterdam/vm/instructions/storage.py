@@ -23,12 +23,8 @@ from ...state_tracker import (
 from .. import Evm, credit_state_gas_refund
 from ..exceptions import WriteInStaticContext
 from ..gas import (
-    GAS_CALL_STIPEND,
-    GAS_COLD_STORAGE_ACCESS,
-    GAS_STORAGE_UPDATE,
-    GAS_WARM_ACCESS,
-    REFUND_STORAGE_CLEAR,
     STATE_BYTES_PER_STORAGE_SET,
+    GasCosts,
     charge_gas,
     charge_state_gas,
     check_gas,
@@ -110,7 +106,7 @@ def sstore(evm: Evm) -> None:
             needs_state_gas = True
         # charge regular cost for the operation, even when we
         # already charge state gas for state creation
-        gas_cost += GAS_STORAGE_UPDATE - GAS_COLD_STORAGE_ACCESS
+        gas_cost += GasCosts.COLD_STORAGE_WRITE - GasCosts.COLD_STORAGE_ACCESS
     else:
         gas_cost += GasCosts.WARM_ACCESS
 
@@ -130,7 +126,9 @@ def sstore(evm: Evm) -> None:
                 # Slot set then cleared: refund the state gas charge.
                 credit_state_gas_refund(evm, state_gas_storage_set)
             evm.refund_counter += int(
-                GAS_STORAGE_UPDATE - GAS_COLD_STORAGE_ACCESS - GAS_WARM_ACCESS
+                GasCosts.COLD_STORAGE_WRITE
+                - GasCosts.COLD_STORAGE_ACCESS
+                - GasCosts.WARM_ACCESS
             )
 
     # Charge regular gas before state gas so that a regular-gas OOG

@@ -187,7 +187,7 @@ def test_charge_oog_both_pools_insufficient(
 
     # Tight gas: intrinsic + SSTORE regular gas only
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
-    gas_limit = intrinsic_cost() + gas_costs.GAS_COLD_STORAGE_WRITE
+    gas_limit = intrinsic_cost() + gas_costs.COLD_STORAGE_WRITE
 
     tx = Transaction(
         to=contract,
@@ -394,7 +394,7 @@ def test_intrinsic_regular_gas_exceeds_cap(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     # One more non-zero byte than needed to exceed the cap
-    calldata_len = gas_limit_cap // gas_costs.GAS_TX_DATA_PER_NON_ZERO + 1
+    calldata_len = gas_limit_cap // gas_costs.TX_DATA_PER_NON_ZERO + 1
     calldata = b"\x01" * calldata_len
 
     contract = pre.deploy_contract(code=Op.STOP)
@@ -525,7 +525,7 @@ def test_call_new_account_state_gas_scales_with_cpsb(
     env = Environment(gas_limit=block_gas_limit)
     fork._env_gas_limit = block_gas_limit
     gas_costs = fork.gas_costs()
-    new_account_state_gas = gas_costs.GAS_NEW_ACCOUNT
+    new_account_state_gas = gas_costs.NEW_ACCOUNT
 
     empty = pre.fund_eoa(0)
     storage = Storage()
@@ -569,7 +569,7 @@ def test_selfdestruct_new_beneficiary_scales_with_cpsb(
     env = Environment(gas_limit=block_gas_limit)
     fork._env_gas_limit = block_gas_limit
     gas_costs = fork.gas_costs()
-    new_account_state_gas = gas_costs.GAS_NEW_ACCOUNT
+    new_account_state_gas = gas_costs.NEW_ACCOUNT
 
     beneficiary = pre.fund_eoa(0)
     storage = Storage()

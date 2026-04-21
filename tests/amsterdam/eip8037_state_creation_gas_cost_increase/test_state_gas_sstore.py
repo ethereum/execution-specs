@@ -375,7 +375,7 @@ def test_sstore_stipend_check_excludes_reservoir(
     With at_stipend: SSTORE passes the stipend check and proceeds.
     """
     gas_costs = fork.gas_costs()
-    stipend = gas_costs.GAS_CALL_STIPEND + 1
+    stipend = gas_costs.CALL_STIPEND + 1
     sstore_state_gas = fork.sstore_state_gas()
 
     # Child: Op.SSTORE(0, 1) = 2 pushes + SSTORE opcode.
@@ -389,7 +389,7 @@ def test_sstore_stipend_check_excludes_reservoir(
     # below_stipend: give 1 less than stipend after pushes, fails check.
     # at_stipend: give full regular gas, passes check and completes.
     if gas_above_stipend < 0:
-        push_gas = 2 * gas_costs.GAS_VERY_LOW
+        push_gas = 2 * gas_costs.VERY_LOW
         child_gas = push_gas + stipend - 1
     else:
         child_gas = child_full_regular
@@ -768,8 +768,8 @@ def test_sstore_restoration_charge_in_ancestor(
     gas_costs = fork.gas_costs()
     sstore_state_gas = fork.sstore_state_gas()
     probe_gas = (
-        2 * gas_costs.GAS_VERY_LOW
-        + gas_costs.GAS_COLD_STORAGE_WRITE
+        2 * gas_costs.VERY_LOW
+        + gas_costs.COLD_STORAGE_WRITE
         + sstore_state_gas
         - 1
     )
@@ -839,8 +839,8 @@ def test_sstore_restoration_sub_frame_revert(
     # Probe SSTORE(0, 1): 2 pushes + cold storage write + state gas - 1,
     # so it OOGs by 1 when the reservoir is 0 and succeeds otherwise.
     probe_gas = (
-        2 * gas_costs.GAS_VERY_LOW
-        + gas_costs.GAS_COLD_STORAGE_WRITE
+        2 * gas_costs.VERY_LOW
+        + gas_costs.COLD_STORAGE_WRITE
         + fork.sstore_state_gas()
         - 1
     )
@@ -891,8 +891,8 @@ def test_sstore_restoration_ancestor_revert(
     # Probe SSTORE(0, 1): 2 pushes + cold storage write + state gas - 1,
     # so it OOGs by 1 when the reservoir is 0 and succeeds otherwise.
     probe_gas = (
-        2 * gas_costs.GAS_VERY_LOW
-        + gas_costs.GAS_COLD_STORAGE_WRITE
+        2 * gas_costs.VERY_LOW
+        + gas_costs.COLD_STORAGE_WRITE
         + fork.sstore_state_gas()
         - 1
     )
@@ -951,8 +951,8 @@ def test_sstore_restoration_create_init_revert(
     # Probe SSTORE(0, 1): 2 pushes + cold storage write + state gas - 1,
     # so it OOGs by 1 when the reservoir is 0 and succeeds otherwise.
     probe_gas = (
-        2 * gas_costs.GAS_VERY_LOW
-        + gas_costs.GAS_COLD_STORAGE_WRITE
+        2 * gas_costs.VERY_LOW
+        + gas_costs.COLD_STORAGE_WRITE
         + fork.sstore_state_gas()
         - 1
     )

@@ -48,7 +48,7 @@ from ..state_tracker import (
 from ..vm import Message
 from ..vm.eoa_delegation import get_delegated_code_address, set_delegation
 from ..vm.gas import (
-    GAS_KECCAK256_PER_WORD,
+    GasCosts,
     charge_gas,
     charge_state_gas,
     state_gas_per_byte,
@@ -225,7 +225,7 @@ def process_create_message(message: Message) -> Evm:
                 raise OutOfGasError
             # Hash cost for computing keccak256 of deployed bytecode
             code_hash_gas = (
-                GAS_KECCAK256_PER_WORD
+                GasCosts.OPCODE_KECCACK256_PER_WORD
                 * ceil32(Uint(len(contract_code)))
                 // Uint(32)
             )

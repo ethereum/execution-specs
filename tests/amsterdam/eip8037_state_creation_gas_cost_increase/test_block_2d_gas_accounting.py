@@ -364,7 +364,7 @@ def test_block_gas_used_call_new_account(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    new_account_state_gas = fork.gas_costs().GAS_NEW_ACCOUNT
+    new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
     sstore_state_gas = fork.sstore_state_gas()
 
     target = pre.fund_eoa(amount=0)

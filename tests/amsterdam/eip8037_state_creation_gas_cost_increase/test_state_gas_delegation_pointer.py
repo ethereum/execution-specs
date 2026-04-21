@@ -130,7 +130,7 @@ def test_delegation_pointer_new_account_state_gas(
     auth_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )
-    new_account_state_gas = gas_costs.GAS_NEW_ACCOUNT
+    new_account_state_gas = gas_costs.NEW_ACCOUNT
 
     target = 0xDEAD
 
