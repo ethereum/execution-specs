@@ -113,6 +113,77 @@ class ForkCache(AbstractContextManager):
             fork.__exit__(*args, **kwargs)
         self._cache.clear()
 
+    def _template_matches(
+        self,
+        template: Hardfork,
+        fork_criteria: ByBlockNumber | ByTimestamp | Unscheduled | None = None,
+        blob_target_gas_per_block: U64 | None = None,
+        gas_per_blob: U64 | None = None,
+        blob_min_gasprice: Uint | None = None,
+        blob_base_fee_update_fraction: Uint | None = None,
+        max_blob_gas_per_block: U64 | None = None,
+        blob_schedule_target: U64 | None = None,
+        blob_schedule_max: U64 | None = None,
+    ) -> bool:
+        """Return true when the requested overrides match the template."""
+        if fork_criteria is not None and fork_criteria != template.criteria:
+            return False
+
+        fork_mod = template.module("fork")
+
+        try:
+            gas_mod = template.module("vm.gas")
+        except ModuleNotFoundError:
+            gas_mod = None
+
+        gas_costs = getattr(gas_mod, "GasCosts", None)
+
+        def gas_default(
+            module_attr: str,
+            gas_costs_attr: str | None = None,
+        ) -> Any:
+            if gas_mod is None:
+                return None
+
+            value = getattr(gas_mod, module_attr, None)
+            if value is not None:
+                return value
+
+            if gas_costs is None:
+                return None
+
+            return getattr(
+                gas_costs,
+                gas_costs_attr if gas_costs_attr is not None else module_attr,
+                None,
+            )
+
+        checks = (
+            (
+                blob_target_gas_per_block,
+                gas_default("BLOB_TARGET_GAS_PER_BLOCK"),
+            ),
+            (gas_per_blob, gas_default("GAS_PER_BLOB", "PER_BLOB")),
+            (blob_min_gasprice, gas_default("BLOB_MIN_GASPRICE")),
+            (
+                blob_base_fee_update_fraction,
+                gas_default("BLOB_BASE_FEE_UPDATE_FRACTION"),
+            ),
+            (
+                max_blob_gas_per_block,
+                getattr(fork_mod, "MAX_BLOB_GAS_PER_BLOCK", None),
+            ),
+            (
+                blob_schedule_target,
+                gas_default("BLOB_SCHEDULE_TARGET"),
+            ),
+            (blob_schedule_max, gas_default("BLOB_SCHEDULE_MAX")),
+        )
+
+        return all(
+            value is None or value == default for value, default in checks
+        )
+
     def get(
         self,
         template: Hardfork,
@@ -140,7 +211,17 @@ class ForkCache(AbstractContextManager):
             blob_schedule_target,
             blob_schedule_max,
         )
-        if all(x is None for x in cache_key[1:]):
+        if all(x is None for x in cache_key[1:]) or self._template_matches(
+            template=template,
+            fork_criteria=fork_criteria,
+            blob_target_gas_per_block=blob_target_gas_per_block,
+            gas_per_blob=gas_per_blob,
+            blob_min_gasprice=blob_min_gasprice,
+            blob_base_fee_update_fraction=blob_base_fee_update_fraction,
+            max_blob_gas_per_block=max_blob_gas_per_block,
+            blob_schedule_target=blob_schedule_target,
+            blob_schedule_max=blob_schedule_max,
+        ):
             return template
 
         try:
