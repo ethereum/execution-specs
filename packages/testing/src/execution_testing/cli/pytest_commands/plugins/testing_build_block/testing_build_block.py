@@ -6,7 +6,7 @@ from typing import Any, Callable, Sequence
 
 import pytest
 
-from execution_testing.base_types import Hash
+from execution_testing.base_types import Address, Hash
 from execution_testing.forks import Fork, get_forks
 from execution_testing.rpc import EngineRPC, EthRPC, TestingRPC
 from execution_testing.test_types import EOA, Transaction
@@ -189,13 +189,16 @@ def bloat_signer(
     bloat_config: BloatConfig, bloat_eth_rpc: EthRPC
 ) -> EOA:
     """Return an ``EOA`` seeded with the current on-chain nonce."""
-    signer = EOA(key=bloat_config.signer_key, nonce=0)
+    probe = EOA(key=bloat_config.signer_key, nonce=0)
     try:
-        nonce = bloat_eth_rpc.get_transaction_count(signer, "latest")
+        nonce = bloat_eth_rpc.get_transaction_count(probe, "latest")
     except Exception:  # noqa: BLE001 - avoid coupling to RPC failures
         nonce = 0
+    # ``EOA.__new__`` short-circuits when ``address`` is already an
+    # ``EOA``, so wrap it as a plain ``Address`` to force re-construction
+    # with the freshly fetched nonce.
     return EOA(
-        address=signer,
+        Address(probe),
         key=bloat_config.signer_key,
         nonce=nonce,
     )
