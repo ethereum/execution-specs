@@ -474,6 +474,51 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """
         pass
 
+    @classmethod
+    @abstractmethod
+    def opcode_state_map(
+        cls,
+    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
+        """
+        Return a mapping of opcodes to their state gas costs.
+
+        Each entry is either:
+        - Constants (int): Multiplier of the cost_per_state_byte
+        - Callables: Functions that take the opcode instance with metadata and
+                     return the full state gas cost
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def opcode_refund_map(
+        cls,
+    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
+        """
+        Return a mapping of opcodes to their gas refunds.
+
+        Each entry is either:
+        - Constants (int): Direct gas refund values
+        - Callables: Functions that take the opcode instance with metadata and
+                     return gas refund
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def opcode_state_refund_map(
+        cls,
+    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
+        """
+        Return a mapping of opcodes to their state refunds.
+
+        Each entry is either:
+        - Constants (int): Multiplier of the cost_per_state_byte
+        - Callables: Functions that take the opcode instance with metadata and
+                     return the state refund
+        """
+        pass
+
     # Gas calculation helpers
     @classmethod
     @abstractmethod
@@ -603,9 +648,9 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def cost_per_state_byte(cls, gas_limit: int = 0) -> int:
+    def cost_per_state_byte(cls) -> int:
         """
-        Calculate the state gas cost per byte based on the block gas limit.
+        Calculate the state gas cost per byte based on `cls._env_gas_limit`.
         """
         pass
 

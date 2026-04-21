@@ -276,8 +276,16 @@ def test_block_state_gas_limit_boundary(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
+
+    # TODO(EIP-8037): pin block_gas_limit (and therefore cpsb)
+    # up-front; see test_creation_tx_state_check_exceeded for
+    # rationale. Revisit if the framework exposes a cpsb query
+    # that doesn't require mutating the fork.
+    block_gas_limit = 100_000_000
+    fork._env_gas_limit = block_gas_limit
+
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
+    sstore_state_gas = fork.sstore_state_gas()
 
     num_sstores = 50
     tx1_code = Bytecode()
@@ -288,9 +296,6 @@ def test_block_state_gas_limit_boundary(
     tx1_state = num_sstores * sstore_state_gas
     tx1_regular = intrinsic_cost() + tx1_code.gas_cost(fork) - tx1_state
     tx1_gas = gas_limit_cap + tx1_state
-
-    state_headroom = tx1_state + 100_000
-    block_gas_limit = gas_limit_cap + state_headroom
 
     # tx2: worst-case state contribution = state_available + delta.
     # Plain call, so intrinsic_state is zero.
@@ -357,26 +362,39 @@ def test_creation_tx_regular_check_subtracts_intrinsic_state(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
 
+    # `intrinsic_regular` for a creation tx is cpsb-free
+    # (GAS_TX_BASE + REGULAR_GAS_CREATE + init_code_cost), so
+    # reading it at the current cpsb and using it to size the block
+    # gives a stable `block_gas_limit` independent of cpsb.
+    intrinsic_regular = fork.transaction_intrinsic_cost_calculator()(
+        contract_creation=True
+    ) - fork.transaction_intrinsic_state_gas(contract_creation=True)
+
+    # Tight boundary: after the filler consumes gas_limit_cap, the
+    # remaining regular is exactly intrinsic_regular + 1. The old
+    # formula `min(TX_MAX, tx.gas)` rejects (tx.gas = intrinsic_total
+    # > intrinsic_regular + 1); the new formula `min(TX_MAX, tx.gas
+    # - intrinsic.state)` accepts (equals intrinsic_regular).
+    block_gas_limit = gas_limit_cap + intrinsic_regular + 1
+
+    # TODO(EIP-8037): pin `_env_gas_limit` to the actual block limit
+    # and re-read every cpsb-dependent value. The intrinsic calculator
+    # captures `gas_costs()` at creation time, so it must be
+    # re-obtained. Revisit if the framework exposes a cpsb query
+    # that doesn't require mutating the fork.
+    fork._env_gas_limit = block_gas_limit
     intrinsic_state = fork.transaction_intrinsic_state_gas(
         contract_creation=True,
     )
-    intrinsic_total = intrinsic_cost(contract_creation=True)
-    intrinsic_regular = intrinsic_total - intrinsic_state
+    create_tx_gas = fork.transaction_intrinsic_cost_calculator()(
+        contract_creation=True,
+    )
 
     # Filler consumes the full regular cap (OOG on INVALID).
     filler = pre.deploy_contract(code=Op.INVALID)
 
-    # After filler, the remaining regular budget is exactly
-    # `intrinsic_regular + 1`. The creation tx has
-    # `tx.gas = intrinsic_total = intrinsic_regular + intrinsic_state`,
-    # which exceeds the remaining budget under the old formula but
-    # equals `intrinsic_regular` after the `- intrinsic.state`
-    # subtraction — so the new formula accepts it.
-    remaining_regular = intrinsic_regular + 1
-    block_gas_limit = gas_limit_cap + remaining_regular
-    create_tx_gas = intrinsic_total
+    remaining_regular = block_gas_limit - gas_limit_cap
 
     assert create_tx_gas > remaining_regular, (
         "old formula must reject to prove new formula differs"
@@ -474,9 +492,18 @@ def test_creation_tx_state_check_exceeded(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
-    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
 
+    # TODO(EIP-8037): pin block_gas_limit (and therefore cpsb)
+    # up-front so every cpsb-dependent read below is consistent with
+    # what the block uses at execution time. 100_000_000 is the
+    # canonical value the spec uses (cost_per_state_byte = 1174 at
+    # this limit). Revisit if the framework exposes a cpsb query
+    # that doesn't require mutating the fork.
+    block_gas_limit = 100_000_000
+    fork._env_gas_limit = block_gas_limit
+
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
+    sstore_state_gas = fork.sstore_state_gas()
     create_intrinsic_total = intrinsic_cost(contract_creation=True)
     create_intrinsic_state = fork.transaction_intrinsic_state_gas(
         contract_creation=True,
@@ -492,9 +519,6 @@ def test_creation_tx_state_check_exceeded(
     tx1_state = num_sstores * sstore_state_gas
     tx1_regular = intrinsic_cost() + tx1_code.gas_cost(fork) - tx1_state
     tx1_gas = gas_limit_cap + tx1_state
-
-    state_headroom = tx1_state + 100_000
-    block_gas_limit = gas_limit_cap + state_headroom
     state_available = block_gas_limit - tx1_state
 
     # tx2 state contribution = state_available + 1 → rejected
@@ -609,6 +633,15 @@ def test_block_2d_gas_valid_when_cumulative_exceeds_limit(
     can legitimately exceed gas_limit. Clients must not use the 1D
     cumulative check for block validation.
     """
+    # TODO(EIP-8037): pin block_gas_limit (and therefore cpsb)
+    # up-front. Choosing a value where cpsb is its canonical 1174
+    # keeps `tx_state` comparable to `tx_regular` so the 2D-max vs
+    # 1D-sum discrimination the test exercises is meaningful.
+    # Revisit if the framework exposes a cpsb query that doesn't
+    # require mutating the fork.
+    block_gas_limit = 100_000_000
+    fork._env_gas_limit = block_gas_limit
+
     gas_costs = fork.gas_costs()
     sstore_state_gas = fork.sstore_state_gas()
 
@@ -619,13 +652,14 @@ def test_block_2d_gas_valid_when_cumulative_exceeds_limit(
     )
     tx_state = sstore_state_gas
     tx_gas_used = tx_regular + tx_state
-    num_txs = 5
 
-    # 2D bound < gas_limit < 1D bound
+    # num_txs sized so `one_d_bound > block_gas_limit > two_d_bound`:
+    # per-dimension maxes fit (accepted under 2D-max) but the 1D sum
+    # exceeds the limit (would be rejected by a summing client).
+    num_txs = block_gas_limit // max(tx_regular, tx_state)
     two_d_bound = num_txs * max(tx_regular, tx_state)
     one_d_bound = num_txs * tx_gas_used
-    block_gas_limit = (two_d_bound + one_d_bound) // 2
-    assert two_d_bound < block_gas_limit < one_d_bound
+    assert two_d_bound <= block_gas_limit < one_d_bound
 
     env = Environment(gas_limit=block_gas_limit)
     tx_limit = tx_gas_used + 1000
@@ -654,7 +688,7 @@ def test_block_2d_gas_valid_when_cumulative_exceeds_limit(
                 txs=txs,
                 gas_limit=block_gas_limit,
                 header_verify=Header(
-                    gas_used=num_txs * tx_state,
+                    gas_used=num_txs * max(tx_regular, tx_state),
                 ),
             ),
         ],

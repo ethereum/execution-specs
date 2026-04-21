@@ -278,7 +278,7 @@ class MessageCallGas:
     sub_call: Uint
 
 
-def state_gas_per_byte(gas_limit: Uint) -> Uint:  # noqa: ARG001
+def state_gas_per_byte(gas_limit: Uint) -> Uint:
     """
     Calculate the state gas cost per byte based on the block gas limit.
 
@@ -295,21 +295,18 @@ def state_gas_per_byte(gas_limit: Uint) -> Uint:  # noqa: ARG001
         The state gas cost per byte.
 
     """
-    # TODO: Remove hardcoded value and restore the formula below
-    #   once the static tests use the correct gas limit.
-    return Uint(1174)
-    # numerator = gas_limit * BLOCKS_PER_YEAR
-    # denominator = Uint(2) * TARGET_STATE_GROWTH_PER_YEAR
-    # raw = (numerator + denominator - Uint(1)) // denominator
-    # shifted = raw + COST_PER_STATE_BYTE_OFFSET
-    # shift = max(
-    #     shifted.bit_length()
-    #         - COST_PER_STATE_BYTE_SIGNIFICANT_BITS, Uint(0)
-    # )
-    # quantized = (shifted >> shift) << shift
-    # if quantized > COST_PER_STATE_BYTE_OFFSET:
-    #     return quantized - COST_PER_STATE_BYTE_OFFSET
-    # return Uint(1)
+    numerator = gas_limit * BLOCKS_PER_YEAR
+    denominator = Uint(2) * TARGET_STATE_GROWTH_PER_YEAR
+    raw = (numerator + denominator - Uint(1)) // denominator
+    shifted = raw + COST_PER_STATE_BYTE_OFFSET
+    shift = max(
+        shifted.bit_length() - COST_PER_STATE_BYTE_SIGNIFICANT_BITS,
+        Uint(0),
+    )
+    quantized = (shifted >> shift) << shift
+    if quantized > COST_PER_STATE_BYTE_OFFSET:
+        return quantized - COST_PER_STATE_BYTE_OFFSET
+    return Uint(1)
 
 
 def check_gas(evm: Evm, amount: Uint) -> None:

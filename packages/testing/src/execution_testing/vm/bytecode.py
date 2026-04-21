@@ -36,8 +36,12 @@ class Bytecode:
     _keccak_256_: Hash | None = None
     _gas_cost_: int | None = None
     _gas_cost_fork_: Type[ForkOpcodeInterface] | None = None
+    _state_cost_: int | None = None
+    _state_cost_fork_: Type[ForkOpcodeInterface] | None = None
     _refund_: int | None = None
     _refund_fork_: Type[ForkOpcodeInterface] | None = None
+    _state_refund_: int | None = None
+    _state_refund_fork_: Type[ForkOpcodeInterface] | None = None
 
     popped_stack_items: int
     pushed_stack_items: int
@@ -302,6 +306,19 @@ class Bytecode:
                 self._gas_cost_ += opcode_gas_calculator(opcode)
         return self._gas_cost_
 
+    def state_cost(self, fork: Type[ForkOpcodeInterface]) -> int:
+        """
+        Use a fork object to calculate the state gas used by this
+        bytecode.
+        """
+        if self._state_cost_ is None or self._state_cost_fork_ != fork:
+            self._state_cost_fork_ = fork
+            opcode_state_calculator = fork.opcode_state_calculator()
+            self._state_cost_ = 0
+            for opcode in self.opcode_list:
+                self._state_cost_ += opcode_state_calculator(opcode)
+        return self._state_cost_
+
     def refund(self, fork: Type[ForkOpcodeInterface]) -> int:
         """Use a fork object to calculate the gas refund from this bytecode."""
         if self._refund_ is None or self._refund_fork_ != fork:
@@ -311,6 +328,20 @@ class Bytecode:
             for opcode in self.opcode_list:
                 self._refund_ += opcode_refund_calculator(opcode)
         return self._refund_
+
+    def state_refund(self, fork: Type[ForkOpcodeInterface]) -> int:
+        """
+        Use a fork object to calculate the state refund from this bytecode.
+        """
+        if self._state_refund_ is None or self._state_refund_fork_ != fork:
+            self._state_refund_fork_ = fork
+            opcode_state_refund_calculator = (
+                fork.opcode_state_refund_calculator()
+            )
+            self._state_refund_ = 0
+            for opcode in self.opcode_list:
+                self._state_refund_ += opcode_state_refund_calculator(opcode)
+        return self._state_refund_
 
     @classmethod
     def __get_pydantic_core_schema__(

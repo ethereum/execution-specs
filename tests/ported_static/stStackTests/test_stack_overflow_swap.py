@@ -39,7 +39,6 @@ def test_stack_overflow_swap(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=42949672960,
     )
 
     contract_0 = pre.fund_eoa(amount=0xE8D4A5100000000000)  # noqa: F841

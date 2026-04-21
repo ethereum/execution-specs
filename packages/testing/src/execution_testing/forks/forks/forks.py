@@ -551,6 +551,33 @@ class Frontier(
         return fn
 
     @classmethod
+    def opcode_state_map(
+        cls,
+    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
+        """
+        Return a mapping of opcodes to their state gas costs.
+
+        Each entry is either:
+        - Constants (int): Multiplier of the cost_per_state_byte
+        - Callables: Functions that take the opcode instance with metadata and
+                     return the full state gas cost.
+        """
+        # At Frontier, state costs do not apply.
+        return {}
+
+    @classmethod
+    def opcode_state_calculator(cls) -> OpcodeGasCalculator:
+        """
+        Return callable that calculates the state gas of a single opcode.
+        """
+
+        def fn(opcode: OpcodeBase) -> int:
+            del opcode
+            return 0
+
+        return fn
+
+    @classmethod
     def opcode_refund_map(
         cls,
     ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
@@ -591,6 +618,33 @@ class Frontier(
 
             # Otherwise it's a constant
             return refund_or_calculator
+
+        return fn
+
+    @classmethod
+    def opcode_state_refund_map(
+        cls,
+    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
+        """
+        Return a mapping of opcodes to their state refunds.
+
+        Each entry is either:
+        - Constants (int): Multiplier of the cost_per_state_byte
+        - Callables: Functions that take the opcode instance with metadata and
+                     return the state refund
+        """
+        # At Frontier, state refunds do not apply.
+        return {}
+
+    @classmethod
+    def opcode_state_refund_calculator(cls) -> OpcodeGasCalculator:
+        """
+        Return callable that calculates the state refund of a single opcode.
+        """
+
+        def fn(opcode: OpcodeBase) -> int:
+            del opcode
+            return 0
 
         return fn
 
@@ -792,11 +846,10 @@ class Frontier(
         )
 
     @classmethod
-    def cost_per_state_byte(cls, gas_limit: int = 0) -> int:
+    def cost_per_state_byte(cls) -> int:
         """
-        Calculate the state gas cost per byte based on the block gas limit.
+        Calculate the state gas cost per byte based on `cls._env_gas_limit`.
         """
-        del gas_limit
         return 0
 
     @classmethod
