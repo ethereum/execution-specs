@@ -1,5 +1,7 @@
 """Unit tests for BAL modifier functions."""
 
+from typing import Callable
+
 import pytest
 
 from execution_testing.base_types import Address
@@ -13,6 +15,8 @@ from execution_testing.test_types.block_access_list import (
     BlockAccessList,
 )
 from execution_testing.test_types.block_access_list.modifiers import (
+    append_change,
+    append_storage,
     duplicate_account,
     duplicate_balance_change,
     duplicate_code_change,
@@ -25,7 +29,9 @@ from execution_testing.test_types.block_access_list.modifiers import (
     modify_code,
     modify_nonce,
     modify_storage,
+    remove_nonces,
     reorder_accounts,
+    swap_bal_indices,
 )
 
 ALICE = Address(0xA)
@@ -304,3 +310,61 @@ def test_reorder_accounts_out_of_range_raises(
     """Raise when indices are not a valid permutation (skipped index)."""
     with pytest.raises(ValueError, match="valid permutation"):
         reorder_accounts([0, 2])(sample_bal)
+
+
+_EMPTY_BAL = BlockAccessList([])
+_ALICE_ONLY_BAL = BlockAccessList(
+    [BalAccountChange(address=ALICE, nonce_changes=[])]
+)
+
+
+@pytest.mark.parametrize(
+    "modifier_factory, missing_bal",
+    [
+        pytest.param(
+            lambda: remove_nonces(ALICE), _EMPTY_BAL, id="remove_nonces"
+        ),
+        pytest.param(
+            lambda: swap_bal_indices(1, 1), _EMPTY_BAL, id="swap_bal_indices"
+        ),
+        pytest.param(
+            lambda: append_change(
+                ALICE, BalNonceChange(block_access_index=2, post_nonce=5)
+            ),
+            _EMPTY_BAL,
+            id="append_change",
+        ),
+        pytest.param(
+            lambda: append_storage(CONTRACT, slot=7, read=True),
+            _EMPTY_BAL,
+            id="append_storage",
+        ),
+        pytest.param(
+            lambda: duplicate_account(ALICE),
+            _EMPTY_BAL,
+            id="duplicate_account",
+        ),
+        pytest.param(
+            lambda: duplicate_nonce_change(ALICE, 1),
+            _ALICE_ONLY_BAL,
+            id="duplicate_nonce_change",
+        ),
+        pytest.param(
+            lambda: insert_storage_read(CONTRACT, 99),
+            _EMPTY_BAL,
+            id="insert_storage_read",
+        ),
+    ],
+)
+def test_reused_callable_does_not_carry_found_state(
+    sample_bal: BlockAccessList,
+    modifier_factory: Callable[
+        [], Callable[[BlockAccessList], BlockAccessList]
+    ],
+    missing_bal: BlockAccessList,
+) -> None:
+    """A modifier's found-state must not persist across calls."""
+    modifier = modifier_factory()
+    modifier(sample_bal)
+    with pytest.raises(ValueError, match="not found"):
+        modifier(missing_bal)

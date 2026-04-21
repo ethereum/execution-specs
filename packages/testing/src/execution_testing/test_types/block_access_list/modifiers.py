@@ -28,10 +28,9 @@ def _remove_field_from_accounts(
 ) -> Callable[[BlockAccessList], BlockAccessList]:
     """Abstracted helper to remove a field from specified accounts."""
     len_addresses = len(addresses)
-    found_addresses = set()
 
     def transform(bal: BlockAccessList) -> BlockAccessList:
-        nonlocal found_addresses
+        found_addresses: set[Address] = set()
         new_root = []
         for account_change in bal.root:
             if account_change.address in addresses:
@@ -70,11 +69,10 @@ def _modify_field_value(
     Abstracted helper to modify a field value for a specific account and
     transaction.
     """
-    found_address = False
-    found_index = False
 
     def transform(bal: BlockAccessList) -> BlockAccessList:
-        nonlocal found_address, found_index
+        found_address = False
+        found_index = False
         new_root = []
         for account_change in bal.root:
             if account_change.address == address:
@@ -261,13 +259,12 @@ def swap_bal_indices(
     idx1: int, idx2: int
 ) -> Callable[[BlockAccessList], BlockAccessList]:
     """Swap block access indices throughout the BAL, modifying ordering."""
-    nonce_indices = {idx1: False, idx2: False}
-    balance_indices = nonce_indices.copy()
-    storage_indices = nonce_indices.copy()
-    code_indices = nonce_indices.copy()
 
     def transform(bal: BlockAccessList) -> BlockAccessList:
-        nonlocal nonce_indices, balance_indices, storage_indices, code_indices
+        nonce_indices = {idx1: False, idx2: False}
+        balance_indices = nonce_indices.copy()
+        storage_indices = nonce_indices.copy()
+        code_indices = nonce_indices.copy()
         new_root = []
         for account_change in bal.root:
             new_account = account_change.model_copy(deep=True)
@@ -399,10 +396,8 @@ def append_change(
     else:
         raise TypeError(f"Unsupported change type: {type(change)}")
 
-    found_address = False
-
     def transform(bal: BlockAccessList) -> BlockAccessList:
-        nonlocal found_address
+        found_address = False
         new_root = []
         for account_change in bal.root:
             if account_change.address == account:
@@ -441,10 +436,9 @@ def append_storage(
       slot_changes
     - If change provided and slot new: creates new BalStorageSlot
     """
-    found_address = False
 
     def transform(bal: BlockAccessList) -> BlockAccessList:
-        nonlocal found_address
+        found_address = False
         new_root = []
         for account_change in bal.root:
             if account_change.address == address:
@@ -491,10 +485,9 @@ def duplicate_account(
     address: Address,
 ) -> Callable[[BlockAccessList], BlockAccessList]:
     """Duplicate an account entry in the BAL."""
-    address_present = False
 
     def transform(bal: BlockAccessList) -> BlockAccessList:
-        nonlocal address_present
+        address_present = False
         new_root = []
         for account_change in bal.root:
             new_root.append(account_change)
@@ -528,7 +521,6 @@ def _duplicate_in_field(
     When sub_field and sub_match_fn are provided, find the parent entry
     via match_fn then duplicate within sub_field using sub_match_fn.
     """
-    found = False
 
     def _copy(entry: Any) -> Any:
         if hasattr(entry, "model_copy"):
@@ -536,7 +528,7 @@ def _duplicate_in_field(
         return ZeroPaddedHexNumber(entry)
 
     def transform(bal: BlockAccessList) -> BlockAccessList:
-        nonlocal found
+        found = False
         new_root = []
         for account_change in bal.root:
             if account_change.address == address:
@@ -677,10 +669,9 @@ def insert_storage_read(
     Useful for testing that a key must not appear in both
     storage_changes and storage_reads.
     """
-    found_address = False
 
     def transform(bal: BlockAccessList) -> BlockAccessList:
-        nonlocal found_address
+        found_address = False
         new_root = []
         for account_change in bal.root:
             if account_change.address == address:
