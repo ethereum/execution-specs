@@ -18,6 +18,7 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    AuthorizationTuple,
     Block,
     BlockchainTestFiller,
     Environment,
@@ -35,16 +36,22 @@ from .spec import Spec, ref_spec_8037
 REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
 
+BLOCK_GAS_LIMITS = [
+    pytest.param(1_000_000, id="1M"),
+    pytest.param(30_000_000, id="30M"),
+    pytest.param(36_000_000, id="36M"),
+    pytest.param(60_000_000, id="60M"),
+    pytest.param(100_000_000, id="100M"),
+    pytest.param(120_000_000, id="120M"),
+    pytest.param(200_000_000, id="200M"),
+    pytest.param(300_000_000, id="300M"),
+    pytest.param(500_000_000, id="500M"),
+    pytest.param(1_000_000_000, id="1G"),
+]
+
 
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
-@pytest.mark.parametrize(
-    "block_gas_limit",
-    [
-        pytest.param(30_000_000, id="mainnet_typical"),
-        pytest.param(60_000_000, id="double_mainnet"),
-        pytest.param(100_000_000, id="high_gas_limit"),
-    ],
-)
+@pytest.mark.parametrize("block_gas_limit", BLOCK_GAS_LIMITS)
 @pytest.mark.valid_from("EIP8037")
 def test_pricing_at_various_gas_limits(
     state_test: StateTestFiller,
@@ -63,7 +70,9 @@ def test_pricing_at_various_gas_limits(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment(gas_limit=block_gas_limit)
+    fork._env_gas_limit = block_gas_limit
     sstore_state_gas = fork.sstore_state_gas()
+    tx_gas = min(gas_limit_cap + sstore_state_gas, block_gas_limit)
 
     storage = Storage()
     contract = pre.deploy_contract(
@@ -72,7 +81,7 @@ def test_pricing_at_various_gas_limits(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        gas_limit=tx_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -454,3 +463,258 @@ def test_calldata_floor_enforced_with_state_gas(
     )
 
     state_test(pre=pre, post={}, tx=tx)
+
+
+@pytest.mark.parametrize("block_gas_limit", BLOCK_GAS_LIMITS)
+@pytest.mark.valid_from("EIP8037")
+def test_create_state_gas_scales_with_cpsb(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    block_gas_limit: int,
+    fork: Fork,
+) -> None:
+    """
+    Test CREATE new-account state gas scales with block gas limit.
+
+    State gas for a CREATE is 112 * cpsb (new account) plus
+    code_size * cpsb (code deposit).
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    env = Environment(gas_limit=block_gas_limit)
+    fork._env_gas_limit = block_gas_limit
+    create_state_gas = fork.create_state_gas(code_size=1)
+
+    storage = Storage()
+    contract = pre.deploy_contract(
+        code=(
+            Op.SSTORE(
+                storage.store_next(1, "create_success"),
+                Op.GT(Op.CREATE(0, 0, 1), 0),
+            )
+        ),
+    )
+
+    tx_gas = min(gas_limit_cap + create_state_gas, block_gas_limit)
+    tx = Transaction(
+        to=contract,
+        gas_limit=tx_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {contract: Account(storage=storage)}
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize("block_gas_limit", BLOCK_GAS_LIMITS)
+@pytest.mark.valid_from("EIP8037")
+def test_call_new_account_state_gas_scales_with_cpsb(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    block_gas_limit: int,
+    fork: Fork,
+) -> None:
+    """
+    Test CALL value transfer to empty account scales with block gas limit.
+
+    Sending value to a non-existent account charges 112 * cpsb
+    of state gas for account creation.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    env = Environment(gas_limit=block_gas_limit)
+    fork._env_gas_limit = block_gas_limit
+    gas_costs = fork.gas_costs()
+    new_account_state_gas = gas_costs.GAS_NEW_ACCOUNT
+
+    empty = pre.fund_eoa(0)
+    storage = Storage()
+    contract = pre.deploy_contract(
+        code=(
+            Op.SSTORE(
+                storage.store_next(1, "call_success"),
+                Op.CALL(gas=100_000, address=empty, value=1),
+            )
+        ),
+        balance=1,
+    )
+
+    tx_gas = min(gas_limit_cap + new_account_state_gas, block_gas_limit)
+    tx = Transaction(
+        to=contract,
+        gas_limit=tx_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {contract: Account(storage=storage)}
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize("block_gas_limit", BLOCK_GAS_LIMITS)
+@pytest.mark.valid_from("EIP8037")
+def test_selfdestruct_new_beneficiary_scales_with_cpsb(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    block_gas_limit: int,
+    fork: Fork,
+) -> None:
+    """
+    Test SELFDESTRUCT to new beneficiary scales with block gas limit.
+
+    Destructing to a non-existent address with balance charges
+    112 * cpsb of state gas for the new beneficiary account.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    env = Environment(gas_limit=block_gas_limit)
+    fork._env_gas_limit = block_gas_limit
+    gas_costs = fork.gas_costs()
+    new_account_state_gas = gas_costs.GAS_NEW_ACCOUNT
+
+    beneficiary = pre.fund_eoa(0)
+    storage = Storage()
+    caller = pre.deploy_contract(
+        code=(
+            Op.SSTORE(
+                storage.store_next(1, "selfdestruct_ran"),
+                1,
+            )
+            + Op.SELFDESTRUCT(beneficiary)
+        ),
+        balance=1,
+    )
+
+    tx_gas = min(gas_limit_cap + new_account_state_gas, block_gas_limit)
+    tx = Transaction(
+        to=caller,
+        gas_limit=tx_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {caller: Account(storage=storage)}
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize("block_gas_limit", BLOCK_GAS_LIMITS)
+@pytest.mark.valid_from("EIP8037")
+def test_sstore_refund_scales_with_cpsb(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    block_gas_limit: int,
+    fork: Fork,
+) -> None:
+    """
+    Test SSTORE restoration refund scales with block gas limit.
+
+    Zero-to-nonzero-to-zero in the same tx refunds the state gas
+    (32 * cpsb) via refund_counter.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    env = Environment(gas_limit=block_gas_limit)
+    fork._env_gas_limit = block_gas_limit
+    sstore_state_gas = fork.sstore_state_gas()
+
+    contract = pre.deploy_contract(
+        code=(Op.SSTORE(0, 1) + Op.SSTORE(0, 0)),
+    )
+
+    tx_gas = min(gas_limit_cap + sstore_state_gas, block_gas_limit)
+    tx = Transaction(
+        to=contract,
+        gas_limit=tx_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {contract: Account(storage={0: 0})}
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize("block_gas_limit", BLOCK_GAS_LIMITS)
+@pytest.mark.valid_from("EIP8037")
+def test_auth_state_gas_scales_with_cpsb(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    block_gas_limit: int,
+    fork: Fork,
+) -> None:
+    """
+    Test SetCode authorization state gas scales with block gas limit.
+
+    A type-4 tx with one authorization charges (112 + 23) * cpsb
+    of intrinsic state gas for the new account delegation.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    env = Environment(gas_limit=block_gas_limit)
+    fork._env_gas_limit = block_gas_limit
+    auth_state_gas = fork.transaction_intrinsic_state_gas(
+        authorization_count=1,
+    )
+
+    delegate = pre.deploy_contract(code=Op.SSTORE(0, 1))
+    signer = pre.fund_eoa()
+
+    storage = Storage()
+    target = pre.deploy_contract(
+        code=Op.SSTORE(
+            storage.store_next(1, "delegated_call_success"),
+            Op.CALL(gas=100_000, address=signer),
+        ),
+    )
+
+    tx_gas = min(gas_limit_cap + auth_state_gas, block_gas_limit)
+    tx = Transaction(
+        ty=4,
+        to=target,
+        gas_limit=tx_gas,
+        sender=pre.fund_eoa(),
+        authorization_list=[
+            AuthorizationTuple(
+                address=delegate,
+                nonce=0,
+                signer=signer,
+            ),
+        ],
+    )
+
+    post = {target: Account(storage=storage)}
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "block_gas_limit",
+    [
+        pytest.param(1_000_000, id="1M"),
+        pytest.param(5_000_000, id="5M"),
+        pytest.param(10_000_000, id="10M"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_cpsb_underflow_boundary(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    block_gas_limit: int,
+) -> None:
+    """
+    Test cpsb floors at 1 when quantized value < OFFSET.
+
+    At very low gas limits the quantized value can be less than
+    CPSB_OFFSET (9578). Clients must return max(quantized - OFFSET, 1)
+    rather than underflowing.
+    """
+    assert Spec.cost_per_state_byte(block_gas_limit) == 1
+    env = Environment(gas_limit=block_gas_limit)
+
+    contract = pre.deploy_contract(
+        code=Op.SSTORE(0, 1),
+    )
+
+    tx = Transaction(
+        to=contract,
+        gas_limit=block_gas_limit,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {contract: Account(storage={0: 1})}
+    state_test(env=env, pre=pre, post=post, tx=tx)

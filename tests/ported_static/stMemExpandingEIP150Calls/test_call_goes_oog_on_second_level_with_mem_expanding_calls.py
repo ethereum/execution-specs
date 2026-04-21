@@ -42,7 +42,6 @@ def test_call_goes_oog_on_second_level_with_mem_expanding_calls(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=10000000,
     )
 
     # Source: hex

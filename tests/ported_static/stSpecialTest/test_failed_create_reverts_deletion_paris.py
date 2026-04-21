@@ -46,7 +46,6 @@ def test_failed_create_reverts_deletion_paris(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=43218108416,
     )
 
     pre[addr] = Account(balance=10, storage={0: 1})

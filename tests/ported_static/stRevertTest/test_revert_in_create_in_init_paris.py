@@ -43,7 +43,6 @@ def test_revert_in_create_in_init_paris(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=42949672960,
     )
 
     pre[addr] = Account(balance=10, storage={0: 1})

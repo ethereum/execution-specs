@@ -21,6 +21,7 @@ from execution_testing import (
     Storage,
     Transaction,
 )
+from execution_testing.test_types import EnvironmentDefaults
 
 from .spec import (
     GAS_CALCULATION_FUNCTION_MAP,
@@ -219,6 +220,12 @@ def get_split_discount_table_by_fork(
     """
 
     def parametrize_by_fork(fork: Fork) -> List[ParameterSet]:
+        # TODO(EIP-8037): pin cpsb to the default env gas limit
+        # because collection time doesn't see per-test env overrides.
+        # Tests here use the default Environment, so sizing the
+        # splits against it matches runtime. Remove if the framework
+        # plumbs the per-test env gas limit into covariant markers.
+        fork = fork.with_env_gas_limit(EnvironmentDefaults.gas_limit)
         tx_gas_limit_cap = fork.transaction_gas_limit_cap()
         if tx_gas_limit_cap is None:
             return [
