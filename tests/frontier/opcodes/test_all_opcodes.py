@@ -254,9 +254,11 @@ def test_max_stack(
         + Op.STOP,
         storage={slot_code_worked: value_code_failed},
     )
-
+    gas_limit = 100_000
+    if fork.is_eip_enabled(8037):
+        gas_limit = 500_000
     tx = Transaction(
-        gas_limit=100_000,
+        gas_limit=gas_limit,
         to=contract,
         sender=pre.fund_eoa(),
         protected=fork.supports_protected_txs(),
