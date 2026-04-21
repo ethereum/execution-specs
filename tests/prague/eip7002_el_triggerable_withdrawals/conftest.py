@@ -114,7 +114,7 @@ def blocks(
                     # Each withdrawal request writes 3 new storage slots
                     # in the system contract queue (source, pubkey, amount).
                     r.tx_gas_limit += (
-                        len(r.requests) * 3 * gas_costs.GAS_STORAGE_SET
+                        len(r.requests) * 3 * gas_costs.STORAGE_SET
                     )
         header_verify: Header | None = None
         if block_fork.header_requests_required():

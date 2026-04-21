@@ -109,7 +109,7 @@ def test_create_with_reservoir(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment()
-    create_state_gas = gas_costs.GAS_NEW_ACCOUNT
+    create_state_gas = gas_costs.NEW_ACCOUNT
 
     storage = Storage()
     init_code = Op.STOP
@@ -304,7 +304,7 @@ def test_create_insufficient_state_gas(
     # enough for the new account state gas
     gas_costs = fork.gas_costs()
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
-    regular_create_gas = gas_costs.GAS_CREATE - gas_costs.GAS_NEW_ACCOUNT
+    regular_create_gas = gas_costs.OPCODE_CREATE_BASE - gas_costs.NEW_ACCOUNT
     gas_limit = intrinsic_cost() + regular_create_gas + 10_000
 
     tx = Transaction(
@@ -429,7 +429,7 @@ def test_code_deposit_oog_preserves_parent_reservoir(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     gas_costs = fork.gas_costs()
-    new_account_state_gas = gas_costs.GAS_NEW_ACCOUNT
+    new_account_state_gas = gas_costs.NEW_ACCOUNT
     sstore_state_gas = fork.sstore_state_gas()
 
     # Small deploy size; code deposit state gas will exceed the
@@ -496,7 +496,7 @@ def test_nested_create_code_deposit_cannot_borrow_parent_gas(
     """
     init_code = Op.RETURN(0, 1)
     gas_costs = fork.gas_costs()
-    new_acct_state = gas_costs.GAS_NEW_ACCOUNT
+    new_acct_state = gas_costs.NEW_ACCOUNT
     code_deposit_state = fork.code_deposit_state_gas(code_size=1)
 
     factory = pre.deploy_contract(
@@ -517,20 +517,20 @@ def test_nested_create_code_deposit_cannot_borrow_parent_gas(
     # Intrinsic + factory code (PUSH32+PUSH1+MSTORE+mem +
     # 3xPUSH1) + CREATE regular (+ init_code_cost) + new account
     # state gas (spilled from gas_left, no reservoir).
-    init_code_word_cost = gas_costs.GAS_CODE_INIT_PER_WORD * (
+    init_code_word_cost = gas_costs.CODE_INIT_PER_WORD * (
         (len(init_code) + 31) // 32
     )
     pre_child_gas = (
-        gas_costs.GAS_TX_BASE
-        + 7 * gas_costs.GAS_VERY_LOW
-        + gas_costs.GAS_MEMORY
-        + (gas_costs.GAS_CREATE - new_acct_state)
+        gas_costs.TX_BASE
+        + 7 * gas_costs.VERY_LOW
+        + gas_costs.MEMORY_PER_WORD
+        + (gas_costs.OPCODE_CREATE_BASE - new_acct_state)
         + init_code_word_cost
         + new_acct_state
     )
 
     # Init code cost: PUSH1 + PUSH1 + RETURN(+mem expansion)
-    init_cost = 2 * gas_costs.GAS_VERY_LOW + gas_costs.GAS_MEMORY
+    init_cost = 2 * gas_costs.VERY_LOW + gas_costs.MEMORY_PER_WORD
     # Target child gas: enough for init, not enough for code deposit
     target_child = (init_cost + code_deposit_state) // 2
     # Invert EIP-150 63/64ths rule: ceil(target_child * 64 / 63)
@@ -919,7 +919,7 @@ def test_create_tx_header_gas_used(
     # block_gas_used = max(block_regular, block_state)
     # For a minimal CREATE tx deploying Op.STOP (1 byte),
     # state gas (new account) dominates regular gas.
-    expected_gas_used = gas_costs.GAS_NEW_ACCOUNT
+    expected_gas_used = gas_costs.NEW_ACCOUNT
 
     blockchain_test(
         pre=pre,
@@ -1013,7 +1013,7 @@ def test_state_gas_spill_header_gas_used(
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
     intrinsic_gas = intrinsic_cost()
 
-    evm_regular = 2 * gas_costs.GAS_VERY_LOW + gas_costs.GAS_COLD_STORAGE_WRITE
+    evm_regular = 2 * gas_costs.VERY_LOW + gas_costs.COLD_STORAGE_WRITE
 
     # Reservoir = half the SSTORE state gas, rest spills to gas_left
     reservoir = sstore_state_gas // 2
@@ -1158,7 +1158,7 @@ def test_create_silent_failure_refunds_state_gas(
     tx_regular = (
         intrinsic_cost
         + factory_code.gas_cost(fork)
-        - gas_costs.GAS_NEW_ACCOUNT
+        - gas_costs.NEW_ACCOUNT
         - sstore_state_gas
     )
     tx_state = sstore_state_gas
@@ -1237,7 +1237,7 @@ def test_create_child_revert_refunds_state_gas(
     tx_regular = (
         intrinsic_cost
         + factory_code.gas_cost(fork)
-        - gas_costs.GAS_NEW_ACCOUNT
+        - gas_costs.NEW_ACCOUNT
         - sstore_state_gas
         + init_code.gas_cost(fork)
     )
@@ -1281,7 +1281,7 @@ def test_create_child_halt_refunds_state_gas(
     assert gas_limit_cap is not None
     gas_costs = fork.gas_costs()
     sstore_state_gas = fork.sstore_state_gas()
-    new_account_state_gas = gas_costs.GAS_NEW_ACCOUNT
+    new_account_state_gas = gas_costs.NEW_ACCOUNT
 
     init_code: Op | Bytecode
     if failure_mode == "initcode_halt":
@@ -1415,7 +1415,7 @@ def test_create_collision_refunds_state_gas(
     assert gas_limit_cap is not None
     gas_costs = fork.gas_costs()
     sstore_state_gas = fork.sstore_state_gas()
-    new_account_state_gas = gas_costs.GAS_NEW_ACCOUNT
+    new_account_state_gas = gas_costs.NEW_ACCOUNT
 
     init_code = Op.STOP
     mstore_value, size = init_code_at_high_bytes(init_code)
@@ -1490,7 +1490,7 @@ def test_create_code_deposit_oog_refunds_state_gas(
     assert gas_limit_cap is not None
     gas_costs = fork.gas_costs()
     sstore_state_gas = fork.sstore_state_gas()
-    new_account_state_gas = gas_costs.GAS_NEW_ACCOUNT
+    new_account_state_gas = gas_costs.NEW_ACCOUNT
     max_code_size = fork.max_code_size()
 
     # Init code returns (max_code_size + 1) bytes, triggering the
@@ -1671,7 +1671,7 @@ def test_oversized_initcode_opcode_no_state_gas(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     gas_costs = fork.gas_costs()
-    create_state_gas = gas_costs.GAS_NEW_ACCOUNT
+    create_state_gas = gas_costs.NEW_ACCOUNT
 
     create_call = (
         create_opcode(
@@ -1745,9 +1745,7 @@ def test_selfdestruct_in_create_tx_initcode(
     expected_state = create_state_gas
 
     initcode_gas = initcode.gas_cost(fork)
-    gas_limit = (
-        intrinsic_total + initcode_gas + gas_costs.GAS_NEW_ACCOUNT + 1000
-    )
+    gas_limit = intrinsic_total + initcode_gas + gas_costs.NEW_ACCOUNT + 1000
 
     tx = Transaction(
         sender=sender,
@@ -1793,7 +1791,7 @@ def test_inner_create_succeeds_code_deposit_state_gas(
     gas_costs = fork.gas_costs()
     outer_state_gas = fork.create_state_gas(code_size=0)
     inner_code_deposit = fork.code_deposit_state_gas(code_size=1)
-    inner_state_gas = gas_costs.GAS_NEW_ACCOUNT + inner_code_deposit
+    inner_state_gas = gas_costs.NEW_ACCOUNT + inner_code_deposit
 
     deploy_code = Op.STOP
     inner_initcode = Op.MSTORE(
@@ -1893,7 +1891,7 @@ def test_nested_create_fail_parent_revert_state_gas(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     gas_costs = fork.gas_costs()
-    create_state_gas = gas_costs.GAS_NEW_ACCOUNT
+    create_state_gas = gas_costs.NEW_ACCOUNT
 
     if child_failure == "revert":
         init_code = Op.REVERT(0, 0)
@@ -2052,7 +2050,7 @@ def test_inner_create_fail_refunds_in_creation_tx(
     gas_limit = (
         intrinsic_total
         + initcode_gas
-        + num_inner_ops * (gas_costs.GAS_NEW_ACCOUNT + per_inner_slack)
+        + num_inner_ops * (gas_costs.NEW_ACCOUNT + per_inner_slack)
     )
 
     expected_state = outer_state_gas

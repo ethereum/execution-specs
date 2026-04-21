@@ -2980,7 +2980,7 @@ def test_set_code_to_precompile_not_enough_gas_for_precompile_execution(
     )
     gas_costs = fork.gas_costs()
     per_auth_discount = (
-        gas_costs.GAS_AUTH_PER_EMPTY_ACCOUNT
+        gas_costs.AUTH_PER_EMPTY_ACCOUNT
         - gas_costs.REFUND_AUTH_PER_EXISTING_ACCOUNT
     )
     discount = min(
@@ -3937,9 +3937,7 @@ def test_many_delegations(
     gas_for_delegations = max_gas - 21_000 - 20_000 - (3 * 2)
 
     gas_costs = fork.gas_costs()
-    delegation_count = (
-        gas_for_delegations // gas_costs.GAS_AUTH_PER_EMPTY_ACCOUNT
-    )
+    delegation_count = gas_for_delegations // gas_costs.AUTH_PER_EMPTY_ACCOUNT
 
     success_slot = 1
     entry_code = Op.SSTORE(success_slot, 1) + Op.STOP

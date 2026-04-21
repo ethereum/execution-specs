@@ -27,43 +27,6 @@ from .exceptions import (
 )
 from .fork_types import Authorization, VersionedHash
 
-GAS_TX_BASE = Uint(21000)
-"""
-Base cost of a transaction in gas units. This is the minimum amount of gas
-required to execute a transaction.
-"""
-
-GAS_TX_DATA_TOKEN_FLOOR = Uint(10)
-"""
-Minimum gas cost per byte of calldata as per [EIP-7623]. Used to calculate
-the minimum gas cost for transactions that include calldata.
-
-[EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
-"""
-
-GAS_TX_DATA_TOKEN_STANDARD = Uint(4)
-"""
-Gas cost per byte of calldata as per [EIP-7623]. Used to calculate the
-gas cost for transactions that include calldata.
-
-[EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
-"""
-
-GAS_TX_CREATE = Uint(32000)
-"""
-Additional gas cost for creating a new contract.
-"""
-
-GAS_TX_ACCESS_LIST_ADDRESS = Uint(2400)
-"""
-Gas cost for including an address in the access list of a transaction.
-"""
-
-GAS_TX_ACCESS_LIST_STORAGE_KEY = Uint(1900)
-"""
-Gas cost for including a storage key in the access list of a transaction.
-"""
-
 
 @dataclass
 class IntrinsicGasCost:
@@ -648,6 +611,7 @@ def calculate_intrinsic_cost(
         REGULAR_GAS_CREATE,
         STATE_BYTES_PER_AUTH_BASE,
         STATE_BYTES_PER_NEW_ACCOUNT,
+        GasCosts,
         init_code_cost,
         state_gas_per_byte,
     )
@@ -668,13 +632,13 @@ def calculate_intrinsic_cost(
     tokens_in_access_list = Uint(0)
     if has_access_list(tx):
         for access in tx.access_list:
-            access_list_gas += GAS_TX_ACCESS_LIST_ADDRESS
+            access_list_gas += GasCosts.TX_ACCESS_LIST_ADDRESS
             access_list_gas += (
-                ulen(access.slots) * GAS_TX_ACCESS_LIST_STORAGE_KEY
+                ulen(access.slots) * GasCosts.TX_ACCESS_LIST_STORAGE_KEY
             )
 
     # Data token floor cost for access list bytes.
-    access_list_gas += tokens_in_access_list * GAS_TX_DATA_TOKEN_FLOOR
+    access_list_gas += tokens_in_access_list * GasCosts.TX_DATA_TOKEN_FLOOR
 
     auth_regular_gas = Uint(0)
     auth_state_gas = Uint(0)
@@ -698,7 +662,7 @@ def calculate_intrinsic_cost(
     )
 
     intrinsic_regular_gas = (
-        GAS_TX_BASE
+        GasCosts.TX_BASE
         + data_cost
         + create_regular_gas
         + access_list_gas

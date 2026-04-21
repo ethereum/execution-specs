@@ -44,14 +44,9 @@ from .. import (
 )
 from ..exceptions import OutOfGasError, Revert, WriteInStaticContext
 from ..gas import (
-    GAS_CALL_VALUE,
-    GAS_COLD_ACCOUNT_ACCESS,
-    GAS_KECCAK256_PER_WORD,
-    GAS_SELF_DESTRUCT,
-    GAS_WARM_ACCESS,
-    GAS_ZERO,
     REGULAR_GAS_CREATE,
     STATE_BYTES_PER_NEW_ACCOUNT,
+    GasCosts,
     calculate_gas_extend_memory,
     calculate_message_call_gas,
     charge_gas,
@@ -253,7 +248,7 @@ def create2(evm: Evm) -> None:
     charge_gas(
         evm,
         REGULAR_GAS_CREATE
-        + GAS_KECCAK256_PER_WORD * call_data_words
+        + GasCosts.OPCODE_KECCACK256_PER_WORD * call_data_words
         + extend_memory.cost
         + init_code_gas,
     )

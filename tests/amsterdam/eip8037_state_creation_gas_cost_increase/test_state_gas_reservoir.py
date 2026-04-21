@@ -182,7 +182,7 @@ def test_insufficient_gas_for_sstore_state_cost(
     # Enough for intrinsic + warm SSTORE regular gas, but not the
     # state gas cost for zero-to-nonzero transition
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
-    gas_limit = intrinsic_cost() + gas_costs.GAS_COLD_STORAGE_WRITE
+    gas_limit = intrinsic_cost() + gas_costs.COLD_STORAGE_WRITE
 
     tx = Transaction(
         to=contract,
@@ -646,9 +646,9 @@ def test_block_2d_gas_valid_when_cumulative_exceeds_limit(
     sstore_state_gas = fork.sstore_state_gas()
 
     tx_regular = (
-        gas_costs.GAS_TX_BASE
-        + 2 * gas_costs.GAS_VERY_LOW
-        + gas_costs.GAS_COLD_STORAGE_WRITE
+        gas_costs.TX_BASE
+        + 2 * gas_costs.VERY_LOW
+        + gas_costs.COLD_STORAGE_WRITE
     )
     tx_state = sstore_state_gas
     tx_gas_used = tx_regular + tx_state
@@ -724,7 +724,7 @@ def test_create_tx_reservoir(
     init_code = Op.STOP
 
     env = Environment()
-    create_state_gas = gas_costs.GAS_NEW_ACCOUNT
+    create_state_gas = gas_costs.NEW_ACCOUNT
 
     if gas_above_cap:
         gas_limit = gas_limit_cap + create_state_gas
