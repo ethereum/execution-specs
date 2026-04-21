@@ -267,7 +267,7 @@ def to(
     """
     extra_gas = execution_gas_used - prefix_code_gas
     code = prefix_code + (Op.JUMPDEST * extra_gas) + Op.STOP
-    if len(code) <= 24576:
+    if len(code) <= fork.max_code_size():
         return pre.deploy_contract(code, storage=code_storage)
 
     loop_target = len(prefix_code) + len(Op.PUSH2(0))

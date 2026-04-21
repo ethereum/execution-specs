@@ -23,7 +23,7 @@ from .spec import ref_spec_7954
 REFERENCE_SPEC_GIT_PATH = ref_spec_7954.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7954.version
 
-pytestmark = pytest.mark.valid_from("EIP7954")
+pytestmark = pytest.mark.valid_from("Amsterdam")
 
 CREATE2_SALT = 0xC0FFEE
 
@@ -52,7 +52,10 @@ def test_max_code_size(
         sender=alice,
         to=None,
         data=initcode,
-        gas_limit=fork.transaction_gas_limit_cap(),
+        gas_limit=(
+            fork.transaction_gas_limit_cap()
+            + fork.create_state_gas(code_size=code_size)
+        ),
     )
 
     post: dict[Any, Account | None] = {}
@@ -109,7 +112,10 @@ def test_max_code_size_via_create(
         sender=alice,
         to=factory,
         data=initcode_bytes,
-        gas_limit=fork.transaction_gas_limit_cap(),
+        gas_limit=(
+            fork.transaction_gas_limit_cap()
+            + fork.create_state_gas(code_size=code_size)
+        ),
     )
 
     created = code_size <= fork.max_code_size()
@@ -178,7 +184,8 @@ def test_max_code_size_with_max_initcode(
     fork: Fork,
 ) -> None:
     """Ensure max-size code deploys when initcode is also at max size."""
-    deploy_code = Op.JUMPDEST * fork.max_code_size()
+    code_size = fork.max_code_size()
+    deploy_code = Op.JUMPDEST * code_size
     initcode = Initcode(
         deploy_code=deploy_code,
         initcode_length=fork.max_initcode_size(),
@@ -191,7 +198,10 @@ def test_max_code_size_with_max_initcode(
         sender=alice,
         to=None,
         data=initcode,
-        gas_limit=fork.transaction_gas_limit_cap(),
+        gas_limit=(
+            fork.transaction_gas_limit_cap()
+            + fork.create_state_gas(code_size=code_size)
+        ),
     )
 
     post = {create_address: Account(code=deploy_code)}

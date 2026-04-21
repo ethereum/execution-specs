@@ -470,7 +470,7 @@ def test_create_selfdestruct_code_deposit_refund_header_check(
     # header reports block regular only. Baseline regular must stay
     # below the code-deposit state gas so a missing refund would
     # push the header above this value.
-    baseline_block_regular = 0x8EAE
+    baseline_block_regular = 0x94C8
     assert baseline_block_regular < code_deposit_state_gas, (
         "Baseline regular must be below code_deposit_state_gas so "
         "the mutation's un-refunded state_gas dominates the header."
