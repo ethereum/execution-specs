@@ -56,7 +56,7 @@ EELS is a collaborative effort between Ethereum Improvement Proposals (EIP) auth
 
     Browse the rendered Python specifications for the current fork and EIP.
 
-    [:octicons-arrow-right-24: Specifications](spec/)
+    [:octicons-arrow-right-24: Reference ↗](specs/reference/){target=_blank rel=noopener}
 
 - :material-format-list-checks: **Test Case Reference**
 
