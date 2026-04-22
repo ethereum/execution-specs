@@ -121,6 +121,153 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default="",
         help="Factory contract address for Spamoor initialization",
     )
+    group.addoption(
+        "--spamoor-sidecars",
+        dest="spamoor_sidecars",
+        type=int,
+        default=3,
+        help="Max blob sidecars per blob transaction",
+    )
+    group.addoption(
+        "--spamoor-blob-fee",
+        dest="spamoor_blob_fee",
+        type=int,
+        default=20_000_000_000,
+        help="Max blob fee in wei",
+    )
+    group.addoption(
+        "--spamoor-gas-units-to-burn",
+        dest="spamoor_gas_units_to_burn",
+        type=int,
+        default=2_000_000,
+        help="Per-tx gas limit for gasburnertx execution transactions",
+    )
+    group.addoption(
+        "--spamoor-pair-count",
+        dest="spamoor_pair_count",
+        type=int,
+        default=1,
+        help="Number of uniswap pairs (informational for the port)",
+    )
+    group.addoption(
+        "--spamoor-min-swap-amount",
+        dest="spamoor_min_swap_amount",
+        type=int,
+        default=100_000_000_000_000_000,
+        help="Minimum swap amount in wei (0.1 token by default)",
+    )
+    group.addoption(
+        "--spamoor-max-swap-amount",
+        dest="spamoor_max_swap_amount",
+        type=int,
+        default=1_000_000_000_000_000_000_000,
+        help="Maximum swap amount in wei (1000 tokens by default)",
+    )
+    group.addoption(
+        "--spamoor-buy-ratio",
+        dest="spamoor_buy_ratio",
+        type=int,
+        default=40,
+        help="Percent of swaps that are buys (0..100)",
+    )
+    group.addoption(
+        "--spamoor-slippage",
+        dest="spamoor_slippage",
+        type=int,
+        default=50,
+        help="Slippage in basis points (out of 10000)",
+    )
+    group.addoption(
+        "--spamoor-min-code-size",
+        dest="spamoor_min_code_size",
+        type=int,
+        default=100,
+        help="Minimum fuzz bytecode size in bytes",
+    )
+    group.addoption(
+        "--spamoor-max-code-size",
+        dest="spamoor_max_code_size",
+        type=int,
+        default=512,
+        help="Maximum fuzz bytecode size in bytes",
+    )
+    group.addoption(
+        "--spamoor-payload-seed",
+        dest="spamoor_payload_seed",
+        type=str,
+        default="",
+        help="Hex seed for evm-fuzz bytecode generator (empty = deterministic default)",
+    )
+    group.addoption(
+        "--spamoor-tx-id-offset",
+        dest="spamoor_tx_id_offset",
+        type=int,
+        default=0,
+        help="Shift evm-fuzz per-tx IDs by this offset",
+    )
+    group.addoption(
+        "--spamoor-fuzz-mode",
+        dest="spamoor_fuzz_mode",
+        type=str,
+        default="all",
+        help="evm-fuzz mode: 'all' | 'opcodes' | 'precompiles'",
+    )
+    group.addoption(
+        "--spamoor-random-target",
+        dest="spamoor_random_target",
+        action="store_true",
+        default=False,
+        help="Use pseudo-random recipients for erc20tx transfers",
+    )
+    group.addoption(
+        "--spamoor-random-amount",
+        dest="spamoor_random_amount",
+        action="store_true",
+        default=False,
+        help="Use pseudo-random amounts for erc20tx transfers",
+    )
+    group.addoption(
+        "--spamoor-reuse-contract",
+        dest="spamoor_reuse_contract",
+        action="store_true",
+        default=False,
+        help="storagespam: reuse existing deployed contract (skip deploy tx)",
+    )
+    group.addoption(
+        "--spamoor-addresses-per-tx",
+        dest="spamoor_addresses_per_tx",
+        type=int,
+        default=370,
+        help="erc20_bloater: addresses bloated per transaction",
+    )
+    group.addoption(
+        "--spamoor-start-address-index",
+        dest="spamoor_start_address_index",
+        type=int,
+        default=1,
+        help="erc20_bloater: starting contract slot index",
+    )
+    group.addoption(
+        "--spamoor-slots-per-call",
+        dest="spamoor_slots_per_call",
+        type=int,
+        default=500,
+        help="storagerefundtx: number of slots written+cleared per execute() call",
+    )
+    group.addoption(
+        "--spamoor-bytecodes",
+        dest="spamoor_bytecodes",
+        type=str,
+        default="",
+        help="deploytx: comma-separated list of hex bytecodes to cycle through",
+    )
+    group.addoption(
+        "--spamoor-bytecodes-file",
+        dest="spamoor_bytecodes_file",
+        type=str,
+        default="",
+        help="deploytx: path to file with one hex bytecode per line",
+    )
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -156,6 +303,37 @@ def spamoor_config(request):
         "start_salt": request.config.getoption("spamoor_start_salt"),
         "init_code": request.config.getoption("spamoor_init_code"),
         "factory_address": request.config.getoption("spamoor_factory_address"),
+        "sidecars": request.config.getoption("spamoor_sidecars"),
+        "blob_fee": request.config.getoption("spamoor_blob_fee"),
+        "gas_units_to_burn": request.config.getoption(
+            "spamoor_gas_units_to_burn"
+        ),
+        "pair_count": request.config.getoption("spamoor_pair_count"),
+        "min_swap_amount": request.config.getoption(
+            "spamoor_min_swap_amount"
+        ),
+        "max_swap_amount": request.config.getoption(
+            "spamoor_max_swap_amount"
+        ),
+        "buy_ratio": request.config.getoption("spamoor_buy_ratio"),
+        "slippage": request.config.getoption("spamoor_slippage"),
+        "min_code_size": request.config.getoption("spamoor_min_code_size"),
+        "max_code_size": request.config.getoption("spamoor_max_code_size"),
+        "payload_seed": request.config.getoption("spamoor_payload_seed"),
+        "tx_id_offset": request.config.getoption("spamoor_tx_id_offset"),
+        "fuzz_mode": request.config.getoption("spamoor_fuzz_mode"),
+        "random_target": request.config.getoption("spamoor_random_target"),
+        "random_amount": request.config.getoption("spamoor_random_amount"),
+        "reuse_contract": request.config.getoption("spamoor_reuse_contract"),
+        "addresses_per_tx": request.config.getoption(
+            "spamoor_addresses_per_tx"
+        ),
+        "start_address_index": request.config.getoption(
+            "spamoor_start_address_index"
+        ),
+        "slots_per_call": request.config.getoption("spamoor_slots_per_call"),
+        "bytecodes": request.config.getoption("spamoor_bytecodes"),
+        "bytecodes_file": request.config.getoption("spamoor_bytecodes_file"),
     }
 
 

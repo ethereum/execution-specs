@@ -2,8 +2,13 @@
 
 from typing import Any
 
-from execution_testing.base_types import Address, Bytes, HexNumber
-from execution_testing.test_types import EOA, Transaction
+from execution_testing.base_types import Address, Bytes, Hash, HexNumber
+from execution_testing.forks import Fork
+from execution_testing.test_types import (
+    EOA,
+    Blob,
+    Transaction,
+)
 
 
 def _optional_address(value: Any) -> Address | None:
@@ -31,6 +36,8 @@ def spamoor_dict_to_transaction(
     chain_id: int,
     *,
     nonce_override: int | None = None,
+    fork: Fork | None = None,
+    blob_seed: int = 0,
 ) -> Transaction:
     """
     Convert a spamoor helpers dict into a signed EST ``Transaction``.
@@ -50,9 +57,10 @@ def spamoor_dict_to_transaction(
         nonce_value = int(signer.nonce)
 
     access_list = tx_dict.get("accessList", [])
+    ty = int(tx_dict["type"])
 
-    tx = Transaction(
-        ty=HexNumber(int(tx_dict["type"])),
+    tx_kwargs: dict[str, Any] = dict(
+        ty=HexNumber(ty),
         nonce=HexNumber(nonce_value),
         to=_optional_address(tx_dict.get("to")),
         value=HexNumber(int(tx_dict["value"])),
@@ -67,4 +75,33 @@ def spamoor_dict_to_transaction(
         secret_key=signer.key,
         sender=signer,
     )
+
+    if ty == 3:
+        if fork is None:
+            raise ValueError(
+                "fork is required for type-3 (blob) transactions"
+            )
+        blob_count = int(
+            tx_dict.get(
+                "blobCount",
+                len(tx_dict.get("blobVersionedHashes", [])) or 1,
+            )
+        )
+        blob_objects = [
+            Blob.from_fork(fork, seed=blob_seed + i) for i in range(blob_count)
+        ]
+        versioned_hashes = [
+            Hash(blob.versioned_hash) for blob in blob_objects
+        ]
+        tx_kwargs["max_fee_per_blob_gas"] = HexNumber(
+            int(tx_dict.get("maxFeePerBlobGas", 1))
+        )
+        tx_kwargs["blob_versioned_hashes"] = versioned_hashes
+        # Block-form RLP (payload only). testing_commitBlockV1 does not
+        # take sidecars; it verifies versioned hashes from the payload.
+        _ = blob_objects  # kept for potential future sidecar wiring
+        tx = Transaction(**tx_kwargs).with_signature_and_sender()
+        return tx
+
+    tx = Transaction(**tx_kwargs)
     return tx.with_signature_and_sender()

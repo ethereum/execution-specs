@@ -1,4 +1,5 @@
 from typing import List, Optional, Callable, Any, Dict
+import hashlib
 import json
 
 try:
@@ -193,6 +194,71 @@ def build_calltx_transactions(
     return txs
 
 
+def build_blob_combined_transactions(
+    count: int,
+    sidecars: int = 3,
+    basefee: Optional[int] = None,
+    tip_fee: int = 1_000_000_000,
+    blob_fee: int = 20_000_000_000,
+    from_addr: Optional[str] = None,
+    private_key: Optional[str] = None,
+    rpc_client: Optional[Callable[[str, List[Any]], Any]] = None,
+) -> List[Dict[str, Any]]:
+    """Build EIP-4844 blob transactions mirroring spamoor blob-combined.
+
+    Produces `count` type-3 transactions, each carrying `sidecars`
+    placeholder versioned hashes. Blob sidecar data is left to the
+    caller for the committed-path conversion.
+    """
+    if count <= 0:
+        return []
+
+    nonce = None
+    if from_addr and rpc_client:
+        resp = rpc_client("eth_getTransactionCount", [from_addr, "pending"])
+        if isinstance(resp, str) and resp.startswith("0x"):
+            nonce = int(resp, 16)
+
+    base_fee_per_gas = basefee
+    if base_fee_per_gas is None and rpc_client:
+        bf_resp = rpc_client("eth_feeHistory", ["0x1", "latest", []])
+        if bf_resp and "baseFeePerGas" in bf_resp and bf_resp["baseFeePerGas"]:
+            try:
+                base_fee_per_gas = int(bf_resp["baseFeePerGas"][-1], 16)
+            except ValueError:
+                pass
+    if base_fee_per_gas is None:
+        base_fee_per_gas = 20_000_000_000
+
+    max_fee_per_gas = base_fee_per_gas + tip_fee
+
+    blob_count = max(1, min(int(sidecars), 6))
+    to_addr = "0x1000000000000000000000000000000000000000"
+    txs: List[Dict[str, Any]] = []
+    for i in range(count):
+        versioned_hashes = [
+            "0x01" + f"{(i * 100 + j):062x}" for j in range(blob_count)
+        ]
+        tx: Dict[str, Any] = {
+            "type": 3,
+            "to": to_addr,
+            "value": 0,
+            "data": "",
+            "gas": 21000,
+            "maxFeePerGas": max_fee_per_gas,
+            "maxPriorityFeePerGas": tip_fee,
+            "maxFeePerBlobGas": blob_fee,
+            "blobVersionedHashes": versioned_hashes,
+            "blobCount": blob_count,
+            "chainId": 1,
+            "accessList": [],
+        }
+        if nonce is not None:
+            tx["nonce"] = nonce + i
+        txs.append(tx)
+    return txs
+
+
 def build_factorydeploytx_transactions(
     count: int,
     init_code: str,
@@ -287,4 +353,953 @@ def build_factorydeploytx_transactions(
             }
         )
 
+    return txs
+
+
+# Minimal gas-burner runtime: loops on JUMPDEST/JUMP until gas runs out.
+# Layout: JUMPDEST (0x5b), PUSH1 0x00, JUMP (0x56). Loops back to offset 0.
+_GAS_BURNER_RUNTIME = bytes.fromhex("5b600056")
+# Init code: copy the runtime into memory and RETURN it.
+#   PUSH1 len, PUSH1 runtime_offset, PUSH1 0 (mem), CODECOPY,
+#   PUSH1 len, PUSH1 0, RETURN
+# With a 4-byte runtime, runtime offset = 12.
+_GAS_BURNER_INIT = bytes.fromhex("6004600c60003960046000f3") + _GAS_BURNER_RUNTIME
+_GAS_BURNER_CONTRACT_HEX = "0x" + _GAS_BURNER_INIT.hex()
+_GAS_BURNER_PLACEHOLDER_ADDR = "0x3333333333333333333333333333333333333333"
+
+
+def build_gasburnertx_transactions(
+    count: int,
+    gas_units_to_burn: int = 2_000_000,
+    basefee: Optional[int] = None,
+    tip_fee: int = 1_000_000_000,
+    throughput: float = 1.0,
+    deploy_gas_limit: int = 2_000_000,
+    contract_address: Optional[str] = None,
+    from_addr: Optional[str] = None,
+    private_key: Optional[str] = None,
+    rpc_client: Optional[Callable[[str, List[Any]], Any]] = None,
+) -> List[Dict[str, Any]]:
+    """Build gasburnertx deployment + execution transactions.
+
+    Mirrors the Go scenario: one dynamic-fee deploy tx for the gas-burner
+    contract, followed by *count* dynamic-fee execution txs each carrying
+    a 4-byte big-endian txIdx payload and a gas limit of
+    *gas_units_to_burn*.
+    """
+    if count <= 0:
+        return []
+
+    nonce = None
+    if from_addr and rpc_client:
+        resp = rpc_client("eth_getTransactionCount", [from_addr, "pending"])
+        if isinstance(resp, str) and resp.startswith("0x"):
+            nonce = int(resp, 16)
+
+    base_fee_per_gas = basefee
+    if base_fee_per_gas is None and rpc_client:
+        bf_resp = rpc_client("eth_feeHistory", ["0x1", "latest", []])
+        if bf_resp and "baseFeePerGas" in bf_resp and bf_resp["baseFeePerGas"]:
+            try:
+                base_fee_per_gas = int(bf_resp["baseFeePerGas"][-1], 16)
+            except ValueError:
+                pass
+    if base_fee_per_gas is None:
+        base_fee_per_gas = 1_000_000_000
+
+    max_fee_per_gas = int(base_fee_per_gas * (1.0 + throughput))
+
+    txs: List[Dict[str, Any]] = []
+
+    deploy_tx: Dict[str, Any] = {
+        "type": 2,
+        "to": "",
+        "value": 0,
+        "data": _GAS_BURNER_CONTRACT_HEX,
+        "gas": deploy_gas_limit,
+        "maxFeePerGas": max_fee_per_gas,
+        "maxPriorityFeePerGas": tip_fee,
+        "chainId": 1,
+        "accessList": [],
+    }
+    if nonce is not None:
+        deploy_tx["nonce"] = nonce
+        nonce += 1
+    txs.append(deploy_tx)
+
+    target_addr = contract_address or _GAS_BURNER_PLACEHOLDER_ADDR
+    for i in range(count):
+        tx_id_bytes = int(i).to_bytes(4, "big")
+        exec_tx: Dict[str, Any] = {
+            "type": 2,
+            "to": target_addr,
+            "value": 0,
+            "data": "0x" + tx_id_bytes.hex(),
+            "gas": gas_units_to_burn,
+            "maxFeePerGas": max_fee_per_gas,
+            "maxPriorityFeePerGas": tip_fee,
+            "chainId": 1,
+            "accessList": [],
+        }
+        if nonce is not None:
+            exec_tx["nonce"] = nonce
+            nonce += 1
+        txs.append(exec_tx)
+
+    return txs
+
+
+# Uniswap V2 Router02 selectors (well-known; first 4 bytes of keccak(signature)).
+_SWAP_EXACT_TOKENS_FOR_TOKENS = "38ed1739"  # (uint256,uint256,address[],address,uint256)
+_SWAP_EXACT_ETH_FOR_TOKENS = "7ff36ab5"  # payable; (uint256,address[],address,uint256)
+_SWAP_EXACT_TOKENS_FOR_ETH = "18cbafe5"  # (uint256,uint256,address[],address,uint256)
+
+_UNISWAP_ROUTER_ADDR = "0x4444444444444444444444444444444444444444"
+_UNISWAP_WETH_ADDR = "0x5555555555555555555555555555555555555555"
+_UNISWAP_DAI_ADDR = "0x6666666666666666666666666666666666666666"
+_UNISWAP_RECIPIENT = "0x7777777777777777777777777777777777777777"
+
+
+def _encode_uniswap_swap_call(
+    variant: int,
+    amount_in: int,
+    min_out: int,
+    path: List[str],
+    recipient: str,
+    deadline: int,
+) -> tuple[str, int]:
+    """Return (hex call_data, tx_value_wei) for a router swap call.
+
+    variant 0 → swapExactTokensForTokens (value=0)
+    variant 1 → swapExactETHForTokens  (value=amount_in, payable)
+    variant 2 → swapExactTokensForETH  (value=0)
+    """
+    assert eth_abi_encode is not None, "eth_abi required for uniswap port"
+    path_addrs = [bytes.fromhex(a[2:]).rjust(20, b"\x00") for a in path]
+    if variant == 1:
+        # swapExactETHForTokens(uint256 amountOutMin, address[] path,
+        #   address to, uint256 deadline). amountIn == msg.value.
+        encoded = eth_abi_encode(
+            ["uint256", "address[]", "address", "uint256"],
+            [min_out, path_addrs, bytes.fromhex(recipient[2:]), deadline],
+        )
+        return "0x" + _SWAP_EXACT_ETH_FOR_TOKENS + encoded.hex(), amount_in
+
+    selector = (
+        _SWAP_EXACT_TOKENS_FOR_ETH
+        if variant == 2
+        else _SWAP_EXACT_TOKENS_FOR_TOKENS
+    )
+    encoded = eth_abi_encode(
+        ["uint256", "uint256", "address[]", "address", "uint256"],
+        [
+            amount_in,
+            min_out,
+            path_addrs,
+            bytes.fromhex(recipient[2:]),
+            deadline,
+        ],
+    )
+    return "0x" + selector + encoded.hex(), 0
+
+
+def build_uniswap_swaps_transactions(
+    count: int,
+    pair_count: int = 1,
+    min_swap_amount: int = 100_000_000_000_000_000,
+    max_swap_amount: int = 1_000_000_000_000_000_000_000,
+    buy_ratio: int = 40,
+    slippage: int = 50,
+    basefee: Optional[int] = None,
+    tip_fee: int = 1_000_000_000,
+    throughput: float = 1.0,
+    gas_limit: int = 200_000,
+    recipient: str = _UNISWAP_RECIPIENT,
+    router_address: str = _UNISWAP_ROUTER_ADDR,
+    weth_address: str = _UNISWAP_WETH_ADDR,
+    token_address: str = _UNISWAP_DAI_ADDR,
+    from_addr: Optional[str] = None,
+    private_key: Optional[str] = None,
+    rpc_client: Optional[Callable[[str, List[Any]], Any]] = None,
+) -> List[Dict[str, Any]]:
+    """Build uniswap-swaps execution transactions.
+
+    Deterministic port of the Go scenario's action mix: per tx index we
+    alternate between *buy-with-ETH*, *buy-with-WETH*, and *sell-tokens*,
+    weighted by ``buy_ratio``. Every tx is a type-2 (EIP-1559) call to
+    ``router_address`` with ABI-encoded swap calldata. Swap amounts are
+    the midpoint of the ``[min_swap_amount, max_swap_amount]`` range so
+    the builder stays deterministic for shape assertions.
+    """
+    if count <= 0:
+        return []
+    if eth_abi_encode is None:
+        raise RuntimeError("eth_abi is required for uniswap-swaps port")
+
+    nonce = None
+    if from_addr and rpc_client:
+        resp = rpc_client("eth_getTransactionCount", [from_addr, "pending"])
+        if isinstance(resp, str) and resp.startswith("0x"):
+            nonce = int(resp, 16)
+
+    base_fee_per_gas = basefee
+    if base_fee_per_gas is None and rpc_client:
+        bf_resp = rpc_client("eth_feeHistory", ["0x1", "latest", []])
+        if bf_resp and "baseFeePerGas" in bf_resp and bf_resp["baseFeePerGas"]:
+            try:
+                base_fee_per_gas = int(bf_resp["baseFeePerGas"][-1], 16)
+            except ValueError:
+                pass
+    if base_fee_per_gas is None:
+        base_fee_per_gas = 1_000_000_000
+    max_fee_per_gas = int(base_fee_per_gas * (1.0 + throughput))
+
+    swap_amount = (int(min_swap_amount) + int(max_swap_amount)) // 2
+    min_out = swap_amount * max(0, 10_000 - int(slippage)) // 10_000
+    deadline = 2_000_000_000  # fixed future unix ts; scenario uses now+300.
+
+    # Deterministic buy/sell allocation proportional to buy_ratio so small
+    # counts still produce a mix. e.g. count=5, buy_ratio=40 → buys={0,2}
+    # (2 buys), sells={1,3,4}. Rounding keeps at least 1 of each when
+    # 0 < buy_ratio < 100 and count >= 2.
+    buy_count_target = max(
+        0, min(count, (count * int(buy_ratio) + 50) // 100)
+    )
+    if 0 < int(buy_ratio) < 100 and count >= 2:
+        buy_count_target = max(1, min(count - 1, buy_count_target))
+    buy_stride = count / buy_count_target if buy_count_target else float("inf")
+    buys_issued = 0
+
+    txs: List[Dict[str, Any]] = []
+    for i in range(count):
+        # Interleave buys by stride so they're spread across the batch.
+        want_buy = (
+            buys_issued < buy_count_target
+            and i >= int(buys_issued * buy_stride)
+        )
+        if want_buy:
+            variant = 0 if (buys_issued % 2 == 0) else 1
+            path = [weth_address, token_address]
+            buys_issued += 1
+        else:
+            variant = 2
+            path = [token_address, weth_address]
+
+        call_data, value = _encode_uniswap_swap_call(
+            variant,
+            amount_in=swap_amount,
+            min_out=min_out,
+            path=path,
+            recipient=recipient,
+            deadline=deadline,
+        )
+
+        tx: Dict[str, Any] = {
+            "type": 2,
+            "to": router_address,
+            "value": value,
+            "data": call_data,
+            "gas": gas_limit,
+            "maxFeePerGas": max_fee_per_gas,
+            "maxPriorityFeePerGas": tip_fee,
+            "chainId": 1,
+            "accessList": [],
+        }
+        if nonce is not None:
+            tx["nonce"] = nonce + i
+        txs.append(tx)
+
+    _ = pair_count  # reserved for future multi-pair encoding
+    return txs
+
+
+def _evm_fuzz_bytecode(
+    tx_id: int, seed_hex: str, min_size: int, max_size: int, mode: str
+) -> bytes:
+    """Deterministically derive fuzz bytecode for *tx_id*.
+
+    Rather than porting the full Go opcode generator, we expand the
+    seed + tx_id + mode through SHA-256 counters until we have enough
+    bytes. Resulting bytecodes are almost always invalid EVM init code,
+    which matches the scenario's purpose: exercise the EVM and the
+    deployment path with random-shaped payloads.
+    """
+    if max_size < min_size:
+        max_size = min_size
+    seed_bytes = bytes.fromhex(seed_hex[2:] if seed_hex.startswith("0x") else seed_hex) if seed_hex else b""
+    # Size is deterministic per tx within [min_size, max_size].
+    size_span = max_size - min_size + 1
+    size = min_size + (
+        int.from_bytes(
+            hashlib.sha256(seed_bytes + tx_id.to_bytes(8, "big") + b"size").digest()[:4],
+            "big",
+        )
+        % size_span
+    )
+    mode_byte = {"all": 0, "opcodes": 1, "precompiles": 2}.get(mode, 0)
+    out = bytearray()
+    counter = 0
+    while len(out) < size:
+        h = hashlib.sha256(
+            seed_bytes
+            + tx_id.to_bytes(8, "big")
+            + bytes([mode_byte])
+            + counter.to_bytes(4, "big")
+        ).digest()
+        out.extend(h)
+        counter += 1
+    return bytes(out[:size])
+
+
+def build_evm_fuzz_transactions(
+    count: int,
+    gas_limit: int = 0,
+    min_code_size: int = 100,
+    max_code_size: int = 512,
+    payload_seed: str = "",
+    tx_id_offset: int = 0,
+    fuzz_mode: str = "all",
+    basefee: Optional[int] = None,
+    tip_fee: int = 1_000_000_000,
+    throughput: float = 1.0,
+    from_addr: Optional[str] = None,
+    private_key: Optional[str] = None,
+    rpc_client: Optional[Callable[[str, List[Any]], Any]] = None,
+) -> List[Dict[str, Any]]:
+    """Build evm-fuzz contract creation transactions.
+
+    Each tx is a type-2 contract creation (``to == ""``) carrying
+    deterministic pseudo-random bytes as init code. 25% of txs carry
+    ``value == 0``; the remainder carry a small random value in the
+    ``[0xa000, 0x10000)`` wei range, mirroring the Go scenario's 75/25
+    value split.
+    """
+    if count <= 0:
+        return []
+    effective_gas = gas_limit if gas_limit and gas_limit > 0 else 1_000_000
+
+    nonce = None
+    if from_addr and rpc_client:
+        resp = rpc_client("eth_getTransactionCount", [from_addr, "pending"])
+        if isinstance(resp, str) and resp.startswith("0x"):
+            nonce = int(resp, 16)
+
+    base_fee_per_gas = basefee
+    if base_fee_per_gas is None and rpc_client:
+        bf_resp = rpc_client("eth_feeHistory", ["0x1", "latest", []])
+        if bf_resp and "baseFeePerGas" in bf_resp and bf_resp["baseFeePerGas"]:
+            try:
+                base_fee_per_gas = int(bf_resp["baseFeePerGas"][-1], 16)
+            except ValueError:
+                pass
+    if base_fee_per_gas is None:
+        base_fee_per_gas = 1_000_000_000
+    max_fee_per_gas = int(base_fee_per_gas * (1.0 + throughput))
+
+    seed = payload_seed or "deadbeef"
+
+    txs: List[Dict[str, Any]] = []
+    for i in range(count):
+        tx_id = i + int(tx_id_offset)
+        code = _evm_fuzz_bytecode(
+            tx_id, seed, int(min_code_size), int(max_code_size), fuzz_mode
+        )
+        # Deterministic 75/25 value split: every 4th tx gets value=0.
+        if tx_id % 4 == 0:
+            value = 0
+        else:
+            value_span = 0x6000
+            value = 0xa000 + (
+                int.from_bytes(
+                    hashlib.sha256(
+                        seed.encode() + tx_id.to_bytes(8, "big") + b"val"
+                    ).digest()[:2],
+                    "big",
+                )
+                % value_span
+            )
+        tx: Dict[str, Any] = {
+            "type": 2,
+            "to": "",
+            "value": value,
+            "data": "0x" + code.hex(),
+            "gas": effective_gas,
+            "maxFeePerGas": max_fee_per_gas,
+            "maxPriorityFeePerGas": tip_fee,
+            "chainId": 1,
+            "accessList": [],
+        }
+        if nonce is not None:
+            tx["nonce"] = nonce + i
+        txs.append(tx)
+    return txs
+
+
+# keccak("transferMint(address,uint256)")[:4]
+_TRANSFER_MINT_SELECTOR = "9d0f7cba"
+_ERC20_PLACEHOLDER_ADDR = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+
+def _erc20_recipient_for_idx(idx: int) -> str:
+    tail = f"{idx:040x}"
+    return "0x" + ("cc" * 12) + tail[-16:]
+
+
+def build_erc20tx_transactions(
+    count: int,
+    amount: int = 1_000_000_000_000_000_000,
+    random_target: bool = False,
+    random_amount: bool = False,
+    contract_address: Optional[str] = None,
+    contract_code: Optional[str] = None,
+    deploy_gas_limit: int = 2_000_000,
+    gas_limit: int = 100_000,
+    basefee: Optional[int] = None,
+    tip_fee: int = 1_000_000_000,
+    throughput: float = 1.0,
+    from_addr: Optional[str] = None,
+    private_key: Optional[str] = None,
+    rpc_client: Optional[Callable[[str, List[Any]], Any]] = None,
+) -> List[Dict[str, Any]]:
+    """Build erc20tx deployment + transferMint execution transactions.
+
+    If *contract_code* is provided, the first tx deploys it (to="",
+    data=code). Then *count* transferMint calls follow, targeting either
+    the provided *contract_address* or a fixed placeholder.
+    """
+    if count <= 0:
+        return []
+
+    nonce = None
+    if from_addr and rpc_client:
+        resp = rpc_client(
+            "eth_getTransactionCount", [from_addr, "pending"]
+        )
+        if isinstance(resp, str) and resp.startswith("0x"):
+            nonce = int(resp, 16)
+
+    base_fee_per_gas = basefee
+    if base_fee_per_gas is None and rpc_client:
+        bf_resp = rpc_client("eth_feeHistory", ["0x1", "latest", []])
+        if (
+            bf_resp
+            and "baseFeePerGas" in bf_resp
+            and bf_resp["baseFeePerGas"]
+        ):
+            try:
+                base_fee_per_gas = int(bf_resp["baseFeePerGas"][-1], 16)
+            except ValueError:
+                pass
+    if base_fee_per_gas is None:
+        base_fee_per_gas = 1_000_000_000
+    max_fee_per_gas = int(base_fee_per_gas * (1.0 + throughput))
+
+    txs: List[Dict[str, Any]] = []
+
+    if contract_code is not None:
+        deploy_tx: Dict[str, Any] = {
+            "type": 2,
+            "to": "",
+            "value": 0,
+            "data": contract_code,
+            "gas": deploy_gas_limit,
+            "maxFeePerGas": max_fee_per_gas,
+            "maxPriorityFeePerGas": tip_fee,
+            "chainId": 1,
+            "accessList": [],
+        }
+        if nonce is not None:
+            deploy_tx["nonce"] = nonce
+            nonce += 1
+        txs.append(deploy_tx)
+
+    target_token = contract_address or _ERC20_PLACEHOLDER_ADDR
+
+    for i in range(count):
+        if random_target:
+            recipient = "0x" + hashlib.sha256(
+                b"erc20tx:target:" + i.to_bytes(8, "big")
+            ).digest()[:20].hex()
+        else:
+            recipient = _erc20_recipient_for_idx(i)
+
+        if random_amount:
+            transfer_amount = (
+                int.from_bytes(
+                    hashlib.sha256(
+                        b"erc20tx:amount:" + i.to_bytes(8, "big")
+                    ).digest()[:8],
+                    "big",
+                )
+                % max(int(amount), 1)
+            )
+        else:
+            transfer_amount = int(amount)
+
+        addr_word = bytes.fromhex(recipient[2:]).rjust(32, b"\x00")
+        amount_word = transfer_amount.to_bytes(32, "big")
+        call_data = (
+            "0x"
+            + _TRANSFER_MINT_SELECTOR
+            + addr_word.hex()
+            + amount_word.hex()
+        )
+
+        tx: Dict[str, Any] = {
+            "type": 2,
+            "to": target_token,
+            "value": 0,
+            "data": call_data,
+            "gas": gas_limit,
+            "maxFeePerGas": max_fee_per_gas,
+            "maxPriorityFeePerGas": tip_fee,
+            "chainId": 1,
+            "accessList": [],
+        }
+        if nonce is not None:
+            tx["nonce"] = nonce
+            nonce += 1
+        txs.append(tx)
+
+    return txs
+
+
+# keccak("setRandomForGas(uint256,uint256)")[:4]
+_SET_RANDOM_FOR_GAS_SELECTOR = "fed72935"
+_STORAGESPAM_PLACEHOLDER_ADDR = "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+
+
+def build_storagespam_transactions(
+    count: int,
+    gas_units_to_burn: int = 2_000_000,
+    reuse_contract: bool = False,
+    contract_address: Optional[str] = None,
+    contract_code: Optional[str] = None,
+    deploy_gas_limit: int = 2_000_000,
+    basefee: Optional[int] = None,
+    tip_fee: int = 1_000_000_000,
+    throughput: float = 1.0,
+    from_addr: Optional[str] = None,
+    private_key: Optional[str] = None,
+    rpc_client: Optional[Callable[[str, List[Any]], Any]] = None,
+) -> List[Dict[str, Any]]:
+    """Build storagespam deployment + setRandomForGas execution transactions.
+
+    Unless *reuse_contract* is True, a deployment tx is emitted first with
+    *contract_code* (a minimal placeholder when not provided). Each of
+    the *count* execution txs calls ``setRandomForGas(gas_units_to_burn,
+    txIdx)`` on the deployed (or placeholder) contract. Gas per exec tx
+    is ``gas_units_to_burn + 50_000`` to match the Go scenario.
+    """
+    if count <= 0:
+        return []
+
+    nonce = None
+    if from_addr and rpc_client:
+        resp = rpc_client(
+            "eth_getTransactionCount", [from_addr, "pending"]
+        )
+        if isinstance(resp, str) and resp.startswith("0x"):
+            nonce = int(resp, 16)
+
+    base_fee_per_gas = basefee
+    if base_fee_per_gas is None and rpc_client:
+        bf_resp = rpc_client("eth_feeHistory", ["0x1", "latest", []])
+        if (
+            bf_resp
+            and "baseFeePerGas" in bf_resp
+            and bf_resp["baseFeePerGas"]
+        ):
+            try:
+                base_fee_per_gas = int(bf_resp["baseFeePerGas"][-1], 16)
+            except ValueError:
+                pass
+    if base_fee_per_gas is None:
+        base_fee_per_gas = 1_000_000_000
+    max_fee_per_gas = int(base_fee_per_gas * (1.0 + throughput))
+
+    txs: List[Dict[str, Any]] = []
+
+    # Inline minimal init code that returns a tiny runtime (so committed
+    # txs targeting the CREATE address still see a contract; the real
+    # StorageSpam.sol bytecode isn't bundled here).
+    stub_init_hex = (
+        "0x6004600c60003960046000f35b600056"
+    )
+
+    if not reuse_contract:
+        deploy_code = contract_code or stub_init_hex
+        deploy_tx: Dict[str, Any] = {
+            "type": 2,
+            "to": "",
+            "value": 0,
+            "data": deploy_code,
+            "gas": deploy_gas_limit,
+            "maxFeePerGas": max_fee_per_gas,
+            "maxPriorityFeePerGas": tip_fee,
+            "chainId": 1,
+            "accessList": [],
+        }
+        if nonce is not None:
+            deploy_tx["nonce"] = nonce
+            nonce += 1
+        txs.append(deploy_tx)
+
+    target = contract_address or _STORAGESPAM_PLACEHOLDER_ADDR
+    exec_gas = int(gas_units_to_burn) + 50_000
+
+    for i in range(count):
+        gas_word = int(gas_units_to_burn).to_bytes(32, "big")
+        seed_word = int(i).to_bytes(32, "big")
+        call_data = (
+            "0x"
+            + _SET_RANDOM_FOR_GAS_SELECTOR
+            + gas_word.hex()
+            + seed_word.hex()
+        )
+        tx: Dict[str, Any] = {
+            "type": 2,
+            "to": target,
+            "value": 0,
+            "data": call_data,
+            "gas": exec_gas,
+            "maxFeePerGas": max_fee_per_gas,
+            "maxPriorityFeePerGas": tip_fee,
+            "chainId": 1,
+            "accessList": [],
+        }
+        if nonce is not None:
+            tx["nonce"] = nonce
+            nonce += 1
+        txs.append(tx)
+
+    return txs
+
+
+# keccak("bloatStorage(uint256,uint256)")[:4]
+_BLOAT_STORAGE_SELECTOR = "c1926de5"
+# Reasonable gas limit for erc20_bloater tx. The Go scenario uses 16.7M
+# (EIP-7825 cap). The lab genesis block gas limit is 30M so this fits.
+_BLOAT_DEFAULT_GAS = 16_700_000
+_BLOAT_PLACEHOLDER_ADDR = "0xdddddddddddddddddddddddddddddddddddddddd"
+
+
+def build_erc20_bloater_transactions(
+    count: int,
+    addresses_per_tx: int = 370,
+    start_address_index: int = 1,
+    gas_limit: int = 0,
+    contract_address: Optional[str] = None,
+    contract_code: Optional[str] = None,
+    deploy_gas_limit: int = 2_000_000,
+    basefee: Optional[int] = None,
+    tip_fee: int = 1_000_000_000,
+    throughput: float = 1.0,
+    from_addr: Optional[str] = None,
+    private_key: Optional[str] = None,
+    rpc_client: Optional[Callable[[str, List[Any]], Any]] = None,
+) -> List[Dict[str, Any]]:
+    """Build erc20_bloater deployment + bloatStorage execution transactions.
+
+    When *contract_code* is provided (or the default placeholder is used)
+    the first tx deploys the contract. Each of the *count* execution
+    txs calls ``bloatStorage(uint256 startAddressIndex, uint256
+    numAddresses)`` with a sliding ``startAddressIndex``, which mirrors
+    the Go scenario's sequential sweep of the address space.
+    """
+    if count <= 0:
+        return []
+
+    nonce = None
+    if from_addr and rpc_client:
+        resp = rpc_client(
+            "eth_getTransactionCount", [from_addr, "pending"]
+        )
+        if isinstance(resp, str) and resp.startswith("0x"):
+            nonce = int(resp, 16)
+
+    base_fee_per_gas = basefee
+    if base_fee_per_gas is None and rpc_client:
+        bf_resp = rpc_client("eth_feeHistory", ["0x1", "latest", []])
+        if (
+            bf_resp
+            and "baseFeePerGas" in bf_resp
+            and bf_resp["baseFeePerGas"]
+        ):
+            try:
+                base_fee_per_gas = int(bf_resp["baseFeePerGas"][-1], 16)
+            except ValueError:
+                pass
+    if base_fee_per_gas is None:
+        base_fee_per_gas = 1_000_000_000
+    max_fee_per_gas = int(base_fee_per_gas * (1.0 + throughput))
+
+    exec_gas = gas_limit if gas_limit and gas_limit > 0 else _BLOAT_DEFAULT_GAS
+
+    txs: List[Dict[str, Any]] = []
+
+    # Minimal stub init that returns a tiny runtime. The real ERC20Bloater
+    # bytecode lives in the Go contract package; we just need a well-
+    # formed deploy tx here.
+    stub_init_hex = "0x6004600c60003960046000f35b600056"
+    if contract_code is not None or contract_address is None:
+        deploy_tx: Dict[str, Any] = {
+            "type": 2,
+            "to": "",
+            "value": 0,
+            "data": contract_code or stub_init_hex,
+            "gas": deploy_gas_limit,
+            "maxFeePerGas": max_fee_per_gas,
+            "maxPriorityFeePerGas": tip_fee,
+            "chainId": 1,
+            "accessList": [],
+        }
+        if nonce is not None:
+            deploy_tx["nonce"] = nonce
+            nonce += 1
+        txs.append(deploy_tx)
+
+    target = contract_address or _BLOAT_PLACEHOLDER_ADDR
+    idx = int(start_address_index)
+    step = max(1, int(addresses_per_tx))
+
+    for _ in range(count):
+        start_word = idx.to_bytes(32, "big")
+        num_word = step.to_bytes(32, "big")
+        call_data = (
+            "0x"
+            + _BLOAT_STORAGE_SELECTOR
+            + start_word.hex()
+            + num_word.hex()
+        )
+        tx: Dict[str, Any] = {
+            "type": 2,
+            "to": target,
+            "value": 0,
+            "data": call_data,
+            "gas": exec_gas,
+            "maxFeePerGas": max_fee_per_gas,
+            "maxPriorityFeePerGas": tip_fee,
+            "chainId": 1,
+            "accessList": [],
+        }
+        if nonce is not None:
+            tx["nonce"] = nonce
+            nonce += 1
+        txs.append(tx)
+        idx += step
+
+    return txs
+
+
+# keccak("execute(uint256)")[:4]
+_STORAGE_REFUND_EXECUTE_SELECTOR = "fe0d94c1"
+_STORAGE_REFUND_PLACEHOLDER_ADDR = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+# When the caller does not pin a gas limit, the Go scenario picks a
+# value that comfortably fits SlotsPerCall SSTORE+clear cycles. 3M is
+# large enough for SlotsPerCall<=500 in practice and small enough to
+# fit many per block under the 30M lab cap.
+_STORAGE_REFUND_DEFAULT_GAS = 3_000_000
+
+
+def build_storagerefundtx_transactions(
+    count: int,
+    slots_per_call: int = 500,
+    gas_limit: int = 0,
+    contract_address: Optional[str] = None,
+    contract_code: Optional[str] = None,
+    deploy_gas_limit: int = 2_000_000,
+    basefee: Optional[int] = None,
+    tip_fee: int = 1_000_000_000,
+    throughput: float = 1.0,
+    from_addr: Optional[str] = None,
+    private_key: Optional[str] = None,
+    rpc_client: Optional[Callable[[str, List[Any]], Any]] = None,
+) -> List[Dict[str, Any]]:
+    """Build storagerefundtx deployment + execute(uint256) calls.
+
+    Unless *contract_address* is supplied, the first tx deploys a stub
+    (or user-provided *contract_code*) so the batch is self-contained.
+    Each of the *count* execution txs calls
+    ``execute(slots_per_call)`` on the deployed (or supplied) contract.
+    """
+    if count <= 0:
+        return []
+
+    nonce = None
+    if from_addr and rpc_client:
+        resp = rpc_client(
+            "eth_getTransactionCount", [from_addr, "pending"]
+        )
+        if isinstance(resp, str) and resp.startswith("0x"):
+            nonce = int(resp, 16)
+
+    base_fee_per_gas = basefee
+    if base_fee_per_gas is None and rpc_client:
+        bf_resp = rpc_client("eth_feeHistory", ["0x1", "latest", []])
+        if (
+            bf_resp
+            and "baseFeePerGas" in bf_resp
+            and bf_resp["baseFeePerGas"]
+        ):
+            try:
+                base_fee_per_gas = int(bf_resp["baseFeePerGas"][-1], 16)
+            except ValueError:
+                pass
+    if base_fee_per_gas is None:
+        base_fee_per_gas = 1_000_000_000
+    max_fee_per_gas = int(base_fee_per_gas * (1.0 + throughput))
+
+    exec_gas = (
+        gas_limit
+        if gas_limit and gas_limit > 0
+        else _STORAGE_REFUND_DEFAULT_GAS
+    )
+
+    txs: List[Dict[str, Any]] = []
+
+    stub_init_hex = "0x6004600c60003960046000f35b600056"
+    if contract_address is None:
+        deploy_tx: Dict[str, Any] = {
+            "type": 2,
+            "to": "",
+            "value": 0,
+            "data": contract_code or stub_init_hex,
+            "gas": deploy_gas_limit,
+            "maxFeePerGas": max_fee_per_gas,
+            "maxPriorityFeePerGas": tip_fee,
+            "chainId": 1,
+            "accessList": [],
+        }
+        if nonce is not None:
+            deploy_tx["nonce"] = nonce
+            nonce += 1
+        txs.append(deploy_tx)
+
+    target = contract_address or _STORAGE_REFUND_PLACEHOLDER_ADDR
+    slots_word = int(slots_per_call).to_bytes(32, "big")
+    call_data = (
+        "0x" + _STORAGE_REFUND_EXECUTE_SELECTOR + slots_word.hex()
+    )
+
+    for _ in range(count):
+        tx: Dict[str, Any] = {
+            "type": 2,
+            "to": target,
+            "value": 0,
+            "data": call_data,
+            "gas": exec_gas,
+            "maxFeePerGas": max_fee_per_gas,
+            "maxPriorityFeePerGas": tip_fee,
+            "chainId": 1,
+            "accessList": [],
+        }
+        if nonce is not None:
+            tx["nonce"] = nonce
+            nonce += 1
+        txs.append(tx)
+
+    return txs
+
+
+# Default bytecode: PUSH1 0x01 / PUSH1 0x00 / SSTORE / STOP — writes one
+# slot on deploy; leaves empty runtime (so "runtime" is zero bytes).
+_DEPLOYTX_DEFAULT_BYTECODE = "0x6001600055"
+
+
+def _parse_deploytx_bytecodes(
+    bytecodes: str, bytecodes_file: str
+) -> List[str]:
+    """Return the list of hex bytecodes (with ``0x`` prefix) to cycle."""
+    out: List[str] = []
+    if bytecodes:
+        for chunk in bytecodes.split(","):
+            chunk = chunk.strip()
+            if not chunk:
+                continue
+            if not chunk.startswith("0x"):
+                chunk = "0x" + chunk
+            out.append(chunk)
+    if bytecodes_file:
+        try:
+            with open(bytecodes_file, "r", encoding="utf-8") as fh:
+                for line in fh:
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    if not line.startswith("0x"):
+                        line = "0x" + line
+                    out.append(line)
+        except OSError:
+            pass
+    if not out:
+        out.append(_DEPLOYTX_DEFAULT_BYTECODE)
+    return out
+
+
+def build_deploytx_transactions(
+    count: int,
+    bytecodes: str = "",
+    bytecodes_file: str = "",
+    gas_limit: int = 0,
+    basefee: Optional[int] = None,
+    tip_fee: int = 1_000_000_000,
+    throughput: float = 1.0,
+    from_addr: Optional[str] = None,
+    private_key: Optional[str] = None,
+    rpc_client: Optional[Callable[[str, List[Any]], Any]] = None,
+) -> List[Dict[str, Any]]:
+    """Build N deployment transactions cycling through *bytecodes*.
+
+    Mirrors the Go deploytx scenario: every tx is type 2 with
+    ``to == ""`` (contract creation); the init code cycles through the
+    parsed list of bytecodes (or a tiny default if none supplied).
+    """
+    if count <= 0:
+        return []
+
+    nonce = None
+    if from_addr and rpc_client:
+        resp = rpc_client(
+            "eth_getTransactionCount", [from_addr, "pending"]
+        )
+        if isinstance(resp, str) and resp.startswith("0x"):
+            nonce = int(resp, 16)
+
+    base_fee_per_gas = basefee
+    if base_fee_per_gas is None and rpc_client:
+        bf_resp = rpc_client("eth_feeHistory", ["0x1", "latest", []])
+        if (
+            bf_resp
+            and "baseFeePerGas" in bf_resp
+            and bf_resp["baseFeePerGas"]
+        ):
+            try:
+                base_fee_per_gas = int(bf_resp["baseFeePerGas"][-1], 16)
+            except ValueError:
+                pass
+    if base_fee_per_gas is None:
+        base_fee_per_gas = 1_000_000_000
+    max_fee_per_gas = int(base_fee_per_gas * (1.0 + throughput))
+
+    codes = _parse_deploytx_bytecodes(bytecodes, bytecodes_file)
+    exec_gas = gas_limit if gas_limit and gas_limit > 0 else 1_000_000
+
+    txs: List[Dict[str, Any]] = []
+    for i in range(count):
+        data = codes[i % len(codes)]
+        tx: Dict[str, Any] = {
+            "type": 2,
+            "to": "",
+            "value": 0,
+            "data": data,
+            "gas": exec_gas,
+            "maxFeePerGas": max_fee_per_gas,
+            "maxPriorityFeePerGas": tip_fee,
+            "chainId": 1,
+            "accessList": [],
+        }
+        if nonce is not None:
+            tx["nonce"] = nonce + i
+        txs.append(tx)
     return txs
