@@ -14,8 +14,11 @@ from execution_testing import (
     Op,
     StateTestFiller,
     Transaction,
+    TransactionReceipt,
 )
 from execution_testing.forks import Cancun
+
+from tests.amsterdam.eip7708_eth_transfer_logs.spec import transfer_log
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-6780.md"
 REFERENCE_SPEC_VERSION = "1b6a0e94cc47e859b9866e570391cf37dc55059a"
@@ -220,11 +223,37 @@ def test_reentrancy_selfdestruct_revert(
             balance=selfdestruct_contract_init_balance,
         )
 
+    # Under EIP-7708 the first SELFDESTRUCT emits a Transfer log to the
+    # recipient; the second SELFDESTRUCT happens inside the reverted frame so
+    # its logs are discarded. For CALL the transfer is from S; for
+    # CALLCODE/DELEGATECALL the code runs in executor's context, so the
+    # transfer is from executor.
+    expected_receipt = None
+    if fork.is_eip_enabled(7708):
+        if first_suicide == Op.CALL:
+            expected_logs = [
+                transfer_log(
+                    selfdestruct_contract_address,
+                    selfdestruct_recipient_address,
+                    selfdestruct_contract_init_balance,
+                )
+            ]
+        else:
+            expected_logs = [
+                transfer_log(
+                    executor_contract_address,
+                    selfdestruct_recipient_address,
+                    executor_contract_init_balance,
+                )
+            ]
+        expected_receipt = TransactionReceipt(logs=expected_logs)
+
     tx = Transaction(
         sender=sender,
         to=executor_contract_address,
         gas_limit=500_000,
         value=0,
+        expected_receipt=expected_receipt,
     )
 
     state_test(env=env, pre=pre, post=post, tx=tx)
