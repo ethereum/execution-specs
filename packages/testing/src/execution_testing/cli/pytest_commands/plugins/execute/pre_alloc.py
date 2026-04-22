@@ -350,21 +350,29 @@ class Alloc(SharedAlloc):
             raise ValueError(
                 f"initcode too large {len(initcode)} > {max_initcode_size}"
             )
-        deploy_gas_limit = gas_costs.GAS_TX_BASE + gas_costs.GAS_TX_CREATE
-        deploy_gas_limit += (
-            len(deploy_code) * gas_costs.GAS_CODE_DEPOSIT_PER_BYTE
+        # On EIP-8037 forks `GAS_TX_CREATE` folds in the new-account state
+        # gas (see `EIP8037.gas_costs`). Back that out of the regular
+        # portion — state gas is drawn from the block reservoir under
+        # EIP-8037 and does not count against the per-tx regular gas cap
+        # (EIP-7825). Pre-Amsterdam these helpers return 0 so the formula
+        # collapses to the original one.
+        regular_gas = gas_costs.GAS_TX_BASE + gas_costs.GAS_TX_CREATE
+        regular_gas -= fork.transaction_intrinsic_state_gas(
+            contract_creation=True
         )
-        deploy_gas_limit += memory_expansion_gas_calculator(
-            new_bytes=len(initcode)
-        )
-        deploy_gas_limit += calldata_gas_calculator(data=initcode)
-        deploy_gas_limit = deploy_gas_limit * 2
+        regular_gas += len(deploy_code) * gas_costs.GAS_CODE_DEPOSIT_PER_BYTE
+        regular_gas += memory_expansion_gas_calculator(new_bytes=len(initcode))
+        regular_gas += calldata_gas_calculator(data=initcode)
+        regular_gas = regular_gas * 2
         tx_gas_limit_cap = fork.transaction_gas_limit_cap()
-        if tx_gas_limit_cap and deploy_gas_limit > tx_gas_limit_cap:
+        if tx_gas_limit_cap and regular_gas > tx_gas_limit_cap:
             raise ValueError(
-                f"deterministic deploy gas limit exceeds the transaction "
-                f"gas limit cap: {deploy_gas_limit} > {tx_gas_limit_cap}"
+                f"deterministic deploy regular gas exceeds the transaction "
+                f"gas limit cap: {regular_gas} > {tx_gas_limit_cap}"
             )
+        deploy_gas_limit = regular_gas + fork.create_state_gas(
+            code_size=len(deploy_code)
+        )
 
         # Defer the on-chain check; the deploy tx (if needed) and the
         # alloc update will happen in resolve_deferred_checks.
@@ -447,13 +455,22 @@ class Alloc(SharedAlloc):
 
         initcode_prefix = Bytecode()
 
-        deploy_gas_limit = gas_costs.GAS_TX_BASE + gas_costs.GAS_TX_CREATE
+        # On EIP-8037 forks `GAS_TX_CREATE` folds in the new-account state
+        # gas (see `EIP8037.gas_costs`). Back that out of the regular
+        # portion — state gas is drawn from the block reservoir under
+        # EIP-8037 and does not count against the per-tx regular gas cap
+        # (EIP-7825). Pre-Amsterdam these helpers return 0 so the formula
+        # collapses to the original one.
+        regular_gas = gas_costs.GAS_TX_BASE + gas_costs.GAS_TX_CREATE
+        regular_gas -= fork.transaction_intrinsic_state_gas(
+            contract_creation=True
+        )
 
         if len(storage.root) > 0:
             initcode_prefix += sum(
                 Op.SSTORE(key, value) for key, value in storage.root.items()
             )
-            deploy_gas_limit += len(storage.root) * 22_600
+            regular_gas += len(storage.root) * 22_600
 
         assert isinstance(code, Bytecode), (
             f"incompatible code type: {type(code)}"
@@ -464,12 +481,12 @@ class Alloc(SharedAlloc):
         if len(code) > max_code_size:
             raise ValueError(f"code too large: {len(code)} > {max_code_size}")
 
-        deploy_gas_limit += len(code) * gas_costs.GAS_CODE_DEPOSIT_PER_BYTE
+        regular_gas += len(code) * gas_costs.GAS_CODE_DEPOSIT_PER_BYTE
 
         prepared_initcode = Initcode(
             deploy_code=code, initcode_prefix=initcode_prefix
         )
-        deploy_gas_limit += memory_expansion_gas_calculator(
+        regular_gas += memory_expansion_gas_calculator(
             new_bytes=len(bytes(prepared_initcode))
         )
 
@@ -480,15 +497,22 @@ class Alloc(SharedAlloc):
                 f"initcode too large {initcode_len} > {max_initcode_size}"
             )
 
-        deploy_gas_limit += calldata_gas_calculator(data=prepared_initcode)
+        regular_gas += calldata_gas_calculator(data=prepared_initcode)
 
-        deploy_gas_limit = deploy_gas_limit * 2
+        regular_gas = regular_gas * 2
         tx_gas_limit_cap = fork.transaction_gas_limit_cap()
-        if tx_gas_limit_cap and deploy_gas_limit > tx_gas_limit_cap:
+        if tx_gas_limit_cap and regular_gas > tx_gas_limit_cap:
             raise ValueError(
-                f"deploy gas limit exceeds the transaction gas limit cap: "
-                f"{deploy_gas_limit} > {tx_gas_limit_cap}"
+                f"deploy regular gas exceeds the transaction gas limit cap: "
+                f"{regular_gas} > {tx_gas_limit_cap}"
             )
+        # State gas (EIP-8037) comes from the block reservoir, not the per-tx
+        # regular cap. Covers new-account + code deposit + one 32-byte
+        # SSTORE per pre-initialized slot. All helpers return 0 pre-Amsterdam.
+        deploy_gas_limit = regular_gas + fork.create_state_gas(
+            code_size=len(code)
+        )
+        deploy_gas_limit += len(storage.root) * fork.sstore_state_gas()
 
         deploy_tx = self._add_pending_tx(
             action="deploy_contract",
