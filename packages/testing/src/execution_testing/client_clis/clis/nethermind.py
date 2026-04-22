@@ -437,15 +437,8 @@ class NethermindExceptionMapper(ExceptionMapper):
         # BAL Exceptions — specific exceptions have unique patterns, but
         # INVALID_BLOCK_ACCESS_LIST and INCORRECT_BLOCK_FORMAT intentionally
         # overlap because the test framework requires `want in got` matching.
+        # BAL Exceptions
         BlockException.INVALID_BAL_HASH: (r"InvalidBlockLevelAccessListHash:"),
-        BlockException.INVALID_BAL_MISSING_ACCOUNT: (
-            r"InvalidBlockLevelAccessList:.*missing account"
-        ),
-        BlockException.INVALID_BAL_EXTRA_ACCOUNT: (
-            r"InvalidBlockLevelAccessList:.*surplus changes"
-            r"|could not be parsed as a block: "
-            r"Error decoding block access list:"
-        ),
         BlockException.INVALID_BLOCK_ACCESS_LIST: (
             r"InvalidBlockLevelAccessListHash:"
             r"|InvalidBlockLevelAccessList:"

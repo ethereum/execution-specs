@@ -155,7 +155,6 @@ def generic_create(
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         disable_precompiles=False,
         parent_evm=evm,
-        is_create=True,
     )
     child_evm = process_create_message(child_message)
 
@@ -357,7 +356,6 @@ def generic_call(
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         disable_precompiles=disable_precompiles,
         parent_evm=evm,
-        is_create=False,
     )
 
     child_evm = process_message(child_message)

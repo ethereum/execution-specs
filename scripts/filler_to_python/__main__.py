@@ -16,6 +16,21 @@ from .render import render_test
 
 logger = logging.getLogger(__name__)
 
+MANUALLY_ENHANCED_TAG = "@manually-enhanced"
+
+
+def _has_manually_enhanced_tag(file_path: Path) -> bool:
+    """Check if a file has @manually-enhanced in its module docstring."""
+    try:
+        source = file_path.read_text()
+        tree = ast.parse(source)
+    except (OSError, SyntaxError):
+        return False
+    docstring = ast.get_docstring(tree)
+    if docstring is None:
+        return False
+    return MANUALLY_ENHANCED_TAG in docstring
+
 
 def post_format(source: str) -> str:
     """Format generated Python source with ruff."""
@@ -118,7 +133,7 @@ def process_single_filler(
     """
     Process one filler file.
 
-    Return "ok", "fail", or "warn".
+    Return "ok", "fail", "warn", or "skip".
     """
     try:
         # Relative path for the generated test's ported_from marker
@@ -126,6 +141,19 @@ def process_single_filler(
             rel_path = filler_path.relative_to(fillers_base.parent)
         except ValueError:
             rel_path = filler_path
+
+        # Skip files that have been manually enhanced
+        category = rel_path.parts[-2] if len(rel_path.parts) >= 2 else ""
+        out_file = (
+            output_dir / category / _filler_name_to_filename(filler_path.stem)
+        )
+        if out_file.exists() and _has_manually_enhanced_tag(out_file):
+            logger.info(
+                "SKIP: %s (existing file has %s tag)",
+                out_file,
+                MANUALLY_ENHANCED_TAG,
+            )
+            return "skip"
 
         # Load
         test_name, model = load_filler(filler_path)
@@ -155,18 +183,15 @@ def process_single_filler(
             return "ok"
 
         # Write
-        category = rel_path.parts[-2] if len(rel_path.parts) >= 2 else ""
-        out_subdir = output_dir / category
-        out_subdir.mkdir(parents=True, exist_ok=True)
+        out_file.parent.mkdir(parents=True, exist_ok=True)
 
         # Write __init__.py if needed
-        init_file = out_subdir / "__init__.py"
+        init_file = out_file.parent / "__init__.py"
         if not init_file.exists():
             init_file.write_text(
                 f'"""Ported static tests: {category}."""  # noqa: N999\n'
             )
 
-        out_file = out_subdir / _filler_name_to_filename(filler_path.stem)
         out_file.write_text(source)
         logger.info("OK: %s -> %s", filler_path.name, out_file)
         return "ok"
@@ -251,7 +276,7 @@ def main() -> None:
 
     logger.info("Processing %d filler(s)...", len(filler_paths))
 
-    counts = {"ok": 0, "fail": 0, "warn": 0}
+    counts = {"ok": 0, "fail": 0, "warn": 0, "skip": 0}
     for filler_path in filler_paths:
         status = process_single_filler(
             filler_path,
@@ -263,9 +288,11 @@ def main() -> None:
 
     # Summary
     total = sum(counts.values())
+    skip_msg = f", {counts['skip']} skipped" if counts["skip"] else ""
     print(
         f"\nDone: {counts['ok']}/{total} OK, "
         f"{counts['fail']} failed, {counts['warn']} warnings"
+        f"{skip_msg}"
     )
     if counts["fail"] > 0:
         sys.exit(1)

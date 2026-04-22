@@ -17,8 +17,8 @@ class DocsConfig(BaseModel):
     GENERATE_UNTIL_FORK: str = "Amsterdam"
     """The fork until which documentation should be generated."""
 
-    DOCS_BASE_URL: str = "https://eest.ethereum.org"
+    DOCS_BASE_URL: str = "https://steel.ethereum.foundation/docs"
 
-    # Documentation URLs prefixed with `DOCS_URL__` to avoid conflicts with
-    # other URLs
-    DOCS_URL__WRITING_TESTS: str = f"{DOCS_BASE_URL}/main/writing_tests/"
+    # Documentation URLs prefixed with `DOCS_URL__` to avoid conflicts
+    # with other URLs
+    DOCS_URL__WRITING_TESTS: str = f"{DOCS_BASE_URL}/writing_tests/"

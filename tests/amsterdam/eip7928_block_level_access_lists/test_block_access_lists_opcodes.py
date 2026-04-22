@@ -41,6 +41,7 @@ from execution_testing import (
 )
 
 from .spec import ref_spec_7928
+from .test_block_access_lists_eip4788 import SYSTEM_ADDRESS
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7928.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7928.version
@@ -328,6 +329,69 @@ def test_bal_balance_and_oog(
             alice: Account(nonce=1),
             bob: Account(),
             balance_checker: Account(),
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "access_opcode",
+    [
+        pytest.param(lambda target: Op.BALANCE(target), id="balance"),
+        pytest.param(lambda target: Op.EXTCODESIZE(target), id="extcodesize"),
+        pytest.param(lambda target: Op.EXTCODEHASH(target), id="extcodehash"),
+        pytest.param(
+            lambda target: Op.EXTCODECOPY(target, 0, 0, 0),
+            id="extcodecopy",
+        ),
+        pytest.param(lambda target: Op.CALL(address=target), id="call"),
+        pytest.param(
+            lambda target: Op.STATICCALL(address=target),
+            id="staticcall",
+        ),
+    ],
+)
+def test_bal_account_touch_system_address(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    access_opcode: Callable[[Address], Bytecode],
+) -> None:
+    """
+    Ensure a regular transaction that explicitly touches SYSTEM_ADDRESS via
+    an account-accessing opcode includes SYSTEM_ADDRESS as an account-only
+    BAL entry.
+
+    This confirms that SYSTEM_ADDRESS is only excluded from the BAL when it
+    appears as the synthetic caller of a pre-execution system call; a real
+    EVM state access from user code MUST still land in the BAL.
+    """
+    alice = pre.fund_eoa()
+    pre.fund_address(SYSTEM_ADDRESS, amount=1)
+
+    toucher = pre.deploy_contract(code=access_opcode(SYSTEM_ADDRESS) + Op.STOP)
+
+    tx = Transaction(
+        sender=alice,
+        to=toucher,
+        gas_limit=200_000,
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                toucher: BalAccountExpectation.empty(),
+                SYSTEM_ADDRESS: BalAccountExpectation.empty(),
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1),
+            toucher: Account(),
+            SYSTEM_ADDRESS: Account(balance=1),
         },
     )
 

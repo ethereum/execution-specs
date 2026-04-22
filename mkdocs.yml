@@ -1,10 +1,10 @@
-site_name: Ethereum Execution Specs
-site_description: The Ethereum Execution Layer Python Specifications and Tests
-site_url: https://eest.ethereum.org/
+site_name: Ethereum Execution Layer Specifications
+site_description: The Ethereum Execution Layer Specifications and Tests
+site_url: https://steel.ethereum.foundation/docs/
 repo_url: https://github.com/ethereum/execution-specs
 repo_name: execution-specs
-edit_uri: edit/main/docs/
-copyright: "Copyright: 2025, Ethereum Community"
+edit_uri: edit/forks/amsterdam/docs/
+copyright: "Copyright: 2026, Ethereum Community"
 
 plugins:
   - git-authors:
@@ -40,8 +40,8 @@ watch:
 
 theme:
   name: material
-  logo: img/Ethereum-logo-600px.png
-  favicon: img/ETH-logo-icon.svg
+  logo: img/eth-diamond-white.png
+  favicon: img/eth-diamond-orange.svg
   language: en
   features:
     - content.code.copy
@@ -52,25 +52,21 @@ theme:
     - navigation.instant
     - navigation.tabs
     - navigation.footer
-  # disabled due to https://github.com/ethereum/execution-specs/issues/1491
-  # palette:
-  #   # Palette toggle for automatic mode
-  #   - media: "(prefers-color-scheme)"
-  #     toggle:
-  #       icon: material/brightness-auto
-  #       name: Switch to light mode
-  #   Palette toggle for light mode
-  #   - media: "(prefers-color-scheme: light)"
-  #    scheme: default
-  #    toggle:
-  #      icon: material/brightness-7
-  #      name: Switch to dark mode
-  #   # Palette toggle for dark mode
-  #   - media: "(prefers-color-scheme: dark)"
-  #     scheme: slate
-  #     toggle:
-  #       icon: material/brightness-4
-  #       name: Switch to system preference
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep-orange
+      accent: deep-orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep-orange
+      accent: deep-orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
 
 markdown_extensions:
   - abbr

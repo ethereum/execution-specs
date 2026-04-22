@@ -9,14 +9,12 @@ from typing import (
     ClassVar,
     Dict,
     List,
-    Literal,
     Mapping,
     Optional,
     Protocol,
     Set,
     Sized,
     Type,
-    Union,
 )
 
 if TYPE_CHECKING:
@@ -208,35 +206,54 @@ class BaseForkMeta(ABCMeta):
     @staticmethod
     def _is_subclass_of(a: "BaseForkMeta", b: "BaseForkMeta") -> bool:
         """
-        Check if `a` is a subclass of `b`, taking fork transitions into
-        account.
+        Check if `a` is a subclass of `b`, taking fork transitions and
+        variants (created by `with_env_gas_limit`) into account.
         """
+        # Resolve variants to canonical identity so comparisons between
+        # a variant and a canonical descendant fork work as expected.
+        a = BaseForkMeta._identity(a)
+        b = BaseForkMeta._identity(b)
         a = BaseForkMeta._maybe_transitioned(a)
         b = BaseForkMeta._maybe_transitioned(b)
         return issubclass(a, b)
 
+    @staticmethod
+    def _identity(fork_cls: "BaseForkMeta") -> "BaseForkMeta":
+        """Return the canonical fork class, resolving variants."""
+        base = getattr(fork_cls, "_base_fork", None)
+        return base if base is not None else fork_cls
+
+    def __eq__(cls, other: object) -> bool:
+        """Compare fork identity, treating variants as equal to parents."""
+        if not isinstance(other, BaseForkMeta):
+            return NotImplemented
+        return BaseForkMeta._identity(cls) is BaseForkMeta._identity(other)
+
+    def __hash__(cls) -> int:
+        """Hash by canonical fork identity."""
+        return id(BaseForkMeta._identity(cls))
+
     def __gt__(cls, other: "BaseForkMeta") -> bool:
         """Compare if a fork is newer than some other fork (cls > other)."""
-        return cls is not other and BaseForkMeta._is_subclass_of(cls, other)
+        return cls != other and BaseForkMeta._is_subclass_of(cls, other)
 
     def __ge__(cls, other: "BaseForkMeta") -> bool:
         """
         Compare if a fork is newer than or equal to some other fork (cls >=
         other).
         """
-        return cls is other or BaseForkMeta._is_subclass_of(cls, other)
+        return cls == other or BaseForkMeta._is_subclass_of(cls, other)
 
     def __lt__(cls, other: "BaseForkMeta") -> bool:
         """Compare if a fork is older than some other fork (cls < other)."""
-        # "Older" means other is a subclass of cls, but not the same.
-        return cls is not other and BaseForkMeta._is_subclass_of(other, cls)
+        return cls != other and BaseForkMeta._is_subclass_of(other, cls)
 
     def __le__(cls, other: "BaseForkMeta") -> bool:
         """
         Compare if a fork is older than or equal to some other fork (cls <=
         other).
         """
-        return cls is other or BaseForkMeta._is_subclass_of(other, cls)
+        return cls == other or BaseForkMeta._is_subclass_of(other, cls)
 
 
 class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
@@ -255,14 +272,20 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     _children: ClassVar[Set[Type["BaseFork"]]] = set()
     _ruleset_name: ClassVar[Optional[str]] = None
     _fork_by_timestamp: ClassVar[bool] = False
+    _blob_constants: ClassVar[Dict[str, int]] = {}
 
-    # make mypy happy
-    BLOB_CONSTANTS: ClassVar[Dict[str, Union[int, Literal["big"]]]] = {}
+    # Environment overrides (set on variants created by with_env_gas_limit)
+    _base_fork: ClassVar[Optional[Type["BaseFork"]]] = None
+    _env_gas_limit: ClassVar[int] = 0
+    _deployed: ClassVar[bool] = True
+    _enabled_eips: ClassVar[Set[int]] = set()
+    _enabling_forks: ClassVar[Set[Type["BaseFork"]]] = set()
 
-    @classmethod
-    def get_blob_constant(cls, name: str) -> int | Literal["big"]:
-        """Return value of requested blob constant."""
-        raise NotImplementedError
+    # Method version bumps
+    _engine_new_payload_version_bump: ClassVar[bool] = False
+    _engine_forkchoice_updated_version_bump: ClassVar[bool] = False
+    _engine_get_payload_version_bump: ClassVar[bool] = False
+    _engine_get_blobs_version_bump: ClassVar[bool] = False
 
     def __init_subclass__(
         cls,
@@ -273,6 +296,12 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         bpo_fork: bool = False,
         ruleset_name: Optional[str] = None,
         fork_by_timestamp: Optional[bool] = None,
+        deployed: Optional[bool] = None,
+        update_blob_constants: Optional[Dict[str, int]] = None,
+        engine_new_payload_version_bump: Optional[bool] = None,
+        engine_forkchoice_updated_version_bump: Optional[bool] = None,
+        engine_get_payload_version_bump: Optional[bool] = None,
+        engine_get_blobs_version_bump: Optional[bool] = None,
     ) -> None:
         """
         Initialize new fork with values that don't carry over to subclass
@@ -291,10 +320,78 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
             )
         else:
             cls._fork_by_timestamp = fork_by_timestamp
-        base_class = cls.__bases__[0]
-        assert issubclass(base_class, BaseFork)
-        if base_class != BaseFork:
-            base_class._children.add(cls)
+        base_fork_class = None
+        for base_class in cls.__bases__:
+            if issubclass(base_class, BaseFork) and not base_class.is_eip():
+                base_fork_class = base_class
+                break
+        assert base_fork_class is not None
+        cls._enabled_eips = set()
+        if base_fork_class != BaseFork:
+            base_fork_class._children.add(cls)
+            cls._enabled_eips |= base_fork_class._enabled_eips
+        eip_bases = [
+            base_class
+            for base_class in cls.__bases__
+            if issubclass(base_class, BaseFork) and base_class.is_eip()
+        ]
+        cls._enabling_forks = set()
+        for eip_base in eip_bases:
+            cls._enabled_eips.add(eip_base.eip())
+            eip_base._enabling_forks.add(cls)
+        # Bump the versions if any of the EIPs bump the version
+        if engine_new_payload_version_bump is not None:
+            cls._engine_new_payload_version_bump = (
+                engine_new_payload_version_bump
+            )
+        else:
+            cls._engine_new_payload_version_bump = any(
+                eip_base._engine_new_payload_version_bump
+                for eip_base in eip_bases
+            )
+
+        if engine_forkchoice_updated_version_bump is not None:
+            cls._engine_forkchoice_updated_version_bump = (
+                engine_forkchoice_updated_version_bump
+            )
+        else:
+            cls._engine_forkchoice_updated_version_bump = any(
+                eip_base._engine_forkchoice_updated_version_bump
+                for eip_base in eip_bases
+            )
+
+        if engine_get_payload_version_bump is not None:
+            cls._engine_get_payload_version_bump = (
+                engine_get_payload_version_bump
+            )
+        else:
+            cls._engine_get_payload_version_bump = any(
+                eip_base._engine_get_payload_version_bump
+                for eip_base in eip_bases
+            )
+
+        if engine_get_blobs_version_bump is not None:
+            cls._engine_get_blobs_version_bump = engine_get_blobs_version_bump
+        else:
+            cls._engine_get_blobs_version_bump = any(
+                eip_base._engine_get_blobs_version_bump
+                for eip_base in eip_bases
+            )
+
+        # Calculate blob constants
+        cls._blob_constants = base_fork_class._blob_constants.copy()
+        if update_blob_constants is not None:
+            cls._blob_constants |= update_blob_constants
+        else:
+            for eip_base in eip_bases:
+                cls._blob_constants |= eip_base._blob_constants
+
+        # Determine fork deployment status
+        if deployed is not None:
+            cls._deployed = deployed
+        else:
+            if base_fork_class is not BaseFork:
+                cls._deployed = base_fork_class._deployed
 
     # Header information abstract methods
     @classmethod
@@ -391,6 +488,98 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """
         pass
 
+    # Gas calculation helpers
+    @classmethod
+    @abstractmethod
+    def _calculate_sstore_refund(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """Calculate SSTORE gas refund based on metadata."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def _calculate_sstore_gas(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """Calculate SSTORE gas cost based on metadata."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def _calculate_call_gas(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """
+        Calculate CALL/DELEGATECALL/STATICCALL gas cost based on metadata.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def _calculate_create_gas(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """CREATE gas is constant at Frontier."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def _calculate_create2_gas(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """
+        Calculate CREATE2 gas cost including initcode cost.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def _calculate_return_gas(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """Calculate RETURN gas cost based on metadata."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def _calculate_selfdestruct_gas(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """Calculate SELFDESTRUCT gas cost based on metadata."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def _with_memory_expansion(
+        cls,
+        base_gas: int | Callable[[OpcodeBase], int],
+        memory_expansion_gas_calculator: MemoryExpansionGasCalculator,
+    ) -> Callable[[OpcodeBase], int]:
+        """Wrap a gas cost calculator to include memory expansion cost."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def _with_account_access(
+        cls,
+        base_gas: int | Callable[[OpcodeBase], int],
+        gas_costs: "GasCosts",
+    ) -> Callable[[OpcodeBase], int]:
+        """Wrap a gas cost calculator to include account access cost."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def _with_data_copy(
+        cls,
+        base_gas: int | Callable[[OpcodeBase], int],
+        gas_costs: "GasCosts",
+    ) -> Callable[[OpcodeBase], int]:
+        """Wrap a gas cost calculator to include data copy cost."""
+        pass
+
+    # Gas calculators
     @classmethod
     @abstractmethod
     def memory_expansion_gas_calculator(cls) -> MemoryExpansionGasCalculator:
@@ -426,6 +615,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """
         pass
 
+    # Fee helpers
     @classmethod
     @abstractmethod
     def base_fee_max_change_denominator(cls) -> int:
@@ -444,6 +634,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """Return the max refund quotient at a given fork."""
         pass
 
+    # Transaction cost calculators
     @classmethod
     @abstractmethod
     def transaction_data_floor_cost_calculator(
@@ -493,24 +684,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """
         pass
 
-    @classmethod
-    @abstractmethod
-    def min_base_fee_per_blob_gas(cls) -> int:
-        """Return the minimum base fee per blob gas at a given fork."""
-        pass
-
-    @classmethod
-    @abstractmethod
-    def blob_gas_per_blob(cls) -> int:
-        """Return the amount of blob gas used per blob at a given fork."""
-        pass
-
-    @classmethod
-    @abstractmethod
-    def blob_base_fee_update_fraction(cls) -> int:
-        """Return the blob base fee update fraction at a given fork."""
-        pass
-
+    # Blob constants methods
     @classmethod
     @abstractmethod
     def supports_blobs(cls) -> bool:
@@ -518,22 +692,54 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         pass
 
     @classmethod
-    @abstractmethod
+    def get_blob_constant(cls, name: str) -> int:
+        """Return blob constant if it exists."""
+        assert cls.supports_blobs(), (
+            "Requested a blob constant in a fork that does not support blobs"
+        )
+        retrieved_constant = cls._blob_constants.get(name)
+        assert retrieved_constant is not None, (
+            f"You tried to retrieve the blob constant {name} but it does "
+            "not exist!"
+        )
+        return retrieved_constant
+
+    @classmethod
+    def min_base_fee_per_blob_gas(cls) -> int:
+        """Return the minimum base fee per blob gas at a given fork."""
+        return cls.get_blob_constant("MIN_BASE_FEE_PER_BLOB_GAS")
+
+    @classmethod
+    def blob_gas_per_blob(cls) -> int:
+        """Return the amount of blob gas used per blob at a given fork."""
+        return cls.get_blob_constant("BLOB_GAS_PER_BLOB")
+
+    @classmethod
+    def blob_base_fee_update_fraction(cls) -> int:
+        """Return the blob base fee update fraction at a given fork."""
+        return cls.get_blob_constant("BLOB_BASE_FEE_UPDATE_FRACTION")
+
+    @classmethod
     def target_blobs_per_block(cls) -> int:
         """Return the target blobs per block at a given fork."""
-        pass
+        return cls.get_blob_constant("TARGET_BLOBS_PER_BLOCK")
 
     @classmethod
-    @abstractmethod
     def max_blobs_per_tx(cls) -> int:
         """Return the max blobs per transaction at a given fork."""
-        pass
+        if "MAX_BLOBS_PER_TX" in cls._blob_constants:
+            return cls._blob_constants["MAX_BLOBS_PER_TX"]
+        return cls.get_blob_constant("MAX_BLOBS_PER_BLOCK")
 
     @classmethod
-    @abstractmethod
     def max_blobs_per_block(cls) -> int:
         """Return the max blobs per block at a given fork."""
-        pass
+        return cls.get_blob_constant("MAX_BLOBS_PER_BLOCK")
+
+    @classmethod
+    def blob_base_cost(cls) -> int:
+        """Return the base cost of a blob at a given fork."""
+        return cls.get_blob_constant("BLOB_BASE_COST")
 
     @classmethod
     @abstractmethod
@@ -542,12 +748,6 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         Return whether the fork uses a reserve price mechanism for blobs or
         not.
         """
-        pass
-
-    @classmethod
-    @abstractmethod
-    def blob_base_cost(cls) -> int:
-        """Return the base cost of a blob at a given fork."""
         pass
 
     @classmethod
@@ -692,15 +892,6 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     # Engine API information abstract methods
     @classmethod
     @abstractmethod
-    def engine_new_payload_version(cls) -> Optional[int]:
-        """
-        Return `None` if this fork's payloads cannot be sent over the engine
-        API, or the payload version if it can.
-        """
-        pass
-
-    @classmethod
-    @abstractmethod
     def engine_new_payload_blob_hashes(cls) -> bool:
         """
         Return true if the engine api version requires new payload calls to
@@ -769,32 +960,62 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """
         pass
 
+    # Engine API method versions
     @classmethod
-    @abstractmethod
+    def engine_new_payload_version(cls) -> Optional[int]:
+        """
+        Return `None` if this fork's payloads cannot be sent over the engine
+        API, or the payload version if it can.
+        """
+        current_version = 0
+        current_cls: Type["BaseFork"] | None = cls
+        while current_cls is not None:
+            if current_cls._engine_new_payload_version_bump:
+                current_version += 1
+            current_cls = current_cls.parent()
+        return current_version if current_version > 0 else None
+
+    @classmethod
     def engine_forkchoice_updated_version(cls) -> Optional[int]:
         """
         Return `None` if the forks canonical chain cannot be set using the
         forkchoice method.
         """
-        pass
+        current_version = 0
+        current_cls: Type["BaseFork"] | None = cls
+        while current_cls is not None:
+            if current_cls._engine_forkchoice_updated_version_bump:
+                current_version += 1
+            current_cls = current_cls.parent()
+        return current_version if current_version > 0 else None
 
     @classmethod
-    @abstractmethod
     def engine_get_payload_version(cls) -> Optional[int]:
         """
         Return `None` if the forks canonical chain cannot build a payload using
         the engine API.
         """
-        pass
+        current_version = 0
+        current_cls: Type["BaseFork"] | None = cls
+        while current_cls is not None:
+            if current_cls._engine_get_payload_version_bump:
+                current_version += 1
+            current_cls = current_cls.parent()
+        return current_version if current_version > 0 else None
 
     @classmethod
-    @abstractmethod
     def engine_get_blobs_version(cls) -> Optional[int]:
         """
         Return `None` if the fork does not support the engine get blobs
         version.
         """
-        pass
+        current_version = 0
+        current_cls: Type["BaseFork"] | None = cls
+        while current_cls is not None:
+            if current_cls._engine_get_blobs_version_bump:
+                current_version += 1
+            current_cls = current_cls.parent()
+        return current_version if current_version > 0 else None
 
     # EVM information abstract methods
     @classmethod
@@ -906,11 +1127,8 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     def is_deployed(cls) -> bool:
         """
         Return whether the fork has been deployed to mainnet, or not.
-
-        Must be overridden and return False for forks that are still under
-        development.
         """
-        return True
+        return cls._deployed
 
     @classmethod
     def ignore(cls) -> bool:
@@ -923,13 +1141,53 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         return cls._bpo_fork
 
     @classmethod
+    def is_eip(cls) -> bool:
+        """Return whether this class is an EIP."""
+        return cls.__name__.startswith("EIP") and cls.__name__[-1].isdigit()
+
+    @classmethod
+    def eip(cls) -> int:
+        """Return the number of this EIP class."""
+        if not cls.is_eip():
+            raise Exception(f"Class {cls.__name__} is not an EIP.")
+        return int(cls.__name__[3:])
+
+    @classmethod
+    def is_eip_enabled(cls, *eip_numbers: int) -> bool:
+        """Return whether this class has all specified EIPs enabled."""
+        return all(
+            eip_number in cls._enabled_eips for eip_number in eip_numbers
+        )
+
+    @classmethod
+    def enabling_forks(cls) -> Set[Type["BaseFork"]]:
+        """Return the forks that enable this EIP."""
+        if not cls.is_eip():
+            raise Exception(f"Class {cls.__name__} is not an EIP.")
+        return cls._enabling_forks
+
+    @classmethod
     def parent(cls) -> Type["BaseFork"] | None:
         """Return the parent fork."""
-        base_class = cls.__bases__[0]
-        assert issubclass(base_class, BaseFork)
-        if base_class == BaseFork:
+        base_fork_class = None
+        for base_class in cls.__bases__:
+            if issubclass(base_class, BaseFork) and not base_class.is_eip():
+                base_fork_class = base_class
+                break
+        assert base_fork_class is not None
+        if base_fork_class == BaseFork:
             return None
-        return base_class
+        return base_fork_class
+
+    @classmethod
+    def parent_or_fail(cls) -> Type["BaseFork"]:
+        """Return the parent fork or raise if the class has no parent."""
+        parent = cls.parent()
+        if parent is None:
+            raise Exception(
+                f"Expected class {cls.__name__} to have a parent fork."
+            )
+        return parent
 
     @classmethod
     def non_bpo_ancestor(cls) -> Type["BaseFork"]:
@@ -946,6 +1204,24 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     def children(cls) -> Set[Type["BaseFork"]]:
         """Return the children forks."""
         return set(cls._children)
+
+    @classmethod
+    def with_env_gas_limit(cls, env_gas_limit: int) -> Type["BaseFork"]:
+        """Return a new fork class with the specified environment gas limit."""
+        new_cls = type(cls.__name__, (cls,), {})
+        # __init_subclass__ resets per-class overrides; restore from parent.
+        new_cls._env_gas_limit = env_gas_limit  # type: ignore[attr-defined]
+        new_cls._base_fork = cls._base_fork or cls  # type: ignore[attr-defined]
+        new_cls._transition_tool_name = (  # type: ignore[attr-defined]
+            cls._transition_tool_name
+        )
+        new_cls._solc_name = cls._solc_name  # type: ignore[attr-defined]
+        new_cls._ignore = cls._ignore  # type: ignore[attr-defined]
+        new_cls._bpo_fork = cls._bpo_fork  # type: ignore[attr-defined]
+        new_cls._ruleset_name = cls._ruleset_name  # type: ignore[attr-defined]
+        # Prevent the variant from appearing in fork traversals.
+        cls._children.discard(new_cls)
+        return new_cls
 
     @classmethod
     @abstractmethod

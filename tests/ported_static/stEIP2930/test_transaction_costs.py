@@ -18,7 +18,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
+from execution_testing.forks import Amsterdam, Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
@@ -143,7 +143,16 @@ def test_transaction_costs(
     )
     pre[sender] = Account(balance=0x5FA9C18)
 
-    expect_entries_: list[dict] = [
+    expect_entries: list[dict] = [
+        # EIP-7981 changes access list costs in Amsterdam+. Balance is a
+        # placeholder; the expected value is computed dynamically below.
+        # Ordered first so Amsterdam+ forks match here instead of the
+        # entries below.
+        {
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Amsterdam"],
+            "result": {sender: Account(balance=0)},
+        },
         {
             "indexes": {"data": [0, 1], "gas": -1, "value": -1},
             "network": ["Cancun"],
@@ -181,7 +190,7 @@ def test_transaction_costs(
         },
     ]
 
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post, _exc = resolve_expect_post(expect_entries, d, g, v, fork)
 
     tx_data = [
         Bytes("00"),
@@ -454,5 +463,26 @@ def test_transaction_costs(
         access_list=tx_access_lists.get(d),
         error=_exc,
     )
+
+    # EIP-7981 (access list repricing) activates in Amsterdam. Compute the
+    # expected balance dynamically from the fork's intrinsic cost calculator
+    # rather than hardcoding values that change as EIP-7981 evolves. Past
+    # forks keep their original hardcoded values above.
+    if _exc is None and fork >= Amsterdam:
+        sender_pre = pre[sender]
+        assert sender_pre is not None
+        gas_price = int(tx.gas_price or tx.max_fee_per_gas or 0)
+        intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+            calldata=tx.data,
+            contract_creation=tx.to is None,
+            access_list=tx.access_list,
+        )
+        post[sender] = Account(
+            balance=(
+                int(sender_pre.balance)
+                - int(tx.value)
+                - intrinsic_gas * gas_price
+            ),
+        )
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -49,7 +49,12 @@ gas cost for transactions that include calldata.
 [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
 """
 
-TX_ACCESS_LIST_ADDRESS_COST = Uint(2400)
+GAS_TX_CREATE = Uint(32000)
+"""
+Additional gas cost for creating a new contract.
+"""
+
+GAS_TX_ACCESS_LIST_ADDRESS = Uint(2400)
 """
 Gas cost for including an address in the access list of a transaction.
 """
@@ -647,10 +652,7 @@ def calculate_intrinsic_cost(
         state_gas_per_byte,
     )
 
-    num_zeros = Uint(tx.data.count(0))
-    num_non_zeros = ulen(tx.data) - num_zeros
-
-    tokens_in_calldata = num_zeros + num_non_zeros * Uint(4)
+    tokens_in_calldata = count_tokens_in_data(tx.data)
     # EIP-7623 floor price (note: no EVM costs)
     calldata_floor_gas_cost = (
         tokens_in_calldata * GAS_TX_DATA_TOKEN_FLOOR + GAS_TX_BASE
@@ -669,7 +671,7 @@ def calculate_intrinsic_cost(
     access_list_gas = Uint(0)
     if has_access_list(tx):
         for access in tx.access_list:
-            access_list_gas += TX_ACCESS_LIST_ADDRESS_COST
+            access_list_gas += GAS_TX_ACCESS_LIST_ADDRESS
             access_list_gas += (
                 ulen(access.slots) * GAS_TX_ACCESS_LIST_STORAGE_KEY
             )
@@ -699,6 +701,18 @@ def calculate_intrinsic_cost(
         state=intrinsic_state_gas,
         calldata_floor=calldata_floor_gas_cost,
     )
+
+
+def count_tokens_in_data(data: bytes) -> Uint:
+    """
+    Count the data tokens in arbitrary input bytes.
+
+    Zero bytes count as 1 token; non-zero bytes count as 4 tokens.
+    """
+    num_zeros = Uint(data.count(0))
+    num_non_zeros = ulen(data) - num_zeros
+
+    return num_zeros + num_non_zeros * Uint(4)
 
 
 def recover_sender(chain_id: U64, tx: Transaction) -> Address:

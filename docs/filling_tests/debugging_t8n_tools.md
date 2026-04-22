@@ -1,6 +1,6 @@
 # Debugging Transition Tools
 
-There are two flags that can help debugging `t8n` tools or the execution-spec-tests framework:
+There are two flags that can help debugging `t8n` tools or the execution-testing framework:
 
 1. `--evm-dump-dir`: Write debug information from `t8n` tool calls to the specified directory.
 2. `--traces`: Collect traces of the execution from the transition tool.

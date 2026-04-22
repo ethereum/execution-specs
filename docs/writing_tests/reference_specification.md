@@ -63,7 +63,7 @@ This would only check EIP versions for the EIP-3651 tests in the `shanghai/eip36
 
 ## Automated Checks via GitHub Actions
 
-The repository includes a [GitHub Actions workflow](https://github.com/ethereum/execution-spec-tests/actions/workflows/check_eip_versions.yaml) that automatically runs `check_eip_versions` on a daily schedule. If any outdated EIP references are detected, the workflow creates an issue in the repository with details about which references need to be updated.
+The repository includes a [GitHub Actions workflow](https://github.com/ethereum/execution-specs/actions/workflows/check_eip_versions.yaml) that automatically runs `check_eip_versions` on a daily schedule. If any outdated EIP references are detected, the workflow creates an issue in the repository with details about which references need to be updated.
 
 This workflow uses GitHub's built-in token for authentication, so there's no need to configure personal access tokens for the automated checks. The issue will include links to the relevant workflow run and details about which tests need updating.
 

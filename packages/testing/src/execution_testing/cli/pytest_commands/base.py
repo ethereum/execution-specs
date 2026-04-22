@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from os.path import realpath
 from pathlib import Path
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, ClassVar, List, Optional
 
 import click
 import pytest
@@ -137,6 +137,9 @@ class PytestCommand:
     pytest_ini_folder: Path = PYTEST_INI_FOLDER
     """Folder where the pytest configuration files are located."""
 
+    allowed_exit_codes: ClassVar[List[pytest.ExitCode]] = [pytest.ExitCode.OK]
+    """Exit codes treated as successful for executions of this command."""
+
     @property
     def config_path(self) -> Path:
         """Path to the pytest configuration file."""
@@ -173,6 +176,7 @@ class PytestCommand:
                 config_file=self.config_path,
                 command_logic_test_paths=self.test_args,
                 args=processed_args,
+                allowed_exit_codes=self.allowed_exit_codes,
             )
         ]
 

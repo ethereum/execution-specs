@@ -15,11 +15,9 @@ class ForkLoad:
     """
 
     hardfork: Final[Hardfork]
-    _forks: list[Hardfork]
 
     def __init__(self, hardfork: Hardfork):
         self.hardfork = hardfork
-        self._forks = Hardfork.discover()
 
     def _module(self, name: str) -> Any:
         """Imports a module from the fork."""

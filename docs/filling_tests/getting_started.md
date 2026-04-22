@@ -53,5 +53,4 @@ This guide describes how to get started with `fill` and commonly-used command-li
 
 1. Learn [useful command-line flags](./filling_tests_command_line.md).
 2. [Execute tests for features under development](./filling_tests_dev_fork.md) via the `--fork` flag.
-3. _Optional:_ [Configure VS Code](../getting_started/setup_vs_code.md) to auto-format Python code and [execute tests within VS Code](./filling_tests_vs_code.md#filling-and-debugging-test-cases).
-4. Implement a new test case, see [Writing Tests](../writing_tests/index.md).
+3. Implement a new test case, see [Writing Tests](../writing_tests/index.md).

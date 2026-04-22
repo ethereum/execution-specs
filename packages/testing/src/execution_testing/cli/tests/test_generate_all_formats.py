@@ -114,9 +114,10 @@ def test_single_phase_without_flags() -> None:
     assert "--generate-all-formats" not in execution.args
 
 
-def test_tarball_output_auto_enables_generate_all_formats() -> None:
+def test_tarball_output_without_flag_stays_single_phase() -> None:
     """
-    Test that tarball output automatically enables --generate-all-formats.
+    Test that tarball output without --generate-all-formats is single-phase
+    and does not inject the flag.
     """
     command = FillCommand()
 
@@ -124,19 +125,13 @@ def test_tarball_output_auto_enables_generate_all_formats() -> None:
         pytest_args = ["--output=fixtures.tar.gz", "tests/somedir/"]
         executions = command.create_executions(pytest_args)
 
-    # Should trigger two-phase execution due to tarball output
-    assert len(executions) == 2
+    assert len(executions) == 1
+    execution = executions[0]
 
-    # Phase 1: Should have --generate-pre-alloc-groups
-    phase1_args = executions[0].args
-    assert "--generate-pre-alloc-groups" in phase1_args
-
-    # Phase 2: Should have --generate-all-formats (auto-added) and --use-pre-
-    # alloc-groups
-    phase2_args = executions[1].args
-    assert "--generate-all-formats" in phase2_args
-    assert "--use-pre-alloc-groups" in phase2_args
-    assert "--output=fixtures.tar.gz" in phase2_args
+    assert "--generate-pre-alloc-groups" not in execution.args
+    assert "--use-pre-alloc-groups" not in execution.args
+    assert "--generate-all-formats" not in execution.args
+    assert "--output=fixtures.tar.gz" in execution.args
 
 
 def test_tarball_output_with_explicit_generate_all_formats() -> None:
@@ -182,24 +177,3 @@ def test_regular_output_does_not_auto_trigger_two_phase() -> None:
     assert "--generate-pre-alloc-groups" not in execution.args
     assert "--use-pre-alloc-groups" not in execution.args
     assert "--generate-all-formats" not in execution.args
-
-
-def test_tarball_output_detection_various_formats() -> None:
-    """Test tarball output detection with various argument formats."""
-    command = FillCommand()
-
-    # Test --output=file.tar.gz format
-    args1 = ["--output=test.tar.gz", "tests/somedir/"]
-    assert command._is_tarball_output(args1) is True
-
-    # Test --output file.tar.gz format
-    args2 = ["--output", "test.tar.gz", "tests/somedir/"]
-    assert command._is_tarball_output(args2) is True
-
-    # Test regular directory
-    args3 = ["--output=test/", "tests/somedir/"]
-    assert command._is_tarball_output(args3) is False
-
-    # Test no output argument
-    args4 = ["tests/somedir/"]
-    assert command._is_tarball_output(args4) is False

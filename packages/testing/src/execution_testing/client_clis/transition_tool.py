@@ -266,6 +266,13 @@ class TransitionTool(EthereumCLI):
         for i, r in enumerate(receipts):
             trace_file_name = f"trace-{i}-{r.transaction_hash}.jsonl"
             trace_file_path = temp_dir_path / trace_file_name
+            if not trace_file_path.exists():
+                # Transaction was rejected mid-processing (e.g. EIP-3607
+                # collision): the receipt exists but the tracer's
+                # TransactionEnd event never fired, so no trace file was
+                # written. Record an empty trace for this tx.
+                traces.append(TransactionTraces(traces=[]))
+                continue
             if debug_output_path:
                 shutil.copy(
                     trace_file_path,
@@ -927,6 +934,8 @@ class TransitionTool(EthereumCLI):
         if self.output_cache is not None:
             cached_result = self.output_cache.get(current_call_id)
             if cached_result is not None:
+                if self.trace and cached_result.result.traces is not None:
+                    self.append_traces(cached_result.result.traces)
                 return self.process_result(cached_result)
         debug_output_path = self.get_next_transition_tool_output_path(
             current_call_id

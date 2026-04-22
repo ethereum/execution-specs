@@ -9,7 +9,7 @@ abstract: BloatNet single-opcode benchmark cases for state-related operations.
 
 from enum import Enum, auto
 from functools import partial
-from typing import Callable, List
+from typing import Callable, Generator, List
 
 import pytest
 from execution_testing import (
@@ -18,8 +18,12 @@ from execution_testing import (
     Address,
     Alloc,
     AuthorizationTuple,
+    BalAccountExpectation,
+    BalNonceChange,
+    BalStorageSlot,
     BenchmarkTestFiller,
     Block,
+    BlockAccessListExpectation,
     Bytecode,
     CreatePreimageLayout,
     Fork,
@@ -37,11 +41,8 @@ from execution_testing import (
 from execution_testing.base_types.base_types import Number
 
 from tests.benchmark.stateful.helpers import (
-    ALLOWANCE_SELECTOR,
     APPROVE_SELECTOR,
     BALANCEOF_SELECTOR,
-    DECREMENT_COUNTER_CONDITION,
-    MINT_SELECTOR,
     CacheStrategy,
     build_cache_strategy_blocks,
 )
@@ -56,6 +57,606 @@ START_SLOT = (
     0xA4896A3F93BF4BF58378E579F3CF193BB4AF1022AF7D2089F37D8BAE7157B85F
     % (2**160)
 )
+
+
+def _max_sloads_per_tx(tx_gas_limit: int, fork: Fork) -> int:
+    """
+    Conservative upper bound on cold SLOADs that fit in a max-gas tx.
+
+    Derived from the cold SLOAD cost (EIP-2929: 2100 gas) and used by
+    the bloated SLOAD benchmarks both as the inter-tx offset stride
+    (to keep consecutive txs' SLOAD ranges disjoint) and as the
+    per-target storage pre-load count.
+    """
+    cold_sload_cost = Op.SLOAD(key_warm=False).gas_cost(fork)
+    return tx_gas_limit // cold_sload_cost
+
+
+def _sender_generator(
+    pre: Alloc, distinct_senders: bool
+) -> Generator[EOA, None, None]:
+    """
+    Yield one sender per tx.
+
+    In distinct mode, yields a fresh EOA per call. Otherwise, yields
+    the same shared sender for every call. Used by the bloated SLOAD
+    benchmarks so the BAL builder can group nonce changes by sender
+    uniformly regardless of mode.
+    """
+    sender = pre.fund_eoa()
+    while True:
+        yield sender if not distinct_senders else pre.fund_eoa()
+
+
+def delegate_with_calldata(
+    pre: Alloc,
+    authority: EOA,
+    address: Address,
+    calldata: Hash,
+) -> Transaction:
+    """
+    Create a tx that delegates the authority and calls it with calldata.
+
+    The delegated code determines what happens with the calldata.
+    The authority nonce is incremented in-place.
+    """
+    tx = Transaction(
+        gas_limit=100_000,
+        to=authority,
+        value=0,
+        data=calldata,
+        sender=pre.fund_eoa(),
+        authorization_list=[
+            AuthorizationTuple(
+                chain_id=0,
+                address=address,
+                nonce=authority.nonce,
+                signer=authority,
+            ),
+        ],
+    )
+    authority.nonce = Number(authority.nonce + 1)
+    return tx
+
+
+def run_bloated_eoa_benchmark(
+    *,
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_benchmark_value: int,
+    tx_gas_limit: int,
+    authority: EOA,
+    existing_slots: bool,
+    runtime_code: Bytecode,
+    cache_strategy: CacheStrategy,
+) -> None:
+    """
+    Run a bloated-EOA benchmark with the given runtime delegation code.
+
+    Handles authority setup, slot 0 initialization, delegation to
+    runtime code, benchmark tx generation, and test invocation.
+    """
+    slot_0_value = Hash(1) if existing_slots else Hash(START_SLOT)
+
+    setter_address = pre.deploy_contract(code=Op.SSTORE(0, Op.CALLDATALOAD(0)))
+    runtime_address = pre.deploy_contract(code=runtime_code)
+
+    init_tx = delegate_with_calldata(
+        pre, authority, setter_address, slot_0_value
+    )
+    runtime_tx = delegate_with_calldata(
+        pre, authority, runtime_address, Hash(0)
+    )
+
+    blocks: list[Block] = [Block(txs=[init_tx, runtime_tx])]
+
+    gas_available = gas_benchmark_value
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
+    sender = pre.fund_eoa()
+
+    txs: list[Transaction] = []
+    with TestPhaseManager.execution():
+        while gas_available >= intrinsic_gas:
+            tx_gas = min(gas_available, tx_gas_limit)
+            txs.append(
+                Transaction(
+                    gas_limit=tx_gas,
+                    to=authority,
+                    sender=sender,
+                )
+            )
+            gas_available -= tx_gas
+
+    cache_txs: list[Transaction] = []
+    if cache_strategy == CacheStrategy.CACHE_PREVIOUS_BLOCK:
+        with TestPhaseManager.setup():
+            cache_sender = pre.fund_eoa()
+            for tx in txs:
+                cache_txs.append(
+                    Transaction(
+                        gas_limit=tx.gas_limit,
+                        to=authority,
+                        sender=cache_sender,
+                    )
+                )
+
+    blocks += build_cache_strategy_blocks(cache_strategy, txs, cache_txs)
+
+    benchmark_test(
+        pre=pre,
+        blocks=blocks,
+        skip_gas_used_validation=True,
+        expected_receipt_status=True,
+    )
+
+
+@pytest.mark.repricing
+@pytest.mark.stub_parametrize("token_name", "bloated_eoa_")
+@pytest.mark.parametrize("existing_slots", [False, True])
+@pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
+def test_sload_bloated(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_benchmark_value: int,
+    tx_gas_limit: int,
+    token_name: str,
+    existing_slots: bool,
+    cache_strategy: CacheStrategy,
+) -> None:
+    """
+    Benchmark SLOAD opcodes targeting an EOA with storage bloated.
+
+    The storage is assumed to be filled from 0-N linearly, where
+    each slot has the value of the key. If this is not the
+    storage layout of the target account, then the existing_slots
+    parameter will not be correct.
+    """
+    slot_access = (
+        Op.DUP1  # [index, index]
+        + Op.SLOAD  # [s[index], index]
+        + Op.POP  # [index]
+    )
+    # CACHE_TX: access each slot twice so the second hit is uncached
+    if cache_strategy == CacheStrategy.CACHE_TX:
+        slot_access *= 2
+
+    runtime_code = (
+        Op.PUSH0  # [0]
+        + Op.SLOAD  # [index], s[0] = index
+        + While(
+            body=(
+                slot_access
+                + Op.PUSH1(1)  # [1, index]
+                + Op.ADD  # [index+1]
+            ),
+            condition=Op.GT(Op.GAS, 0xFFFF),
+        )
+        + Op.PUSH0  # [0, index+1]
+        + Op.SSTORE  # s[0] = index+1
+    )
+
+    run_bloated_eoa_benchmark(
+        benchmark_test=benchmark_test,
+        pre=pre,
+        fork=fork,
+        gas_benchmark_value=gas_benchmark_value,
+        tx_gas_limit=tx_gas_limit,
+        authority=pre.stub_eoa(token_name),
+        existing_slots=existing_slots,
+        runtime_code=runtime_code,
+        cache_strategy=cache_strategy,
+    )
+
+
+@pytest.mark.stub_parametrize("token_name", "bloated_eoa_")
+@pytest.mark.parametrize("distinct_senders", [False, True])
+@pytest.mark.parametrize("existing_slots", [False, True])
+def test_sload_bloated_prefetch_miss(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_benchmark_value: int,
+    tx_gas_limit: int,
+    token_name: str,
+    existing_slots: bool,
+    distinct_senders: bool,
+) -> None:
+    """
+    Benchmark SLOAD with calldata-driven offsets to defeat prefetching.
+
+    A small first transaction writes an initial offset into the
+    authority's slot 0 via calldata. Subsequent max-gas transactions
+    each read the previous offset from slot 0, immediately overwrite
+    slot 0 with a new offset from their own calldata, then SLOAD
+    sequentially from the previous offset. Because each transaction's
+    SLOAD range depends on state written by its predecessor, a
+    prefetcher that predicts SLOAD targets from pre-block state
+    without simulating intra-block writes will pre-warm incorrect
+    storage slots. The minimal first tx is load-bearing: it lives
+    inside the benchmark block so every subsequent max-gas tx reads
+    a slot 0 value that differs from the prefetcher's pre-block
+    snapshot, achieving a 100% miss rate.
+
+    When ``distinct_senders`` is True every transaction uses a fresh
+    sender. This additionally defeats per-sender prewarm
+    serialization (e.g. Nethermind) that groups txs by sender and
+    runs them sequentially to propagate state changes — forcing
+    every tx's prewarm scope to restart from pre-block state.
+    """
+    # Runtime: read old offset from slot 0, write new offset from
+    # calldata to slot 0, then SLOAD sequentially from old offset.
+    runtime_code = (
+        Op.SLOAD(Op.PUSH0)
+        + Op.SSTORE(Op.PUSH0, Op.CALLDATALOAD(Op.PUSH0))
+        + While(
+            body=(Op.DUP1 + Op.SLOAD + Op.POP + Op.PUSH1(1) + Op.ADD),
+            condition=Op.GT(Op.GAS, 0xFFFF),
+        )
+    )
+
+    authority = pre.stub_eoa(token_name)
+    runtime_address = pre.deploy_contract(code=runtime_code)
+
+    # Setup: delegate authority to the runtime contract. Slot 0 is
+    # left at 0 (the delegation tx's calldata) so the benchmark
+    # block's pre-state has slot 0 = 0; the first benchmark tx
+    # then plants base_offset in slot 0 inside the benchmark block,
+    # forcing the prefetcher's pre-block snapshot to disagree with
+    # the actual slot 0 value seen by every max-gas tx that follows.
+    delegation_tx = delegate_with_calldata(
+        pre, authority, runtime_address, Hash(0)
+    )
+
+    blocks: list[Block] = [Block(txs=[delegation_tx])]
+
+    # Offset spacing: upper bound on SLOADs per tx ensures each
+    # transaction reads a completely disjoint slot range.
+    max_sloads_per_tx = _max_sloads_per_tx(tx_gas_limit, fork)
+
+    # The base offset must be at least max_sloads_per_tx away from
+    # the pre-block slot 0 value (0) so the prefetcher's predicted
+    # SLOAD range is completely disjoint from the actual range.
+    base_offset = max_sloads_per_tx if existing_slots else START_SLOT
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        calldata=b"\xff" * 32,
+    )
+
+    # senders_iter yields one sender per tx (fresh per call in
+    # distinct mode, a single shared sender otherwise). The senders
+    # list collects one entry per tx so the BAL builder below can
+    # group nonce changes by sender uniformly.
+    senders_iter = _sender_generator(pre, distinct_senders)
+    senders: list[EOA] = []
+
+    gas_available = gas_benchmark_value
+    txs: list[Transaction] = []
+
+    # First transaction: minimal gas, only writes the initial
+    # offset. Gas limit ensures remaining gas after the SLOAD +
+    # SSTORE setup falls below the 0xFFFF loop threshold so the
+    # SLOAD loop does not run. This tx's job is to change slot 0
+    # inside the benchmark block so every subsequent max-gas tx
+    # reads an offset the prefetcher's pre-block snapshot does
+    # not see, achieving a 100% prefetch miss rate on max-gas txs.
+    first_tx_gas = min(gas_available, intrinsic_gas + 30_000)
+    sender = next(senders_iter)
+    senders.append(sender)
+    txs.append(
+        Transaction(
+            gas_limit=first_tx_gas,
+            to=authority,
+            data=Hash(base_offset),
+            sender=sender,
+        )
+    )
+    gas_available -= first_tx_gas
+
+    # Subsequent transactions: max gas, each shifts the offset
+    # so the next transaction SLOADs from a different range.
+    tx_index = 1
+    while gas_available >= intrinsic_gas:
+        tx_gas = min(gas_available, tx_gas_limit)
+        new_offset = base_offset + tx_index * max_sloads_per_tx
+        sender = next(senders_iter)
+        senders.append(sender)
+        txs.append(
+            Transaction(
+                gas_limit=tx_gas,
+                to=authority,
+                data=Hash(new_offset),
+                sender=sender,
+            )
+        )
+        gas_available -= tx_gas
+        tx_index += 1
+
+    expectations: dict[Address, BalAccountExpectation] = {
+        authority: BalAccountExpectation(
+            storage_reads=[base_offset],
+            storage_changes=[
+                BalStorageSlot(
+                    slot=0,
+                    validate_any_change=True,
+                ),
+            ],
+        ),
+    }
+    sender_nonces: dict[Address, list[BalNonceChange]] = {}
+    for i, s in enumerate(senders):
+        changes = sender_nonces.setdefault(s, [])
+        changes.append(
+            BalNonceChange(
+                block_access_index=i + 1,
+                post_nonce=len(changes) + 1,
+            )
+        )
+    for addr, nonces in sender_nonces.items():
+        expectations[addr] = BalAccountExpectation(nonce_changes=nonces)
+    blocks.append(
+        Block(
+            txs=txs,
+            expected_block_access_list=BlockAccessListExpectation(
+                account_expectations=expectations,
+            ),
+        )
+    )
+
+    benchmark_test(
+        pre=pre,
+        blocks=blocks,
+        skip_gas_used_validation=True,
+        expected_receipt_status=True,
+    )
+
+
+@pytest.mark.parametrize("distinct_senders", [False, True])
+@pytest.mark.parametrize("existing_slots", [False, True])
+def test_sload_bloated_multi_contract(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_benchmark_value: int,
+    tx_gas_limit: int,
+    existing_slots: bool,
+    distinct_senders: bool,
+) -> None:
+    """
+    Benchmark SLOAD across a distinct contract per transaction.
+
+    Each transaction calls a freshly-deployed contract whose slot 0
+    is pre-loaded with the starting offset; the contract then runs a
+    SLOAD loop over sequential slots until gas runs low. Unlike
+    test_sload_bloated_prefetch_miss which hammers one account's
+    storage trie via an EIP-7702 delegated EOA, every transaction
+    here opens a different storage trie, stressing cross-account
+    state access and state-trie breadth in a single block.
+
+    Every target contract first CALLs a shared offset_holder
+    contract whose slot 0 is read, incremented, and written back.
+    This mirrors the first test's "same-contract slot 0" dependency
+    pattern via cross-contract CALL: every transaction forms a
+    read-after-write edge on offset_holder's slot 0, preventing
+    parallel execution.
+
+    When ``distinct_senders`` is True every transaction uses a fresh
+    sender. This additionally exercises per-sender prewarm
+    serialization (e.g. Nethermind) differently than the shared-
+    sender case; we run both so clients can be measured in both
+    regimes.
+    """
+    # Shared offset_holder: reads, increments, and writes its own
+    # slot 0. Every target CALLs this to create an inter-tx RAW
+    # dependency chain on a single shared storage slot.
+    offset_holder = pre.deploy_contract(
+        code=Op.SSTORE(0, Op.ADD(Op.SLOAD(0), 1)),
+    )
+
+    # Target runtime: CALL offset_holder (for the dependency), then
+    # run the same SLOAD loop as test_sload_bloated in its own
+    # storage. Final counter is written back to slot 0.
+    runtime_code = (
+        Op.POP(
+            Op.CALL(
+                address=offset_holder,
+            )
+        )
+        + Op.SLOAD(Op.PUSH0)
+        + While(
+            body=(Op.DUP1 + Op.SLOAD + Op.POP + Op.PUSH1(1) + Op.ADD),
+            condition=Op.GT(Op.GAS, 0xFFFF),
+        )
+        + Op.PUSH0
+        + Op.SSTORE
+    )
+
+    base_offset = 1 if existing_slots else START_SLOT
+    max_sloads_per_tx = _max_sloads_per_tx(tx_gas_limit, fork)
+
+    # Pre-load slot 0 with the starting offset. For existing_slots,
+    # also fill the slot range the loop will read so SLOADs land on
+    # populated entries rather than empty slots. A fresh Storage
+    # instance is built per deployment (below) so that every target
+    # gets an independent root dict, not an alias of the same one.
+    storage_data: Storage.StorageDictType = {0: base_offset}
+    if existing_slots:
+        for i in range(base_offset, base_offset + max_sloads_per_tx):
+            storage_data[i] = i
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
+    # Minimum per-tx gas ensuring the SLOAD loop runs at least one
+    # iteration so every target satisfies storage_reads=[base_offset]:
+    # intrinsic + CALL + offset_holder + setup + 0xFFFF loop threshold
+    # + one iteration + final SSTORE, with buffer.
+    min_tx_gas = intrinsic_gas + 130_000
+
+    # senders_iter yields one sender per tx (fresh per call in
+    # distinct mode, a single shared sender otherwise). The senders
+    # list collects one entry per tx so the BAL builder below can
+    # group nonce changes by sender uniformly.
+    senders_iter = _sender_generator(pre, distinct_senders)
+    senders: list[EOA] = []
+
+    gas_available = gas_benchmark_value
+    targets: list[Address] = []
+    txs: list[Transaction] = []
+
+    # Each tx targets a freshly-deployed contract with identical code
+    # and storage layout.
+    while gas_available >= min_tx_gas:
+        tx_gas = min(gas_available, tx_gas_limit)
+        target = pre.deploy_contract(
+            code=runtime_code,
+            storage=Storage(storage_data),
+        )
+        targets.append(target)
+        sender = next(senders_iter)
+        senders.append(sender)
+        txs.append(
+            Transaction(
+                gas_limit=tx_gas,
+                to=target,
+                sender=sender,
+            )
+        )
+        gas_available -= tx_gas
+
+    expectations: dict[Address, BalAccountExpectation] = {
+        offset_holder: BalAccountExpectation(
+            storage_changes=[
+                BalStorageSlot(
+                    slot=0,
+                    validate_any_change=True,
+                ),
+            ],
+        ),
+    }
+    for t in targets:
+        expectations[t] = BalAccountExpectation(
+            storage_reads=[base_offset],
+            storage_changes=[
+                BalStorageSlot(
+                    slot=0,
+                    validate_any_change=True,
+                ),
+            ],
+        )
+    sender_nonces: dict[Address, list[BalNonceChange]] = {}
+    for i, s in enumerate(senders):
+        changes = sender_nonces.setdefault(s, [])
+        changes.append(
+            BalNonceChange(
+                block_access_index=i + 1,
+                post_nonce=len(changes) + 1,
+            )
+        )
+    for addr, nonces in sender_nonces.items():
+        expectations[addr] = BalAccountExpectation(nonce_changes=nonces)
+
+    blocks = [
+        Block(
+            txs=txs,
+            expected_block_access_list=BlockAccessListExpectation(
+                account_expectations=expectations,
+            ),
+        )
+    ]
+
+    benchmark_test(
+        pre=pre,
+        blocks=blocks,
+        skip_gas_used_validation=True,
+        expected_receipt_status=True,
+    )
+
+
+@pytest.mark.repricing
+@pytest.mark.stub_parametrize("token_name", "bloated_eoa_")
+@pytest.mark.parametrize("write_new_value", [False, True])
+@pytest.mark.parametrize("existing_slots", [True, False])
+@pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
+def test_sstore_bloated(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_benchmark_value: int,
+    tx_gas_limit: int,
+    token_name: str,
+    write_new_value: bool,
+    existing_slots: bool,
+    cache_strategy: CacheStrategy,
+) -> None:
+    """
+    Benchmark SSTORE opcodes targeting an EOA with storage bloated.
+
+    The storage is assumed to be filled from 0-N linearly, where
+    each slot has the value of the key. Except slot 0, this is the
+    pointer to the next free (empty) storage slot.
+
+    For this test to work correctly under all parameters then above
+    has to be true. If this is not the case then some tests will not
+    test what they claim to do. For instance, for `write_new_value`
+    set to False we need to know the current value of the slots.
+    """
+    setup = (
+        Op.PUSH0  # [0]
+        + Op.SLOAD  # [key], s[0] = key
+        + Op.DUP1  # [key, key]
+    )
+
+    if write_new_value:
+        setup += (
+            Op.PUSH1(1)  # [1, key, key]
+            + Op.ADD  # [key+1, key]
+            + Op.SWAP1  # [key, key+1]
+        )
+
+    # After setup phase, the stack element represents
+    # [slot, value], slot to write and value to write
+
+    cache_op = Bytecode()
+    if cache_strategy == CacheStrategy.CACHE_TX:
+        cache_op = (
+            Op.DUP1  # [slot, slot, value]
+            + Op.SLOAD  # [s[slot], slot, value]
+            + Op.POP  # [slot, value]
+        )
+
+    # The cache mechanism touches the slot before SSTORE
+
+    runtime_code = (
+        setup
+        + While(
+            body=(
+                cache_op  # [slot, value]
+                + Op.DUP2  # [value, slot, value]
+                + Op.DUP2  # [slot, value, slot, value]
+                + Op.SSTORE  # [slot, value], s[slot] = value
+                + Op.PUSH1(1)  # [1, slot, value]
+                + Op.ADD  # [slot+1, value]
+                + Op.SWAP1  # [value, slot+1]
+                + Op.PUSH1(1)  # [1, value, slot+1]
+                + Op.ADD  # [value+1, slot+1]
+                + Op.SWAP1  # [slot+1, value+1]
+            ),
+            condition=Op.GT(Op.GAS, 0xFFFF),
+        )
+        + Op.PUSH0  # [0, slot+1, value+1]
+        + Op.SSTORE  # s[0] = slot+1
+    )
+
+    run_bloated_eoa_benchmark(
+        benchmark_test=benchmark_test,
+        pre=pre,
+        fork=fork,
+        gas_benchmark_value=gas_benchmark_value,
+        tx_gas_limit=tx_gas_limit,
+        authority=pre.stub_eoa(token_name),
+        existing_slots=existing_slots,
+        runtime_code=runtime_code,
+        cache_strategy=cache_strategy,
+    )
 
 
 @pytest.mark.stub_parametrize(
@@ -191,176 +792,6 @@ def test_sload_erc20_generic(
 #   - Simulates real-world contract state accumulation over time
 
 
-@pytest.mark.repricing
-@pytest.mark.stub_parametrize(
-    "erc20_stub", "test_sload_empty_erc20_balanceof_"
-)
-@pytest.mark.parametrize("existing_slots", [False, True])
-@pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
-def test_sload_erc20_balanceof(
-    benchmark_test: BenchmarkTestFiller,
-    pre: Alloc,
-    fork: Fork,
-    gas_benchmark_value: int,
-    tx_gas_limit: int,
-    erc20_stub: str,
-    existing_slots: bool,
-    cache_strategy: CacheStrategy,
-) -> None:
-    """Benchmark SLOAD using ERC20 balanceOf on bloatnet."""
-    # Stub Account
-    erc20_address = pre.deploy_contract(
-        code=Bytecode(),
-        stub=erc20_stub,
-    )
-
-    # MEM[0] = function selector
-    # MEM[32] = starting address offset
-    setup = (
-        Op.MSTORE(
-            0,
-            BALANCEOF_SELECTOR,
-            # gas accounting
-            old_memory_size=0,
-            new_memory_size=32,
-        )
-        + Op.MSTORE(
-            32,
-            Op.CALLDATALOAD(32),  # Address Offset
-            # gas accounting
-            old_memory_size=32,
-            new_memory_size=64,
-        )
-        + Op.CALLDATALOAD(0)  # [num_calls]
-    )
-
-    call_balance_of = Op.POP(
-        Op.CALL(
-            address=erc20_address,
-            value=0,
-            args_offset=32 - 4,
-            args_size=32 + 4,
-            ret_offset=0,
-            ret_size=0,
-            # gas accounting
-            address_warm=True,
-        )
-    )
-
-    cache_loop = (
-        call_balance_of
-        if cache_strategy == CacheStrategy.CACHE_TX
-        else Bytecode()
-    )
-
-    loop = While(
-        body=call_balance_of
-        # Do the same call again for the cached variant
-        + cache_loop
-        + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
-        condition=DECREMENT_COUNTER_CONDITION,
-    )
-
-    # Contract Deployment
-    code = setup + loop
-    attack_contract_address = pre.deploy_contract(code=code)
-
-    # Gas Accounting
-    setup_cost = setup.gas_cost(fork)
-    loop_cost = loop.gas_cost(fork)
-
-    access_list = [AccessList(address=erc20_address, storage_keys=[])]
-    intrinsic_gas_with_access_list = (
-        fork.transaction_intrinsic_cost_calculator()(
-            access_list=access_list,
-            calldata=b"\xff" * 64,
-        )
-    )
-
-    # ERC20 balanceOf bytecode structure:
-    function_dispatch = (
-        # Selector dispatch
-        Op.PUSH4(BALANCEOF_SELECTOR)
-        + Op.EQ
-        + Op.JUMPI
-        # Function body
-        + Op.JUMPDEST
-        + Op.MSTORE(0, Op.CALLDATALOAD(4))
-        + Op.MSTORE(32, 0)
-        + Op.MSTORE(
-            0,
-            Op.SLOAD(
-                Op.SHA3(
-                    0,
-                    64,
-                    # gas accounting
-                    data_size=64,
-                    old_memory_size=0,
-                    new_memory_size=64,
-                )
-            ),
-        )
-        + Op.RETURN(0, 32)
-    )
-
-    function_dispatch_cost = function_dispatch.gas_cost(fork)
-
-    # Transaction Loops
-    txs = []
-    cache_txs = []
-    gas_remaining = gas_benchmark_value
-    # Start offset
-    slot_offset = 1 if existing_slots else START_SLOT
-
-    while gas_remaining > intrinsic_gas_with_access_list:
-        gas_available = min(gas_remaining, tx_gas_limit)
-
-        if gas_available < intrinsic_gas_with_access_list + setup_cost:
-            break
-
-        num_calls = (
-            gas_available - intrinsic_gas_with_access_list - setup_cost
-        ) // (function_dispatch_cost + loop_cost)
-
-        if num_calls == 0:
-            break
-
-        calldata = Hash(num_calls) + Hash(slot_offset)
-
-        if cache_strategy == CacheStrategy.CACHE_PREVIOUS_BLOCK:
-            with TestPhaseManager.setup():
-                # For block-level caching,
-                # we need to warm the slot in a separate transaction
-                cache_txs.append(
-                    Transaction(
-                        gas_limit=gas_available,
-                        data=calldata,
-                        to=attack_contract_address,
-                        sender=pre.fund_eoa(),
-                        access_list=access_list,
-                    )
-                )
-
-        with TestPhaseManager.execution():
-            txs.append(
-                Transaction(
-                    gas_limit=gas_available,
-                    data=calldata,
-                    to=attack_contract_address,
-                    sender=pre.fund_eoa(),
-                    access_list=access_list,
-                )
-            )
-
-        gas_remaining -= gas_available
-        slot_offset += num_calls
-
-    blocks = build_cache_strategy_blocks(cache_strategy, txs, cache_txs)
-    # FIXME: this should not use gas validation as this one should OOG
-    # If it does not OOG, the gas calculation is too high, it should be too low
-    benchmark_test(pre=pre, blocks=blocks, skip_gas_used_validation=True)
-
-
 @pytest.mark.stub_parametrize("erc20_stub", "test_sstore_erc20_approve_")
 def test_sstore_erc20_generic(
     benchmark_test: BenchmarkTestFiller,
@@ -449,519 +880,6 @@ def test_sstore_erc20_generic(
         blocks=blocks,
         skip_gas_used_validation=True,
         expected_receipt_status=True,
-    )
-
-
-@pytest.mark.repricing
-@pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
-@pytest.mark.stub_parametrize("erc20_stub", "test_sstore_erc20_approve_")
-@pytest.mark.parametrize("write_new_value", [False, True])
-@pytest.mark.parametrize("existing_slot", [True, False])
-def test_sstore_erc20_approve(
-    benchmark_test: BenchmarkTestFiller,
-    pre: Alloc,
-    fork: Fork,
-    gas_benchmark_value: int,
-    tx_gas_limit: int,
-    erc20_stub: str,
-    write_new_value: bool,
-    existing_slot: bool,
-    cache_strategy: CacheStrategy,
-) -> None:
-    """Benchmark SSTORE using ERC20 approve on bloatnet."""
-    sender = EOA(
-        key=0x90655B60A56E01389173510C3DDF1B969803A9F41844BF344CBF3D1AC3A80845,
-        # nonce fetched from the pre-deployed state on the network
-        nonce=45344,
-    )
-    pre.fund_address(address=sender, amount=10**9)
-    assert Address(sender) == Address(
-        0x6C2624662DC514A69955E9A6A195ECE23ACED5A0
-    ), "EOA address mismatch"
-
-    # Stub Account
-    erc20_address = pre.deploy_contract(
-        code=Bytecode(),
-        stub=erc20_stub,
-    )
-
-    # MEM[0] = function selector
-    # MEM[32] = starting address offset
-    setup = (
-        Op.MSTORE(
-            0,
-            APPROVE_SELECTOR,
-            # gas accounting
-            old_memory_size=0,
-            new_memory_size=32,
-        )
-        + Op.MSTORE(
-            32,
-            Op.CALLDATALOAD(32),  # Address Offset
-            # gas accounting
-            old_memory_size=32,
-            new_memory_size=64,
-        )
-        + Op.CALLDATALOAD(0)  # [num_calls]
-    )
-
-    value_to_write: Bytecode | int
-    if write_new_value:
-        # non-zero, avoids refund and always differs from existing values
-        value_to_write = 1
-    else:
-        value_to_write = Op.MLOAD(32) if existing_slot else 0
-
-    call_approve = Op.MSTORE(64, value_to_write) + Op.POP(
-        Op.CALL(
-            address=erc20_address,
-            value=0,
-            args_offset=28,
-            args_size=68,
-            ret_offset=0,
-            ret_size=0,
-            # gas accounting
-            address_warm=True,
-        )
-    )
-
-    cache_warmup = Bytecode()
-    if cache_strategy == CacheStrategy.CACHE_TX:
-        # Call allowance(ADDRESS, spender) to warm the allowance
-        # storage slot that approve will later write to.
-        # Memory: save spender→[64], put ADDRESS→[32],
-        # set allowance selector, call, then restore.
-        cache_warmup = (
-            Op.MSTORE(64, Op.MLOAD(32))
-            + Op.MSTORE(32, Op.ADDRESS)
-            + Op.MSTORE(0, ALLOWANCE_SELECTOR)
-            + Op.POP(
-                Op.CALL(
-                    address=erc20_address,
-                    value=0,
-                    args_offset=28,
-                    args_size=68,
-                    ret_offset=0,
-                    ret_size=0,
-                    # gas accounting
-                    address_warm=True,
-                )
-            )
-            + Op.MSTORE(0, APPROVE_SELECTOR)
-            + Op.MSTORE(32, Op.MLOAD(64))
-        )
-
-    loop = While(
-        body=cache_warmup
-        + call_approve
-        + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
-        condition=DECREMENT_COUNTER_CONDITION,
-    )
-
-    # Contract Deployment
-    code = setup + loop
-    attack_contract_address = pre.deploy_contract(code=code)
-
-    # Gas Accounting
-    setup_cost = setup.gas_cost(fork)
-    loop_cost = loop.gas_cost(fork)
-    access_list = [AccessList(address=erc20_address, storage_keys=[])]
-    # Delegate sender to attack_contract_address once in setup
-    delegation_tx = Transaction(
-        gas_limit=100_000,
-        to=sender,
-        value=0,
-        sender=pre.fund_eoa(),
-        authorization_list=[
-            AuthorizationTuple(
-                chain_id=0,
-                address=attack_contract_address,
-                nonce=sender.nonce,
-                signer=sender,
-            ),
-        ],
-    )
-    sender.nonce = Number(sender.nonce + 1)
-    intrinsic_gas_with_access_list = (
-        fork.transaction_intrinsic_cost_calculator()(
-            access_list=access_list,
-            calldata=b"\xff" * 64,
-        )
-    )
-
-    # This dispatch is something close to the minimal amount
-    # of code to run for a contract only implementing approve
-    # It will therefore greatly underestimate the gas of any ERC20
-    # contract because all of them have much more overhead in practice
-    # (also function selector at the entry point of the contract)
-    function_dispatch = (
-        # Selector dispatch
-        Op.PUSH4(APPROVE_SELECTOR)
-        + Op.EQ
-        + Op.JUMPI
-        # Function body
-        + Op.JUMPDEST
-        + Op.CALLDATALOAD(4)
-        + Op.CALLDATALOAD(36)
-        + Op.MSTORE(0, Op.CALLER)
-        + Op.MSTORE(32, 1)
-        + Op.MSTORE(
-            32,
-            Op.SHA3(
-                0,
-                64,
-                # gas accounting
-                data_size=64,
-                old_memory_size=0,
-                new_memory_size=64,
-            ),
-        )
-        + Op.MSTORE(0, Op.CALLDATALOAD(4))
-        + Op.SHA3(
-            0,
-            64,
-            # gas accounting
-            data_size=64,
-        )
-        + (
-            Op.DUP1
-            + Op.SLOAD.with_metadata(key_warm=False)
-            + Op.POP
-            + Op.SSTORE.with_metadata(key_warm=True)
-            if cache_strategy == CacheStrategy.CACHE_TX
-            else Op.SSTORE.with_metadata(key_warm=False)
-        )
-        # Return true
-        + Op.MSTORE(0, 1)
-        + Op.RETURN(0, 32)
-    )
-
-    function_dispatch_cost = function_dispatch.gas_cost(fork)
-
-    with TestPhaseManager.setup():
-        delegation_block = Block(txs=[delegation_tx])
-
-    if cache_strategy == CacheStrategy.CACHE_TX:
-        # Add allowance dispatch cost for the warmup call.
-        # allowance(owner, spender) computes the same double-
-        # keccak slot as approve but does SLOAD + RETURN.
-        function_dispatch_allowance = (
-            Op.PUSH4(ALLOWANCE_SELECTOR)
-            + Op.EQ
-            + Op.JUMPI
-            + Op.JUMPDEST
-            + Op.CALLDATALOAD(4)
-            + Op.CALLDATALOAD(36)
-            + Op.MSTORE(0, Op.CALLDATALOAD(4))
-            + Op.MSTORE(32, 1)
-            + Op.MSTORE(
-                32,
-                Op.SHA3(
-                    0,
-                    64,
-                    # gas accounting
-                    data_size=64,
-                    old_memory_size=0,
-                    new_memory_size=64,
-                ),
-            )
-            + Op.MSTORE(0, Op.CALLDATALOAD(36))
-            + Op.SHA3(
-                0,
-                64,
-                # gas accounting
-                data_size=64,
-            )
-            + Op.SLOAD
-            + Op.PUSH0
-            + Op.MSTORE
-            + Op.RETURN(0, 32)
-        )
-        function_dispatch_cost += function_dispatch_allowance.gas_cost(fork)
-
-    # Transaction Loops
-    gas_remaining = gas_benchmark_value
-    # This sender is a stub account, the first initialized
-    # slot is 371 on perfnet. The initialized slots range
-    # is 371-45139; existing slots fall within that range.
-    slot_offset = 371 if existing_slot else START_SLOT
-
-    # Collect tx params first, then build Transaction objects
-    # so that nonces are allocated contiguously per block.
-    tx_params: list[tuple[int, bytes]] = []
-    while gas_remaining > intrinsic_gas_with_access_list:
-        gas_available = min(gas_remaining, tx_gas_limit)
-
-        if gas_available < intrinsic_gas_with_access_list + setup_cost:
-            break
-
-        num_calls = (
-            gas_available - intrinsic_gas_with_access_list - setup_cost
-        ) // (function_dispatch_cost + loop_cost)
-
-        if num_calls == 0:
-            break
-
-        calldata = Hash(num_calls) + Hash(slot_offset)
-        tx_params.append((gas_available, calldata))
-
-        gas_remaining -= gas_available
-        slot_offset += num_calls
-
-    cache_txs = []
-    if cache_strategy == CacheStrategy.CACHE_PREVIOUS_BLOCK:
-        with TestPhaseManager.setup():
-            for gas_available, calldata in tx_params:
-                cache_txs.append(
-                    Transaction(
-                        gas_limit=gas_available,
-                        data=calldata,
-                        to=sender,
-                        sender=sender,
-                        access_list=access_list,
-                    )
-                )
-
-    txs = []
-    with TestPhaseManager.execution():
-        for gas_available, calldata in tx_params:
-            txs.append(
-                Transaction(
-                    gas_limit=gas_available,
-                    data=calldata,
-                    to=sender,
-                    sender=sender,
-                    access_list=access_list,
-                )
-            )
-
-    blocks = [delegation_block] + build_cache_strategy_blocks(
-        cache_strategy, txs, cache_txs
-    )
-    # TODO: this test can currently not estimate the gas used
-    # It will also overestimate the num_calls it can make to an unknown
-    # ERC20 contract and will therefore OOG
-    # (this actually passes the gas check as it consumes all gas and
-    # thus also the expected gas)
-    # TODO: find out how to tackle this. We do not want to OOG
-    # because the state root is part of the calculation
-    # NOTE: this is not crucial for gas repricing tests
-    # as the mint variant is used there.
-    benchmark_test(
-        pre=pre, blocks=blocks, skip_gas_used_validation=True
-    )  # FIXME: temp skips
-
-
-def build_call_memory_setup(
-    selector: int,
-    *args: Bytecode | int,
-) -> Bytecode:
-    """
-    Build ABI-encoded memory layout for a contract call.
-
-    MEM[0]  = selector (4 bytes, right-aligned in 32-byte word)
-    MEM[32] = args[0]
-    MEM[64] = args[1]  ...
-    """
-    bytecode = Op.MSTORE(
-        0,
-        selector,
-        old_memory_size=0,
-        new_memory_size=32,
-    )
-    for i, arg in enumerate(args):
-        offset = 32 * (i + 1)
-        bytecode += Op.MSTORE(
-            offset,
-            arg,
-            old_memory_size=offset,
-            new_memory_size=offset + 32,
-        )
-    return bytecode
-
-
-def build_external_call(
-    address: Address,
-    num_args: int,
-    *,
-    address_warm: bool = True,
-) -> Bytecode:
-    """
-    Build POP(CALL(...)) using standard ABI memory layout at offset 0.
-
-    args_offset = 28 (selector at byte 28 of the 32-byte word)
-    args_size   = 4 + 32 * num_args
-    """
-    return Op.POP(
-        Op.CALL(
-            address=address,
-            value=0,
-            args_offset=32 - 4,
-            args_size=4 + 32 * num_args,
-            ret_offset=0,
-            ret_size=0,
-            address_warm=address_warm,
-        )
-    )
-
-
-@pytest.mark.repricing
-@pytest.mark.stub_parametrize("erc20_stub", "test_sstore_erc20_mint_")
-@pytest.mark.parametrize("existing_slots", [False, True])
-@pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
-@pytest.mark.parametrize("no_change", [False, True])
-def test_sstore_erc20_mint(
-    benchmark_test: BenchmarkTestFiller,
-    pre: Alloc,
-    fork: Fork,
-    gas_benchmark_value: int,
-    tx_gas_limit: int,
-    erc20_stub: str,
-    existing_slots: bool,
-    cache_strategy: CacheStrategy,
-    no_change: bool,
-) -> None:
-    """
-    Benchmark SSTORE using ERC20 mint on bloatnet.
-    This targets very specific code and is meant to be
-    temporary for the gas repricings effort, to be replaced
-    by a robust benchmark which does not depend on specific
-    conditions like in this benchmark.
-    This contract calls mint() on an ERC20 contract
-    which supports the mint() function. It is intended
-    to be used with ERC20 contracts bloated via bloatStorage.
-    The mint will increase the total supply and the target account.
-    """
-    # The gas threshold is the minimum amount necessary
-    # of gas to re-enter the While loop.
-    # This must be high enough to ensure the tx
-    # does not go out-of-gas.
-    # This can be improved to an actual value by calculating
-    # the gas used of the second call to the unknown ERC20 contract
-    # and then adding the gas used for the code after the loop
-    # (this can be calculated) as extra.
-    gas_threshold = 100_000
-
-    # Storage key to read and write address pointer to
-    slot_offset = 0
-
-    # Start slot
-    start_slot = 1 if existing_slots else START_SLOT
-
-    # Stub Account
-    erc20_address = pre.deploy_contract(
-        code=Bytecode(),
-        stub=erc20_stub,
-    )
-
-    mint_amount = 0 if no_change else 1
-
-    # MEM[0] = function selector
-    # MEM[32] = target address
-    # MEM[64] = mint amount
-    mint_mem_setup = build_call_memory_setup(
-        MINT_SELECTOR, Op.SLOAD(slot_offset), mint_amount
-    )
-    mint_erc20_call = build_external_call(erc20_address, 2)
-
-    # MEM[0] = function selector
-    # MEM[32] = target address
-    balance_mem_setup = build_call_memory_setup(
-        BALANCEOF_SELECTOR, Op.SLOAD(slot_offset)
-    )
-    balance_erc20_call = build_external_call(erc20_address, 1)
-
-    attack_code = mint_erc20_call
-    if cache_strategy == CacheStrategy.CACHE_TX:
-        # Warm up storage slot via balanceOf
-        attack_code = (
-            Op.MSTORE(0, BALANCEOF_SELECTOR)
-            + balance_erc20_call
-            + Op.MSTORE(0, MINT_SELECTOR)
-            + mint_erc20_call
-        )
-
-    loop_code = While(
-        body=attack_code + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
-        condition=Op.GT(Op.GAS, gas_threshold),
-    )
-
-    cleanup = Op.SSTORE(slot_offset, Op.MLOAD(32))
-
-    # Contract Deployment
-    attack_code = mint_mem_setup + loop_code + cleanup
-    attack_contract_address = pre.deploy_contract(
-        code=attack_code,
-        storage={slot_offset: start_slot},
-    )
-
-    prewarm_contract_address = attack_contract_address
-    if cache_strategy == CacheStrategy.CACHE_PREVIOUS_BLOCK:
-        # TODO: calls balanceOf in previous block because
-        # mint will change the balance of the account
-        # This will SLOAD it in previous block and should
-        # put this into cache.
-        # Alternatively could also call mint(addr,0)
-        # on that. Not sure which is better.
-        # Call mint(addr, 0) because a nonzero value would
-        # edit the value, and would also create a slot
-        # if it was non-existent before. In attack block
-        # in non-existent test it would then suddenly
-        # be existent which is not the target scenario there.
-        warmup_setup = balance_mem_setup
-
-        warmup_attack_loop = While(
-            body=balance_erc20_call + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
-            condition=Op.GT(Op.GAS, gas_threshold),
-        )
-
-        warmup_block = warmup_setup + warmup_attack_loop + cleanup
-
-        prewarm_contract_address = pre.deploy_contract(
-            code=warmup_block,
-            storage={slot_offset: start_slot},
-        )
-
-    # Transaction Loops
-    gas_limits = []
-    gas_remaining = gas_benchmark_value
-    intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()()
-    while gas_remaining >= intrinsic_gas_cost + gas_threshold:
-        gas_limit = min(gas_remaining, tx_gas_limit)
-        gas_limits.append(gas_limit)
-        gas_remaining -= gas_limit
-
-    cache_txs: List[Transaction] = []
-    if cache_strategy == CacheStrategy.CACHE_PREVIOUS_BLOCK:
-        with TestPhaseManager.setup():
-            cache_txs = [
-                Transaction(
-                    gas_limit=g,
-                    to=prewarm_contract_address,
-                    sender=pre.fund_eoa(),
-                )
-                for g in gas_limits
-            ]
-
-    with TestPhaseManager.execution():
-        txs = [
-            Transaction(
-                gas_limit=g, to=attack_contract_address, sender=pre.fund_eoa()
-            )
-            for g in gas_limits
-        ]
-
-    blocks = build_cache_strategy_blocks(cache_strategy, txs, cache_txs)
-
-    benchmark_test(
-        pre=pre,
-        blocks=blocks,
-        # NOTE: this specifically targets bloatnet code so the
-        # gas calculation could technically be done by inlining
-        # the bytecode. This test is temporary and will be removed
-        # after (or during) gas repricing effort is done. See
-        # https://github.com/ethereum/execution-specs/issues/2411
-        skip_gas_used_validation=True,
     )
 
 
@@ -1842,7 +1760,6 @@ def test_account_access(
         attack_call = Op.POP(
             opcode(
                 address=address_retriever.address_op(),
-                gas=1,
                 value=value_sent,
                 # Gas accounting
                 address_warm=access_warm,
@@ -1855,8 +1772,6 @@ def test_account_access(
         attack_call = Op.POP(
             opcode(
                 address=address_retriever.address_op(),
-                gas=1,
-                args_size=1024,
                 # Gas accounting
                 address_warm=access_warm,
             )
@@ -1873,6 +1788,7 @@ def test_account_access(
 
     loop_code = While(
         body=cache_op + attack_call + increment_op,
+        condition=Op.GT(Op.GAS, 0x9000) if value_sent > 0 else None,
     )
 
     attack_code = IteratingBytecode(
@@ -1884,9 +1800,13 @@ def test_account_access(
     )
 
     # Calldata generator for each transaction of the iterating bytecode.
+    # Start from 1 to skip the Bittrex Controller's nonce=1 contract
+    # which has a non-payable fallback that reverts when receiving value.
+    calldata_offset = 1 if account_mode == AccountMode.EXISTING_CONTRACT else 0
+
     def calldata(iteration_count: int, start_iteration: int) -> bytes:
         del iteration_count
-        return Hash(start_iteration)
+        return Hash(start_iteration + calldata_offset)
 
     attack_address = pre.deploy_contract(code=attack_code, balance=10**21)
 
@@ -1915,7 +1835,6 @@ def test_account_access(
                     calldata=calldata,
                 )
             )
-        total_gas_cost = sum(tx.gas_cost for tx in attack_txs)
 
     if cache_strategy == CacheStrategy.CACHE_PREVIOUS_BLOCK:
         with TestPhaseManager.setup():
@@ -1941,5 +1860,6 @@ def test_account_access(
         post=post,
         blocks=blocks,
         target_opcode=opcode,
-        expected_benchmark_gas_used=total_gas_cost,
+        skip_gas_used_validation=True,
+        expected_receipt_status=1,
     )

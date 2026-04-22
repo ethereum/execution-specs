@@ -22,7 +22,6 @@ from .benchmark import (
     BenchmarkCodeGenerator,
     ExtCallGenerator,
     JumpLoopGenerator,
-    StubConfig,
 )
 from .checklists import EIPChecklist
 from .exceptions import (
@@ -42,6 +41,7 @@ from .specs import (
     BlockchainTest,
     BlockchainTestFiller,
     Header,
+    OpcodeTarget,
     StateTest,
     StateTestFiller,
     TransactionTest,
@@ -100,6 +100,7 @@ from .tools import (
     Switch,
     TransactionWithCost,
     While,
+    WhileGas,
     extend_with_defaults,
     gas_test,
     generate_system_contract_deploy_test,
@@ -174,6 +175,7 @@ __all__ = (
     "Macros",
     "MemoryVariable",
     "NetworkWrappedTransaction",
+    "OpcodeTarget",
     "Op",
     "Opcode",
     "OpcodeCallArg",
@@ -188,7 +190,6 @@ __all__ = (
     "StateTest",
     "StateTestFiller",
     "Storage",
-    "StubConfig",
     "Switch",
     "TestAddress",
     "TestAddress2",
@@ -206,6 +207,7 @@ __all__ = (
     "TransactionWithCost",
     "TransitionFork",
     "While",
+    "WhileGas",
     "CoerceBytes",
     "Withdrawal",
     "WithdrawalRequest",

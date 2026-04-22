@@ -231,6 +231,9 @@ class FunctionPageProps(PagePropsBase):
         data-table that documents the parametrized test cases.
         """
         super().write_page(file_opener, jinja2_env)
+        # Standalone HTML pages temporarily disabled - they don't
+        # inherit the Material theme (see issue #1491).
+        return
         if not self.cases:
             return
         html_template = jinja2_env.get_template("function.html.j2")

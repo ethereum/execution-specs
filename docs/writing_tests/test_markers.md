@@ -16,6 +16,10 @@ These markers are used to specify the forks for which a test is valid.
 
 :::execution_testing.cli.pytest_commands.plugins.forks.forks.ValidUntil
 
+### `@pytest.mark.valid_before("FORK_OR_EIP")`
+
+:::execution_testing.cli.pytest_commands.plugins.forks.forks.ValidBefore
+
 ### `@pytest.mark.valid_at("FORK_NAME_1", "FORK_NAME_2", ...)`
 
 :::execution_testing.cli.pytest_commands.plugins.forks.forks.ValidAt
@@ -63,7 +67,7 @@ This marker only differs from `pytest.mark.with_all_tx_types` in that it does no
 This marker is used to automatically parameterize a test with all typed transactions, including `type=0` (legacy transaction), that are valid for the fork being tested.
 This marker is an indirect marker that utilizes the `tx_type` values from the `pytest.mark.with_all_tx_types` marker to build default typed transactions for each `tx_type`.
 
-Optional: Default typed transactions used as values for `typed_transaction` exist in `src/execution_testing/cli/pytest_commands/plugins/shared/transaction_fixtures.py` and can be overridden for the scope of
+Optional: Default typed transactions used as values for `typed_transaction` exist in `packages/testing/src/execution_testing/cli/pytest_commands/plugins/shared/transaction_fixtures.py` and can be overridden for the scope of
 the test by re-defining the appropriate `pytest.fixture` for that transaction type.
 
 ```python
@@ -352,7 +356,7 @@ In this example, the test will be marked as expected to fail when it is being ex
 
 ### `@pytest.mark.slow`
 
-This marker is used to mark tests that are slow to run. These tests are not run during [CI checks](./verifying_changes.md), and are only run when a release is being prepared.
+This marker is used to mark tests that are slow to run. These tests are not run during [CI checks](../getting_started/verifying_changes.md), and are only run when a release is being prepared.
 
 ### `@pytest.mark.pre_alloc_mutable`
 

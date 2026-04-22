@@ -5,41 +5,41 @@ The most relevant folders and files in the repo are:
 
 ```text
 📁 execution-specs/
-├─╴📁 tests/                     # test cases organized by fork
+├─╴📁 src/                       # EELS - the execution layer specs
+│   ├── 📁 ethereum/
+│   │    └── 📁 forks/
+│   │         ├── 📁 amsterdam/
+|   |         ├── 📁 berlin/
+│   │         └── 📁 ...
+│   └── 📁 ethereum/forks/...
+├─╴📁 tests/                     # Test cases for EELS organized by fork
 │   ├── 📁 amsterdam/
-│   ├── 📁 osaka/
-│   ├── 📁 prague/
+│   ├── 📁 berlin/
 │   └── 📁 ...
-├─╴📁 fixtures/                  # default fixture output dir
-│   ├── 📁 blockchain_tests/
-│   ├── 📁 blockchain_tests_engine/
-│   ├── 📁 state_tests/
-│   └── 📁 ...
-├─╴📁 packages/                  # library & framework packages
+├─╴📁 packages/                  # Test generation library & framework packages
 │   └── 📁 testing/
 │       └── 📁 src/
 │           └── 📁 execution_testing/
-├─╴📁 src/                       # execution spec packages
-│   ├── 📁 ethereum/
-│   └── 📁 ...
-├─╴📁 docs/                      # markdown documentation
+├─╴📁 docs/                      # Markdown documentation
 │   ├── 📁 getting_started/
-│   ├── 📁 dev/
+│   ├── 📁 writing_tests/
 │   └── 📁 ...
-└── 📄 whitelist.txt             # spellcheck dictionary
+├── 📄 Justfile                  # Task runner config, run `just` to see tasks
+├── 📄 uv.lock                   # Defines pinned project Python dependencies
+└── 📄 whitelist.txt             # Spellcheck dictionary
 ```
-
-#### `tests/`
-
-Contains the implementation of the Ethereum consensus tests available in this repository, organized by fork.
-
-#### `packages/`
-
-Contains the `execution_testing` package which provides tools to define test cases and to interface with the `evm t8n` command. Additionally, it contains packages that enable test case execution by customizing pytest which acts as the test framework.
 
 #### `src/`
 
-Contains the Ethereum execution spec packages.
+Contains the Ethereum Execution Layer Specs, each fork is a sub-package.
+
+#### `tests/`
+
+Contains the implementation of the Ethereum consensus tests available in this repository, organized by the fork in which the functionality was introduced.
+
+#### `packages/execution_testing/`
+
+Contains the `execution_testing` package which provides tools to define test cases and to interface with `t8n` command interfaces that are required to generate tests. Additionally, it contains packages that enable test case execution by customizing pytest which acts as the test framework.
 
 #### `docs/`
 

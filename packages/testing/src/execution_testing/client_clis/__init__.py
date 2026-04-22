@@ -7,6 +7,7 @@ from .cli_types import (
     BlockExceptionWithMessage,
     LazyAlloc,
     Result,
+    TraceFieldDiff,
     Traces,
     TransactionExceptionWithMessage,
     TransitionToolOutput,
@@ -25,6 +26,16 @@ from .clis.nethermind import Nethtest, NethtestFixtureConsumer
 from .clis.nimbus import NimbusTransitionTool
 from .ethereum_cli import CLINotFoundInPathError, UnknownCLIError
 from .fixture_consumer_tool import FixtureConsumerTool
+from .trace_comparators import (
+    FieldExclusionTraceComparator,
+    GasExhaustionTraceComparator,
+    TraceComparator,
+    TraceComparatorType,
+    TraceComparisonResult,
+    TraceDifference,
+    TransactionCountMismatch,
+    create_comparator,
+)
 from .transition_tool import TransitionTool
 
 TransitionTool.set_default_tool(ExecutionSpecsTransitionTool)
@@ -41,7 +52,9 @@ __all__ = (
     "EvmOneStateFixtureConsumer",
     "EvmOneBlockchainFixtureConsumer",
     "ExecutionSpecsTransitionTool",
+    "FieldExclusionTraceComparator",
     "FixtureConsumerTool",
+    "GasExhaustionTraceComparator",
     "GethFixtureConsumer",
     "GethTransitionTool",
     "LazyAlloc",
@@ -49,9 +62,16 @@ __all__ = (
     "NethtestFixtureConsumer",
     "NimbusTransitionTool",
     "Result",
+    "TraceComparator",
+    "TraceComparatorType",
+    "TraceComparisonResult",
+    "TraceDifference",
+    "TraceFieldDiff",
     "Traces",
+    "TransactionCountMismatch",
     "TransactionExceptionWithMessage",
     "TransitionTool",
     "TransitionToolOutput",
     "UnknownCLIError",
+    "create_comparator",
 )

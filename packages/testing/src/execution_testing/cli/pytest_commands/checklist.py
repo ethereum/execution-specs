@@ -1,13 +1,44 @@
 """CLI entry point for the `checklist` pytest-based command."""
 
-from typing import Any
+from typing import Any, ClassVar, List
 
 import click
+import pytest
 
-from .fill import FillCommand
+from ...forks import get_development_forks
+from .base import PytestCommand
+
+
+class ChecklistCommand(PytestCommand):
+    """
+    Pytest command to generate checklist documentation.
+
+    The checklist command only collects tests to analyze markers and does
+    not run them, so ``NO_TESTS_COLLECTED`` is treated as success.
+    """
+
+    allowed_exit_codes: ClassVar[List[pytest.ExitCode]] = [
+        pytest.ExitCode.OK,
+        pytest.ExitCode.NO_TESTS_COLLECTED,
+    ]
+
+    def __init__(self, **kwargs: Any) -> None:
+        """Initialize checklist command."""
+        super().__init__(config_file="pytest-fill.ini", **kwargs)
+
+
+def _last_development_fork() -> str | None:
+    """Return the name of the last development fork, if any."""
+    dev_forks = get_development_forks()
+    return dev_forks[-1].name() if dev_forks else None
 
 
 @click.command()
+@click.argument(
+    "paths",
+    nargs=-1,
+    type=click.Path(),
+)
 @click.option(
     "--output",
     "-o",
@@ -22,22 +53,44 @@ from .fill import FillCommand
     multiple=True,
     help="Generate checklist only for specific EIP(s)",
 )
-def checklist(output: str, eip: tuple[int, ...], **kwargs: Any) -> None:
+@click.option(
+    "--until",
+    "-u",
+    type=str,
+    default=None,
+    help="Include upcoming forks up to and including this fork",
+)
+def checklist(
+    paths: tuple[str, ...],
+    output: str,
+    eip: tuple[int, ...],
+    until: str | None,
+    **kwargs: Any,
+) -> None:
     """
     Generate EIP test checklists based on pytest.mark.eip_checklist markers.
 
     This command scans test files for eip_checklist markers and generates
     filled checklists showing which checklist items have been implemented.
 
+    By default it scans `tests` plus `tests/benchmark`; pass one or more
+    paths to limit collection to a subset.
+
+    By default, includes all development forks so that checklists for
+    upcoming EIPs are generated without needing --until.
+
     Examples:
-        # Generate checklists for all EIPs
+        # Generate checklists for all EIPs (default: tests + tests/benchmark)
         uv run checklist
 
         # Generate checklist for specific EIP
         uv run checklist --eip 7702
 
-        # Generate checklists for specific test path
-        uv run checklist tests/prague/eip7702*
+        # Generate checklists for a specific test path
+        uv run checklist tests/prague/eip7702_set_code_tx
+
+        # Generate until a specific fork
+        uv run checklist --until Prague
 
         # Specify output directory
         uv run checklist --output ./my-checklists
@@ -52,7 +105,24 @@ def checklist(output: str, eip: tuple[int, ...], **kwargs: Any) -> None:
     for eip_num in eip:
         args.extend(["--checklist-eip", str(eip_num)])
 
-    command = FillCommand(
+    # Default --until to the last development fork so checklists for
+    # upcoming EIPs are generated without requiring the flag explicitly.
+    if until is None:
+        until = _last_development_fork()
+    if until:
+        args.extend(["--until", until])
+
+    # When no paths are provided, scan `tests/` and force inclusion of
+    # `tests/benchmark/` via `--include-benchmark`. The conftest normally
+    # hides `tests/benchmark/` from a plain `tests/` collection, and
+    # passing both as positional paths triggers pytest path deduplication
+    # which drops the broader `tests/`.
+    if not paths:
+        paths = ("tests",)
+        args.append("--include-benchmark")
+    args.extend(paths)
+
+    command = ChecklistCommand(
         plugins=[
             "execution_testing.cli.pytest_commands.plugins.filler.eip_checklist"
         ],

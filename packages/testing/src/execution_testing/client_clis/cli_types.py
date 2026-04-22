@@ -3,7 +3,16 @@
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Any, Dict, Generic, List, Self, TypeVar
+from typing import (
+    Annotated,
+    Any,
+    Dict,
+    Generic,
+    List,
+    NamedTuple,
+    Self,
+    TypeVar,
+)
 
 from pydantic import Field, PlainSerializer, PlainValidator
 
@@ -81,18 +90,58 @@ class TraceLine(CamelModel):
     error: str | None = None
     return_data: str | None = None
 
-    def are_equivalent(self, other: Self) -> bool:
-        """Return True if the only difference is the gas counter."""
-        self_dict = self.model_dump(mode="python", exclude={"gas", "gas_cost"})
-        other_dict = other.model_dump(
-            mode="python", exclude={"gas", "gas_cost"}
-        )
-        if self_dict != other_dict:
+    _DEFAULT_EXCLUDE: set[str] = {"gas", "gas_cost"}
+
+    def compare(
+        self,
+        other: Self,
+        exclude_fields: set[str] | None = None,
+    ) -> tuple[dict[str, str], dict[str, str]]:
+        """
+        Compare two trace lines field-by-field.
+
+        Return (baseline_fields, current_fields) dicts containing only
+        the fields that differ. Both dicts are empty when lines match.
+        """
+        if exclude_fields is None:
+            exclude_fields = self._DEFAULT_EXCLUDE
+        self_dict = self.model_dump(mode="json", exclude=exclude_fields)
+        other_dict = other.model_dump(mode="json", exclude=exclude_fields)
+        baseline_diff: dict[str, str] = {}
+        current_diff: dict[str, str] = {}
+        for k in self_dict:
+            if self_dict[k] != other_dict[k]:
+                baseline_diff[k] = str(self_dict[k])
+                current_diff[k] = str(other_dict[k])
+        return baseline_diff, current_diff
+
+    def are_equivalent(
+        self,
+        other: Self,
+        exclude_fields: set[str] | None = None,
+    ) -> bool:
+        """Return True if the only difference is in excluded fields."""
+        baseline_diff, _ = self.compare(other, exclude_fields)
+        if baseline_diff:
             logger.debug(
-                f"Trace lines are not equivalent: {self_dict} != {other_dict}."
+                f"Trace lines are not equivalent: "
+                f"differing fields: {list(baseline_diff.keys())}."
             )
             return False
         return True
+
+
+class TraceFieldDiff(NamedTuple):
+    """
+    A single diff entry from TransactionTraces.compare().
+
+    line_index is None for structural diffs (trace_length, output,
+    gas_used). Field dicts map field name to string value.
+    """
+
+    line_index: int | None
+    baseline_fields: dict[str, str]
+    current_fields: dict[str, str]
 
 
 class TransactionTraces(CamelModel):
@@ -133,41 +182,99 @@ class TransactionTraces(CamelModel):
                 # Remove the result of calling `Op.GAS` from the stack.
                 trace.stack[-1] = None
 
-    def are_equivalent(
-        self, other: Self, enable_post_processing: bool
-    ) -> bool:
-        """Return True if the only difference is the gas counter."""
+    def compare(
+        self,
+        other: Self,
+        exclude_fields: set[str] | None = None,
+        ignore_gas_differences: bool = False,
+    ) -> List[TraceFieldDiff]:
+        """
+        Compare traces and return per-line differing fields.
+
+        Return a list of TraceFieldDiff entries. line_index is None for
+        structural diffs (trace_length, output, gas_used). Field dicts
+        map field name to string value.
+
+        When exclude_fields is None, no fields are excluded. Pass an
+        explicit set to skip fields (e.g. {"gas", "gas_cost"}).
+
+        ``ignore_gas_differences`` toggles two gas-specific tolerances
+        that cannot be expressed through ``exclude_fields``:
+
+        - The top-level ``gas_used`` total check is skipped (it is not a
+          per-line field, so excluding ``gas`` cannot silence it).
+        - ``Op.GAS`` results are scrubbed from the stack before per-line
+          comparison, so a differing gas value pushed by ``GAS`` does
+          not leak into a stack diff.
+        """
+        line_exclude = exclude_fields or set()
+        diffs: List[TraceFieldDiff] = []
+
         if len(self.traces) != len(other.traces):
-            logger.debug(
-                f"Traces have different lengths: "
-                f"{len(self.traces)} != {len(other.traces)}."
+            diffs.append(
+                TraceFieldDiff(
+                    None,
+                    {"trace_length": str(len(self.traces))},
+                    {"trace_length": str(len(other.traces))},
+                )
             )
-            return False
+            return diffs
+
         if self.output != other.output:
-            logger.debug(
-                f"Traces have different outputs: "
-                f"{self.output} != {other.output}."
+            diffs.append(
+                TraceFieldDiff(
+                    None,
+                    {"output": str(self.output)},
+                    {"output": str(other.output)},
+                )
             )
-            return False
-        if self.gas_used != other.gas_used and not enable_post_processing:
-            logger.debug(
-                f"Traces have different gas used: "
-                f"{self.gas_used} != {other.gas_used}."
+
+        if not ignore_gas_differences and self.gas_used != other.gas_used:
+            diffs.append(
+                TraceFieldDiff(
+                    None,
+                    {"gas_used": str(self.gas_used)},
+                    {"gas_used": str(other.gas_used)},
+                )
             )
-            return False
+
         own_traces = self.traces.copy()
         other_traces = other.traces.copy()
-        if enable_post_processing:
-            logger.debug(
-                "Removing gas from traces (enable_post_processing=True)."
-            )
+        if ignore_gas_differences:
             TransactionTraces.remove_gas(own_traces)
             TransactionTraces.remove_gas(other_traces)
-        for i in range(len(self.traces)):
-            if not own_traces[i].are_equivalent(other_traces[i]):
-                logger.debug(f"Trace line {i} is not equivalent.")
-                return False
-        return True
+
+        for i, (b_line, c_line) in enumerate(
+            zip(own_traces, other_traces, strict=False)
+        ):
+            baseline_diff, current_diff = b_line.compare(c_line, line_exclude)
+            if baseline_diff:
+                diffs.append(TraceFieldDiff(i, baseline_diff, current_diff))
+
+        return diffs
+
+    def are_equivalent(
+        self, other: Self, ignore_gas_differences: bool
+    ) -> bool:
+        """Return True if the only difference is the gas counter."""
+        diffs = self.compare(
+            other,
+            exclude_fields={"gas", "gas_cost"},
+            ignore_gas_differences=ignore_gas_differences,
+        )
+        for diff in diffs:
+            if diff.line_index is None:
+                for field_name in diff.baseline_fields:
+                    logger.debug(
+                        f"Traces have different {field_name}: "
+                        f"{diff.baseline_fields[field_name]} != "
+                        f"{diff.current_fields[field_name]}."
+                    )
+            else:
+                logger.debug(
+                    f"Trace line {diff.line_index} is not equivalent."
+                )
+        return len(diffs) == 0
 
     def print(self) -> None:
         """Print the traces in a readable format."""
@@ -189,7 +296,7 @@ class Traces(EthereumTestRootModel):
         self.root.append(item)
 
     def are_equivalent(
-        self, other: Self | None, enable_post_processing: bool
+        self, other: Self | None, ignore_gas_differences: bool
     ) -> bool:
         """Return True if the only difference is the gas counter."""
         if other is None:
@@ -198,7 +305,7 @@ class Traces(EthereumTestRootModel):
             return False
         for i in range(len(self.root)):
             if not self.root[i].are_equivalent(
-                other.root[i], enable_post_processing
+                other.root[i], ignore_gas_differences
             ):
                 logger.debug(f"Trace file {i} is not equivalent.")
                 return False

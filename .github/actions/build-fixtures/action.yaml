@@ -44,7 +44,7 @@ runs:
 
         if [ -n "$IS_SPLIT" ]; then
           OUTPUT_ARG="--output=fixtures_${{ inputs.release_name }}"
-          FORK_ARGS="--generate-all-formats --from=${{ inputs.from_fork }} --until=${{ inputs.until_fork }}"
+          FORK_ARGS="--from=${{ inputs.from_fork }} --until=${{ inputs.until_fork }}"
         else
           OUTPUT_ARG="--output=fixtures_${{ inputs.release_name }}.tar.gz"
           FORK_ARGS=""
@@ -82,5 +82,6 @@ runs:
       uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
       with:
         name: fixtures__${{ inputs.split_label }}
+        include-hidden-files: true
         path: fixtures_${{ inputs.release_name }}/
         if-no-files-found: ignore

@@ -13,13 +13,8 @@ Read `.github/configs/feature.yaml` and emit a flat JSON build matrix
 suitable for ``strategy.matrix`` in GitHub Actions.
 
 Features whose ``fill-params`` contain ``--until`` are split across the
-shared ``fork-ranges`` defined at the top of the config.  Features
-using ``--fork`` (single fork) produce a single unsplit entry.
-
-Fork-range builds are **deduplicated** across features that share the
-same effective fill configuration (evm-type and fill-params ignoring
-``--until``).  Each fork range is built once; the combine step
-assembles the right subset into each feature's release tarball.
+shared fork ranges defined in `.github/configs/fork-ranges.yaml`.
+Features using ``--fork`` (single fork) produce a single unsplit entry.
 """
 
 import json
@@ -30,6 +25,7 @@ from pathlib import Path
 import yaml
 
 FEATURE_CONFIG = Path(".github/configs/feature.yaml")
+FORK_RANGES_CONFIG = Path(".github/configs/fork-ranges.yaml")
 
 # Canonical fork ordering used to filter fork ranges per feature.
 FORK_ORDER = [
@@ -78,21 +74,6 @@ def parse_until_fork(fill_params: str) -> str | None:
     return m.group(1) if m else None
 
 
-def strip_until(fill_params: str) -> str:
-    """Remove ``--until=FORK`` or ``--until FORK`` from fill-params."""
-    return re.sub(r"--until[=\s]+\S+\s*", "", fill_params).strip()
-
-
-def effective_key(feature: dict) -> str:
-    """
-    Return a hashable key for grouping features that can share builds.
-
-    Two features share builds when they have the same evm-type and the
-    same fill-params after stripping ``--until``.
-    """
-    return f"{feature['evm-type']}|{strip_until(feature['fill-params'])}"
-
-
 def applicable_ranges(fork_ranges: list[dict], until_fork: str) -> list[dict]:
     """
     Return fork ranges whose ``from`` is at or before *until_fork*.
@@ -111,86 +92,41 @@ def applicable_ranges(fork_ranges: list[dict], until_fork: str) -> list[dict]:
     return result
 
 
-def build_matrices(
-    config: dict, names: list[str]
-) -> tuple[list[dict], list[dict]]:
+def build_matrix(
+    feature: dict, name: str, fork_ranges: list[dict]
+) -> tuple[list[dict], str]:
     """
-    Build deduplicated build matrix and per-feature combine matrix.
+    Build the matrix for a single feature.
 
-    Return (build_entries, combine_entries).
+    Return (build_entries, combine_labels).  Split features produce
+    one entry per fork range and a space-separated label string for
+    the combine step.  Unsplit features produce a single entry with
+    empty labels.
     """
-    fork_ranges = config.get("fork-ranges", [])
-    build: list[dict] = []
-    combine: list[dict] = []
-    seen_labels: set[str] = set()
-
-    # Group splittable features by effective fill config so features
-    # with identical builds share runners.
-    groups: dict[str, list[str]] = {}
-    unsplit: list[str] = []
-
-    for name in names:
-        feature = config[name]
-        until = parse_until_fork(feature["fill-params"])
-        if until and fork_ranges:
-            ranges = applicable_ranges(fork_ranges, until)
-            if len(ranges) > 1:
-                key = effective_key(feature)
-                groups.setdefault(key, []).append(name)
-                continue
-        unsplit.append(name)
-
-    # Emit deduplicated build entries for each group.
-    for _key, group_names in groups.items():
-        # Use the first feature as reference for the build step.
-        ref = group_names[0]
-
-        # Union of all applicable ranges across features in this group.
-        all_ranges: dict[str, dict] = {}
-        feature_labels: dict[str, list[str]] = {}
-        for name in group_names:
-            until = parse_until_fork(config[name]["fill-params"])
-            assert until is not None
-            ranges = applicable_ranges(fork_ranges, until)
-            feature_labels[name] = [r["label"] for r in ranges]
-            for r in ranges:
-                if r["label"] not in all_ranges:
-                    all_ranges[r["label"]] = r
-
-        # Deduplicate: emit each range label only once.
-        for r in all_ranges.values():
-            if r["label"] not in seen_labels:
-                seen_labels.add(r["label"])
-                build.append(
-                    {
-                        "feature": ref,
-                        "label": r["label"],
-                        "from_fork": r["from"],
-                        "until_fork": r["until"],
-                    }
-                )
-
-        # Combine entries map features to their applicable labels.
-        for name in group_names:
-            combine.append(
+    until = parse_until_fork(feature["fill-params"])
+    if until and fork_ranges:
+        ranges = applicable_ranges(fork_ranges, until)
+        if len(ranges) > 1:
+            build = [
                 {
                     "feature": name,
-                    "labels": " ".join(feature_labels[name]),
+                    "label": r["label"],
+                    "from_fork": r["from"],
+                    "until_fork": r["until"],
                 }
-            )
+                for r in ranges
+            ]
+            labels = " ".join(r["label"] for r in ranges)
+            return build, labels
 
-    # Unsplit features get a single build entry each.
-    for name in unsplit:
-        build.append(
-            {
-                "feature": name,
-                "label": "",
-                "from_fork": "",
-                "until_fork": "",
-            }
-        )
-
-    return build, combine
+    return [
+        {
+            "feature": name,
+            "label": "",
+            "from_fork": "",
+            "until_fork": "",
+        }
+    ], ""
 
 
 def main() -> None:
@@ -203,6 +139,7 @@ def main() -> None:
         sys.exit(1)
 
     config = load_config(FEATURE_CONFIG)
+    fork_ranges = load_config(FORK_RANGES_CONFIG) or []
     name = sys.argv[1]
 
     if name not in config or not isinstance(config[name], dict):
@@ -212,10 +149,7 @@ def main() -> None:
         )
         sys.exit(1)
 
-    build, combine = build_matrices(config, [name])
-
-    # Extract combine labels for this feature (empty if unsplit).
-    labels = combine[0]["labels"] if combine else ""
+    build, labels = build_matrix(config[name], name, fork_ranges)
 
     print(f"build_matrix={json.dumps(build)}")
     print(f"feature_name={name}")

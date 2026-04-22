@@ -47,12 +47,47 @@ def test_case(state_test):
         ),
         pytest.param(
             generate_test(
+                valid_from='"EIP3675"',
+            ),
+            ["--until=Prague"],
+            {"passed": 4, "failed": 0, "skipped": 0, "errors": 0},
+            id="valid_from_eip",
+        ),
+        pytest.param(
+            generate_test(
                 valid_from='"Paris"',
                 valid_until='"Cancun"',
             ),
             [],
             {"passed": 3, "failed": 0, "skipped": 0, "errors": 0},
             id="valid_from_until",
+        ),
+        pytest.param(
+            generate_test(
+                valid_from='"EIP3675"',
+                valid_until='"EIP4844"',
+            ),
+            [],
+            {"passed": 3, "failed": 0, "skipped": 0, "errors": 0},
+            id="valid_from_eip_until_eip",
+        ),
+        pytest.param(
+            generate_test(
+                valid_from='"Paris"',
+                valid_until='"EIP4844"',
+            ),
+            [],
+            {"passed": 3, "failed": 0, "skipped": 0, "errors": 0},
+            id="valid_from_fork_until_eip",
+        ),
+        pytest.param(
+            generate_test(
+                valid_from='"EIP3675"',
+                valid_until='"Cancun"',
+            ),
+            [],
+            {"passed": 3, "failed": 0, "skipped": 0, "errors": 0},
+            id="valid_from_eip_until_fork",
         ),
         pytest.param(
             generate_test(
@@ -121,6 +156,40 @@ def test_case(state_test):
             ["--fork=ShanghaiToCancunAtTime15k"],
             {"passed": 1, "failed": 0, "skipped": 0, "errors": 0},
             id="valid_at_transition_to,--fork=transition_fork_only",
+        ),
+        pytest.param(
+            generate_test(
+                valid_before='"Cancun"',
+            ),
+            ["--from=Berlin", "--until=Prague"],
+            {"passed": 4, "failed": 0, "skipped": 0, "errors": 0},
+            id="valid_before",
+        ),
+        pytest.param(
+            generate_test(
+                valid_from='"Paris"',
+                valid_before='"Cancun"',
+            ),
+            ["--until=Prague"],
+            {"passed": 2, "failed": 0, "skipped": 0, "errors": 0},
+            id="valid_from_before",
+        ),
+        pytest.param(
+            generate_test(
+                valid_before='"EIP4844"',
+            ),
+            ["--from=Berlin", "--until=Prague"],
+            {"passed": 4, "failed": 0, "skipped": 0, "errors": 0},
+            id="valid_before_eip",
+        ),
+        pytest.param(
+            generate_test(
+                valid_from='"EIP3675"',
+                valid_before='"EIP4844"',
+            ),
+            ["--until=Prague"],
+            {"passed": 2, "failed": 0, "skipped": 0, "errors": 0},
+            id="valid_from_eip_before_eip",
         ),
         pytest.param(
             generate_test(
@@ -285,6 +354,32 @@ def test_param_level_valid_until(state_test, value):
 """
 
 
+def generate_param_level_valid_before_test() -> str:
+    """Generate a test with param-level valid_before markers."""
+    return """
+import pytest
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param(
+            True,
+            id="before_cancun",
+            marks=pytest.mark.valid_before("Cancun"),
+        ),
+        pytest.param(
+            False,
+            id="before_paris",
+            marks=pytest.mark.valid_before("Paris"),
+        ),
+    ],
+)
+@pytest.mark.state_test_only
+def test_param_level_valid_before(state_test, value):
+    pass
+"""
+
+
 def generate_param_level_mixed_test() -> str:
     """Generate a test with both function-level and param-level markers."""
     return """
@@ -382,6 +477,24 @@ def test_mixed_function_and_param_markers(state_test, value):
             {"passed": 4, "failed": 0, "skipped": 0, "errors": 0},
             id="mixed_markers_paris_to_shanghai",
         ),
+        pytest.param(
+            generate_param_level_valid_before_test(),
+            ["--from=Paris", "--until=Prague"],
+            # before_cancun: Paris, Shanghai = 2 forks
+            # before_paris: none (Paris is not < Paris)
+            # Total: 2 tests
+            {"passed": 2, "failed": 0, "skipped": 0, "errors": 0},
+            id="param_level_valid_before_paris_to_prague",
+        ),
+        pytest.param(
+            generate_param_level_valid_before_test(),
+            ["--from=Berlin", "--until=Prague"],
+            # before_cancun: Berlin, London, Paris, Shanghai = 4
+            # before_paris: Berlin, London = 2
+            # Total: 6 tests
+            {"passed": 6, "failed": 0, "skipped": 0, "errors": 0},
+            id="param_level_valid_before_berlin_to_prague",
+        ),
     ],
 )
 def test_param_level_validity_markers(
@@ -391,7 +504,7 @@ def test_param_level_validity_markers(
     pytest_args: List[str],
 ) -> None:
     """
-    Test param-level validity markers (valid_from, valid_until).
+    Test param-level validity markers (valid_from, valid_until, valid_before).
 
     The pytest_collection_modifyitems hook filters tests based on param-level
     markers after parametrization, allowing different parameter values to have
