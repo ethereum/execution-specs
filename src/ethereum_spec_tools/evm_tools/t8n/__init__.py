@@ -116,6 +116,71 @@ class _ForkOverrides:
         """Return true when all override values are unset."""
         return all(value is None for value in astuple(self))
 
+    @staticmethod
+    def _matches_field(override: object | None, on: object, name: str) -> bool:
+        if override is None:
+            return True
+
+        try:
+            default = getattr(on, name)
+        except AttributeError:
+            return False
+
+        return override == default
+
+    def matches_template(
+        self,
+        template: Hardfork,
+    ) -> bool:
+        """Return true when the requested overrides match the template."""
+        if self.is_empty():
+            return True
+
+        if (
+            self.fork_criteria is not None
+            and self.fork_criteria != template.criteria
+        ):
+            return False
+
+        fork_mod = template.module("fork")
+        gas_costs = template.module("vm.gas").GasCosts
+
+        checks = (
+            (
+                self.max_blob_gas_per_block,
+                fork_mod,
+                "MAX_BLOB_GAS_PER_BLOCK",
+            ),
+            (
+                self.blob_target_gas_per_block,
+                gas_costs,
+                "BLOB_TARGET_GAS_PER_BLOCK",
+            ),
+            (self.gas_per_blob, gas_costs, "PER_BLOB"),
+            (
+                self.blob_min_gasprice,
+                gas_costs,
+                "BLOB_MIN_GASPRICE",
+            ),
+            (
+                self.blob_base_fee_update_fraction,
+                gas_costs,
+                "BLOB_BASE_FEE_UPDATE_FRACTION",
+            ),
+            (
+                self.blob_schedule_target,
+                gas_costs,
+                "BLOB_SCHEDULE_TARGET",
+            ),
+            (
+                self.blob_schedule_max,
+                gas_costs,
+                "BLOB_SCHEDULE_MAX",
+            ),
+        )
+
+        return all(self._matches_field(*x) for x in checks)
+
 
 class ForkCache(AbstractContextManager):
     """
@@ -132,59 +197,6 @@ class ForkCache(AbstractContextManager):
         for fork in self._cache.values():
             fork.__exit__(*args, **kwargs)
         self._cache.clear()
-
-    def _template_matches(
-        self,
-        template: Hardfork,
-        overrides: _ForkOverrides,
-    ) -> bool:
-        """Return true when the requested overrides match the template."""
-        if (
-            overrides.fork_criteria is not None
-            and overrides.fork_criteria != template.criteria
-        ):
-            return False
-
-        fork_mod = template.module("fork")
-
-        try:
-            gas_mod = template.module("vm.gas")
-        except ModuleNotFoundError:
-            gas_costs = None
-        else:
-            gas_costs = getattr(gas_mod, "GasCosts", None)
-
-        checks = (
-            (
-                overrides.blob_target_gas_per_block,
-                getattr(gas_costs, "BLOB_TARGET_GAS_PER_BLOCK", None),
-            ),
-            (overrides.gas_per_blob, getattr(gas_costs, "PER_BLOB", None)),
-            (
-                overrides.blob_min_gasprice,
-                getattr(gas_costs, "BLOB_MIN_GASPRICE", None),
-            ),
-            (
-                overrides.blob_base_fee_update_fraction,
-                getattr(gas_costs, "BLOB_BASE_FEE_UPDATE_FRACTION", None),
-            ),
-            (
-                overrides.max_blob_gas_per_block,
-                getattr(fork_mod, "MAX_BLOB_GAS_PER_BLOCK", None),
-            ),
-            (
-                overrides.blob_schedule_target,
-                getattr(gas_costs, "BLOB_SCHEDULE_TARGET", None),
-            ),
-            (
-                overrides.blob_schedule_max,
-                getattr(gas_costs, "BLOB_SCHEDULE_MAX", None),
-            ),
-        )
-
-        return all(
-            value is None or value == default for value, default in checks
-        )
 
     def get(
         self,
@@ -212,13 +224,10 @@ class ForkCache(AbstractContextManager):
             blob_schedule_target=blob_schedule_target,
             blob_schedule_max=blob_schedule_max,
         )
-        cache_key = (template.short_name, overrides)
-        if overrides.is_empty() or self._template_matches(
-            template=template,
-            overrides=overrides,
-        ):
+        if overrides.matches_template(template):
             return template
 
+        cache_key = (template.short_name, overrides)
         try:
             return self._cache[cache_key]
         except KeyError:
