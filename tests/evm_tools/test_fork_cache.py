@@ -1,15 +1,15 @@
 """Tests for temporary fork caching."""
 
 import importlib
-from typing import Any, cast
+from typing import Any
 
 import pytest
 from ethereum_types.numeric import U64, Uint
+from typing_extensions import assert_never
 
 from ethereum.fork_criteria import (
     ByBlockNumber,
     ByTimestamp,
-    ForkCriteria,
     Unscheduled,
 )
 from ethereum_spec_tools.evm_tools.t8n import ForkCache
@@ -41,7 +41,7 @@ def _template() -> Hardfork:
 
 
 def _different_fork_criteria(
-    criteria: ForkCriteria,
+    criteria: ByBlockNumber | ByTimestamp | Unscheduled,
 ) -> ByBlockNumber | ByTimestamp | Unscheduled:
     """Return a fork criterion that differs from `criteria`."""
     if isinstance(criteria, ByBlockNumber):
@@ -56,29 +56,24 @@ def _different_fork_criteria(
             return Unscheduled(order_index=1)
         return zero_order
 
-    raise AssertionError(f"unsupported fork criteria type: {type(criteria)}")
+    assert_never(criteria)
 
 
 def _gas_default(
     gas_mod: Any,
-    module_attr: str,
-    gas_costs_attr: str | None = None,
+    gas_costs_attr: str,
 ) -> U64 | Uint | None:
-    """Return a gas default from module-level or `GasCosts` attributes."""
-    value = getattr(gas_mod, module_attr, None)
-    if value is not None:
-        return cast(U64 | Uint, value)
-
+    """Return a gas default from `GasCosts`."""
     gas_costs = getattr(gas_mod, "GasCosts", None)
     if gas_costs is None:
         return None
 
-    attr_name = gas_costs_attr if gas_costs_attr is not None else module_attr
-    gas_cost_value = getattr(gas_costs, attr_name, None)
-    if gas_cost_value is None:
+    value = getattr(gas_costs, gas_costs_attr, None)
+    if value is None:
         return None
 
-    return cast(U64 | Uint, gas_cost_value)
+    assert isinstance(value, U64 | Uint)
+    return value
 
 
 def _override_defaults(template: Hardfork) -> dict[str, U64 | Uint]:
@@ -91,7 +86,7 @@ def _override_defaults(template: Hardfork) -> dict[str, U64 | Uint]:
             gas_mod,
             "BLOB_TARGET_GAS_PER_BLOCK",
         ),
-        "gas_per_blob": _gas_default(gas_mod, "GAS_PER_BLOB", "PER_BLOB"),
+        "gas_per_blob": _gas_default(gas_mod, "PER_BLOB"),
         "blob_min_gasprice": _gas_default(gas_mod, "BLOB_MIN_GASPRICE"),
         "blob_base_fee_update_fraction": _gas_default(
             gas_mod,
@@ -114,7 +109,7 @@ def _override_defaults(template: Hardfork) -> dict[str, U64 | Uint]:
             "missing template defaults for overrides: " + ", ".join(missing)
         )
 
-    return cast(dict[str, U64 | Uint], defaults)
+    return {key: value for key, value in defaults.items() if value is not None}
 
 
 def test_fork_cache_returns_template_without_overrides(
@@ -140,9 +135,10 @@ def test_fork_cache_returns_template_for_identical_overrides(
     """Return the template when requested overrides match it exactly."""
     template = _template()
     identical_overrides = _override_defaults(template)
-    identical_fork_criteria = cast(
+    identical_fork_criteria = template.criteria
+    assert isinstance(
+        identical_fork_criteria,
         ByBlockNumber | ByTimestamp | Unscheduled,
-        template.criteria,
     )
 
     def clone(*args: Any, **kwargs: Any) -> DummyTemporaryFork:
@@ -174,7 +170,12 @@ def test_fork_cache_clones_when_fork_criteria_changes_template(
 
     monkeypatch.setattr(Hardfork, "clone", clone)
 
-    changed_fork_criteria = _different_fork_criteria(template.criteria)
+    template_criteria = template.criteria
+    assert isinstance(
+        template_criteria,
+        ByBlockNumber | ByTimestamp | Unscheduled,
+    )
+    changed_fork_criteria = _different_fork_criteria(template_criteria)
 
     with ForkCache() as cache:
         fork = cache.get(template, fork_criteria=changed_fork_criteria)
@@ -265,3 +266,43 @@ def test_fork_cache_reuses_cached_clone_for_identical_changed_request(
     assert second is cloned
     assert first is second
     assert clone_count == 1
+
+
+@pytest.mark.parametrize(
+    "missing_gas_defaults",
+    ("vm.gas", "GasCosts"),
+)
+def test_fork_cache_clones_when_gas_defaults_cannot_be_read(
+    monkeypatch: pytest.MonkeyPatch,
+    missing_gas_defaults: str,
+) -> None:
+    """Clone when identical blob overrides cannot be compared safely."""
+    template = _template()
+    blob_schedule_target = _override_defaults(template)["blob_schedule_target"]
+    cloned = DummyTemporaryFork()
+    seen: dict[str, Any] = {}
+    template_module = template.module
+
+    def module(name: str) -> Any:
+        if name != "vm.gas":
+            return template_module(name)
+        if missing_gas_defaults == "vm.gas":
+            raise ModuleNotFoundError(name)
+        return object()
+
+    def clone(*args: Any, **kwargs: Any) -> DummyTemporaryFork:
+        seen.update(kwargs)
+        return cloned
+
+    monkeypatch.setattr(template, "module", module)
+    monkeypatch.setattr(Hardfork, "clone", clone)
+
+    with ForkCache() as cache:
+        fork = cache.get(
+            template,
+            blob_schedule_target=blob_schedule_target,
+        )
+
+    assert fork is cloned
+    assert seen["template"] is template
+    assert seen["blob_schedule_target"] == blob_schedule_target
