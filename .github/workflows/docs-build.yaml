@@ -41,9 +41,20 @@ on:
   workflow_dispatch:
     inputs:
       branch:
-        description: "Branch to build (must be allowlisted)"
+        description: "Branch to publish under. Must be in the allowlist (see .github/configs/docs-branches.yaml)."
+        required: true
+        type: string
+        default: forks/amsterdam
+      ref:
+        description: "Ref to build: branch name, tag (e.g. v1.2.3), or commit SHA. Empty = tip of the branch above."
         required: false
         type: string
+        default: ""
+      publish:
+        description: "Combine artifacts and deploy to steel.ethereum.foundation. Untick to dry-run (build-only)."
+        required: true
+        type: boolean
+        default: true
 
 concurrency:
   group: docs-build-${{ github.ref }}
@@ -94,7 +105,10 @@ jobs:
         id: check
         env:
           BRANCH_INPUT: ${{ github.event.inputs.branch || github.ref_name }}
+          REF_INPUT: ${{ github.event.inputs.ref }}
+          PUBLISH_INPUT: ${{ github.event.inputs.publish }}
           EVENT_NAME: ${{ github.event_name }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           echo "branch=$BRANCH_INPUT" >> "$GITHUB_OUTPUT"
 
@@ -102,9 +116,14 @@ jobs:
           BRANCH_ARTIFACT_NAME="${BRANCH_INPUT//\//-}"
           echo "branch_artifact_name=$BRANCH_ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
 
-          # Deploy on push and workflow_dispatch, not on PRs
+          # Deploy on push, or workflow_dispatch with publish=true. PRs never
+          # publish. A dispatch with publish=false still builds html-docs and
+          # spec-docs (uploaded as per-job artifacts) but skips combine and
+          # the aggregator trigger.
           IS_DEPLOY="false"
-          if [ "$EVENT_NAME" = "push" ] || [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+          if [ "$EVENT_NAME" = "push" ]; then
+            IS_DEPLOY="true"
+          elif [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$PUBLISH_INPUT" = "true" ]; then
             IS_DEPLOY="true"
           fi
           echo "is_deploy=$IS_DEPLOY" >> "$GITHUB_OUTPUT"
@@ -125,17 +144,18 @@ jobs:
           fi
           echo "should_publish=$SHOULD_PUBLISH" >> "$GITHUB_OUTPUT"
 
-          # Resolve tip commit SHA of the target branch. For push events this
-          # matches github.sha, but for workflow_dispatch github.sha points at
-          # the launch ref (typically the default branch), not the branch that
-          # html-docs/spec-docs actually check out. Resolving here ensures
-          # metadata.json and the steel-website dispatch payload always
-          # reference the commit that was built.
-          if [ "$IS_DEPLOY" = "true" ] && [ "$SHOULD_PUBLISH" = "true" ]; then
-            COMMIT_SHA=$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" \
-              "refs/heads/${BRANCH_INPUT}" | awk '{print $1}')
+          # Resolve the ref we will actually check out and build. On dispatch,
+          # the user can specify any branch/tag/SHA; empty falls back to the
+          # target branch tip. For push, we always build the pushed ref.
+          # Resolving to a concrete SHA here keeps metadata.json and the
+          # aggregator dispatch payload consistent with what the build jobs
+          # check out, even when github.sha points at a different ref (which
+          # happens for workflow_dispatch launched from the default branch).
+          if [ "$EVENT_NAME" != "pull_request" ] && [ "$SHOULD_PUBLISH" = "true" ]; then
+            RESOLVE_REF="${REF_INPUT:-$BRANCH_INPUT}"
+            COMMIT_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${RESOLVE_REF}" --jq .sha 2>/dev/null || true)
             if [ -z "$COMMIT_SHA" ]; then
-              echo "ERROR: could not resolve commit SHA for branch '${BRANCH_INPUT}'"
+              echo "ERROR: could not resolve commit SHA for ref '${RESOLVE_REF}'"
               exit 1
             fi
             echo "commit_sha=$COMMIT_SHA" >> "$GITHUB_OUTPUT"
@@ -148,6 +168,12 @@ jobs:
             echo "| Setting | Value |"
             echo "|---------|-------|"
             echo "| **Branch** | \`$BRANCH_INPUT\` |"
+            if [ -n "$REF_INPUT" ]; then
+              echo "| **Ref** | \`$REF_INPUT\` |"
+            fi
+            if [ -n "${COMMIT_SHA:-}" ]; then
+              echo "| **Resolved SHA** | \`${COMMIT_SHA:0:7}\` |"
+            fi
             echo "| **Event** | \`$EVENT_NAME\` |"
             echo "| **Deploy build** | $IS_DEPLOY |"
             echo "| **Allowlisted** | $SHOULD_PUBLISH |"
@@ -155,8 +181,12 @@ jobs:
 
             if [ "$EVENT_NAME" = "pull_request" ]; then
               echo "-> **Build only** -- pull request; artifacts are not published."
+            elif [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$PUBLISH_INPUT" != "true" ]; then
+              echo "-> **Build only** -- \`publish\` input is false; \`html-docs\` and \`spec-docs\` artifacts are uploaded but not combined or dispatched."
             elif [ "$SHOULD_PUBLISH" = "true" ]; then
-              echo "-> **Will publish** -- branch is allowlisted; artifacts will be built, combined, and uploaded."
+              echo "-> **Will publish** at <https://steel.ethereum.foundation/docs/${BRANCH_INPUT}/>"
+              echo ""
+              echo "_Note: the URL only resolves if \`${BRANCH_INPUT}\` is also configured in steel-website's \`BRANCH_CONFIG\` (\`deploy.yml\`). If not, the aggregator will receive the dispatch but drop the artifact._"
             else
               echo "-> **Skipping publish** -- branch is not in the allowlist (\`.github/configs/docs-branches.yaml\`)."
               echo ""
@@ -177,7 +207,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && needs.check-should-publish.outputs.branch || '' }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && needs.check-should-publish.outputs.commit_sha || '' }}
           fetch-depth: 0
           submodules: recursive
 
@@ -215,7 +245,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && needs.check-should-publish.outputs.branch || '' }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && needs.check-should-publish.outputs.commit_sha || '' }}
           fetch-depth: 0
           submodules: recursive
 
