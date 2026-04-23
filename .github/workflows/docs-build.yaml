@@ -50,11 +50,6 @@ on:
         required: false
         type: string
         default: ""
-      publish:
-        description: "Combine artifacts and deploy to steel.ethereum.foundation. Untick to dry-run (build-only)."
-        required: true
-        type: boolean
-        default: true
 
 concurrency:
   group: docs-build-${{ github.ref }}
@@ -93,7 +88,6 @@ jobs:
       should_publish: ${{ steps.check.outputs.should_publish }}
       branch: ${{ steps.check.outputs.branch }}
       branch_artifact_name: ${{ steps.check.outputs.branch_artifact_name }}
-      is_deploy: ${{ steps.check.outputs.is_deploy }}
       commit_sha: ${{ steps.check.outputs.commit_sha }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -106,7 +100,6 @@ jobs:
         env:
           BRANCH_INPUT: ${{ github.event.inputs.branch || github.ref_name }}
           REF_INPUT: ${{ github.event.inputs.ref }}
-          PUBLISH_INPUT: ${{ github.event.inputs.publish }}
           EVENT_NAME: ${{ github.event_name }}
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -115,18 +108,6 @@ jobs:
           # Create artifact-safe name (replace / with -)
           BRANCH_ARTIFACT_NAME="${BRANCH_INPUT//\//-}"
           echo "branch_artifact_name=$BRANCH_ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
-
-          # Deploy on push, or workflow_dispatch with publish=true. PRs never
-          # publish. A dispatch with publish=false still builds html-docs and
-          # spec-docs (uploaded as per-job artifacts) but skips combine and
-          # the aggregator trigger.
-          IS_DEPLOY="false"
-          if [ "$EVENT_NAME" = "push" ]; then
-            IS_DEPLOY="true"
-          elif [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$PUBLISH_INPUT" = "true" ]; then
-            IS_DEPLOY="true"
-          fi
-          echo "is_deploy=$IS_DEPLOY" >> "$GITHUB_OUTPUT"
 
           # Extract branch paths from allowlist config
           ALLOWLISTED_BRANCHES=$(yq '.branches[].path' .github/configs/docs-branches.yaml 2>/dev/null || echo "")
@@ -175,14 +156,11 @@ jobs:
               echo "| **Resolved SHA** | \`${COMMIT_SHA:0:7}\` |"
             fi
             echo "| **Event** | \`$EVENT_NAME\` |"
-            echo "| **Deploy build** | $IS_DEPLOY |"
             echo "| **Allowlisted** | $SHOULD_PUBLISH |"
             echo ""
 
             if [ "$EVENT_NAME" = "pull_request" ]; then
               echo "-> **Build only** -- pull request; artifacts are not published."
-            elif [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$PUBLISH_INPUT" != "true" ]; then
-              echo "-> **Build only** -- \`publish\` input is false; \`html-docs\` and \`spec-docs\` artifacts are uploaded but not combined or dispatched."
             elif [ "$SHOULD_PUBLISH" = "true" ]; then
               echo "-> **Will publish** at <https://steel.ethereum.foundation/docs/${BRANCH_INPUT}/>"
               echo ""
@@ -216,9 +194,9 @@ jobs:
       - name: Build MkDocs documentation
         env:
           BRANCH: ${{ needs.check-should-publish.outputs.branch }}
-          IS_DEPLOY: ${{ needs.check-should-publish.outputs.is_deploy }}
+          SHOULD_PUBLISH: ${{ needs.check-should-publish.outputs.should_publish }}
         run: |
-          if [ "$IS_DEPLOY" = "true" ]; then
+          if [ "$SHOULD_PUBLISH" = "true" ]; then
             export SITE_URL="https://steel.ethereum.foundation/docs/${BRANCH}/"
           else
             export SITE_URL="https://example.com/docs/${BRANCH}/"
@@ -228,7 +206,7 @@ jobs:
           just docs
 
       - name: Upload HTML docs artifact
-        if: needs.check-should-publish.outputs.is_deploy == 'true'
+        if: needs.check-should-publish.outputs.should_publish == 'true'
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: docs-html-${{ needs.check-should-publish.outputs.branch_artifact_name }}
@@ -257,7 +235,7 @@ jobs:
           DOCC_SKIP_DIFFS: ${{ case(github.event_name == 'push' && github.ref_name == github.event.repository.default_branch, '', '1') }}
 
       - name: Upload spec docs artifact
-        if: needs.check-should-publish.outputs.is_deploy == 'true'
+        if: needs.check-should-publish.outputs.should_publish == 'true'
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: docs-spec-${{ needs.check-should-publish.outputs.branch_artifact_name }}
@@ -269,7 +247,7 @@ jobs:
     name: "Combine and Upload"
     runs-on: ubuntu-latest
     needs: [check-should-publish, html-docs, spec-docs]
-    if: needs.check-should-publish.outputs.is_deploy == 'true' && needs.check-should-publish.outputs.should_publish == 'true'
+    if: needs.check-should-publish.outputs.should_publish == 'true'
 
     steps:
       - name: Download HTML docs artifact
@@ -339,7 +317,7 @@ jobs:
     name: "Trigger Aggregator"
     runs-on: ubuntu-latest
     needs: [check-should-publish, combine]
-    if: needs.check-should-publish.outputs.is_deploy == 'true' && needs.check-should-publish.outputs.should_publish == 'true'
+    if: needs.check-should-publish.outputs.should_publish == 'true'
 
     steps:
       - name: Trigger steel-website aggregator workflow
