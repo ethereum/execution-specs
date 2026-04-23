@@ -27,21 +27,29 @@ from ethereum.exceptions import (
     InvalidSenderError,
     NonceMismatchError,
 )
+from ethereum.merkle_patricia_trie import root, trie_set
+from ethereum.state import (
+    EMPTY_CODE_HASH,
+    Address,
+    State,
+    apply_changes_to_state,
+)
 
 from . import vm
 from .blocks import Block, Header, Log, Receipt
 from .bloom import logs_bloom
-from .fork_types import EMPTY_CODE_HASH, Address
-from .state import (
-    State,
+from .state_tracker import (
+    BlockState,
+    TransactionState,
     account_exists_and_is_empty,
     create_ether,
     destroy_account,
     destroy_touched_empty_accounts,
+    extract_block_diff,
     get_account,
+    incorporate_tx_into_block,
     increment_nonce,
     set_account_balance,
-    state_root,
 )
 from .transactions import (
     Transaction,
@@ -49,7 +57,6 @@ from .transactions import (
     recover_sender,
     validate_transaction,
 )
-from .trie import root, trie_set
 from .utils.message import prepare_message
 from .vm.gas import GasCosts
 from .vm.interpreter import process_message_call
@@ -162,9 +169,11 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     validate_header(chain, block.header)
     validate_ommers(block.ommers, block.header, chain)
 
+    block_state = BlockState(pre_state=chain.state)
+
     block_env = vm.BlockEnvironment(
         chain_id=chain.chain_id,
-        state=chain.state,
+        state=block_state,
         block_gas_limit=block.header.gas_limit,
         block_hashes=get_last_256_block_hashes(chain),
         coinbase=block.header.coinbase,
@@ -178,7 +187,10 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         transactions=block.transactions,
         ommers=block.ommers,
     )
-    block_state_root = state_root(block_env.state)
+    block_diff = extract_block_diff(block_state)
+    block_state_root, _ = chain.state.compute_state_root_and_trie_changes(
+        block_diff.account_changes, block_diff.storage_changes
+    )
     transactions_root = root(block_output.transactions_trie)
     receipt_root = root(block_output.receipts_trie)
     block_logs_bloom = logs_bloom(block_output.block_logs)
@@ -196,6 +208,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     if block_logs_bloom != block.header.bloom:
         raise InvalidBlock
 
+    apply_changes_to_state(chain.state, block_diff)
     chain.blocks.append(block)
     if len(chain.blocks) > 255:
         # Real clients have to store more blocks to deal with reorgs, but the
@@ -346,6 +359,7 @@ def check_transaction(
     block_env: vm.BlockEnvironment,
     block_output: vm.BlockOutput,
     tx: Transaction,
+    tx_state: TransactionState,
 ) -> Address:
     """
     Check if the transaction is includable in the block.
@@ -358,6 +372,8 @@ def check_transaction(
         The block output for the current block.
     tx :
         The transaction.
+    tx_state :
+        The transaction state tracker.
 
     Returns
     -------
@@ -380,7 +396,7 @@ def check_transaction(
     if tx.gas > gas_available:
         raise GasUsedExceedsLimitError("gas used exceeds limit")
     sender_address = recover_sender(block_env.chain_id, tx)
-    sender_account = get_account(block_env.state, sender_address)
+    sender_account = get_account(tx_state, sender_address)
 
     max_gas_fee = tx.gas * tx.gas_price
 
@@ -466,7 +482,7 @@ def apply_body(
     for i, tx in enumerate(transactions):
         process_transaction(block_env, block_output, tx, Uint(i))
 
-    pay_rewards(block_env.state, block_env.number, block_env.coinbase, ommers)
+    pay_rewards(block_env, ommers)
 
     return block_output
 
@@ -548,9 +564,7 @@ def validate_ommers(
 
 
 def pay_rewards(
-    state: State,
-    block_number: Uint,
-    coinbase: Address,
+    block_env: vm.BlockEnvironment,
     ommers: Tuple[Header, ...],
 ) -> None:
     """
@@ -569,25 +583,24 @@ def pay_rewards(
 
     Parameters
     ----------
-    state :
-        Current account state.
-    block_number :
-        Position of the block within the chain.
-    coinbase :
-        Address of account which receives block reward and transaction fees.
+    block_env :
+        The block scoped environment.
     ommers :
         List of ommers mentioned in the current block.
 
     """
+    rewards_state = TransactionState(parent=block_env.state)
     ommer_count = U256(len(ommers))
     miner_reward = BLOCK_REWARD + (ommer_count * (BLOCK_REWARD // U256(32)))
-    create_ether(state, coinbase, miner_reward)
+    create_ether(rewards_state, block_env.coinbase, miner_reward)
 
     for ommer in ommers:
         # Ommer age with respect to the current block.
-        ommer_age = U256(block_number - ommer.number)
+        ommer_age = U256(block_env.number - ommer.number)
         ommer_miner_reward = ((U256(8) - ommer_age) * BLOCK_REWARD) // U256(8)
-        create_ether(state, ommer.coinbase, ommer_miner_reward)
+        create_ether(rewards_state, ommer.coinbase, ommer_miner_reward)
+
+    incorporate_tx_into_block(rewards_state)
 
 
 def process_transaction(
@@ -620,6 +633,8 @@ def process_transaction(
         Index of the transaction in the block.
 
     """
+    tx_state = TransactionState(parent=block_env.state)
+
     trie_set(block_output.transactions_trie, rlp.encode(Uint(index)), tx)
     intrinsic_gas = validate_transaction(tx)
 
@@ -627,23 +642,23 @@ def process_transaction(
         block_env=block_env,
         block_output=block_output,
         tx=tx,
+        tx_state=tx_state,
     )
 
-    sender_account = get_account(block_env.state, sender)
+    sender_account = get_account(tx_state, sender)
 
     gas = tx.gas - intrinsic_gas
-    increment_nonce(block_env.state, sender)
+    increment_nonce(tx_state, sender)
 
     gas_fee = tx.gas * tx.gas_price
     sender_balance_after_gas_fee = Uint(sender_account.balance) - gas_fee
-    set_account_balance(
-        block_env.state, sender, U256(sender_balance_after_gas_fee)
-    )
+    set_account_balance(tx_state, sender, U256(sender_balance_after_gas_fee))
 
     tx_env = vm.TransactionEnvironment(
         origin=sender,
         gas_price=tx.gas_price,
         gas=gas,
+        state=tx_state,
         index_in_block=index,
         tx_hash=get_transaction_hash(tx),
     )
@@ -663,28 +678,28 @@ def process_transaction(
     transaction_fee = tx_gas_used_after_refund * tx.gas_price
 
     # refund gas
-    sender_balance_after_refund = get_account(
-        block_env.state, sender
-    ).balance + U256(gas_refund_amount)
-    set_account_balance(block_env.state, sender, sender_balance_after_refund)
+    sender_balance_after_refund = get_account(tx_state, sender).balance + U256(
+        gas_refund_amount
+    )
+    set_account_balance(tx_state, sender, sender_balance_after_refund)
 
     # transfer miner fees
     coinbase_balance_after_mining_fee = get_account(
-        block_env.state, block_env.coinbase
+        tx_state, block_env.coinbase
     ).balance + U256(transaction_fee)
     if coinbase_balance_after_mining_fee != 0:
         set_account_balance(
-            block_env.state,
+            tx_state,
             block_env.coinbase,
             coinbase_balance_after_mining_fee,
         )
-    elif account_exists_and_is_empty(block_env.state, block_env.coinbase):
-        destroy_account(block_env.state, block_env.coinbase)
+    elif account_exists_and_is_empty(tx_state, block_env.coinbase):
+        destroy_account(tx_state, block_env.coinbase)
 
     for address in tx_output.accounts_to_delete:
-        destroy_account(block_env.state, address)
+        destroy_account(tx_state, address)
 
-    destroy_touched_empty_accounts(block_env.state, tx_output.touched_accounts)
+    destroy_touched_empty_accounts(tx_state, tx_output.touched_accounts)
 
     block_output.block_gas_used += tx_gas_used_after_refund
 
@@ -702,6 +717,8 @@ def process_transaction(
     )
 
     block_output.block_logs += tx_output.logs
+
+    incorporate_tx_into_block(tx_state)
 
 
 def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
