@@ -14,3 +14,6 @@ branches:
     label: "Amsterdam"
   - path: "devnets/bal/4"
     label: "bal-devnet-4"
+  # TEMPORARY: remove after E2E testing
+  - path: "experiments/publish-docs"
+    label: "Amsterdam"
