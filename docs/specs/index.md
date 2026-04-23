@@ -51,7 +51,7 @@ The trade-off is that a bug fix that applies to every fork must be applied to ev
 - [Adding a New EIP](adding_a_new_eip.md): the EIP lifecycle from pre-draft to final, and how to land a new EIP in EELS.
 - [Spec Releases](spec_releases.md): how EELS versions relate to Ethereum hardforks and devnets.
 - [Protocol History](protocol_history.md): the full table of mainnet hardforks, their included EIPs, and their fork manifests.
-- [Rendered specification](https://ethereum.github.io/execution-specs/): the `docc`-rendered narrative view of the Python spec, with side-by-side diffs between forks.
+- [Rendered specification](https://steel.ethereum.foundation/docs/execution-specs/specs/reference/): the `docc`-rendered narrative view of the Python spec, with side-by-side diffs between forks.
 
 !!! bug "Reporting a vulnerability"
     Care is required when filing issues or PRs for functionality that is live on Ethereum mainnet. Please report vulnerabilities and verify bounty eligibility via the [bug bounty program](https://bounty.ethereum.org).

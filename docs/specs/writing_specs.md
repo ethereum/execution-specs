@@ -119,7 +119,7 @@ The marked lines (`<-`) are now incorrectly attributed to EIP-4567 in Fork+1. In
 
 ## Changes across multiple forks
 
-Many contributions require changes across multiple forks, organized under `src/ethereum/forks/`. When making such changes, ensure that differences between the forks are minimal and consist only of necessary differences. This produces cleaner [diff outputs](https://ethereum.github.io/execution-specs/diffs/index.html).
+Many contributions require changes across multiple forks, organized under `src/ethereum/forks/`. When making such changes, ensure that differences between the forks are minimal and consist only of necessary differences. This produces cleaner [diff outputs](https://steel.ethereum.foundation/docs/execution-specs/specs/reference/diffs/index.html).
 
 When creating pull requests affecting multiple forks, we recommend submitting your PR in two steps:
 
