@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import time
 from typing import Any, Callable, Dict, List, Optional, cast
 
 try:
@@ -10,6 +11,147 @@ try:
 except ImportError:
     eth_abi_encode = cast(Any, None)
     keccak = cast(Any, None)
+
+
+# --- Broadcast helpers shared by the spamoor tests ---------------------------
+
+
+def _normalize_fees(tx_dict: Dict[str, Any]) -> None:
+    """
+    Clamp ``maxFeePerGas`` to satisfy EIP-1559 validity.
+
+    Builders scale basefee by throughput to pick ``maxFeePerGas``, which
+    can fall below ``maxPriorityFeePerGas`` on low-basefee devnets. Raise
+    ``maxFeePerGas`` so the tx is accepted by the node.
+    """
+    if tx_dict.get("type") not in (2, 3):
+        return
+    max_fee = int(tx_dict.get("maxFeePerGas", 0))
+    priority = int(tx_dict.get("maxPriorityFeePerGas", 0))
+    if max_fee < priority * 2:
+        tx_dict["maxFeePerGas"] = priority * 2
+
+
+def spamoor_signer_context(
+    spamoor_config: Dict[str, Any],
+    rpc_client: Optional[Callable[[str, List[Any]], Any]],
+) -> Dict[str, Any]:
+    """
+    Skip-or-return signing context for a spamoor broadcast test.
+
+    Calls ``pytest.skip`` when the private key / sender / endpoint are
+    unavailable. Otherwise returns ``{signer, chain_id, start_nonce}``.
+    """
+    import pytest
+    from execution_testing.test_types import EOA
+
+    private_key = spamoor_config.get("private_key")
+    from_addr = spamoor_config.get("from_addr")
+    if not private_key or not from_addr:
+        pytest.skip("spamoor private_key/from_addr not configured")
+    if rpc_client is None:
+        pytest.skip("spamoor rpc_client not configured")
+
+    chain_id_hex = rpc_client("eth_chainId", [])
+    if not isinstance(chain_id_hex, str):
+        pytest.skip("spamoor endpoint unreachable (eth_chainId failed)")
+    nonce_hex = rpc_client("eth_getTransactionCount", [from_addr, "pending"])
+    assert isinstance(nonce_hex, str), "eth_getTransactionCount failed"
+
+    start_nonce = int(nonce_hex, 16)
+    return {
+        "signer": EOA(key=private_key, nonce=start_nonce),
+        "chain_id": int(chain_id_hex, 16),
+        "start_nonce": start_nonce,
+    }
+
+
+def broadcast_and_assert_receipts(
+    raw_txs: List[Dict[str, Any]],
+    ctx: Dict[str, Any],
+    rpc_client: Callable[[str, List[Any]], Any],
+    *,
+    fork: Optional[Any] = None,
+    blob_seed: int = 0,
+    timeout: float = 60.0,
+    poll_interval: float = 1.0,
+    allow_reverts: bool = False,
+) -> Dict[str, Dict[str, Any]]:
+    """
+    Sign every raw tx, broadcast, poll receipts, assert ``status == 0x1``.
+
+    Returns the receipts keyed by tx hash. Skips the test if the builder
+    produced no txs. Type-3 (blob) transactions cannot be broadcast via
+    ``eth_sendRawTransaction`` with EST's block-form RLP (no sidecars),
+    so the helper skips when it encounters one.
+    """
+    import pytest
+    from execution_testing.cli.pytest_commands.plugins.testing_build_block.tx_convert import (  # noqa: E501
+        spamoor_dict_to_transaction,
+    )
+
+    if not raw_txs:
+        pytest.skip("builder produced no transactions")
+    if any(int(tx.get("type", 0)) == 3 for tx in raw_txs):
+        pytest.skip(
+            "type-3 blob broadcast requires network-form RLP with sidecars; "
+            "not implemented for spamoor smoke tests"
+        )
+
+    signer = ctx["signer"]
+    chain_id = ctx["chain_id"]
+    start_nonce = int(ctx["start_nonce"])
+
+    tx_hashes: List[str] = []
+    for i, tx_dict in enumerate(raw_txs):
+        _normalize_fees(tx_dict)
+        tx = spamoor_dict_to_transaction(
+            tx_dict,
+            signer,
+            chain_id,
+            nonce_override=start_nonce + i,
+            fork=fork,
+            blob_seed=blob_seed,
+        )
+        # ``Bytes.hex()`` already includes the ``0x`` prefix.
+        raw = tx.rlp().hex()
+        result = rpc_client("eth_sendRawTransaction", [raw])
+        assert isinstance(result, str) and result.startswith("0x"), (
+            f"eth_sendRawTransaction failed for tx {i} "
+            f"(type={tx_dict.get('type')} to={tx_dict.get('to')!r} "
+            f"gas={tx_dict.get('gas')} "
+            f"maxFee={tx_dict.get('maxFeePerGas')} "
+            f"tip={tx_dict.get('maxPriorityFeePerGas')} "
+            f"nonce={start_nonce + i} "
+            f"data_len={len(tx_dict.get('data', '') or '') // 2}): {result!r}"
+        )
+        tx_hashes.append(result)
+
+    deadline = time.time() + timeout
+    pending = list(tx_hashes)
+    receipts: Dict[str, Dict[str, Any]] = {}
+    while pending and time.time() < deadline:
+        still_pending: List[str] = []
+        for h in pending:
+            receipt = rpc_client("eth_getTransactionReceipt", [h])
+            if receipt is None:
+                still_pending.append(h)
+            else:
+                receipts[h] = receipt
+        pending = still_pending
+        if pending:
+            time.sleep(poll_interval)
+
+    assert not pending, (
+        f"transactions never mined within {timeout}s: {pending}"
+    )
+    if not allow_reverts:
+        for h, r in receipts.items():
+            status = r.get("status")
+            assert status == "0x1", (
+                f"tx {h} reverted: status={status} receipt={r}"
+            )
+    return receipts
 
 
 def build_eoatx_transactions(

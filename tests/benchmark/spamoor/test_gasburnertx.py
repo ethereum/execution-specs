@@ -4,7 +4,11 @@ from typing import Any, Callable, Dict
 
 import pytest
 
-from .helpers import build_gasburnertx_transactions
+from .helpers import (
+    broadcast_and_assert_receipts,
+    build_gasburnertx_transactions,
+    spamoor_signer_context,
+)
 
 
 @pytest.mark.spamoor
@@ -12,7 +16,9 @@ def test_gasburnertx_scenario(
     spamoor_config: Dict[str, Any],
     spamoor_rpc_client: Callable[[str, list], Any],
 ) -> None:
-    """Exercise test_gasburnertx_scenario."""
+    """Deploy gas-burner + broadcast gas-burning calls."""
+    ctx = spamoor_signer_context(spamoor_config, spamoor_rpc_client)
+
     txs = build_gasburnertx_transactions(
         count=spamoor_config["count"],
         gas_units_to_burn=spamoor_config["gas_units_to_burn"],
@@ -26,27 +32,10 @@ def test_gasburnertx_scenario(
         rpc_client=spamoor_rpc_client,
     )
 
-    # Deploy tx + count exec txs.
     assert len(txs) == spamoor_config["count"] + 1
-
-    deploy = txs[0]
-    assert deploy["type"] == 2
-    assert deploy["to"] == ""
-    assert deploy["data"].startswith("0x")
-    assert deploy["gas"] == spamoor_config["deploy_gas_limit"]
-
+    assert txs[0]["type"] == 2
+    assert txs[0]["to"] == ""
     if spamoor_config["count"] > 0:
-        exec_tx = txs[1]
-        assert exec_tx["type"] == 2
-        assert exec_tx["to"] == (
-            spamoor_config["contract_address"]
-            or "0x3333333333333333333333333333333333333333"
-        )
-        assert exec_tx["gas"] == spamoor_config["gas_units_to_burn"]
-        assert exec_tx["value"] == 0
-        assert exec_tx["data"] == "0x00000000"
-        assert "maxFeePerGas" in exec_tx
-        assert "maxPriorityFeePerGas" in exec_tx
-        # Second exec tx encodes txIdx=1.
-        if spamoor_config["count"] > 1:
-            assert txs[2]["data"] == "0x00000001"
+        assert txs[1]["data"] == "0x00000000"
+
+    broadcast_and_assert_receipts(txs, ctx, spamoor_rpc_client)

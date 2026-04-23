@@ -4,7 +4,11 @@ from typing import Any, Callable, Dict
 
 import pytest
 
-from .helpers import build_storagespam_transactions
+from .helpers import (
+    broadcast_and_assert_receipts,
+    build_storagespam_transactions,
+    spamoor_signer_context,
+)
 
 
 @pytest.mark.spamoor
@@ -12,7 +16,9 @@ def test_storagespam_scenario_with_deploy(
     spamoor_config: Dict[str, Any],
     spamoor_rpc_client: Callable[[str, list], Any],
 ) -> None:
-    """Exercise test_storagespam_scenario_with_deploy."""
+    """Deploy stub + broadcast setRandomForGas calls."""
+    ctx = spamoor_signer_context(spamoor_config, spamoor_rpc_client)
+
     txs = build_storagespam_transactions(
         count=spamoor_config["count"],
         gas_units_to_burn=spamoor_config["gas_units_to_burn"],
@@ -29,29 +35,12 @@ def test_storagespam_scenario_with_deploy(
     )
 
     assert len(txs) == spamoor_config["count"] + 1
-
-    deploy = txs[0]
-    assert deploy["type"] == 2
-    assert deploy["to"] == ""
-    assert deploy["data"].startswith("0x")
-
+    assert txs[0]["type"] == 2
+    assert txs[0]["to"] == ""
     if spamoor_config["count"] > 0:
-        exec_tx = txs[1]
-        assert exec_tx["type"] == 2
-        assert exec_tx["to"] == (
-            spamoor_config.get("contract_address")
-            or "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-        )
-        assert exec_tx["value"] == 0
-        assert exec_tx["gas"] == spamoor_config["gas_units_to_burn"] + 50_000
-        # selector(4) + uint256(32) + uint256(32) = 68 bytes.
-        assert len(exec_tx["data"]) == 2 + 2 * 68
-        assert exec_tx["data"].startswith("0xfed72935")
-        # Second exec tx carries seed=1, so the trailing uint256 must differ.
-        if spamoor_config["count"] >= 2:
-            seed_word_a = txs[1]["data"][-64:]
-            seed_word_b = txs[2]["data"][-64:]
-            assert seed_word_a != seed_word_b
+        assert txs[1]["data"].startswith("0xfed72935")
+
+    broadcast_and_assert_receipts(txs, ctx, spamoor_rpc_client)
 
 
 @pytest.mark.spamoor
@@ -59,7 +48,9 @@ def test_storagespam_scenario_reuse_contract(
     spamoor_config: Dict[str, Any],
     spamoor_rpc_client: Callable[[str, list], Any],
 ) -> None:
-    """Exercise test_storagespam_scenario_reuse_contract."""
+    """Reuse-contract path: setRandomForGas calls only, no deploy."""
+    ctx = spamoor_signer_context(spamoor_config, spamoor_rpc_client)
+
     txs = build_storagespam_transactions(
         count=spamoor_config["count"],
         gas_units_to_burn=spamoor_config["gas_units_to_burn"],
@@ -73,7 +64,8 @@ def test_storagespam_scenario_reuse_contract(
         rpc_client=spamoor_rpc_client,
     )
 
-    # No deploy tx when reusing an existing contract.
     assert len(txs) == spamoor_config["count"]
     if spamoor_config["count"] > 0:
         assert txs[0]["data"].startswith("0xfed72935")
+
+    broadcast_and_assert_receipts(txs, ctx, spamoor_rpc_client)

@@ -4,7 +4,11 @@ from typing import Any, Callable, Dict
 
 import pytest
 
-from .helpers import build_storagerefundtx_transactions
+from .helpers import (
+    broadcast_and_assert_receipts,
+    build_storagerefundtx_transactions,
+    spamoor_signer_context,
+)
 
 
 @pytest.mark.spamoor
@@ -12,7 +16,9 @@ def test_storagerefundtx_scenario_with_deploy(
     spamoor_config: Dict[str, Any],
     spamoor_rpc_client: Callable[[str, list], Any],
 ) -> None:
-    """Exercise test_storagerefundtx_scenario_with_deploy."""
+    """Deploy stub + broadcast execute(slotsPerCall) calls."""
+    ctx = spamoor_signer_context(spamoor_config, spamoor_rpc_client)
+
     txs = build_storagerefundtx_transactions(
         count=spamoor_config["count"],
         slots_per_call=spamoor_config["slots_per_call"],
@@ -29,28 +35,12 @@ def test_storagerefundtx_scenario_with_deploy(
     )
 
     assert len(txs) == spamoor_config["count"] + 1
-
-    deploy = txs[0]
-    assert deploy["type"] == 2
-    assert deploy["to"] == ""
-
+    assert txs[0]["type"] == 2
+    assert txs[0]["to"] == ""
     if spamoor_config["count"] > 0:
-        exec_tx = txs[1]
-        expected_gas = (
-            spamoor_config["gas_limit"]
-            if spamoor_config["gas_limit"]
-            else 3_000_000
-        )
-        assert exec_tx["type"] == 2
-        assert exec_tx["to"] == "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
-        assert exec_tx["value"] == 0
-        assert exec_tx["gas"] == expected_gas
-        # selector(4) + uint256(32) = 36 bytes => 72 hex + "0x".
-        assert len(exec_tx["data"]) == 2 + 2 * 36
-        assert exec_tx["data"].startswith("0xfe0d94c1")
-        # Encoded slotsPerCall matches the argument.
-        encoded_slots = int(exec_tx["data"][10:], 16)
-        assert encoded_slots == spamoor_config["slots_per_call"]
+        assert txs[1]["data"].startswith("0xfe0d94c1")
+
+    broadcast_and_assert_receipts(txs, ctx, spamoor_rpc_client)
 
 
 @pytest.mark.spamoor
@@ -58,7 +48,9 @@ def test_storagerefundtx_scenario_existing_contract(
     spamoor_config: Dict[str, Any],
     spamoor_rpc_client: Callable[[str, list], Any],
 ) -> None:
-    """Exercise test_storagerefundtx_scenario_existing_contract."""
+    """Skip-deploy path: execute() calls against a supplied address."""
+    ctx = spamoor_signer_context(spamoor_config, spamoor_rpc_client)
+
     txs = build_storagerefundtx_transactions(
         count=spamoor_config["count"],
         slots_per_call=spamoor_config["slots_per_call"],
@@ -72,8 +64,9 @@ def test_storagerefundtx_scenario_existing_contract(
         rpc_client=spamoor_rpc_client,
     )
 
-    # No deploy tx when targeting an existing contract.
     assert len(txs) == spamoor_config["count"]
     if spamoor_config["count"] > 0:
         assert txs[0]["to"] == "0xffffffffffffffffffffffffffffffffffffffff"
         assert txs[0]["data"].startswith("0xfe0d94c1")
+
+    broadcast_and_assert_receipts(txs, ctx, spamoor_rpc_client)

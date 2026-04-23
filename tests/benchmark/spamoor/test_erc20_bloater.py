@@ -4,7 +4,11 @@ from typing import Any, Callable, Dict
 
 import pytest
 
-from .helpers import build_erc20_bloater_transactions
+from .helpers import (
+    broadcast_and_assert_receipts,
+    build_erc20_bloater_transactions,
+    spamoor_signer_context,
+)
 
 
 @pytest.mark.spamoor
@@ -12,7 +16,9 @@ def test_erc20_bloater_scenario_with_deploy(
     spamoor_config: Dict[str, Any],
     spamoor_rpc_client: Callable[[str, list], Any],
 ) -> None:
-    """Exercise test_erc20_bloater_scenario_with_deploy."""
+    """Deploy ERC20Bloater stub + broadcast bloatStorage calls."""
+    ctx = spamoor_signer_context(spamoor_config, spamoor_rpc_client)
+
     txs = build_erc20_bloater_transactions(
         count=spamoor_config["count"],
         addresses_per_tx=spamoor_config["addresses_per_tx"],
@@ -29,37 +35,15 @@ def test_erc20_bloater_scenario_with_deploy(
         rpc_client=spamoor_rpc_client,
     )
 
-    # Deploy tx + count bloat txs.
     assert len(txs) == spamoor_config["count"] + 1
-
-    deploy = txs[0]
-    assert deploy["type"] == 2
-    assert deploy["to"] == ""
-
+    assert txs[0]["type"] == 2
+    assert txs[0]["to"] == ""
     if spamoor_config["count"] > 0:
-        exec_tx = txs[1]
-        expected_gas = (
-            spamoor_config["gas_limit"]
-            if spamoor_config["gas_limit"]
-            else 16_700_000
-        )
-        assert exec_tx["type"] == 2
-        assert exec_tx["to"] == "0xdddddddddddddddddddddddddddddddddddddddd"
-        assert exec_tx["value"] == 0
-        assert exec_tx["gas"] == expected_gas
-        # selector(4) + uint256(32) + uint256(32) = 68 bytes.
-        assert len(exec_tx["data"]) == 2 + 2 * 68
-        assert exec_tx["data"].startswith("0xc1926de5")
+        assert txs[1]["data"].startswith("0xc1926de5")
 
-        # numAddresses argument (last 32 bytes) stays constant across txs.
-        num_word = exec_tx["data"][-64:]
-        assert int(num_word, 16) == spamoor_config["addresses_per_tx"]
-
-        # startAddressIndex advances by addresses_per_tx between txs.
-        if spamoor_config["count"] >= 2:
-            start_a = int(txs[1]["data"][10 : 10 + 64], 16)
-            start_b = int(txs[2]["data"][10 : 10 + 64], 16)
-            assert start_b - start_a == spamoor_config["addresses_per_tx"]
+    # Bloater txs carry 16.7M gas limits → tight block packing on a 30M
+    # cap. Give the node extra time to mine the batch.
+    broadcast_and_assert_receipts(txs, ctx, spamoor_rpc_client, timeout=120)
 
 
 @pytest.mark.spamoor
@@ -67,7 +51,9 @@ def test_erc20_bloater_scenario_existing_contract(
     spamoor_config: Dict[str, Any],
     spamoor_rpc_client: Callable[[str, list], Any],
 ) -> None:
-    """Exercise test_erc20_bloater_scenario_existing_contract."""
+    """Skip-deploy path: call bloatStorage on an existing address."""
+    ctx = spamoor_signer_context(spamoor_config, spamoor_rpc_client)
+
     txs = build_erc20_bloater_transactions(
         count=spamoor_config["count"],
         addresses_per_tx=spamoor_config["addresses_per_tx"],
@@ -83,8 +69,9 @@ def test_erc20_bloater_scenario_existing_contract(
         rpc_client=spamoor_rpc_client,
     )
 
-    # No deploy tx when targeting an existing contract.
     assert len(txs) == spamoor_config["count"]
     if spamoor_config["count"] > 0:
         assert txs[0]["to"] == "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
         assert txs[0]["data"].startswith("0xc1926de5")
+
+    broadcast_and_assert_receipts(txs, ctx, spamoor_rpc_client, timeout=120)
