@@ -13,7 +13,7 @@ Implementations of the EVM storage related instructions.
 
 from ethereum_types.numeric import Uint
 
-from ...state import (
+from ...state_tracker import (
     get_storage,
     get_storage_original,
     get_transient_storage,
@@ -51,9 +51,8 @@ def sload(evm: Evm) -> None:
         charge_gas(evm, GasCosts.COLD_STORAGE_ACCESS)
 
     # OPERATION
-    value = get_storage(
-        evm.message.block_env.state, evm.message.current_target, key
-    )
+    tx_state = evm.message.tx_env.state
+    value = get_storage(tx_state, evm.message.current_target, key)
 
     push(evm.stack, value)
 
@@ -77,11 +76,11 @@ def sstore(evm: Evm) -> None:
     if evm.gas_left <= GasCosts.CALL_STIPEND:
         raise OutOfGasError
 
-    state = evm.message.block_env.state
+    tx_state = evm.message.tx_env.state
     original_value = get_storage_original(
-        state, evm.message.current_target, key
+        tx_state, evm.message.current_target, key
     )
-    current_value = get_storage(state, evm.message.current_target, key)
+    current_value = get_storage(tx_state, evm.message.current_target, key)
 
     gas_cost = Uint(0)
 
@@ -127,7 +126,7 @@ def sstore(evm: Evm) -> None:
     charge_gas(evm, gas_cost)
     if evm.message.is_static:
         raise WriteInStaticContext
-    set_storage(state, evm.message.current_target, key, new_value)
+    set_storage(tx_state, evm.message.current_target, key, new_value)
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
@@ -152,7 +151,7 @@ def tload(evm: Evm) -> None:
 
     # OPERATION
     value = get_transient_storage(
-        evm.message.tx_env.transient_storage, evm.message.current_target, key
+        evm.message.tx_env.state, evm.message.current_target, key
     )
     push(evm.stack, value)
 
@@ -179,7 +178,7 @@ def tstore(evm: Evm) -> None:
     if evm.message.is_static:
         raise WriteInStaticContext
     set_transient_storage(
-        evm.message.tx_env.transient_storage,
+        evm.message.tx_env.state,
         evm.message.current_target,
         key,
         new_value,
