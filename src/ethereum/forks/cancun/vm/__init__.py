@@ -20,13 +20,13 @@ from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32
 from ethereum.exceptions import EthereumException
+from ethereum.merkle_patricia_trie import Trie
 from ethereum.state import Address
 
 from ..blocks import Log, Receipt, Withdrawal
 from ..fork_types import VersionedHash
-from ..state import State, TransientStorage
+from ..state_tracker import BlockState, TransactionState
 from ..transactions import LegacyTransaction
-from ..trie import Trie
 
 __all__ = ("Environment", "Evm", "Message")
 
@@ -38,7 +38,7 @@ class BlockEnvironment:
     """
 
     chain_id: U64
-    state: State
+    state: BlockState
     block_gas_limit: Uint
     block_hashes: List[Hash32]
     coinbase: Address
@@ -100,7 +100,7 @@ class TransactionEnvironment:
     gas: Uint
     access_list_addresses: Set[Address]
     access_list_storage_keys: Set[Tuple[Address, Bytes32]]
-    transient_storage: TransientStorage
+    state: TransactionState
     blob_versioned_hashes: Tuple[VersionedHash, ...]
     index_in_block: Optional[Uint]
     tx_hash: Optional[Hash32]
