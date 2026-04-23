@@ -50,11 +50,7 @@ def _payload_attributes_for_fork(
         timestamp=HexNumber(next_timestamp),
         prev_randao=Hash(0),
         suggested_fee_recipient=Address(0),
-        withdrawals=(
-            []
-            if next_fork.header_withdrawals_required()
-            else None
-        ),
+        withdrawals=([] if next_fork.header_withdrawals_required() else None),
         parent_beacon_block_root=parent_beacon_block_root,
         target_blobs_per_block=(
             HexNumber(target_blobs) if target_blobs is not None else None
@@ -107,13 +103,9 @@ def commit_via_build(
     )
     new_payload_args: List[Any] = [payload.execution_payload]
     if payload.blobs_bundle is not None:
-        new_payload_args.append(
-            payload.blobs_bundle.blob_versioned_hashes()
-        )
+        new_payload_args.append(payload.blobs_bundle.blob_versioned_hashes())
     if payload_attributes.parent_beacon_block_root is not None:
-        new_payload_args.append(
-            payload_attributes.parent_beacon_block_root
-        )
+        new_payload_args.append(payload_attributes.parent_beacon_block_root)
     if payload.execution_requests is not None:
         new_payload_args.append(payload.execution_requests)
 
@@ -139,9 +131,7 @@ def commit_via_build(
         None,
         version=fcu_version,
     )
-    assert (
-        fcu_response.payload_status.status == PayloadStatusEnum.VALID
-    ), (
+    assert fcu_response.payload_status.status == PayloadStatusEnum.VALID, (
         f"engine_forkchoiceUpdated rejected new head: "
         f"{fcu_response.payload_status.status}"
     )

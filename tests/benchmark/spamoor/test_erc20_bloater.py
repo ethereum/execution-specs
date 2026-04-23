@@ -1,10 +1,18 @@
+"""Tests for build_erc20_bloater_transactions."""
+
+from typing import Any, Callable, Dict
+
 import pytest
 
 from .helpers import build_erc20_bloater_transactions
 
 
 @pytest.mark.spamoor
-def test_erc20_bloater_scenario_with_deploy(spamoor_config, spamoor_rpc_client):
+def test_erc20_bloater_scenario_with_deploy(
+    spamoor_config: Dict[str, Any],
+    spamoor_rpc_client: Callable[[str, list], Any],
+) -> None:
+    """Exercise test_erc20_bloater_scenario_with_deploy."""
     txs = build_erc20_bloater_transactions(
         count=spamoor_config["count"],
         addresses_per_tx=spamoor_config["addresses_per_tx"],
@@ -55,7 +63,11 @@ def test_erc20_bloater_scenario_with_deploy(spamoor_config, spamoor_rpc_client):
 
 
 @pytest.mark.spamoor
-def test_erc20_bloater_scenario_existing_contract(spamoor_config, spamoor_rpc_client):
+def test_erc20_bloater_scenario_existing_contract(
+    spamoor_config: Dict[str, Any],
+    spamoor_rpc_client: Callable[[str, list], Any],
+) -> None:
+    """Exercise test_erc20_bloater_scenario_existing_contract."""
     txs = build_erc20_bloater_transactions(
         count=spamoor_config["count"],
         addresses_per_tx=spamoor_config["addresses_per_tx"],

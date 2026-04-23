@@ -78,9 +78,7 @@ def spamoor_dict_to_transaction(
 
     if ty == 3:
         if fork is None:
-            raise ValueError(
-                "fork is required for type-3 (blob) transactions"
-            )
+            raise ValueError("fork is required for type-3 (blob) transactions")
         blob_count = int(
             tx_dict.get(
                 "blobCount",
@@ -90,9 +88,7 @@ def spamoor_dict_to_transaction(
         blob_objects = [
             Blob.from_fork(fork, seed=blob_seed + i) for i in range(blob_count)
         ]
-        versioned_hashes = [
-            Hash(blob.versioned_hash) for blob in blob_objects
-        ]
+        versioned_hashes = [Hash(blob.versioned_hash) for blob in blob_objects]
         tx_kwargs["max_fee_per_blob_gas"] = HexNumber(
             int(tx_dict.get("maxFeePerBlobGas", 1))
         )

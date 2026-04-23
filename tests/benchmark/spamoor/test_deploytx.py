@@ -1,10 +1,18 @@
+"""Tests for build_deploytx_transactions."""
+
+from typing import Any, Callable, Dict
+
 import pytest
 
 from .helpers import build_deploytx_transactions
 
 
 @pytest.mark.spamoor
-def test_deploytx_default_bytecode(spamoor_config, spamoor_rpc_client):
+def test_deploytx_default_bytecode(
+    spamoor_config: Dict[str, Any],
+    spamoor_rpc_client: Callable[[str, list], Any],
+) -> None:
+    """Exercise test_deploytx_default_bytecode."""
     txs = build_deploytx_transactions(
         count=spamoor_config["count"],
         bytecodes=spamoor_config["bytecodes"],
@@ -43,7 +51,11 @@ def test_deploytx_default_bytecode(spamoor_config, spamoor_rpc_client):
 
 
 @pytest.mark.spamoor
-def test_deploytx_cycles_bytecode_list(spamoor_config, spamoor_rpc_client):
+def test_deploytx_cycles_bytecode_list(
+    spamoor_config: Dict[str, Any],
+    spamoor_rpc_client: Callable[[str, list], Any],
+) -> None:
+    """Exercise test_deploytx_cycles_bytecode_list."""
     # Force a two-entry list so we can check cycling even when the CLI
     # doesn't provide bytecodes.
     txs = build_deploytx_transactions(

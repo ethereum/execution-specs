@@ -25,7 +25,7 @@ def test_evm_fuzz_committed(
     bloat_eth_rpc: EthRPC,
     bloat_commit_block: Callable[[Sequence[Transaction]], Hash],
 ) -> None:
-    """Commit a batch of fuzz-bytecode contract creations against the lab node."""
+    """Commit a batch of fuzz-bytecode contract creations to the lab node."""
     raw_txs = build_evm_fuzz_transactions(
         count=spamoor_config["count"],
         gas_limit=spamoor_config["gas_limit"],
@@ -37,7 +37,7 @@ def test_evm_fuzz_committed(
         basefee=spamoor_config["basefee"],
         tip_fee=spamoor_config["tip_fee"],
         throughput=spamoor_config["throughput"],
-        from_addr=bloat_signer,
+        from_addr=str(bloat_signer),
         private_key=bloat_config.signer_key,
         rpc_client=None,
     )

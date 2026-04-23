@@ -1,10 +1,18 @@
+"""Tests for build_blob_combined_transactions."""
+
+from typing import Any, Callable, Dict
+
 import pytest
 
 from .helpers import build_blob_combined_transactions
 
 
 @pytest.mark.spamoor
-def test_blob_combined_scenario(spamoor_config, spamoor_rpc_client):
+def test_blob_combined_scenario(
+    spamoor_config: Dict[str, Any],
+    spamoor_rpc_client: Callable[[str, list], Any],
+) -> None:
+    """Exercise test_blob_combined_scenario."""
     txs = build_blob_combined_transactions(
         count=spamoor_config["count"],
         sidecars=spamoor_config["sidecars"],

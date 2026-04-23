@@ -38,7 +38,7 @@ def test_erc20tx_committed(
         basefee=spamoor_config["basefee"],
         tip_fee=spamoor_config["tip_fee"],
         throughput=spamoor_config["throughput"],
-        from_addr=bloat_signer,
+        from_addr=str(bloat_signer),
         private_key=bloat_config.signer_key,
         rpc_client=None,
     )

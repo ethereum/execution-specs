@@ -34,7 +34,7 @@ def test_gasburnertx_committed(
         throughput=spamoor_config["throughput"],
         deploy_gas_limit=spamoor_config["deploy_gas_limit"],
         contract_address=spamoor_config["contract_address"],
-        from_addr=bloat_signer,
+        from_addr=str(bloat_signer),
         private_key=bloat_config.signer_key,
         rpc_client=None,
     )

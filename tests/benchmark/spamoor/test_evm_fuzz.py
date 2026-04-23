@@ -1,10 +1,18 @@
+"""Tests for build_evm_fuzz_transactions."""
+
+from typing import Any, Callable, Dict
+
 import pytest
 
 from .helpers import build_evm_fuzz_transactions
 
 
 @pytest.mark.spamoor
-def test_evm_fuzz_scenario(spamoor_config, spamoor_rpc_client):
+def test_evm_fuzz_scenario(
+    spamoor_config: Dict[str, Any],
+    spamoor_rpc_client: Callable[[str, list], Any],
+) -> None:
+    """Exercise test_evm_fuzz_scenario."""
     txs = build_evm_fuzz_transactions(
         count=spamoor_config["count"],
         gas_limit=spamoor_config["gas_limit"],
@@ -53,7 +61,11 @@ def test_evm_fuzz_scenario(spamoor_config, spamoor_rpc_client):
 
 
 @pytest.mark.spamoor
-def test_evm_fuzz_is_deterministic(spamoor_config, spamoor_rpc_client):
+def test_evm_fuzz_is_deterministic(
+    spamoor_config: Dict[str, Any],
+    spamoor_rpc_client: Callable[[str, list], Any],
+) -> None:
+    """Exercise test_evm_fuzz_is_deterministic."""
     kwargs = dict(
         count=max(2, spamoor_config["count"]),
         gas_limit=spamoor_config["gas_limit"],

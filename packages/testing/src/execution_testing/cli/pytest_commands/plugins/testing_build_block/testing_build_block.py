@@ -150,9 +150,7 @@ def bloat_config(request: pytest.FixtureRequest) -> BloatConfig:
         jwt_secret=jwt_secret,
         signer_key=signer_key,
         chain_id=int(request.config.getoption("bloat_chain_id")),
-        block_version=int(
-            request.config.getoption("bloat_block_version")
-        ),
+        block_version=int(request.config.getoption("bloat_block_version")),
         commit_mode=request.config.getoption("bloat_commit_mode"),
     )
 
@@ -185,9 +183,7 @@ def bloat_fork(request: pytest.FixtureRequest) -> Fork:
 
 
 @pytest.fixture(scope="session")
-def bloat_signer(
-    bloat_config: BloatConfig, bloat_eth_rpc: EthRPC
-) -> EOA:
+def bloat_signer(bloat_config: BloatConfig, bloat_eth_rpc: EthRPC) -> EOA:
     """Return an ``EOA`` seeded with the current on-chain nonce."""
     probe = EOA(key=bloat_config.signer_key, nonce=0)
     try:

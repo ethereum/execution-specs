@@ -1,9 +1,18 @@
+"""Tests for build_calltx_transactions."""
+
+from typing import Any, Callable, Dict
+
 import pytest
+
 from .helpers import build_calltx_transactions
 
 
 @pytest.mark.spamoor
-def test_calltx_scenario_with_deploy(spamoor_config, spamoor_rpc_client):
+def test_calltx_scenario_with_deploy(
+    spamoor_config: Dict[str, Any],
+    spamoor_rpc_client: Callable[[str, list], Any],
+) -> None:
+    """Exercise test_calltx_scenario_with_deploy."""
     txs = build_calltx_transactions(
         count=spamoor_config["count"],
         throughput=spamoor_config["throughput"],
@@ -23,7 +32,8 @@ def test_calltx_scenario_with_deploy(spamoor_config, spamoor_rpc_client):
         rpc_client=spamoor_rpc_client,
     )
 
-    # If contract_code is provided, the first tx is deployment, followed by `count` execution txs
+    # With contract_code set, the first tx is deployment,
+    # followed by `count` execution txs.
     assert len(txs) == spamoor_config["count"] + 1
 
     # Check deployment tx
@@ -37,7 +47,7 @@ def test_calltx_scenario_with_deploy(spamoor_config, spamoor_rpc_client):
             spamoor_config.get("contract_address")
             or "0x1111111111111111111111111111111111111111"
         )
-        # Gas assertion updated to use new gas_limit/configured value when provided
+        # Use the gas_limit override when provided.
         expected_gas = (
             spamoor_config.get("gas_limit")
             if spamoor_config.get("gas_limit")
@@ -47,7 +57,11 @@ def test_calltx_scenario_with_deploy(spamoor_config, spamoor_rpc_client):
 
 
 @pytest.mark.spamoor
-def test_calltx_scenario_no_deploy(spamoor_config, spamoor_rpc_client):
+def test_calltx_scenario_no_deploy(
+    spamoor_config: Dict[str, Any],
+    spamoor_rpc_client: Callable[[str, list], Any],
+) -> None:
+    """Exercise test_calltx_scenario_no_deploy."""
     txs = build_calltx_transactions(
         count=spamoor_config["count"],
         throughput=spamoor_config["throughput"],
@@ -57,7 +71,7 @@ def test_calltx_scenario_no_deploy(spamoor_config, spamoor_rpc_client):
         private_key=spamoor_config["private_key"],
         contract_code=None,
         contract_address=spamoor_config.get("contract_address"),
-        call_data=spamoor_config.get("call_data", "0x1234"),
+        call_data=spamoor_config.get("call_data") or "0x1234",
         deploy_gas_limit=spamoor_config.get("deploy_gas_limit", 2000000),
         call_fn_sig=spamoor_config.get("call_fn_sig", ""),
         call_args=spamoor_config.get("call_args", "[]"),
@@ -77,7 +91,7 @@ def test_calltx_scenario_no_deploy(spamoor_config, spamoor_rpc_client):
             or "0x1111111111111111111111111111111111111111"
         )
         assert txs[0]["data"] == "0x1234"
-        # Gas assertion updated to use new gas_limit/configured value when provided
+        # Use the gas_limit override when provided.
         expected_gas = (
             spamoor_config.get("gas_limit")
             if spamoor_config.get("gas_limit")

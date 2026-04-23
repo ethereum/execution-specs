@@ -31,7 +31,7 @@ def test_calltx_committed(
         throughput=spamoor_config["throughput"],
         amount=spamoor_config["amount"],
         basefee=spamoor_config["basefee"],
-        from_addr=bloat_signer,
+        from_addr=str(bloat_signer),
         private_key=bloat_config.signer_key,
         contract_code=spamoor_config["contract_code"],
         contract_address=spamoor_config["contract_address"],

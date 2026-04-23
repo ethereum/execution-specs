@@ -1,10 +1,18 @@
+"""Tests for build_uniswap_swaps_transactions."""
+
+from typing import Any, Callable, Dict
+
 import pytest
 
 from .helpers import build_uniswap_swaps_transactions
 
 
 @pytest.mark.spamoor
-def test_uniswap_swaps_scenario(spamoor_config, spamoor_rpc_client):
+def test_uniswap_swaps_scenario(
+    spamoor_config: Dict[str, Any],
+    spamoor_rpc_client: Callable[[str, list], Any],
+) -> None:
+    """Exercise test_uniswap_swaps_scenario."""
     txs = build_uniswap_swaps_transactions(
         count=spamoor_config["count"],
         pair_count=spamoor_config["pair_count"],

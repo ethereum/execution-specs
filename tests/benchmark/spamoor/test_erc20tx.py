@@ -1,10 +1,18 @@
+"""Tests for build_erc20tx_transactions."""
+
+from typing import Any, Callable, Dict
+
 import pytest
 
 from .helpers import build_erc20tx_transactions
 
 
 @pytest.mark.spamoor
-def test_erc20tx_scenario_with_deploy(spamoor_config, spamoor_rpc_client):
+def test_erc20tx_scenario_with_deploy(
+    spamoor_config: Dict[str, Any],
+    spamoor_rpc_client: Callable[[str, list], Any],
+) -> None:
+    """Exercise test_erc20tx_scenario_with_deploy."""
     txs = build_erc20tx_transactions(
         count=spamoor_config["count"],
         amount=spamoor_config["amount"],
@@ -39,13 +47,17 @@ def test_erc20tx_scenario_with_deploy(spamoor_config, spamoor_rpc_client):
         )
         assert exec_tx["value"] == 0
         assert exec_tx["gas"] == 100_000
-        # selector(4) + address(32) + uint256(32) = 68 bytes => 136 hex chars + "0x".
+        # selector(4) + address(32) + uint256(32) = 68 bytes.
         assert len(exec_tx["data"]) == 2 + 2 * 68
         assert exec_tx["data"].startswith("0x9d0f7cba")
 
 
 @pytest.mark.spamoor
-def test_erc20tx_scenario_no_deploy(spamoor_config, spamoor_rpc_client):
+def test_erc20tx_scenario_no_deploy(
+    spamoor_config: Dict[str, Any],
+    spamoor_rpc_client: Callable[[str, list], Any],
+) -> None:
+    """Exercise test_erc20tx_scenario_no_deploy."""
     txs = build_erc20tx_transactions(
         count=spamoor_config["count"],
         amount=spamoor_config["amount"],

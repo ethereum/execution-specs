@@ -53,9 +53,7 @@ def test_build_mode_call_order() -> None:
 
     def _build(*_args: Any, **_kwargs: Any) -> MagicMock:
         calls.append("build_block")
-        return _make_fake_payload(
-            Hash("0x" + "11" * 32), 101, 1_700_000_001
-        )
+        return _make_fake_payload(Hash("0x" + "11" * 32), 101, 1_700_000_001)
 
     testing_rpc.build_block.side_effect = _build
 

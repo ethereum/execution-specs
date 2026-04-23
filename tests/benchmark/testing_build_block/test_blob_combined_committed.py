@@ -34,7 +34,7 @@ def test_blob_combined_committed(
         basefee=spamoor_config["basefee"],
         tip_fee=spamoor_config["tip_fee"],
         blob_fee=spamoor_config["blob_fee"],
-        from_addr=bloat_signer,
+        from_addr=str(bloat_signer),
         private_key=bloat_config.signer_key,
         rpc_client=None,
     )

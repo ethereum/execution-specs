@@ -1,10 +1,18 @@
+"""Tests for build_gasburnertx_transactions."""
+
+from typing import Any, Callable, Dict
+
 import pytest
 
 from .helpers import build_gasburnertx_transactions
 
 
 @pytest.mark.spamoor
-def test_gasburnertx_scenario(spamoor_config, spamoor_rpc_client):
+def test_gasburnertx_scenario(
+    spamoor_config: Dict[str, Any],
+    spamoor_rpc_client: Callable[[str, list], Any],
+) -> None:
+    """Exercise test_gasburnertx_scenario."""
     txs = build_gasburnertx_transactions(
         count=spamoor_config["count"],
         gas_units_to_burn=spamoor_config["gas_units_to_burn"],

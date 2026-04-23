@@ -1,11 +1,18 @@
+"""Tests for build_factorydeploytx_transactions."""
+
+from typing import Any, Callable, Dict
+
 import pytest
+
 from .helpers import build_factorydeploytx_transactions
 
 
 @pytest.mark.spamoor
 def test_factorydeploytx_scenario_with_deploy(
-    spamoor_config, spamoor_rpc_client
-):
+    spamoor_config: Dict[str, Any],
+    spamoor_rpc_client: Callable[[str, list], Any],
+) -> None:
+    """Exercise test_factorydeploytx_scenario_with_deploy."""
     txs = build_factorydeploytx_transactions(
         count=spamoor_config.get("count", 10),
         init_code=spamoor_config.get("init_code", "0x1234"),
@@ -33,8 +40,10 @@ def test_factorydeploytx_scenario_with_deploy(
 
 @pytest.mark.spamoor
 def test_factorydeploytx_scenario_no_deploy(
-    spamoor_config, spamoor_rpc_client
-):
+    spamoor_config: Dict[str, Any],
+    spamoor_rpc_client: Callable[[str, list], Any],
+) -> None:
+    """Exercise test_factorydeploytx_scenario_no_deploy."""
     txs = build_factorydeploytx_transactions(
         count=spamoor_config.get("count", 10),
         init_code=spamoor_config.get("init_code", "0x1234"),

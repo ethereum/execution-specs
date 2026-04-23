@@ -1,8 +1,13 @@
+"""Pytest plugin: CLI options and fixtures for spamoor scenarios."""
+
+from typing import Any, Callable, Dict, List, Optional
+
 import pytest
 import requests
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
+    """Register ``--spamoor-*`` CLI options under the spamoor group."""
     group = parser.getgroup("spamoor", "Spamoor load generation tool options")
     group.addoption(
         "--spamoor-endpoint",
@@ -196,7 +201,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="spamoor_payload_seed",
         type=str,
         default="",
-        help="Hex seed for evm-fuzz bytecode generator (empty = deterministic default)",
+        help="Hex seed for evm-fuzz bytecode generator "
+        "(empty = deterministic default)",
     )
     group.addoption(
         "--spamoor-tx-id-offset",
@@ -252,14 +258,14 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="spamoor_slots_per_call",
         type=int,
         default=500,
-        help="storagerefundtx: number of slots written+cleared per execute() call",
+        help="storagerefundtx: slots written+cleared per execute() call",
     )
     group.addoption(
         "--spamoor-bytecodes",
         dest="spamoor_bytecodes",
         type=str,
         default="",
-        help="deploytx: comma-separated list of hex bytecodes to cycle through",
+        help="deploytx: comma-separated hex bytecodes to cycle through",
     )
     group.addoption(
         "--spamoor-bytecodes-file",
@@ -271,13 +277,15 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 
 def pytest_configure(config: pytest.Config) -> None:
+    """Register the ``spamoor`` pytest marker."""
     config.addinivalue_line(
         "markers", "spamoor: Run spamoor load generation tests"
     )
 
 
 @pytest.fixture(scope="session")
-def spamoor_config(request):
+def spamoor_config(request: pytest.FixtureRequest) -> Dict[str, Any]:
+    """Collect all ``--spamoor-*`` options into a config dict."""
     return {
         "endpoint": request.config.getoption("spamoor_endpoint"),
         "count": request.config.getoption("spamoor_count"),
@@ -309,12 +317,8 @@ def spamoor_config(request):
             "spamoor_gas_units_to_burn"
         ),
         "pair_count": request.config.getoption("spamoor_pair_count"),
-        "min_swap_amount": request.config.getoption(
-            "spamoor_min_swap_amount"
-        ),
-        "max_swap_amount": request.config.getoption(
-            "spamoor_max_swap_amount"
-        ),
+        "min_swap_amount": request.config.getoption("spamoor_min_swap_amount"),
+        "max_swap_amount": request.config.getoption("spamoor_max_swap_amount"),
         "buy_ratio": request.config.getoption("spamoor_buy_ratio"),
         "slippage": request.config.getoption("spamoor_slippage"),
         "min_code_size": request.config.getoption("spamoor_min_code_size"),
@@ -338,10 +342,13 @@ def spamoor_config(request):
 
 
 @pytest.fixture(scope="session")
-def spamoor_rpc_client(spamoor_config):
+def spamoor_rpc_client(
+    spamoor_config: Dict[str, Any],
+) -> Callable[[str, List[Any]], Any]:
+    """Return a minimal JSON-RPC call helper bound to the configured RPC."""
     endpoint = spamoor_config["endpoint"]
 
-    def rpc_call(method, params):
+    def rpc_call(method: str, params: List[Any]) -> Optional[Any]:
         try:
             payload = {
                 "jsonrpc": "2.0",

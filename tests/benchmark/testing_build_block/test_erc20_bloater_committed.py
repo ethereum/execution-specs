@@ -28,7 +28,9 @@ def test_erc20_bloater_committed(
     """Deploy the erc20_bloater stub and commit bloatStorage calls."""
     # Cap bloat gas so N+1 txs fit inside the ~30M block gas limit.
     effective_gas_limit = (
-        spamoor_config["gas_limit"] if spamoor_config["gas_limit"] else 3_000_000
+        spamoor_config["gas_limit"]
+        if spamoor_config["gas_limit"]
+        else 3_000_000
     )
 
     raw_txs = build_erc20_bloater_transactions(
@@ -42,7 +44,7 @@ def test_erc20_bloater_committed(
         basefee=spamoor_config["basefee"],
         tip_fee=spamoor_config["tip_fee"],
         throughput=spamoor_config["throughput"],
-        from_addr=bloat_signer,
+        from_addr=str(bloat_signer),
         private_key=bloat_config.signer_key,
         rpc_client=None,
     )
