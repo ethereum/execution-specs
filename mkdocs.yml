@@ -31,6 +31,9 @@ plugins:
   - literate-nav:
       nav_file: navigation.md
 
+hooks:
+  - docs/hooks/reference_new_tab.py
+
 watch:
   - CONTRIBUTING.md
   - SECURITY.md
