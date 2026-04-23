@@ -1,13 +1,13 @@
 # Branches whose documentation is built and published to
 # steel.ethereum.foundation/docs/execution-specs/
 #
-# Must stay in sync with steel-website's BRANCH_CONFIG in deploy.yml.
+# The `branches[]` list must stay in sync with steel-website's
+# `docs-config.yml`; a branch that publishes here but isn't listed there
+# is dispatched but dropped by the aggregator.
 #
 # Each entry defines:
 #   - path: The branch name (must match the Git branch exactly)
 #   - label: Human-readable label for the version switcher UI
-
-default: "forks/amsterdam"
 
 branches:
   - path: "forks/amsterdam"
