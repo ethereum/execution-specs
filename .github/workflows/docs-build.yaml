@@ -125,19 +125,25 @@ jobs:
           fi
           echo "should_publish=$SHOULD_PUBLISH" >> "$GITHUB_OUTPUT"
 
-          # Resolve the ref we will actually check out and build. On dispatch,
-          # the user can specify any branch/tag/SHA; empty falls back to the
-          # target branch tip. For push, we always build the pushed ref.
-          # Resolving to a concrete SHA here keeps metadata.json and the
-          # aggregator dispatch payload consistent with what the build jobs
-          # check out, even when github.sha points at a different ref (which
-          # happens for workflow_dispatch launched from the default branch).
+          # Resolve the concrete SHA we will build, so metadata.json and the
+          # aggregator dispatch payload match what the build jobs check out.
+          #
+          # On push, GITHUB_SHA is the pushed commit; using it avoids a race
+          # where another push lands between the event and a `gh api` lookup.
+          # On workflow_dispatch, the user may specify any branch/tag/SHA via
+          # the `ref` input (empty falls back to the branch tip), and
+          # github.sha points at whatever ref the dispatch was launched from
+          # (often the default branch), so we resolve via the API.
           if [ "$EVENT_NAME" != "pull_request" ] && [ "$SHOULD_PUBLISH" = "true" ]; then
-            RESOLVE_REF="${REF_INPUT:-$BRANCH_INPUT}"
-            COMMIT_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${RESOLVE_REF}" --jq .sha 2>/dev/null || true)
-            if [ -z "$COMMIT_SHA" ]; then
-              echo "ERROR: could not resolve commit SHA for ref '${RESOLVE_REF}'"
-              exit 1
+            if [ "$EVENT_NAME" = "push" ]; then
+              COMMIT_SHA="$GITHUB_SHA"
+            else
+              RESOLVE_REF="${REF_INPUT:-$BRANCH_INPUT}"
+              COMMIT_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${RESOLVE_REF}" --jq .sha 2>/dev/null || true)
+              if [ -z "$COMMIT_SHA" ]; then
+                echo "ERROR: could not resolve commit SHA for ref '${RESOLVE_REF}'"
+                exit 1
+              fi
             fi
             echo "commit_sha=$COMMIT_SHA" >> "$GITHUB_OUTPUT"
           fi
