@@ -12,3 +12,5 @@ default: "forks/amsterdam"
 branches:
   - path: "forks/amsterdam"
     label: "Amsterdam"
+  - path: "devnets/bal/4"
+    label: "bal-devnet-4"
