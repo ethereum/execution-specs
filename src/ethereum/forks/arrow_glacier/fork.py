@@ -202,7 +202,9 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     )
     block_diff = extract_block_diff(block_state)
     block_state_root, _ = chain.state.compute_state_root_and_trie_changes(
-        block_diff.account_changes, block_diff.storage_changes
+        block_diff.account_changes,
+        block_diff.storage_changes,
+        block_diff.storage_clears,
     )
     transactions_root = root(block_output.transactions_trie)
     receipt_root = root(block_output.receipts_trie)
