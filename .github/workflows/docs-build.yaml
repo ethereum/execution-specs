@@ -5,11 +5,11 @@
 #   - On push to allowlisted branches: Builds, uploads artifacts, and triggers
 #     the aggregator workflow in steel-website for deployment
 #
-# Site structure at steel.ethereum.foundation/docs/:
-#   /docs/                         - Default branch docs (mirrored)
-#   /docs/specs/reference/         - Default branch spec reference (mirrored)
-#   /docs/<branch>/                - Branch-specific docs
-#   /docs/<branch>/specs/reference - Branch-specific spec reference (docc output)
+# Site structure at steel.ethereum.foundation/docs/execution-specs/:
+#   /docs/execution-specs/                         - Default branch docs (mirrored)
+#   /docs/execution-specs/specs/reference/         - Default branch spec reference (mirrored)
+#   /docs/execution-specs/<branch>/                - Branch-specific docs
+#   /docs/execution-specs/<branch>/specs/reference - Branch-specific spec reference (docc output)
 
 name: Build Docs
 
@@ -162,7 +162,7 @@ jobs:
             if [ "$EVENT_NAME" = "pull_request" ]; then
               echo "-> **Build only** -- pull request; artifacts are not published."
             elif [ "$SHOULD_PUBLISH" = "true" ]; then
-              echo "-> **Will publish** at <https://steel.ethereum.foundation/docs/${BRANCH_INPUT}/>"
+              echo "-> **Will publish** at <https://steel.ethereum.foundation/docs/execution-specs/${BRANCH_INPUT}/>"
               echo ""
               echo "_Note: the URL only resolves if \`${BRANCH_INPUT}\` is also configured in steel-website's \`BRANCH_CONFIG\` (\`deploy.yml\`). If not, the aggregator will receive the dispatch but drop the artifact._"
             else
@@ -197,7 +197,7 @@ jobs:
           SHOULD_PUBLISH: ${{ needs.check-should-publish.outputs.should_publish }}
         run: |
           if [ "$SHOULD_PUBLISH" = "true" ]; then
-            export SITE_URL="https://steel.ethereum.foundation/docs/${BRANCH}/"
+            export SITE_URL="https://steel.ethereum.foundation/docs/execution-specs/${BRANCH}/"
           else
             export SITE_URL="https://example.com/docs/${BRANCH}/"
           fi
