@@ -21,6 +21,7 @@ on:
       - "devnets/**"
       - "eips/**"
       - "projects/**"
+      - "experiments/**"  # TEMPORARY: remove after E2E testing
     paths: &docs_paths
       - "src/ethereum/**"
       - "src/ethereum_spec_tools/docc.py"
