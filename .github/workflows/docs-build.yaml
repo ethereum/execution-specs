@@ -267,7 +267,7 @@ jobs:
           BRANCH: ${{ needs.check-should-publish.outputs.branch }}
           COMMIT_SHA: ${{ needs.check-should-publish.outputs.commit_sha }}
         run: |
-          mkdir -p "stage/${BRANCH}/spec"
+          mkdir -p "stage/${BRANCH}/specs/reference"
 
           # HTML docs at root of branch directory
           rsync -a html-docs/ "stage/${BRANCH}/"
