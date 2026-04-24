@@ -75,6 +75,7 @@ def _run_call_test(
     has_value_transfer: bool,
     account_new: bool,
     post_fn: PostFn,
+    is_self_call: bool = False,
 ) -> None:
     """
     Core logic shared by all CALL-family opcode tests.
@@ -108,13 +109,20 @@ def _run_call_test(
     )
     bytecode_cost = gsc.VERY_LOW * n_args
 
-    # Value cost depends on whether the target is new or existing.
+    # Value cost depends on whether the transfer is a self-call and on
+    # whether the target is new or existing. Self-calls charge only a
+    # single STATE_UPDATE with no TRANSFER_LOG_COST (EIP-7708 does not
+    # emit a log for self-transfers).
     value_cost = 0
     if has_value_transfer and value > 0:
-        if account_new:
-            value_cost = gsc.STATE_UPDATE + gsc.NEW_ACCOUNT
+        if is_self_call:
+            value_cost = gsc.STATE_UPDATE
+        elif account_new:
+            value_cost = (
+                gsc.STATE_UPDATE + gsc.NEW_ACCOUNT + gsc.TRANSFER_LOG_COST
+            )
         else:
-            value_cost = 2 * gsc.STATE_UPDATE
+            value_cost = 2 * gsc.STATE_UPDATE + gsc.TRANSFER_LOG_COST
 
     # Gas for the tested threshold, minus 1 for OOG.
     scenario_gas = compute_scenario_gas(access, gsc)
@@ -185,9 +193,10 @@ def test_call(
     """
     Test CALL opcode gas charging under EIP-2780.
 
-    CALL transfers value from caller to target. With value > 0,
-    the value cost is 2 * STATE_UPDATE for existing targets
-    or STATE_UPDATE + NEW_ACCOUNT for new accounts.
+    CALL transfers value from caller to target. With value > 0, the
+    value cost is ``2 * STATE_UPDATE + TRANSFER_LOG_COST`` for existing
+    targets or ``STATE_UPDATE + NEW_ACCOUNT + TRANSFER_LOG_COST`` for
+    new accounts.
     """
     if account_new and access == AccessScenario.COLD_CODE:
         pytest.skip("Empty target has no code")
@@ -277,8 +286,10 @@ def test_callcode(
     """
     Test CALLCODE opcode gas charging under EIP-2780.
 
-    CALLCODE transfers value to self (caller), so there is no
-    net balance change even on success with value > 0.
+    CALLCODE transfers value to self (caller), so there is no net
+    balance change even on success with value > 0. The value cost is
+    a single ``STATE_UPDATE`` with no ``TRANSFER_LOG_COST`` because
+    EIP-7708 does not emit a log for self-transfers.
     """
 
     def caller_code_fn(target: Address, val: int) -> Bytecode:
@@ -316,6 +327,7 @@ def test_callcode(
         has_value_transfer=True,
         account_new=False,
         post_fn=post_fn,
+        is_self_call=True,
     )
 
 

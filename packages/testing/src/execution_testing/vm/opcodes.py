@@ -5165,6 +5165,7 @@ class Opcodes(Opcode, Enum):
             "address_has_code": True,
             "value_transfer": False,
             "account_new": False,
+            "self_call": False,
             "new_memory_size": 0,
             "old_memory_size": 0,
             "delegated_address": False,
@@ -5216,6 +5217,8 @@ class Opcodes(Opcode, Enum):
     - address_warm: whether the address is already warm (default: False)
     - value_transfer: whether value is being transferred (default: False)
     - account_new: whether creating a new account (default: False)
+    - self_call: whether ``caller == to`` so the value transfer is a
+                 self-transfer (default: False); consumed by EIP-2780
     - new_memory_size: memory size after expansion in bytes (default: 0)
     - old_memory_size: memory size before expansion in bytes (default: 0)
     - delegated_address: whether the target is a delegated account
@@ -5631,7 +5634,11 @@ class Opcodes(Opcode, Enum):
         0xFF,
         popped_stack_items=1,
         kwargs=["address"],
-        metadata={"address_warm": False, "account_new": False},
+        metadata={
+            "address_warm": False,
+            "account_new": False,
+            "transfers_value": False,
+        },
     )
     """
     SELFDESTRUCT(address)
@@ -5659,6 +5666,9 @@ class Opcodes(Opcode, Enum):
                     (default: False)
     - account_new: whether creating a new beneficiary account, requires
                    non-zero balance in the source account (default: False)
+    - transfers_value: whether the destruction moves non-zero balance to
+                       a different beneficiary (default: False); consumed
+                       by EIP-2780 to charge ``TRANSFER_LOG_COST``
 
     Source: [evm.codes/#FF](https://www.evm.codes/#FF)
     """

@@ -96,7 +96,8 @@ def test_value_move_to_precompiles(
     Ensure value moving transactions to precompiles charge gas correctly.
 
     Under EIP-2780, precompile recipients have zero access cost (they are
-    always warm). Value transfer to a precompile incurs only G_STATE_UPDATE.
+    always warm). Value transfer to a precompile incurs a
+    ``G_STATE_UPDATE`` plus the EIP-7708 ``TRANSFER_LOG_COST``.
     """
     sender_initial_balance = 10**18
     sender = pre.fund_eoa(sender_initial_balance)

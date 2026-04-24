@@ -151,3 +151,4 @@ class GasCosts:
     COLD_ACCOUNT_COST_CODE: int = 0
     COLD_ACCOUNT_COST_NO_CODE: int = 0
     STATE_UPDATE: int = 0
+    TRANSFER_LOG_COST: int = 0

@@ -75,6 +75,15 @@ class GasCosts:
 
     [EIP-2780]: https://eips.ethereum.org/EIPS/eip-2780
     """
+    TRANSFER_LOG_COST = Uint(1756)
+    """
+    Gas cost for the [EIP-7708] transfer log (LOG3 equivalent:
+    `375 + 3*375 + 32*8`) charged on every nonzero-value transfer to a
+    different account. Introduced by [EIP-2780].
+
+    [EIP-2780]: https://eips.ethereum.org/EIPS/eip-2780
+    [EIP-7708]: https://eips.ethereum.org/EIPS/eip-7708
+    """
 
     # Contract Creation
     CODE_DEPOSIT_PER_BYTE = Uint(200)

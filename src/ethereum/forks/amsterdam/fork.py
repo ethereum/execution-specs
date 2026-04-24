@@ -1022,7 +1022,9 @@ def calculate_recipient_gas_cost(
 
     if tx.to in PRE_COMPILED_CONTRACTS:
         if tx.value > U256(0):
-            tx_recipient_cost += GasCosts.STATE_UPDATE
+            tx_recipient_cost += (
+                GasCosts.STATE_UPDATE + GasCosts.TRANSFER_LOG_COST
+            )
         return tx_recipient_cost
 
     is_cold_access = tx.to not in access_list_addresses
@@ -1056,6 +1058,7 @@ def calculate_recipient_gas_cost(
             tx_recipient_cost += GasCosts.NEW_ACCOUNT
         else:
             tx_recipient_cost += GasCosts.STATE_UPDATE
+        tx_recipient_cost += GasCosts.TRANSFER_LOG_COST
 
     return tx_recipient_cost
 

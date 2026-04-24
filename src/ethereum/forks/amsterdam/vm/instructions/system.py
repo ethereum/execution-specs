@@ -402,10 +402,18 @@ def call(evm: Evm) -> None:
 
     call_value_cost = Uint(0)
     if value > U256(0):
-        if call_target == EMPTY_ACCOUNT:
-            call_value_cost += GasCosts.STATE_UPDATE + GasCosts.NEW_ACCOUNT
+        if evm.message.current_target == to:
+            call_value_cost += GasCosts.STATE_UPDATE
+        elif call_target == EMPTY_ACCOUNT:
+            call_value_cost += (
+                GasCosts.STATE_UPDATE
+                + GasCosts.NEW_ACCOUNT
+                + GasCosts.TRANSFER_LOG_COST
+            )
         else:
-            call_value_cost += Uint(2) * GasCosts.STATE_UPDATE
+            call_value_cost += (
+                Uint(2) * GasCosts.STATE_UPDATE + GasCosts.TRANSFER_LOG_COST
+            )
 
     extra_gas = access_gas_cost + call_value_cost
     (
@@ -496,10 +504,10 @@ def callcode(evm: Evm) -> None:
     if is_cold_access:
         access_gas_cost = GasCosts.COLD_ACCOUNT_COST_NO_CODE
 
-    # Cost is simply dependent on value since the contract is always there
-    call_value_cost = (
-        Uint(0) if value == 0 else Uint(2) * GasCosts.STATE_UPDATE
-    )
+    # CALLCODE executes the target's code in the caller's own context, so
+    # the value transfer is from the caller to itself. Only one
+    # STATE_UPDATE is charged and no TRANSFER_LOG_COST applies.
+    call_value_cost = Uint(0) if value == 0 else GasCosts.STATE_UPDATE
 
     # check static gas before state access
     check_gas(evm, access_gas_cost + extend_memory.cost + call_value_cost)
@@ -600,16 +608,18 @@ def selfdestruct(evm: Evm) -> None:
     if is_cold_access:
         evm.accessed_addresses.add(beneficiary)
 
-    if (
-        not is_account_alive(tx_state, beneficiary)
-        and get_account(tx_state, evm.message.current_target).balance != 0
-    ):
-        gas_cost += GasCosts.OPCODE_SELFDESTRUCT_NEW_ACCOUNT
-
-    charge_gas(evm, gas_cost)
-
     originator = evm.message.current_target
     originator_balance = get_account(tx_state, originator).balance
+
+    if not is_account_alive(
+        tx_state, beneficiary
+    ) and originator_balance > U256(0):
+        gas_cost += GasCosts.OPCODE_SELFDESTRUCT_NEW_ACCOUNT
+
+    if originator != beneficiary and originator_balance > U256(0):
+        gas_cost += GasCosts.TRANSFER_LOG_COST
+
+    charge_gas(evm, gas_cost)
 
     # Transfer balance
     move_ether(tx_state, originator, beneficiary, originator_balance)
