@@ -449,11 +449,40 @@ REFERENCE_SPEC_VERSION = "5c8f066acb210c704ef80c1033a941aa5374aac5"
             ),
             id="truncated_input_4",
         ),
+        # 128-byte (1024-bit) operands exercising the multi-word
+        # Montgomery/Barrett reduction carry path. Modulus is
+        # 2**1024 - 0x69, so neither operand hits any 256-bit
+        # specialization. Both cases reduce to 9^exp mod m (base=m+9 in
+        # the first case), and with this exp, 9^exp ≡ 9 mod m.
+        pytest.param(
+            ModExpInput(
+                base="ff" * 127 + "a0",
+                exponent="ff" * 127 + "97",
+                modulus="ff" * 127 + "97",
+            ),
+            ModExpOutput(returned_data="0x" + "00" * 127 + "09"),
+            id="modexp_37120_37111_37111_1000000",
+        ),
+        pytest.param(
+            ModExpInput(
+                base="09",
+                exponent="ff" * 127 + "97",
+                modulus="ff" * 127 + "97",
+            ),
+            ModExpOutput(returned_data="0x" + "00" * 127 + "09"),
+            id="modexp_9_37111_37111_1000000",
+        ),
     ],
     ids=lambda param: param.__repr__(),  # only required to remove parameter
     # names (input/output)
 )
 @pytest.mark.eels_base_coverage
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/legacytests/blob/master/src/LegacyTests/Constantinople/GeneralStateTestsFiller/stPreCompiledContracts/modexp_37120_37111_37111_1000000Filler.json",
+        "https://github.com/ethereum/legacytests/blob/master/src/LegacyTests/Constantinople/GeneralStateTestsFiller/stPreCompiledContracts/modexp_9_37111_37111_1000000Filler.json",
+    ],
+)
 def test_modexp(
     state_test: StateTestFiller,
     mod_exp_input: ModExpInput | Bytes,
@@ -504,7 +533,7 @@ def test_modexp(
         ty=0x0,
         to=account,
         data=mod_exp_input,
-        gas_limit=500_000,
+        gas_limit=2_000_000,
         protected=True,
         sender=sender,
     )
