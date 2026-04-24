@@ -160,7 +160,7 @@ json-loader *args:
         --skip-index \
         --clean \
         --ignore=tests/ported_static \
-        --output="{{ output_dir }}/json-loader/fixtures" \
+        --output="tests/json_loader/fixtures" \
         --cov-config=pyproject.toml \
         --cov=ethereum \
         --cov-fail-under=85
@@ -169,8 +169,7 @@ json-loader *args:
         -n auto --maxprocesses 6 --dist=loadfile \
         --basetemp="{{ output_dir }}/json-loader/tmp" \
         "$@" \
-        tests/json_loader \
-        "{{ output_dir }}/json-loader/fixtures"
+        tests/json_loader
 
 # --- Unit Tests ---
 
