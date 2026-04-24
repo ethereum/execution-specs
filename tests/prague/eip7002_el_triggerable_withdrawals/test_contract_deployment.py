@@ -50,7 +50,8 @@ def test_system_contract_deployment(
         fork.transitions_to().transaction_intrinsic_cost_calculator()
     )
     test_transaction_gas = intrinsic_gas_calculator(
-        calldata=withdrawal_request.calldata
+        calldata=withdrawal_request.calldata,
+        sends_value=True,
     )
 
     test_transaction = Transaction(

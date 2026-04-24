@@ -13,6 +13,7 @@ from execution_testing import (
     Bytecode,
     Fork,
     Op,
+    RecipientType,
     StateTestFiller,
     Transaction,
     TransactionReceipt,
@@ -150,7 +151,16 @@ def contract_creating_tx() -> bool:
 
 
 @pytest.fixture
-def intrinsic_gas_data_floor_minimum_delta() -> int:
+def recipient_type() -> RecipientType:
+    """
+    Override fixture in order to avoid a circular fixture dependency since all
+    of these tests send to a contract.
+    """
+    return RecipientType.CONTRACT
+
+
+@pytest.fixture
+def intrinsic_gas_data_floor_minimum_delta(prefix_code_gas: int) -> int:
     """
     Induce a minimum delta between the transaction intrinsic gas cost and the
     floor data gas cost.
@@ -158,13 +168,21 @@ def intrinsic_gas_data_floor_minimum_delta() -> int:
     Since at least one of the cases requires some execution gas expenditure
     (SSTORE clearing), we need to introduce an increment of the floor data cost
     above the transaction intrinsic gas cost, otherwise the floor data cost
-    would always be the below the execution gas cost even after the refund is
+    would always be below the execution gas cost even after the refund is
     applied.
 
-    This value has been set as of Prague and should be adjusted if the gas
-    costs change.
+    The delta must satisfy:
+      execution_gas_cost(prefix_code_gas) < tx_floor_data_cost
+    which expands to:
+      prefix_code_gas - effective_refund < delta
+
+    Since effective_refund > 0 always (for any non-empty prefix code), setting
+    delta = prefix_code_gas is sufficient: the inequality becomes
+    prefix_code_gas - refund < prefix_code_gas (i.e., refund > 0).
+
+    For cases with no prefix code, fall back to a small positive value.
     """
-    return 250
+    return prefix_code_gas if prefix_code_gas > 0 else 250
 
 
 @pytest.fixture
@@ -212,8 +230,10 @@ def execution_gas_used(
         refund_test_type
         == RefundTestType.EXECUTION_GAS_MINUS_REFUND_GREATER_THAN_DATA_FLOOR
     ):
-        # Keep incrementing until we actually get gas_used > tx_floor_data_cost
-        # (adding just 1 may not be enough due to refund cap boundary effects)
+        # +1 might not be enough: when (intrinsic + execution_gas + 1) is
+        # divisible by 5, the refund cap increases by 1, keeping gas_used
+        # flat. Keep incrementing until strictly greater.
+        execution_gas += 1
         while execution_gas_cost(execution_gas) <= tx_floor_data_cost:
             execution_gas += 1
         return execution_gas

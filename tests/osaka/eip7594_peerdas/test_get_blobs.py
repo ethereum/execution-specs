@@ -17,6 +17,7 @@ from execution_testing import (
     Fork,
     Hash,
     NetworkWrappedTransaction,
+    RecipientType,
     Transaction,
     TransactionException,
 )
@@ -49,9 +50,12 @@ def tx_value() -> int:
 
 
 @pytest.fixture
-def tx_gas() -> int:
+def tx_gas(fork: Fork, tx_value: int) -> int:
     """Gas allocated to transactions sent during test."""
-    return 21_000
+    return fork.transaction_intrinsic_cost_calculator()(
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+        sends_value=tx_value > 0,
+    )
 
 
 @pytest.fixture

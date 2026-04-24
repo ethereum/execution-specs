@@ -7,11 +7,12 @@ and storage keys that the transaction plans to access.
 https://eips.ethereum.org/EIPS/eip-2930
 """
 
-from typing import List, Sized
+from typing import List, Optional, Sized
 
 from execution_testing.base_types import AccessList
 from execution_testing.base_types.conversions import BytesConvertible
 
+from .....recipient_type import RecipientType
 from ....base_fork import BaseFork, TransactionIntrinsicCostCalculator
 
 
@@ -45,6 +46,10 @@ class EIP2930(BaseFork):
             access_list: List[AccessList] | None = None,
             authorization_list_or_count: Sized | int | None = None,
             return_cost_deducted_prior_execution: bool = False,
+            sends_value: bool = False,
+            recipient_type: RecipientType = RecipientType.CONTRACT,
+            recipient_is_warm: bool = False,
+            recipient_delegation_is_warm: Optional[bool] = None,
         ) -> int:
             del return_cost_deducted_prior_execution
 
@@ -52,6 +57,10 @@ class EIP2930(BaseFork):
                 calldata=calldata,
                 contract_creation=contract_creation,
                 authorization_list_or_count=authorization_list_or_count,
+                sends_value=sends_value,
+                recipient_type=recipient_type,
+                recipient_is_warm=recipient_is_warm,
+                recipient_delegation_is_warm=recipient_delegation_is_warm,
             )
             if access_list is not None:
                 for access in access_list:

@@ -9,6 +9,7 @@ from execution_testing import (
     Environment,
     Fork,
     Hash,
+    RecipientType,
     Transaction,
     TransitionFork,
     add_kzg_version,
@@ -332,13 +333,18 @@ def non_zero_blob_gas_used_genesis_block(
         for i in range(0, parent_blobs, max_blobs_per_tx)
     ]
 
+    intrinsic_gas = block_fork.transaction_intrinsic_cost_calculator()(
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+        sends_value=True,
+    )
+
     def create_blob_transaction(blob_range: Iterable[int]) -> Transaction:
         return Transaction(
             ty=Spec.BLOB_TX_TYPE,
             sender=sender,
             to=empty_account_destination,
             value=1,
-            gas_limit=21_000,
+            gas_limit=intrinsic_gas,
             max_fee_per_gas=tx_max_fee_per_gas,
             max_priority_fee_per_gas=0,
             max_fee_per_blob_gas=blob_gas_price_calculator(

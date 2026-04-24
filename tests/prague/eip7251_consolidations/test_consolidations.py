@@ -16,6 +16,7 @@ from execution_testing import (
     Header,
     Macros,
     Op,
+    RecipientType,
     Requests,
     TestAddress,
     TestAddress2,
@@ -34,6 +35,49 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_7251.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7251.version
 
 pytestmark = pytest.mark.valid_from("Prague")
+
+# Gas consumed by the pre-deploy contract itself (execution only, no
+# intrinsic component).  These values are fork-independent since EIP-2780
+# does not change storage read/write costs.
+#
+# Derived from Prague execution traces:
+#   136_534 total  -  22_020 Prague intrinsic  =  114_514  (first call,
+#       cold pre-deploy, queue empty)
+#   102_334 total  -  22_020 Prague intrinsic  =   80_314  (second call,
+#       cold pre-deploy, one entry already in queue → cheaper storage writes)
+_PREDEPLOY_EXEC_GAS_FIRST_CALL = 114_514
+_PREDEPLOY_EXEC_GAS_SECOND_CALL = 80_314
+
+
+def _first_consolidation_oog_gas_limit(fork: Fork) -> int:
+    """
+    Return the gas limit that is exactly 1 below what the first consolidation
+    request transaction needs to succeed.
+    """
+    calldata = ConsolidationRequest(
+        source_pubkey=0x01, target_pubkey=0x02, fee=0
+    ).calldata
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        calldata=calldata,
+        recipient_type=RecipientType.CONTRACT,
+    )
+    return intrinsic + _PREDEPLOY_EXEC_GAS_FIRST_CALL - 1
+
+
+def _second_consolidation_oog_gas_limit(fork: Fork) -> int:
+    """
+    Return the gas limit that is exactly 1 below what the second consolidation
+    request transaction needs to succeed (pre-deploy queue already has one
+    entry from the preceding transaction).
+    """
+    calldata = ConsolidationRequest(
+        source_pubkey=0x03, target_pubkey=0x04, fee=0
+    ).calldata
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        calldata=calldata,
+        recipient_type=RecipientType.CONTRACT,
+    )
+    return intrinsic + _PREDEPLOY_EXEC_GAS_SECOND_CALL - 1
 
 
 @pytest.mark.parametrize(
@@ -256,7 +300,9 @@ pytestmark = pytest.mark.valid_from("Prague")
                                 source_pubkey=0x01,
                                 target_pubkey=0x02,
                                 fee=Spec.get_fee(0),
-                                gas_limit=136_534 - 1,
+                                gas_limit_calculator=(
+                                    _first_consolidation_oog_gas_limit
+                                ),
                                 valid=False,
                             ),
                             ConsolidationRequest(
@@ -284,7 +330,9 @@ pytestmark = pytest.mark.valid_from("Prague")
                                 source_pubkey=0x03,
                                 target_pubkey=0x04,
                                 fee=Spec.get_fee(0),
-                                gas_limit=102_334 - 1,
+                                gas_limit_calculator=(
+                                    _second_consolidation_oog_gas_limit
+                                ),
                                 valid=False,
                             ),
                         ]
@@ -902,7 +950,7 @@ def test_consolidation_requests_negative(
         post={},
         blocks=[
             Block(
-                txs=sum((r.transactions() for r in requests), []),
+                txs=sum((r.transactions(_fork=fork) for r in requests), []),
                 header_verify=Header(
                     requests_hash=Requests(*included_requests),
                 ),

@@ -276,7 +276,9 @@ def test_bal_balance_and_oog(
     # Create contract that attempts to check Bob's balance
     balance_checker_code = (
         Op.PUSH20(bob)  # Bob's address
-        + Op.BALANCE(address_warm=False)  # Check balance (cold access)
+        + Op.BALANCE(
+            address_warm=False, address_has_code=False
+        )  # Check balance (cold access)
         + Op.STOP
     )
 
@@ -407,7 +409,9 @@ def test_bal_extcodesize_and_oog(
     # Create contract that checks target's code size
     codesize_checker_code = (
         Op.PUSH20(target_contract)  # Target contract address
-        + Op.EXTCODESIZE(address_warm=False)  # Check code size (cold access)
+        + Op.EXTCODESIZE(
+            address_warm=False, address_has_code=False
+        )  # Check code size (cold access)
         + Op.STOP
     )
 
@@ -526,7 +530,10 @@ def test_bal_call_no_delegation_and_oog_before_target_access(
             ret_size=ret_size,
             ret_offset=0,
             address_warm=target_is_warm,
-            value_transfer=value > 0,
+            address_has_code=False,
+            # Don't count the value transfer cost
+            # since it's looked at post account access
+            value_transfer=False,
             account_new=False,
             new_memory_size=ret_size,
         )
@@ -779,7 +786,10 @@ def test_bal_call_7702_delegation_and_oog(
         ret_size=ret_size,
         ret_offset=0,
         address_warm=target_is_warm,
-        value_transfer=value > 0,
+        address_has_code=False,
+        # Don't count the value transfer cost
+        # since it's looked at post account access
+        value_transfer=False,
         account_new=False,
         new_memory_size=ret_size,
     )
@@ -908,6 +918,16 @@ def test_bal_delegatecall_no_delegation_and_oog_before_target_access(
         new_memory_size=ret_size,
     )
 
+    delegatecall_nocode = Op.DELEGATECALL(
+        address=target,
+        gas=0,
+        ret_size=ret_size,
+        ret_offset=ret_offset,
+        address_warm=target_is_warm,
+        address_has_code=False,
+        new_memory_size=ret_size,
+    )
+
     caller = pre.deploy_contract(code=delegatecall_code)
 
     access_list = (
@@ -921,7 +941,7 @@ def test_bal_delegatecall_no_delegation_and_oog_before_target_access(
     )
 
     if oog_boundary == OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS:
-        gas_limit = intrinsic_cost + delegatecall_code.gas_cost(fork) - 1
+        gas_limit = intrinsic_cost + delegatecall_nocode.gas_cost(fork) - 1
     else:  # SUCCESS
         gas_limit = intrinsic_cost + delegatecall_code.gas_cost(fork)
 
@@ -1038,6 +1058,7 @@ def test_bal_delegatecall_7702_delegation_and_oog(
         ret_size=ret_size,
         ret_offset=ret_offset,
         address_warm=target_is_warm,
+        address_has_code=False,
         new_memory_size=ret_size,
     )
 
@@ -1154,12 +1175,25 @@ def test_bal_callcode_no_delegation_and_oog_before_target_access(
         else None
     )
 
+    callcode_code_static = Op.CALLCODE(
+        gas=0,
+        address=target,
+        value=value,
+        ret_size=ret_size,
+        ret_offset=0,
+        address_warm=target_is_warm,
+        address_has_code=False,
+        value_transfer=False,
+        account_new=False,
+        new_memory_size=ret_size,
+    )
+
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()(
         access_list=access_list
     )
 
     if oog_boundary == OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS:
-        gas_limit = intrinsic_cost + callcode_code.gas_cost(fork) - 1
+        gas_limit = intrinsic_cost + callcode_code_static.gas_cost(fork) - 1
     else:  # SUCCESS
         gas_limit = intrinsic_cost + callcode_code.gas_cost(fork)
 
@@ -1287,6 +1321,9 @@ def test_bal_callcode_7702_delegation_and_oog(
         ret_size=ret_size,
         ret_offset=0,
         address_warm=target_is_warm,
+        address_has_code=False,
+        # For callcode, value transfer cost can be assessed without
+        # accessing the account.
         value_transfer=value > 0,
         account_new=False,
         new_memory_size=ret_size,
@@ -1393,6 +1430,16 @@ def test_bal_staticcall_no_delegation_and_oog_before_target_access(
         new_memory_size=ret_size,
     )
 
+    staticcall_static = Op.STATICCALL(
+        address=target,
+        gas=0,
+        ret_size=ret_size,
+        ret_offset=ret_offset,
+        address_warm=target_is_warm,
+        address_has_code=False,
+        new_memory_size=ret_size,
+    )
+
     caller = pre.deploy_contract(code=staticcall_code)
 
     access_list = (
@@ -1406,7 +1453,7 @@ def test_bal_staticcall_no_delegation_and_oog_before_target_access(
     )
 
     if oog_boundary == OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS:
-        gas_limit = intrinsic_cost + staticcall_code.gas_cost(fork) - 1
+        gas_limit = intrinsic_cost + staticcall_static.gas_cost(fork) - 1
     else:  # SUCCESS
         gas_limit = intrinsic_cost + staticcall_code.gas_cost(fork)
 
@@ -1523,6 +1570,7 @@ def test_bal_staticcall_7702_delegation_and_oog(
         ret_size=ret_size,
         ret_offset=ret_offset,
         address_warm=target_is_warm,
+        address_has_code=False,
         new_memory_size=ret_size,
     )
 
@@ -1659,6 +1707,7 @@ def test_bal_extcodecopy_and_oog(
             offset=0,
             size=copy_size,
             address_warm=False,
+            address_has_code=False,
             data_size=0,
             new_memory_size=0,
         )
@@ -1681,7 +1730,19 @@ def test_bal_extcodecopy_and_oog(
         target_in_bal = False
     elif oog_scenario == "oog_at_memory_boundary":
         # Calculate full cost and provide exactly 1 less than needed
-        tx_gas_limit = intrinsic_gas_cost + extcodecopy_code.gas_cost(fork) - 1
+        extcodecopy_no_code = Op.EXTCODECOPY(
+            address=target_contract,
+            dest_offset=memory_offset,
+            offset=0,
+            size=copy_size,
+            address_warm=False,
+            address_has_code=False,
+            data_size=copy_size,
+            new_memory_size=memory_offset + copy_size,
+        )
+        tx_gas_limit = (
+            intrinsic_gas_cost + extcodecopy_no_code.gas_cost(fork) - 1
+        )
         target_in_bal = False
     else:
         raise ValueError(f"Invariant: unknown oog_scenario {oog_scenario}")

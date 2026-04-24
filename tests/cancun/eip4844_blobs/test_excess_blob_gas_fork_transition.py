@@ -20,6 +20,7 @@ from execution_testing import (
     Hash,
     Header,
     Op,
+    RecipientType,
     Transaction,
     TransitionFork,
     add_kzg_version,
@@ -114,10 +115,15 @@ def pre_fork_blocks(
         blob_index = 0
         remaining_blobs = pre_fork_blobs_per_block
         max_blobs_per_tx = fork.transitions_from().max_blobs_per_tx()
+        blob_tx_gas_limit = (
+            fork.transitions_from().transaction_intrinsic_cost_calculator()(
+                recipient_type=RecipientType.EMPTY_ACCOUNT,
+                sends_value=True,
+            )
+        )
 
         while remaining_blobs > 0:
             tx_blobs = min(remaining_blobs, max_blobs_per_tx)
-            blob_tx_gas_limit = 21_000
             txs.append(
                 Transaction(
                     ty=Spec.BLOB_TX_TYPE,
@@ -266,6 +272,12 @@ def post_fork_blocks(
         blob_index = 0
         remaining_blobs = post_fork_blobs_per_block
         max_blobs_per_tx = fork.transitions_to().max_blobs_per_tx()
+        blob_tx_gas_limit = (
+            fork.transitions_to().transaction_intrinsic_cost_calculator()(
+                recipient_type=RecipientType.EMPTY_ACCOUNT,
+                sends_value=True,
+            )
+        )
         while remaining_blobs > 0:
             tx_blobs = min(remaining_blobs, max_blobs_per_tx)
             txs.append(
@@ -273,7 +285,7 @@ def post_fork_blocks(
                     ty=Spec.BLOB_TX_TYPE,
                     to=destination_account,
                     value=1,
-                    gas_limit=100_000,
+                    gas_limit=blob_tx_gas_limit,
                     max_fee_per_gas=1_000_000,
                     max_priority_fee_per_gas=10,
                     max_fee_per_blob_gas=100,

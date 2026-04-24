@@ -16,6 +16,7 @@ from execution_testing import (
     Fork,
     Hash,
     Op,
+    RecipientType,
     Transaction,
     TransactionException,
     Withdrawal,
@@ -69,11 +70,18 @@ class TestUseValueInTx:
         return pre.fund_eoa(0)
 
     @pytest.fixture
-    def tx(self, sender: EOA, recipient: EOA) -> Transaction:  # noqa: D102
-        # Transaction sent from the `sender`, which has 1 wei balance at start
+    def tx(  # noqa: D102
+        self, sender: EOA, recipient: EOA, fork: Fork
+    ) -> Transaction:
+        # Transaction sent from the `sender`, which has 1 wei balance at start.
+        # gas_limit must equal the intrinsic cost so all gas is consumed
+        # (no refund), keeping the withdrawal math exact.
+        gas_limit = fork.transaction_intrinsic_cost_calculator()(
+            recipient_type=RecipientType.EOA,
+        )
         return Transaction(
             gas_price=ONE_GWEI,
-            gas_limit=21_000,
+            gas_limit=gas_limit,
             to=recipient,
             sender=sender,
         )

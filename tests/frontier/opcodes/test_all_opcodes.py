@@ -251,20 +251,29 @@ def test_constant_gas(
         + create2_salt
     )
     warm_opcode_metadata = {}
+    cold_opcode_metadata = {}
     if "address_warm" in opcode.metadata:
         warm_opcode_metadata["address_warm"] = True
     if "key_warm" in opcode.metadata:
         warm_opcode_metadata["key_warm"] = True
+    if "address_has_code" in opcode.metadata:
+        warm_opcode_metadata["address_has_code"] = True
+        # Target is address 0x0 which has no code.
+        cold_opcode_metadata["address_has_code"] = False
+
     if warm_opcode_metadata:
         warm_opcode = opcode(**warm_opcode_metadata)
     else:
         warm_opcode = opcode
+    cold_opcode = (
+        opcode(**cold_opcode_metadata) if cold_opcode_metadata else opcode
+    )
     gas_test(
         fork=fork,
         state_test=state_test,
         pre=pre,
         setup_code=setup_code,
-        subject_code=opcode,
+        subject_code=cold_opcode,
         subject_code_warm=warm_opcode,
         tear_down_code=prepare_suffix(opcode),
     )

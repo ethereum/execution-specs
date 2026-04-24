@@ -248,6 +248,7 @@ def test_transaction_intrinsic_gas_cost(
         calldata=tx_data,
         contract_creation=contract_creation,
         access_list=access_lists,
+        sends_value=True,
     )
     if not enough_gas:
         tx_gas_limit -= 1

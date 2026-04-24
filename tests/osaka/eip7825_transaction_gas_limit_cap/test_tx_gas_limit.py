@@ -22,6 +22,7 @@ from execution_testing import (
     Hash,
     Op,
     ParameterSet,
+    RecipientType,
     StateTestFiller,
     Storage,
     Transaction,
@@ -357,16 +358,31 @@ def test_tx_gas_limit_cap_full_calldata(
     assert tx_gas_limit_cap is not None, (
         "Fork does not have a transaction gas limit cap"
     )
+
+    # Gas cost calculation based on EIP-7623:
+    # (https://eips.ethereum.org/EIPS/eip-7623)
+    #
+    # Simplified in this test case:
+    # - No execution gas used (no opcodes are executed)
+    # - Not a contract creation (no initcode)
+    #
+    # Token accounting:
+    #   tokens_in_calldata = zero_bytes + 4 * non_zero_bytes
+
     byte_data = b"\x00" if zero_byte else b"\xff"
     max_num_of_bytes = max_count_with_intrinsic_cost_at_most(
         lambda calldata_size: intrinsic_cost(
-            calldata=byte_data * calldata_size
+            calldata=byte_data * calldata_size,
+            recipient_type=RecipientType.EOA,
         ),
         tx_gas_limit_cap,
     )
     num_of_bytes = max_num_of_bytes + int(exceed_tx_gas_limit)
 
-    correct_intrinsic_cost = intrinsic_cost(calldata=byte_data * num_of_bytes)
+    correct_intrinsic_cost = intrinsic_cost(
+        calldata=byte_data * num_of_bytes,
+        recipient_type=RecipientType.EOA,
+    )
     if exceed_tx_gas_limit:
         assert correct_intrinsic_cost > tx_gas_limit_cap, (
             "Correct intrinsic cost should exceed the tx gas limit cap"
@@ -492,6 +508,7 @@ def test_tx_gas_limit_cap_access_list_with_diff_keys(
     assert tx_gas_limit_cap is not None, (
         "Fork does not have a transaction gas limit cap"
     )
+
     access_address = Address("0x1234567890123456789012345678901234567890")
 
     def intrinsic_cost_for_num_storage_keys(storage_key_count: int) -> int:
@@ -501,7 +518,8 @@ def test_tx_gas_limit_cap_access_list_with_diff_keys(
                     address=access_address,
                     storage_keys=[Hash(i) for i in range(storage_key_count)],
                 )
-            ]
+            ],
+            recipient_type=RecipientType.EOA,
         )
 
     num_storage_keys = max_count_with_intrinsic_cost_at_most(
@@ -516,7 +534,10 @@ def test_tx_gas_limit_cap_access_list_with_diff_keys(
         )
     ]
 
-    correct_intrinsic_cost = intrinsic_cost(access_list=access_list)
+    correct_intrinsic_cost = intrinsic_cost(
+        access_list=access_list,
+        recipient_type=RecipientType.EOA,
+    )
     if exceed_tx_gas_limit:
         assert correct_intrinsic_cost > tx_gas_limit_cap, (
             "Correct intrinsic cost should exceed the tx gas limit cap"
@@ -676,14 +697,15 @@ def test_tx_gas_limit_cap_authorized_tx(
     ) + int(exceed_tx_gas_limit)
 
     # EIP-7702 authorization transaction cost:
-    # 21000 + 16 * non-zero calldata bytes + 4 * zero calldata bytes + 1900 *
-    # access list storage key count + 2400 * access list address count + access
-    # list data cost + AUTH_PER_EMPTY_ACCOUNT_COST * authorization list
-    # length
+    # intrinsic gas base cost + calldata cost + access list
+    # storage key cost + access list address cost + access
+    # list data cost + AUTH_PER_EMPTY_ACCOUNT_COST *
+    # authorization list length
     #
-    # There is no calldata and no storage keys in this test case.
-    # However, each access-list address includes data bytes that may contribute
-    # additional cost depending on fork repricing.
+    # There is no calldata and no storage keys in this
+    # test case. Each access-list address includes data
+    # bytes that may contribute additional cost depending
+    # on fork repricing.
 
     auth_address = pre.deploy_contract(code=Op.STOP)
 

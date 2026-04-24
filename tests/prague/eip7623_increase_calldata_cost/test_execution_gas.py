@@ -13,6 +13,7 @@ from execution_testing import (
     Bytes,
     Fork,
     Op,
+    RecipientType,
     StateTestFiller,
     Transaction,
     TransactionReceipt,
@@ -104,6 +105,11 @@ class TestGasConsumptionBelowDataFloor:
     def contract_creating_tx(self) -> bool:
         """Use a constant in order to avoid circular fixture dependencies."""
         return False
+
+    @pytest.fixture
+    def recipient_type(self) -> RecipientType:
+        """Use a constant in order to avoid circular fixture dependencies."""
+        return RecipientType.CONTRACT
 
     @pytest.fixture
     def to(

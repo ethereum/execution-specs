@@ -85,7 +85,9 @@ def test_create_insufficient_balance(
 
     # Measure gas cost of BALANCE on the would-be contract address;
     # cold access proves the address was not warmed by the failed create
-    cold_balance = Op.BALANCE(contract_address, address_warm=False)
+    cold_balance = Op.BALANCE(
+        contract_address, address_warm=False, address_has_code=False
+    )
     checker_address = pre.deploy_contract(
         CodeGasMeasure(
             code=cold_balance,
@@ -163,7 +165,9 @@ def test_create_nonce_overflow(
 
     # Measure gas cost of BALANCE on the would-be contract address;
     # cold access proves the address was not warmed by the failed create
-    cold_balance = Op.BALANCE(contract_address, address_warm=False)
+    cold_balance = Op.BALANCE(
+        contract_address, address_warm=False, address_has_code=False
+    )
     checker_address = pre.deploy_contract(
         CodeGasMeasure(
             code=cold_balance,

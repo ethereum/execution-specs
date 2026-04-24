@@ -14,7 +14,7 @@ Implementations of the EVM environment related instructions.
 from ethereum_types.bytes import Bytes32
 from ethereum_types.numeric import U256, Uint, ulen
 
-from ethereum.state import EMPTY_ACCOUNT
+from ethereum.state import EMPTY_ACCOUNT, EMPTY_CODE_HASH
 from ethereum.utils.numeric import ceil32
 
 from ...state_tracker import get_account, get_code
@@ -27,6 +27,7 @@ from ..gas import (
     calculate_blob_gas_price,
     calculate_gas_extend_memory,
     charge_gas,
+    check_gas,
 )
 from ..stack import pop, push
 
@@ -68,16 +69,28 @@ def balance(evm: Evm) -> None:
     address = to_address_masked(pop(evm.stack))
 
     # GAS
-    if address in evm.accessed_addresses:
-        charge_gas(evm, GasCosts.WARM_ACCESS)
-    else:
+    is_cold_access = address not in evm.accessed_addresses
+    gas_cost = GasCosts.WARM_ACCESS
+    if is_cold_access:
+        gas_cost = GasCosts.COLD_ACCOUNT_COST_NO_CODE
+
+    check_gas(evm, gas_cost)
+
+    # STATE ACCESS
+    tx_state = evm.message.tx_env.state
+    account = get_account(tx_state, address)
+
+    if is_cold_access:
+        if account.code_hash != EMPTY_CODE_HASH:
+            gas_cost = GasCosts.COLD_ACCOUNT_COST_CODE
+            check_gas(evm, gas_cost)
         evm.accessed_addresses.add(address)
-        charge_gas(evm, GasCosts.COLD_ACCOUNT_ACCESS)
+
+    charge_gas(evm, gas_cost)
 
     # OPERATION
     # Non-existent accounts default to EMPTY_ACCOUNT, which has balance 0.
-    tx_state = evm.message.tx_env.state
-    balance = get_account(tx_state, address).balance
+    balance = account.balance
 
     push(evm.stack, balance)
 
@@ -340,16 +353,27 @@ def extcodesize(evm: Evm) -> None:
     address = to_address_masked(pop(evm.stack))
 
     # GAS
-    if address in evm.accessed_addresses:
-        charge_gas(evm, GasCosts.WARM_ACCESS)
-    else:
+    is_cold_access = address not in evm.accessed_addresses
+    access_gas_cost = GasCosts.WARM_ACCESS
+    if is_cold_access:
+        access_gas_cost = GasCosts.COLD_ACCOUNT_COST_NO_CODE
+
+    check_gas(evm, access_gas_cost)
+
+    # STATE ACCESS
+    tx_state = evm.message.tx_env.state
+    account = get_account(tx_state, address)
+
+    if is_cold_access:
+        if account.code_hash != EMPTY_CODE_HASH:
+            access_gas_cost = GasCosts.COLD_ACCOUNT_COST_CODE
+            check_gas(evm, access_gas_cost)
         evm.accessed_addresses.add(address)
-        charge_gas(evm, GasCosts.COLD_ACCOUNT_ACCESS)
+
+    charge_gas(evm, access_gas_cost)
 
     # OPERATION
-    tx_state = evm.message.tx_env.state
-    code_hash = get_account(tx_state, address).code_hash
-    code = get_code(tx_state, code_hash)
+    code = get_code(tx_state, account.code_hash)
 
     codesize = U256(len(code))
     push(evm.stack, codesize)
@@ -381,21 +405,31 @@ def extcodecopy(evm: Evm) -> None:
         evm.memory, [(memory_start_index, size)]
     )
 
-    if address in evm.accessed_addresses:
-        access_gas_cost = GasCosts.WARM_ACCESS
-    else:
+    is_cold_access = address not in evm.accessed_addresses
+    access_gas_cost = GasCosts.WARM_ACCESS
+    if is_cold_access:
+        access_gas_cost = GasCosts.COLD_ACCOUNT_COST_NO_CODE
+
+    check_gas(evm, access_gas_cost + copy_gas_cost + extend_memory.cost)
+
+    # STATE ACCESS
+    tx_state = evm.message.tx_env.state
+    account = get_account(tx_state, address)
+
+    if is_cold_access:
+        if account.code_hash != EMPTY_CODE_HASH:
+            access_gas_cost = GasCosts.COLD_ACCOUNT_COST_CODE
+            check_gas(
+                evm,
+                access_gas_cost + copy_gas_cost + extend_memory.cost,
+            )
         evm.accessed_addresses.add(address)
-        access_gas_cost = GasCosts.COLD_ACCOUNT_ACCESS
 
-    total_gas_cost = access_gas_cost + copy_gas_cost + extend_memory.cost
-
-    charge_gas(evm, total_gas_cost)
+    charge_gas(evm, access_gas_cost + copy_gas_cost + extend_memory.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
-    tx_state = evm.message.tx_env.state
-    code_hash = get_account(tx_state, address).code_hash
-    code = get_code(tx_state, code_hash)
+    code = get_code(tx_state, account.code_hash)
 
     value = buffer_read(code, code_start_index, size)
     memory_write(evm.memory, memory_start_index, value)
@@ -481,18 +515,26 @@ def extcodehash(evm: Evm) -> None:
     address = to_address_masked(pop(evm.stack))
 
     # GAS
-    if address in evm.accessed_addresses:
-        access_gas_cost = GasCosts.WARM_ACCESS
-    else:
+    is_cold_access = address not in evm.accessed_addresses
+    access_gas_cost = GasCosts.WARM_ACCESS
+    if is_cold_access:
+        access_gas_cost = GasCosts.COLD_ACCOUNT_COST_NO_CODE
+
+    check_gas(evm, access_gas_cost)
+
+    # STATE ACCESS
+    tx_state = evm.message.tx_env.state
+    account = get_account(tx_state, address)
+
+    if is_cold_access:
+        if account.code_hash != EMPTY_CODE_HASH:
+            access_gas_cost = GasCosts.COLD_ACCOUNT_COST_CODE
+            check_gas(evm, access_gas_cost)
         evm.accessed_addresses.add(address)
-        access_gas_cost = GasCosts.COLD_ACCOUNT_ACCESS
 
     charge_gas(evm, access_gas_cost)
 
     # OPERATION
-    tx_state = evm.message.tx_env.state
-    account = get_account(tx_state, address)
-
     if account == EMPTY_ACCOUNT:
         codehash = U256(0)
     else:

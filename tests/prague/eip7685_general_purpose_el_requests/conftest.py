@@ -9,6 +9,7 @@ from execution_testing import (
     BlockException,
     Bytes,
     EngineAPIError,
+    Fork,
     Header,
     Requests,
 )
@@ -80,6 +81,7 @@ def engine_api_error_code(
 @pytest.fixture
 def blocks(
     pre: Alloc,
+    fork: Fork,
     requests: List[
         DepositInteractionBase
         | WithdrawalRequestInteractionBase
@@ -115,7 +117,7 @@ def blocks(
         )
     return [
         Block(
-            txs=sum((r.transactions() for r in requests), []),
+            txs=sum((r.transactions(_fork=fork) for r in requests), []),
             header_verify=Header(requests_hash=valid_requests),
             requests=block_body_override_requests,
             exception=exception,

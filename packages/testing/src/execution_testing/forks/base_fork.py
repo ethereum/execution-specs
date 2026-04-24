@@ -31,6 +31,7 @@ from execution_testing.vm import (
     Opcodes,
 )
 
+from ..recipient_type import RecipientType
 from .gas_costs import GasCosts
 
 
@@ -110,6 +111,10 @@ class TransactionIntrinsicCostCalculator(Protocol):
         access_list: List[AccessList] | None = None,
         authorization_list_or_count: Sized | int | None = None,
         return_cost_deducted_prior_execution: bool = False,
+        sends_value: bool = False,
+        recipient_type: RecipientType = RecipientType.CONTRACT,
+        recipient_is_warm: bool = False,
+        recipient_delegation_is_warm: Optional[bool] = None,
     ) -> int:
         """
         Return the intrinsic gas cost of a transaction given its properties.
@@ -129,6 +134,12 @@ class TransactionIntrinsicCostCalculator(Protocol):
                                                 that is deducted from the gas
                                                 limit before the transaction
                                                 starts execution.
+          sends_value: Whether the transaction sends value.
+          recipient_type: The type of the transaction recipient.
+          recipient_is_warm: Whether the recipient is warm in the access list.
+          recipient_delegation_is_warm: Whether the 7702 delegation target is
+                                        warm. Only applicable when
+                                        recipient_type is DELEGATION_7702.
 
         Returns: Gas cost of a transaction
 

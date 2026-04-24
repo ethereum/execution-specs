@@ -85,7 +85,11 @@ def sufficient_gas(
     is_value_call = callee_opcode in [Op.CALL, Op.CALLCODE]
 
     if fork >= Berlin:
-        metadata: dict = {"address_warm": False}
+        metadata: dict = {
+            "address_warm": False,
+            # Target is an empty account with no code.
+            "address_has_code": False,
+        }
         if is_value_call:
             metadata["value_transfer"] = True
             metadata["account_new"] = callee_opcode == Op.CALL
@@ -233,21 +237,25 @@ def expected_block_access_list(
     if fork.header_bal_hash_required():
         if callee_opcode == Op.CALL:
             if gas_shortage:
-                # call runs OOG after state access due to `is_account_alive` in
-                # `create_gas_cost` check
+                # CALL runs OOG after state access due to
+                # `is_account_alive` in `create_gas_cost` check.
                 empty_account_expectation = BalAccountExpectation.empty()
             else:
                 empty_account_expectation = BalAccountExpectation(
                     balance_changes=[
-                        BalBalanceChange(block_access_index=1, post_balance=1)
+                        BalBalanceChange(
+                            block_access_index=1,
+                            post_balance=1,
+                        )
                     ]
                 )
         else:
             if gas_shortage:
-                # runs OOG before accessing empty acct (not read)
+                # Total cost computed upfront; OOG before any
+                # state access.
                 empty_account_expectation = None
             else:
-                # if successful, only read is recorded
+                # Successful: only read is recorded.
                 empty_account_expectation = BalAccountExpectation.empty()
 
         return BlockAccessListExpectation(

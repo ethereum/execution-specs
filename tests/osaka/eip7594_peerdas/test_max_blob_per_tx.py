@@ -14,6 +14,7 @@ from execution_testing import (
     Environment,
     Fork,
     Hash,
+    RecipientType,
     StateTestFiller,
     Transaction,
     TransactionException,
@@ -56,18 +57,25 @@ def blob_gas_price(fork: Fork | TransitionFork) -> int:
 
 @pytest.fixture
 def tx(
+    fork: Fork | TransitionFork,
     sender: Address,
     destination: Address,
     blob_gas_price: int,
     blob_count: int,
 ) -> Transaction:
     """Blob transaction fixture."""
+    intrinsic_gas = (
+        fork.transitions_to().transaction_intrinsic_cost_calculator()(
+            recipient_type=RecipientType.EMPTY_ACCOUNT,
+            sends_value=True,
+        )
+    )
     return Transaction(
         ty=3,
         sender=sender,
         to=destination,
         value=1,
-        gas_limit=21_000,
+        gas_limit=intrinsic_gas,
         max_fee_per_gas=10,
         max_priority_fee_per_gas=1,
         max_fee_per_blob_gas=blob_gas_price,

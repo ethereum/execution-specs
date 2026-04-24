@@ -228,7 +228,7 @@ def get_block_rlp_size(
     header.gas_limit = ZeroPaddedHexNumber(block_gas_limit)
     header.extra_data = Bytes(EXTRA_DATA_AT_LIMIT)
 
-    total_gas = sum((tx.gas_limit or 21000) for tx in transactions)
+    total_gas = sum(tx.gas_limit for tx in transactions)
     header.gas_used = ZeroPaddedHexNumber(total_gas)
 
     # Calculate blob gas used if there are blob transactions
