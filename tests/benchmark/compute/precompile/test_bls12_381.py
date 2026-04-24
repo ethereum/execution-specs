@@ -585,7 +585,7 @@ def test_bls12_pairing_uncachable(
             - mem_exp(new_bytes=len(calldata) + 32)
         )
 
-        if gas_for_loop < (per_tx_variants + 1) * iteration_cost:
+        if gas_for_loop < per_tx_variants * iteration_cost:
             break
         expected_opcode_count += per_tx_variants
 
@@ -600,7 +600,12 @@ def test_bls12_pairing_uncachable(
         remaining_gas -= per_tx_gas
         seed_offset += per_tx_variants
 
-    assert len(txs) != 0, "No transactions were added to the test."
+    if len(txs) == 0:
+        pytest.skip(
+            f"gas_benchmark_value={gas_benchmark_value} too small for "
+            f"num_pairs={num_pairs} "
+            f"(need ~{per_variant_gas + fixed_overhead} gas)"
+        )
 
     benchmark_test(
         target_opcode=Precompile.BLS12_PAIRING,
