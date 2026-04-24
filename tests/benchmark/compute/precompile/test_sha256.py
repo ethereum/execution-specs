@@ -151,6 +151,8 @@ def test_sha256_uncachable(
         )
         remaining_gas -= per_tx_gas
 
+    assert len(txs) != 0, "No transactions were added to the test."
+
     benchmark_test(
         target_opcode=Precompile.SHA256,
         skip_gas_used_validation=True,

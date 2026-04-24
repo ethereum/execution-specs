@@ -154,6 +154,8 @@ def test_identity_uncachable(
         )
         remaining_gas -= per_tx_gas
 
+    assert len(txs) != 0, "No transactions were added to the test."
+
     benchmark_test(
         target_opcode=Precompile.IDENTITY,
         skip_gas_used_validation=True,

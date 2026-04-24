@@ -211,6 +211,8 @@ def test_p256verify_uncachable(
         remaining_gas -= per_tx_gas
         seed += 10000
 
+    assert len(txs) != 0, "No transactions were added to the test."
+
     benchmark_test(
         target_opcode=Precompile.P256VERIFY,
         skip_gas_used_validation=True,
