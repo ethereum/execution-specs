@@ -18,8 +18,7 @@ from ethereum.exceptions import (
     InvalidSignatureError,
     NonceOverflowError,
 )
-
-from .fork_types import Address
+from ethereum.state import Address
 
 
 @slotted_freezable

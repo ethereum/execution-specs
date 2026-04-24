@@ -13,9 +13,9 @@ Implementations of the EVM environment related instructions.
 
 from ethereum_types.numeric import U256, Uint, ulen
 
+from ethereum.state import EMPTY_ACCOUNT
 from ethereum.utils.numeric import ceil32
 
-from ...fork_types import EMPTY_ACCOUNT
 from ...state_tracker import get_account, get_code
 from ...utils.address import to_address_masked
 from ...vm.memory import buffer_read, memory_write

@@ -14,22 +14,9 @@ Types reused throughout the specification, which are specific to Ethereum.
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes256
 
-from ethereum.crypto.hash import Hash32
-from ethereum.state import EMPTY_ACCOUNT, EMPTY_CODE_HASH, Account, Address
-
-Root = Hash32
+from ethereum.state import Account
 
 Bloom = Bytes256
-
-__all__ = (
-    "Account",
-    "Address",
-    "Bloom",
-    "EMPTY_ACCOUNT",
-    "EMPTY_CODE_HASH",
-    "Root",
-    "encode_account",
-)
 
 
 def encode_account(raw_account_data: Account, storage_root: Bytes) -> Bytes:

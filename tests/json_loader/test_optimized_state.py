@@ -6,8 +6,8 @@ import pytest
 from ethereum_types.numeric import U256
 
 import ethereum.state as state
-from ethereum.forks.frontier.fork_types import EMPTY_ACCOUNT
 from ethereum.forks.tangerine_whistle.utils.hexadecimal import hex_to_address
+from ethereum.state import EMPTY_ACCOUNT
 from ethereum_spec_tools.forks import Hardfork
 
 # The optimized state integration predates the ``State`` refactor and has
