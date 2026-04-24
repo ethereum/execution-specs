@@ -259,6 +259,12 @@ def build_calltx_transactions(
 
     max_fee_per_gas = int(base_fee_per_gas * (1.0 + throughput))
 
+    # Treat empty strings from YAML config as "unset".
+    if isinstance(contract_code, str) and contract_code == "":
+        contract_code = None
+    if isinstance(contract_address, str) and contract_address == "":
+        contract_address = None
+
     txs: List[Dict[str, Any]] = []
 
     # ABI-encode call_data when not provided but a function signature is given
@@ -778,11 +784,18 @@ def _evm_fuzz_bytecode(
     """
     if max_size < min_size:
         max_size = min_size
-    seed_bytes = (
-        bytes.fromhex(seed_hex[2:] if seed_hex.startswith("0x") else seed_hex)
-        if seed_hex
-        else b""
-    )
+    # Seed can be a 0x-hex blob or an arbitrary label (e.g. "evm-fuzz-7"
+    # from spamoor YAML exports). Parse as hex when it looks hex-shaped;
+    # otherwise hash the raw UTF-8 bytes so every label maps to a stable
+    # 32-byte seed.
+    if not seed_hex:
+        seed_bytes = b""
+    else:
+        hx = seed_hex[2:] if seed_hex.startswith("0x") else seed_hex
+        try:
+            seed_bytes = bytes.fromhex(hx)
+        except ValueError:
+            seed_bytes = hashlib.sha256(seed_hex.encode("utf-8")).digest()
     # Size is deterministic per tx within [min_size, max_size].
     size_span = max_size - min_size + 1
     size = min_size + (

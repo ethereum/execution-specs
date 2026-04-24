@@ -91,6 +91,24 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=None,
         help="Override the active fork (defaults to latest known fork).",
     )
+    group.addoption(
+        "--bloat-config-file",
+        dest="bloat_config_file",
+        type=str,
+        default="",
+        help=(
+            "Path to a spammer-export YAML. Parallels "
+            "--spamoor-config-file; tx-shape overlay still happens in "
+            "spamoor_config, this option only validates the YAML parses."
+        ),
+    )
+    group.addoption(
+        "--bloat-scenario-index",
+        dest="bloat_scenario_index",
+        type=int,
+        default=0,
+        help="0-indexed scenario entry to load from --bloat-config-file.",
+    )
 
 
 def _load_jwt_secret(path: str | None) -> bytes:
@@ -141,6 +159,14 @@ def bloat_config(request: pytest.FixtureRequest) -> BloatConfig:
     signer_key = request.config.getoption("bloat_signer_key")
     if signer_key is None:
         pytest.exit("--bloat-signer-key is required")
+    bloat_config_file = request.config.getoption("bloat_config_file")
+    if bloat_config_file:
+        from ..spamoor.spamoor import _load_scenario_from_yaml
+
+        _load_scenario_from_yaml(
+            bloat_config_file,
+            int(request.config.getoption("bloat_scenario_index")),
+        )
     jwt_secret = _load_jwt_secret(
         request.config.getoption("bloat_jwt_secret_file")
     )

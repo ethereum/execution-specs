@@ -1,9 +1,116 @@
 """Pytest plugin: CLI options and fixtures for spamoor scenarios."""
 
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 import pytest
 import requests
+import yaml
+
+
+# YAML key → spamoor_config key.  Infrastructure keys (endpoint, count,
+# private_key, from_addr) are intentionally absent so that a CLI invocation
+# keeps full control of them regardless of the config file.
+_YAML_TO_CONFIG_KEY: Dict[str, str] = {
+    "amount": "amount",
+    "contract_address": "contract_address",
+    "contract_code": "contract_code",
+    "call_data": "call_data",
+    "call_fn_sig": "call_fn_sig",
+    "call_args": "call_args",
+    "contract_args": "contract_args",
+    "gas_limit": "gas_limit",
+    "deploy_gas_limit": "deploy_gas_limit",
+    "throughput": "throughput",
+    "random_target": "random_target",
+    "random_amount": "random_amount",
+    "seed": "payload_seed",
+}
+
+
+def _load_scenario_from_yaml(path: str, index: int) -> Dict[str, Any]:
+    """Return the YAML list entry at *index*, validating structure."""
+    p = Path(path)
+    if not p.is_file():
+        raise pytest.UsageError(
+            f"--spamoor-config-file {path!r}: file not found"
+        )
+    try:
+        data = yaml.safe_load(p.read_text())
+    except yaml.YAMLError as exc:
+        raise pytest.UsageError(
+            f"--spamoor-config-file {path!r}: invalid YAML ({exc})"
+        ) from exc
+    if not isinstance(data, list):
+        raise pytest.UsageError(
+            f"--spamoor-config-file {path!r}: expected a YAML list at the "
+            f"top level, got {type(data).__name__}"
+        )
+    if index < 0 or index >= len(data):
+        raise pytest.UsageError(
+            f"--spamoor-scenario-index {index} out of range (file has "
+            f"{len(data)} scenario(s))"
+        )
+    entry = data[index]
+    if not isinstance(entry, dict) or "config" not in entry:
+        raise pytest.UsageError(
+            f"--spamoor-config-file {path!r}: entry #{index} is not a "
+            f"scenario object with a 'config' field"
+        )
+    return entry
+
+
+def _overlay_yaml_on_config(
+    cfg: Dict[str, Any], scenario_entry: Dict[str, Any]
+) -> None:
+    """
+    Overwrite ``cfg`` in place with mapped values from a YAML scenario.
+
+    ``base_fee`` / ``tip_fee`` in the YAML are gwei floats; the ``*_wei``
+    variants, when non-empty, take precedence and are interpreted as
+    decimal integers.
+    """
+    yaml_cfg = scenario_entry.get("config") or {}
+    if not isinstance(yaml_cfg, dict):
+        raise pytest.UsageError(
+            f"scenario entry {scenario_entry.get('name')!r} has a non-dict "
+            f"'config'"
+        )
+
+    for y_key, c_key in _YAML_TO_CONFIG_KEY.items():
+        if y_key not in yaml_cfg:
+            continue
+        value = yaml_cfg[y_key]
+        if value is None or value == "":
+            continue
+        # YAML's safe_load parses ``0xfd1a...`` as a Python int. Address /
+        # code / call-data fields must round-trip as hex strings.
+        if c_key in (
+            "contract_address",
+            "contract_code",
+            "call_data",
+        ) and isinstance(value, int):
+            value = "0x" + format(value, "040x" if c_key == "contract_address" else "x")
+        cfg[c_key] = value
+
+    base_fee_wei = yaml_cfg.get("base_fee_wei")
+    if isinstance(base_fee_wei, str) and base_fee_wei.strip():
+        cfg["basefee"] = int(base_fee_wei)
+    elif isinstance(yaml_cfg.get("base_fee"), (int, float)):
+        cfg["basefee"] = int(float(yaml_cfg["base_fee"]) * 1e9)
+
+    tip_fee_wei = yaml_cfg.get("tip_fee_wei")
+    if isinstance(tip_fee_wei, str) and tip_fee_wei.strip():
+        cfg["tip_fee"] = int(tip_fee_wei)
+    elif isinstance(yaml_cfg.get("tip_fee"), (int, float)):
+        cfg["tip_fee"] = int(float(yaml_cfg["tip_fee"]) * 1e9)
+
+    # Spamoor throughput is an int (txs/sec) but the helpers treat it as
+    # a float multiplier for max_fee_per_gas. Coerce for consistency.
+    if "throughput" in yaml_cfg and yaml_cfg["throughput"] is not None:
+        cfg["throughput"] = float(yaml_cfg["throughput"])
+
+    cfg["yaml_scenario"] = scenario_entry
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -274,6 +381,24 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default="",
         help="deploytx: path to file with one hex bytecode per line",
     )
+    group.addoption(
+        "--spamoor-config-file",
+        dest="spamoor_config_file",
+        type=str,
+        default="",
+        help=(
+            "Path to a spammer-export YAML. When set, the scenario at "
+            "--spamoor-scenario-index overlays tx-shape options "
+            "(contract_address, fees, gas_limit, ...) onto the fixture."
+        ),
+    )
+    group.addoption(
+        "--spamoor-scenario-index",
+        dest="spamoor_scenario_index",
+        type=int,
+        default=0,
+        help="0-indexed scenario entry to load from --spamoor-config-file.",
+    )
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -286,7 +411,7 @@ def pytest_configure(config: pytest.Config) -> None:
 @pytest.fixture(scope="session")
 def spamoor_config(request: pytest.FixtureRequest) -> Dict[str, Any]:
     """Collect all ``--spamoor-*`` options into a config dict."""
-    return {
+    cfg: Dict[str, Any] = {
         "endpoint": request.config.getoption("spamoor_endpoint"),
         "count": request.config.getoption("spamoor_count"),
         "throughput": request.config.getoption("--spamoor-throughput"),
@@ -339,6 +464,14 @@ def spamoor_config(request: pytest.FixtureRequest) -> Dict[str, Any]:
         "bytecodes": request.config.getoption("spamoor_bytecodes"),
         "bytecodes_file": request.config.getoption("spamoor_bytecodes_file"),
     }
+
+    config_file = request.config.getoption("spamoor_config_file")
+    if config_file:
+        index = int(request.config.getoption("spamoor_scenario_index"))
+        entry = _load_scenario_from_yaml(config_file, index)
+        _overlay_yaml_on_config(cfg, entry)
+
+    return cfg
 
 
 @pytest.fixture(scope="session")
