@@ -478,6 +478,8 @@ def test_bls12_381_uncachable(
         remaining_gas -= per_tx_gas
         seed += 1
 
+    assert len(txs) != 0, "No transactions were added to the test."
+
     benchmark_test(
         target_opcode=target,
         skip_gas_used_validation=True,
@@ -597,6 +599,8 @@ def test_bls12_pairing_uncachable(
         )
         remaining_gas -= per_tx_gas
         seed_offset += per_tx_variants
+
+    assert len(txs) != 0, "No transactions were added to the test."
 
     benchmark_test(
         target_opcode=Precompile.BLS12_PAIRING,
