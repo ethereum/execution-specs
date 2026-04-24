@@ -14,8 +14,10 @@ from execution_testing import (
     BlockchainTestFiller,
     BlockException,
     Environment,
+    Fork,
     Macros,
     Op,
+    RecipientType,
 )
 
 from .helpers import DepositContract, DepositRequest, DepositTransaction
@@ -25,6 +27,58 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_6110.git_path
 REFERENCE_SPEC_VERSION = ref_spec_6110.version
 
 pytestmark = pytest.mark.valid_from("Prague")
+
+# Gas consumed by the deposit pre-deploy contract itself (execution only, no
+# intrinsic component).  These values are fork-independent since EIP-2780
+# does not change storage read/write costs.
+#
+# Derived from Prague execution traces (deposit calldata: pubkey=0x01,
+# withdrawal_credentials=0x02, amount=32_000_000_000, signature=0x03):
+#   82_718 total  -  26_420 Prague intrinsic  =  56_298  (first call,
+#       cold pre-deploy, queue empty)
+#   68_594 total  -  26_420 Prague intrinsic  =  42_174  (second call,
+#       cold pre-deploy, one entry already in queue → cheaper storage writes)
+_PREDEPLOY_EXEC_GAS_FIRST_CALL = 56_298
+_PREDEPLOY_EXEC_GAS_SECOND_CALL = 42_174
+
+
+def _first_deposit_oog_gas_limit(fork: Fork) -> int:
+    """
+    Return the gas limit that is exactly 1 below what the first deposit
+    transaction needs to succeed (pre-deploy queue empty).
+    """
+    request = DepositRequest(
+        pubkey=0x01,
+        withdrawal_credentials=0x02,
+        amount=32_000_000_000,
+        signature=0x03,
+        index=0x0,
+    )
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        calldata=request.calldata,
+        recipient_type=RecipientType.CONTRACT,
+    )
+    return intrinsic + _PREDEPLOY_EXEC_GAS_FIRST_CALL - 1
+
+
+def _second_deposit_oog_gas_limit(fork: Fork) -> int:
+    """
+    Return the gas limit that is exactly 1 below what the second deposit
+    transaction needs to succeed (pre-deploy queue already has one entry from
+    the preceding transaction).
+    """
+    request = DepositRequest(
+        pubkey=0x01,
+        withdrawal_credentials=0x02,
+        amount=32_000_000_000,
+        signature=0x03,
+        index=0x0,
+    )
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        calldata=request.calldata,
+        recipient_type=RecipientType.CONTRACT,
+    )
+    return intrinsic + _PREDEPLOY_EXEC_GAS_SECOND_CALL - 1
 
 
 @pytest.mark.parametrize(
@@ -186,9 +240,9 @@ pytestmark = pytest.mark.valid_from("Prague")
                             amount=32_000_000_000,
                             signature=0x03,
                             index=0x0,
-                            # From traces, gas used by the first tx is 82,718
-                            # so reduce by one here
-                            gas_limit=0x1431D,
+                            gas_limit_calculator=(
+                                _first_deposit_oog_gas_limit
+                            ),
                             valid=False,
                         ),
                         DepositRequest(
@@ -220,9 +274,9 @@ pytestmark = pytest.mark.valid_from("Prague")
                             amount=32_000_000_000,
                             signature=0x03,
                             index=0x0,
-                            # From traces, gas used by the second tx is 68,594,
-                            # reduce by one here
-                            gas_limit=0x10BF1,
+                            gas_limit_calculator=(
+                                _second_deposit_oog_gas_limit
+                            ),
                             valid=False,
                         ),
                     ],
@@ -491,7 +545,11 @@ pytestmark = pytest.mark.valid_from("Prague")
                         )
                         for i in range(450)
                     ],
-                    tx_gas_limit=10_000_000,
+                    # EIP-7623 floor for 450 × 404-byte calldata is ~2.46M
+                    # (Prague) / ~2.44M (Amsterdam), so 3M stays above the
+                    # intrinsic in all forks while leaving insufficient
+                    # execution gas to complete all 450 deposits.
+                    tx_gas_limit=3_000_000,
                 ),
             ],
             id="many_deposits_from_contract_oog",

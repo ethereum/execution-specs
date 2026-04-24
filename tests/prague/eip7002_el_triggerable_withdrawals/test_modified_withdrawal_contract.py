@@ -12,6 +12,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
+    Fork,
     Op,
     Requests,
     Transaction,
@@ -87,6 +88,7 @@ def withdrawal_list_with_custom_fee(n: int) -> List[WithdrawalRequest]:  # noqa:
 )
 def test_extra_withdrawals(
     blockchain_test: BlockchainTestFiller,
+    fork: Fork,
     pre: Alloc,
     requests_list: List[WithdrawalRequest],
 ) -> None:
@@ -126,7 +128,9 @@ def test_extra_withdrawals(
     # prepare withdrawal senders
     withdrawal_request_transaction.update_pre(pre=pre)
     # get transaction list
-    txs: List[Transaction] = withdrawal_request_transaction.transactions()
+    txs: List[Transaction] = withdrawal_request_transaction.transactions(
+        _fork=fork
+    )
 
     blockchain_test(
         pre=pre,

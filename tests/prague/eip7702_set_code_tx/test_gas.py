@@ -795,7 +795,8 @@ def gas_test_parameter_args(
 
     if include_many:
         # Fit as many authorizations as possible within the transaction gas
-        # limit.
+        # limit. 21,000 is a conservative overestimate of the base intrinsic
+        # cost (fork is unavailable at parametrization time).
         max_gas = 16_777_216 - 21_000
         if execution_gas_allowance:
             # Leave some gas for the execution of the test code.
@@ -950,6 +951,7 @@ def test_gas_cost(
 def test_account_warming(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     authorization_list_with_properties: List[AuthorizationWithProperties],
     authorization_list: List[AuthorizationTuple],
     access_list: List[AccessList],
@@ -965,8 +967,16 @@ def test_account_warming(
     # check.
     overhead_cost = 3 * len(Op.CALL.kwargs)
 
-    cold_account_cost = 2600
-    warm_account_cost = 100
+    gsc = fork.gas_costs()
+    # G_COLD_ACCOUNT_COST_CODE / G_COLD_ACCOUNT_COST_NO_CODE are 0 on pre-
+    # Amsterdam forks; fall back to the unified G_COLD_ACCOUNT_ACCESS (2600).
+    cold_account_cost_code = (
+        gsc.COLD_ACCOUNT_COST_CODE or gsc.COLD_ACCOUNT_ACCESS
+    )
+    cold_account_cost_nocode = (
+        gsc.COLD_ACCOUNT_COST_NO_CODE or gsc.COLD_ACCOUNT_ACCESS
+    )
+    warm_account_cost = gsc.WARM_ACCESS
 
     access_list_addresses = {
         access_list.address for access_list in access_list
@@ -990,12 +1000,24 @@ def test_account_warming(
             == AddressType.EOA_WITH_SET_CODE
         )
 
+        delegated_account_pre = (
+            pre[delegated_account] if delegated_account in pre else None
+        )
+        delegated_account_has_code = (
+            delegated_account_pre is not None
+            and bool(delegated_account_pre.code)
+        )
+
         if check_delegated_account_first:
             if delegated_account not in addresses_to_check:
                 addresses_to_check[delegated_account] = (
                     warm_account_cost
                     if delegated_account in access_list_addresses
-                    else cold_account_cost
+                    else (
+                        cold_account_cost_code
+                        if delegated_account_has_code
+                        else cold_account_cost_nocode
+                    )
                 )
 
             if authority not in addresses_to_check:
@@ -1009,11 +1031,18 @@ def test_account_warming(
                         or authority in access_list_addresses
                     ):
                         access_cost = warm_account_cost
+                    elif authorization_with_properties.authority_type in (
+                        AddressType.EOA,
+                        AddressType.EMPTY_ACCOUNT,
+                    ):
+                        access_cost = cold_account_cost_nocode
                     else:
-                        access_cost = cold_account_cost
+                        access_cost = cold_account_cost_code
                 else:
+                    # skip=True implies authority_type == EOA_WITH_SET_CODE,
+                    # which has delegation code set.
                     access_cost = (
-                        cold_account_cost
+                        cold_account_cost_code
                         if Address(sender)
                         != authorization_with_properties.tuple.signer
                         else warm_account_cost
@@ -1029,8 +1058,14 @@ def test_account_warming(
 
         else:
             if authority not in addresses_to_check:
+                cold_authority_cost = (
+                    cold_account_cost_nocode
+                    if authorization_with_properties.authority_type
+                    in (AddressType.EOA, AddressType.EMPTY_ACCOUNT)
+                    else cold_account_cost_code
+                )
                 access_cost = (
-                    cold_account_cost
+                    cold_authority_cost
                     if Address(sender)
                     != authorization_with_properties.tuple.signer
                     else warm_account_cost
@@ -1056,7 +1091,12 @@ def test_account_warming(
                     ):
                         access_cost += warm_account_cost
                     else:
-                        access_cost += cold_account_cost
+                        # Delegation resolution always performs a code-loading
+                        # access on the delegated account (to fetch the code to
+                        # execute), so the cold cost is always
+                        # G_COLD_ACCOUNT_COST_CODE regardless of whether the
+                        # delegated account actually contains code.
+                        access_cost += cold_account_cost_code
 
                 addresses_to_check[authority] = access_cost
 
@@ -1066,8 +1106,10 @@ def test_account_warming(
                     or delegated_account in access_list_addresses
                 ):
                     access_cost = warm_account_cost
+                elif delegated_account_has_code:
+                    access_cost = cold_account_cost_code
                 else:
-                    access_cost = cold_account_cost
+                    access_cost = cold_account_cost_nocode
                 addresses_to_check[delegated_account] = access_cost
 
     callee_code: Bytecode = sum(  # type: ignore

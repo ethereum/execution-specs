@@ -14,6 +14,7 @@ from execution_testing import (
     Fork,
     Hash,
     Op,
+    RecipientType,
     Transaction,
     TransactionException,
     add_kzg_version,
@@ -130,6 +131,7 @@ def tx_data(
     authorization_list: List[AuthorizationTuple] | None,
     contract_creating_tx: bool,
     intrinsic_gas_data_floor_minimum_delta: int,
+    recipient_type: RecipientType,
 ) -> Bytes:
     """
     All tests in this file use data that is generated dynamically depending on
@@ -150,14 +152,14 @@ def tx_data(
     E.g. Given a transaction with a single access list and a single storage
     key, its intrinsic gas cost (as of Prague fork) can be calculated as:
 
-    - 21,000 gas for the transaction
+    - Base intrinsic gas for the transaction (fork-dependent)
     - 2,400 gas for the access list
     - 1,900 gas for the storage key
     - 16 gas for each non-zero byte in the data
     - 4 gas for each zero byte in the data
 
     Its floor data gas cost can be calculated as:
-    - 21,000 gas for the transaction
+    - Base intrinsic gas for the transaction (fork-dependent)
     - 40 gas for each non-zero byte in the data
     - 10 gas for each zero byte in the data
 
@@ -191,6 +193,7 @@ def tx_data(
                 access_list=access_list,
                 authorization_list_or_count=authorization_list,
                 return_cost_deducted_prior_execution=True,
+                recipient_type=recipient_type,
             )
             + intrinsic_gas_data_floor_minimum_delta
         )
@@ -255,6 +258,7 @@ def tx_intrinsic_gas_cost_before_execution(
     access_list: List[AccessList] | None,
     authorization_list: List[AuthorizationTuple] | None,
     contract_creating_tx: bool,
+    recipient_type: RecipientType,
 ) -> int:
     """
     Return the intrinsic gas cost that is applied before the execution start.
@@ -270,6 +274,7 @@ def tx_intrinsic_gas_cost_before_execution(
         access_list=access_list,
         authorization_list_or_count=authorization_list,
         return_cost_deducted_prior_execution=True,
+        recipient_type=recipient_type,
     )
 
 
@@ -280,6 +285,7 @@ def tx_intrinsic_gas_cost_including_floor_data_cost(
     access_list: List[AccessList] | None,
     authorization_list: List[AuthorizationTuple] | None,
     contract_creating_tx: bool,
+    recipient_type: RecipientType,
 ) -> int:
     """
     Transaction intrinsic gas cost.
@@ -298,6 +304,7 @@ def tx_intrinsic_gas_cost_including_floor_data_cost(
         contract_creation=contract_creating_tx,
         access_list=access_list,
         authorization_list_or_count=authorization_list,
+        recipient_type=recipient_type,
     )
 
 
@@ -369,3 +376,21 @@ def tx(
         blob_versioned_hashes=blob_versioned_hashes,
         error=tx_error,
     )
+
+
+@pytest.fixture
+def recipient_type(
+    to: Address | None,
+    contract_creating_tx: bool,
+    pre: Alloc,
+) -> RecipientType:
+    """Derive the recipient type from the to address."""
+    if contract_creating_tx:
+        return RecipientType.NULL
+    assert to is not None
+    if to not in pre:
+        return RecipientType.EMPTY_ACCOUNT
+    account = pre[to]
+    if account is not None and account.code:
+        return RecipientType.CONTRACT
+    return RecipientType.EOA

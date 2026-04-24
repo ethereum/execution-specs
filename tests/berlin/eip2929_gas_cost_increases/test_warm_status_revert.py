@@ -112,7 +112,9 @@ def test_account_warm_status_reverted_by_subcall(
 
     # Overhead: PUSH for the BALANCE address argument.
     balance_push_cost = (Op.PUSH1(0) * len(Op.BALANCE.kwargs)).gas_cost(fork)
-    cold_balance_cost = Op.BALANCE(address_warm=False).gas_cost(fork)
+    cold_balance_cost = Op.BALANCE(
+        address_warm=False, address_has_code=False
+    ).gas_cost(fork)
 
     # Outer: call inner (reverts), then measure BALANCE(target) gas.
     outer = pre.deploy_contract(

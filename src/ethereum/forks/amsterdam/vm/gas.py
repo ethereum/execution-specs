@@ -43,6 +43,22 @@ class GasCosts:
     WARM_ACCESS = Uint(100)
     COLD_ACCOUNT_ACCESS = Uint(2600)
     COLD_STORAGE_ACCESS = Uint(2100)
+    COLD_ACCOUNT_COST_CODE = Uint(2600)
+    """
+    Gas cost for a cold access to an account that has code deployed.
+    [EIP-7702] delegated accounts are also charged this for cold access.
+    Defined in [EIP-2780].
+
+    [EIP-2780]: https://eips.ethereum.org/EIPS/eip-2780
+    [EIP-7702]: https://eips.ethereum.org/EIPS/eip-7702
+    """
+    COLD_ACCOUNT_COST_NO_CODE = Uint(500)
+    """
+    Gas cost for a cold access to an account without code.
+    Defined in [EIP-2780].
+
+    [EIP-2780]: https://eips.ethereum.org/EIPS/eip-2780
+    """
 
     # Storage
     STORAGE_SET = Uint(20000)
@@ -52,6 +68,13 @@ class GasCosts:
     CALL_VALUE = Uint(9000)
     CALL_STIPEND = Uint(2300)
     NEW_ACCOUNT = Uint(25000)
+    STATE_UPDATE = Uint(1000)
+    """
+    Gas cost for a state-changing operation (e.g. value transfer).
+    Defined in [EIP-2780].
+
+    [EIP-2780]: https://eips.ethereum.org/EIPS/eip-2780
+    """
 
     # Contract Creation
     CODE_DEPOSIT_PER_BYTE = Uint(200)
@@ -103,7 +126,12 @@ class GasCosts:
     BLOCK_ACCESS_LIST_ITEM = Uint(2000)
 
     # Transactions
-    TX_BASE = Uint(21000)
+    TX_BASE = Uint(4500)
+    """
+    Base transaction cost, reduced from 21000 by [EIP-2780].
+
+    [EIP-2780]: https://eips.ethereum.org/EIPS/eip-2780
+    """
     TX_CREATE = Uint(32000)
     TX_DATA_TOKEN_STANDARD = Uint(4)
     TX_DATA_TOKEN_FLOOR = Uint(10)

@@ -28,6 +28,7 @@ from execution_testing import (
     TransactionException,
     compute_create_address,
 )
+from execution_testing.forks import Amsterdam
 
 from .spec import Spec, ref_spec_7702
 
@@ -41,6 +42,7 @@ REFERENCE_SPEC_VERSION = ref_spec_7702.version
 def test_pointer_contract_pointer_loop(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     sender_delegated: bool,
     sender_is_auth_signer: bool,
 ) -> None:
@@ -74,7 +76,10 @@ def test_pointer_contract_pointer_loop(
     )
 
     storage_loop: Storage = Storage()
-    contract_worked = storage_loop.store_next(112, "contract_loop_worked")
+    if fork >= Amsterdam:
+        contract_worked = storage_loop.store_next(113, "contract_loop_worked")
+    else:
+        contract_worked = storage_loop.store_next(112, "contract_loop_worked")
     contract_loop = pre.deploy_contract(
         code=Op.SSTORE(contract_worked, Op.ADD(1, Op.SLOAD(0)))
         + Op.CALL(gas=1_000_000, address=pointer_a)

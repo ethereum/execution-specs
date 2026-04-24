@@ -742,7 +742,7 @@ def validate_block_access_list_gas_limit(
     Validate that the block access list does not exceed the gas limit.
 
     The total number of items (addresses + unique storage keys) must not
-    exceed ``block_gas_limit // GAS_BLOCK_ACCESS_LIST_ITEM``.
+    exceed ``block_gas_limit // GasCosts.BLOCK_ACCESS_LIST_ITEM``.
     """
     from .vm.gas import GasCosts
 

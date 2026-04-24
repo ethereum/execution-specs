@@ -16,6 +16,7 @@ from execution_testing import (
     Header,
     Macros,
     Op,
+    RecipientType,
     Requests,
     TestAddress,
     TestAddress2,
@@ -34,6 +35,49 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_7002.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7002.version
 
 pytestmark = pytest.mark.valid_from("Prague")
+
+# Gas consumed by the pre-deploy contract itself (execution only, no
+# intrinsic component).  These values are fork-independent since EIP-2780
+# does not change storage read/write costs.
+#
+# Derived from Prague execution traces:
+#   114_247 total  -  21_590 Prague intrinsic  =  92_657  (first call,
+#       cold pre-deploy, queue empty)
+#   80_047 total   -  21_590 Prague intrinsic  =  58_457  (second call,
+#       cold pre-deploy, one entry already in queue → cheaper storage writes)
+_PREDEPLOY_EXEC_GAS_FIRST_CALL = 92_657
+_PREDEPLOY_EXEC_GAS_SECOND_CALL = 58_457
+
+
+def _first_withdrawal_oog_gas_limit(fork: Fork) -> int:
+    """
+    Return the gas limit that is exactly 1 below what the first withdrawal
+    request transaction needs to succeed.
+    """
+    calldata = WithdrawalRequest(
+        validator_pubkey=0x01, amount=0, fee=0
+    ).calldata
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        calldata=calldata,
+        recipient_type=RecipientType.CONTRACT,
+    )
+    return intrinsic + _PREDEPLOY_EXEC_GAS_FIRST_CALL - 1
+
+
+def _second_withdrawal_oog_gas_limit(fork: Fork) -> int:
+    """
+    Return the gas limit that is exactly 1 below what the second withdrawal
+    request transaction needs to succeed (pre-deploy queue already has one
+    entry from the preceding transaction).
+    """
+    calldata = WithdrawalRequest(
+        validator_pubkey=0x02, amount=0, fee=0
+    ).calldata
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        calldata=calldata,
+        recipient_type=RecipientType.CONTRACT,
+    )
+    return intrinsic + _PREDEPLOY_EXEC_GAS_SECOND_CALL - 1
 
 
 @pytest.mark.parametrize(
@@ -224,8 +268,9 @@ pytestmark = pytest.mark.valid_from("Prague")
                                 validator_pubkey=0x01,
                                 amount=0,
                                 fee=Spec.get_fee(0),
-                                # Value obtained from trace minus one
-                                gas_limit=114_247 - 1,
+                                gas_limit_calculator=(
+                                    _first_withdrawal_oog_gas_limit
+                                ),
                                 valid=False,
                             ),
                             WithdrawalRequest(
@@ -253,8 +298,9 @@ pytestmark = pytest.mark.valid_from("Prague")
                                 validator_pubkey=0x02,
                                 amount=0,
                                 fee=Spec.get_fee(0),
-                                # Value obtained from trace minus one
-                                gas_limit=80_047 - 1,
+                                gas_limit_calculator=(
+                                    _second_withdrawal_oog_gas_limit
+                                ),
                                 valid=False,
                             ),
                         ]
@@ -865,7 +911,7 @@ def test_withdrawal_requests_negative(
         post={},
         blocks=[
             Block(
-                txs=sum((r.transactions() for r in requests), []),
+                txs=sum((r.transactions(_fork=fork) for r in requests), []),
                 header_verify=Header(
                     requests_hash=Requests(
                         *included_requests,

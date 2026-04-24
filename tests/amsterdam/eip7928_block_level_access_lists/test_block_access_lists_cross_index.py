@@ -21,7 +21,9 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     Bytecode,
+    Fork,
     Op,
+    RecipientType,
     Transaction,
 )
 
@@ -265,6 +267,7 @@ def test_bal_noop_write_filtering(
 
 
 def test_bal_system_contract_noop_filtering(
+    fork: Fork,
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
 ) -> None:
@@ -280,12 +283,17 @@ def test_bal_system_contract_noop_filtering(
     sender = pre.fund_eoa()
     receiver = pre.fund_eoa(amount=0)
 
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+        sends_value=True,
+    )
+
     # simple transfer that doesn't interact with system contracts
     tx = Transaction(
         sender=sender,
         to=receiver,
         value=100,
-        gas_limit=21_000,
+        gas_limit=intrinsic_gas,
     )
 
     # withdrawal and consolidation contracts should NOT have any storage
