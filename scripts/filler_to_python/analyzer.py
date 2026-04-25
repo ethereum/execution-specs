@@ -237,6 +237,27 @@ FORCE_HARDCODED_TESTS: set[str] = {
     "stZeroCallsTest/test_zero_value_suicide_to_one_storage_key_paris.py",
     "stZeroCallsTest/test_zero_value_transaction_cal_lwith_data_to_one_storage_key_paris.py",
     "stZeroCallsTest/test_zero_value_transaction_call_to_one_storage_key_paris.py",
+    # Slow-marked tests that fail with dynamic addresses (excluded from
+    # the main verification by -m "not slow" but exercised on full CI
+    # runs without that filter — same KV_CALL_FLIP / collision /
+    # ecrecover patterns as the non-slow allowlisted siblings).
+    "stQuadraticComplexityTest/test_return50000.py",
+    "stQuadraticComplexityTest/test_return50000_2.py",
+    "stStaticCall/test_static_call_ecrecover0.py",
+    "stStaticCall/test_static_call_ecrecover0_complete_return_value.py",
+    "stStaticCall/test_static_call_ecrecover0_gas3000.py",
+    "stStaticCall/test_static_call_ecrecover0_overlapping_input_output.py",
+    "stStaticCall/test_static_call_ecrecover_check_length.py",
+    "stStaticCall/test_static_call_ecrecover_v_prefixed0.py",
+    "stStaticCall/test_static_call_to_call_code_op_code_check.py",
+    "stStaticCall/test_static_call_to_call_op_code_check.py",
+    "stStaticCall/test_static_call_to_del_call_op_code_check.py",
+    "stStaticCall/test_static_call_to_static_op_code_check.py",
+    "stStaticCall/test_static_check_opcodes.py",
+    "stStaticCall/test_static_check_opcodes2.py",
+    "stStaticCall/test_static_check_opcodes3.py",
+    "stStaticCall/test_static_check_opcodes4.py",
+    "stStaticCall/test_static_check_opcodes5.py",
 }
 
 

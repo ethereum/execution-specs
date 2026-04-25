@@ -7,6 +7,7 @@ state_tests/stStaticCall/static_CheckOpcodes3Filler.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -106,7 +107,9 @@ def test_static_check_opcodes3(
 ) -> None:
     """Test_static_check_opcodes3."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xE8D4A51000)
+    sender = EOA(
+        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -117,6 +120,7 @@ def test_static_check_opcodes3(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # { [[1]] (STATICCALL 100000 (CALLDATALOAD 0) 0 0 0 0) }
     target = pre.deploy_contract(  # noqa: F841

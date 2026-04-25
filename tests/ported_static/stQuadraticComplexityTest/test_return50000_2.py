@@ -7,6 +7,7 @@ state_tests/stQuadraticComplexityTest/Return50000_2Filler.json
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -58,7 +59,9 @@ def test_return50000_2(
 ) -> None:
     """Test_return50000_2."""
     coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+    sender = EOA(
+        key=0xE7C72B378297589ACEE4E0BA3272841BCFC5E220F86DE253F890274CFEE9E474
+    )
 
     env = Environment(
         fee_recipient=coinbase,
@@ -69,6 +72,7 @@ def test_return50000_2(
         gas_limit=8825000000,
     )
 
+    pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
     # Source: lll
     # { [ 0 ] (CALLDATALOAD 49999) (RETURN @0 1) }
     addr = pre.deploy_contract(  # noqa: F841
@@ -77,6 +81,7 @@ def test_return50000_2(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
+        address=Address(0xF2C82CA2413A9F3F06781DB577400DDB6C76767D),  # noqa: E501
     )
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) [[ 0 ]] (CALL 1564 <contract:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 50000 0 0) ) [[ 1 ]] @i }  # noqa: E501
@@ -89,7 +94,7 @@ def test_return50000_2(
             key=0x0,
             value=Op.CALL(
                 gas=0x61C,
-                address=addr,
+                address=0xF2C82CA2413A9F3F06781DB577400DDB6C76767D,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0xC350,
@@ -104,6 +109,7 @@ def test_return50000_2(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
+        address=Address(0x6123B8B3E245B90F39ED7418D320A60ABB365B9F),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
