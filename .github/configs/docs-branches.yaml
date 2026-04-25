@@ -10,6 +10,8 @@
 #   - label: Human-readable label for the version switcher UI
 
 branches:
+  - path: "mainnet"
+    label: "Mainnet (BPO2)"
   - path: "forks/amsterdam"
     label: "Amsterdam"
   - path: "devnets/bal/4"
