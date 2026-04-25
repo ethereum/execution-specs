@@ -25,6 +25,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stEIP150Specific/Transaction64Rule_d64m1Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
 def test_transaction64_rule_d64m1(
     state_test: StateTestFiller,
     pre: Alloc,

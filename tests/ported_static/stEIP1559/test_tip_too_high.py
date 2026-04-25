@@ -26,6 +26,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.exception_test
+@pytest.mark.pre_alloc_mutable
 def test_tip_too_high(
     state_test: StateTestFiller,
     pre: Alloc,

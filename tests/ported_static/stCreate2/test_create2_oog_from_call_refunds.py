@@ -390,16 +390,17 @@ def test_create2_oog_from_call_refunds(
     # {
     #   sstore(0, 1)
     #   sstore(1, 1)
-    #   pop(delegatecall(gas(), 0x00000000000000000000000000000000000c0deA, 0, 0, 0, 0))  # noqa: E501
+    #   pop(callcode(gas(), 0x00000000000000000000000000000000000c0deA, 0, 0, 0, 0, 0))  # noqa: E501
     #   return(0, 1)
     #   let noOpt := msize()
     # }
-    contract_7 = pre.deploy_contract(  # noqa: F841
+    contract_10 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=0x1)
         + Op.SSTORE(key=Op.DUP1, value=0x1)
-        + Op.DELEGATECALL(
+        + Op.CALLCODE(
             gas=Op.GAS,
             address=contract_25,
+            value=Op.DUP1,
             args_offset=Op.DUP1,
             args_size=Op.DUP1,
             ret_offset=Op.DUP1,
@@ -407,7 +408,7 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.RETURN(offset=0x0, size=0x1),
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000003A),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000004A),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -431,6 +432,28 @@ def test_create2_oog_from_call_refunds(
         + Op.RETURN(offset=0x0, size=0x1),
         nonce=0,
         address=Address(0x000000000000000000000000000000000000002A),  # noqa: E501
+    )
+    # Source: yul
+    # berlin
+    # {
+    #   sstore(0, 1)
+    #   pop(call(gas(), 0x00000000000000000000000000000000000c0deA, 0, 0, 0, 0, 0))  # noqa: E501
+    #   return(0, 5000)
+    # }
+    contract_5 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=0x1)
+        + Op.CALL(
+            gas=Op.GAS,
+            address=contract_25,
+            value=Op.DUP1,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=Op.DUP1,
+            ret_size=0x0,
+        )
+        + Op.RETURN(offset=0x0, size=0x1388),
+        nonce=0,
+        address=Address(0x000000000000000000000000000000000000002B),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -461,6 +484,30 @@ def test_create2_oog_from_call_refunds(
     # {
     #   sstore(0, 1)
     #   sstore(1, 1)
+    #   pop(delegatecall(gas(), 0x00000000000000000000000000000000000c0deA, 0, 0, 0, 0))  # noqa: E501
+    #   return(0, 1)
+    #   let noOpt := msize()
+    # }
+    contract_7 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=0x1)
+        + Op.SSTORE(key=Op.DUP1, value=0x1)
+        + Op.DELEGATECALL(
+            gas=Op.GAS,
+            address=contract_25,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=Op.DUP1,
+            ret_size=0x0,
+        )
+        + Op.RETURN(offset=0x0, size=0x1),
+        nonce=0,
+        address=Address(0x000000000000000000000000000000000000003A),  # noqa: E501
+    )
+    # Source: yul
+    # berlin
+    # {
+    #   sstore(0, 1)
+    #   sstore(1, 1)
     #   pop(callcode(gas(), 0x00000000000000000000000000000000000c0deA, 0, 0, 0, 0, 0))  # noqa: E501
     #   return(0, 5000)
     # }
@@ -479,79 +526,6 @@ def test_create2_oog_from_call_refunds(
         + Op.RETURN(offset=0x0, size=0x1388),
         nonce=0,
         address=Address(0x000000000000000000000000000000000000004B),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   sstore(1, 1)
-    #   pop(callcode(gas(), 0x00000000000000000000000000000000000c0deA, 0, 0, 0, 0, 0))  # noqa: E501
-    #   return(0, 1)
-    #   let noOpt := msize()
-    # }
-    contract_10 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.SSTORE(key=Op.DUP1, value=0x1)
-        + Op.CALLCODE(
-            gas=Op.GAS,
-            address=contract_25,
-            value=Op.DUP1,
-            args_offset=Op.DUP1,
-            args_size=Op.DUP1,
-            ret_offset=Op.DUP1,
-            ret_size=0x0,
-        )
-        + Op.RETURN(offset=0x0, size=0x1),
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000004A),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   pop(call(gas(), 0x00000000000000000000000000000000000c0deA, 0, 0, 0, 0, 0))  # noqa: E501
-    #   return(0, 5000)
-    # }
-    contract_5 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.CALL(
-            gas=Op.GAS,
-            address=contract_25,
-            value=Op.DUP1,
-            args_offset=Op.DUP1,
-            args_size=Op.DUP1,
-            ret_offset=Op.DUP1,
-            ret_size=0x0,
-        )
-        + Op.RETURN(offset=0x0, size=0x1388),
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000002B),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   sstore(1, 1)
-    #   pop(callcode(gas(), 0x00000000000000000000000000000000000c0deA, 0, 0, 0, 0, 0))  # noqa: E501
-    #   invalid()
-    # }
-    contract_12 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.SSTORE(key=Op.DUP1, value=0x1)
-        + Op.POP(
-            Op.CALLCODE(
-                gas=Op.GAS,
-                address=contract_25,
-                value=Op.DUP1,
-                args_offset=Op.DUP1,
-                args_size=Op.DUP1,
-                ret_offset=Op.DUP1,
-                ret_size=0x0,
-            )
-        )
-        + Op.INVALID,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000004C),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -605,10 +579,37 @@ def test_create2_oog_from_call_refunds(
     # berlin
     # {
     #   sstore(0, 1)
-    #   pop(call(gas(), 0x00000000000000000000000000000000000c0deD, 0, 0, 0, 0, 0))  # noqa: E501
-    #   return(0, 5000)
+    #   sstore(1, 1)
+    #   pop(callcode(gas(), 0x00000000000000000000000000000000000c0deA, 0, 0, 0, 0, 0))  # noqa: E501
+    #   invalid()
     # }
-    contract_14 = pre.deploy_contract(  # noqa: F841
+    contract_12 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=0x1)
+        + Op.SSTORE(key=Op.DUP1, value=0x1)
+        + Op.POP(
+            Op.CALLCODE(
+                gas=Op.GAS,
+                address=contract_25,
+                value=Op.DUP1,
+                args_offset=Op.DUP1,
+                args_size=Op.DUP1,
+                ret_offset=Op.DUP1,
+                ret_size=0x0,
+            )
+        )
+        + Op.INVALID,
+        nonce=0,
+        address=Address(0x000000000000000000000000000000000000004C),  # noqa: E501
+    )
+    # Source: yul
+    # berlin
+    # {
+    #   sstore(0, 1)
+    #   pop(call(gas(), 0x00000000000000000000000000000000000c0deD, 0, 0, 0, 0, 0))  # noqa: E501
+    #   return(0, 1)
+    #   let noOpt := msize()
+    # }
+    contract_13 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=0x1)
         + Op.CALL(
             gas=Op.GAS,
@@ -619,9 +620,9 @@ def test_create2_oog_from_call_refunds(
             ret_offset=Op.DUP1,
             ret_size=0x0,
         )
-        + Op.RETURN(offset=0x0, size=0x1388),
+        + Op.RETURN(offset=0x0, size=0x1),
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000005B),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000005A),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -652,10 +653,9 @@ def test_create2_oog_from_call_refunds(
     # {
     #   sstore(0, 1)
     #   pop(call(gas(), 0x00000000000000000000000000000000000c0deD, 0, 0, 0, 0, 0))  # noqa: E501
-    #   return(0, 1)
-    #   let noOpt := msize()
+    #   return(0, 5000)
     # }
-    contract_13 = pre.deploy_contract(  # noqa: F841
+    contract_14 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=0x1)
         + Op.CALL(
             gas=Op.GAS,
@@ -666,32 +666,9 @@ def test_create2_oog_from_call_refunds(
             ret_offset=Op.DUP1,
             ret_size=0x0,
         )
-        + Op.RETURN(offset=0x0, size=0x1),
+        + Op.RETURN(offset=0x0, size=0x1388),
         nonce=0,
-        address=Address(0x000000000000000000000000000000000000005A),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   pop(call(gas(), 0x00000000000000000000000000000000000c0de0, 0, 0, 0, 0, 0))  # noqa: E501
-    #   return(0, 1)
-    #   let noOpt := msize()
-    # }
-    contract_16 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.CALL(
-            gas=Op.GAS,
-            address=contract_27,
-            value=Op.DUP1,
-            args_offset=Op.DUP1,
-            args_size=Op.DUP1,
-            ret_offset=Op.DUP1,
-            ret_size=0x0,
-        )
-        + Op.RETURN(offset=0x0, size=0x1),
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000006A),  # noqa: E501
+        address=Address(0x000000000000000000000000000000000000005B),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -743,6 +720,65 @@ def test_create2_oog_from_call_refunds(
     # berlin
     # {
     #   sstore(0, 1)
+    #   pop(call(gas(), 0x00000000000000000000000000000000000c0de0, 0, 0, 0, 0, 0))  # noqa: E501
+    #   return(0, 1)
+    #   let noOpt := msize()
+    # }
+    contract_16 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=0x1)
+        + Op.CALL(
+            gas=Op.GAS,
+            address=contract_27,
+            value=Op.DUP1,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=Op.DUP1,
+            ret_size=0x0,
+        )
+        + Op.RETURN(offset=0x0, size=0x1),
+        nonce=0,
+        address=Address(0x000000000000000000000000000000000000006A),  # noqa: E501
+    )
+    # Source: yul
+    # berlin
+    # {
+    #   sstore(0, 1)
+    #   sstore(1, 1)
+    #   sstore(1, 0)
+    #   let initcodeaddr := 0x00000000000000000000000000000000000c0de1
+    #   let initcodelength := extcodesize(initcodeaddr)
+    #   extcodecopy(initcodeaddr, 0, 0, initcodelength)
+    #   pop(create2(0, 0, initcodelength, 0))
+    #   return(add(initcodelength, 1), 1)
+    #   let noOpt := msize()
+    # }
+    contract_22 = pre.deploy_contract(  # noqa: F841
+        code=Op.PUSH1[0x1]
+        + Op.PUSH1[0x0]
+        + Op.SSTORE(key=Op.DUP2, value=Op.DUP2)
+        + Op.SSTORE(key=Op.DUP3, value=Op.DUP1)
+        + Op.DUP2
+        + Op.SWAP1
+        + Op.PUSH3[0xC0DE1]
+        + Op.EXTCODESIZE(address=Op.DUP1)
+        + Op.SWAP2
+        + Op.DUP3
+        + Op.SWAP2
+        + Op.DUP2
+        + Op.SWAP1
+        + Op.EXTCODECOPY
+        + Op.POP(
+            Op.CREATE2(value=Op.DUP1, offset=Op.DUP2, size=Op.DUP2, salt=0x0)
+        )
+        + Op.ADD
+        + Op.RETURN,
+        nonce=0,
+        address=Address(0x000000000000000000000000000000000000008A),  # noqa: E501
+    )
+    # Source: yul
+    # berlin
+    # {
+    #   sstore(0, 1)
     #   sstore(1, 1)
     #   sstore(1, 0)
     #   let initcodeaddr := 0x00000000000000000000000000000000000c0de1
@@ -769,6 +805,72 @@ def test_create2_oog_from_call_refunds(
         + Op.INVALID,
         nonce=0,
         address=Address(0x000000000000000000000000000000000000007C),  # noqa: E501
+    )
+    # Source: yul
+    # berlin
+    # {
+    #   sstore(0, 1)
+    #   sstore(1, 1)
+    #   sstore(1, 0)
+    #   let initcodeaddr := 0x00000000000000000000000000000000000c0de1
+    #   let initcodelength := extcodesize(initcodeaddr)
+    #   extcodecopy(initcodeaddr, 0, 0, initcodelength)
+    #   pop(create(0, 0, initcodelength))
+    #   return(add(initcodelength, 1), 1)
+    #   let noOptimization := msize()
+    # }
+    contract_19 = pre.deploy_contract(  # noqa: F841
+        code=Op.PUSH1[0x1]
+        + Op.PUSH1[0x0]
+        + Op.SSTORE(key=Op.DUP2, value=Op.DUP2)
+        + Op.SSTORE(key=Op.DUP3, value=Op.DUP1)
+        + Op.DUP2
+        + Op.SWAP1
+        + Op.PUSH3[0xC0DE1]
+        + Op.EXTCODESIZE(address=Op.DUP1)
+        + Op.SWAP2
+        + Op.DUP3
+        + Op.SWAP2
+        + Op.DUP2
+        + Op.SWAP1
+        + Op.EXTCODECOPY
+        + Op.POP(Op.CREATE(value=Op.DUP1, offset=0x0, size=Op.DUP1))
+        + Op.ADD
+        + Op.RETURN,
+        nonce=0,
+        address=Address(0x000000000000000000000000000000000000007A),  # noqa: E501
+    )
+    # Source: yul
+    # berlin
+    # {
+    #   sstore(0, 1)
+    #   sstore(1, 1)
+    #   sstore(1, 0)
+    #   let initcodeaddr := 0x00000000000000000000000000000000000c0de1
+    #   let initcodelength := extcodesize(initcodeaddr)
+    #   extcodecopy(initcodeaddr, 0, 0, initcodelength)
+    #   pop(create(0, 0, initcodelength))
+    #   return(add(initcodelength, 1), 5000)
+    # }
+    contract_20 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=0x1)
+        + Op.SSTORE(key=Op.DUP1, value=0x1)
+        + Op.SSTORE(key=0x1, value=0x0)
+        + Op.PUSH2[0x1388]
+        + Op.PUSH1[0x1]
+        + Op.PUSH1[0x0]
+        + Op.PUSH3[0xC0DE1]
+        + Op.DUP2
+        + Op.EXTCODESIZE(address=Op.DUP2)
+        + Op.SWAP3
+        + Op.DUP4
+        + Op.SWAP3
+        + Op.EXTCODECOPY
+        + Op.POP(Op.CREATE(value=Op.DUP1, offset=0x0, size=Op.DUP1))
+        + Op.ADD
+        + Op.RETURN,
+        nonce=0,
+        address=Address(0x000000000000000000000000000000000000007B),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -835,108 +937,6 @@ def test_create2_oog_from_call_refunds(
         + Op.RETURN,
         nonce=0,
         address=Address(0x000000000000000000000000000000000000008B),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   sstore(1, 1)
-    #   sstore(1, 0)
-    #   let initcodeaddr := 0x00000000000000000000000000000000000c0de1
-    #   let initcodelength := extcodesize(initcodeaddr)
-    #   extcodecopy(initcodeaddr, 0, 0, initcodelength)
-    #   pop(create2(0, 0, initcodelength, 0))
-    #   return(add(initcodelength, 1), 1)
-    #   let noOpt := msize()
-    # }
-    contract_22 = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH1[0x1]
-        + Op.PUSH1[0x0]
-        + Op.SSTORE(key=Op.DUP2, value=Op.DUP2)
-        + Op.SSTORE(key=Op.DUP3, value=Op.DUP1)
-        + Op.DUP2
-        + Op.SWAP1
-        + Op.PUSH3[0xC0DE1]
-        + Op.EXTCODESIZE(address=Op.DUP1)
-        + Op.SWAP2
-        + Op.DUP3
-        + Op.SWAP2
-        + Op.DUP2
-        + Op.SWAP1
-        + Op.EXTCODECOPY
-        + Op.POP(
-            Op.CREATE2(value=Op.DUP1, offset=Op.DUP2, size=Op.DUP2, salt=0x0)
-        )
-        + Op.ADD
-        + Op.RETURN,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000008A),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   sstore(1, 1)
-    #   sstore(1, 0)
-    #   let initcodeaddr := 0x00000000000000000000000000000000000c0de1
-    #   let initcodelength := extcodesize(initcodeaddr)
-    #   extcodecopy(initcodeaddr, 0, 0, initcodelength)
-    #   pop(create(0, 0, initcodelength))
-    #   return(add(initcodelength, 1), 5000)
-    # }
-    contract_20 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.SSTORE(key=Op.DUP1, value=0x1)
-        + Op.SSTORE(key=0x1, value=0x0)
-        + Op.PUSH2[0x1388]
-        + Op.PUSH1[0x1]
-        + Op.PUSH1[0x0]
-        + Op.PUSH3[0xC0DE1]
-        + Op.DUP2
-        + Op.EXTCODESIZE(address=Op.DUP2)
-        + Op.SWAP3
-        + Op.DUP4
-        + Op.SWAP3
-        + Op.EXTCODECOPY
-        + Op.POP(Op.CREATE(value=Op.DUP1, offset=0x0, size=Op.DUP1))
-        + Op.ADD
-        + Op.RETURN,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000007B),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   sstore(1, 1)
-    #   sstore(1, 0)
-    #   let initcodeaddr := 0x00000000000000000000000000000000000c0de1
-    #   let initcodelength := extcodesize(initcodeaddr)
-    #   extcodecopy(initcodeaddr, 0, 0, initcodelength)
-    #   pop(create(0, 0, initcodelength))
-    #   return(add(initcodelength, 1), 1)
-    #   let noOptimization := msize()
-    # }
-    contract_19 = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH1[0x1]
-        + Op.PUSH1[0x0]
-        + Op.SSTORE(key=Op.DUP2, value=Op.DUP2)
-        + Op.SSTORE(key=Op.DUP3, value=Op.DUP1)
-        + Op.DUP2
-        + Op.SWAP1
-        + Op.PUSH3[0xC0DE1]
-        + Op.EXTCODESIZE(address=Op.DUP1)
-        + Op.SWAP2
-        + Op.DUP3
-        + Op.SWAP2
-        + Op.DUP2
-        + Op.SWAP1
-        + Op.EXTCODECOPY
-        + Op.POP(Op.CREATE(value=Op.DUP1, offset=0x0, size=Op.DUP1))
-        + Op.ADD
-        + Op.RETURN,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000007A),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

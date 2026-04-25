@@ -27,6 +27,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
 def test_returndatacopy_after_successful_delegatecall(
     state_test: StateTestFiller,
     pre: Alloc,

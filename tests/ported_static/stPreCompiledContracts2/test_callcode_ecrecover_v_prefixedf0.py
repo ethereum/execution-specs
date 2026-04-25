@@ -45,6 +45,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
+@pytest.mark.pre_alloc_mutable
 def test_callcode_ecrecover_v_prefixedf0(
     state_test: StateTestFiller,
     pre: Alloc,

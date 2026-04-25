@@ -25,6 +25,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stLogTests/log4_MaxTopicFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
 def test_log4_max_topic(
     state_test: StateTestFiller,
     pre: Alloc,

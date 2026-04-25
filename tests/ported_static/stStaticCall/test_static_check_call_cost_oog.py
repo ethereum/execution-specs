@@ -44,6 +44,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
+@pytest.mark.pre_alloc_mutable
 def test_static_check_call_cost_oog(
     state_test: StateTestFiller,
     pre: Alloc,

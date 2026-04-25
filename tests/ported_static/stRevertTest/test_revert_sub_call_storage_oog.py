@@ -57,6 +57,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
+@pytest.mark.pre_alloc_mutable
 def test_revert_sub_call_storage_oog(
     state_test: StateTestFiller,
     pre: Alloc,

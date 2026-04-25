@@ -24,6 +24,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stSpecialTest/push32withoutByteFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
 def test_push32without_byte(
     state_test: StateTestFiller,
     pre: Alloc,

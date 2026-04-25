@@ -25,6 +25,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stSStoreTest/sstoreGasFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
 def test_sstore_gas(
     state_test: StateTestFiller,
     pre: Alloc,

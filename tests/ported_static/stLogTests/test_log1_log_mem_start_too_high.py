@@ -25,6 +25,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stLogTests/log1_logMemStartTooHighFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
 def test_log1_log_mem_start_too_high(
     state_test: StateTestFiller,
     pre: Alloc,

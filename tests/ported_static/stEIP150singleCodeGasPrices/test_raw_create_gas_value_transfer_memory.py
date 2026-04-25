@@ -28,6 +28,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
 def test_raw_create_gas_value_transfer_memory(
     state_test: StateTestFiller,
     pre: Alloc,

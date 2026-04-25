@@ -48,6 +48,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
+@pytest.mark.pre_alloc_mutable
 def test_callcode50000(
     state_test: StateTestFiller,
     pre: Alloc,

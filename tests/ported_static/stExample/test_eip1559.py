@@ -27,6 +27,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stExample/eip1559Filler.yml"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
 def test_eip1559(
     state_test: StateTestFiller,
     pre: Alloc,

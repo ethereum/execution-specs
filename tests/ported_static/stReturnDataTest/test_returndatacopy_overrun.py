@@ -25,6 +25,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stReturnDataTest/returndatacopy_overrunFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
 def test_returndatacopy_overrun(
     state_test: StateTestFiller,
     pre: Alloc,

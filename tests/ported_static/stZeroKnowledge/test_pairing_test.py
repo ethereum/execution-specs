@@ -178,6 +178,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
+@pytest.mark.pre_alloc_mutable
 def test_pairing_test(
     state_test: StateTestFiller,
     pre: Alloc,

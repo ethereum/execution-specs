@@ -253,80 +253,6 @@ def test_create_fail_result(
     # Source: yul
     # berlin
     # {
-    #   // The operation to run
-    #   // F0 - CREATE
-    #   // F5 - CREATE2
-    #   let oper := calldataload(0x04)
-    #
-    #   // The condition for it
-    #   // 0x0006 - OUT OF GAS
-    #   // 0x0BAD - REVERT with data
-    #   // 0x600D - Success
-    #   let cond := calldataload(0x24)
-    #   let addr := add(0xC0DE00, oper)
-    #
-    #
-    #
-    #   // Before the main call, call DA7A to fill up the return buffer
-    #   sstore(0x10, call(gas(), 0xDA7A, 0, 0, 0, 0x100, 0x40))
-    #   sstore(0x11, returndatasize())
-    #   sstore(0x12, mload(0x100))
-    #   sstore(0x13, mload(0x120))
-    #
-    #
-    #   let gasAmt := gas()
-    #
-    #   // Out Of Gas, CREATE[2] always costs more than 32k in gas
-    #   // but we need to also pay for the four SSTOREs that verify DA7A was
-    #   // called correctly
-    #   if eq(cond,0x0006) { gasAmt := add(30000,mul(22100,4)) }
-    #
-    # ... (14 more lines)
-    contract_10 = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH1[0x20]
-        + Op.PUSH2[0x200]
-        + Op.DUP2
-        + Op.PUSH1[0x0]
-        + Op.DUP1
-        + Op.ADD(Op.CALLDATALOAD(offset=0x4), 0xC0DE00)
-        + Op.CALLDATALOAD(offset=0x24)
-        + Op.SSTORE(
-            key=0x10,
-            value=Op.CALL(
-                gas=Op.GAS,
-                address=contract_0,
-                value=Op.DUP1,
-                args_offset=Op.DUP1,
-                args_size=Op.DUP5,
-                ret_offset=0x100,
-                ret_size=0x40,
-            ),
-        )
-        + Op.SSTORE(key=0x11, value=Op.RETURNDATASIZE)
-        + Op.SSTORE(key=0x12, value=Op.MLOAD(offset=0x100))
-        + Op.SSTORE(key=0x13, value=Op.MLOAD(offset=0x120))
-        + Op.GAS
-        + Op.SWAP1
-        + Op.JUMPI(pc=0x52, condition=Op.EQ(Op.DUP2, 0x6))
-        + Op.JUMPDEST
-        + Op.DUP4
-        + Op.MSTORE
-        + Op.SSTORE(key=0x0, value=Op.CALL)
-        + Op.SSTORE(key=0x1, value=Op.RETURNDATASIZE)
-        + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=0x200))
-        + Op.STOP
-        + Op.JUMPDEST
-        + Op.PUSH3[0x1CE80]
-        + Op.SWAP2
-        + Op.POP
-        + Op.JUMP(pc=0x3F),
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
     #    // Before the main call, call DA7A to fill up the return buffer
     #    sstore(0x10, call(gas(), 0xDA7A, 0, 0, 0, 0x100, 0x40))
     #    sstore(0x11, returndatasize())
@@ -448,6 +374,80 @@ def test_create_fail_result(
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
         address=Address(0x0000000000000000000000000000000000C0DEEE),  # noqa: E501
+    )
+    # Source: yul
+    # berlin
+    # {
+    #   // The operation to run
+    #   // F0 - CREATE
+    #   // F5 - CREATE2
+    #   let oper := calldataload(0x04)
+    #
+    #   // The condition for it
+    #   // 0x0006 - OUT OF GAS
+    #   // 0x0BAD - REVERT with data
+    #   // 0x600D - Success
+    #   let cond := calldataload(0x24)
+    #   let addr := add(0xC0DE00, oper)
+    #
+    #
+    #
+    #   // Before the main call, call DA7A to fill up the return buffer
+    #   sstore(0x10, call(gas(), 0xDA7A, 0, 0, 0, 0x100, 0x40))
+    #   sstore(0x11, returndatasize())
+    #   sstore(0x12, mload(0x100))
+    #   sstore(0x13, mload(0x120))
+    #
+    #
+    #   let gasAmt := gas()
+    #
+    #   // Out Of Gas, CREATE[2] always costs more than 32k in gas
+    #   // but we need to also pay for the four SSTOREs that verify DA7A was
+    #   // called correctly
+    #   if eq(cond,0x0006) { gasAmt := add(30000,mul(22100,4)) }
+    #
+    # ... (14 more lines)
+    contract_10 = pre.deploy_contract(  # noqa: F841
+        code=Op.PUSH1[0x20]
+        + Op.PUSH2[0x200]
+        + Op.DUP2
+        + Op.PUSH1[0x0]
+        + Op.DUP1
+        + Op.ADD(Op.CALLDATALOAD(offset=0x4), 0xC0DE00)
+        + Op.CALLDATALOAD(offset=0x24)
+        + Op.SSTORE(
+            key=0x10,
+            value=Op.CALL(
+                gas=Op.GAS,
+                address=contract_0,
+                value=Op.DUP1,
+                args_offset=Op.DUP1,
+                args_size=Op.DUP5,
+                ret_offset=0x100,
+                ret_size=0x40,
+            ),
+        )
+        + Op.SSTORE(key=0x11, value=Op.RETURNDATASIZE)
+        + Op.SSTORE(key=0x12, value=Op.MLOAD(offset=0x100))
+        + Op.SSTORE(key=0x13, value=Op.MLOAD(offset=0x120))
+        + Op.GAS
+        + Op.SWAP1
+        + Op.JUMPI(pc=0x52, condition=Op.EQ(Op.DUP2, 0x6))
+        + Op.JUMPDEST
+        + Op.DUP4
+        + Op.MSTORE
+        + Op.SSTORE(key=0x0, value=Op.CALL)
+        + Op.SSTORE(key=0x1, value=Op.RETURNDATASIZE)
+        + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=0x200))
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.PUSH3[0x1CE80]
+        + Op.SWAP2
+        + Op.POP
+        + Op.JUMP(pc=0x3F),
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=1,
+        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
     # Source: yul
     # berlin

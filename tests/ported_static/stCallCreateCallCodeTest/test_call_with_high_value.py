@@ -25,6 +25,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stCallCreateCallCodeTest/callWithHighValueFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
 def test_call_with_high_value(
     state_test: StateTestFiller,
     pre: Alloc,

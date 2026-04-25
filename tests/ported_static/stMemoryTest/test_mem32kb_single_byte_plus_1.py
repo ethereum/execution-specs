@@ -25,6 +25,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stMemoryTest/mem32kb_singleByte+1Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
 def test_mem32kb_single_byte_plus_1(
     state_test: StateTestFiller,
     pre: Alloc,

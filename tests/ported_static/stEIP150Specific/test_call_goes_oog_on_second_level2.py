@@ -25,6 +25,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stEIP150Specific/CallGoesOOGOnSecondLevel2Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
 def test_call_goes_oog_on_second_level2(
     state_test: StateTestFiller,
     pre: Alloc,

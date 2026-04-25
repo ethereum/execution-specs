@@ -27,6 +27,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
 def test_call_then_create_successful_then_returndatasize(
     state_test: StateTestFiller,
     pre: Alloc,

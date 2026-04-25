@@ -25,6 +25,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRefundTest/refundSSTOREFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
 def test_refund_sstore(
     state_test: StateTestFiller,
     pre: Alloc,

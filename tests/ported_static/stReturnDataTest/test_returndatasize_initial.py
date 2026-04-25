@@ -25,6 +25,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stReturnDataTest/returndatasize_initialFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
 def test_returndatasize_initial(
     state_test: StateTestFiller,
     pre: Alloc,

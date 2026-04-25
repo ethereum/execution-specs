@@ -58,6 +58,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
+@pytest.mark.pre_alloc_mutable
 def test_static_create_contract_suicide_during_init(
     state_test: StateTestFiller,
     pre: Alloc,

@@ -27,6 +27,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
 def test_14_revert_after_nested_staticcall(
     state_test: StateTestFiller,
     pre: Alloc,

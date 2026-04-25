@@ -25,6 +25,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stSolidityTest/TestContractInteractionFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
 def test_test_contract_interaction(
     state_test: StateTestFiller,
     pre: Alloc,

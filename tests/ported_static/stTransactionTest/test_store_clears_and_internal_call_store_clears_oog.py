@@ -27,6 +27,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
 def test_store_clears_and_internal_call_store_clears_oog(
     state_test: StateTestFiller,
     pre: Alloc,

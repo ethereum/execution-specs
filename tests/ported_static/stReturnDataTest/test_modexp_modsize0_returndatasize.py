@@ -65,6 +65,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
+@pytest.mark.pre_alloc_mutable
 def test_modexp_modsize0_returndatasize(
     state_test: StateTestFiller,
     pre: Alloc,

@@ -47,6 +47,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
+@pytest.mark.pre_alloc_mutable
 def test_create_code_size_limit(
     state_test: StateTestFiller,
     pre: Alloc,

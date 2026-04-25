@@ -25,6 +25,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stTransactionTest/ContractStoreClearsOOGFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
 def test_contract_store_clears_oog(
     state_test: StateTestFiller,
     pre: Alloc,

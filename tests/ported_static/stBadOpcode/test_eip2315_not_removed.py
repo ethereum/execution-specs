@@ -25,6 +25,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stBadOpcode/eip2315NotRemovedFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
 def test_eip2315_not_removed(
     state_test: StateTestFiller,
     pre: Alloc,

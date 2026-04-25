@@ -25,6 +25,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stShift/sar_2^255-1_254Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
 def test_sar_2_255_minus_1_254(
     state_test: StateTestFiller,
     pre: Alloc,

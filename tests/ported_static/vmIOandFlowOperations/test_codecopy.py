@@ -258,22 +258,6 @@ def test_codecopy(
     )
     # Source: lll
     # {
-    #    ; Copy our code into [[0]] and [[1]]
-    #    (codecopy 0 0 0x1000)
-    #    [[0]] @0
-    #    [[1]] @0x20
-    # }
-    contract_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.CODECOPY(dest_offset=0x0, offset=0x0, size=0x1000)
-        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
-        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x20))
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001002),  # noqa: E501
-    )
-    # Source: lll
-    # {
     #     (delegatecall 0xffffff (+ 0x1000 $4) 0 0 0 0)
     # }
     contract_5 = pre.deploy_contract(  # noqa: F841
@@ -289,6 +273,22 @@ def test_codecopy(
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
+    )
+    # Source: lll
+    # {
+    #    ; Copy our code into [[0]] and [[1]]
+    #    (codecopy 0 0 0x1000)
+    #    [[0]] @0
+    #    [[1]] @0x20
+    # }
+    contract_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.CODECOPY(dest_offset=0x0, offset=0x0, size=0x1000)
+        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
+        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x20))
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=0,
+        address=Address(0x0000000000000000000000000000000000001002),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

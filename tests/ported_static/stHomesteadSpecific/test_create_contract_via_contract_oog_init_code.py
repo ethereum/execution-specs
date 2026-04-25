@@ -28,6 +28,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
 def test_create_contract_via_contract_oog_init_code(
     state_test: StateTestFiller,
     pre: Alloc,

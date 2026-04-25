@@ -49,6 +49,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
+@pytest.mark.pre_alloc_mutable
 def test_call20_kbytes_contract50_1(
     state_test: StateTestFiller,
     pre: Alloc,

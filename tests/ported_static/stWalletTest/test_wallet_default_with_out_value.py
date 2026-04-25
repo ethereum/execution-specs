@@ -24,6 +24,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stWalletTest/walletDefaultWithOutValueFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
 def test_wallet_default_with_out_value(
     state_test: StateTestFiller,
     pre: Alloc,

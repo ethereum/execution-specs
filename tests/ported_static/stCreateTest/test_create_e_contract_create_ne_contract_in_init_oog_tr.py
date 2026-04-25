@@ -48,6 +48,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
+@pytest.mark.pre_alloc_mutable
 def test_create_e_contract_create_ne_contract_in_init_oog_tr(
     state_test: StateTestFiller,
     pre: Alloc,

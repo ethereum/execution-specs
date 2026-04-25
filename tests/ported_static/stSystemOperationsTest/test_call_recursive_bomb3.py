@@ -25,6 +25,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stSystemOperationsTest/CallRecursiveBomb3Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
 def test_call_recursive_bomb3(
     state_test: StateTestFiller,
     pre: Alloc,

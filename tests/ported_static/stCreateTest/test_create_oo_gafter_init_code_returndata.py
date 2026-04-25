@@ -44,6 +44,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
+@pytest.mark.pre_alloc_mutable
 def test_create_oo_gafter_init_code_returndata(
     state_test: StateTestFiller,
     pre: Alloc,

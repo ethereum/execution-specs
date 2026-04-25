@@ -61,6 +61,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
+@pytest.mark.pre_alloc_mutable
 def test_static_contract_creation_make_call_that_ask_more_gas_then_transaction_provided(  # noqa: E501
     state_test: StateTestFiller,
     pre: Alloc,

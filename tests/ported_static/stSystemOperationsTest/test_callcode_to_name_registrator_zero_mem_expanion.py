@@ -48,6 +48,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
+@pytest.mark.pre_alloc_mutable
 def test_callcode_to_name_registrator_zero_mem_expanion(
     state_test: StateTestFiller,
     pre: Alloc,

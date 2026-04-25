@@ -26,6 +26,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stCreateTest/CreateOOGafterInitCodeReturndata3Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
 def test_create_oo_gafter_init_code_returndata3(
     state_test: StateTestFiller,
     pre: Alloc,

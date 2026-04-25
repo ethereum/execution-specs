@@ -25,6 +25,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stPreCompiledContracts2/CallEcrecover0_NoGasFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
 def test_call_ecrecover0_no_gas(
     state_test: StateTestFiller,
     pre: Alloc,

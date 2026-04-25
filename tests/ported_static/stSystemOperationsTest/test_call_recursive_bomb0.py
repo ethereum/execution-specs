@@ -26,6 +26,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")
+@pytest.mark.pre_alloc_mutable
 def test_call_recursive_bomb0(
     state_test: StateTestFiller,
     pre: Alloc,

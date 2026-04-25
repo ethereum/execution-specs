@@ -470,13 +470,29 @@ def analyze(
     # 16. Test name
     py_test_name = _filler_name_to_test_name(test_name)
 
-    # 17. Whether the test mutates the pre-allocation. Only tests that
-    # use ``EOA(key=...)`` for the sender, ``pre[var] = Account(...)``
-    # for hardcoded EOAs/contracts, or ``pre.deploy_contract(address=...)``
-    # need ``@pytest.mark.pre_alloc_mutable``. Fully dynamic tests can
-    # then run under the ``execute`` plugin against live networks.
-    needs_mutable_pre = not sender_ir.use_dynamic or any(
-        not a.use_dynamic for a in accounts
+    # 17. Whether the test mutates the pre-allocation. The framework's
+    # ``assert_mutable()`` is triggered by:
+    #   * ``pre[var] = Account(...)``       (any non-dynamic account)
+    #   * ``EOA(key=...)``                  (non-dynamic sender)
+    #   * ``pre.deploy_contract(address=...)``  (non-dynamic contract)
+    #   * ``pre.deploy_contract(..., nonce=0)`` (default emit when the
+    #     filler's account had nonce 0 or unset)
+    #   * ``pre.fund_eoa(nonce=...)``       (dynamic sender with explicit
+    #     nonce — used for high-nonce senders)
+    # Tests not hitting any of these can run under the ``execute`` plugin.
+    # The template only emits ``pre.fund_eoa(nonce=...)`` when
+    # ``sender.nonce`` is truthy, and ``pre.deploy_contract(..., nonce=N)``
+    # always emits N (defaulting to 0 when ``account.nonce`` is None).
+    # Mirror those conditions exactly.
+    sender_emits_nonce_kwarg = bool(sender_ir.nonce)
+    contract_nonce_zero = any(
+        not a.is_eoa and (a.nonce is None or a.nonce == 0) for a in accounts
+    )
+    needs_mutable_pre = (
+        not sender_ir.use_dynamic
+        or sender_emits_nonce_kwarg
+        or any(not a.use_dynamic for a in accounts)
+        or contract_nonce_zero
     )
 
     return IntermediateTestModel(

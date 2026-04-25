@@ -31,6 +31,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.exception_test
+@pytest.mark.pre_alloc_mutable
 def test_empty_blobhash_list(
     state_test: StateTestFiller,
     pre: Alloc,

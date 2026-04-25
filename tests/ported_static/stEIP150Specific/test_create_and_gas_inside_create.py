@@ -26,6 +26,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stEIP150Specific/CreateAndGasInsideCreateFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
 def test_create_and_gas_inside_create(
     state_test: StateTestFiller,
     pre: Alloc,

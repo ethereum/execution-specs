@@ -25,6 +25,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stMemoryTest/stackLimitPush32_1025Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
 def test_stack_limit_push32_1025(
     state_test: StateTestFiller,
     pre: Alloc,

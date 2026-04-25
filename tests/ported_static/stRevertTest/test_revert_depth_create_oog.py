@@ -83,6 +83,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
+@pytest.mark.pre_alloc_mutable
 def test_revert_depth_create_oog(
     state_test: StateTestFiller,
     pre: Alloc,

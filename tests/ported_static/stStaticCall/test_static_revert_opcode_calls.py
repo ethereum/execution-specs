@@ -44,6 +44,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
+@pytest.mark.pre_alloc_mutable
 def test_static_revert_opcode_calls(
     state_test: StateTestFiller,
     pre: Alloc,

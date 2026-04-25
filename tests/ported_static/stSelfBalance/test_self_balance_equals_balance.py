@@ -25,6 +25,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stSelfBalance/selfBalanceEqualsBalanceFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
 def test_self_balance_equals_balance(
     state_test: StateTestFiller,
     pre: Alloc,

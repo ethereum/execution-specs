@@ -27,6 +27,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
 def test_internal_call_hitting_gas_limit_success(
     state_test: StateTestFiller,
     pre: Alloc,
