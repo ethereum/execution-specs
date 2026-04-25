@@ -737,7 +737,7 @@ wheels = [
 
 [[package]]
 name = "docc"
-version = "0.5.0"
+version = "0.5.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "importlib-resources" },
@@ -749,9 +749,9 @@ dependencies = [
     { name = "tomli" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a4/c0/16c29211d1681769235d1eae52646e4dd967cda77d9643935f1c30c6f0a1/docc-0.5.0.tar.gz", hash = "sha256:e49bd0fd9df6bbbd8857c9feea44dc29b3343ae8e044e8d5e0a23a4bd5c2ecb8", size = 71806, upload-time = "2026-04-15T19:01:16.554Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/6f/cd/2843f0f6cb0a3bc2d4cf070477aab8779fdde7a07c83d91b7827a67d45bb/docc-0.5.1.tar.gz", hash = "sha256:b58f7cf8fb4010afb3828b034393244be899820b1bbf7661d7982f697ec78bdb", size = 71959, upload-time = "2026-04-25T01:07:01.706Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b1/85/2c3d246676f6cb8acb4a50c4cdf130137d7f089f7ffe220ff776b4e6960e/docc-0.5.0-py3-none-any.whl", hash = "sha256:90fcf22e49ada1aaf802ead8e209bcf03316806c6799f6a2606fb927afaf7f1b", size = 98611, upload-time = "2026-04-15T19:01:15.526Z" },
+    { url = "https://files.pythonhosted.org/packages/00/82/8c21566c89fd1b76b4ee18e0ef86ded549a3aa7cb63d77c4aaccd00d64e1/docc-0.5.1-py3-none-any.whl", hash = "sha256:5d82e7b0c654ee7de6e6988ee677ff4ac93b427f19d82546941eda96d2f546c7", size = 98650, upload-time = "2026-04-25T01:07:00.454Z" },
 ]
 
 [[package]]
@@ -965,7 +965,7 @@ dev = [
     { name = "cairosvg", specifier = ">=2.7.0,<3" },
     { name = "codespell", specifier = "==2.4.1" },
     { name = "codespell", specifier = ">=2.4.1,<3" },
-    { name = "docc", specifier = ">=0.5.0,<0.6.0" },
+    { name = "docc", specifier = ">=0.5.1,<0.6.0" },
     { name = "ethereum-execution", extras = ["optimized"] },
     { name = "ethereum-execution-testing", editable = "packages/testing" },
     { name = "filelock", specifier = ">=3.15.1,<4" },
@@ -1003,7 +1003,7 @@ dev = [
     { name = "vulture", specifier = "==2.14.0" },
 ]
 doc = [
-    { name = "docc", specifier = ">=0.5.0,<0.6.0" },
+    { name = "docc", specifier = ">=0.5.1,<0.6.0" },
     { name = "fladrif", specifier = ">=0.2.0,<0.3.0" },
     { name = "mistletoe", specifier = ">=1.5.0,<2" },
 ]

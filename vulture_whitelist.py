@@ -56,6 +56,7 @@ State.rollback_db_transaction
 # src/ethereum_spec_tools/docc.py
 docc.EthereumDiscover
 docc.EthereumBuilder
+docc.EthereumListingDiscover
 docc.DiffSource.show_in_listing
 docc.FixIndexTransform
 docc.FixIndexTransform.transform
@@ -71,6 +72,9 @@ docc._HardenVisitor.enter
 docc._MinimizeDiffsVisitor.enter
 docc.render_diff
 docc.render_before_after
+docc.SupportsDunderGT
+docc.SupportsDunderLT
+docc._EthereumListingSource.listing_order_key
 
 # src/ethereum_spec_tools/evm_tools/daemon.py
 _EvmToolHandler.do_POST

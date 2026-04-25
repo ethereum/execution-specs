@@ -21,9 +21,11 @@ import dataclasses
 import logging
 import os
 from collections import defaultdict
+from functools import total_ordering
 from itertools import tee, zip_longest
 from pathlib import PurePath
 from typing import (
+    TYPE_CHECKING,
     Dict,
     Final,
     FrozenSet,
@@ -45,7 +47,12 @@ from docc.context import Context
 from docc.discover import Discover, T
 from docc.document import BlankNode, Document, ListNode, Node, Visit, Visitor
 from docc.plugins import html, mistletoe, python, verbatim
-from docc.plugins.listing import Listable, ListingNode
+from docc.plugins.listing import (
+    Listable,
+    ListingDiscover,
+    ListingNode,
+    ListingSource,
+)
 from docc.plugins.python import PythonBuilder
 from docc.plugins.references import Definition, Reference
 from docc.settings import PluginSettings
@@ -59,7 +66,28 @@ from typing_extensions import assert_never, override
 
 from .forks import Hardfork
 
+if TYPE_CHECKING:
+    from typing import Any
+
+    from _typeshed import SupportsDunderGT, SupportsDunderLT
+
+
 G = TypeVar("G")
+
+
+@total_ordering
+@dataclasses.dataclass(frozen=True)
+class _EthereumSort:
+    sort_order: int
+    path: PurePath
+
+    def __lt__(self, other: Union[PurePath, "_EthereumSort"]) -> bool:
+        if isinstance(other, _EthereumSort):
+            return (self.sort_order, self.path) < (
+                other.sort_order,
+                other.path,
+            )
+        return self.path < other
 
 
 def pairwise(iterable: Iterable[G]) -> Iterable[Tuple[G, G]]:
@@ -69,6 +97,54 @@ def pairwise(iterable: Iterable[G]) -> Iterable[Tuple[G, G]]:
     a, b = tee(iterable)
     next(b, None)
     return zip(a, b, strict=False)
+
+
+class _EthereumListingSource(ListingSource):
+    _key: Final[_EthereumSort]
+
+    def __init__(
+        self,
+        relative_path: PurePath,
+        output_path: PurePath,
+        sources: Set[Source],
+        key: _EthereumSort,
+    ) -> None:
+        super().__init__(relative_path, output_path, sources)
+        self._key = key
+
+    @override
+    def listing_order_key(
+        self,
+    ) -> Union["SupportsDunderGT[Any]", "SupportsDunderLT[Any]"]:
+        return (self.is_leaf, self._key, None)
+
+
+class EthereumListingDiscover(ListingDiscover):
+    """
+    Changes the sort order of directory listings so they render in hard fork
+    chronological order.
+    """
+
+    @override
+    def _listing_source(
+        self, source: Source, parent: PurePath
+    ) -> ListingSource:
+        if isinstance(source, DiffSource):
+            return _EthereumListingSource(
+                parent,
+                parent / "index",
+                set(),
+                _EthereumSort(source._sort, parent / "index"),
+            )
+        elif isinstance(source, _EthereumListingSource):
+            return _EthereumListingSource(
+                parent,
+                parent / "index",
+                set(),
+                source._key,
+            )
+        else:
+            return super()._listing_source(source, parent)
 
 
 class EthereumDiscover(Discover):
@@ -127,7 +203,7 @@ class EthereumDiscover(Discover):
             by_fork[fork][fork_relative_path] = source
 
         diff_count = 0
-        for before, after in pairwise(self.forks):
+        for sort, (before, after) in enumerate(pairwise(self.forks)):
             paths = set(by_fork[before].keys()) | set(by_fork[after].keys())
 
             for path in paths:
@@ -150,6 +226,7 @@ class EthereumDiscover(Discover):
                     after.name,
                     after_source,
                     output_path,
+                    sort=sort,
                 )
 
         if 0 == diff_count:
@@ -173,6 +250,8 @@ class DiffSource(Generic[S], Source, Listable):
     after: Optional[S]
     _output_path: PurePath
 
+    _sort: int
+
     def __init__(
         self,
         before_name: str,
@@ -180,6 +259,7 @@ class DiffSource(Generic[S], Source, Listable):
         after_name: str,
         after: Optional[S],
         output_path: PurePath,
+        sort: int,
     ) -> None:
         self.before_name = before_name
         self.before = before
@@ -188,6 +268,7 @@ class DiffSource(Generic[S], Source, Listable):
         self.after = after
 
         self._output_path = output_path
+        self._sort = sort
 
     @property
     def show_in_listing(self) -> bool:
