@@ -15,12 +15,12 @@ name: Build Docs
 
 on:
   push:
+    # Branches that auto-publish on push. Other allowlisted branches in
+    # .github/configs/docs-branches.yaml publish only via workflow_dispatch
+    # (use the `ref:` input to publish a tag/SHA).
     branches:
       - mainnet
-      - "forks/**"
-      - "devnets/**"
-      - "eips/**"
-      - "projects/**"
+      - forks/amsterdam
     paths: &docs_paths
       - "src/ethereum/**"
       - "src/ethereum_spec_tools/docc.py"
