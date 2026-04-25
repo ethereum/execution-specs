@@ -27,7 +27,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_call_to_name_registrator_too_much_memory0(
     state_test: StateTestFiller,
     pre: Alloc,

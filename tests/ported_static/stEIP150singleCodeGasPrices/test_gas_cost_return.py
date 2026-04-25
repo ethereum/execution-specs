@@ -25,7 +25,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stEIP150singleCodeGasPrices/gasCostReturnFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_gas_cost_return(
     state_test: StateTestFiller,
     pre: Alloc,

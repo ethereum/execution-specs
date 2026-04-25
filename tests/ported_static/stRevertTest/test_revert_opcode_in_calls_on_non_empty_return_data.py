@@ -132,8 +132,8 @@ def test_revert_opcode_in_calls_on_non_empty_return_data(
         address=Address(0x127EAF7E31D691A8393B7A2F84A6E94372190C01),  # noqa: E501
     )
     # Source: lll
-    # { (CALL 0 <contract:0xffff5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[4]] (CALL 50000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[5]] (RETURNDATASIZE) }  # noqa: E501
-    addr_5 = pre.deploy_contract(  # noqa: F841
+    # { (CALL 0 <contract:0xffff5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[0]] (CALL 50000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[2]] (RETURNDATASIZE) }  # noqa: E501
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
             Op.CALL(
                 gas=0x0,
@@ -146,7 +146,7 @@ def test_revert_opcode_in_calls_on_non_empty_return_data(
             )
         )
         + Op.SSTORE(
-            key=0x4,
+            key=0x0,
             value=Op.CALL(
                 gas=0xC350,
                 address=0x93A599BDE9A3B6390AFDB06952AA5EC0B8C44F3B,
@@ -157,11 +157,11 @@ def test_revert_opcode_in_calls_on_non_empty_return_data(
                 ret_size=0x0,
             ),
         )
-        + Op.SSTORE(key=0x5, value=Op.RETURNDATASIZE)
+        + Op.SSTORE(key=0x2, value=Op.RETURNDATASIZE)
         + Op.STOP,
         balance=1,
         nonce=0,
-        address=Address(0xEA519C47889074E6378B0D83747F2C3EA0B9CBC9),  # noqa: E501
+        address=Address(0xE73611B5B479B30C93AC377AEB3BFB199764F3C3),  # noqa: E501
     )
     # Source: lll
     # { (CALL 0 <contract:0xffff5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[10]] (CALL 260000 (CALLDATALOAD 0) 0 0 0 0 0)}  # noqa: E501
@@ -196,8 +196,8 @@ def test_revert_opcode_in_calls_on_non_empty_return_data(
         address=Address(0x172A8F572404293AA810685DFDC6F740C300CC4B),  # noqa: E501
     )
     # Source: lll
-    # { (CALL 0 <contract:0xffff5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[0]] (CALL 50000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[2]] (RETURNDATASIZE) }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
+    # { (CALL 0 <contract:0xffff5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[4]] (CALL 50000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[5]] (RETURNDATASIZE) }  # noqa: E501
+    addr_5 = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
             Op.CALL(
                 gas=0x0,
@@ -210,7 +210,7 @@ def test_revert_opcode_in_calls_on_non_empty_return_data(
             )
         )
         + Op.SSTORE(
-            key=0x0,
+            key=0x4,
             value=Op.CALL(
                 gas=0xC350,
                 address=0x93A599BDE9A3B6390AFDB06952AA5EC0B8C44F3B,
@@ -221,11 +221,11 @@ def test_revert_opcode_in_calls_on_non_empty_return_data(
                 ret_size=0x0,
             ),
         )
-        + Op.SSTORE(key=0x2, value=Op.RETURNDATASIZE)
+        + Op.SSTORE(key=0x5, value=Op.RETURNDATASIZE)
         + Op.STOP,
         balance=1,
         nonce=0,
-        address=Address(0xE73611B5B479B30C93AC377AEB3BFB199764F3C3),  # noqa: E501
+        address=Address(0xEA519C47889074E6378B0D83747F2C3EA0B9CBC9),  # noqa: E501
     )
     # Source: lll
     # { (CALL 0 <contract:0xffff5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[0]] (CALLCODE 50000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[2]] (RETURNDATASIZE) }  # noqa: E501

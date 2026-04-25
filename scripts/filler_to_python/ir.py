@@ -140,6 +140,7 @@ class IntermediateTestModel:
     is_slow: bool = False
     is_multi_case: bool = False
     is_fork_dependent: bool = False
+    needs_mutable_pre: bool = False
     environment: EnvironmentIR = field(
         default_factory=lambda: EnvironmentIR(
             coinbase_var="coinbase", number=0, timestamp=0

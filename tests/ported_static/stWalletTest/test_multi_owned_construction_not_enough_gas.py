@@ -24,7 +24,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stWalletTest/multiOwnedConstructionNotEnoughGasFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_multi_owned_construction_not_enough_gas(
     state_test: StateTestFiller,
     pre: Alloc,

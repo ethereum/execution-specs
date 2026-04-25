@@ -25,7 +25,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stMemoryTest/codecopy_dejavu2Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_codecopy_dejavu2(
     state_test: StateTestFiller,
     pre: Alloc,

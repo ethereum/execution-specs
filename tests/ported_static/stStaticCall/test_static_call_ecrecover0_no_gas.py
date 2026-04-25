@@ -25,7 +25,6 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.slow
-@pytest.mark.pre_alloc_mutable
 def test_static_call_ecrecover0_no_gas(
     state_test: StateTestFiller,
     pre: Alloc,

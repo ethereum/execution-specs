@@ -1049,7 +1049,6 @@ def _storage_with_any(base: dict, any_keys: list) -> Storage:
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_clear_return_buffer(
     state_test: StateTestFiller,
     pre: Alloc,

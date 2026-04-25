@@ -25,7 +25,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stCallCreateCallCodeTest/createJS_NoCollisionFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_create_js_no_collision(
     state_test: StateTestFiller,
     pre: Alloc,

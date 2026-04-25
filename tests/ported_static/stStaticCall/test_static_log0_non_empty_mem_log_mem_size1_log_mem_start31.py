@@ -28,7 +28,6 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.slow
-@pytest.mark.pre_alloc_mutable
 def test_static_log0_non_empty_mem_log_mem_size1_log_mem_start31(
     state_test: StateTestFiller,
     pre: Alloc,

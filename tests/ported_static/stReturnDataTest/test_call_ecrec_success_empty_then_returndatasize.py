@@ -27,7 +27,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_call_ecrec_success_empty_then_returndatasize(
     state_test: StateTestFiller,
     pre: Alloc,

@@ -26,7 +26,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_zero_value_transaction_call_to_non_zero_balance(
     state_test: StateTestFiller,
     pre: Alloc,

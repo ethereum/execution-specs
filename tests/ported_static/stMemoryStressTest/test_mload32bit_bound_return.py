@@ -43,7 +43,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_mload32bit_bound_return(
     state_test: StateTestFiller,
     pre: Alloc,

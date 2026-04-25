@@ -275,6 +275,7 @@ def render_test(ir: IntermediateTestModel) -> str:
         "is_slow": ir.is_slow,
         "is_multi_case": ir.is_multi_case,
         "is_fork_dependent": ir.is_fork_dependent,
+        "needs_mutable_pre": ir.needs_mutable_pre,
         "has_exceptions": has_exceptions,
         "env": ir.environment,
         "accounts": ir.accounts,

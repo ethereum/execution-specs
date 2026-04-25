@@ -127,7 +127,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_stack_overflow_m1(
     state_test: StateTestFiller,
     pre: Alloc,

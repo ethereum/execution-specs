@@ -61,7 +61,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_static_contract_creation_make_call_that_ask_more_gas_then_transaction_provided(  # noqa: E501
     state_test: StateTestFiller,
     pre: Alloc,
@@ -142,10 +141,10 @@ def test_static_contract_creation_make_call_that_ask_more_gas_then_transaction_p
         nonce=0,
     )
     # Source: lll
-    # { (CALLCODE 1000000 0x4000000000000000000000000000000000000004 0 0 0 0 0) }  # noqa: E501
-    contract_5 = pre.deploy_contract(  # noqa: F841
+    # { (CALLCODE 1000 0x4000000000000000000000000000000000000004 0 0 0 0 0) }
+    contract_4 = pre.deploy_contract(  # noqa: F841
         code=Op.CALLCODE(
-            gas=0xF4240,
+            gas=0x3E8,
             address=contract_6,
             value=0x0,
             args_offset=0x0,
@@ -158,10 +157,10 @@ def test_static_contract_creation_make_call_that_ask_more_gas_then_transaction_p
         nonce=0,
     )
     # Source: lll
-    # { (CALLCODE 1000 0x4000000000000000000000000000000000000004 0 0 0 0 0) }
-    contract_4 = pre.deploy_contract(  # noqa: F841
+    # { (CALLCODE 1000000 0x4000000000000000000000000000000000000004 0 0 0 0 0) }  # noqa: E501
+    contract_5 = pre.deploy_contract(  # noqa: F841
         code=Op.CALLCODE(
-            gas=0x3E8,
+            gas=0xF4240,
             address=contract_6,
             value=0x0,
             args_offset=0x0,

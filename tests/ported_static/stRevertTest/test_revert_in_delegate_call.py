@@ -25,7 +25,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRevertTest/RevertInDelegateCallFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_revert_in_delegate_call(
     state_test: StateTestFiller,
     pre: Alloc,

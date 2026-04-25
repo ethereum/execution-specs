@@ -25,7 +25,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stEIP150Specific/SuicideToNotExistingContractFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_suicide_to_not_existing_contract(
     state_test: StateTestFiller,
     pre: Alloc,

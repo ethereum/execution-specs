@@ -246,7 +246,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_no_src_account(
     state_test: StateTestFiller,
     pre: Alloc,

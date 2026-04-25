@@ -25,7 +25,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stCreate2/RevertOpcodeInCreateReturnsCreate2Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_revert_opcode_in_create_returns_create2(
     state_test: StateTestFiller,
     pre: Alloc,

@@ -49,7 +49,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_static_callcodecallcall_100_oogm_after_3(
     state_test: StateTestFiller,
     pre: Alloc,

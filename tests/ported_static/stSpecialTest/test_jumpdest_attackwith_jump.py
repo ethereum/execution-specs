@@ -26,7 +26,6 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")
-@pytest.mark.pre_alloc_mutable
 def test_jumpdest_attackwith_jump(
     state_test: StateTestFiller,
     pre: Alloc,

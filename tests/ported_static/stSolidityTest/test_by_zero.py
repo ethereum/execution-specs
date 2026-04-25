@@ -55,7 +55,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_by_zero(
     state_test: StateTestFiller,
     pre: Alloc,

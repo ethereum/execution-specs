@@ -58,7 +58,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_returndatacopy_python_bug_tue_03_48_41_minus_1432(
     state_test: StateTestFiller,
     pre: Alloc,

@@ -25,7 +25,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stMemoryTest/mload16bitBoundFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_mload16bit_bound(
     state_test: StateTestFiller,
     pre: Alloc,

@@ -27,7 +27,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_callcode_to_name_registrator_addres_too_big_right(
     state_test: StateTestFiller,
     pre: Alloc,

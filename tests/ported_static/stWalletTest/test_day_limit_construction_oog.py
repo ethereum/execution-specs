@@ -24,7 +24,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stWalletTest/dayLimitConstructionOOGFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_day_limit_construction_oog(
     state_test: StateTestFiller,
     pre: Alloc,

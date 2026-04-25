@@ -25,7 +25,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stHomesteadSpecific/createContractViaContractFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_create_contract_via_contract(
     state_test: StateTestFiller,
     pre: Alloc,

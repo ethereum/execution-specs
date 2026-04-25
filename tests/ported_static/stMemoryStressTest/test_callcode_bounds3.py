@@ -43,7 +43,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_callcode_bounds3(
     state_test: StateTestFiller,
     pre: Alloc,

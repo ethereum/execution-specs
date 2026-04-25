@@ -27,7 +27,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_call_goes_oog_on_second_level2_with_mem_expanding_calls(
     state_test: StateTestFiller,
     pre: Alloc,

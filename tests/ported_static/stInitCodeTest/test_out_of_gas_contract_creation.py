@@ -58,7 +58,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_out_of_gas_contract_creation(
     state_test: StateTestFiller,
     pre: Alloc,

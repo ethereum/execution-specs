@@ -168,7 +168,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_mcopy_memory_expansion_cost(
     state_test: StateTestFiller,
     pre: Alloc,

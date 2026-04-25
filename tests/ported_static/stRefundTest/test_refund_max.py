@@ -25,7 +25,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRefundTest/refundMaxFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_refund_max(
     state_test: StateTestFiller,
     pre: Alloc,

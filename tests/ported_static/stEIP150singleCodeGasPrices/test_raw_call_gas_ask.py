@@ -25,7 +25,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stEIP150singleCodeGasPrices/RawCallGasAskFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_raw_call_gas_ask(
     state_test: StateTestFiller,
     pre: Alloc,

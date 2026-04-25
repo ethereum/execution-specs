@@ -27,7 +27,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_execute_call_that_ask_fore_gas_then_trabsaction_has(
     state_test: StateTestFiller,
     pre: Alloc,

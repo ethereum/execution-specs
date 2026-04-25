@@ -43,7 +43,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_codesize_oog_invalid_size(
     state_test: StateTestFiller,
     pre: Alloc,

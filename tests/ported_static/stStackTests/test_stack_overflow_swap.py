@@ -25,7 +25,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stStackTests/stackOverflowSWAPFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_stack_overflow_swap(
     state_test: StateTestFiller,
     pre: Alloc,

@@ -42,7 +42,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_transaction_data_costs652(
     state_test: StateTestFiller,
     pre: Alloc,

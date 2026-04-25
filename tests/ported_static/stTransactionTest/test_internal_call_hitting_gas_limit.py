@@ -25,7 +25,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stTransactionTest/InternalCallHittingGasLimitFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_internal_call_hitting_gas_limit(
     state_test: StateTestFiller,
     pre: Alloc,

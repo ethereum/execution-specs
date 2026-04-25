@@ -28,7 +28,6 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.slow
-@pytest.mark.pre_alloc_mutable
 def test_static_call_with_high_value_and_oo_gat_tx_level(
     state_test: StateTestFiller,
     pre: Alloc,

@@ -362,7 +362,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_gas_cost_mem_seg(
     state_test: StateTestFiller,
     pre: Alloc,

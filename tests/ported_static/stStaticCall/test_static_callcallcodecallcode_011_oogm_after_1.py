@@ -115,25 +115,6 @@ def test_static_callcallcodecallcode_011_oogm_after_1(
         address=Address(0x02C0BFFB833F0BD1BDCB227A4FE215CF640316BB),  # noqa: E501
     )
     # Source: lll
-    # { (MSTORE 3 1)  (DELEGATECALL 40080 <contract:0x1000000000000000000000000000000000000002> 0 64 0 64 ) (SSTORE 3 1) }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x3, value=0x1)
-        + Op.POP(
-            Op.DELEGATECALL(
-                gas=0x9C90,
-                address=0x2C0BFFB833F0BD1BDCB227A4FE215CF640316BB,
-                args_offset=0x0,
-                args_size=0x40,
-                ret_offset=0x0,
-                ret_size=0x40,
-            )
-        )
-        + Op.SSTORE(key=0x3, value=0x1)
-        + Op.STOP,
-        nonce=0,
-        address=Address(0xEA0C00BCA818C88ECDA8E81C47CC1EAC92284A74),  # noqa: E501
-    )
-    # Source: lll
     # { (MSTORE 3 1)  (DELEGATECALL 40080 <contract:0x1000000000000000000000000000000000000002> 0 64 0 64 ) (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (EXTCODESIZE 1)) }  # noqa: E501
     addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x3, value=0x1)
@@ -158,6 +139,25 @@ def test_static_callcallcodecallcode_011_oogm_after_1(
         + Op.STOP,
         nonce=0,
         address=Address(0x037BF0D28AF83352E42A45CD844899EE7C948A7C),  # noqa: E501
+    )
+    # Source: lll
+    # { (MSTORE 3 1)  (DELEGATECALL 40080 <contract:0x1000000000000000000000000000000000000002> 0 64 0 64 ) (SSTORE 3 1) }  # noqa: E501
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x3, value=0x1)
+        + Op.POP(
+            Op.DELEGATECALL(
+                gas=0x9C90,
+                address=0x2C0BFFB833F0BD1BDCB227A4FE215CF640316BB,
+                args_offset=0x0,
+                args_size=0x40,
+                ret_offset=0x0,
+                ret_size=0x40,
+            )
+        )
+        + Op.SSTORE(key=0x3, value=0x1)
+        + Op.STOP,
+        nonce=0,
+        address=Address(0xEA0C00BCA818C88ECDA8E81C47CC1EAC92284A74),  # noqa: E501
     )
 
     tx_data = [

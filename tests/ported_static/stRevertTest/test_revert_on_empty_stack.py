@@ -25,7 +25,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRevertTest/RevertOnEmptyStackFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_revert_on_empty_stack(
     state_test: StateTestFiller,
     pre: Alloc,

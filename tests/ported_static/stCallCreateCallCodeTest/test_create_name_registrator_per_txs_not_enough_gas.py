@@ -48,7 +48,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_create_name_registrator_per_txs_not_enough_gas(
     state_test: StateTestFiller,
     pre: Alloc,

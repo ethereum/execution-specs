@@ -24,7 +24,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRevertTest/NashatyrevSuicideRevertFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_nashatyrev_suicide_revert(
     state_test: StateTestFiller,
     pre: Alloc,

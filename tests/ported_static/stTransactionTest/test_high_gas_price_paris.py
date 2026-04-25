@@ -26,7 +26,6 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.exception_test
-@pytest.mark.pre_alloc_mutable
 def test_high_gas_price_paris(
     state_test: StateTestFiller,
     pre: Alloc,

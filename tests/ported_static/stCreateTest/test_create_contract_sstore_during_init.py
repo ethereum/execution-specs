@@ -25,7 +25,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stCreateTest/CREATE_ContractSSTOREDuringInitFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_create_contract_sstore_during_init(
     state_test: StateTestFiller,
     pre: Alloc,

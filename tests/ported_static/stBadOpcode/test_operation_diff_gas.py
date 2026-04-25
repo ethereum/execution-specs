@@ -268,29 +268,13 @@ def test_operation_diff_gas(
     )
     # Source: yul
     # berlin {
-    #   let addr := 0xCA11
-    #   extcodecopy(addr, 0, 0, extcodesize(addr))
+    #    let retval := call(gas(), 0xCA11, 0, 0, 0x100, 0, 0x100)
     # }
-    contract_11 = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH2[0xCA11]
-        + Op.PUSH1[0x0]
-        + Op.DUP1
-        + Op.EXTCODESIZE(address=Op.DUP3)
-        + Op.SWAP3
-        + Op.EXTCODECOPY
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x0000000000000000000000000000000000C0DE3B),  # noqa: E501
-    )
-    # Source: yul
-    # berlin {
-    #    let retval := staticcall(gas(), 0xCA11, 0, 0x100, 0, 0x100)
-    # }
-    contract_5 = pre.deploy_contract(  # noqa: F841
-        code=Op.STATICCALL(
+    contract_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALL(
             gas=Op.GAS,
             address=0xCA11,
+            value=Op.DUP1,
             args_offset=Op.DUP2,
             args_size=Op.DUP2,
             ret_offset=0x0,
@@ -299,7 +283,7 @@ def test_operation_diff_gas(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address(0x0000000000000000000000000000000000C0DEFA),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000C0DEF1),  # noqa: E501
     )
     # Source: yul
     # berlin {
@@ -340,13 +324,12 @@ def test_operation_diff_gas(
     )
     # Source: yul
     # berlin {
-    #    let retval := call(gas(), 0xCA11, 0, 0, 0x100, 0, 0x100)
+    #    let retval := staticcall(gas(), 0xCA11, 0, 0x100, 0, 0x100)
     # }
-    contract_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.CALL(
+    contract_5 = pre.deploy_contract(  # noqa: F841
+        code=Op.STATICCALL(
             gas=Op.GAS,
             address=0xCA11,
-            value=Op.DUP1,
             args_offset=Op.DUP2,
             args_size=Op.DUP2,
             ret_offset=0x0,
@@ -355,7 +338,24 @@ def test_operation_diff_gas(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address(0x0000000000000000000000000000000000C0DEF1),  # noqa: E501
+        address=Address(0x0000000000000000000000000000000000C0DEFA),  # noqa: E501
+    )
+    # Source: yul
+    # berlin {
+    #   let addr := 0xCA11
+    #   extcodecopy(addr, 0, 0, extcodesize(addr))
+    # }
+    contract_11 = pre.deploy_contract(  # noqa: F841
+        code=Op.PUSH2[0xCA11]
+        + Op.PUSH1[0x0]
+        + Op.DUP1
+        + Op.EXTCODESIZE(address=Op.DUP3)
+        + Op.SWAP3
+        + Op.EXTCODECOPY
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=1,
+        address=Address(0x0000000000000000000000000000000000C0DE3B),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

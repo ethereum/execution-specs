@@ -25,7 +25,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stCallCodes/callcodecallcodecallcode_111_OOGEFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_callcodecallcodecallcode_111_ooge(
     state_test: StateTestFiller,
     pre: Alloc,

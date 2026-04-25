@@ -25,7 +25,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stZeroCallsTest/ZeroValue_CALL_ToEmpty_ParisFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_zero_value_call_to_empty_paris(
     state_test: StateTestFiller,
     pre: Alloc,

@@ -27,7 +27,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_raw_call_code_gas_memory_ask(
     state_test: StateTestFiller,
     pre: Alloc,

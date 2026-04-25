@@ -45,7 +45,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_returndatasize_initial_zero_read(
     state_test: StateTestFiller,
     pre: Alloc,

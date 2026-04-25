@@ -48,7 +48,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_quadratic_complexity_solidity_call_data_copy(
     state_test: StateTestFiller,
     pre: Alloc,

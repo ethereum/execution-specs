@@ -179,7 +179,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_too_long_return_data_copy(
     state_test: StateTestFiller,
     pre: Alloc,

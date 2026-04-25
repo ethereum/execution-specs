@@ -48,7 +48,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_multi_owned_construction_not_enough_gas_partial(
     state_test: StateTestFiller,
     pre: Alloc,

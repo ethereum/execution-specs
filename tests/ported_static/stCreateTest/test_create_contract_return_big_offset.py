@@ -55,7 +55,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_create_contract_return_big_offset(
     state_test: StateTestFiller,
     pre: Alloc,

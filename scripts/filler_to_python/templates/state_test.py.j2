@@ -159,7 +159,9 @@ def _storage_with_any(base: dict, any_keys: list) -> Storage:
 {% if has_exceptions and not is_multi_case %}
 @pytest.mark.exception_test
 {% endif %}
+{% if needs_mutable_pre %}
 @pytest.mark.pre_alloc_mutable
+{% endif %}
 def {{ test_name }}(
     state_test: StateTestFiller,
     pre: Alloc,

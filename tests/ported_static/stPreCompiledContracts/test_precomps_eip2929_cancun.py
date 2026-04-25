@@ -2807,7 +2807,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_precomps_eip2929_cancun(
     state_test: StateTestFiller,
     pre: Alloc,

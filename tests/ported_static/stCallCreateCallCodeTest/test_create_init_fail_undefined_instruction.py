@@ -27,7 +27,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_create_init_fail_undefined_instruction(
     state_test: StateTestFiller,
     pre: Alloc,

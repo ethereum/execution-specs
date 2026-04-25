@@ -25,7 +25,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stLogTests/log4_logMemsizeZeroFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_log4_log_memsize_zero(
     state_test: StateTestFiller,
     pre: Alloc,

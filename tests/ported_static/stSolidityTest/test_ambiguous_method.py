@@ -25,7 +25,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stSolidityTest/AmbiguousMethodFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_ambiguous_method(
     state_test: StateTestFiller,
     pre: Alloc,

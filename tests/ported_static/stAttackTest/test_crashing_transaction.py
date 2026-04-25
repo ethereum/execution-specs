@@ -25,7 +25,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stAttackTest/CrashingTransactionFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_crashing_transaction(
     state_test: StateTestFiller,
     pre: Alloc,

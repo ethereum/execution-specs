@@ -26,7 +26,6 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.slow
-@pytest.mark.pre_alloc_mutable
 def test_static_callcallcodecall_010(
     state_test: StateTestFiller,
     pre: Alloc,

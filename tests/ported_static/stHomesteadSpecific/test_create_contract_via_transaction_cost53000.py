@@ -26,7 +26,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_create_contract_via_transaction_cost53000(
     state_test: StateTestFiller,
     pre: Alloc,

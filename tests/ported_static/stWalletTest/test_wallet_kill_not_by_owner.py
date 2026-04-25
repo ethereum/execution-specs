@@ -25,7 +25,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stWalletTest/walletKillNotByOwnerFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_wallet_kill_not_by_owner(
     state_test: StateTestFiller,
     pre: Alloc,

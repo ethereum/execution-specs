@@ -25,7 +25,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stEIP158Specific/EXTCODESIZE_toEpmtyParisFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_extcodesize_to_epmty_paris(
     state_test: StateTestFiller,
     pre: Alloc,

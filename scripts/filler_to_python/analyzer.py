@@ -470,6 +470,15 @@ def analyze(
     # 16. Test name
     py_test_name = _filler_name_to_test_name(test_name)
 
+    # 17. Whether the test mutates the pre-allocation. Only tests that
+    # use ``EOA(key=...)`` for the sender, ``pre[var] = Account(...)``
+    # for hardcoded EOAs/contracts, or ``pre.deploy_contract(address=...)``
+    # need ``@pytest.mark.pre_alloc_mutable``. Fully dynamic tests can
+    # then run under the ``execute`` plugin against live networks.
+    needs_mutable_pre = not sender_ir.use_dynamic or any(
+        not a.use_dynamic for a in accounts
+    )
+
     return IntermediateTestModel(
         test_name=py_test_name,
         filler_path=str(filler_path),
@@ -483,6 +492,7 @@ def analyze(
         ),
         is_multi_case=is_multi_case,
         is_fork_dependent=is_fork_dependent,
+        needs_mutable_pre=needs_mutable_pre,
         environment=environment_ir,
         accounts=accounts,
         sender=sender_ir,

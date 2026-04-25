@@ -43,7 +43,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_revert_opcode_with_big_output_in_init(
     state_test: StateTestFiller,
     pre: Alloc,
