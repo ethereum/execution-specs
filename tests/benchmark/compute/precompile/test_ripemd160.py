@@ -39,7 +39,12 @@ def test_ripemd160(
 
     attack_block = Op.POP(
         Op.STATICCALL(
-            Op.GAS, 0x03, Op.PUSH0, optimal_input_length, Op.PUSH0, Op.PUSH0
+            Op.GAS,
+            Precompile.RIPEMD160_ADDRESS,
+            Op.PUSH0,
+            optimal_input_length,
+            Op.PUSH0,
+            Op.PUSH0,
         )
     )
 
@@ -59,7 +64,14 @@ def test_ripemd160_fixed_size(
 ) -> None:
     """Benchmark RIPEMD160 with fixed size input."""
     attack_block = Op.POP(
-        Op.STATICCALL(Op.GAS, 0x03, Op.PUSH0, size, Op.PUSH0, Op.PUSH0)
+        Op.STATICCALL(
+            Op.GAS,
+            Precompile.RIPEMD160_ADDRESS,
+            Op.PUSH0,
+            size,
+            Op.PUSH0,
+            Op.PUSH0,
+        )
     )
 
     benchmark_test(
@@ -94,7 +106,7 @@ def test_ripemd160_uncachable(
     attack_block = Op.POP(
         Op.STATICCALL(
             gas=Op.GAS,
-            address=0x03,
+            address=Precompile.RIPEMD160_ADDRESS,
             args_size=size,
             ret_size=0x20,
             # gas accounting

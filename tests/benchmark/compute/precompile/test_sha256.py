@@ -39,7 +39,12 @@ def test_sha256(
 
     attack_block = Op.POP(
         Op.STATICCALL(
-            Op.GAS, 0x02, Op.PUSH0, optimal_input_length, Op.PUSH0, Op.PUSH0
+            Op.GAS,
+            Precompile.SHA256_ADDRESS,
+            Op.PUSH0,
+            optimal_input_length,
+            Op.PUSH0,
+            Op.PUSH0,
         )
     )
 
@@ -59,7 +64,14 @@ def test_sha256_fixed_size(
 ) -> None:
     """Benchmark SHA256 with fixed size input."""
     attack_block = Op.POP(
-        Op.STATICCALL(Op.GAS, 0x02, Op.PUSH0, size, Op.PUSH0, Op.PUSH0)
+        Op.STATICCALL(
+            Op.GAS,
+            Precompile.SHA256_ADDRESS,
+            Op.PUSH0,
+            size,
+            Op.PUSH0,
+            Op.PUSH0,
+        )
     )
 
     benchmark_test(
@@ -93,7 +105,7 @@ def test_sha256_uncachable(
     attack_block = Op.POP(
         Op.STATICCALL(
             gas=Op.GAS,
-            address=0x02,
+            address=Precompile.SHA256_ADDRESS,
             args_size=size,
             ret_size=0x20,
             # gas accounting

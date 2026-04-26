@@ -30,8 +30,20 @@ from tests.osaka.eip7951_p256verify_precompiles.spec import (
 
 
 class Precompile:
-    """Target opcode labels for precompile benchmarks."""
+    """Target opcode labels and addresses for precompile benchmarks."""
 
+    # Precompile addresses
+    ECRECOVER_ADDRESS = 0x01
+    SHA256_ADDRESS = 0x02
+    RIPEMD160_ADDRESS = 0x03
+    IDENTITY_ADDRESS = 0x04
+    MODEXP_ADDRESS = 0x05
+    BN128_ADD_ADDRESS = 0x06
+    BN128_MUL_ADDRESS = 0x07
+    BN128_PAIRING_ADDRESS = 0x08
+    BLAKE2F_ADDRESS = 0x09
+
+    # Target opcode labels
     ECRECOVER = OpcodeTarget("ECRECOVER", Op.STATICCALL)
     SHA256 = OpcodeTarget("SHA2-256", Op.STATICCALL)
     RIPEMD160 = OpcodeTarget("RIPEMD-160", Op.STATICCALL)
@@ -177,6 +189,101 @@ def concatenate_parameters(
             "or a sequence of byte-like objects (bytes, BytesConcatenation or "
             "FieldElement)."
         )
+
+
+def _hex32(value: str) -> bytes:
+    """Pad or validate a hex string to exactly 32 bytes."""
+    return bytes.fromhex(value.zfill(64))
+
+
+def bn128_add_calldata(
+    *,
+    x1: str,
+    y1: str,
+    x2: str,
+    y2: str,
+) -> bytes:
+    """
+    Build BN128_ADD (0x06) calldata with labeled fields.
+
+    Each coordinate is a 32-byte big-endian hex string.
+    """
+    return _hex32(x1) + _hex32(y1) + _hex32(x2) + _hex32(y2)
+
+
+def bn128_mul_calldata(
+    *,
+    x: str,
+    y: str,
+    scalar: str,
+) -> bytes:
+    """
+    Build BN128_MUL (0x07) calldata with labeled fields.
+
+    Point coordinates and scalar are 32-byte big-endian hex
+    strings.
+    """
+    return _hex32(x) + _hex32(y) + _hex32(scalar)
+
+
+def bn128_pairing_calldata(
+    pairs: Sequence[tuple[str, str, str, str, str, str]],
+) -> bytes:
+    """
+    Build BN128_PAIRING (0x08) calldata with labeled fields.
+
+    Each pair is (g1_x, g1_y, g2_x_im, g2_x_re, g2_y_im,
+    g2_y_re) — six 32-byte big-endian hex strings.
+    """
+    data = b""
+    for g1_x, g1_y, g2_x_im, g2_x_re, g2_y_im, g2_y_re in pairs:
+        data += (
+            _hex32(g1_x)
+            + _hex32(g1_y)
+            + _hex32(g2_x_im)
+            + _hex32(g2_x_re)
+            + _hex32(g2_y_im)
+            + _hex32(g2_y_re)
+        )
+    return data
+
+
+def ecrecover_calldata(
+    *,
+    msg_hash: str,
+    v: str,
+    r: str,
+    s: str,
+) -> bytes:
+    """
+    Build ECRECOVER (0x01) calldata with labeled fields.
+
+    Each field is a 32-byte big-endian hex string.
+    """
+    return _hex32(msg_hash) + _hex32(v) + _hex32(r) + _hex32(s)
+
+
+def point_evaluation_calldata(
+    *,
+    versioned_hash: str,
+    z: str,
+    y: str,
+    commitment: str,
+    proof: str,
+) -> bytes:
+    """
+    Build POINT_EVALUATION (0x0a) calldata with labeled fields.
+
+    versioned_hash, z, y are 32 bytes each; commitment and
+    proof are 48 bytes each.
+    """
+    return (
+        _hex32(versioned_hash)
+        + _hex32(z)
+        + _hex32(y)
+        + bytes.fromhex(commitment.zfill(96))
+        + bytes.fromhex(proof.zfill(96))
+    )
 
 
 def calculate_optimal_input_length(
