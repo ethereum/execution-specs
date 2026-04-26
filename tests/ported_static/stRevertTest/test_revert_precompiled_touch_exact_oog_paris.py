@@ -623,6 +623,14 @@ def test_revert_precompiled_touch_exact_oog_paris(
 ) -> None:
     """Test_revert_precompiled_touch_exact_oog_paris."""
     coinbase = Address(0x68795C4AA09D6F4ED3E5DEDDF8C2AD3049A601DA)
+    addr_5 = Address(0x0000000000000000000000000000000000000001)
+    addr_6 = Address(0x0000000000000000000000000000000000000002)
+    addr_7 = Address(0x0000000000000000000000000000000000000003)
+    addr_8 = Address(0x0000000000000000000000000000000000000004)
+    addr_9 = Address(0x0000000000000000000000000000000000000005)
+    addr_10 = Address(0x0000000000000000000000000000000000000006)
+    addr_11 = Address(0x0000000000000000000000000000000000000007)
+    addr_12 = Address(0x0000000000000000000000000000000000000008)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000, nonce=1)
 
     env = Environment(
@@ -634,14 +642,14 @@ def test_revert_precompiled_touch_exact_oog_paris(
         gas_limit=4012015,
     )
 
-    addr_5 = pre.fund_eoa(amount=1)  # noqa: F841
-    addr_6 = pre.fund_eoa(amount=1)  # noqa: F841
-    addr_7 = pre.fund_eoa(amount=1)  # noqa: F841
-    addr_8 = pre.fund_eoa(amount=1)  # noqa: F841
-    addr_9 = pre.fund_eoa(amount=1)  # noqa: F841
-    addr_10 = pre.fund_eoa(amount=1)  # noqa: F841
-    addr_11 = pre.fund_eoa(amount=1)  # noqa: F841
-    addr_12 = pre.fund_eoa(amount=1)  # noqa: F841
+    pre[addr_5] = Account(balance=1)
+    pre[addr_6] = Account(balance=1)
+    pre[addr_7] = Account(balance=1)
+    pre[addr_8] = Account(balance=1)
+    pre[addr_9] = Account(balance=1)
+    pre[addr_10] = Account(balance=1)
+    pre[addr_11] = Account(balance=1)
+    pre[addr_12] = Account(balance=1)
     # Source: lll
     # {  (CALLCODE (GAS) (CALLDATALOAD 0) 0 0 (CALLDATALOAD 32) 0 0) }
     target = pre.deploy_contract(  # noqa: F841

@@ -325,8 +325,16 @@ def analyze(
     # ``(call gas 0x01 ...)``), so the bytecode lands at the precompile
     # while the funded EOA lands somewhere else. Override the resolved
     # address back to the literal hint when it falls in the precompile
-    # range (0x01-0x10) — that way ``addr_to_var`` registers 0x01,
-    # short-PUSH detection fires, and the EOA gets pinned.
+    # range (0x01-0x10) — that way ``addr_to_var`` registers 0x01 and
+    # tx-data / post-state resolutions stay consistent with bytecode.
+    #
+    # Track the override addresses so that the corresponding EOA can
+    # be pinned non-dynamic later. Without pinning, the variable in
+    # the generated test (``addr_5``) would still go through
+    # ``pre.fund_eoa()`` at runtime and land at a random address,
+    # while ``tx_data`` would carry that random address — breaking
+    # any contract that calls the literal precompile (0x01).
+    pinned_eoa_addrs: set[Address] = set()
     for tag in model.pre.root.keys():
         if not isinstance(tag, SenderTag):
             continue
@@ -340,7 +348,9 @@ def analyze(
         except ValueError:
             continue
         if 1 <= hint_int <= 0x10:
-            tags[tag.name] = Address(hint_int)
+            hint_addr = Address(hint_int)
+            tags[tag.name] = hint_addr
+            pinned_eoa_addrs.add(hint_addr)
 
     # 3. Fork range (must sort chronologically, not alphabetically)
     all_fork_names = [str(f) for f in sorted(get_forks())]
@@ -402,6 +412,7 @@ def analyze(
         imports,
         force_hardcoded=force_hardcoded,
         coinbase_addr=coinbase_addr,
+        pinned_eoa_addrs=pinned_eoa_addrs,
     )
 
     # Track if sender is not in the pre-state (for fund_eoa handling).
@@ -1031,8 +1042,11 @@ def _build_accounts(
     *,
     force_hardcoded: bool = False,
     coinbase_addr: Address | None = None,
+    pinned_eoa_addrs: set[Address] | None = None,
 ) -> list[AccountIR]:
     """Build AccountIR list with dependency-ordered contracts."""
+    if pinned_eoa_addrs is None:
+        pinned_eoa_addrs = set()
     # ------------------------------------------------------------------
     # Pass 1: gather account metadata and compile bytecode (no Op yet)
     # ------------------------------------------------------------------
@@ -1234,6 +1248,16 @@ def _build_accounts(
     # 0x01) instead of a random ``pre.fund_eoa`` address.
     for acct in raw_accounts:
         if acct.address in short_push_eoa_refs:
+            acct.use_dynamic = False
+
+    # Pin EOAs whose tags were hint-overridden into the precompile
+    # range. The override registered the literal address in
+    # ``addr_to_var`` so tx-data and post-state resolutions point at
+    # ``addr_X`` (a variable). The variable must hold the literal
+    # precompile address at runtime, not whatever ``pre.fund_eoa``
+    # picks.
+    for acct in raw_accounts:
+        if acct.address in pinned_eoa_addrs:
             acct.use_dynamic = False
 
     # ------------------------------------------------------------------

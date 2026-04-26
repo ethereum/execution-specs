@@ -965,26 +965,6 @@ def test_varied_context(
     )
     # Source: lll
     # {
-    #    ; CALLCODE_VALID       CALLCODE_INVALID
-    #    (callcode (gas) 0xC057 0 0 0 0 0)
-    # }
-    contract_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.CALLCODE(
-            gas=Op.GAS,
-            address=0xC057,
-            value=0x0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.STOP,
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001002),  # noqa: E501
-    )
-    # Source: lll
-    # {
     #    ; DELEGATE_VALID   DELEGATE_INVALID
     #
     #    (delegatecall (gas) 0xC057 0 0 0 0)
@@ -1002,6 +982,26 @@ def test_varied_context(
         balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address(0x0000000000000000000000000000000000001000),  # noqa: E501
+    )
+    # Source: lll
+    # {
+    #    ; CALLCODE_VALID       CALLCODE_INVALID
+    #    (callcode (gas) 0xC057 0 0 0 0 0)
+    # }
+    contract_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALLCODE(
+            gas=Op.GAS,
+            address=0xC057,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
+        nonce=0,
+        address=Address(0x0000000000000000000000000000000000001002),  # noqa: E501
     )
     # Source: lll
     # {
