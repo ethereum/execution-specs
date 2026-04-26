@@ -144,9 +144,6 @@ FORCE_HARDCODED_TESTS: set[str] = {
     # Precompile-as-EOA — tests fund precompile addresses as EOAs,
     # then check nonce after calling the precompile. Dynamic EOAs
     # land at different addresses than the precompile targets.
-    "stRevertTest/test_revert_precompiled_touch_nonce.py",
-    "stRevertTest/test_revert_precompiled_touch_noncestorage.py",
-    "stRevertTest/test_revert_precompiled_touch_storage_paris.py",
     # STRUCTURAL — CREATE collision / EIP-3607 rejection behaviour.
     # With dynamic addresses the collision doesn't happen, so the tx
     # runs instead of being rejected → traces appear where baseline
@@ -320,6 +317,30 @@ def analyze(
     # 2. Resolve tags via pre-state setup
     pre = _AnalyzerAlloc()
     tags = model.pre.setup(pre, all_deps)
+
+    # 2b. Honour precompile hint addresses for tagged EOAs.
+    # The static filler resolves ``<eoa:0x...01>`` through
+    # ``eoa_from_hash`` (random placeholder address). LLL source code
+    # however references those addresses literally (e.g.
+    # ``(call gas 0x01 ...)``), so the bytecode lands at the precompile
+    # while the funded EOA lands somewhere else. Override the resolved
+    # address back to the literal hint when it falls in the precompile
+    # range (0x01-0x10) — that way ``addr_to_var`` registers 0x01,
+    # short-PUSH detection fires, and the EOA gets pinned.
+    for tag in model.pre.root.keys():
+        if not isinstance(tag, SenderTag):
+            continue
+        name = tag.name
+        if not (
+            isinstance(name, str) and name.startswith("0x") and len(name) == 42
+        ):
+            continue
+        try:
+            hint_int = int(name, 16)
+        except ValueError:
+            continue
+        if 1 <= hint_int <= 0x10:
+            tags[tag.name] = Address(hint_int)
 
     # 3. Fork range (must sort chronologically, not alphabetically)
     all_fork_names = [str(f) for f in sorted(get_forks())]
@@ -1134,15 +1155,28 @@ def _build_accounts(
         else:
             all_known_addrs.add(Address(int.from_bytes(addr_or_eoa, "big")))
 
+    # Pre-state EOA addresses — used to recognise short-PUSH refs that
+    # point at funded EOAs (e.g. precompile addresses 0x01-0x10 listed
+    # as ``<eoa:0x...01>`` in the filler) instead of contracts.
+    known_eoa_addrs: set[Address] = set()
+    for acct in raw_accounts:
+        if acct.is_eoa and acct.address is not None:
+            known_eoa_addrs.add(acct.address)
+
     deps: dict[Address, set[Address]] = {}
-    # Addresses referenced via PUSH<20 anywhere: baseline bytecode
-    # compiled them to a short PUSH because of leading zero bytes, so
-    # they must stay hardcoded to keep the opcode sequence aligned.
+    # Contract addresses referenced via PUSH<20 anywhere: baseline
+    # bytecode compiled them to a short PUSH because of leading zero
+    # bytes, so they must stay hardcoded to keep the opcode sequence
+    # aligned.
     short_push_refs: set[Address] = set()
-    # True when a short-PUSH ref targets an address that is not a
-    # deployed contract in the pre-state (e.g. an external tag like
-    # <contract:0x...dead> only referenced from bytecode). In that case
-    # no contract can be pinned, so fall back to globally disabling
+    # EOA addresses referenced via PUSH<20 — pin those EOAs to their
+    # literal address so the funded account lands at the precompile
+    # (e.g. 0x01) instead of a random ``pre.fund_eoa`` address.
+    short_push_eoa_refs: set[Address] = set()
+    # True when a short-PUSH ref targets an address that is neither a
+    # pre-state contract nor a pre-state EOA (e.g. an external tag
+    # like <contract:0x...dead> only referenced from bytecode). No
+    # account can be pinned, so fall back to globally disabling
     # dynamic addresses for the whole test.
     short_push_unpinnable = False
     for addr, cb in code_bytes_map.items():
@@ -1154,6 +1188,8 @@ def _build_accounts(
             if push_size < 20:
                 if ref_addr in known_contract_addrs:
                     short_push_refs.add(ref_addr)
+                elif ref_addr in known_eoa_addrs:
+                    short_push_eoa_refs.add(ref_addr)
                 else:
                     short_push_unpinnable = True
 
@@ -1191,6 +1227,13 @@ def _build_accounts(
 
     for acct in raw_accounts:
         if acct.address in non_dynamic_addrs:
+            acct.use_dynamic = False
+
+    # Pin EOAs whose addresses are referenced via short PUSH so the
+    # funded account lands at the literal address (e.g. precompile
+    # 0x01) instead of a random ``pre.fund_eoa`` address.
+    for acct in raw_accounts:
+        if acct.address in short_push_eoa_refs:
             acct.use_dynamic = False
 
     # ------------------------------------------------------------------
