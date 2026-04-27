@@ -1,4 +1,7 @@
-"""Suicide scenario requested test https://github.com/ethereum/tests/issues/1325."""
+"""
+Self-destruct scenario requested test
+https://github.com/ethereum/tests/issues/1325.
+"""
 
 from typing import SupportsBytes
 
@@ -52,7 +55,7 @@ def selfdestruct_contract_address(
 
 @pytest.fixture
 def executor_contract_bytecode(
-    first_suicide: Op,
+    first_selfdestruct: Op,
     revert_contract_address: Address,
     selfdestruct_contract_address: Address,
 ) -> Bytecode:
@@ -61,9 +64,11 @@ def executor_contract_bytecode(
         Op.SSTORE(
             1,
             (
-                first_suicide(address=selfdestruct_contract_address, value=0)
-                if first_suicide in [Op.CALL, Op.CALLCODE]
-                else first_suicide(address=selfdestruct_contract_address)
+                first_selfdestruct(
+                    address=selfdestruct_contract_address, value=0
+                )
+                if first_selfdestruct in [Op.CALL, Op.CALLCODE]
+                else first_selfdestruct(address=selfdestruct_contract_address)
             ),
         )
         + Op.SSTORE(2, Op.CALL(address=revert_contract_address))
@@ -103,14 +108,14 @@ def executor_contract_address(
 
 @pytest.fixture
 def revert_contract_bytecode(
-    second_suicide: Op,
+    second_selfdestruct: Op,
     selfdestruct_contract_address: Address,
 ) -> Bytecode:
     """Contract code that performs a call and then reverts."""
     call_op = (
-        second_suicide(address=selfdestruct_contract_address, value=100)
-        if second_suicide in [Op.CALL, Op.CALLCODE]
-        else second_suicide(address=selfdestruct_contract_address)
+        second_selfdestruct(address=selfdestruct_contract_address, value=100)
+        if second_selfdestruct in [Op.CALL, Op.CALLCODE]
+        else second_selfdestruct(address=selfdestruct_contract_address)
     )
     return Op.MSTORE(0, Op.ADD(15, call_op)) + Op.REVERT(0, 32)
 
@@ -134,18 +139,18 @@ def revert_contract_address(
 
 @pytest.mark.valid_from("Paris")
 @pytest.mark.parametrize(
-    "first_suicide", [Op.CALL, Op.CALLCODE, Op.DELEGATECALL]
+    "first_selfdestruct", [Op.CALL, Op.CALLCODE, Op.DELEGATECALL]
 )
 @pytest.mark.parametrize(
-    "second_suicide", [Op.CALL, Op.CALLCODE, Op.DELEGATECALL]
+    "second_selfdestruct", [Op.CALL, Op.CALLCODE, Op.DELEGATECALL]
 )
 def test_reentrancy_selfdestruct_revert(
     pre: Alloc,
     env: Environment,
     sender: EOA,
     fork: Fork,
-    first_suicide: Op,
-    second_suicide: Op,
+    first_selfdestruct: Op,
+    second_selfdestruct: Op,
     state_test: StateTestFiller,
     selfdestruct_contract_bytecode: Bytecode,
     selfdestruct_contract_address: Address,
@@ -174,23 +179,24 @@ def test_reentrancy_selfdestruct_revert(
         ),
     }
 
-    if first_suicide in [Op.CALLCODE, Op.DELEGATECALL]:
+    if first_selfdestruct in [Op.CALLCODE, Op.DELEGATECALL]:
         if fork >= Cancun:
             # On Cancun even callcode/delegatecall does not remove the account,
             # so the value remain
             post[executor_contract_address] = Account(
                 storage={
-                    0x01: 0x01,  # First call to contract S->suicide success
-                    0x02: 0x00,  # Second call to contract S->suicide reverted
+                    0x01: 0x01,  # 1st call to contract S->selfdestruct success
+                    0x02: 0x00,  # 2nd call to contract S->selfdestruct revert
                     0x03: 16,  # Reverted value to check that revert really
                     # worked
                 },
             )
         else:
-            # Callcode executed first suicide from sender. sender is deleted
+            # Callcode executed first selfdestruct from sender.
+            # Sender is deleted.
             post[executor_contract_address] = Account.NONEXISTENT  # type: ignore
 
-        # Original suicide account remains in state
+        # Original selfdestruct account remains in state
         post[selfdestruct_contract_address] = Account(
             balance=selfdestruct_contract_init_balance, storage={}
         )
@@ -199,19 +205,19 @@ def test_reentrancy_selfdestruct_revert(
             balance=executor_contract_init_balance,
         )
 
-    # On Cancun suicide no longer destroys the account from state, just cleans
-    # the balance
-    if first_suicide in [Op.CALL]:
+    # On Cancun selfdestruct no longer destroys the account from state, just
+    # cleans the balance
+    if first_selfdestruct in [Op.CALL]:
         post[executor_contract_address] = Account(
             storage={
-                0x01: 0x01,  # First call to contract S->suicide success
-                0x02: 0x00,  # Second call to contract S->suicide reverted
+                0x01: 0x01,  # First call to contract S->selfdestruct success
+                0x02: 0x00,  # Second call to contract S->selfdestruct reverted
                 0x03: 16,  # Reverted value to check that revert really worked
             },
         )
         if fork >= Cancun:
-            # On Cancun suicide does not remove the account, just sends the
-            # balance
+            # On Cancun selfdestruct does not remove the account, just sends
+            # the balance
             post[selfdestruct_contract_address] = Account(
                 balance=0, code=selfdestruct_contract_bytecode, storage={}
             )
@@ -230,7 +236,7 @@ def test_reentrancy_selfdestruct_revert(
     # transfer is from executor.
     expected_receipt = None
     if fork.is_eip_enabled(7708):
-        if first_suicide == Op.CALL:
+        if first_selfdestruct == Op.CALL:
             expected_logs = [
                 transfer_log(
                     selfdestruct_contract_address,
@@ -238,7 +244,7 @@ def test_reentrancy_selfdestruct_revert(
                     selfdestruct_contract_init_balance,
                 )
             ]
-        else:
+        elif first_selfdestruct in [Op.CALLCODE, Op.DELEGATECALL]:
             expected_logs = [
                 transfer_log(
                     executor_contract_address,
@@ -246,6 +252,10 @@ def test_reentrancy_selfdestruct_revert(
                     executor_contract_init_balance,
                 )
             ]
+        else:
+            raise RuntimeError(
+                f"Unexpected opcode for test: {first_selfdestruct}"
+            )
         expected_receipt = TransactionReceipt(logs=expected_logs)
 
     tx = Transaction(

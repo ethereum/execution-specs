@@ -238,8 +238,8 @@ def test_create_selfdestruct_same_tx(
         initcode=selfdestruct_contract_initcode,
         opcode=create_opcode,
     )
-    for i in range(len(sendall_recipient_addresses)):
-        if sendall_recipient_addresses[i] == SELF_ADDRESS:
+    for i, addr in enumerate(sendall_recipient_addresses):
+        if addr == SELF_ADDRESS:
             sendall_recipient_addresses[i] = selfdestruct_contract_address
     if selfdestruct_contract_initial_balance > 0:
         pre.fund_address(
@@ -697,7 +697,7 @@ def test_recreate_self_destructed_contract_different_txs(
     entry_code_storage = Storage()
     sendall_amount = selfdestruct_contract_initial_balance
 
-    # Bytecode used to create the contract
+    # Validate bytecode used to create the contract
     assert create_opcode != Op.CREATE, (
         "cannot recreate contract using CREATE opcode"
     )
@@ -745,15 +745,15 @@ def test_recreate_self_destructed_contract_different_txs(
             selfdestruct_contract_address,
             selfdestruct_contract_initial_balance,
         )
-    for i in range(len(sendall_recipient_addresses)):
-        if sendall_recipient_addresses[i] == SELF_ADDRESS:
+    for i, addr in enumerate(sendall_recipient_addresses):
+        if addr == SELF_ADDRESS:
             sendall_recipient_addresses[i] = selfdestruct_contract_address
 
     txs: List[Transaction] = []
     for i in range(recreate_times + 1):
         expected_receipt = None
         if fork.is_eip_enabled(7708):
-            # First tx: contract gets recreated at pre-funded address, then
+            # First tx: contract is recreated at the pre-funded address, then
             # SELFDESTRUCTs transferring initial_balance to the recipient
             # (or emitting a Burn log when SD to self). Subsequent txs see
             # address with 0 balance (destroyed+cleared), so no log.
@@ -889,8 +889,8 @@ def test_selfdestruct_pre_existing(
     )
     entry_code_storage = Storage()
 
-    for i in range(len(sendall_recipient_addresses)):
-        if sendall_recipient_addresses[i] == SELF_ADDRESS:
+    for i, addr in enumerate(sendall_recipient_addresses):
+        if addr == SELF_ADDRESS:
             sendall_recipient_addresses[i] = selfdestruct_contract_address
 
     # Create a dict to record the expected final balances
