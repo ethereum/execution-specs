@@ -756,7 +756,7 @@ class TransitionTool(EthereumCLI):
         fork_name: str,
         chain_id: int,
         reward: int,
-        temp_dir: tempfile.TemporaryDirectory | None = None,
+        temp_dir: tempfile.TemporaryDirectory,
     ) -> List[str]:
         """Safely construct t8n arguments with validated inputs."""
         # Validate fork name against actual transition tool names from all
@@ -773,6 +773,11 @@ class TransitionTool(EthereumCLI):
         if not isinstance(reward, int) or reward < 0:
             raise ValueError(f"Invalid reward: {reward}")
 
+        if temp_dir is None:
+            raise ValueError(
+                "safe_t8n_args requires a temp_dir for file-based outputs"
+            )
+
         # Inputs still come through stdin; outputs go to files in the
         # existing temp dir so Python can stream-read the alloc rather than
         # buffering the full stdout.
@@ -783,11 +788,6 @@ class TransitionTool(EthereumCLI):
         output_alloc: LiteralString = "--output.alloc=output/alloc.json"
         output_body: LiteralString = "--output.body=output/txs.rlp"
         trace_flag: LiteralString = "--trace"
-
-        if temp_dir is None:
-            raise ValueError(
-                "safe_t8n_args requires a temp_dir for file-based outputs"
-            )
 
         args = [
             input_alloc,
@@ -837,8 +837,7 @@ class TransitionTool(EthereumCLI):
         """
         t8n_call = " ".join(args)
         t8n_output_base_dir = os.path.join(debug_output_path, "t8n.sh.out")
-        if self.trace:
-            t8n_call = t8n_call.replace(temp_dir.name, t8n_output_base_dir)
+        t8n_call = t8n_call.replace(temp_dir.name, t8n_output_base_dir)
         t8n_script = textwrap.dedent(
             f"""\
             #!/bin/bash
