@@ -75,7 +75,7 @@ def build_stateless_input(
             tx_bytes_list.append(Bytes(tx))
             # A typed tx may be malformed (pre-execution-rejected by
             # t8n but still committed to by the block's transactions
-            # trie). 
+            # trie).
             try:
                 tx_obj = decode_transaction(tx)
             except Exception:
