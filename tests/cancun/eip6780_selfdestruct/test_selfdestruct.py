@@ -409,7 +409,7 @@ def test_create_selfdestruct_same_tx(
 
 
 @pytest.mark.parametrize("create_opcode", [Op.CREATE, Op.CREATE2])
-@pytest.mark.parametrize("call_times", [0, 1])
+@pytest.mark.parametrize("call_times", [0, 1, 2])
 @pytest.mark.parametrize(
     "selfdestruct_contract_initial_balance",
     [0, 100_000],
@@ -502,7 +502,7 @@ def test_self_destructing_initcode(
         entry_code_balance += i
 
         entry_code += Op.SSTORE(
-            entry_code_storage.store_next(0),
+            entry_code_storage.store_next(entry_code_balance),
             Op.BALANCE(selfdestruct_contract_address),
         )
 
