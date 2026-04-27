@@ -1,0 +1,29 @@
+name: Setup uv and just
+description: Install uv, Python, and just for CI jobs
+inputs:
+  python-version:
+    description: Python version to install (e.g. "3.14", "pypy3.11")
+    default: "3.13"
+  enable-cache:
+    description: Enable uv dependency cache
+    default: "true"
+  cache-dependency-glob:
+    description: Glob for cache invalidation
+    default: "uv.lock"
+runs:
+  using: "composite"
+  steps:
+    - name: Install uv and python ${{ inputs.python-version }}
+      uses: astral-sh/setup-uv@e06108dd0aef18192324c70427afc47652e63a82 # v7.5.0
+      with:
+        enable-cache: ${{ inputs.enable-cache }}
+        cache-dependency-glob: ${{ inputs.cache-dependency-glob }}
+        version: "0.10.4"
+        python-version: ${{ inputs.python-version }}
+    - name: Prefer uv-managed Python over system Python
+      shell: bash
+      run: echo "UV_PYTHON_PREFERENCE=only-managed" >> "$GITHUB_ENV"
+    - name: Install just
+      uses: taiki-e/install-action@e24b8b7a939c6a537188f34a4163cb153dd85cf6 # v2.69.1
+      with:
+        tool: just@1.46
