@@ -73,7 +73,13 @@ def build_stateless_input(
             tx_bytes_list.append(Bytes(rlp.encode(tx)))
         else:
             tx_bytes_list.append(Bytes(tx))
-            tx_obj = decode_transaction(tx)
+            # A typed tx may be malformed (pre-execution-rejected by
+            # t8n but still committed to by the block's transactions
+            # trie). 
+            try:
+                tx_obj = decode_transaction(tx)
+            except Exception:
+                continue
             if isinstance(tx_obj, BlobTransaction):
                 versioned_hashes.extend(tx_obj.blob_versioned_hashes)
 
