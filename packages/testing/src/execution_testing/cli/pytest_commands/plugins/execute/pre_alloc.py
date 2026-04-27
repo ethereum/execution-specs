@@ -221,6 +221,39 @@ class _DeferredFundAddress:
     minimum_balance: bool
 
 
+def _compute_deploy_gas_limit(
+    fork: Fork,
+    *,
+    deploy_code_size: int,
+    initcode: Bytes | Initcode,
+    storage_slots: int = 0,
+) -> int:
+    """
+    Compute the gas_limit for a contract-deploy transaction.
+
+    Sums TX_BASE + TX_CREATE, the legacy code-deposit cost, the
+    EIP-8037 state-gas surcharge (zero on pre-Amsterdam forks),
+    memory expansion over the initcode, calldata cost, and the SSTORE
+    cost from an injected storage-init prefix, then doubles the total
+    as a safety buffer. Without the EIP-8037 component the buffer is
+    too small for larger contracts under Amsterdam and the deploy tx
+    runs out of gas mid-construction.
+    """
+    gas_costs = fork.gas_costs()
+    memory_expansion_gas_calculator = fork.memory_expansion_gas_calculator()
+    calldata_gas_calculator = fork.calldata_gas_calculator()
+
+    deploy_gas_limit = gas_costs.TX_BASE + gas_costs.TX_CREATE
+    deploy_gas_limit += storage_slots * 22_600
+    deploy_gas_limit += deploy_code_size * gas_costs.CODE_DEPOSIT_PER_BYTE
+    deploy_gas_limit += fork.code_deposit_state_gas(code_size=deploy_code_size)
+    deploy_gas_limit += memory_expansion_gas_calculator(
+        new_bytes=len(bytes(initcode))
+    )
+    deploy_gas_limit += calldata_gas_calculator(data=initcode)
+    return deploy_gas_limit * 2
+
+
 class Alloc(SharedAlloc):
     """A custom class that inherits from the original Alloc class."""
 
@@ -323,11 +356,6 @@ class Alloc(SharedAlloc):
         fork = self._fork.fork_at(
             block_number=self._block_number, timestamp=self._timestamp
         )
-        gas_costs = fork.gas_costs()
-        memory_expansion_gas_calculator = (
-            fork.memory_expansion_gas_calculator()
-        )
-        calldata_gas_calculator = fork.calldata_gas_calculator()
         if not isinstance(deploy_code, Bytes):
             deploy_code = Bytes(deploy_code)
         if initcode is None:
@@ -350,13 +378,11 @@ class Alloc(SharedAlloc):
             raise ValueError(
                 f"initcode too large {len(initcode)} > {max_initcode_size}"
             )
-        deploy_gas_limit = gas_costs.TX_BASE + gas_costs.TX_CREATE
-        deploy_gas_limit += len(deploy_code) * gas_costs.CODE_DEPOSIT_PER_BYTE
-        deploy_gas_limit += memory_expansion_gas_calculator(
-            new_bytes=len(initcode)
+        deploy_gas_limit = _compute_deploy_gas_limit(
+            fork,
+            deploy_code_size=len(deploy_code),
+            initcode=initcode,
         )
-        deploy_gas_limit += calldata_gas_calculator(data=initcode)
-        deploy_gas_limit = deploy_gas_limit * 2
         tx_gas_limit_cap = fork.transaction_gas_limit_cap()
         if tx_gas_limit_cap and deploy_gas_limit > tx_gas_limit_cap:
             raise ValueError(
@@ -405,11 +431,6 @@ class Alloc(SharedAlloc):
         fork = self._fork.fork_at(
             block_number=self._block_number, timestamp=self._timestamp
         )
-        gas_costs = fork.gas_costs()
-        memory_expansion_gas_calculator = (
-            fork.memory_expansion_gas_calculator()
-        )
-        calldata_gas_calculator = fork.calldata_gas_calculator()
 
         if not isinstance(storage, Storage):
             storage = Storage(storage)  # type: ignore
@@ -445,13 +466,10 @@ class Alloc(SharedAlloc):
 
         initcode_prefix = Bytecode()
 
-        deploy_gas_limit = gas_costs.TX_BASE + gas_costs.TX_CREATE
-
         if len(storage.root) > 0:
             initcode_prefix += sum(
                 Op.SSTORE(key, value) for key, value in storage.root.items()
             )
-            deploy_gas_limit += len(storage.root) * 22_600
 
         assert isinstance(code, Bytecode), (
             f"incompatible code type: {type(code)}"
@@ -462,13 +480,8 @@ class Alloc(SharedAlloc):
         if len(code) > max_code_size:
             raise ValueError(f"code too large: {len(code)} > {max_code_size}")
 
-        deploy_gas_limit += len(code) * gas_costs.CODE_DEPOSIT_PER_BYTE
-
         prepared_initcode = Initcode(
             deploy_code=code, initcode_prefix=initcode_prefix
-        )
-        deploy_gas_limit += memory_expansion_gas_calculator(
-            new_bytes=len(bytes(prepared_initcode))
         )
 
         max_initcode_size = fork.max_initcode_size()
@@ -478,9 +491,12 @@ class Alloc(SharedAlloc):
                 f"initcode too large {initcode_len} > {max_initcode_size}"
             )
 
-        deploy_gas_limit += calldata_gas_calculator(data=prepared_initcode)
-
-        deploy_gas_limit = deploy_gas_limit * 2
+        deploy_gas_limit = _compute_deploy_gas_limit(
+            fork,
+            deploy_code_size=len(code),
+            initcode=prepared_initcode,
+            storage_slots=len(storage.root),
+        )
         tx_gas_limit_cap = fork.transaction_gas_limit_cap()
         if tx_gas_limit_cap and deploy_gas_limit > tx_gas_limit_cap:
             raise ValueError(
