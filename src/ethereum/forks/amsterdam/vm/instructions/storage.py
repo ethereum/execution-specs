@@ -23,12 +23,12 @@ from ...state_tracker import (
 from .. import Evm, credit_state_gas_refund
 from ..exceptions import WriteInStaticContext
 from ..gas import (
+    COST_PER_STATE_BYTE,
     STATE_BYTES_PER_STORAGE_SET,
     GasCosts,
     charge_gas,
     charge_state_gas,
     check_gas,
-    state_gas_per_byte,
 )
 from ..stack import pop, push
 
@@ -90,10 +90,7 @@ def sstore(evm: Evm) -> None:
     )
     current_value = get_storage(tx_state, evm.message.current_target, key)
 
-    cost_per_state_byte = state_gas_per_byte(
-        evm.message.block_env.block_gas_limit
-    )
-    state_gas_storage_set = STATE_BYTES_PER_STORAGE_SET * cost_per_state_byte
+    state_gas_storage_set = STATE_BYTES_PER_STORAGE_SET * COST_PER_STATE_BYTE
     gas_cost = Uint(0)
 
     if (evm.message.current_target, key) not in evm.accessed_storage_keys:
