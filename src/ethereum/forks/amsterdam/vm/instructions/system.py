@@ -47,6 +47,7 @@ from .. import (
 )
 from ..exceptions import OutOfGasError, Revert, WriteInStaticContext
 from ..gas import (
+    COST_PER_STATE_BYTE,
     REGULAR_GAS_CREATE,
     STATE_BYTES_PER_NEW_ACCOUNT,
     GasCosts,
@@ -57,7 +58,6 @@ from ..gas import (
     check_gas,
     init_code_cost,
     max_message_call_gas,
-    state_gas_per_byte,
 )
 from ..memory import memory_read_bytes, memory_write
 from ..stack import pop, push
@@ -87,11 +87,8 @@ def generic_create(
 
     # Charge state gas for account creation (pay-before-execute).
     # Refunded to the reservoir on any failure path below.
-    cost_per_state_byte = state_gas_per_byte(
-        evm.message.block_env.block_gas_limit
-    )
     create_account_state_gas = (
-        STATE_BYTES_PER_NEW_ACCOUNT * cost_per_state_byte
+        STATE_BYTES_PER_NEW_ACCOUNT * COST_PER_STATE_BYTE
     )
     charge_state_gas(evm, create_account_state_gas)
 
@@ -469,11 +466,8 @@ def call(evm: Evm) -> None:
     # Applies here and in create, create2, selfdestruct. See #2526.
     charge_gas(evm, extra_gas + extend_memory.cost)
     if value != 0 and not is_account_alive(tx_state, to):
-        cost_per_state_byte = state_gas_per_byte(
-            evm.message.block_env.block_gas_limit
-        )
         charge_state_gas(
-            evm, STATE_BYTES_PER_NEW_ACCOUNT * cost_per_state_byte
+            evm, STATE_BYTES_PER_NEW_ACCOUNT * COST_PER_STATE_BYTE
         )
 
     message_call_gas = calculate_message_call_gas(
@@ -671,11 +665,8 @@ def selfdestruct(evm: Evm) -> None:
     # reservoir on frame failure.
     charge_gas(evm, gas_cost)
     if needs_state_gas:
-        cost_per_state_byte = state_gas_per_byte(
-            evm.message.block_env.block_gas_limit
-        )
         charge_state_gas(
-            evm, STATE_BYTES_PER_NEW_ACCOUNT * cost_per_state_byte
+            evm, STATE_BYTES_PER_NEW_ACCOUNT * COST_PER_STATE_BYTE
         )
 
     originator = evm.message.current_target

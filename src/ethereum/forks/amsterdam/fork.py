@@ -101,6 +101,7 @@ from .utils.message import prepare_message
 from .vm import Message
 from .vm.eoa_delegation import is_valid_delegation
 from .vm.gas import (
+    COST_PER_STATE_BYTE,
     STATE_BYTES_PER_NEW_ACCOUNT,
     STATE_BYTES_PER_STORAGE_SET,
     GasCosts,
@@ -108,7 +109,6 @@ from .vm.gas import (
     calculate_data_fee,
     calculate_excess_blob_gas,
     calculate_total_blob_gas,
-    state_gas_per_byte,
 )
 from .vm.interpreter import MessageCallOutput, process_message_call
 
@@ -999,7 +999,7 @@ def process_transaction(
         encode_transaction(tx),
     )
 
-    intrinsic = validate_transaction(tx, block_env.block_gas_limit)
+    intrinsic = validate_transaction(tx)
 
     intrinsic_gas = intrinsic.regular + intrinsic.state
 
@@ -1082,18 +1082,17 @@ def process_transaction(
     else:
         # Refund state gas for accounts created and destroyed in the
         # same tx (EIP-6780). Covers account, storage, and code.
-        cost_per_state_byte = state_gas_per_byte(block_env.block_gas_limit)
         for address in tx_output.accounts_to_delete:
             if address in tx_state.created_accounts:
                 selfdestruct_refund = (
-                    STATE_BYTES_PER_NEW_ACCOUNT * cost_per_state_byte
+                    STATE_BYTES_PER_NEW_ACCOUNT * COST_PER_STATE_BYTE
                 )
                 storage = tx_state.storage_writes.get(address, {})
                 created_slots = sum(1 for v in storage.values() if v != 0)
                 selfdestruct_refund += (
                     Uint(created_slots)
                     * STATE_BYTES_PER_STORAGE_SET
-                    * cost_per_state_byte
+                    * COST_PER_STATE_BYTE
                 )
                 # EIP-6780 defers account/storage/code removal to
                 # tx-end, so `account.code_hash` still points at the
@@ -1101,7 +1100,7 @@ def process_transaction(
                 # pre-deletion.
                 account = get_account(tx_state, address)
                 code = get_code(tx_state, account.code_hash)
-                selfdestruct_refund += Uint(len(code)) * cost_per_state_byte
+                selfdestruct_refund += Uint(len(code)) * COST_PER_STATE_BYTE
                 selfdestruct_refund = min(
                     selfdestruct_refund, tx_output.state_gas_used
                 )
