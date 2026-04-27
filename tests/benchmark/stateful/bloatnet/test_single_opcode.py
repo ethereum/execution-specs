@@ -327,7 +327,7 @@ def test_sload_bloated_prefetch_miss(
     # distinct mode, a single shared sender otherwise). The senders
     # list collects one entry per tx so the BAL builder below can
     # group nonce changes by sender uniformly.
-    senders_iter = _sender_generator(pre, distinct_senders)
+    #senders_iter = _sender_generator(pre, distinct_senders)
     senders: list[EOA] = []
 
     gas_available = gas_benchmark_value
@@ -341,7 +341,8 @@ def test_sload_bloated_prefetch_miss(
     # reads an offset the prefetcher's pre-block snapshot does
     # not see, achieving a 100% prefetch miss rate on max-gas txs.
     first_tx_gas = min(gas_available, intrinsic_gas + 30_000)
-    sender = next(senders_iter)
+    sender = pre.fund_eoa()
+    nondistinct=sender
     senders.append(sender)
     txs.append(
         Transaction(
@@ -359,7 +360,7 @@ def test_sload_bloated_prefetch_miss(
     while gas_available >= intrinsic_gas:
         tx_gas = min(gas_available, tx_gas_limit)
         new_offset = base_offset + tx_index * max_sloads_per_tx
-        sender = next(senders_iter)
+        sender = pre.fund_eoa() if distinct_senders else nondistinct
         senders.append(sender)
         txs.append(
             Transaction(
@@ -367,6 +368,7 @@ def test_sload_bloated_prefetch_miss(
                 to=authority,
                 data=Hash(new_offset),
                 sender=sender,
+                #value=1
             )
         )
         gas_available -= tx_gas
@@ -495,7 +497,7 @@ def test_sload_bloated_multi_contract(
     # distinct mode, a single shared sender otherwise). The senders
     # list collects one entry per tx so the BAL builder below can
     # group nonce changes by sender uniformly.
-    senders_iter = _sender_generator(pre, distinct_senders)
+    #senders_iter = _sender_generator(pre, distinct_senders)
     senders: list[EOA] = []
 
     gas_available = gas_benchmark_value
@@ -504,6 +506,7 @@ def test_sload_bloated_multi_contract(
 
     # Each tx targets a freshly-deployed contract with identical code
     # and storage layout.
+    nondistinct = pre.fund_eoa()
     while gas_available >= min_tx_gas:
         tx_gas = min(gas_available, tx_gas_limit)
         target = pre.deploy_contract(
@@ -511,7 +514,7 @@ def test_sload_bloated_multi_contract(
             storage=Storage(storage_data),
         )
         targets.append(target)
-        sender = next(senders_iter)
+        sender = pre.fund_eoa() if distinct_senders else nondistinct
         senders.append(sender)
         txs.append(
             Transaction(
