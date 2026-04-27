@@ -35,8 +35,8 @@ from ..blocks import Log
 from ..state_tracker import (
     account_has_code_or_nonce,
     account_has_storage,
-    compute_state_growth_cost,
     copy_tx_state,
+    destroy_account,
     destroy_storage,
     get_account,
     get_code,
@@ -327,14 +327,23 @@ def process_message(message: Message) -> Evm:
         evm_trace(evm, OpException(error))
         evm.error = error
 
-    # EIP-8037: charge state gas based on actual state diff at call return
+    # EIP-8037: at depth 0, finalize SELFDESTRUCT same-tx destructions
+    # before the counter charge so the destroy hooks credit
+    # tx_state.state_delta_bytes naturally (account, code, storage).
+    if message.depth == Uint(0) and not evm.error:
+        for address in evm.accounts_to_delete:
+            if address in tx_state.created_accounts:
+                destroy_account(tx_state, address)
+
+    # EIP-8037: charge state gas from the per-frame state-byte counter.
     if not evm.error:
         cost_per_state_byte = state_gas_per_byte(
             message.block_env.block_gas_limit
         )
-        growth_cost = compute_state_growth_cost(
-            snapshot, tx_state, cost_per_state_byte
+        frame_delta_bytes = (
+            tx_state.state_delta_bytes - snapshot.state_delta_bytes
         )
+        growth_cost = frame_delta_bytes * int(cost_per_state_byte)
         # Inner calls already deducted from reservoir
         already_paid = int(message.state_gas_reservoir) - int(
             evm.state_gas_left

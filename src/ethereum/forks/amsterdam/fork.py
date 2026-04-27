@@ -1114,8 +1114,9 @@ def process_transaction(
 
     block_output.block_logs += tx_output.logs
 
-    for address in tx_output.accounts_to_delete:
-        destroy_account(tx_state, address)
+    # SELFDESTRUCT same-tx destructions are finalized inside
+    # process_message at depth 0 so the state_delta_bytes counter
+    # captures them; no per-tx loop is needed here.
 
     incorporate_tx_into_block(tx_state, block_env.block_access_list_builder)
 
