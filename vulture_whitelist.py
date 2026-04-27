@@ -71,8 +71,6 @@ docc._HardenVisitor.enter
 docc._MinimizeDiffsVisitor.enter
 docc.render_diff
 docc.render_before_after
-docc.SupportsDunderGT
-docc.SupportsDunderLT
 docc._EthereumListingSource.listing_order_key
 
 # src/ethereum_spec_tools/evm_tools/daemon.py
