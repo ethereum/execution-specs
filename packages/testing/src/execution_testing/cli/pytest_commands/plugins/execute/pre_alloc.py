@@ -366,9 +366,7 @@ class Alloc(SharedAlloc):
                 f"deterministic deploy regular gas exceeds the transaction "
                 f"gas limit cap: {regular_gas} > {tx_gas_limit_cap}"
             )
-        deploy_gas_limit = regular_gas + fork.create_state_gas(
-            code_size=len(deploy_code)
-        )
+        deploy_gas_limit = regular_gas
 
         # Defer the on-chain check; the deploy tx (if needed) and the
         # alloc update will happen in resolve_deferred_checks.
@@ -496,10 +494,7 @@ class Alloc(SharedAlloc):
                 f"deploy regular gas exceeds the transaction gas limit cap: "
                 f"{regular_gas} > {tx_gas_limit_cap}"
             )
-        deploy_gas_limit = regular_gas + fork.create_state_gas(
-            code_size=len(code)
-        )
-        deploy_gas_limit += len(storage.root) * fork.sstore_state_gas()
+        deploy_gas_limit = regular_gas
 
         deploy_tx = self._add_pending_tx(
             action="deploy_contract",
