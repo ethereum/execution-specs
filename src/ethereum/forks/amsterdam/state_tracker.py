@@ -38,10 +38,6 @@ from ethereum.state import (
 if TYPE_CHECKING:
     from .block_access_lists import BlockAccessListBuilder
 
-# EIP-8037 state byte costs
-STATE_BYTES_NEW_ACCOUNT = 112
-STATE_BYTES_STORAGE_SET = 32
-
 
 @dataclass
 class BlockState:
@@ -92,7 +88,6 @@ class TransactionState:
     transient_storage: Dict[Tuple[Address, Bytes32], U256] = field(
         default_factory=dict
     )
-    state_delta_bytes: int = 0
 
 
 def get_account_optional(
@@ -392,9 +387,6 @@ def set_account(
     deletes the account (but not its storage, see
     ``destroy_account()``).
 
-    Bump ``tx_state.state_delta_bytes`` by ±``STATE_BYTES_NEW_ACCOUNT``
-    on a ``None ↔ Some`` transition for EIP-8037 state gas accounting.
-
     Parameters
     ----------
     tx_state :
@@ -405,13 +397,6 @@ def set_account(
         Account to set at address.
 
     """
-    before = get_account_optional(tx_state, address)
-    before_existed = before is not None
-    after_exists = account is not None
-    if not before_existed and after_exists:
-        tx_state.state_delta_bytes += STATE_BYTES_NEW_ACCOUNT
-    elif before_existed and not after_exists:
-        tx_state.state_delta_bytes -= STATE_BYTES_NEW_ACCOUNT
     tx_state.account_writes[address] = account
 
 
@@ -423,9 +408,6 @@ def set_storage(
 ) -> None:
     """
     Set a value at a storage key on an account.
-
-    Bump ``tx_state.state_delta_bytes`` by ±``STATE_BYTES_STORAGE_SET``
-    on a ``0 ↔ nonzero`` transition for EIP-8037 state gas accounting.
 
     Parameters
     ----------
@@ -440,11 +422,6 @@ def set_storage(
 
     """
     assert get_account_optional(tx_state, address) is not None
-    old_value = get_storage(tx_state, address, key)
-    if old_value == U256(0) and value != U256(0):
-        tx_state.state_delta_bytes += STATE_BYTES_STORAGE_SET
-    elif old_value != U256(0) and value == U256(0):
-        tx_state.state_delta_bytes -= STATE_BYTES_STORAGE_SET
     if address not in tx_state.storage_writes:
         tx_state.storage_writes[address] = {}
     tx_state.storage_writes[address][key] = value
@@ -459,10 +436,6 @@ def destroy_account(tx_state: TransactionState, address: Address) -> None:
     future hardfork and this function will be removed. Only supports same
     transaction destruction.
 
-    Credits the deployed code's bytes to ``tx_state.state_delta_bytes``
-    here (looked up before destruction); the account and storage credits
-    flow through the inner ``set_account``/``destroy_storage`` calls.
-
     Parameters
     ----------
     tx_state :
@@ -471,10 +444,6 @@ def destroy_account(tx_state: TransactionState, address: Address) -> None:
         Address of account to destroy.
 
     """
-    account = get_account_optional(tx_state, address)
-    if account is not None:
-        code = get_code(tx_state, account.code_hash)
-        tx_state.state_delta_bytes -= len(code)
     destroy_storage(tx_state, address)
     set_account(tx_state, address, None)
 
@@ -487,9 +456,6 @@ def destroy_storage(tx_state: TransactionState, address: Address) -> None:
     from created-then-destroyed accounts appear in the Block Access
     List. Only supports same transaction destruction.
 
-    Credits ``tx_state.state_delta_bytes`` by ``STATE_BYTES_STORAGE_SET``
-    for each non-zero slot being cleared.
-
     Parameters
     ----------
     tx_state :
@@ -499,9 +465,6 @@ def destroy_storage(tx_state: TransactionState, address: Address) -> None:
 
     """
     if address in tx_state.storage_writes:
-        for value in tx_state.storage_writes[address].values():
-            if value != U256(0):
-                tx_state.state_delta_bytes -= STATE_BYTES_STORAGE_SET
         for key in tx_state.storage_writes[address]:
             tx_state.storage_reads.add((address, key))
         del tx_state.storage_writes[address]
@@ -653,9 +616,6 @@ def set_code(
     """
     Set Account code.
 
-    Bumps ``tx_state.state_delta_bytes`` by ``len(code)`` if this call
-    introduces a fresh ``code_hash`` to ``tx_state.code_writes``.
-
     Parameters
     ----------
     tx_state :
@@ -668,8 +628,6 @@ def set_code(
     """
     code_hash = keccak256(code)
     if code_hash != EMPTY_CODE_HASH:
-        if code_hash not in tx_state.code_writes:
-            tx_state.state_delta_bytes += len(code)
         tx_state.code_writes[code_hash] = code
 
     def write_code_hash(sender: Account) -> None:
@@ -712,7 +670,6 @@ def copy_tx_state(tx_state: TransactionState) -> TransactionState:
         transient_storage=dict(tx_state.transient_storage),
         storage_reads=tx_state.storage_reads,
         account_reads=tx_state.account_reads,
-        state_delta_bytes=tx_state.state_delta_bytes,
     )
 
 
@@ -734,7 +691,6 @@ def restore_tx_state(
     tx_state.storage_writes = snapshot.storage_writes
     tx_state.code_writes = snapshot.code_writes
     tx_state.transient_storage = snapshot.transient_storage
-    tx_state.state_delta_bytes = snapshot.state_delta_bytes
 
 
 # -- Lifecycle --------------------------------------------------------------

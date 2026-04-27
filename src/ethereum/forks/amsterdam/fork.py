@@ -971,7 +971,7 @@ def process_transaction(
         encode_transaction(tx),
     )
 
-    intrinsic = validate_transaction(tx, block_env.block_gas_limit)
+    intrinsic = validate_transaction(tx)
 
     intrinsic_gas = intrinsic.regular + intrinsic.state
 

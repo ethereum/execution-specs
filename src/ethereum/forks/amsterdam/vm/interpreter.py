@@ -41,6 +41,7 @@ from ..state_tracker import (
     get_account,
     get_code,
     increment_nonce,
+    is_account_alive,
     mark_account_created,
     move_ether,
     restore_tx_state,
@@ -48,7 +49,13 @@ from ..state_tracker import (
 )
 from ..vm import Message
 from ..vm.eoa_delegation import get_delegated_code_address, set_delegation
-from ..vm.gas import GasCosts, charge_gas, state_gas_per_byte
+from ..vm.gas import (
+    COST_PER_STATE_BYTE,
+    STATE_BYTES_PER_NEW_ACCOUNT,
+    STATE_BYTES_PER_STORAGE_SET,
+    GasCosts,
+    charge_gas,
+)
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import Evm
 from .exceptions import (
@@ -226,8 +233,6 @@ def process_create_message(message: Message) -> Evm:
                 // Uint(32)
             )
             charge_gas(evm, code_hash_gas)
-            # EIP-8037 diff-at-return: code deposit state gas is
-            # computed from the state diff at call return.
         except ExceptionalHalt as error:
             restore_tx_state(tx_state, snapshot)
             evm.regular_gas_used += evm.gas_left
@@ -238,6 +243,13 @@ def process_create_message(message: Message) -> Evm:
             evm.error = error
         else:
             set_code(tx_state, message.current_target, contract_code)
+            # EIP-8037: count the new account and the deployed code on
+            # this CREATE frame's counter. Only fires on the successful
+            # deployment path; init-code OOG and invalid-code paths
+            # restore_tx_state above and discard the bump implicitly
+            # (this branch is unreached).
+            evm.state_delta_bytes += int(STATE_BYTES_PER_NEW_ACCOUNT)
+            evm.state_delta_bytes += len(contract_code)
     else:
         restore_tx_state(tx_state, snapshot)
     return evm
@@ -289,12 +301,19 @@ def process_message(message: Message) -> Evm:
     snapshot = copy_tx_state(tx_state)
 
     if message.should_transfer_value and message.value != 0:
+        # EIP-8037: a value transfer to an empty/non-existent target
+        # creates a new account; charge the new-account state bytes.
+        creates_target_account = not is_account_alive(
+            tx_state, message.current_target
+        )
         move_ether(
             tx_state,
             message.caller,
             message.current_target,
             message.value,
         )
+        if creates_target_account:
+            evm.state_delta_bytes += int(STATE_BYTES_PER_NEW_ACCOUNT)
 
     try:
         if evm.message.code_address in PRE_COMPILED_CONTRACTS:
@@ -328,22 +347,28 @@ def process_message(message: Message) -> Evm:
         evm.error = error
 
     # EIP-8037: at depth 0, finalize SELFDESTRUCT same-tx destructions
-    # before the counter charge so the destroy hooks credit
-    # tx_state.state_delta_bytes naturally (account, code, storage).
+    # before the counter charge. Debit the counter for each destroyed
+    # account's bytes (account, code, non-zero storage slots) before
+    # actually destroying.
     if message.depth == Uint(0) and not evm.error:
         for address in evm.accounts_to_delete:
             if address in tx_state.created_accounts:
+                account = get_account(tx_state, address)
+                code = get_code(tx_state, account.code_hash)
+                evm.state_delta_bytes -= int(STATE_BYTES_PER_NEW_ACCOUNT)
+                evm.state_delta_bytes -= len(code)
+                for slot_value in tx_state.storage_writes.get(
+                    address, {}
+                ).values():
+                    if slot_value != U256(0):
+                        evm.state_delta_bytes -= int(
+                            STATE_BYTES_PER_STORAGE_SET
+                        )
                 destroy_account(tx_state, address)
 
     # EIP-8037: charge state gas from the per-frame state-byte counter.
     if not evm.error:
-        cost_per_state_byte = state_gas_per_byte(
-            message.block_env.block_gas_limit
-        )
-        frame_delta_bytes = (
-            tx_state.state_delta_bytes - snapshot.state_delta_bytes
-        )
-        growth_cost = frame_delta_bytes * int(cost_per_state_byte)
+        growth_cost = evm.state_delta_bytes * int(COST_PER_STATE_BYTE)
         # Inner calls already deducted from reservoir
         already_paid = int(message.state_gas_reservoir) - int(
             evm.state_gas_left

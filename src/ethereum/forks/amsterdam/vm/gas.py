@@ -43,16 +43,16 @@ class GasCosts:
     COLD_ACCOUNT_ACCESS = Uint(2600)
     COLD_STORAGE_ACCESS = Uint(2100)
 
-    # Storage (EIP-8037: regular gas reduced; state gas via diff at return)
+    # Storage
     STORAGE_SET = Uint(5000)
     COLD_STORAGE_WRITE = Uint(5000)
 
-    # Call (EIP-8037: NEW_ACCOUNT regular charge removed; state gas via diff)
+    # Call
     CALL_VALUE = Uint(9000)
     CALL_STIPEND = Uint(2300)
     NEW_ACCOUNT = Uint(0)
 
-    # Contract Creation (EIP-8037: code deposit regular charge removed)
+    # Contract Creation
     CODE_DEPOSIT_PER_BYTE = Uint(0)
     CODE_INIT_PER_WORD = Uint(2)
 
@@ -101,7 +101,7 @@ class GasCosts:
     # Block Access Lists
     BLOCK_ACCESS_LIST_ITEM = Uint(2000)
 
-    # Transactions (EIP-8037: TX_CREATE regular reduced; state gas intrinsic)
+    # Transactions
     TX_BASE = Uint(21000)
     TX_CREATE = Uint(9000)
     TX_DATA_TOKEN_STANDARD = Uint(4)
@@ -170,7 +170,7 @@ class GasCosts:
     OPCODE_DUP = VERY_LOW
     OPCODE_SWAP = VERY_LOW
 
-    # Dynamic Opcode Components (EIP-8037: CREATE regular reduced)
+    # Dynamic Opcode Components
     OPCODE_RETURNDATACOPY_BASE = VERY_LOW
     OPCODE_RETURNDATACOPY_PER_WORD = Uint(3)
     OPCODE_CALLDATACOPY_BASE = VERY_LOW
@@ -192,11 +192,7 @@ class GasCosts:
     OPCODE_SELFDESTRUCT_NEW_ACCOUNT = Uint(0)
 
 
-# EIP-8037 state gas constants
-TARGET_STATE_GROWTH_PER_YEAR = Uint(100 * 1024**3)  # noqa: F841
-BLOCKS_PER_YEAR = Uint(2_628_000)  # noqa: F841
-COST_PER_STATE_BYTE_SIGNIFICANT_BITS = Uint(5)  # noqa: F841
-COST_PER_STATE_BYTE_OFFSET = Uint(9578)  # noqa: F841
+COST_PER_STATE_BYTE = Uint(1174)
 
 STATE_BYTES_PER_NEW_ACCOUNT = Uint(112)
 STATE_BYTES_PER_STORAGE_SET = Uint(32)
@@ -236,40 +232,6 @@ class MessageCallGas:
 
     cost: Uint
     sub_call: Uint
-
-
-def state_gas_per_byte(gas_limit: Uint) -> Uint:  # noqa: ARG001
-    """
-    Calculate the state gas cost per byte based on the block gas limit.
-
-    At a gas limit of 100,000,000 this returns 1174.
-
-    Parameters
-    ----------
-    gas_limit :
-        The block gas limit.
-
-    Returns
-    -------
-    state_gas_per_byte : `Uint`
-        The state gas cost per byte.
-
-    """
-    # TODO: Remove hardcoded value and restore the formula below
-    #   once the static tests use the correct gas limit.
-    return Uint(1174)
-    # numerator = gas_limit * BLOCKS_PER_YEAR
-    # denominator = Uint(2) * TARGET_STATE_GROWTH_PER_YEAR
-    # raw = (numerator + denominator - Uint(1)) // denominator
-    # shifted = raw + COST_PER_STATE_BYTE_OFFSET
-    # shift = max(
-    #     shifted.bit_length()
-    #         - COST_PER_STATE_BYTE_SIGNIFICANT_BITS, Uint(0)
-    # )
-    # quantized = (shifted >> shift) << shift
-    # if quantized > COST_PER_STATE_BYTE_OFFSET:
-    #     return quantized - COST_PER_STATE_BYTE_OFFSET
-    # return Uint(1)
 
 
 def check_gas(evm: Evm, amount: Uint) -> None:

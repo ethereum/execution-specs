@@ -173,6 +173,7 @@ class Evm:
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
     regular_gas_used: Uint = Uint(0)
     state_gas_used: Uint = Uint(0)
+    state_delta_bytes: int = 0
 
 
 def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
@@ -196,6 +197,7 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
     evm.accessed_storage_keys.update(child_evm.accessed_storage_keys)
     evm.regular_gas_used += child_evm.regular_gas_used
     evm.state_gas_used += child_evm.state_gas_used
+    evm.state_delta_bytes += child_evm.state_delta_bytes
 
 
 def incorporate_child_on_error(

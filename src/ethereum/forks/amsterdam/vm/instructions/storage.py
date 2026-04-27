@@ -11,7 +11,7 @@ Introduction
 Implementations of the EVM storage related instructions.
 """
 
-from ethereum_types.numeric import Uint
+from ethereum_types.numeric import U256, Uint
 
 from ...state_tracker import (
     get_storage,
@@ -23,6 +23,7 @@ from ...state_tracker import (
 from .. import Evm
 from ..exceptions import WriteInStaticContext
 from ..gas import (
+    STATE_BYTES_PER_STORAGE_SET,
     GasCosts,
     charge_gas,
     check_gas,
@@ -93,8 +94,6 @@ def sstore(evm: Evm) -> None:
         evm.accessed_storage_keys.add((evm.message.current_target, key))
         gas_cost += GasCosts.COLD_STORAGE_ACCESS
 
-    # EIP-8037 diff-at-return: state gas for storage creation is
-    # computed from the state diff at call return, not charged here.
     if original_value == current_value and current_value != new_value:
         gas_cost += GasCosts.COLD_STORAGE_WRITE - GasCosts.COLD_STORAGE_ACCESS
     else:
@@ -125,6 +124,12 @@ def sstore(evm: Evm) -> None:
 
     charge_gas(evm, gas_cost)
     set_storage(tx_state, evm.message.current_target, key, new_value)
+
+    # EIP-8037: count state-byte delta for the slot transition.
+    if current_value == U256(0) and new_value != U256(0):
+        evm.state_delta_bytes += int(STATE_BYTES_PER_STORAGE_SET)
+    elif current_value != U256(0) and new_value == U256(0):
+        evm.state_delta_bytes -= int(STATE_BYTES_PER_STORAGE_SET)
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
