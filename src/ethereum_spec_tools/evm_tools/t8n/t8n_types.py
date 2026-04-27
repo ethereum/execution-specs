@@ -412,16 +412,16 @@ class Result:
                 slot_number=block_env.slot_number,
             )
 
-            # TODO: perhaps change this for t8n.all_txs minus rejected_txs?
-            included_txs = []
-            for key in block_output.receipt_keys:
+            payload_txs = []
+            for tx_index in range(len(t8n.txs.transactions)):
+                key = rlp.encode(Uint(tx_index))
                 tx = t8n.fork.trie_get(block_output.transactions_trie, key)
                 assert tx is not None
-                included_txs.append(tx)
+                payload_txs.append(tx)
 
             block = t8n.fork.Block(
                 header=header,
-                transactions=tuple(included_txs),
+                transactions=tuple(payload_txs),
                 ommers=(),
                 withdrawals=withdrawals,
             )
