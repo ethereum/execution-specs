@@ -234,6 +234,91 @@ def test_transition_tool_input_serializes_lazy_alloc_file(
     assert Alloc.model_validate(parsed["alloc"]) == TEST_ALLOC
 
 
+def test_to_files_copies_chained_lazy_alloc_file_without_serialize(
+    tmp_path: Path,
+) -> None:
+    """
+    Chained-block handoff: `to_files` should copy the backing alloc file
+    byte-for-byte rather than round-tripping through
+    `LazyAllocFile.get().model_dump_json()`. Verified by populating the
+    file with bytes that don't match what pydantic would re-emit and
+    asserting those exact bytes survive the dump.
+    """
+    source = tmp_path / "source_alloc.json"
+    # Indented form is not what `Alloc.model_dump_json()` emits — if to_files
+    # re-serialized through pydantic, the indentation would be lost.
+    source_bytes = json.dumps(
+        TEST_ALLOC.model_dump(mode="json"), indent=4
+    ).encode()
+    source.write_bytes(source_bytes)
+
+    lazy = LazyAllocFile(raw=source, _state_root=TEST_ALLOC_STATE_ROOT)
+    input_data = TransitionToolInput(alloc=lazy, txs=[], env=Environment())
+
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    paths = input_data.to_files(out_dir, by_alias=True, exclude_none=True)
+    assert Path(paths["alloc"]).read_bytes() == source_bytes
+
+
+def test_model_dump_json_exclude_alloc_omits_alloc_field(
+    tmp_path: Path,
+) -> None:
+    """
+    `model_dump_json(exclude_alloc=True)` skips the alloc — used when the
+    t8n is reading alloc from `--input.alloc=<path>` instead of the stdin
+    bundle, so Python never builds the multi-GB alloc JSON string.
+    """
+    source = tmp_path / "alloc.json"
+    source.write_text(TEST_ALLOC.model_dump_json())
+    lazy = LazyAllocFile(raw=source, _state_root=TEST_ALLOC_STATE_ROOT)
+    input_data = TransitionToolInput(alloc=lazy, txs=[], env=Environment())
+
+    full = json.loads(
+        input_data.model_dump_json(by_alias=True, exclude_none=True)
+    )
+    assert set(full.keys()) == {"alloc", "env", "txs"}
+
+    slim = json.loads(
+        input_data.model_dump_json(
+            exclude_alloc=True, by_alias=True, exclude_none=True
+        )
+    )
+    assert "alloc" not in slim
+    assert set(slim.keys()) == {"env", "txs"}
+
+
+def test_lazy_alloc_file_keepalive_pins_temp_dir() -> None:
+    """
+    `LazyAllocFile._keepalive` holds a `TemporaryDirectory` reference so
+    the on-disk alloc.json survives past the producing t8n call's logical
+    cleanup point — the next chained block can then consume the file
+    directly. Dropping the LazyAllocFile releases the keepalive and the
+    temp dir is cleaned up.
+    """
+    import tempfile
+
+    keep = tempfile.TemporaryDirectory()
+    keep_path = Path(keep.name)
+    alloc_path = keep_path / "alloc.json"
+    alloc_path.write_text(TEST_ALLOC.model_dump_json())
+
+    lazy = LazyAllocFile(
+        raw=alloc_path,
+        _state_root=TEST_ALLOC_STATE_ROOT,
+        _keepalive=keep,
+    )
+    # Releasing our handle leaves the file alive via the keepalive on lazy.
+    del keep
+    assert alloc_path.exists()
+    assert lazy.get() == TEST_ALLOC
+
+    # Dropping the LazyAllocFile drops the keepalive; TemporaryDirectory's
+    # finalizer wipes the directory.
+    del lazy
+    assert not keep_path.exists()
+
+
 def test_dump_files_to_directory_copies_lazy_alloc_file(
     tmp_path: Path,
 ) -> None:
