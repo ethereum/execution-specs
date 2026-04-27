@@ -48,10 +48,10 @@ from ..state_tracker import (
 from ..vm import Message
 from ..vm.eoa_delegation import get_delegated_code_address, set_delegation
 from ..vm.gas import (
+    COST_PER_STATE_BYTE,
     GasCosts,
     charge_gas,
     charge_state_gas,
-    state_gas_per_byte,
 )
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import Evm
@@ -230,11 +230,8 @@ def process_create_message(message: Message) -> Evm:
                 // Uint(32)
             )
             charge_gas(evm, code_hash_gas)
-            cost_per_state_byte = state_gas_per_byte(
-                message.block_env.block_gas_limit
-            )
             code_deposit_state_gas = (
-                Uint(len(contract_code)) * cost_per_state_byte
+                Uint(len(contract_code)) * COST_PER_STATE_BYTE
             )
             charge_state_gas(evm, code_deposit_state_gas)
         except ExceptionalHalt as error:

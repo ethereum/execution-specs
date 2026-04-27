@@ -22,9 +22,9 @@ from ..state_tracker import (
 )
 from ..utils.hexadecimal import hex_to_address
 from ..vm.gas import (
+    COST_PER_STATE_BYTE,
     STATE_BYTES_PER_NEW_ACCOUNT,
     GasCosts,
-    state_gas_per_byte,
 )
 from . import Evm, Message
 
@@ -172,7 +172,6 @@ def set_delegation(message: Message) -> None:
 
     """
     tx_state = message.tx_env.state
-    cost_per_state_byte = state_gas_per_byte(message.block_env.block_gas_limit)
     for auth in message.tx_env.authorizations:
         if auth.chain_id not in (message.block_env.chain_id, U256(0)):
             continue
@@ -201,7 +200,7 @@ def set_delegation(message: Message) -> None:
         # Refund the account creation state gas to the reservoir.
         # intrinsic_state_gas is immutable after validation.
         if account_exists(tx_state, authority):
-            refund = STATE_BYTES_PER_NEW_ACCOUNT * cost_per_state_byte
+            refund = STATE_BYTES_PER_NEW_ACCOUNT * COST_PER_STATE_BYTE
             message.state_gas_reservoir += refund
 
         if auth.address == NULL_ADDRESS:

@@ -26,10 +26,7 @@ from . import Evm
 from .exceptions import OutOfGasError
 
 # EIP-8037 state gas accounting constants
-TARGET_STATE_GROWTH_PER_YEAR = Uint(100 * 1024**3)
-BLOCKS_PER_YEAR = Uint(2_628_000)
-COST_PER_STATE_BYTE_SIGNIFICANT_BITS = Uint(5)
-COST_PER_STATE_BYTE_OFFSET = Uint(9578)
+COST_PER_STATE_BYTE = Uint(1174)
 
 STATE_BYTES_PER_NEW_ACCOUNT = Uint(112)
 STATE_BYTES_PER_STORAGE_SET = Uint(32)
@@ -238,37 +235,6 @@ class MessageCallGas:
 
     cost: Uint
     sub_call: Uint
-
-
-def state_gas_per_byte(gas_limit: Uint) -> Uint:
-    """
-    Calculate the state gas cost per byte based on the block gas limit.
-
-    At a gas limit of 100,000,000 this returns 1174.
-
-    Parameters
-    ----------
-    gas_limit :
-        The block gas limit.
-
-    Returns
-    -------
-    state_gas_per_byte : `Uint`
-        The state gas cost per byte.
-
-    """
-    numerator = gas_limit * BLOCKS_PER_YEAR
-    denominator = Uint(2) * TARGET_STATE_GROWTH_PER_YEAR
-    raw = (numerator + denominator - Uint(1)) // denominator
-    shifted = raw + COST_PER_STATE_BYTE_OFFSET
-    shift = max(
-        shifted.bit_length() - COST_PER_STATE_BYTE_SIGNIFICANT_BITS,
-        Uint(0),
-    )
-    quantized = (shifted >> shift) << shift
-    if quantized > COST_PER_STATE_BYTE_OFFSET:
-        return quantized - COST_PER_STATE_BYTE_OFFSET
-    return Uint(1)
 
 
 def check_gas(evm: Evm, amount: Uint) -> None:
