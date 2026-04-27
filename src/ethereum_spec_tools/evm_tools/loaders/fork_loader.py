@@ -181,6 +181,13 @@ class ForkLoad:
         return self._module("stateless_host").build_stateless_input
 
     @property
+    def decode_execution_requests(self) -> Any:
+        """decode_execution_requests function of the fork."""
+        return self._module(
+            "execution_engine.requests"
+        ).decode_execution_requests
+
+    @property
     def serialize_stateless_input(self) -> Any:
         """serialize_stateless_input function of the fork."""
         return self._module("stateless_host").serialize_stateless_input

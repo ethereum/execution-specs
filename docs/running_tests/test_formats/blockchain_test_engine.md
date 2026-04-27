@@ -104,6 +104,11 @@ They can mismatch the hashes of the versioned blobs in the execution payload, fo
 
 Hash of the parent beacon block root.
 
+#### - `executionWitness`: Optional execution witness object
+
+Optional fixture metadata for stateless validation. When present, contains
+`state`, `codes`, and `headers` byte lists associated with this payload.
+
 #### - `validationError`: [`TransactionException`](../../library/execution_testing_exceptions.md#execution_testing.exceptions.TransactionException)` | `[`BlockException`](../../library/execution_testing_exceptions.md#execution_testing.exceptions.BlockException)
 
 Validation error expected when executing the payload.

@@ -11,6 +11,7 @@ from ethereum_types.bytes import Bytes, Bytes8
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
+from ethereum.exceptions import InvalidBlock
 from ethereum.state import EMPTY_CODE_HASH
 from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_u256, hex_to_uint
 
@@ -426,10 +427,23 @@ class Result:
             )
 
             assert self.requests is not None
+            try:
+                typed_requests = t8n.fork.decode_execution_requests(
+                    tuple(self.requests)
+                )
+            except InvalidBlock:
+                # The wire form does not parse as a typed
+                # ``ExecutionRequests`` Container. This only happens for
+                # spec tests that mock predeploys to return non-canonical
+                # data; canonical predeploy bytecode always emits
+                # spec-compliant wire. Skip stateless validation in that
+                # case — re-running the guest over un-decodable input
+                # would just fail.
+                return
             stateless_input = t8n.fork.build_stateless_input(
                 block,
                 execution_witness=self.execution_witness,
-                execution_requests=tuple(self.requests),
+                execution_requests=typed_requests,
                 block_access_list=self.block_access_list,
                 chain_id=block_env.chain_id,
             )

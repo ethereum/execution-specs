@@ -16,6 +16,7 @@ from ethereum.state import Root
 
 from .blocks import Block, Header
 from .execution_engine.new_payload import execute_new_payload_request
+from .execution_engine.requests import ExecutionRequests
 from .execution_engine.types import NewPayloadRequest
 from .fork import ChainContext
 from .fork_types import VersionedHash
@@ -45,10 +46,6 @@ class ExecutionWitness:
     RLP-encoded block headers used for pre-state and ``BLOCKHASH`` correctness
     proofs. This may trend toward empty EIP-7709.
     """
-
-
-# Amsterdam currently carries execution requests as raw bytes in order.
-ExecutionRequests = Tuple[Bytes, ...]
 
 
 @slotted_freezable

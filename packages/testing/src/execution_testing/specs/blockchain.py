@@ -664,6 +664,7 @@ class BuiltBlock(CamelModel):
             block_access_list=self.block_access_list.rlp
             if self.block_access_list
             else None,
+            execution_witness=self.execution_witness,
             validation_error=self.expected_exception,
             error_code=self.engine_api_error_code,
         )
