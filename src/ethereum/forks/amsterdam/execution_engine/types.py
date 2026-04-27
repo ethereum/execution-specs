@@ -15,13 +15,13 @@ from ethereum.state import Address, Root
 from ..blocks import Withdrawal
 from ..fork import BlockChain
 from ..fork_types import Bloom, VersionedHash
+from .requests import ExecutionRequests
 
 # In this module, the execution engine is the chain/state container used by
 # the fork's transition functions.
 ExecutionEngine = BlockChain
 PayloadId = Bytes8
 _ZERO_HASH32 = Hash32(b"\x00" * 32)
-ExecutionRequests = Tuple[Bytes, ...]
 
 
 @slotted_freezable

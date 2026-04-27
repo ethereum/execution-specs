@@ -2,7 +2,7 @@
 Payload verification.
 """
 
-from typing import Sequence, Tuple
+from typing import Tuple
 
 from ethereum_rlp import rlp
 
@@ -15,6 +15,7 @@ from ..fork import ChainContext, execute_block, get_last_256_block_hashes
 from ..fork_types import VersionedHash
 from ..state import apply_changes_to_state
 from ..transactions import BlobTransaction, decode_transaction
+from .requests import ExecutionRequests
 from .types import ExecutionEngine, ExecutionPayload, NewPayloadRequest
 from .validation_helpers import _payload_block, _payload_header
 
@@ -22,7 +23,7 @@ from .validation_helpers import _payload_block, _payload_header
 def is_valid_block_hash(
     execution_payload: ExecutionPayload,
     parent_beacon_block_root: Root,
-    execution_requests_list: Sequence[bytes],
+    execution_requests: ExecutionRequests,
 ) -> bool:
     """
     Return ``True`` if and only if ``execution_payload.block_hash`` is
@@ -32,7 +33,7 @@ def is_valid_block_hash(
         header = _payload_header(
             execution_payload,
             parent_beacon_block_root,
-            tuple(execution_requests_list),
+            execution_requests,
         )
     except Exception:
         # Any decoding or conversion failure means the payload
@@ -98,7 +99,7 @@ def execute_new_payload_request(
     """
     payload = new_payload_request.execution_payload
     parent_beacon_block_root = new_payload_request.parent_beacon_block_root
-    execution_requests_list = new_payload_request.execution_requests
+    execution_requests = new_payload_request.execution_requests
 
     if b"" in payload.transactions:
         raise InvalidBlock("Empty transaction in payload")
@@ -106,7 +107,7 @@ def execute_new_payload_request(
     if not is_valid_block_hash(
         payload,
         parent_beacon_block_root,
-        execution_requests_list,
+        execution_requests,
     ):
         raise InvalidBlock("Invalid block hash")
 
@@ -116,7 +117,7 @@ def execute_new_payload_request(
     block = _payload_block(
         payload,
         parent_beacon_block_root,
-        tuple(execution_requests_list),
+        execution_requests,
     )
     block_diff = execute_block(block, pre_state, chain_context)
     return block_diff, block
