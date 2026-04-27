@@ -19,6 +19,7 @@ Plugins for docc specific to the Ethereum execution specification.
 
 import dataclasses
 import logging
+import os
 from collections import defaultdict
 from itertools import tee, zip_longest
 from pathlib import PurePath
@@ -44,7 +45,7 @@ from docc.context import Context
 from docc.discover import Discover, T
 from docc.document import BlankNode, Document, ListNode, Node, Visit, Visitor
 from docc.plugins import html, mistletoe, python, verbatim
-from docc.plugins.listing import Listable
+from docc.plugins.listing import Listable, ListingNode
 from docc.plugins.python import PythonBuilder
 from docc.plugins.references import Definition, Reference
 from docc.settings import PluginSettings
@@ -89,6 +90,10 @@ class EthereumDiscover(Discover):
         """
         Find sources.
         """
+        if os.environ.get("DOCC_SKIP_DIFFS"):
+            logging.info("Skipping diff discovery (DOCC_SKIP_DIFFS)")
+            return
+
         forks = {f.path: f for f in self.forks if f.path is not None}
 
         by_fork: Dict[Hardfork, Dict[PurePath, Source]] = defaultdict(dict)
@@ -662,6 +667,10 @@ class _DoccAdapter(Adapter[Node]):
             assert isinstance(rhs, ListNode)
             return True
 
+        elif isinstance(lhs, ListingNode):
+            assert isinstance(rhs, ListingNode)
+            return True
+
         elif isinstance(lhs, verbatim.Transcribed):
             assert isinstance(rhs, verbatim.Transcribed)
             return True
@@ -744,6 +753,9 @@ class _DoccAdapter(Adapter[Node]):
 
         elif isinstance(node, ListNode):
             return hash(type(ListNode))
+
+        elif isinstance(node, ListingNode):
+            return hash(type(ListingNode))
 
         elif isinstance(node, verbatim.Transcribed):
             return hash(type(verbatim.Transcribed))

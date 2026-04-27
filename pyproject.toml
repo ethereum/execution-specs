@@ -201,7 +201,7 @@ actionlint = [
     "shellcheck-py>=0.10",
 ]
 doc = [
-    "docc>=0.3.0,<0.4.0",
+    "docc>=0.5.0,<0.6.0",
     "fladrif>=0.2.0,<0.3.0",
     "mistletoe>=1.5.0,<2",
 ]
@@ -221,7 +221,7 @@ mkdocs = [
     "mkdocs-material-extensions>=1.1.1,<2",
     "mkdocstrings>=0.21.2,<1",
     "mkdocstrings-python>=1.0.0,<2",
-    "pillow>=10.0.1,<11",
+    "pillow>=12,<13",
     "pyspelling>=2.8.2,<3",
     "lxml>=6.0.0,<7",                       # needs to be >= 6.0 for pypy
 ]
@@ -275,6 +275,7 @@ omit = [
 
 [tool.docc]
 context = [
+    "docc.listing.context",
     "docc.references.context",
     "docc.search.context",
     "docc.html.context",
@@ -295,6 +296,7 @@ build = [
     "docc.resources.build",
 ]
 transform = [
+    "docc.listing.transform",
     "docc.python.transform",
     "docc.verbatim.transform",
     "docc.mistletoe.transform",
@@ -331,7 +333,7 @@ files = [
 ]
 
 [tool.docc.output]
-path = "docs"
+path = ".just/docs-spec"
 extension = ".html"
 
 [tool.vulture]
@@ -418,6 +420,7 @@ builtin = "clear,code,usage"
 skip = [
     ".devcontainer",
     ".git",
+    ".just",
     ".tox",
     ".venv",
     ".ruff_cache",

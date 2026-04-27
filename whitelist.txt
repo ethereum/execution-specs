@@ -50,6 +50,7 @@
 5E
 5F
 
+630m
 6A
 6B
 6C
@@ -477,6 +478,7 @@ encodings
 endian
 endianness
 EngineAPI
+enginex
 enum
 env
 envvar
@@ -708,6 +710,7 @@ jumpdest
 jumpf
 jumpi
 junit
+Justfile
 JWT
 
 keccak
@@ -727,6 +730,7 @@ Lets
 lets
 levelname
 Levenshtein
+lexicographically
 lhs
 libcst
 lightclient
@@ -851,6 +855,7 @@ oob
 opc
 opcount
 opcode's
+opcount
 OpenSSL
 oprypin
 optparser
@@ -1103,6 +1108,8 @@ SignerType
 signextend
 simlimit
 sload
+slot1
+slot2
 slt
 smod
 socketserver
@@ -1249,6 +1256,8 @@ UI
 uid
 Uint
 uint
+uint128
+uint16
 ukiyo
 ulen
 uname
