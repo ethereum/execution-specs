@@ -6,7 +6,7 @@ types in ``stateless`` and ``execution_engine.types``, plus conversion
 functions between the two representations.
 """
 
-from ethereum_types.bytes import Bytes
+from ethereum_types.bytes import Bytes, Bytes48, Bytes96
 from ethereum_types.numeric import U64, U256, Uint
 from remerkleable.basic import boolean, uint64, uint256
 from remerkleable.byte_arrays import ByteList, Bytes32, ByteVector
@@ -17,6 +17,12 @@ from ethereum.crypto.hash import Hash32
 from ethereum.state import Address, Root
 
 from .blocks import Withdrawal
+from .execution_engine.requests import (
+    ConsolidationRequest,
+    DepositRequest,
+    ExecutionRequests,
+    WithdrawalRequest,
+)
 from .execution_engine.types import ExecutionPayload, NewPayloadRequest
 from .fork_types import Bloom, VersionedHash
 from .stateless import (
@@ -36,8 +42,9 @@ MAX_TRANSACTIONS_PER_PAYLOAD = 2**20
 # capped or skipped for Amsterdam.
 MAX_WITHDRAWALS_PER_PAYLOAD = 2**16
 MAX_BLOB_COMMITMENTS_PER_BLOCK = 4096
-MAX_EXECUTION_REQUESTS = 16
-MAX_BYTES_PER_REQUEST = 2**20
+MAX_DEPOSIT_REQUESTS_PER_PAYLOAD = 2**13
+MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD = 2**4
+MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD = 2**1
 MAX_BLOCK_ACCESS_LIST_BYTES = 2**24
 MAX_WITNESS_NODES = 2**20
 MAX_WITNESS_CODES = 2**16
@@ -46,7 +53,7 @@ MAX_BYTES_PER_WITNESS_NODE = 2**20
 MAX_BYTES_PER_CODE = 2**24
 MAX_BYTES_PER_HEADER = 2**10
 MAX_PUBLIC_KEYS = 2**20
-MAX_BYTES_PER_PUBLIC_KEY = 48
+MAX_BYTES_PER_PUBLIC_KEY = 65
 
 
 # --- SSZ Container types ---
@@ -86,15 +93,51 @@ class SszExecutionPayload(Container):
     block_access_list: ByteList[MAX_BLOCK_ACCESS_LIST_BYTES]
 
 
+class SszDepositRequest(Container):
+    """SSZ container mirroring ``DepositRequest``."""
+
+    pubkey: ByteVector[48]
+    withdrawal_credentials: Bytes32
+    amount: uint64
+    signature: ByteVector[96]
+    index: uint64
+
+
+class SszWithdrawalRequest(Container):
+    """SSZ container mirroring ``WithdrawalRequest``."""
+
+    source_address: ByteVector[20]
+    validator_pubkey: ByteVector[48]
+    amount: uint64
+
+
+class SszConsolidationRequest(Container):
+    """SSZ container mirroring ``ConsolidationRequest``."""
+
+    source_address: ByteVector[20]
+    source_pubkey: ByteVector[48]
+    target_pubkey: ByteVector[48]
+
+
+class SszExecutionRequests(Container):
+    """SSZ container mirroring ``ExecutionRequests``."""
+
+    deposits: SszList[SszDepositRequest, MAX_DEPOSIT_REQUESTS_PER_PAYLOAD]
+    withdrawals: SszList[
+        SszWithdrawalRequest, MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD
+    ]
+    consolidations: SszList[
+        SszConsolidationRequest, MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD
+    ]
+
+
 class SszNewPayloadRequest(Container):
     """SSZ container mirroring ``NewPayloadRequest``."""
 
     execution_payload: SszExecutionPayload
     versioned_hashes: SszList[Bytes32, MAX_BLOB_COMMITMENTS_PER_BLOCK]
     parent_beacon_block_root: Bytes32
-    execution_requests: SszList[
-        ByteList[MAX_BYTES_PER_REQUEST], MAX_EXECUTION_REQUESTS
-    ]  # noqa: E501
+    execution_requests: SszExecutionRequests
 
 
 class SszExecutionWitness(Container):
@@ -213,6 +256,104 @@ def _ssz_to_payload(
     )
 
 
+def _deposit_request_to_ssz(d: DepositRequest) -> SszDepositRequest:
+    """Convert a DepositRequest to its SSZ form."""
+    return SszDepositRequest(
+        pubkey=ByteVector[48](bytes(d.pubkey)),
+        withdrawal_credentials=Bytes32(bytes(d.withdrawal_credentials)),
+        amount=uint64(int(d.amount)),
+        signature=ByteVector[96](bytes(d.signature)),
+        index=uint64(int(d.index)),
+    )
+
+
+def _ssz_to_deposit_request(sd: SszDepositRequest) -> DepositRequest:
+    """Convert an SSZ deposit request back."""
+    return DepositRequest(
+        pubkey=Bytes48(bytes(sd.pubkey)),
+        withdrawal_credentials=Bytes32(bytes(sd.withdrawal_credentials)),
+        amount=U64(sd.amount),
+        signature=Bytes96(bytes(sd.signature)),
+        index=U64(sd.index),
+    )
+
+
+def _withdrawal_request_to_ssz(
+    w: WithdrawalRequest,
+) -> SszWithdrawalRequest:
+    """Convert a WithdrawalRequest to its SSZ form."""
+    return SszWithdrawalRequest(
+        source_address=ByteVector[20](bytes(w.source_address)),
+        validator_pubkey=ByteVector[48](bytes(w.validator_pubkey)),
+        amount=uint64(int(w.amount)),
+    )
+
+
+def _ssz_to_withdrawal_request(
+    sw: SszWithdrawalRequest,
+) -> WithdrawalRequest:
+    """Convert an SSZ withdrawal request back."""
+    return WithdrawalRequest(
+        source_address=Address(bytes(sw.source_address)),
+        validator_pubkey=Bytes48(bytes(sw.validator_pubkey)),
+        amount=U64(sw.amount),
+    )
+
+
+def _consolidation_request_to_ssz(
+    c: ConsolidationRequest,
+) -> SszConsolidationRequest:
+    """Convert a ConsolidationRequest to its SSZ form."""
+    return SszConsolidationRequest(
+        source_address=ByteVector[20](bytes(c.source_address)),
+        source_pubkey=ByteVector[48](bytes(c.source_pubkey)),
+        target_pubkey=ByteVector[48](bytes(c.target_pubkey)),
+    )
+
+
+def _ssz_to_consolidation_request(
+    sc: SszConsolidationRequest,
+) -> ConsolidationRequest:
+    """Convert an SSZ consolidation request back."""
+    return ConsolidationRequest(
+        source_address=Address(bytes(sc.source_address)),
+        source_pubkey=Bytes48(bytes(sc.source_pubkey)),
+        target_pubkey=Bytes48(bytes(sc.target_pubkey)),
+    )
+
+
+def _execution_requests_to_ssz(
+    er: ExecutionRequests,
+) -> SszExecutionRequests:
+    """Convert an ExecutionRequests to its SSZ form."""
+    return SszExecutionRequests(
+        deposits=SszList[SszDepositRequest, MAX_DEPOSIT_REQUESTS_PER_PAYLOAD](
+            _deposit_request_to_ssz(d) for d in er.deposits
+        ),
+        withdrawals=SszList[
+            SszWithdrawalRequest, MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD
+        ](_withdrawal_request_to_ssz(w) for w in er.withdrawals),
+        consolidations=SszList[
+            SszConsolidationRequest, MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD
+        ](_consolidation_request_to_ssz(c) for c in er.consolidations),
+    )
+
+
+def _ssz_to_execution_requests(
+    ser: SszExecutionRequests,
+) -> ExecutionRequests:
+    """Convert an SSZ execution requests back."""
+    return ExecutionRequests(
+        deposits=tuple(_ssz_to_deposit_request(sd) for sd in ser.deposits),
+        withdrawals=tuple(
+            _ssz_to_withdrawal_request(sw) for sw in ser.withdrawals
+        ),
+        consolidations=tuple(
+            _ssz_to_consolidation_request(sc) for sc in ser.consolidations
+        ),
+    )
+
+
 def _new_payload_request_to_ssz(
     npr: NewPayloadRequest,
 ) -> SszNewPayloadRequest:
@@ -223,13 +364,7 @@ def _new_payload_request_to_ssz(
             Bytes32(bytes(vh)) for vh in npr.versioned_hashes
         ),
         parent_beacon_block_root=Bytes32(bytes(npr.parent_beacon_block_root)),
-        execution_requests=SszList[
-            ByteList[MAX_BYTES_PER_REQUEST],
-            MAX_EXECUTION_REQUESTS,
-        ](
-            ByteList[MAX_BYTES_PER_REQUEST](bytes(er))
-            for er in npr.execution_requests
-        ),
+        execution_requests=_execution_requests_to_ssz(npr.execution_requests),
     )
 
 
@@ -243,9 +378,7 @@ def _ssz_to_new_payload_request(
             VersionedHash(bytes(vh)) for vh in snpr.versioned_hashes
         ),
         parent_beacon_block_root=Root(bytes(snpr.parent_beacon_block_root)),
-        execution_requests=tuple(
-            Bytes(bytes(er)) for er in snpr.execution_requests
-        ),
+        execution_requests=_ssz_to_execution_requests(snpr.execution_requests),
     )
 
 

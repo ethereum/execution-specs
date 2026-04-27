@@ -3,10 +3,14 @@
 import random
 from typing import Tuple
 
-from ethereum_types.bytes import Bytes, Bytes32
+from ethereum_types.bytes import Bytes, Bytes32, Bytes48, Bytes96
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32
+from ethereum.forks.amsterdam.execution_engine.requests import (
+    DepositRequest,
+    ExecutionRequests,
+)
 from ethereum.forks.amsterdam.execution_engine.types import (
     ExecutionPayload,
     NewPayloadRequest,
@@ -60,6 +64,16 @@ def _make_payload() -> ExecutionPayload:
     )
 
 
+def _make_deposit_request() -> DepositRequest:
+    return DepositRequest(
+        pubkey=Bytes48(_rb(48)),
+        withdrawal_credentials=Bytes32(_rb(32)),
+        amount=U64(_RNG.randint(0, 2**64 - 1)),
+        signature=Bytes96(_rb(96)),
+        index=U64(_RNG.randint(0, 2**64 - 1)),
+    )
+
+
 def _make_stateless_input() -> StatelessInput:
     versioned_hashes: Tuple[Hash32, ...] = (Hash32(_rb(32)), Hash32(_rb(32)))
     return StatelessInput(
@@ -67,7 +81,14 @@ def _make_stateless_input() -> StatelessInput:
             execution_payload=_make_payload(),
             versioned_hashes=versioned_hashes,
             parent_beacon_block_root=Root(_rb(32)),
-            execution_requests=(Bytes(_rb(48)), Bytes(_rb(48))),
+            execution_requests=ExecutionRequests(
+                deposits=(
+                    _make_deposit_request(),
+                    _make_deposit_request(),
+                ),
+                withdrawals=(),
+                consolidations=(),
+            ),
         ),
         witness=ExecutionWitness(
             state=(Bytes(_rb(64)), Bytes(_rb(64)), Bytes(_rb(32))),
@@ -104,7 +125,11 @@ class TestSerializeStatelessInput:
                 execution_payload=_make_payload(),
                 versioned_hashes=(),
                 parent_beacon_block_root=Root(_rb(32)),
-                execution_requests=(),
+                execution_requests=ExecutionRequests(
+                    deposits=(),
+                    withdrawals=(),
+                    consolidations=(),
+                ),
             ),
             witness=ExecutionWitness(state=(), codes=(), headers=()),
             chain_config=ChainConfig(chain_id=U64(1)),
@@ -132,7 +157,11 @@ class TestDeserializeStatelessInput:
                 execution_payload=_make_payload(),
                 versioned_hashes=(),
                 parent_beacon_block_root=Root(_rb(32)),
-                execution_requests=(),
+                execution_requests=ExecutionRequests(
+                    deposits=(),
+                    withdrawals=(),
+                    consolidations=(),
+                ),
             ),
             witness=ExecutionWitness(state=(), codes=(), headers=()),
             chain_config=ChainConfig(chain_id=U64(1)),

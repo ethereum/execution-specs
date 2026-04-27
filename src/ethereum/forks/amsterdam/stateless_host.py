@@ -2,7 +2,7 @@
 Host-side assembly of stateless input from block execution data.
 """
 
-from typing import List, Tuple
+from typing import List
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
@@ -12,6 +12,7 @@ from ethereum.crypto.hash import Hash32, keccak256
 
 from .block_access_lists import BlockAccessList
 from .blocks import Block
+from .execution_engine.requests import ExecutionRequests
 from .execution_engine.types import ExecutionPayload, NewPayloadRequest
 from .fork_types import VersionedHash
 from .stateless import (
@@ -50,7 +51,7 @@ def build_stateless_input(
     block: Block,
     *,
     execution_witness: ExecutionWitness,
-    execution_requests: Tuple[Bytes, ...],
+    execution_requests: ExecutionRequests,
     block_access_list: BlockAccessList,
     chain_id: U64,
 ) -> StatelessInput:
