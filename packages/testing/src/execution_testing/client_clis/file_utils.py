@@ -30,8 +30,20 @@ def dump_files_to_directory(output_path: Path, files: Dict[str, Any]) -> None:
         if rel_path:
             os.makedirs(output_path / rel_path, exist_ok=True)
         file_path = output_path / file_rel_path
-        if isinstance(file_contents, LazyAllocFile):
+        if (
+            isinstance(file_contents, LazyAllocFile)
+            and Path(file_contents.raw).exists()
+        ):
             shutil.copyfile(file_contents.raw, file_path)
+        elif isinstance(file_contents, LazyAllocFile):
+            # Backing temp dir was cleaned up after a previous `.get()`
+            # (e.g. chained-block t8n on the next block); fall back to
+            # the cached Alloc so debug dumps still capture the input.
+            file_path.write_text(
+                file_contents.get().model_dump_json(
+                    indent=4, exclude_none=True, by_alias=True
+                )
+            )
         else:
             with open(file_path, "w") as f:
                 if isinstance(file_contents, (LazyAllocStr, LazyAllocJson)):

@@ -257,6 +257,33 @@ def test_dump_files_to_directory_copies_lazy_alloc_file(
     assert (dump_dir / "output" / "alloc.json").read_text() == source_text
 
 
+def test_dump_files_to_directory_lazy_alloc_file_after_backing_removed(
+    tmp_path: Path,
+) -> None:
+    """
+    On chained blocks, the previous block's t8n temp dir is cleaned up after
+    its alloc is materialized via ``.get()``. The resulting ``LazyAllocFile``
+    still carries a now-stale ``.raw`` path. Debug dumps must fall back to
+    re-serializing the cached ``Alloc`` instead of attempting to copy the
+    missing backing file.
+    """
+    from execution_testing.client_clis.file_utils import (
+        dump_files_to_directory,
+    )
+
+    source = tmp_path / "source_alloc.json"
+    source.write_text(TEST_ALLOC.model_dump_json())
+    lazy = LazyAllocFile(raw=source, _state_root=TEST_ALLOC_STATE_ROOT)
+    lazy.get()
+    source.unlink()
+
+    dump_dir = tmp_path / "dump"
+    dump_files_to_directory(dump_dir, {"input/alloc.json": lazy})
+
+    written = (dump_dir / "input" / "alloc.json").read_text()
+    assert Alloc.model_validate_json(written) == TEST_ALLOC
+
+
 @pytest.mark.parametrize(
     "contents",
     [
