@@ -65,7 +65,7 @@ class SszWithdrawal(Container):
     index: uint64
     validator_index: uint64
     address: ByteVector[20]
-    amount: uint256
+    amount: uint64
 
 
 class SszExecutionPayload(Container):
@@ -181,7 +181,7 @@ def _withdrawal_to_ssz(w: Withdrawal) -> SszWithdrawal:
         index=uint64(int(w.index)),
         validator_index=uint64(int(w.validator_index)),
         address=ByteVector[20](bytes(w.address)),
-        amount=uint256(int(w.amount)),
+        amount=uint64(int(w.amount)),
     )
 
 
