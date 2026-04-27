@@ -77,6 +77,7 @@ from .state_tracker import (
     set_account_balance,
 )
 from .transactions import (
+    TX_MAX_GAS_LIMIT,
     BlobTransaction,
     FeeMarketTransaction,
     LegacyTransaction,
@@ -330,10 +331,12 @@ def execute_block(
         block_output.block_access_list
     )
 
-    if block_output.block_gas_used != block.header.gas_used:
-        raise InvalidBlock(
-            f"{block_output.block_gas_used} != {block.header.gas_used}"
-        )
+    block_gas_used = max(
+        block_output.block_gas_used,
+        block_output.block_state_gas_used,
+    )
+    if block_gas_used != block.header.gas_used:
+        raise InvalidBlock(f"{block_gas_used} != {block.header.gas_used}")
     if transactions_root != block.header.transactions_root:
         raise InvalidBlock
     if block_state_root != block.header.state_root:
@@ -540,11 +543,16 @@ def check_transaction(
         is empty.
 
     """
-    gas_available = block_env.block_gas_limit - block_output.block_gas_used
+    # Regular gas is capped at TX_MAX_GAS_LIMIT per EIP-7825.
+    # State gas is not checked per-tx; block-end validation enforces
+    # max(block_regular_gas_used, block_state_gas_used) <= gas_limit.
+    regular_gas_available = (
+        block_env.block_gas_limit - block_output.block_gas_used
+    )
     blob_gas_available = MAX_BLOB_GAS_PER_BLOCK - block_output.blob_gas_used
 
-    if tx.gas > gas_available:
-        raise GasUsedExceedsLimitError("gas used exceeds limit")
+    if min(TX_MAX_GAS_LIMIT, tx.gas) > regular_gas_available:
+        raise GasUsedExceedsLimitError("regular gas used exceeds limit")
 
     tx_blob_gas_used = calculate_total_blob_gas(tx)
     if tx_blob_gas_used > blob_gas_available:
@@ -763,6 +771,7 @@ def process_unchecked_system_transaction(
         origin=SYSTEM_ADDRESS,
         gas_price=block_env.base_fee_per_gas,
         gas=SYSTEM_TRANSACTION_GAS,
+        state_gas_reservoir=Uint(0),
         access_list_addresses=set(),
         access_list_storage_keys=set(),
         state=system_tx_state,
@@ -770,6 +779,8 @@ def process_unchecked_system_transaction(
         authorizations=(),
         index_in_block=None,
         tx_hash=None,
+        intrinsic_regular_gas=Uint(0),
+        intrinsic_state_gas=Uint(0),
     )
 
     system_tx_message = Message(
@@ -778,6 +789,7 @@ def process_unchecked_system_transaction(
         caller=SYSTEM_ADDRESS,
         target=target_address,
         gas=SYSTEM_TRANSACTION_GAS,
+        state_gas_reservoir=Uint(0),
         value=U256(0),
         data=data,
         code=system_contract_code,
@@ -959,7 +971,9 @@ def process_transaction(
         encode_transaction(tx),
     )
 
-    intrinsic_gas, calldata_floor_gas_cost = validate_transaction(tx)
+    intrinsic = validate_transaction(tx, block_env.block_gas_limit)
+
+    intrinsic_gas = intrinsic.regular + intrinsic.state
 
     (
         sender,
@@ -982,7 +996,12 @@ def process_transaction(
 
     effective_gas_fee = tx.gas * effective_gas_price
 
-    gas = tx.gas - intrinsic_gas
+    # Split execution gas into gas_left (capped by remaining regular gas
+    # budget) and state_gas_reservoir.
+    execution_gas = tx.gas - intrinsic_gas
+    regular_gas_budget = TX_MAX_GAS_LIMIT - intrinsic.regular
+    gas = min(regular_gas_budget, execution_gas)
+    state_gas_reservoir = Uint(execution_gas - gas)
 
     increment_nonce(tx_state, sender)
 
@@ -1008,6 +1027,7 @@ def process_transaction(
         origin=sender,
         gas_price=effective_gas_price,
         gas=gas,
+        state_gas_reservoir=state_gas_reservoir,
         access_list_addresses=access_list_addresses,
         access_list_storage_keys=access_list_storage_keys,
         state=tx_state,
@@ -1015,6 +1035,8 @@ def process_transaction(
         authorizations=authorizations,
         index_in_block=index,
         tx_hash=get_transaction_hash(encode_transaction(tx)),
+        intrinsic_regular_gas=intrinsic.regular,
+        intrinsic_state_gas=intrinsic.state,
     )
 
     message = prepare_message(
@@ -1025,9 +1047,14 @@ def process_transaction(
 
     tx_output = process_message_call(message)
 
-    # For EIP-7623 we first calculate the execution_gas_used, which includes
-    # the execution gas refund.
-    tx_gas_used_before_refund = tx.gas - tx_output.gas_left
+    # With diff-at-return, state_gas_left can exceed its initial value
+    # (from negative diffs crediting the reservoir). Use saturating
+    # subtraction to prevent underflow.
+    total_remaining = tx_output.gas_left + tx_output.state_gas_left
+    if total_remaining > tx.gas:
+        tx_gas_used_before_refund = Uint(0)
+    else:
+        tx_gas_used_before_refund = tx.gas - total_remaining
     tx_gas_refund = min(
         tx_gas_used_before_refund // Uint(5), Uint(tx_output.refund_counter)
     )
@@ -1035,9 +1062,7 @@ def process_transaction(
 
     # Transactions with less execution_gas_used than the floor pay at the
     # floor cost.
-    tx_gas_used_after_refund = max(
-        tx_gas_used_after_refund, calldata_floor_gas_cost
-    )
+    tx_gas_used = max(tx_gas_used_after_refund, intrinsic.calldata_floor)
 
     tx_gas_left = tx.gas - tx_gas_used_after_refund
     gas_refund_amount = tx_gas_left * effective_gas_price
@@ -1065,11 +1090,17 @@ def process_transaction(
     ):
         destroy_account(tx_state, block_env.coinbase)
 
-    block_output.block_gas_used += tx_gas_used_after_refund
+    tx_regular_gas = tx_env.intrinsic_regular_gas + tx_output.regular_gas_used
+    tx_state_gas = tx_env.intrinsic_state_gas + tx_output.state_gas_used
+    block_output.block_gas_used += max(
+        tx_regular_gas, intrinsic.calldata_floor
+    )
+    block_output.block_state_gas_used += tx_state_gas
     block_output.blob_gas_used += tx_blob_gas_used
 
+    block_output.cumulative_gas_used += tx_gas_used
     receipt = make_receipt(
-        tx, tx_output.error, block_output.block_gas_used, tx_output.logs
+        tx, tx_output.error, block_output.cumulative_gas_used, tx_output.logs
     )
 
     receipt_key = rlp.encode(Uint(index))
