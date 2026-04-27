@@ -229,21 +229,20 @@ def _compute_deploy_gas_limit(
     storage_slots: int = 0,
 ) -> Tuple[int, int]:
     """
-    Compute the gas_limit for a contract-deploy transaction.
+    Compute the gas_limit for a contract-deploy transaction, split
+    into the EIP-7825 cap-bound regular portion and the total
+    (regular + state) deploy gas.
 
-    Under EIP-8037, state gas is drawn from the per-block reservoir
-    by the node automatically and must NOT be included in the
-    transaction's gas_limit field. The gas_limit contains only regular
-    (execution) gas. EIP-7825's per-tx cap (2^24) applies to this
-    value.
-
-    Return both ``regular_gas`` (for the EIP-7825 cap check) and
-    ``deploy_gas_limit`` (the actual ``tx.gas`` field). Pre-Amsterdam
-    the two are identical; post-EIP-8037 they are also identical
-    because state gas is implicit.
+    Per EIP-8037, the per-tx 2^24 cap binds only the regular-gas
+    portion of intrinsic gas; state gas is drawn from the per-block
+    reservoir and may push tx.gas above the cap. We therefore return
+    both values: callers compare ``regular_gas`` against
+    ``transaction_gas_limit_cap()`` and use ``deploy_gas_limit`` as
+    the actual ``tx.gas`` field. Pre-Amsterdam, the state-gas helpers
+    return 0 and ``deploy_gas_limit == regular_gas``.
 
     The regular portion is doubled as a safety buffer (gas estimation
-    is approximate).
+    is approximate); the state portion is exact and is not doubled.
     """
     gas_costs = fork.gas_costs()
     memory_expansion_gas_calculator = fork.memory_expansion_gas_calculator()
@@ -262,7 +261,12 @@ def _compute_deploy_gas_limit(
     regular_gas += calldata_gas_calculator(data=initcode)
     regular_gas = regular_gas * 2
 
-    deploy_gas_limit = regular_gas
+    # State-gas portion (drawn from block reservoir, not capped).
+    state_gas = fork.transaction_intrinsic_state_gas(contract_creation=True)
+    state_gas += fork.code_deposit_state_gas(code_size=deploy_code_size)
+    state_gas += storage_slots * fork.sstore_state_gas()
+
+    deploy_gas_limit = regular_gas + state_gas
     return regular_gas, deploy_gas_limit
 
 
