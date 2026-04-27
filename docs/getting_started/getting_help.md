@@ -1,12 +1,12 @@
 # Getting Help
 
-The tests in this repository are a community effort to help improve the development cycle of all Ethereum execution clients.
+The work in this repository is a community effort to help improve Ethereum's fork cadence and the development cycle of all Ethereum execution clients.
 
-We encourage contributions and recognize that Python is not everyone's  primary language - if you stumble over issues or need help, please reach out to one of the execution-spec-tests maintainers either directly or in the `#el-testing` channel in the [Ethereum R&D Discord Server](https://discord.com/invite/qGpsxSA).
+We encourage contributions and recognize that Python is not everyone's  primary language - if you stumble over issues or need help, please reach out to one of the execution-specs maintainers either directly or in the `#el-testing` channel in the [Ethereum R&D Discord Server](https://discord.com/invite/qGpsxSA).
 
-## Contact the Maintainers
+## Contact STEEL
 
-Write to:
+Feel free to contact any [STEEL team member](https://steel.ethereum.foundation/team/):
 
 - Dan on [Discord](https://discordapp.com/users/danceratopz) or [Telegram](https://t.me/danceratopz) (`danceratopz`).
 - Spencer on [Discord](https://discordapp.com/users/spencertaylorbrown) or [Telegram](https://t.me/spencertb) (`spencertaylorbrown`/`@techbro_ccoli`).

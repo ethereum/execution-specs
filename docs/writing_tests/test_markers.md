@@ -22,6 +22,9 @@ These markers are used to specify the forks for which a test is valid.
 
 ### `@pytest.mark.valid_at_transition_to("FORK_NAME")`
 
+!!! important
+    Tests using this marker must type their `fork` parameter as `TransitionFork` (imported from `execution_testing`) instead of the regular `Fork` type. The `TransitionFork` type provides transition-specific methods such as `fork_at()`, `transitions_to()`, and `transitions_from()`. See [Transition Fork Tests](./writing_a_new_test.md#transition-fork-tests) for details.
+
 :::execution_testing.cli.pytest_commands.plugins.forks.forks.ValidAtTransitionTo
 
 ## Fork Covariant Markers
@@ -60,7 +63,7 @@ This marker only differs from `pytest.mark.with_all_tx_types` in that it does no
 This marker is used to automatically parameterize a test with all typed transactions, including `type=0` (legacy transaction), that are valid for the fork being tested.
 This marker is an indirect marker that utilizes the `tx_type` values from the `pytest.mark.with_all_tx_types` marker to build default typed transactions for each `tx_type`.
 
-Optional: Default typed transactions used as values for `typed_transaction` exist in `src/execution_testing/cli/pytest_commands/plugins/shared/transaction_fixtures.py` and can be overridden for the scope of
+Optional: Default typed transactions used as values for `typed_transaction` exist in `packages/testing/src/execution_testing/cli/pytest_commands/plugins/shared/transaction_fixtures.py` and can be overridden for the scope of
 the test by re-defining the appropriate `pytest.fixture` for that transaction type.
 
 ```python
@@ -325,7 +328,7 @@ In this example, the test will be marked as expected to fail when it is being ex
 
 ### `@pytest.mark.slow`
 
-This marker is used to mark tests that are slow to run. These tests are not run during [`tox` checks](./verifying_changes.md), and are only run when a release is being prepared.
+This marker is used to mark tests that are slow to run. These tests are not run during [CI checks](../getting_started/verifying_changes.md), and are only run when a release is being prepared.
 
 ### `@pytest.mark.pre_alloc_mutable`
 

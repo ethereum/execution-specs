@@ -1,8 +1,8 @@
 # Filling Tests at a Prompt
 
-The execution-spec-tests test framework uses the [pytest framework](https://docs.pytest.org/en/latest/) for test case collection and execution. The `fill` command is essentially an alias for `pytest`, which uses several [custom pytest plugins](../library/pytest_plugins/index.md) to run transition tools against test cases and generate JSON fixtures.
+The execution-testing framework uses the [pytest framework](https://docs.pytest.org/en/latest/) for test case collection and execution. The `fill` command is essentially an alias for `pytest`, which uses several [custom pytest plugins](../library/pytest_plugins/index.md) to run transition tools against test cases and generate JSON fixtures.
 
-!!! note "Options specific to execution-spec-tests"
+!!! note "Options specific to execution-testing"
     The command-line options specific to filling tests can be listed via:
 
     ```console
@@ -101,22 +101,10 @@ This flag automatically performs a two-phase execution:
 1. **Phase 1**: Generates pre-allocation groups for optimization.
 2. **Phase 2**: Generates all supported fixture formats (`StateFixture`, `BlockchainFixture`, `BlockchainEngineFixture`, `BlockchainEngineXFixture`, etc.).
 
-!!! tip "Automatic enabling with tarball output"
-    When using tarball output (`.tar.gz` files), the `--generate-all-formats` flag is automatically enabled:
+!!! note "Tarball output requires explicit opt-in"
+    Tarball output (`.tar.gz` files) does **not** imply `--generate-all-formats`. Pass the flag explicitly to include the pre-allocation group formats:
     ```console
-    # Automatically enables --generate-all-formats due to .tar.gz output
-    uv run fill --output=fixtures.tar.gz tests/shanghai/
-
-    # Equivalent to:
     uv run fill --generate-all-formats --output=fixtures.tar.gz tests/shanghai/
-    ```
-
-!!! note "Alternative approach"
-    You can still use the legacy approach, but this will only generate the `BlockchainEngineXFixture` format:
-    ```console
-    # Single command that automatically does 2-phase execution
-    # but only generates BlockchainEngineXFixture
-    uv run fill --generate-pre-alloc-groups tests/shanghai/
     ```
 
 ## Debugging the `t8n` Command

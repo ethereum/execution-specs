@@ -44,22 +44,18 @@ will output something similar to:
 
 ```bash
 INFO[0000] Using docker host 'unix:///var/run/docker.sock', and daemon socket 'unix:///var/run/docker.sock'
-Stage  Job ID                Job name                                                      Workflow name                             Workflow file          Events                             
-0      evmone-coverage-diff  evmone-coverage-diff                                          Evmone Coverage Report                    coverage.yaml          pull_request                       
-0      deploy                deploy                                                        Deploy Docs Main                          docs_main.yaml         push                               
-0      deploy                deploy                                                        Deploy Docs Tags                          docs_tags.yaml         push                               
-0      features              features                                                      Build and Package Fixtures                fixtures.yaml          push,workflow_dispatch             
-0      feature-names         feature-names                                                 Build and Package Fixtures for a feature  fixtures_feature.yaml  push,workflow_dispatch             
-0      lint                  Lint python sources with ruff                                 Tox                                       tox_verify.yaml        push,pull_request,workflow_dispatch
-0      typecheck             Typecheck python sources with mypy                            Tox                                       tox_verify.yaml        push,pull_request,workflow_dispatch
-0      spellcheck            Spellcheck sources with pyspelling                            Tox                                       tox_verify.yaml        push,pull_request,workflow_dispatch
-0      markdownlint          Lint markdown files with markdownlint                         Tox                                       tox_verify.yaml        push,pull_request,workflow_dispatch
-0      mkdocs                Build html documentation with mkdocs                          Tox                                       tox_verify.yaml        push,pull_request,workflow_dispatch
-0      pytest_framework      Run unit tests, ${{ matrix.os }}, ${{ matrix.python }}        Tox                                       tox_verify.yaml        push,pull_request,workflow_dispatch
-0      tests_deployed        Fill tests, deployed, ${{ matrix.os }}, ${{ matrix.python }}  Tox                                       tox_verify.yaml        push,pull_request,workflow_dispatch
-1      build                 build                                                         Build and Package Fixtures                fixtures.yaml          push,workflow_dispatch             
-1      build                 build                                                         Build and Package Fixtures for a feature  fixtures_feature.yaml  push,workflow_dispatch             
-2      release               release                                                       Build and Package Fixtures                fixtures.yaml          push,workflow_dispatch             
+Stage  Job ID                Job name                                                      Workflow name                             Workflow file          Events
+0      evmone-coverage-diff  evmone-coverage-diff                                          Evmone Coverage Report                    coverage.yaml          pull_request
+0      deploy                deploy                                                        Deploy Docs Main                          docs_main.yaml         push
+0      deploy                deploy                                                        Deploy Docs Tags                          docs_tags.yaml         push
+0      features              features                                                      Build and Package Fixtures                fixtures.yaml          push,workflow_dispatch
+0      feature-names         feature-names                                                 Build and Package Fixtures for a feature  fixtures_feature.yaml  push,workflow_dispatch
+0      static                Run static checks                                             Test                                      test.yaml              push,pull_request,workflow_dispatch
+0      py3                   Fill tests (Python)                                           Test                                      test.yaml              push,pull_request,workflow_dispatch
+0      docs                  Build html documentation with mkdocs                          Test Docs                                 test-docs.yaml         push,pull_request,workflow_dispatch
+1      build                 build                                                         Build and Package Fixtures                fixtures.yaml          push,workflow_dispatch
+1      build                 build                                                         Build and Package Fixtures for a feature  fixtures_feature.yaml  push,workflow_dispatch
+2      release               release                                                       Build and Package Fixtures                fixtures.yaml          push,workflow_dispatch
 2      release               release                                                       Build and Package Fixtures for a feature  fixtures_feature.yaml  push,workflow_dispatch
 ```
 
@@ -77,7 +73,7 @@ DEFAULT_PYTHON_VERSION=3.12
 and use the `--var-file` option to specify the file:
 
 ```bash
-gh act --workflows .github/workflows/tox_verify.yaml -s GITHUB_TOKEN=$(gh auth token) --var-file=gh_vars.txt -j lint 
+gh act --workflows .github/workflows/test.yaml -s GITHUB_TOKEN=$(gh auth token) --var-file=gh_vars.txt -j static
 ```
 
 ### Running Workflows that use a Matrix Strategy
@@ -85,7 +81,7 @@ gh act --workflows .github/workflows/tox_verify.yaml -s GITHUB_TOKEN=$(gh auth t
 This is optional, recent versions will automatically detect the matrix strategy and run supported values. To run a specific matrix value, use the `--matrix` option:
 
 ```bash
-gh act --workflows .github/workflows/tox_verify.yaml -s GITHUB_TOKEN=$(gh auth token) --matrix python:3.12 -j pytest_framework
+gh act --workflows .github/workflows/test.yaml -s GITHUB_TOKEN=$(gh auth token) --matrix python:3.12 -j test-tests
 ```
 
 ### Running Release Workflows

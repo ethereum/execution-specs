@@ -2,7 +2,7 @@
 
 ## Formats and Release Layout
 
-@ethereum/execution-spec-tests releases contain JSON test fixtures in various formats. Note that transaction type tests are executed directly from Python source using the [`execute`](./execute/index.md) command.
+@ethereum/execution-specs releases contain JSON test fixtures in various formats. Note that transaction type tests are executed directly from Python source using the [`execute`](./execute/index.md) command.
 
 | Format                                                               | Consumed by the client                                                                                                                                                                                                                                                                    | Location in `.tar.gz` release                                       |
 | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
@@ -11,6 +11,71 @@
 | [Blockchain Engine Tests](./test_formats/blockchain_test_engine.md) | - using the [eels/consume-engine Simulator](./running.md#engine) and the Engine API                                                                                                                                                                                                          | `./fixtures/blockchain_tests_engine/`                               |
 | [Transaction Tests](./test_formats/transaction_test.md)             | - using a new simulator coming soon                                                                                                                                                                                                                                                       | None; executed directly from Python source,</br>using a release tag |
 | Blob Transaction Tests                                               | - using the [eels/execute-blobs Simulator](./execute/hive.md#the-eelsexecute-blobs-simulator) and                                                                                                                                                                                                                         | None; executed directly from Python source,</br>using a release tag |
+
+## Fixture Output Directory Structure
+
+Inside each format directory, fixtures are grouped by **target fork**.
+
+The top-level subdirectory identifies the fork **under test**. Below it,
+fixtures mirror the `./tests/` source layout: each directory corresponds
+to the fork where the functionality was originally introduced. Because
+tests declare `valid_from`, a single target fork directory contains
+fixtures from every prior fork whose tests are still valid at that fork.
+
+### Consensus fixture layout
+
+```text
+fixtures/
+└── blockchain_tests/
+    ├── for_prague/                   # filled targeting Prague
+    │   ├── istanbul/                 # tests introduced in Istanbul
+    │   │   └── eip1344_chainid/...
+    │   ├── cancun/                   # tests introduced in Cancun
+    │   │   └── eip4844_blobs/...
+    │   └── prague/                   # tests introduced in Prague
+    │       └── eip7702_set_code_tx/...
+    └── for_osaka/                    # filled targeting Osaka
+        ├── istanbul/
+        │   └── eip1344_chainid/...
+        ├── cancun/
+        │   └── eip4844_blobs/...
+        ├── prague/
+        │   └── eip7702_set_code_tx/...
+        └── osaka/                    # tests introduced in Osaka
+            └── eip7692_eof_v1/...
+```
+
+Other format directories (`state_tests/`, `blockchain_tests_engine/`)
+follow the same layout.
+
+### Benchmark fixture layout
+
+When filling with `--gas-benchmark-values`, benchmark tests additionally
+include the gas limit in the subdirectory name (`for_{fork}_at_{gas}M`,
+where `{gas}` is in millions, zero-padded to four digits), with one
+subdirectory per gas value:
+
+```text
+fixtures/
+└── blockchain_tests/
+    ├── for_osaka_at_0001M/           # 1M gas benchmark
+    │   └── benchmark/compute/...
+    └── for_osaka_at_0002M/           # 2M gas benchmark
+        └── benchmark/compute/...
+```
+
+When filling with `--fixed-opcode-count`, the opcode count replaces the
+gas limit in the subdirectory name (`for_{fork}_at_opcount_{N}K`, where
+`{N}` is in thousands and may include decimals):
+
+```text
+fixtures/
+└── blockchain_tests/
+    ├── for_osaka_at_opcount_10K/     # 10K opcodes
+    │   └── benchmark/compute/...
+    └── for_osaka_at_opcount_20K/     # 20K opcodes
+        └── benchmark/compute/...
+```
 
 ## Release URLs and Tarballs
 
@@ -26,7 +91,7 @@ Please see below for an explanation of the optional `<pre_release_name>` that is
 
 ### Standard Releases
 
-Releases are published on the @ethereum/execution-spec-tests [releases](https://github.com/ethereum/execution-spec-tests/releases) page. Standard releases are tagged using the format `vX.Y.Z` (they don't have a `<pre_release_name>`).
+Releases are published on the @ethereum/execution-specs [releases](https://github.com/ethereum/execution-specs/releases) page. Standard releases are tagged using the format `vX.Y.Z` (they don't have a `<pre_release_name>`).
 
 For standard releases, two tarballs are available:
 
@@ -37,20 +102,19 @@ For standard releases, two tarballs are available:
 
 I.e., `fixtures_develop` are a superset of `fixtures_stable`.
 
-!!! tip "Generating tarballs directly via `--output` includes all fixture formats"
-    When generating fixtures for release, specifying tarball output automatically enables all fixture formats:
+!!! tip "Release features opt into all fixture formats via `feature.yaml`"
+    Tarball output (`.tar.gz`) does not by itself include the pre-allocation group formats (`BlockchainEngineXFixture`, `BlockchainEngineStatefulFixture`). A release feature requests them by adding `--generate-all-formats` to its `fill-params` in `.github/configs/feature.yaml`:
     ```console
-    # Automatically enables --generate-all-formats due to .tar.gz output
-    uv run fill --output=fixtures_stable.tar.gz tests/
+    uv run fill --generate-all-formats --output=fixtures_stable.tar.gz tests/
     ```
-    This ensures that all fixture formats are included in the tarball release.
 
 ### Pre-Release and Devnet Releases
 
-Intermediate releases that target specific subsets of features or tests under active development are published at @ethereum/execution-spec-tests [releases](https://github.com/ethereum/execution-spec-tests/releases).
+Intermediate releases that target specific subsets of features or tests under active development are published at @ethereum/execution-specs [releases](https://github.com/ethereum/execution-specs/releases).
 
 These releases are tagged using the format `<pre_release_name>@vX.Y.Z`.
 
+<!-- TODO: These example tags live in the legacy @ethereum/execution-spec-tests repo; replace with current @ethereum/execution-specs examples once available. -->
 Examples:
 
 - [`fusaka-devnet-1@v1.0.0`](https://github.com/ethereum/execution-spec-tests/releases/tag/fusaka-devnet-1%40v1.0.0) - this fixture release contains tests adhering to the [Fusaka Devnet 1 spec](https://notes.ethereum.org/@ethpandaops/fusaka-devnet-1).

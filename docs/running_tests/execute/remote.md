@@ -87,6 +87,23 @@ The JWT secret file must contain only the JWT secret as a hex string.
 
 When an engine endpoint is provided, the test execution will use the Engine API to create new blocks and include transactions, giving you full control over the chain progression.
 
+### Using `testing_buildBlockV1` with a Remote Engine
+
+If the execution client supports the `testing_buildBlockV1` endpoint, you can enable it alongside the engine endpoint:
+
+```bash
+uv run execute remote --fork=Prague \
+    --rpc-endpoint=https://rpc.endpoint.io \
+    --rpc-seed-key 0x... --chain-id 12345 \
+    --engine-endpoint=https://engine.endpoint.io \
+    --engine-jwt-secret-file /path/to/jwt-secret.txt \
+    --use-testing-build-block
+```
+
+This flag requires `--engine-endpoint` to be set, because `engine_newPayload` and `engine_forkchoiceUpdated` are still needed to finalize blocks built by `testing_buildBlockV1`. Note that `testing_buildBlockV1` itself is served on the unauthenticated ETH RPC port.
+
+See [Block Building with `testing_buildBlockV1`](./index.md#block-building-with-testing_buildblockv1) for architectural details.
+
 The `execute remote` command will connect to the client via the RPC endpoint and will start executing every test in the `./tests` folder in the same way as the `execute hive` command, but instead of using the Engine API to generate blocks, it will send the transactions to the client via the RPC endpoint.
 
 It is recommended to only run a subset of the tests when executing on a live network. To do so, a path to a specific test can be provided to the command:

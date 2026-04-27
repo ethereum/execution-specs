@@ -14,6 +14,7 @@ Both `consume` and `execute` provide sub-commands which correspond to different 
 | [`consume direct`](#direct)             | Client consume tests via a `statetest` interface                                        | EVM                                                          | None          | Module test                       |
 | [`consume direct`](#direct)             | Client consume tests via a `blocktest` interface                                        | EVM, block processing                                        | None          | Module test,</br>Integration test |
 | [`consume engine`](#engine)             | Client imports blocks via Engine API `EngineNewPayload` in Hive                         | EVM, block processing, Engine API                            | Staging, Hive | System test                       |
+| [`consume enginex`](#enginex)           | Client imports blocks via Engine API in Hive, optimized by client reuse            | EVM, block processing, Engine API                            | Staging, Hive | System test                       |
 | [`consume sync`](#sync)                 | Client syncs from another client using Engine API in Hive                               | EVM, block processing, Engine API, P2P sync                  | Staging, Hive | System test                       |
 | [`consume rlp`](#rlp)                   | Client imports RLP-encoded blocks upon start-up in Hive                                 | EVM, block processing, RLP import (sync\*)                   | Staging, Hive | System test                       |
 | [`execute hive`](./execute/hive.md)     | Tests executed against a client via JSON RPC `eth_sendRawTransaction` in Hive           | EVM, JSON RPC, mempool                                       | Staging, Hive | System test                       |
@@ -61,6 +62,48 @@ The `consume engine` command:
 4. **Submits payloads** using `engine_newPayload` calls.
 5. **Validates responses** against expected results.
 6. **Tests error conditions** and exception handling.
+
+## EngineX
+
+| Nomenclature   |                            |
+| -------------- | -------------------------- |
+| Command        | `consume enginex`          |
+| Simulator      | `eels/consume-enginex`     |
+| Fixture format | `blockchain_test_engine_x` |
+
+The EngineX method is a faster alternative to `consume engine` that executes multiple tests against a single client instance. This is achieved via the [Blockchain Engine X Test fixture format](./test_formats/blockchain_test_engine_x.md) which groups tests that share the same fork and EVM [Environment](./test_formats/state_test.md#fixtureenvironment) together and contains a larger, shared pre-allocation state that all tests in the group use. This allows the EngineX simulator to execute multiple tests against the same client instance, whereas the Engine Simulator starts a fresh client for each test.
+
+The `consume enginex` command, for each pre-allocation group:
+
+1. **Initializes the execution client** with the group's shared genesis state.
+2. **Connects via Engine API** (port 8551).
+3. **Executes all tests in the group** against the same client:
+
+    - Submits payloads from each test using `engine_newPayload` calls.
+    - Validates responses against expected results.
+    - Tests error conditions and exception handling.
+
+4. **Stops the client** when all tests in the group complete.
+
+### Engine vs EngineX
+
+|                      | `consume engine`                                                       | `consume enginex`                                                        |
+| -------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| **Fixture format**     | [`blockchain_test_engine`](./test_formats/blockchain_test_engine.md) | [`blockchain_test_engine_x`](./test_formats/blockchain_test_engine_x.md)                                       |
+| **Client lifecycle**   | New client per test                                                    | Client reused across tests with same pre-alloc                                                                 |
+| **Fork choice update** | FCU called for genesis and final payload                               | FCU for genesis and final payload skipped |
+| **Execution speed**    | Slower (client startup overhead)                                       | Faster (amortized startup cost)                                                                                |
+| **Test isolation**     | Full isolation                                                         | Shared genesis state within group                                                                              |
+
+EngineX achieves faster execution by:
+
+1. **Grouping tests** by their pre-allocation state (genesis configuration).
+2. **Reusing clients** across all tests in a group, avoiding repeated client startup.
+3. **Skipping redundant initialization** since the client is already at the expected genesis state.
+
+!!! note "When to use EngineX vs Engine"
+
+    Use `consume enginex` for faster test runs when full per-test isolation is not required. Use `consume engine` when you need complete isolation between tests or when debugging issues triggered by a single test case.
 
 ## RLP
 

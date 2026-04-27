@@ -18,13 +18,13 @@ This command verifies that a client is correctly configured for a specific netwo
 
 ### Standalone, Direct Usage
 
-The `eth-config` sub-command can be ran directly, without cloning @ethereum/execution-spec-tests, by [installing uv](https://docs.astral.sh/uv/getting-started/installation/) and running:
+The `eth-config` sub-command can be ran directly, without cloning @ethereum/execution-specs, by [installing uv](https://docs.astral.sh/uv/getting-started/installation/) and running:
 
 ```bash
-uv run --with git+https://github.com/ethereum/execution-spec-tests.git execute eth-config --network Mainnet --rpc-endpoint http://<ETH_RPC_ENDPOINT>
+uv run --with "git+https://github.com/ethereum/execution-specs.git#subdirectory=packages/testing" execute eth-config --network Mainnet --rpc-endpoint http://<ETH_RPC_ENDPOINT>
 ```
 
-### From within the EEST Repository
+### From within the `execution-specs` Repository
 
 ```bash
 uv run execute eth-config --network <NETWORK_NAME> --rpc-endpoint <RPC_URL> [OPTIONS]
