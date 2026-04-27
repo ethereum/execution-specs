@@ -352,6 +352,13 @@ class Alloc(SharedAlloc):
             )
         deploy_gas_limit = gas_costs.TX_BASE + gas_costs.TX_CREATE
         deploy_gas_limit += len(deploy_code) * gas_costs.CODE_DEPOSIT_PER_BYTE
+        # EIP-8037: code deposit also pays state gas (`code_size * cpsb`).
+        # Returns 0 on pre-Amsterdam forks. Without this, the doubled-safety
+        # buffer below is too small for larger contracts and the deploy tx
+        # runs out of gas, leaving the contract empty (e.g. swapn_stack_235).
+        deploy_gas_limit += fork.code_deposit_state_gas(
+            code_size=len(deploy_code)
+        )
         deploy_gas_limit += memory_expansion_gas_calculator(
             new_bytes=len(initcode)
         )
@@ -463,6 +470,11 @@ class Alloc(SharedAlloc):
             raise ValueError(f"code too large: {len(code)} > {max_code_size}")
 
         deploy_gas_limit += len(code) * gas_costs.CODE_DEPOSIT_PER_BYTE
+        # EIP-8037: code deposit also pays state gas (`code_size * cpsb`).
+        # Returns 0 on pre-Amsterdam forks. Without this, the doubled-safety
+        # buffer below is too small for larger contracts and the deploy tx
+        # runs out of gas, leaving the contract empty (e.g. swapn_stack_235).
+        deploy_gas_limit += fork.code_deposit_state_gas(code_size=len(code))
 
         prepared_initcode = Initcode(
             deploy_code=code, initcode_prefix=initcode_prefix
