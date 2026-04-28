@@ -97,7 +97,9 @@ def test_create_deposit_oog(
 
     created_account: Account | None = Account(code=b"\x00" * deposited_len)
     if fork.is_eip_enabled(8037):
-        # Under EIP-8037 we charge for the new account to the new
+        # Under EIP-8037 we charge for the new account being created at the
+        # parent frame, so to avoid that charge and being able to return from
+        # the parent successfully, we pre-fund the created contract's address.
         pre.fund_address(new_address, 1)
     if not enough_gas:
         if fork > Frontier:
