@@ -68,6 +68,11 @@ def test_create_deposit_oog(
         # Increment the gas for the 63/64 rule
         create_gas = (create_gas * 64) // 63
     call_gas = create_gas + factory_code.regular_cost(fork)
+    if fork.is_eip_enabled(8037) and enough_gas:
+        # On success, factory's own frame-end byte_delta covers the new
+        # account + deposited code, charging NEW_ACCOUNT × CPSB of state
+        # gas out of gas_left. Add that margin so factory survives.
+        call_gas += fork.gas_costs().NEW_ACCOUNT
     caller_address = pre.deploy_contract(
         code=Op.CALL(
             gas=call_gas, address=factory_address, ret_offset=0, ret_size=32
