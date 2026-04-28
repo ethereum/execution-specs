@@ -217,7 +217,8 @@ def incorporate_child_on_error(
     """
     Incorporate the state of an unsuccessful `child_evm` into the parent `evm`.
 
-    All state gas the child held is returned to the parent `state_gas_reservoir`.
+    All state gas the child held is returned to the parent
+    `state_gas_reservoir`.
 
     Parameters
     ----------

@@ -25,6 +25,7 @@ from ..transactions import BlobTransaction, Transaction
 from . import Evm
 from .exceptions import OutOfGasError
 
+
 class StateCosts:
     """
     State byte costs and per byte gas charge.
@@ -37,8 +38,8 @@ class StateCosts:
 
     # State-byte counts of common state-mutating operations.
     NEW_ACCOUNT = Uint(112)  # account record
-    STORAGE_SET = Uint(32)   # storage slot key/value pair
-    AUTH_BASE = Uint(23)     # 7702 delegation marker (0xef0100 + 20)
+    STORAGE_SET = Uint(32)  # storage slot key/value pair
+    AUTH_BASE = Uint(23)  # 7702 delegation marker (0xef0100 + 20)
     # Fixed cost-per-state-byte. Calibrated for 100 GiB/year state
     # growth at a 96M gas-limit reference utilization.
     PER_BYTE = Uint(1174)

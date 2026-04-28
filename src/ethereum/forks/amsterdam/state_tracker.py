@@ -748,11 +748,13 @@ def compute_state_byte_diff(
 
     for address, account_now in tx_state.account_writes.items():
         exists_now = account_now is not None
-        existed_at_frame_entry = account_existed_at_snapshot(
-            snapshot, address
-        )
+        existed_at_frame_entry = account_existed_at_snapshot(snapshot, address)
         existed_at_tx_entry = account_existed_at_tx_entry(tx_state, address)
-        if exists_now and not existed_at_frame_entry and not existed_at_tx_entry:
+        if (
+            exists_now
+            and not existed_at_frame_entry
+            and not existed_at_tx_entry
+        ):
             delta += 112
         elif not exists_now and existed_at_frame_entry and existed_at_tx_entry:
             delta -= 112

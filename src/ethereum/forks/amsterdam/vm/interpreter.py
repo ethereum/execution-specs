@@ -337,10 +337,10 @@ def process_message(message: Message, create: bool = False) -> Evm:
         #   code.
         destroy_storage(tx_state, message.current_target)
 
-        # In the previously mentioned edge case the preexisting storage is ignored
-        # for gas refund purposes. In order to do this we must track created
-        # accounts. This tracking is also needed to respect the constraints
-        # added to SELFDESTRUCT by EIP-6780.
+        # In the previously mentioned edge case the preexisting storage is
+        # ignored for gas refund purposes. In order to do this we must track
+        # created accounts. This tracking is also needed to respect the
+        # constraints added to SELFDESTRUCT by EIP-6780.
         mark_account_created(tx_state, message.current_target)
 
         increment_nonce(tx_state, message.current_target)
@@ -400,7 +400,7 @@ def process_message(message: Message, create: bool = False) -> Evm:
             # client incurs to derive `code_hash`.
             code_hash_gas = (
                 GasCosts.OPCODE_KECCACK256_PER_WORD
-                * ceil32(Uint(len(contract_code)))
+                * ceil32(ulen(contract_code))
                 // Uint(32)
             )
             charge_gas(evm, code_hash_gas)

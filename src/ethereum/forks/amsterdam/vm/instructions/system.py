@@ -46,7 +46,6 @@ from .. import (
 from ..exceptions import OutOfGasError, Revert, WriteInStaticContext
 from ..gas import (
     GasCosts,
-    StateCosts,
     calculate_gas_extend_memory,
     calculate_message_call_gas,
     charge_gas,
