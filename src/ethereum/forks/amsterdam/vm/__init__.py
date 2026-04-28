@@ -93,7 +93,13 @@ class BlockOutput:
     """
 
     block_gas_used: Uint = Uint(0)
+    # The state-gas dimension of block accounting. Block-end check
+    # enforces `max(block_gas_used, block_state_gas_used) <=
+    # gas_limit`. Header `gas_used` reports the binding dimension.
     block_state_gas_used: Uint = Uint(0)
+    # Running total of post-refund, post-floor tx gas. Used to
+    # populate receipt `cumulative_gas_used` (per-tx delta of
+    # consecutive receipts gives that tx's actual gas paid).
     cumulative_gas_used: Uint = Uint(0)
     transactions_trie: Trie[Bytes, Optional[Bytes | LegacyTransaction]] = (
         field(default_factory=lambda: Trie(secured=False, default=None))
@@ -120,6 +126,8 @@ class TransactionEnvironment:
     origin: Address
     gas_price: Uint
     gas: Uint
+    # State-gas budget allocated to this tx. Seeds the depth-0
+    # `Evm.state_gas_reservoir` and propagates via Message.
     state_gas_reservoir: Uint
     access_list_addresses: Set[Address]
     access_list_storage_keys: Set[Tuple[Address, Bytes32]]
@@ -128,6 +136,8 @@ class TransactionEnvironment:
     authorizations: Tuple[Authorization, ...]
     index_in_block: Optional[Uint]
     tx_hash: Optional[Hash32]
+    # Pre-validated intrinsic costs split by dimension. Immutable
+    # post-validation; used for block-level 2D accounting.
     intrinsic_regular_gas: Uint
     intrinsic_state_gas: Uint
 
@@ -144,6 +154,11 @@ class Message:
     target: Bytes0 | Address
     current_target: Address
     gas: Uint
+    # State-gas budget handed to this frame. Initially set from
+    # `tx_env.state_gas_reservoir` for the depth-0 frame; for child
+    # frames, set by the caller's CALL/CREATE handoff (see
+    # `generic_create` and `call`/etc. in instructions/system.py).
+    # Seeds the child `Evm.state_gas_reservoir` in `process_message`.
     state_gas_reservoir: Uint
     value: U256
     data: Bytes
@@ -167,7 +182,10 @@ class Evm:
     memory: bytearray
     code: Bytes
     gas_left: Uint
-    state_gas_left: Uint
+    # Per-frame state-gas budget (the reservoir handed down from the
+    # parent's `Message.state_gas_reservoir`). Drains at frame-end
+    # only, never per-opcode.
+    state_gas_reservoir: Uint
     valid_jump_destinations: Set[Uint]
     logs: Tuple[Log, ...]
     refund_counter: int
@@ -179,46 +197,17 @@ class Evm:
     error: Optional[EthereumException]
     accessed_addresses: Set[Address]
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
+    # Per-tx running totals. Block-level 2D accounting needs the
+    # regular and state portions separated; these counters get
+    # composed up via `incorporate_child_on_success` and read at
+    # tx-end by `process_transaction`.
     regular_gas_used: Uint = Uint(0)
     state_gas_used: Uint = Uint(0)
-    state_gas_refund: Uint = Uint(0)
-    state_gas_refund_pending: Uint = Uint(0)
-
-
-def credit_state_gas_refund(evm: Evm, amount: Uint) -> None:
-    """
-    Credit an inline state gas refund to `evm.state_gas_left`.
-
-    Clamp the applied portion to this frame's `state_gas_used` — the
-    matching charge may sit in an ancestor sharing storage via
-    CALLCODE/DELEGATECALL.  Track it in `state_gas_refund` so
-    `incorporate_child_on_error` can undo the inflation, and defer the
-    unapplied remainder in `state_gas_refund_pending` for propagation
-    on success.
-
-    Parameters
-    ----------
-    evm :
-        The frame crediting the refund.
-    amount :
-        The refund amount to credit.
-
-    """
-    applied = min(amount, evm.state_gas_used)
-    evm.state_gas_left += applied
-    evm.state_gas_used -= applied
-    evm.state_gas_refund += applied
-    evm.state_gas_refund_pending += amount - applied
 
 
 def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
     """
     Incorporate the state of a successful `child_evm` into the parent `evm`.
-
-    Propagate `state_gas_refund` (inline credits the child applied) so
-    an ancestor revert can undo the inflation, and apply
-    `state_gas_refund_pending` (the unapplied remainder) to the parent
-    via `credit_state_gas_refund`; any leftover propagates further up.
 
     Parameters
     ----------
@@ -229,7 +218,7 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
 
     """
     evm.gas_left += child_evm.gas_left
-    evm.state_gas_left += child_evm.state_gas_left
+    evm.state_gas_reservoir += child_evm.state_gas_reservoir
     evm.logs += child_evm.logs
     evm.refund_counter += child_evm.refund_counter
     evm.accounts_to_delete.update(child_evm.accounts_to_delete)
@@ -237,8 +226,6 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
     evm.accessed_storage_keys.update(child_evm.accessed_storage_keys)
     evm.regular_gas_used += child_evm.regular_gas_used
     evm.state_gas_used += child_evm.state_gas_used
-    evm.state_gas_refund += child_evm.state_gas_refund
-    credit_state_gas_refund(evm, child_evm.state_gas_refund_pending)
 
 
 def incorporate_child_on_error(
@@ -248,16 +235,7 @@ def incorporate_child_on_error(
     """
     Incorporate the state of an unsuccessful `child_evm` into the parent `evm`.
 
-    On failure (revert or exceptional halt) state changes are rolled back,
-    so no state was actually grown.  All state gas, both reservoir and any
-    that spilled into `gas_left`, is restored to the parent's reservoir and
-    the child's `state_gas_used` is not accumulated.
-
-    Inline state-gas refunds (SSTORE 0 to x to 0, CREATE silent failure)
-    credited by the child inflated its `state_gas_left`; subtract
-    `state_gas_refund` from the amount returned to the parent's
-    reservoir so the inflation does not leak across the error boundary.
-    `state_gas_refund_pending` is discarded with the child frame.
+    All state gas the child held is returned to the parent `state_gas_reservoir`.
 
     Parameters
     ----------
@@ -267,12 +245,26 @@ def incorporate_child_on_error(
         The child evm to incorporate.
 
     """
+    # `restore_tx_state` already rolled the child's writes out of
+    # `tx_state`, so the parent's frame-end diff won't see them and
+    # the parent walks away as if the child call never happened from
+    # a state perspective.
+    #
+    # State-gas restoration: the child may have charged state gas in
+    # successful sub-grandchildren whose writes were rolled back
+    # alongside the child's snapshot. Both `state_gas_used` (charged
+    # by sub-frames that succeeded) and `state_gas_reservoir` (unspent
+    # reservoir) are returned to the parent's reservoir.
+    # `state_gas_used` is *not* added to the parent's `state_gas_used`
+    # since no state was actually grown — only the budget round-trip
+    # is preserved.
+    #
+    # `regular_gas_used` IS propagated because the child's CPU-style
+    # work happened: the gas was burned on opcode execution (memory
+    # expansion, hashing, etc.), even though state was rolled back.
+    # The block-level regular-gas total has to count it.
     evm.gas_left += child_evm.gas_left
-    evm.state_gas_left += (
-        child_evm.state_gas_used
-        + child_evm.state_gas_left
-        - child_evm.state_gas_refund
-    )
+    evm.state_gas_reservoir += child_evm.state_gas_used + child_evm.state_gas_reservoir
     evm.regular_gas_used += child_evm.regular_gas_used
 
 
