@@ -93,13 +93,7 @@ class BlockOutput:
     """
 
     block_gas_used: Uint = Uint(0)
-    # The state-gas dimension of block accounting. Block-end check
-    # enforces `max(block_gas_used, block_state_gas_used) <=
-    # gas_limit`. Header `gas_used` reports the binding dimension.
     block_state_gas_used: Uint = Uint(0)
-    # Running total of post-refund, post-floor tx gas. Used to
-    # populate receipt `cumulative_gas_used` (per-tx delta of
-    # consecutive receipts gives that tx's actual gas paid).
     cumulative_gas_used: Uint = Uint(0)
     transactions_trie: Trie[Bytes, Optional[Bytes | LegacyTransaction]] = (
         field(default_factory=lambda: Trie(secured=False, default=None))
@@ -126,8 +120,6 @@ class TransactionEnvironment:
     origin: Address
     gas_price: Uint
     gas: Uint
-    # State-gas budget allocated to this tx. Seeds the depth-0
-    # `Evm.state_gas_reservoir` and propagates via Message.
     state_gas_reservoir: Uint
     access_list_addresses: Set[Address]
     access_list_storage_keys: Set[Tuple[Address, Bytes32]]
@@ -136,8 +128,6 @@ class TransactionEnvironment:
     authorizations: Tuple[Authorization, ...]
     index_in_block: Optional[Uint]
     tx_hash: Optional[Hash32]
-    # Pre-validated intrinsic costs split by dimension. Immutable
-    # post-validation; used for block-level 2D accounting.
     intrinsic_regular_gas: Uint
     intrinsic_state_gas: Uint
 
@@ -154,11 +144,6 @@ class Message:
     target: Bytes0 | Address
     current_target: Address
     gas: Uint
-    # State-gas budget handed to this frame. Initially set from
-    # `tx_env.state_gas_reservoir` for the depth-0 frame; for child
-    # frames, set by the caller's CALL/CREATE handoff (see
-    # `generic_create` and `call`/etc. in instructions/system.py).
-    # Seeds the child `Evm.state_gas_reservoir` in `process_message`.
     state_gas_reservoir: Uint
     value: U256
     data: Bytes
@@ -182,9 +167,6 @@ class Evm:
     memory: bytearray
     code: Bytes
     gas_left: Uint
-    # Per-frame state-gas budget (the reservoir handed down from the
-    # parent's `Message.state_gas_reservoir`). Drains at frame-end
-    # only, never per-opcode.
     state_gas_reservoir: Uint
     valid_jump_destinations: Set[Uint]
     logs: Tuple[Log, ...]
@@ -197,10 +179,6 @@ class Evm:
     error: Optional[EthereumException]
     accessed_addresses: Set[Address]
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
-    # Per-tx running totals. Block-level 2D accounting needs the
-    # regular and state portions separated; these counters get
-    # composed up via `incorporate_child_on_success` and read at
-    # tx-end by `process_transaction`.
     regular_gas_used: Uint = Uint(0)
     # Signed because EIP-8037 SELFDESTRUCT processing decrements this
     # by the full refund amount, which can exceed prior frame-end
@@ -249,28 +227,7 @@ def incorporate_child_on_error(
         The child evm to incorporate.
 
     """
-    # `restore_tx_state` already rolled the child's writes out of
-    # `tx_state`, so the parent's frame-end diff won't see them and
-    # the parent walks away as if the child call never happened from
-    # a state perspective.
-    #
-    # State-gas restoration: the child may have charged state gas in
-    # successful sub-grandchildren whose writes were rolled back
-    # alongside the child's snapshot. Both `state_gas_used` (charged
-    # by sub-frames that succeeded) and `state_gas_reservoir` (unspent
-    # reservoir) are returned to the parent's reservoir.
-    # `state_gas_used` is *not* added to the parent's `state_gas_used`
-    # since no state was actually grown — only the budget round-trip
-    # is preserved.
-    #
-    # `regular_gas_used` IS propagated because the child's CPU-style
-    # work happened: the gas was burned on opcode execution (memory
-    # expansion, hashing, etc.), even though state was rolled back.
-    # The block-level regular-gas total has to count it.
     evm.gas_left += child_evm.gas_left
-    # `state_gas_used` is signed; on the error path the destroy loop
-    # never ran (it lives in `process_message_call` and only fires on
-    # success), so the value is non-negative here.
     evm.state_gas_reservoir += (
         Uint(max(0, child_evm.state_gas_used)) + child_evm.state_gas_reservoir
     )

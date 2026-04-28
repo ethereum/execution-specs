@@ -189,27 +189,6 @@ def set_delegation(message: Message) -> None:
         if authority_nonce != auth.nonce:
             continue
 
-        # `intrinsic_state_gas` pessimistically pre-charged
-        # `(NEW_ACCOUNT + AUTH_BASE) × PER_BYTE` for every auth at
-        # validation time, assuming each authority would be a fresh
-        # account. When the authority is already non-empty per
-        # EIP-161 (any of: non-zero nonce, non-zero balance, code
-        # set), no account record is created — only the 23-byte
-        # delegation code is written. Refund the over-charged
-        # `NEW_ACCOUNT × PER_BYTE` portion directly into this
-        # frame's `state_gas_reservoir` (not via the EVM
-        # `refund_counter`, which is regular-gas only and capped
-        # by EIP-3529).
-        #
-        # An *empty* existing account (nonce=0, balance=0, no code)
-        # does NOT qualify for the refund: per EIP-161 it is
-        # treated as effectively non-existent, and setting the
-        # delegation code on it materializes a fresh state record.
-        #
-        # `intrinsic_state_gas` itself is immutable post-validation;
-        # block accounting reports the pessimistic figure, the
-        # refund only affects the runtime budget the user has to
-        # spend.
         if is_account_alive(tx_state, authority):
             refund = StateCosts.NEW_ACCOUNT * StateCosts.PER_BYTE
             message.state_gas_reservoir += refund

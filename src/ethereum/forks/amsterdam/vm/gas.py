@@ -75,14 +75,7 @@ class GasCosts:
     CODE_DEPOSIT_PER_BYTE = Uint(200)
     CODE_INIT_PER_WORD = Uint(2)
 
-    # Authorization (7702). Replaces the legacy
-    # `AUTH_PER_EMPTY_ACCOUNT = 25000`. The 25k pessimistic charge
-    # split into two parts:
-    #   - 7500 regular gas (this constant): signature recovery and
-    #     code-set bookkeeping the client always pays.
-    #   - state-byte cost in `intrinsic_state_gas`: NEW_ACCOUNT +
-    #     AUTH_BASE per auth, refunded by `set_delegation` to the
-    #     reservoir for authorities that already exist.
+    # Authorization
     PER_AUTH_BASE_COST = Uint(7500)
 
     # Utility
@@ -129,9 +122,6 @@ class GasCosts:
 
     # Transactions
     TX_BASE = Uint(21000)
-    # Reduced from 32000. The remaining ~23000 (account-creation
-    # cost) moves to the state-gas dimension as
-    # `NEW_ACCOUNT × PER_BYTE` in `intrinsic_state_gas`.
     TX_CREATE = Uint(9000)
     TX_DATA_TOKEN_STANDARD = Uint(4)
     TX_DATA_TOKEN_FLOOR = Uint(16)
@@ -213,8 +203,6 @@ class GasCosts:
     OPCODE_MSTORE_BASE = VERY_LOW
     OPCODE_MSTORE8_BASE = VERY_LOW
     OPCODE_COPY_PER_WORD = Uint(3)
-    # Reduced from 32000 (mirror of `TX_CREATE`). Account-creation
-    # state-byte cost moves to the per-frame counter.
     OPCODE_CREATE_BASE = Uint(9000)
     OPCODE_EXP_BASE = Uint(10)
     OPCODE_EXP_PER_BYTE = Uint(50)

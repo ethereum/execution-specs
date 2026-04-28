@@ -336,13 +336,6 @@ def execute_block(
         block_output.block_access_list
     )
 
-    # Block-level 2D enforcement. The header's `gas_used` field
-    # stays a single number for backward compat, but it now reports
-    # the *binding dimension* — whichever of regular or state gas
-    # consumed more. A block is only valid if both dimensions fit
-    # under `gas_limit`, equivalent to `max(...) <= gas_limit`.
-    # Pre-EIP-8037 blocks (no state mutations) collapse trivially:
-    # `block_state_gas_used = 0` so the max equals `block_gas_used`.
     block_gas_used = max(
         block_output.block_gas_used,
         block_output.block_state_gas_used,
@@ -559,11 +552,6 @@ def check_transaction(
         is empty.
 
     """
-    # Per-tx 2D inclusion: each dimension's worst-case
-    # contribution must fit in the remaining block budget for that
-    # dimension. Regular gas is capped at TX_MAX_GAS_LIMIT per
-    # EIP-7825; state gas has no per-tx cap and is bounded only
-    # by `tx.gas`.
     regular_gas_available = (
         block_env.block_gas_limit - block_output.block_gas_used
     )
@@ -1020,21 +1008,6 @@ def process_transaction(
 
     effective_gas_fee = tx.gas * effective_gas_price
 
-    # Allocate the runtime budget across two dimensions.
-    #
-    # `execution_gas` = whatever's left after intrinsic costs.
-    # `gas` = portion handed to the EVM as `gas_left` (regular).
-    # `state_gas_reservoir` = portion handed to the EVM for state
-    #   gas. Drains via `compute_state_byte_diff × PER_BYTE` at
-    #   frame-end.
-    #
-    # The split point is `regular_gas_budget = TX_MAX_GAS_LIMIT -
-    # intrinsic.regular`. This caps regular `gas_left` at the
-    # EIP-7825 single-tx limit — a tx with `tx.gas` larger than
-    # that gets the overflow assigned to the state-gas reservoir
-    # instead. If the user's tx does no state-creation work, the
-    # reservoir leftover refunds at frame-end via the
-    # `gas_left + state_gas_reservoir` total below.
     execution_gas = tx.gas - intrinsic_gas
     regular_gas_budget = TX_MAX_GAS_LIMIT - intrinsic.regular
     gas = min(regular_gas_budget, execution_gas)
@@ -1085,23 +1058,8 @@ def process_transaction(
     tx_output = process_message_call(message)
 
     if tx_output.error is not None:
-        # Top-level failure: every sub-frame's state changes were
-        # rolled back via `restore_tx_state`, so any state gas
-        # charged by successful sub-frames represents work that
-        # didn't persist. Return it to the reservoir for the
-        # gas-leftover calculation below. State_gas_used resets to
-        # zero since the block-level state-gas counter must reflect
-        # only persisted state.
         tx_output.state_gas_reservoir += Uint(max(0, tx_output.state_gas_used))
         tx_output.state_gas_used = 0
-    # SELFDESTRUCT same-tx refund (account + storage + code) is
-    # handled by the depth-0 destroy loop inside process_message;
-    # nothing to do here.
-
-    # `total_remaining` can exceed `tx.gas` when a negative byte
-    # delta credits the reservoir at frame-end (e.g. same-tx
-    # ephemerals or SELFDESTRUCT-of-created refund). Clamp to avoid
-    # underflow when computing `tx_gas_used_before_refund`.
     total_remaining = tx_output.gas_left + tx_output.state_gas_reservoir
     if total_remaining > tx.gas:
         tx_gas_used_before_refund = Uint(0)
@@ -1165,11 +1123,6 @@ def process_transaction(
     ):
         destroy_account(tx_state, block_env.coinbase)
 
-    # Per-tx 2D contribution to block-level totals.
-    #   tx_regular_gas: intrinsic regular + execution regular burn
-    #     (capped from below by the EIP-7623 calldata floor).
-    #   tx_state_gas:   intrinsic state + execution state burn.
-    # These feed the block-end max(...) check.
     tx_regular_gas = tx_env.intrinsic_regular_gas + tx_output.regular_gas_used
     # `state_gas_used` is signed (can go negative due to deferred
     # SELFDESTRUCT refunds offsetting the intrinsic portion). Clamp
@@ -1184,10 +1137,6 @@ def process_transaction(
     block_output.block_state_gas_used += tx_state_gas
     block_output.blob_gas_used += tx_blob_gas_used
 
-    # `cumulative_gas_used` reports the gas the user actually paid
-    # (post-refund, post-floor). Receipt logic reads this to compute
-    # per-tx gas-used-after-refund as a delta between consecutive
-    # receipts.
     block_output.cumulative_gas_used += tx_gas_used_after_refund
     receipt = make_receipt(
         tx,
