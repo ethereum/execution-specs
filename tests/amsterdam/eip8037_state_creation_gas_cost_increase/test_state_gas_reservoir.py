@@ -343,6 +343,7 @@ def test_block_state_gas_limit_boundary(
     )
 
 
+@pytest.mark.exception_test
 @pytest.mark.valid_from("EIP8037")
 def test_creation_tx_regular_check_no_intrinsic_state_subtraction(
     blockchain_test: BlockchainTestFiller,
