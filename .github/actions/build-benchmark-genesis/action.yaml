@@ -18,6 +18,15 @@ runs:
         ref: master
         path: hive
 
+    # Redirect Go's module/build caches to a per-job temp dir so the
+    # actions/setup-go cache restore extracts into an empty target. On
+    # self-hosted runners $GOMODCACHE persists across jobs and would
+    # otherwise collide with the cache tarball ("File exists" from tar).
+    - name: Use ephemeral Go cache dirs
+      shell: bash
+      run: |
+        echo "GOMODCACHE=${{ runner.temp }}/go/mod" >> "$GITHUB_ENV"
+        echo "GOCACHE=${{ runner.temp }}/go/build" >> "$GITHUB_ENV"
     - name: Setup Go for Hive
       uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
       with:
