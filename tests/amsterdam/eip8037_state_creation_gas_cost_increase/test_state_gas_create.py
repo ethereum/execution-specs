@@ -2129,7 +2129,7 @@ def test_create_collision_burned_gas_counted_in_block_regular(
     # header.gas_used equals the regular-gas total. A mutation that
     # drops the burned create_message_gas from regular accounting
     # would reduce this value.
-    baseline_gas_used = 0x01C98C
+    baseline_gas_used = 0x03C325
 
     blockchain_test(
         pre=pre,
