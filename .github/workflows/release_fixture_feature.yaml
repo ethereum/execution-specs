@@ -33,7 +33,7 @@ jobs:
     runs-on: [self-hosted-ghr, size-gigachungus-x64]
     timeout-minutes: 1440
     strategy:
-      fail-fast: true
+      # fail-fast: true
       matrix:
         include: ${{ fromJson(needs.setup.outputs.build_matrix) }}
     steps:
