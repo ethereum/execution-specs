@@ -67,7 +67,7 @@ def test_create_deposit_oog(
     if fork >= TangerineWhistle:
         # Increment the gas for the 63/64 rule
         create_gas = (create_gas * 64) // 63
-    call_gas = create_gas + factory_code.gas_cost(fork)
+    call_gas = create_gas + factory_code.regular_cost(fork)
     caller_address = pre.deploy_contract(
         code=Op.CALL(
             gas=call_gas, address=factory_address, ret_offset=0, ret_size=32
