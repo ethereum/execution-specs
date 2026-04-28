@@ -11,6 +11,12 @@ from ethereum_spec_tools.evm_tools.t8n.transition_tool import EELST8N
 
 from ethereum.ethash import *
 from ethereum.fork_criteria import Unscheduled
+from ethereum.forks.amsterdam.vm.gas import (
+    BLOCKS_PER_YEAR,
+    COST_PER_STATE_BYTE_OFFSET,
+    COST_PER_STATE_BYTE_SIGNIFICANT_BITS,
+    TARGET_STATE_GROWTH_PER_YEAR,
+)
 from ethereum.trace import EvmTracer
 from ethereum.utils.hexadecimal import hex_to_bytes256
 from ethereum_optimized.state_db import State
@@ -104,12 +110,20 @@ TransactionLoad.json_to_s
 # src/ethereum_spec_tools/evm_tools/t8n/env.py
 Ommer.delta
 
+# src/ethereum/forks/amsterdam/vm/gas.py
+TARGET_STATE_GROWTH_PER_YEAR
+BLOCKS_PER_YEAR
+COST_PER_STATE_BYTE_SIGNIFICANT_BITS
+COST_PER_STATE_BYTE_OFFSET
+
 # src/ethereum_spec_tools/evm_tools/t8n/evm_trace/eip3155.py
 Trace.gasCost
 Trace.memSize
 Trace.returnData
 Trace.refund
 Trace.opName
+Trace.stateGas
+Trace.stateGasCost
 FinalTrace.gasUsed
 
 # src/ethereum_spec_tools/lint/lints/glacier_forks_hygiene.py

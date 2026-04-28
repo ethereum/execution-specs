@@ -81,8 +81,7 @@ def build_refund_tx(
                 code += Op.PUSH0
                 delegated_contract = pre.deploy_contract(code=Bytecode())
                 authority_signers = [
-                    pre.fund_eoa(amount=1)
-                    for _ in range(refunds_count)
+                    pre.fund_eoa(amount=1) for _ in range(refunds_count)
                 ]
                 authorization_list = [
                     AuthorizationTuple(

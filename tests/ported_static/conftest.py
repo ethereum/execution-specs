@@ -39,10 +39,7 @@ def pytest_collection_modifyitems(
 ) -> None:
     """Skip ported static test cases listed in amsterdam_skip_list.txt."""
     skip_marker = pytest.mark.skip(
-        reason=(
-            "Ported static test gas limits not yet"
-            " updated for EIP-8037"
-        )
+        reason=("Ported static test gas limits not yet updated for EIP-8037")
     )
     for item in items:
         if "ported_static" not in item.nodeid:
