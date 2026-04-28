@@ -176,7 +176,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
         # removed. The frame-end diff above charged for the create
         # (account record, deployed code, new storage slots); refund
         # those here directly to the reservoir (no 20% cap), then
-        # destroy the account for state-trie purposes.
+        # allow the loop in fork.py to destroy the account.
         for address in evm.accounts_to_delete:
             if address in tx_state.created_accounts:
                 account = get_account(tx_state, address)
@@ -199,7 +199,6 @@ def process_message_call(message: Message) -> MessageCallOutput:
                 # `tx_state_gas` accounting.
                 evm.state_gas_reservoir += Uint(refill_amount)
                 evm.state_gas_used -= refill_amount
-                destroy_account(tx_state, address)
 
     tx_end = TransactionEnd(
         int(message.gas) - int(evm.gas_left), evm.output, evm.error
