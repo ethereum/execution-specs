@@ -101,7 +101,7 @@ class MessageCallOutput:
     error: Optional[EthereumException]
     return_data: Bytes
     regular_gas_used: Uint
-    state_gas_used: Uint
+    state_gas_used: int
 
 
 def process_message_call(message: Message) -> MessageCallOutput:
@@ -136,7 +136,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
                 error=AddressCollision(),
                 return_data=Bytes(b""),
                 regular_gas_used=Uint(0),
-                state_gas_used=Uint(0),
+                state_gas_used=0,
             )
         else:
             evm = process_message(message, True)
@@ -187,9 +187,18 @@ def process_message_call(message: Message) -> MessageCallOutput:
                 ).values():
                     if slot_value != U256(0):
                         refund_bytes += int(StateCosts.STORAGE_SET)
-                evm.state_gas_reservoir += Uint(
-                    refund_bytes * int(StateCosts.PER_BYTE)
-                )
+                refill_amount = refund_bytes * int(StateCosts.PER_BYTE)
+                # Per EIP-8037: refill `state_gas_reservoir` with
+                # the previously-charged state gas (account creation,
+                # code deposit, new storage slots), and decrease
+                # `execution_state_gas_used` by the same amount. The
+                # decrement may go negative because the account-
+                # creation portion was charged via
+                # `intrinsic_state_gas` (not via this counter); the
+                # negative offsets the intrinsic at block-level
+                # `tx_state_gas` accounting.
+                evm.state_gas_reservoir += Uint(refill_amount)
+                evm.state_gas_used -= refill_amount
                 destroy_account(tx_state, address)
 
     tx_end = TransactionEnd(
@@ -259,7 +268,7 @@ def apply_frame_state_gas(
             evm.error = OutOfGasError()
             evm.output = b""
         if not evm.error:
-            evm.state_gas_used += cost
+            evm.state_gas_used += int(cost)
     elif this_call_cost < 0:
         # Negative residual means this subtree net-shrunk state.
         # Credit the reservoir directly; the credit is bounded by

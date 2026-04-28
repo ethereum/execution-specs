@@ -202,7 +202,11 @@ class Evm:
     # composed up via `incorporate_child_on_success` and read at
     # tx-end by `process_transaction`.
     regular_gas_used: Uint = Uint(0)
-    state_gas_used: Uint = Uint(0)
+    # Signed because EIP-8037 SELFDESTRUCT processing decrements this
+    # by the full refund amount, which can exceed prior frame-end
+    # charges (the account-creation portion of the refund offsets
+    # `intrinsic_state_gas` rather than `execution_state_gas_used`).
+    state_gas_used: int = 0
 
 
 def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
@@ -264,7 +268,12 @@ def incorporate_child_on_error(
     # expansion, hashing, etc.), even though state was rolled back.
     # The block-level regular-gas total has to count it.
     evm.gas_left += child_evm.gas_left
-    evm.state_gas_reservoir += child_evm.state_gas_used + child_evm.state_gas_reservoir
+    # `state_gas_used` is signed; on the error path the destroy loop
+    # never ran (it lives in `process_message_call` and only fires on
+    # success), so the value is non-negative here.
+    evm.state_gas_reservoir += (
+        Uint(max(0, child_evm.state_gas_used)) + child_evm.state_gas_reservoir
+    )
     evm.regular_gas_used += child_evm.regular_gas_used
 
 

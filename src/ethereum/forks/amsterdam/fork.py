@@ -1092,8 +1092,8 @@ def process_transaction(
         # gas-leftover calculation below. State_gas_used resets to
         # zero since the block-level state-gas counter must reflect
         # only persisted state.
-        tx_output.state_gas_reservoir += tx_output.state_gas_used
-        tx_output.state_gas_used = Uint(0)
+        tx_output.state_gas_reservoir += Uint(max(0, tx_output.state_gas_used))
+        tx_output.state_gas_used = 0
     # SELFDESTRUCT same-tx refund (account + storage + code) is
     # handled by the depth-0 destroy loop inside process_message;
     # nothing to do here.
@@ -1171,7 +1171,13 @@ def process_transaction(
     #   tx_state_gas:   intrinsic state + execution state burn.
     # These feed the block-end max(...) check.
     tx_regular_gas = tx_env.intrinsic_regular_gas + tx_output.regular_gas_used
-    tx_state_gas = tx_env.intrinsic_state_gas + tx_output.state_gas_used
+    # `state_gas_used` is signed (can go negative due to deferred
+    # SELFDESTRUCT refunds offsetting the intrinsic portion). Clamp
+    # at 0 because the block-level Uint counter cannot go negative;
+    # a tx that net-creates no state contributes nothing here.
+    tx_state_gas = Uint(
+        max(0, int(tx_env.intrinsic_state_gas) + tx_output.state_gas_used)
+    )
     block_output.block_gas_used += max(
         tx_regular_gas, intrinsic.calldata_floor
     )
