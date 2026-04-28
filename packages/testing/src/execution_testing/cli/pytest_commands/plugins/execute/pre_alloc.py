@@ -585,6 +585,15 @@ class Alloc(SharedAlloc):
         # Send a transaction to fund the EOA
         fund_tx: PendingTransaction | None = None
         if delegation is not None or storage is not None:
+            fork = self._fork.fork_at(
+                block_number=self._block_number, timestamp=self._timestamp
+            )
+            intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
+            gas_costs = fork.gas_costs()
+            cold_sstore = (
+                gas_costs.GAS_COLD_STORAGE_ACCESS + gas_costs.GAS_STORAGE_SET
+            )
+
             if storage is not None:
                 if not isinstance(storage, Storage):
                     storage = Storage.model_validate(storage)
@@ -619,7 +628,10 @@ class Alloc(SharedAlloc):
                             signer=eoa,
                         ),
                     ],
-                    gas_limit=100_000,
+                    gas_limit=(
+                        intrinsic_calc(authorization_list_or_count=1)
+                        + len(storage) * cold_sstore
+                    ),
                 )
                 eoa.nonce = Number(eoa.nonce + 1)
 
@@ -644,7 +656,10 @@ class Alloc(SharedAlloc):
                             signer=eoa,
                         ),
                     ],
-                    gas_limit=100_000,
+                    gas_limit=(
+                        intrinsic_calc(authorization_list_or_count=1)
+                        + cold_sstore
+                    ),
                 )
                 eoa.nonce = Number(eoa.nonce + 1)
             else:
@@ -662,7 +677,7 @@ class Alloc(SharedAlloc):
                             signer=eoa,
                         ),
                     ],
-                    gas_limit=100_000,
+                    gas_limit=intrinsic_calc(authorization_list_or_count=1),
                 )
                 eoa.nonce = Number(eoa.nonce + 1)
 
