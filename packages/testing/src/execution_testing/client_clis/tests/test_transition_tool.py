@@ -397,3 +397,42 @@ def test_lazy_alloc_file_malformed_json_raises(
 
     with pytest.raises(ijson.common.IncompleteJSONError):
         lazy.get()
+
+
+@pytest.mark.parametrize(
+    "contents",
+    [
+        pytest.param(b"null", id="null"),
+        pytest.param(b"[]", id="array"),
+        pytest.param(b"42", id="scalar"),
+    ],
+)
+def test_lazy_alloc_file_non_object_top_level_raises(
+    tmp_path: Path, contents: bytes
+) -> None:
+    """
+    Valid JSON whose top-level value is not an object must raise rather
+    than silently producing an empty `Alloc`. `ijson.kvitems` would yield
+    nothing for these inputs, so without the explicit guard a corrupted
+    `alloc.json` would silently downgrade to a zero-account post-state.
+    """
+    alloc_path = tmp_path / "alloc.json"
+    alloc_path.write_bytes(contents)
+    lazy = LazyAllocFile(raw=alloc_path, _state_root=TEST_ALLOC_STATE_ROOT)
+
+    with pytest.raises(ValueError, match="Expected JSON object"):
+        lazy.get()
+
+
+def test_lazy_alloc_file_empty_object_yields_empty_alloc(
+    tmp_path: Path,
+) -> None:
+    """
+    A legitimately empty alloc (`{}`) parses to an empty `Alloc` without
+    raising; the non-object guard must not reject this case.
+    """
+    alloc_path = tmp_path / "alloc.json"
+    alloc_path.write_bytes(b"{}")
+    lazy = LazyAllocFile(raw=alloc_path, _state_root=TEST_ALLOC_STATE_ROOT)
+
+    assert lazy.get() == Alloc.model_validate({})

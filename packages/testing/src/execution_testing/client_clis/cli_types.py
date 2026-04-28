@@ -490,6 +490,18 @@ class LazyAllocFile(LazyAlloc[Path]):
         """Validate the alloc by streaming entries from the backing file."""
         accumulated: Dict[str, Account | None] = {}
         with open(self.raw, "rb") as f:
+            # `ijson.kvitems(f, "")` silently yields nothing for non-object
+            # top-level JSON (`null`, `[]`, scalars), which would turn a
+            # corrupted alloc.json into an empty post-state. Probe the first
+            # parse event so the streaming path matches the fail-loud
+            # behavior of `LazyAllocStr.validate` /
+            # `Alloc.model_validate_json`.
+            first = next(ijson.parse(f), None)
+            if first is None or first[1] != "start_map":
+                raise ValueError(
+                    f"Expected JSON object at top level of {self.raw}"
+                )
+            f.seek(0)
             for address_str, account_data in ijson.kvitems(f, ""):
                 if account_data is None:
                     accumulated[address_str] = None
