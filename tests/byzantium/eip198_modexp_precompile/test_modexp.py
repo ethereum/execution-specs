@@ -533,7 +533,7 @@ def test_modexp(
 
     gas_limit = 500_000
     if fork.is_eip_enabled(8037):
-        gas_limit = 1_000_000
+        gas_limit = 2_000_000
 
     tx = Transaction(
         ty=0x0,

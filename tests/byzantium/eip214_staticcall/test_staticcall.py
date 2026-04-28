@@ -446,12 +446,16 @@ def test_staticcall_nested_call_to_precompile(
             account_expectations=account_expectations
         )
 
+    gas_limit = 500_000
+    if fork.is_eip_enabled(8037):
+        gas_limit = 2_000_000
+
     state_test(
         pre=pre,
         tx=Transaction(
             sender=alice,
             to=contract_b,
-            gas_limit=500_000,
+            gas_limit=gas_limit,
             value=tx_value,
             protected=True,
         ),
