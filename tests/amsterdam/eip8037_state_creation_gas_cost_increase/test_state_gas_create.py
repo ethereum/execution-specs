@@ -304,7 +304,7 @@ def test_create_insufficient_state_gas(
     # enough for the new account state gas
     gas_costs = fork.gas_costs()
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
-    regular_create_gas = gas_costs.OPCODE_CREATE_BASE - gas_costs.NEW_ACCOUNT
+    regular_create_gas = gas_costs.OPCODE_CREATE_BASE
     gas_limit = intrinsic_cost() + regular_create_gas + 10_000
 
     tx = Transaction(
@@ -524,7 +524,7 @@ def test_nested_create_code_deposit_cannot_borrow_parent_gas(
         gas_costs.TX_BASE
         + 7 * gas_costs.VERY_LOW
         + gas_costs.MEMORY_PER_WORD
-        + (gas_costs.OPCODE_CREATE_BASE - new_acct_state)
+        + gas_costs.OPCODE_CREATE_BASE
         + init_code_word_cost
         + new_acct_state
     )

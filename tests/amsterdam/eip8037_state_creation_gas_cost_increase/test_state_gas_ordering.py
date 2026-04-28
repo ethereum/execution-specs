@@ -281,7 +281,7 @@ def test_create_oog_reservoir_inflation_detection(
         child_code = create_opcode(value=0, offset=0, size=0, salt=0)
         pushes_gas = 4 * gas_costs.VERY_LOW
 
-    create_regular_gas = gas_costs.OPCODE_CREATE_BASE - new_account_state_gas
+    create_regular_gas = gas_costs.OPCODE_CREATE_BASE
     child_gas = pushes_gas + create_regular_gas + new_account_state_gas - 1
     child = pre.deploy_contract(child_code)
 
