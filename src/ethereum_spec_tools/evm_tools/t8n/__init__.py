@@ -7,7 +7,6 @@ import fnmatch
 import json
 import os
 from contextlib import AbstractContextManager
-from dataclasses import astuple, dataclass
 from typing import Any, Final, TextIO, Type, TypeVar
 
 from ethereum_rlp import rlp
@@ -18,7 +17,11 @@ from ethereum import trace
 from ethereum.exceptions import EthereumException, InvalidBlock
 from ethereum.fork_criteria import ByBlockNumber, ByTimestamp, Unscheduled
 from ethereum.merkle_patricia_trie import copy_trie
-from ethereum_spec_tools.forks import Hardfork, TemporaryHardfork
+from ethereum_spec_tools.forks import (
+    ForkOverrides,
+    Hardfork,
+    TemporaryHardfork,
+)
 
 from ..loaders.fixture_loader import Load
 from ..utils import (
@@ -34,7 +37,6 @@ from .evm_trace.group import GroupTracer
 from .t8n_types import Alloc, Result, Txs
 
 T = TypeVar("T")
-ForkCriteriaArgument = ByBlockNumber | ByTimestamp | Unscheduled | None
 
 
 def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
@@ -92,95 +94,12 @@ def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
     t8n_parser.add_argument("--state-test", action="store_true")
 
 
-@dataclass(frozen=True)
-class _ForkOverrides:
-    """Store temporary hardfork override values."""
-
-    fork_criteria: ForkCriteriaArgument = None
-    blob_target_gas_per_block: U64 | None = None
-    gas_per_blob: U64 | None = None
-    blob_min_gasprice: Uint | None = None
-    blob_base_fee_update_fraction: Uint | None = None
-    max_blob_gas_per_block: U64 | None = None
-    blob_schedule_target: U64 | None = None
-    blob_schedule_max: U64 | None = None
-
-    def is_empty(self) -> bool:
-        """Return true when all override values are unset."""
-        return all(value is None for value in astuple(self))
-
-    @staticmethod
-    def _matches_field(override: object | None, on: object, name: str) -> bool:
-        if override is None:
-            return True
-
-        try:
-            default = getattr(on, name)
-        except AttributeError:
-            return False
-
-        return override == default
-
-    def matches_template(
-        self,
-        template: Hardfork,
-    ) -> bool:
-        """Return true when the requested overrides match the template."""
-        if self.is_empty():
-            return True
-
-        if (
-            self.fork_criteria is not None
-            and self.fork_criteria != template.criteria
-        ):
-            return False
-
-        fork_mod = template.module("fork")
-        gas_costs = template.module("vm.gas").GasCosts
-
-        checks = (
-            (
-                self.max_blob_gas_per_block,
-                fork_mod,
-                "MAX_BLOB_GAS_PER_BLOCK",
-            ),
-            (
-                self.blob_target_gas_per_block,
-                gas_costs,
-                "BLOB_TARGET_GAS_PER_BLOCK",
-            ),
-            (self.gas_per_blob, gas_costs, "PER_BLOB"),
-            (
-                self.blob_min_gasprice,
-                gas_costs,
-                "BLOB_MIN_GASPRICE",
-            ),
-            (
-                self.blob_base_fee_update_fraction,
-                gas_costs,
-                "BLOB_BASE_FEE_UPDATE_FRACTION",
-            ),
-            (
-                self.blob_schedule_target,
-                gas_costs,
-                "BLOB_SCHEDULE_TARGET",
-            ),
-            (
-                self.blob_schedule_max,
-                gas_costs,
-                "BLOB_SCHEDULE_MAX",
-            ),
-        )
-
-        return all(self._matches_field(*x) for x in checks)
-
-
 class ForkCache(AbstractContextManager):
     """
     Stores references to temporary hardforks and cleans them up when exited.
     """
 
-    _cache: Final[dict[tuple[str, _ForkOverrides], TemporaryHardfork]]
+    _cache: Final[dict[tuple[str, ForkOverrides], TemporaryHardfork]]
 
     def __init__(self) -> None:
         self._cache = {}
@@ -207,7 +126,7 @@ class ForkCache(AbstractContextManager):
         Search the cache for a matching hardfork, or create one if it doesn't
         exist.
         """
-        overrides = _ForkOverrides(
+        overrides = ForkOverrides(
             fork_criteria=fork_criteria,
             blob_target_gas_per_block=blob_target_gas_per_block,
             gas_per_blob=gas_per_blob,
@@ -226,19 +145,7 @@ class ForkCache(AbstractContextManager):
         except KeyError:
             pass
 
-        clone = Hardfork.clone(
-            template=template,
-            fork_criteria=overrides.fork_criteria,
-            blob_target_gas_per_block=overrides.blob_target_gas_per_block,
-            gas_per_blob=overrides.gas_per_blob,
-            blob_min_gasprice=overrides.blob_min_gasprice,
-            blob_base_fee_update_fraction=(
-                overrides.blob_base_fee_update_fraction
-            ),
-            max_blob_gas_per_block=overrides.max_blob_gas_per_block,
-            blob_schedule_target=overrides.blob_schedule_target,
-            blob_schedule_max=overrides.blob_schedule_max,
-        )
+        clone = Hardfork.clone(template=template, overrides=overrides)
         self._cache[cache_key] = clone
         return clone
 

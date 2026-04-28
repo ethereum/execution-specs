@@ -11,6 +11,7 @@ import pkgutil
 import random
 import sys
 from contextlib import AbstractContextManager
+from dataclasses import astuple, dataclass
 from enum import Enum, auto
 from importlib.machinery import ModuleSpec, PathFinder
 from pathlib import Path
@@ -26,20 +27,16 @@ from typing import (
     Optional,
     Type,
     TypeVar,
-    Union,
     cast,
 )
 
 from ethereum_types.numeric import U64, U256, Uint
 from typing_extensions import override
 
+from ethereum.fork_criteria import ByBlockNumber, ByTimestamp, Unscheduled
+
 if TYPE_CHECKING:
-    from ethereum.fork_criteria import (
-        ByBlockNumber,
-        ByTimestamp,
-        ForkCriteria,
-        Unscheduled,
-    )
+    from ethereum.fork_criteria import ForkCriteria
 
 
 class ConsensusType(Enum):
@@ -64,6 +61,96 @@ class ConsensusType(Enum):
 
 
 H = TypeVar("H", bound="Hardfork")
+ForkCriteriaArgument = ByBlockNumber | ByTimestamp | Unscheduled | None
+
+
+@dataclass(frozen=True)
+class ForkOverrides:
+    """
+    Temporary hardfork override values.
+    """
+
+    fork_criteria: ForkCriteriaArgument = None
+    blob_target_gas_per_block: U64 | None = None
+    gas_per_blob: U64 | None = None
+    blob_min_gasprice: Uint | None = None
+    blob_base_fee_update_fraction: Uint | None = None
+    max_blob_gas_per_block: U64 | None = None
+    blob_schedule_target: U64 | None = None
+    blob_schedule_max: U64 | None = None
+
+    def is_empty(self) -> bool:
+        """
+        Return true when all override values are unset.
+        """
+        return all(value is None for value in astuple(self))
+
+    @staticmethod
+    def _matches_field(override: object | None, on: object, name: str) -> bool:
+        if override is None:
+            return True
+
+        try:
+            default = getattr(on, name)
+        except AttributeError:
+            return False
+
+        return override == default
+
+    def matches_template(
+        self,
+        template: "Hardfork",
+    ) -> bool:
+        """
+        Return true when the requested overrides match the template.
+        """
+        if self.is_empty():
+            return True
+
+        if (
+            self.fork_criteria is not None
+            and self.fork_criteria != template.criteria
+        ):
+            return False
+
+        fork_mod = template.module("fork")
+        gas_costs = template.module("vm.gas").GasCosts
+
+        checks = (
+            (
+                self.max_blob_gas_per_block,
+                fork_mod,
+                "MAX_BLOB_GAS_PER_BLOCK",
+            ),
+            (
+                self.blob_target_gas_per_block,
+                gas_costs,
+                "BLOB_TARGET_GAS_PER_BLOCK",
+            ),
+            (self.gas_per_blob, gas_costs, "PER_BLOB"),
+            (
+                self.blob_min_gasprice,
+                gas_costs,
+                "BLOB_MIN_GASPRICE",
+            ),
+            (
+                self.blob_base_fee_update_fraction,
+                gas_costs,
+                "BLOB_BASE_FEE_UPDATE_FRACTION",
+            ),
+            (
+                self.blob_schedule_target,
+                gas_costs,
+                "BLOB_SCHEDULE_TARGET",
+            ),
+            (
+                self.blob_schedule_max,
+                gas_costs,
+                "BLOB_SCHEDULE_MAX",
+            ),
+        )
+
+        return all(self._matches_field(*x) for x in checks)
 
 
 class Hardfork:
@@ -204,22 +291,16 @@ class Hardfork:
     @staticmethod
     def clone(
         template: H | str,
-        fork_criteria: Union[
-            "ByBlockNumber", "ByTimestamp", "Unscheduled", None
-        ] = None,
-        blob_target_gas_per_block: U64 | None = None,
-        gas_per_blob: U64 | None = None,
-        blob_min_gasprice: Uint | None = None,
-        blob_base_fee_update_fraction: Uint | None = None,
-        max_blob_gas_per_block: U64 | None = None,
-        blob_schedule_target: U64 | None = None,
-        blob_schedule_max: U64 | None = None,
+        overrides: ForkOverrides | None = None,
     ) -> "TemporaryHardfork":
         """
         Create a temporary clone of an existing fork, optionally tweaking its
         parameters.
         """
         from .new_fork.builder import ForkBuilder
+
+        if overrides is None:
+            overrides = ForkOverrides()
 
         maybe_directory: TemporaryDirectory | None = TemporaryDirectory()
 
@@ -240,33 +321,37 @@ class Hardfork:
 
             builder.output = Path(directory.name)
 
-            if fork_criteria is not None:
-                builder.fork_criteria = fork_criteria
+            if overrides.fork_criteria is not None:
+                builder.fork_criteria = overrides.fork_criteria
 
-            if blob_target_gas_per_block is not None:
+            if overrides.blob_target_gas_per_block is not None:
                 builder.modify_target_blob_gas_per_block(
-                    blob_target_gas_per_block
+                    overrides.blob_target_gas_per_block
                 )
 
-            if gas_per_blob is not None:
-                builder.modify_gas_per_blob(gas_per_blob)
+            if overrides.gas_per_blob is not None:
+                builder.modify_gas_per_blob(overrides.gas_per_blob)
 
-            if blob_min_gasprice is not None:
-                builder.modify_min_blob_gasprice(blob_min_gasprice)
+            if overrides.blob_min_gasprice is not None:
+                builder.modify_min_blob_gasprice(overrides.blob_min_gasprice)
 
-            if blob_base_fee_update_fraction is not None:
+            if overrides.blob_base_fee_update_fraction is not None:
                 builder.modify_blob_base_fee_update_fraction(
-                    blob_base_fee_update_fraction
+                    overrides.blob_base_fee_update_fraction
                 )
 
-            if max_blob_gas_per_block is not None:
-                builder.modify_max_blob_gas_per_block(max_blob_gas_per_block)
+            if overrides.max_blob_gas_per_block is not None:
+                builder.modify_max_blob_gas_per_block(
+                    overrides.max_blob_gas_per_block
+                )
 
-            if blob_schedule_target is not None:
-                builder.modify_blob_schedule_target(blob_schedule_target)
+            if overrides.blob_schedule_target is not None:
+                builder.modify_blob_schedule_target(
+                    overrides.blob_schedule_target
+                )
 
-            if blob_schedule_max is not None:
-                builder.modify_blob_schedule_max(blob_schedule_max)
+            if overrides.blob_schedule_max is not None:
+                builder.modify_blob_schedule_max(overrides.blob_schedule_max)
 
             builder.build()
 
