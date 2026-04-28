@@ -113,8 +113,15 @@ def test_callcodecallcallcode_abcb_recursive(
         gas_limit=2600000 if fork >= Amsterdam else 600000,
     )
 
+    # Under EIP-8037 the regular-gas portion of SSTORE 0→non-zero is
+    # reduced from 20,000 to 2,900 (the rest moves to deferred state
+    # gas). The recursion in this test bottoms out at a different
+    # depth, so additional CALLs in the chain succeed and propagate
+    # value=1 to slots that previously remained 0.
     post = {
-        target: Account(storage={0: 1, 1: 1}),
+        target: Account(
+            storage={0: 1, 1: 1, 2: 1 if fork >= Amsterdam else 0}
+        ),
         addr: Account(storage={1: 0, 2: 0}),
         addr_2: Account(storage={1: 0, 2: 0}),
         sender: Account(storage={1: 0}),
