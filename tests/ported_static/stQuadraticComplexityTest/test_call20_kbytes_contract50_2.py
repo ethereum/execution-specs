@@ -84,8 +84,8 @@ def test_call20_kbytes_contract50_2(
     )
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 50) [i](+ @i 1) [[ 0 ]] (CALL 88250000000 <contract:0xaaa50000fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) ) [[ 1 ]] @i }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMPDEST
+    target_code = (
+        Op.JUMPDEST
         + Op.JUMPI(
             pc=0x40, condition=Op.ISZERO(Op.LT(Op.MLOAD(offset=0x80), 0x32))
         )
@@ -105,7 +105,10 @@ def test_call20_kbytes_contract50_2(
         + Op.JUMP(pc=0x0)
         + Op.JUMPDEST
         + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x80))
-        + Op.STOP,
+        + Op.STOP
+    )
+    target = pre.deploy_contract(  # noqa: F841
+        code=target_code,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
     )
@@ -128,9 +131,7 @@ def test_call20_kbytes_contract50_2(
                 addr: Account(storage={}, nonce=0),
                 target: Account(
                     storage={},
-                    code=bytes.fromhex(
-                        "5b603260805110156040576000600060006000600073e7ebafa0fea97a99a72b7f0996c07477e54df0c264148c1c2280f16000556001608051016080526000565b60805160015500"  # noqa: E501
-                    ),
+                    code=bytes(target_code),
                     nonce=0,
                 ),
             },
