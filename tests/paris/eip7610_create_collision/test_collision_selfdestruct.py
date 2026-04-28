@@ -23,6 +23,7 @@ REFERENCE_SPEC_VERSION = "80ef48d0bbb5a4939ade51caaaac57b5df6acd4e"
 
 
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_until("Osaka")
 @pytest.mark.pre_alloc_mutable
 def test_selfdestruct_after_create2_collision(
     state_test: StateTestFiller,
