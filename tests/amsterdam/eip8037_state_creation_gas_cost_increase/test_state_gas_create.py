@@ -27,6 +27,7 @@ from execution_testing import (
     Storage,
     Transaction,
     TransactionException,
+    compute_create2_address,
     compute_create_address,
 )
 from execution_testing.checklists import EIPChecklist
@@ -140,6 +141,54 @@ def test_create_with_reservoir(
     )
 
     post = {contract: Account(storage=storage)}
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_create2_child_spill_not_double_charged(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test CREATE2 child state gas paid from `gas_left` is not recharged.
+
+    The factory executes below the Amsterdam tx gas cap, so the CREATE2 child
+    pays new-account and storage state gas by spilling from `gas_left`. The
+    factory must not charge the same state growth again at frame end.
+    """
+    env = Environment()
+
+    init_code = sum(Op.SSTORE(i, i + 1) for i in range(6)) + Op.STOP
+    mstore_value, initcode_size = init_code_at_high_bytes(init_code)
+
+    factory = pre.deploy_contract(
+        code=(
+            Op.MSTORE(0, mstore_value)
+            + Op.POP(
+                Op.CREATE2(
+                    value=0,
+                    offset=0,
+                    size=initcode_size,
+                    salt=0,
+                )
+            )
+        )
+    )
+    created = compute_create2_address(
+        address=factory,
+        salt=0,
+        initcode=bytes(init_code),
+    )
+
+    tx = Transaction(
+        to=factory,
+        gas_limit=500_000,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {
+        created: Account(nonce=1, storage={i: i + 1 for i in range(6)}),
+    }
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
