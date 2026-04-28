@@ -60,7 +60,7 @@ def test_create_deposit_oog(
         factory_memory_expansion_code + factory_create_code + Op.STOP
     )
 
-    factory_address = pre.deploy_contract(code=factory_code)
+    factory_address = pre.deploy_contract(code=factory_code, label="factory")
     create_gas = return_code.gas_cost(fork) + expand_memory_code.gas_cost(fork)
     if not enough_gas:
         create_gas -= 1
@@ -91,9 +91,15 @@ def test_create_deposit_oog(
     )
 
     created_account: Account | None = Account(code=b"\x00" * deposited_len)
+    if fork.is_eip_enabled(8037):
+        # Under EIP-8037 we charge for the new account to the new
+        pre.fund_address(new_address, 1)
     if not enough_gas:
         if fork > Frontier:
-            created_account = None
+            if fork.is_eip_enabled(8037):
+                created_account = Account(balance=1)
+            else:
+                created_account = None
         else:
             # At Frontier, OOG on return yields an empty account.
             created_account = Account()
