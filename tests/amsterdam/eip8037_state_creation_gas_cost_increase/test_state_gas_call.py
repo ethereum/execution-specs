@@ -1338,10 +1338,15 @@ def test_top_level_halt_preserves_restored_reservoir(
         sender=pre.fund_eoa(),
     )
 
-    # When the reservoir is one short of the child's SSTORE, the
-    # spill from regular gas is restored on the child's failure,
-    # lowering the block regular total by the same amount.
-    expected_gas_used = gas_limit_cap + min(reservoir_delta, 0)
+    # New model: SSTORE never drains the reservoir at opcode time,
+    # so reservoir-vs-child-cost relationship is irrelevant on a
+    # failing child path. All three reservoir sizes produce the
+    # same gas_used: parent's INVALID consumes its regular gas_left,
+    # incorporate_child_on_error returns the child's reservoir
+    # untouched, and top-level halt restores any remaining
+    # state_gas_used into the reservoir. Block totals: regular =
+    # gas_limit_cap (full burn), state = 0.
+    expected_gas_used = gas_limit_cap
 
     blockchain_test(
         pre=pre,
