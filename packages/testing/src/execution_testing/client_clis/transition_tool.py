@@ -886,8 +886,7 @@ class TransitionTool(EthereumCLI):
             # hard-coded to avoid surprises
             rm -rf {debug_output_path}/t8n.sh.out
 
-            # unused if tracing is not enabled
-            mkdir {debug_output_path}/t8n.sh.out
+            mkdir -p {debug_output_path}/t8n.sh.out/output
             {t8n_call} < {debug_output_path}/stdin.txt
             """
         )
