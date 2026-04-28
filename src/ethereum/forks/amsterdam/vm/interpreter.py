@@ -229,10 +229,11 @@ def apply_frame_state_gas(
     current transaction state, multiply by ``CPSB`` to derive the
     growth cost, and reconcile against this frame's reservoir.
 
-    `already_paid` is what successful descendants have already
-    drained from this frame's reservoir; subtracting it gives the
-    residual this frame still owes (or is owed back). When a
-    descendant over-credited the reservoir on a cross-frame
+    `already_paid` is what successful descendants have already paid
+    for this subtree's net state growth, whether that charge came
+    from the reservoir or by spilling into `gas_left`. Subtracting it
+    gives the residual this frame still owes (or is owed back). When
+    a descendant over-credited the reservoir on a cross-frame
     ephemeral, `already_paid` is negative, which flips this frame's
     residual to positive and naturally cancels out the over-credit.
 
@@ -243,9 +244,7 @@ def apply_frame_state_gas(
     tx_state = message.tx_env.state
     byte_delta = compute_state_byte_diff(snapshot, tx_state)
     growth_cost = byte_delta * int(StateCosts.PER_BYTE)
-    already_paid = int(message.state_gas_reservoir) - int(
-        evm.state_gas_reservoir
-    )
+    already_paid = evm.state_gas_used
     this_call_cost = growth_cost - already_paid
 
     if this_call_cost > 0:
