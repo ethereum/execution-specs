@@ -1056,6 +1056,89 @@ def test_top_level_failure_refunds_state_gas_propagated_from_child(
     state_test(pre=pre, post={child: Account(storage={})}, tx=tx)
 
 
+@pytest.mark.valid_from("EIP8037")
+def test_top_level_opcode_oog_before_frame_end_does_not_refund_state_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify an opcode OOG before frame-end settlement does not refund
+    unsettled state gas.
+
+    The transaction has enough gas for the SSTORE and all preceding
+    regular work, but is one gas short of the MCOPY regular cost. The
+    frame halts before frame-end settlement runs, so the earlier SSTORE
+    never contributes execution state gas to refund.
+    """
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+    sstore_state_gas = fork.sstore_state_gas()
+
+    code = (
+        Op.SSTORE(0, 1)
+        + Op.MCOPY(
+            0x1000,
+            0,
+            1,
+            old_memory_size=0,
+            new_memory_size=0x1001,
+            data_size=1,
+        )
+    )
+    contract = pre.deploy_contract(code=code)
+
+    # One gas short of the regular-gas portion of successful execution.
+    tx_gas = intrinsic_cost + code.gas_cost(fork) - sstore_state_gas - 1
+
+    tx = Transaction(
+        to=contract,
+        gas_limit=tx_gas,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=tx_gas,
+        ),
+    )
+
+    state_test(pre=pre, post={contract: Account(storage={})}, tx=tx)
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_top_level_frame_end_oog_does_not_refund_unsettled_state_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify frame-end OOG does not refund state gas that never settled.
+
+    The opcode path completes after a zero-to-nonzero SSTORE, but the
+    tx is one gas short of paying the frame-end state-growth charge. The
+    frame reports an error without ever increasing `state_gas_used`, so
+    the sender is billed only the intrinsic and regular execution gas
+    plus the final missing gas unit.
+    """
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+    sstore_state_gas = fork.sstore_state_gas()
+
+    code = Op.SSTORE(0, 1) + Op.STOP
+    contract = pre.deploy_contract(code=code)
+
+    # One gas short of the full successful execution cost.
+    tx_gas = intrinsic_cost + code.gas_cost(fork) - 1
+    expected_cumulative = tx_gas - (sstore_state_gas - 1)
+
+    tx = Transaction(
+        to=contract,
+        gas_limit=tx_gas,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_cumulative,
+        ),
+    )
+
+    state_test(pre=pre, post={contract: Account(storage={})}, tx=tx)
+
+
 @pytest.mark.parametrize(
     "num_access_list_entries",
     [
