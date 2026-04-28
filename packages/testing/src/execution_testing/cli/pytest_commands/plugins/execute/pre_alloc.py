@@ -589,10 +589,6 @@ class Alloc(SharedAlloc):
                 block_number=self._block_number, timestamp=self._timestamp
             )
             intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
-            gas_costs = fork.gas_costs()
-            slot_init_cost = (
-                gas_costs.GAS_COLD_STORAGE_ACCESS + gas_costs.GAS_STORAGE_SET
-            )
 
             if storage is not None:
                 if not isinstance(storage, Storage):
@@ -601,14 +597,24 @@ class Alloc(SharedAlloc):
                     f"Deploying storage contract for EOA {eoa} "
                     f"with {len(storage)} storage slots"
                 )
-                sstore_address = self.deploy_contract(
-                    code=(
-                        sum(
-                            Op.SSTORE(key, value)
-                            for key, value in storage.items()
+
+                storage_init_code = (
+                    sum(
+                        Op.SSTORE(
+                            key,
+                            value,
+                            # gas accounting
+                            key_warm=False,
+                            original_value=0,
+                            current_value=1,
+                            new_value=1,
                         )
-                        + Op.STOP
+                        for key, value in storage.items()
                     )
+                    + Op.STOP
+                )
+                sstore_address = self.deploy_contract(
+                    code=storage_init_code,
                 )
                 logger.debug(
                     f"Storage contract deployed at {sstore_address} "
@@ -630,7 +636,7 @@ class Alloc(SharedAlloc):
                     ],
                     gas_limit=(
                         intrinsic_calc(authorization_list_or_count=1)
-                        + len(storage) * slot_init_cost
+                        + storage_init_code.gas_cost(fork)
                     ),
                 )
                 eoa.nonce = Number(eoa.nonce + 1)
@@ -656,10 +662,7 @@ class Alloc(SharedAlloc):
                             signer=eoa,
                         ),
                     ],
-                    gas_limit=(
-                        intrinsic_calc(authorization_list_or_count=1)
-                        + slot_init_cost
-                    ),
+                    gas_limit=(intrinsic_calc(authorization_list_or_count=1)),
                 )
                 eoa.nonce = Number(eoa.nonce + 1)
             else:
