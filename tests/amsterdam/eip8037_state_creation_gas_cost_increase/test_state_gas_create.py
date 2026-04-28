@@ -575,7 +575,6 @@ def test_nested_create_code_deposit_cannot_borrow_parent_gas(
         + gas_costs.MEMORY_PER_WORD
         + gas_costs.OPCODE_CREATE_BASE
         + init_code_word_cost
-        + new_acct_state
     )
 
     # Init code cost: PUSH1 + PUSH1 + RETURN(+mem expansion)
@@ -1873,9 +1872,10 @@ def test_inner_create_succeeds_code_deposit_state_gas(
         calldata=bytes(initcode), contract_creation=True
     )
 
-    # Static cost excludes inner code-deposit, so add it to give
-    # the initcode enough to reach RETURN in the child frame.
-    initcode_gas = initcode.gas_cost(fork)
+    if outer_outcome == "halts":
+        initcode_gas = initcode.regular_cost(fork)
+    else:
+        initcode_gas = initcode.gas_cost(fork)
     gas_limit = intrinsic_total + initcode_gas + inner_code_deposit + 1000
 
     if outer_outcome == "succeeds":
