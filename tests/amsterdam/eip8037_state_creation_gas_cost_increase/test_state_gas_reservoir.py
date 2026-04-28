@@ -265,11 +265,10 @@ def test_block_state_gas_limit_boundary(
     """
     Verify the per-tx state check at the strict-greater-than boundary.
 
-    tx1 consumes `tx1_state` via cold SSTOREs. tx2 is sized so that
-    its worst-case state contribution `tx.gas - intrinsic_regular`
-    equals `state_available` (delta=0, accepted because the check is
-    strict `>`) or exceeds it by 1 (delta=1, rejected with
-    `GAS_ALLOWANCE_EXCEEDED`).
+    tx1 consumes `tx1_state` via cold SSTOREs. tx2 is sized so its
+    worst-case state contribution `tx.gas` equals `state_available`
+    (delta=0, accepted because the check is strict `>`) or exceeds it
+    by 1 (delta=1, rejected with `GAS_ALLOWANCE_EXCEEDED`).
 
     The regular check is asserted to pass so rejection on delta=1 is
     pinned to the state dimension.
@@ -297,11 +296,8 @@ def test_block_state_gas_limit_boundary(
     tx1_regular = intrinsic_cost() + tx1_code.gas_cost(fork) - tx1_state
     tx1_gas = gas_limit_cap + tx1_state
 
-    # tx2: worst-case state contribution = state_available + delta.
-    # Plain call, so intrinsic_state is zero.
-    tx2_intrinsic_regular = intrinsic_cost()
     state_available = block_gas_limit - tx1_state
-    tx2_gas = tx2_intrinsic_regular + state_available + delta
+    tx2_gas = state_available + delta
 
     # Pin the rejection (when delta > 0) to the state check: the
     # regular check must not fire.
