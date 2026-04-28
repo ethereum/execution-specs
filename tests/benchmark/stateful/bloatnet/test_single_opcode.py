@@ -94,6 +94,7 @@ def delegate_with_calldata(
     authority: EOA,
     address: Address,
     calldata: Hash,
+    execution_cost: int,
 ) -> Transaction:
     """
     Create a tx that delegates the authority and calls it with calldata.
@@ -105,15 +106,8 @@ def delegate_with_calldata(
         calldata=bytes(calldata),
         authorization_list_or_count=1,
     )
-
-    gas_costs = fork.gas_costs()
-    delegated_exec_gas = (
-        gas_costs.GAS_COLD_ACCOUNT_ACCESS
-        + gas_costs.GAS_COLD_STORAGE_ACCESS
-        + gas_costs.GAS_STORAGE_SET
-    )
     tx = Transaction(
-        gas_limit=intrinsic_gas + delegated_exec_gas,
+        gas_limit=intrinsic_gas + execution_cost,
         to=authority,
         value=0,
         data=calldata,
@@ -151,14 +145,25 @@ def run_bloated_eoa_benchmark(
     """
     slot_0_value = Hash(1) if existing_slots else Hash(START_SLOT)
 
-    setter_address = pre.deploy_contract(code=Op.SSTORE(0, Op.CALLDATALOAD(0)))
+    setter_contract = Op.SSTORE(0, Op.CALLDATALOAD(0))
+    setter_address = pre.deploy_contract(code=setter_contract)
     runtime_address = pre.deploy_contract(code=runtime_code)
 
     init_tx = delegate_with_calldata(
-        pre, fork, authority, setter_address, slot_0_value
+        pre,
+        fork,
+        authority,
+        setter_address,
+        slot_0_value,
+        setter_contract.gas_cost(fork),
     )
     runtime_tx = delegate_with_calldata(
-        pre, fork, authority, runtime_address, Hash(0)
+        pre,
+        fork,
+        authority,
+        runtime_address,
+        Hash(0),
+        runtime_code.gas_cost(fork),
     )
 
     blocks: list[Block] = [Block(txs=[init_tx, runtime_tx])]

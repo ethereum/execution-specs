@@ -590,7 +590,7 @@ class Alloc(SharedAlloc):
             )
             intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
             gas_costs = fork.gas_costs()
-            cold_sstore = (
+            slot_init_cost = (
                 gas_costs.GAS_COLD_STORAGE_ACCESS + gas_costs.GAS_STORAGE_SET
             )
 
@@ -630,7 +630,7 @@ class Alloc(SharedAlloc):
                     ],
                     gas_limit=(
                         intrinsic_calc(authorization_list_or_count=1)
-                        + len(storage) * cold_sstore
+                        + len(storage) * slot_init_cost
                     ),
                 )
                 eoa.nonce = Number(eoa.nonce + 1)
@@ -658,7 +658,7 @@ class Alloc(SharedAlloc):
                     ],
                     gas_limit=(
                         intrinsic_calc(authorization_list_or_count=1)
-                        + cold_sstore
+                        + slot_init_cost
                     ),
                 )
                 eoa.nonce = Number(eoa.nonce + 1)
