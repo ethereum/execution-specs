@@ -635,8 +635,6 @@ def calculate_intrinsic_cost(tx: Transaction) -> IntrinsicGasCost:
     #   - regular: TX_CREATE (9000) + init-code parse cost
     #   - state:   NEW_ACCOUNT × PER_BYTE for the new account record
     # Pre-EIP-8037 this was a single 32000 charge in `TX_CREATE`.
-    #
-    # TODO(EIP-8037): top-level CREATE txs double-charge `NEW_ACCOUNT × PER_BYTE` state gas (here in intrinsic and again via top-level `apply_frame_state_gas`); fix is to drop `create_state_gas` from intrinsic.
     create_regular_gas = Uint(0)
     create_state_gas = Uint(0)
     if tx.to == Bytes0(b""):
