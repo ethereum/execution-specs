@@ -606,7 +606,7 @@ class Alloc(SharedAlloc):
                             # gas accounting
                             key_warm=False,
                             original_value=0,
-                            current_value=1,
+                            current_value=0,
                             new_value=1,
                         )
                         for key, value in storage.items()
@@ -637,6 +637,7 @@ class Alloc(SharedAlloc):
                     gas_limit=(
                         intrinsic_calc(authorization_list_or_count=1)
                         + storage_init_code.gas_cost(fork)
+                        + 500_000
                     ),
                 )
                 eoa.nonce = Number(eoa.nonce + 1)
