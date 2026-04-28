@@ -84,7 +84,6 @@ from .transactions import (
     TX_MAX_GAS_LIMIT,
     BlobTransaction,
     FeeMarketTransaction,
-    IntrinsicGasCost,
     LegacyTransaction,
     SetCodeTransaction,
     Transaction,
@@ -487,7 +486,6 @@ def check_transaction(
     block_output: vm.BlockOutput,
     tx: Transaction,
     tx_state: TransactionState,
-    intrinsic: IntrinsicGasCost,
 ) -> Tuple[Address, Uint, Tuple[VersionedHash, ...], U64]:
     """
     Check if the transaction is includable in the block.
@@ -502,9 +500,6 @@ def check_transaction(
         The transaction.
     tx_state :
         The transaction state tracker.
-    intrinsic :
-        The transaction's intrinsic gas cost, split into regular and
-        state components.
 
     Returns
     -------
@@ -996,7 +991,6 @@ def process_transaction(
         block_output=block_output,
         tx=tx,
         tx_state=tx_state,
-        intrinsic=intrinsic,
     )
 
     sender_account = get_account(tx_state, sender)
