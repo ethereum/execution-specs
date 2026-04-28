@@ -323,7 +323,12 @@ def test_sload_bloated_prefetch_miss(
     # forcing the prefetcher's pre-block snapshot to disagree with
     # the actual slot 0 value seen by every max-gas tx that follows.
     delegation_tx = delegate_with_calldata(
-        pre, fork, authority, runtime_address, Hash(0)
+        pre,
+        fork,
+        authority,
+        runtime_address,
+        Hash(0),
+        runtime_code.gas_cost(fork),
     )
 
     blocks: list[Block] = [Block(txs=[delegation_tx])]
