@@ -32,7 +32,56 @@ GETH_EXCEPTIONS = {
 }
 ```
 
-## Updating Client Exception Messages
+## External Client Exception Mappers
+
+Client repositories can extend EEST's built-in exception mappers with a
+client-owned YAML file. External mappings are additive: they do not remove or
+replace mappings maintained in EEST.
+
+```yaml
+version: 1
+name: geth-ci
+substring:
+  TransactionException.INSUFFICIENT_ACCOUNT_FUNDS:
+    - "insufficient funds for gas * price + value"
+regex:
+  BlockException.INVALID_GASLIMIT:
+    - 'child gas_limit \d+ .*'
+```
+
+Rules:
+
+- `version` must be `1`.
+- Exception keys must be exact EEST names such as
+  `TransactionException.INSUFFICIENT_ACCOUNT_FUNDS` or
+  `BlockException.INVALID_GASLIMIT`.
+- `substring` and `regex` values can be a string or a list of strings.
+- Empty patterns, unknown exception names, unknown top-level sections, and
+  invalid regular expressions are rejected when the file is loaded.
+
+For `validate`, add the mapper path to the relevant client section in
+`validate.toml`. Relative paths are resolved from the directory containing
+`validate.toml`.
+
+```toml
+[geth]
+bin = "../go-ethereum/build/bin/evm"
+exception-mapper = "../go-ethereum/eest-exceptions.yaml"
+```
+
+For Hive-backed `consume` commands, pass one or more mapper files on the
+command line:
+
+```bash
+uv run consume engine \
+  --input ./fixtures \
+  --exception-mapper geth=../go-ethereum/eest-exceptions.yaml
+```
+
+The `CLIENT` key is matched against Hive client names. For example, `geth`
+extends the mapper selected for `go-ethereum`.
+
+## Updating Built-In Client Exception Messages
 
 When clients change their error messages or you encounter unmapped exceptions:
 

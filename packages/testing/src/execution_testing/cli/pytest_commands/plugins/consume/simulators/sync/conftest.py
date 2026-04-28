@@ -15,7 +15,10 @@ from hive.client import Client, ClientType
 from hive.testing import HiveTest
 
 from execution_testing.base_types import to_json
-from execution_testing.exceptions import ExceptionMapper
+from execution_testing.exceptions import (
+    ExceptionMapper,
+    ExternalExceptionMapper,
+)
 from execution_testing.fixtures import BlockchainEngineSyncFixture
 from execution_testing.rpc import AdminRPC, EngineRPC, EthRPC, NetRPC
 
@@ -251,19 +254,18 @@ def sync_client(
 def sync_client_exception_mapper(
     sync_client_type: ClientType,
     client_exception_mapper_cache: Dict[str, ExceptionMapper | None],
+    external_exception_mappers: Dict[str, ExternalExceptionMapper],
 ) -> ExceptionMapper | None:
     """Return the exception mapper for the sync client type, with caching."""
     if sync_client_type.name not in client_exception_mapper_cache:
-        from ..exceptions import EXCEPTION_MAPPERS
+        from ..exceptions import get_configured_exception_mapper
 
-        for client in EXCEPTION_MAPPERS:
-            if client in sync_client_type.name:
-                client_exception_mapper_cache[sync_client_type.name] = (
-                    EXCEPTION_MAPPERS[client]
-                )
-                break
-        else:
-            client_exception_mapper_cache[sync_client_type.name] = None
+        client_exception_mapper_cache[sync_client_type.name] = (
+            get_configured_exception_mapper(
+                sync_client_type.name,
+                external_exception_mappers,
+            )
+        )
 
     return client_exception_mapper_cache[sync_client_type.name]
 

@@ -34,6 +34,10 @@ from execution_testing.client_clis.ethereum_cli import EthereumCLI
 from execution_testing.client_clis.fixture_consumer_tool import (
     FixtureConsumerTool,
 )
+from execution_testing.exceptions import (
+    extend_exception_mapper,
+    load_external_exception_mapper,
+)
 from execution_testing.fixtures import (
     BaseFixture,
     BlockchainEngineFixture,
@@ -45,8 +49,8 @@ from execution_testing.fixtures import (
 from execution_testing.fixtures.consume import (
     IndexFile,
     TestCaseIndexFile,
-    TestCaseStream,
     TestCases,
+    TestCaseStream,
 )
 from execution_testing.fixtures.file import Fixtures
 from execution_testing.forks import (
@@ -75,7 +79,8 @@ class CollectOnlyFixtureConsumer(
 
     def consume_fixture(
         self, *args: Any, **kwargs: Any
-    ) -> None:  # noqa: D102
+    ) -> None:
+        """Consume a fixture without executing a client."""
         pass
 
 
@@ -148,6 +153,17 @@ def _resolve_config_path() -> Path | None:
         if path.exists():
             return path
     return None
+
+
+def _resolve_config_relative_path(
+    path_string: str,
+    config_path: Path | None,
+) -> Path:
+    """Resolve a configured path relative to its TOML file."""
+    path = Path(path_string).expanduser()
+    if path.is_absolute() or config_path is None:
+        return path
+    return config_path.parent / path
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
@@ -386,9 +402,9 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
 
     # Parse client names from the hidden option
     clients_str = config.getoption("validate_clients", "")
-    CLIENT_ALIASES = {"go-ethereum": "geth"}
+    client_aliases = {"go-ethereum": "geth"}
     client_names = [
-        CLIENT_ALIASES.get(c.strip(), c.strip())
+        client_aliases.get(c.strip(), c.strip())
         for c in clients_str.split(",") if c.strip()
     ]
 
@@ -508,12 +524,12 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
                             ),
                         )
                     )
-                except Exception:
+                except Exception as exception:
                     raise Exception(
                         f"Unknown CLI binary: {bin_path}. "
                         f"Could not detect as native binary "
                         f"or dotnet project."
-                    )
+                    ) from exception
 
         # Check that consumer supports the requested format(s)
         supported = set(getattr(consumer, "fixture_formats", []))
@@ -555,6 +571,18 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
                 f"{friendly} does not support: "
                 f"{unsupported_names}. "
                 f"Supported: {supported_names}.{hint_str}"
+            )
+
+        mapper_path_str = entry.get("exception-mapper", "")
+        if mapper_path_str:
+            mapper_path = _resolve_config_relative_path(
+                mapper_path_str,
+                config_path,
+            )
+            external_mapper = load_external_exception_mapper(mapper_path)
+            consumer.exception_mapper = extend_exception_mapper(  # type: ignore[attr-defined]
+                getattr(consumer, "exception_mapper", None),
+                external_mapper,
             )
         fixture_consumers.append(consumer)
 
