@@ -344,21 +344,20 @@ def test_block_state_gas_limit_boundary(
 
 
 @pytest.mark.valid_from("EIP8037")
-def test_creation_tx_regular_check_subtracts_intrinsic_state(
+def test_creation_tx_regular_check_no_intrinsic_state_subtraction(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
-    Verify the regular check subtracts `intrinsic.state` from tx.gas.
+    Verify the regular check uses raw `tx.gas`, not `tx.gas - intrinsic.state`.
 
-    The EIP regular check is
-    `min(TX_MAX, tx.gas - intrinsic.state) > regular_available`. For a
-    creation tx, `intrinsic.state = GAS_NEW_ACCOUNT`. This test sizes a
-    creation tx whose raw `tx.gas` exceeds `regular_available` but
-    `tx.gas - intrinsic.state` fits; it must be accepted. The old
-    formula `min(TX_MAX, tx.gas)` would reject the same tx, proving
-    the subtraction is honored.
+    The current EIP regular check is
+    `min(TX_MAX, tx.gas) > regular_available`. For a creation tx whose
+    raw `tx.gas` exceeds `regular_available` but `tx.gas -
+    intrinsic.state` would fit, the tx must be **rejected**. A prior
+    spec draft used `min(TX_MAX, tx.gas - intrinsic.state)` and would
+    have accepted the same tx; this test pins the current behavior.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -372,10 +371,10 @@ def test_creation_tx_regular_check_subtracts_intrinsic_state(
     ) - fork.transaction_intrinsic_state_gas(contract_creation=True)
 
     # Tight boundary: after the filler consumes gas_limit_cap, the
-    # remaining regular is exactly intrinsic_regular + 1. The old
+    # remaining regular is exactly intrinsic_regular + 1. The current
     # formula `min(TX_MAX, tx.gas)` rejects (tx.gas = intrinsic_total
-    # > intrinsic_regular + 1); the new formula `min(TX_MAX, tx.gas
-    # - intrinsic.state)` accepts (equals intrinsic_regular).
+    # > intrinsic_regular + 1); the prior formula `min(TX_MAX, tx.gas
+    # - intrinsic.state)` would have accepted (equals intrinsic_regular).
     block_gas_limit = gas_limit_cap + intrinsic_regular + 1
 
     # TODO(EIP-8037): pin `_env_gas_limit` to the actual block limit
@@ -397,10 +396,11 @@ def test_creation_tx_regular_check_subtracts_intrinsic_state(
     remaining_regular = block_gas_limit - gas_limit_cap
 
     assert create_tx_gas > remaining_regular, (
-        "old formula must reject to prove new formula differs"
+        "current formula must reject (tx.gas exceeds remaining regular)"
     )
     assert create_tx_gas - intrinsic_state <= remaining_regular, (
-        "new formula must accept"
+        "prior formula would have accepted (after subtracting "
+        "intrinsic.state); test pins divergence between formulas"
     )
 
     filler_tx = Transaction(
@@ -412,6 +412,7 @@ def test_creation_tx_regular_check_subtracts_intrinsic_state(
         to=None,
         gas_limit=create_tx_gas,
         sender=pre.fund_eoa(),
+        error=TransactionException.GAS_ALLOWANCE_EXCEEDED,
     )
 
     blockchain_test(
@@ -421,6 +422,7 @@ def test_creation_tx_regular_check_subtracts_intrinsic_state(
             Block(
                 txs=[filler_tx, create_tx],
                 gas_limit=block_gas_limit,
+                exception=TransactionException.GAS_ALLOWANCE_EXCEEDED,
             )
         ],
         post={},
