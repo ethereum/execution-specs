@@ -22,3 +22,8 @@ snøbal-devnet-4:
   evm-type: eels
   fill-params: --until=Amsterdam
   feature_only: true
+
+snobal-devnet-5:
+  evm-type: eels
+  fill-params: --until=Amsterdam
+  feature_only: true
