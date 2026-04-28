@@ -103,6 +103,29 @@ class TestLoadTracesFromDumpDir:
         # Verify they are in order 0, 2, 10 by checking the list
         # length — ordering is guaranteed by the implementation
 
+    def test_empty_placeholder_trace_file(self, tmp_path: Path) -> None:
+        """
+        Empty trace-*.jsonl placeholders load as empty TransactionTraces.
+
+        TransitionTool.collect_traces writes a zero-byte file when a tx
+        produced a receipt but no TransactionEnd tracer event fired
+        (e.g. EIP-3607 collision). The disk-loaded shape must match the
+        in-memory shape so --verify-traces does not report a spurious
+        transaction-count mismatch.
+        """
+        call_dir = tmp_path / "0"
+        call_dir.mkdir()
+        # One real trace, one empty placeholder.
+        _write_trace_file(call_dir / "trace-0-0xaaa.jsonl")
+        (call_dir / "trace-1-0xbbb.jsonl").write_text("")
+
+        result = _load_traces_from_dump_dir(tmp_path)
+        assert len(result) == 1
+        assert len(result[0].root) == 2
+        assert len(result[0].root[1].traces) == 0
+        assert result[0].root[1].output is None
+        assert result[0].root[1].gas_used is None
+
 
 def _make_trace_verifier(
     json_formatter: Any = None,
