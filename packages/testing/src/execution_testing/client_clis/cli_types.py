@@ -157,6 +157,11 @@ class TransactionTraces(CamelModel):
     def from_file(cls, trace_file_path: Path) -> Self:
         """Read a single transaction's traces from a .jsonl file."""
         trace_lines = trace_file_path.read_text().splitlines()
+        if not trace_lines:
+            # Empty placeholder written for txs whose tracer's
+            # TransactionEnd event never fired (see
+            # TransitionTool.collect_traces).
+            return cls(traces=[])
         trace_dict: Dict[str, Any] = {}
         if "gasUsed" in trace_lines[-1] and "output" in trace_lines[-1]:
             trace_dict |= json.loads(trace_lines.pop())

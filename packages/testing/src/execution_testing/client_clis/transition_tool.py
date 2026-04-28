@@ -270,8 +270,15 @@ class TransitionTool(EthereumCLI):
                 # Transaction was rejected mid-processing (e.g. EIP-3607
                 # collision): the receipt exists but the tracer's
                 # TransactionEnd event never fired, so no trace file was
-                # written. Record an empty trace for this tx.
+                # written. Record an empty trace for this tx, and also
+                # emit an empty placeholder file in the dump dir so a
+                # later --verify-traces run loads a matching shape from
+                # disk (otherwise the on-disk loader would skip this
+                # slot and the comparator would report a spurious
+                # transaction-count mismatch).
                 traces.append(TransactionTraces(traces=[]))
+                if debug_output_path:
+                    (Path(debug_output_path) / trace_file_name).write_text("")
                 continue
             if debug_output_path:
                 shutil.copy(
