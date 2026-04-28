@@ -139,7 +139,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
                 state_gas_used=Uint(0),
             )
         else:
-            evm = process_message(message, True, True)
+            evm = process_message(message, True)
     else:
         if message.tx_env.authorizations != ():
             set_delegation(message)
@@ -154,7 +154,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
             )
             message.code_address = delegated_address
 
-        evm = process_message(message, False, True)
+        evm = process_message(message, False)
 
     if evm.error:
         logs: Tuple[Log, ...] = ()
@@ -269,11 +269,7 @@ def apply_frame_state_gas(
         evm.state_gas_reservoir += Uint(-this_call_cost)
 
 
-def process_message(
-    message: Message,
-    create: bool = False,
-    include_account_creation_in_diff: bool = False,
-) -> Evm:
+def process_message(message: Message, create: bool = False) -> Evm:
     """
     Move ether and execute the relevant code.
 
@@ -358,10 +354,7 @@ def process_message(
                 evm, message.caller, message.current_target, message.value
             )
 
-    if include_account_creation_in_diff:
-        diff_snapshot = revert_snapshot
-    else:
-        diff_snapshot = copy_tx_state(tx_state)
+    diff_snapshot = copy_tx_state(tx_state)
 
     try:
         if evm.message.code_address in PRE_COMPILED_CONTRACTS:
