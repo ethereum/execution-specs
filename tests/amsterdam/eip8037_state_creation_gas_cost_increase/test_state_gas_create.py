@@ -252,6 +252,73 @@ def test_code_deposit_state_gas_scales_with_size(
 
 
 @pytest.mark.valid_from("EIP8037")
+def test_repeated_create_same_code_charges_each_account(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test code deposit is charged per-account, not per code hash.
+
+    Two CREATEs with identical init code deploy identical bytecode
+    and so share a single ``code_hash``. The factory snapshots
+    ``gas_left`` around each CREATE via ``Op.GAS`` and stores
+    ``(g0 - g1) - (g1 - g2)`` in slot 0. Identical work must cost
+    the same — so the difference must be zero.
+
+    Runtime measurement is required: the bug manifests as a
+    child-frame state-gas spillover into ``gas_left`` (a runtime
+    quantity), which static helpers like ``bytecode.gas_cost()``
+    do not model.
+
+    A non-zero result indicates ``compute_state_byte_diff`` is
+    keying code-deposit accounting by hash via ``code_writes``,
+    silently dropping the second CREATE's ``len(code) × CPSB``
+    charge.
+    """
+    # Y init code returns memory[0:1] = 0x00 to deploy a 1-byte STOP.
+    y_init = Op.PUSH1(1) + Op.PUSH1(0) + Op.RETURN
+    y_size = len(bytes(y_init))
+
+    # Memory layout:
+    #   [ 0: 32) — Y init code (right-aligned PUSH32 padding)
+    #   [32: 64) — g0 (gas before first CREATE)
+    #   [64: 96) — g1 (gas between the two CREATEs)
+    #   [96:128) — g2 (gas after second CREATE)
+    factory_code = (
+        Op.MSTORE(0, Op.PUSH32(bytes(y_init)))
+        + Op.MSTORE(32, Op.GAS)
+        + Op.POP(Op.CREATE(value=0, offset=32 - y_size, size=y_size))
+        + Op.MSTORE(64, Op.GAS)
+        + Op.POP(Op.CREATE(value=0, offset=32 - y_size, size=y_size))
+        + Op.MSTORE(96, Op.GAS)
+        + Op.SSTORE(
+            0,
+            Op.SUB(
+                Op.SUB(Op.MLOAD(32), Op.MLOAD(64)),  # cost of CREATE 1
+                Op.SUB(Op.MLOAD(64), Op.MLOAD(96)),  # cost of CREATE 2
+            ),
+        )
+        + Op.STOP
+    )
+
+    factory_storage = Storage()
+    factory_storage[0] = 0
+    factory = pre.deploy_contract(code=factory_code, storage=factory_storage)
+
+    tx = Transaction(
+        to=factory,
+        sender=pre.fund_eoa(),
+        gas_limit=2_000_000,
+    )
+
+    state_test(
+        pre=pre,
+        post={factory: Account(storage=factory_storage)},
+        tx=tx,
+    )
+
+
+@pytest.mark.valid_from("EIP8037")
 def test_create_tx_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,

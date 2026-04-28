@@ -661,18 +661,18 @@ def storage_at_snapshot(
     return snapshot.parent.pre_state.get_storage(address, key)
 
 
-def account_existed_at_snapshot(
+def account_at_snapshot(
     snapshot: TransactionState, address: Address
-) -> bool:
+) -> Optional[Account]:
     """
-    Return whether an account existed in the state captured by
-    ``snapshot`` (i.e., at frame entry).
+    Return the ``Account`` object at ``address`` in ``snapshot``
+    (i.e., at frame entry), or ``None`` if no account existed there.
     """
     if address in snapshot.account_writes:
-        return snapshot.account_writes[address] is not None
+        return snapshot.account_writes[address]
     if address in snapshot.parent.account_writes:
-        return snapshot.parent.account_writes[address] is not None
-    return snapshot.parent.pre_state.get_account_optional(address) is not None
+        return snapshot.parent.account_writes[address]
+    return snapshot.parent.pre_state.get_account_optional(address)
 
 
 def account_existed_at_tx_entry(
@@ -714,8 +714,10 @@ def compute_state_byte_diff(
     removed via ``destroy_account`` whose pre-existence held at both
     frame entry and tx entry.
 
-    Code: +len(code) for each new code hash deposited since the
-    snapshot.
+    Code: +len(code) per account whose ``code_hash`` transitioned
+    from ``EMPTY_CODE_HASH`` to non-empty since the snapshot. Keying
+    by account (not by code hash) ensures two accounts deploying
+    identical bytecode each pay for their own code deposit.
     """
     delta = 0
 
@@ -747,21 +749,35 @@ def compute_state_byte_diff(
                 delta -= 32
 
     for address, account_now in tx_state.account_writes.items():
-        exists_now = account_now is not None
-        existed_at_frame_entry = account_existed_at_snapshot(snapshot, address)
+        snapshot_account = account_at_snapshot(snapshot, address)
+        existed_at_frame_entry = snapshot_account is not None
         existed_at_tx_entry = account_existed_at_tx_entry(tx_state, address)
+
         if (
-            exists_now
+            account_now is not None
             and not existed_at_frame_entry
             and not existed_at_tx_entry
         ):
             delta += 112
-        elif not exists_now and existed_at_frame_entry and existed_at_tx_entry:
+        elif (
+            account_now is None
+            and existed_at_frame_entry
+            and existed_at_tx_entry
+        ):
             delta -= 112
 
-    for code_hash, code in tx_state.code_writes.items():
-        if code_hash not in snapshot.code_writes:
-            delta += len(code)
+        # Code deposit, keyed per-account: two accounts deploying the
+        # same bytecode share one `code_writes` entry, so iterating
+        # `code_writes` would only charge once.
+        if account_now is None or account_now.code_hash == EMPTY_CODE_HASH:
+            continue
+        code_hash_at_frame_entry = (
+            snapshot_account.code_hash
+            if snapshot_account is not None
+            else EMPTY_CODE_HASH
+        )
+        if code_hash_at_frame_entry != account_now.code_hash:
+            delta += len(get_code(tx_state, account_now.code_hash))
 
     return delta
 
