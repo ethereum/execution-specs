@@ -1,24 +1,24 @@
-"""Tests for build_evm_fuzz_transactions."""
+"""Tests for build_evm_fuzz_transactions, dispatched via the wallet pool."""
 
 from typing import Any, Callable, Dict
 
 import pytest
 
-from .helpers import (
-    broadcast_and_assert_receipts,
-    build_evm_fuzz_transactions,
-    spamoor_signer_context,
+from execution_testing.cli.pytest_commands.plugins.spamoor.wallet_pool import (
+    WalletPool,
 )
+
+from .helpers import build_evm_fuzz_transactions
+from .pool_runner import submit_pool_workload
 
 
 @pytest.mark.spamoor
 def test_evm_fuzz_scenario(
     spamoor_config: Dict[str, Any],
     spamoor_rpc_client: Callable[[str, list], Any],
+    spamoor_wallet_pool: WalletPool,
 ) -> None:
-    """Broadcast random-bytecode contract creations. Reverts are OK."""
-    ctx = spamoor_signer_context(spamoor_config, spamoor_rpc_client)
-
+    """Submit random-bytecode contract creations through the pool."""
     txs = build_evm_fuzz_transactions(
         count=spamoor_config["count"],
         gas_limit=spamoor_config["gas_limit"],
@@ -30,9 +30,9 @@ def test_evm_fuzz_scenario(
         basefee=spamoor_config["basefee"],
         tip_fee=spamoor_config["tip_fee"],
         throughput=spamoor_config["throughput"],
-        from_addr=spamoor_config["from_addr"],
-        private_key=spamoor_config["private_key"],
-        rpc_client=spamoor_rpc_client,
+        from_addr=None,
+        private_key=None,
+        rpc_client=None,
     )
 
     assert len(txs) == spamoor_config["count"]
@@ -41,9 +41,11 @@ def test_evm_fuzz_scenario(
         assert tx["to"] == ""
         assert tx["data"].startswith("0x")
 
-    # Random init code typically reverts — we only assert inclusion.
-    broadcast_and_assert_receipts(
-        txs, ctx, spamoor_rpc_client, allow_reverts=True
+    submit_pool_workload(
+        spamoor_config=spamoor_config,
+        rpc_client=spamoor_rpc_client,
+        pool=spamoor_wallet_pool,
+        tx_dicts=txs,
     )
 
 

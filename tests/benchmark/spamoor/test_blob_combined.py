@@ -1,41 +1,38 @@
-"""Tests for build_blob_combined_transactions."""
+"""Tests for build_blob_combined_transactions.
+
+Type-3 blob broadcast requires network-form RLP with the blob sidecars,
+which EST's ``Transaction.rlp()`` does not currently emit. The submit
+path therefore skips at runtime; the builder shape is still exercised.
+"""
 
 from typing import Any, Callable, Dict
 
 import pytest
 
-from .helpers import (
-    broadcast_and_assert_receipts,
-    build_blob_combined_transactions,
-    spamoor_signer_context,
+from execution_testing.cli.pytest_commands.plugins.spamoor.wallet_pool import (
+    WalletPool,
 )
+
+from .helpers import build_blob_combined_transactions
+from .pool_runner import submit_pool_workload
 
 
 @pytest.mark.spamoor
 def test_blob_combined_scenario(
     spamoor_config: Dict[str, Any],
     spamoor_rpc_client: Callable[[str, list], Any],
+    spamoor_wallet_pool: WalletPool,
 ) -> None:
-    """
-    Exercise the blob-combined builder shape.
-
-    ``broadcast_and_assert_receipts`` currently skips for type-3 txs:
-    ``eth_sendRawTransaction`` needs EIP-4844 network-form RLP (with
-    blobs/commitments/proofs sidecars), while EST's ``Transaction.rlp()``
-    yields block-form (payload only). The test still exercises the
-    builder end-to-end and the broadcast helper will skip cleanly.
-    """
-    ctx = spamoor_signer_context(spamoor_config, spamoor_rpc_client)
-
+    """Exercise the blob-combined builder shape; submission is skipped."""
     txs = build_blob_combined_transactions(
         count=spamoor_config["count"],
         sidecars=spamoor_config["sidecars"],
         basefee=spamoor_config["basefee"],
         tip_fee=spamoor_config["tip_fee"],
         blob_fee=spamoor_config["blob_fee"],
-        from_addr=spamoor_config["from_addr"],
-        private_key=spamoor_config["private_key"],
-        rpc_client=spamoor_rpc_client,
+        from_addr=None,
+        private_key=None,
+        rpc_client=None,
     )
 
     assert len(txs) == spamoor_config["count"]
@@ -47,4 +44,10 @@ def test_blob_combined_scenario(
         expected_blobs = max(1, min(int(spamoor_config["sidecars"]), 6))
         assert len(tx0["blobVersionedHashes"]) == expected_blobs
 
-    broadcast_and_assert_receipts(txs, ctx, spamoor_rpc_client)
+    # Pool-runner skips when any tx is type-3 (network-form RLP needed).
+    submit_pool_workload(
+        spamoor_config=spamoor_config,
+        rpc_client=spamoor_rpc_client,
+        pool=spamoor_wallet_pool,
+        tx_dicts=txs,
+    )

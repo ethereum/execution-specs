@@ -1,24 +1,24 @@
-"""Tests for build_erc20tx_transactions."""
+"""Tests for build_erc20tx_transactions, dispatched via the wallet pool."""
 
 from typing import Any, Callable, Dict
 
 import pytest
 
-from .helpers import (
-    broadcast_and_assert_receipts,
-    build_erc20tx_transactions,
-    spamoor_signer_context,
+from execution_testing.cli.pytest_commands.plugins.spamoor.wallet_pool import (
+    WalletPool,
 )
+
+from .helpers import build_erc20tx_transactions
+from .pool_runner import submit_pool_workload
 
 
 @pytest.mark.spamoor
 def test_erc20tx_scenario_with_deploy(
     spamoor_config: Dict[str, Any],
     spamoor_rpc_client: Callable[[str, list], Any],
+    spamoor_wallet_pool: WalletPool,
 ) -> None:
-    """Deploy stub ERC20 + broadcast transferMint calls."""
-    ctx = spamoor_signer_context(spamoor_config, spamoor_rpc_client)
-
+    """Deploy stub ERC20 from root, then submit transferMint calls via pool."""
     txs = build_erc20tx_transactions(
         count=spamoor_config["count"],
         amount=spamoor_config["amount"],
@@ -31,9 +31,9 @@ def test_erc20tx_scenario_with_deploy(
         basefee=spamoor_config["basefee"],
         tip_fee=spamoor_config["tip_fee"],
         throughput=spamoor_config["throughput"],
-        from_addr=spamoor_config["from_addr"],
-        private_key=spamoor_config["private_key"],
-        rpc_client=spamoor_rpc_client,
+        from_addr=None,
+        private_key=None,
+        rpc_client=None,
     )
 
     assert len(txs) == spamoor_config["count"] + 1
@@ -42,17 +42,23 @@ def test_erc20tx_scenario_with_deploy(
     if spamoor_config["count"] > 0:
         assert txs[1]["data"].startswith("0x9d0f7cba")
 
-    broadcast_and_assert_receipts(txs, ctx, spamoor_rpc_client)
+    deploy_tx, exec_txs = txs[0], txs[1:]
+    submit_pool_workload(
+        spamoor_config=spamoor_config,
+        rpc_client=spamoor_rpc_client,
+        pool=spamoor_wallet_pool,
+        tx_dicts=exec_txs,
+        root_setup_txs=[deploy_tx],
+    )
 
 
 @pytest.mark.spamoor
 def test_erc20tx_scenario_no_deploy(
     spamoor_config: Dict[str, Any],
     spamoor_rpc_client: Callable[[str, list], Any],
+    spamoor_wallet_pool: WalletPool,
 ) -> None:
-    """Skip-deploy path: broadcast transferMint calls only."""
-    ctx = spamoor_signer_context(spamoor_config, spamoor_rpc_client)
-
+    """Skip-deploy path: submit transferMint calls only via pool."""
     txs = build_erc20tx_transactions(
         count=spamoor_config["count"],
         amount=spamoor_config["amount"],
@@ -64,9 +70,9 @@ def test_erc20tx_scenario_no_deploy(
         basefee=spamoor_config["basefee"],
         tip_fee=spamoor_config["tip_fee"],
         throughput=spamoor_config["throughput"],
-        from_addr=spamoor_config["from_addr"],
-        private_key=spamoor_config["private_key"],
-        rpc_client=spamoor_rpc_client,
+        from_addr=None,
+        private_key=None,
+        rpc_client=None,
     )
 
     assert len(txs) == spamoor_config["count"]
@@ -75,4 +81,9 @@ def test_erc20tx_scenario_no_deploy(
         addr_b = txs[1]["data"][10 : 10 + 64]
         assert addr_a != addr_b
 
-    broadcast_and_assert_receipts(txs, ctx, spamoor_rpc_client)
+    submit_pool_workload(
+        spamoor_config=spamoor_config,
+        rpc_client=spamoor_rpc_client,
+        pool=spamoor_wallet_pool,
+        tx_dicts=txs,
+    )

@@ -109,6 +109,16 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=0,
         help="0-indexed scenario entry to load from --bloat-config-file.",
     )
+    group.addoption(
+        "--bloat-strict",
+        dest="bloat_strict",
+        action="store_true",
+        default=False,
+        help=(
+            "Fail the run when the selected YAML scenario uses keys the "
+            "EST overlay does not support. Mirrors --spamoor-strict."
+        ),
+    )
 
 
 def _load_jwt_secret(path: str | None) -> bytes:
@@ -161,12 +171,22 @@ def bloat_config(request: pytest.FixtureRequest) -> BloatConfig:
         pytest.exit("--bloat-signer-key is required")
     bloat_config_file = request.config.getoption("bloat_config_file")
     if bloat_config_file:
-        from ..spamoor.spamoor import _load_scenario_from_yaml
+        from ..spamoor.spamoor import (
+            _load_scenario_from_yaml,
+            _validate_yaml_keys,
+        )
 
-        _load_scenario_from_yaml(
+        entry = _load_scenario_from_yaml(
             bloat_config_file,
             int(request.config.getoption("bloat_scenario_index")),
         )
+        strict = bool(request.config.getoption("bloat_strict"))
+        if not strict:
+            try:
+                strict = bool(request.config.getoption("spamoor_strict"))
+            except (ValueError, KeyError):
+                pass
+        _validate_yaml_keys(entry, strict=strict)
     jwt_secret = _load_jwt_secret(
         request.config.getoption("bloat_jwt_secret_file")
     )

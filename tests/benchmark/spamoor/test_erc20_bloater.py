@@ -1,24 +1,24 @@
-"""Tests for build_erc20_bloater_transactions."""
+"""Tests for build_erc20_bloater_transactions, dispatched via the pool."""
 
 from typing import Any, Callable, Dict
 
 import pytest
 
-from .helpers import (
-    broadcast_and_assert_receipts,
-    build_erc20_bloater_transactions,
-    spamoor_signer_context,
+from execution_testing.cli.pytest_commands.plugins.spamoor.wallet_pool import (
+    WalletPool,
 )
+
+from .helpers import build_erc20_bloater_transactions
+from .pool_runner import submit_pool_workload
 
 
 @pytest.mark.spamoor
 def test_erc20_bloater_scenario_with_deploy(
     spamoor_config: Dict[str, Any],
     spamoor_rpc_client: Callable[[str, list], Any],
+    spamoor_wallet_pool: WalletPool,
 ) -> None:
-    """Deploy ERC20Bloater stub + broadcast bloatStorage calls."""
-    ctx = spamoor_signer_context(spamoor_config, spamoor_rpc_client)
-
+    """Deploy ERC20Bloater stub from root, then submit bloatStorage via pool."""
     txs = build_erc20_bloater_transactions(
         count=spamoor_config["count"],
         addresses_per_tx=spamoor_config["addresses_per_tx"],
@@ -30,9 +30,9 @@ def test_erc20_bloater_scenario_with_deploy(
         basefee=spamoor_config["basefee"],
         tip_fee=spamoor_config["tip_fee"],
         throughput=spamoor_config["throughput"],
-        from_addr=spamoor_config["from_addr"],
-        private_key=spamoor_config["private_key"],
-        rpc_client=spamoor_rpc_client,
+        from_addr=None,
+        private_key=None,
+        rpc_client=None,
     )
 
     assert len(txs) == spamoor_config["count"] + 1
@@ -41,19 +41,23 @@ def test_erc20_bloater_scenario_with_deploy(
     if spamoor_config["count"] > 0:
         assert txs[1]["data"].startswith("0xc1926de5")
 
-    # Bloater txs carry 16.7M gas limits → tight block packing on a 30M
-    # cap. Give the node extra time to mine the batch.
-    broadcast_and_assert_receipts(txs, ctx, spamoor_rpc_client, timeout=120)
+    deploy_tx, exec_txs = txs[0], txs[1:]
+    submit_pool_workload(
+        spamoor_config=spamoor_config,
+        rpc_client=spamoor_rpc_client,
+        pool=spamoor_wallet_pool,
+        tx_dicts=exec_txs,
+        root_setup_txs=[deploy_tx],
+    )
 
 
 @pytest.mark.spamoor
 def test_erc20_bloater_scenario_existing_contract(
     spamoor_config: Dict[str, Any],
     spamoor_rpc_client: Callable[[str, list], Any],
+    spamoor_wallet_pool: WalletPool,
 ) -> None:
     """Skip-deploy path: call bloatStorage on an existing address."""
-    ctx = spamoor_signer_context(spamoor_config, spamoor_rpc_client)
-
     txs = build_erc20_bloater_transactions(
         count=spamoor_config["count"],
         addresses_per_tx=spamoor_config["addresses_per_tx"],
@@ -64,9 +68,9 @@ def test_erc20_bloater_scenario_existing_contract(
         basefee=spamoor_config["basefee"],
         tip_fee=spamoor_config["tip_fee"],
         throughput=spamoor_config["throughput"],
-        from_addr=spamoor_config["from_addr"],
-        private_key=spamoor_config["private_key"],
-        rpc_client=spamoor_rpc_client,
+        from_addr=None,
+        private_key=None,
+        rpc_client=None,
     )
 
     assert len(txs) == spamoor_config["count"]
@@ -74,4 +78,9 @@ def test_erc20_bloater_scenario_existing_contract(
         assert txs[0]["to"] == "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
         assert txs[0]["data"].startswith("0xc1926de5")
 
-    broadcast_and_assert_receipts(txs, ctx, spamoor_rpc_client, timeout=120)
+    submit_pool_workload(
+        spamoor_config=spamoor_config,
+        rpc_client=spamoor_rpc_client,
+        pool=spamoor_wallet_pool,
+        tx_dicts=txs,
+    )

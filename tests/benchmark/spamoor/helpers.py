@@ -76,9 +76,21 @@ def broadcast_and_assert_receipts(
     timeout: float = 60.0,
     poll_interval: float = 1.0,
     allow_reverts: bool = False,
+    batch_size: int = 256,
+    skip_assert: bool = False,
 ) -> Dict[str, Dict[str, Any]]:
     """
     Sign every raw tx, broadcast, poll receipts, assert ``status == 0x1``.
+
+    When ``batch_size`` is positive and smaller than the full set, txs are
+    submitted in chunks and each chunk is drained (all receipts received)
+    before the next chunk is submitted. This keeps the per-account txpool
+    from overflowing on large runs.
+
+    Submit-only mode (``skip_assert=True``): every tx is still built and
+    submitted, but the "all receipts observed" and "status == 0x1" checks
+    are relaxed. Intended for bloat-style load generation where dropped
+    or pending receipts are expected.
 
     Returns the receipts keyed by tx hash. Skips the test if the builder
     produced no txs. Type-3 (blob) transactions cannot be broadcast via
@@ -102,50 +114,59 @@ def broadcast_and_assert_receipts(
     chain_id = ctx["chain_id"]
     start_nonce = int(ctx["start_nonce"])
 
-    tx_hashes: List[str] = []
-    for i, tx_dict in enumerate(raw_txs):
-        _normalize_fees(tx_dict)
-        tx = spamoor_dict_to_transaction(
-            tx_dict,
-            signer,
-            chain_id,
-            nonce_override=start_nonce + i,
-            fork=fork,
-            blob_seed=blob_seed,
-        )
-        # ``Bytes.hex()`` already includes the ``0x`` prefix.
-        raw = tx.rlp().hex()
-        result = rpc_client("eth_sendRawTransaction", [raw])
-        assert isinstance(result, str) and result.startswith("0x"), (
-            f"eth_sendRawTransaction failed for tx {i} "
-            f"(type={tx_dict.get('type')} to={tx_dict.get('to')!r} "
-            f"gas={tx_dict.get('gas')} "
-            f"maxFee={tx_dict.get('maxFeePerGas')} "
-            f"tip={tx_dict.get('maxPriorityFeePerGas')} "
-            f"nonce={start_nonce + i} "
-            f"data_len={len(tx_dict.get('data', '') or '') // 2}): {result!r}"
-        )
-        tx_hashes.append(result)
-
-    deadline = time.time() + timeout
-    pending = list(tx_hashes)
+    total = len(raw_txs)
+    chunk = batch_size if batch_size and batch_size > 0 else total
     receipts: Dict[str, Dict[str, Any]] = {}
-    while pending and time.time() < deadline:
-        still_pending: List[str] = []
-        for h in pending:
-            receipt = rpc_client("eth_getTransactionReceipt", [h])
-            if receipt is None:
-                still_pending.append(h)
-            else:
-                receipts[h] = receipt
-        pending = still_pending
-        if pending:
-            time.sleep(poll_interval)
 
-    assert not pending, (
-        f"transactions never mined within {timeout}s: {pending}"
-    )
-    if not allow_reverts:
+    for batch_start in range(0, total, chunk):
+        batch = raw_txs[batch_start : batch_start + chunk]
+        tx_hashes: List[str] = []
+        for offset, tx_dict in enumerate(batch):
+            i = batch_start + offset
+            _normalize_fees(tx_dict)
+            tx = spamoor_dict_to_transaction(
+                tx_dict,
+                signer,
+                chain_id,
+                nonce_override=start_nonce + i,
+                fork=fork,
+                blob_seed=blob_seed,
+            )
+            raw = tx.rlp().hex()
+            result = rpc_client("eth_sendRawTransaction", [raw])
+            assert isinstance(result, str) and result.startswith("0x"), (
+                f"eth_sendRawTransaction failed for tx {i} "
+                f"(type={tx_dict.get('type')} to={tx_dict.get('to')!r} "
+                f"gas={tx_dict.get('gas')} "
+                f"maxFee={tx_dict.get('maxFeePerGas')} "
+                f"tip={tx_dict.get('maxPriorityFeePerGas')} "
+                f"nonce={start_nonce + i} "
+                f"data_len={len(tx_dict.get('data', '') or '') // 2}): "
+                f"{result!r}"
+            )
+            tx_hashes.append(result)
+
+        deadline = time.time() + timeout
+        pending = list(tx_hashes)
+        while pending and time.time() < deadline:
+            still_pending: List[str] = []
+            for h in pending:
+                receipt = rpc_client("eth_getTransactionReceipt", [h])
+                if receipt is None:
+                    still_pending.append(h)
+                else:
+                    receipts[h] = receipt
+            pending = still_pending
+            if pending:
+                time.sleep(poll_interval)
+
+        if pending and not skip_assert:
+            assert not pending, (
+                f"batch {batch_start}..{batch_start + len(batch)} never "
+                f"mined within {timeout}s: {pending}"
+            )
+
+    if not allow_reverts and not skip_assert:
         for h, r in receipts.items():
             status = r.get("status")
             assert status == "0x1", (

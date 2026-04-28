@@ -1,24 +1,24 @@
-"""Tests for build_deploytx_transactions."""
+"""Tests for build_deploytx_transactions, dispatched via the wallet pool."""
 
 from typing import Any, Callable, Dict
 
 import pytest
 
-from .helpers import (
-    broadcast_and_assert_receipts,
-    build_deploytx_transactions,
-    spamoor_signer_context,
+from execution_testing.cli.pytest_commands.plugins.spamoor.wallet_pool import (
+    WalletPool,
 )
+
+from .helpers import build_deploytx_transactions
+from .pool_runner import submit_pool_workload
 
 
 @pytest.mark.spamoor
 def test_deploytx_default_bytecode(
     spamoor_config: Dict[str, Any],
     spamoor_rpc_client: Callable[[str, list], Any],
+    spamoor_wallet_pool: WalletPool,
 ) -> None:
-    """Broadcast contract-creation txs carrying the default bytecode."""
-    ctx = spamoor_signer_context(spamoor_config, spamoor_rpc_client)
-
+    """Submit contract-creation txs carrying the default bytecode."""
     txs = build_deploytx_transactions(
         count=spamoor_config["count"],
         bytecodes=spamoor_config["bytecodes"],
@@ -27,9 +27,9 @@ def test_deploytx_default_bytecode(
         basefee=spamoor_config["basefee"],
         tip_fee=spamoor_config["tip_fee"],
         throughput=spamoor_config["throughput"],
-        from_addr=spamoor_config["from_addr"],
-        private_key=spamoor_config["private_key"],
-        rpc_client=spamoor_rpc_client,
+        from_addr=None,
+        private_key=None,
+        rpc_client=None,
     )
 
     assert len(txs) == spamoor_config["count"]
@@ -44,7 +44,12 @@ def test_deploytx_default_bytecode(
     ):
         assert txs[0]["data"] == "0x6001600055"
 
-    broadcast_and_assert_receipts(txs, ctx, spamoor_rpc_client)
+    submit_pool_workload(
+        spamoor_config=spamoor_config,
+        rpc_client=spamoor_rpc_client,
+        pool=spamoor_wallet_pool,
+        tx_dicts=txs,
+    )
 
 
 @pytest.mark.spamoor
