@@ -7,7 +7,6 @@ state_tests/Cancun/stEIP4844_blobtransactions/createBlobhashTxFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     AccessList,
     Account,
     Address,
@@ -38,9 +37,7 @@ def test_create_blobhash_tx(
 ) -> None:
     """BLOB002."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -61,9 +58,7 @@ def test_create_blobhash_tx(
         code=Op.SSTORE(key=0x0, value=Op.BLOBHASH(index=0x0)) + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0xC4DCF66BD4CDEFE4CE7FBA4951BE4E9F580122C5),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
@@ -81,7 +76,7 @@ def test_create_blobhash_tx(
         ],
         access_list=[
             AccessList(
-                address=Address(0xC4DCF66BD4CDEFE4CE7FBA4951BE4E9F580122C5),
+                address=addr,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501

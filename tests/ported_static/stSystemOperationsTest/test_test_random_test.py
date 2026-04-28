@@ -47,6 +47,7 @@ def test_test_random_test(
         gas_limit=1000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: raw
     # 0x424443444243434383f0155af055
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -68,7 +69,6 @@ def test_test_random_test(
         nonce=0,
         address=Address(0x0F572E5295C57F15886F9B263E2F6D2D6C7B5EC6),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_callCreate2Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -70,9 +69,7 @@ def test_static_call_create2(
     contract_1 = Address(0x1000000000000000000000000000000000000000)
     contract_2 = Address(0x1000000000000000000000000000000000000001)
     contract_3 = Address(0x1000000000000000000000000000000000000002)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -172,7 +169,6 @@ def test_static_call_create2(
         nonce=0,
         address=Address(0x1000000000000000000000000000000000000002),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     expect_entries_: list[dict] = [
         {
@@ -181,7 +177,7 @@ def test_static_call_create2(
             "result": {
                 contract_1: Account(
                     storage={
-                        0: 0x13136008B64FF592819B2FA6D43F2835C452020E,
+                        0: compute_create_address(address=contract_1, nonce=0),
                         1: 1,
                     },
                 ),
@@ -193,7 +189,7 @@ def test_static_call_create2(
             "result": {
                 contract_2: Account(
                     storage={
-                        0: 0x5DDDFCE53EE040D9EB21AFBC0AE1BB4DBB0BA643,
+                        0: compute_create_address(address=contract_2, nonce=0),
                         1: 0,
                     },
                 ),

@@ -54,104 +54,7 @@ def test_callcode_to_precompile_from_transaction(
         gas_limit=10000000,
     )
 
-    # Source: lll
-    # {
-    #   [[ 0x00 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed  # noqa: E501
-    #   (STATICCALL (GAS) 0xa000000000000000000000000000000000000000 0 0 0x0a0000 0x012020)  # noqa: E501
-    #   [[ 0x01 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed  # noqa: E501
-    #   ;; save results to store
-    #   [[ 0x0a00 ]] @0x0a0000  [[ 0x0b00 ]] @0x0b0000
-    #   [[ 0x0a01 ]] @0x0a0100  [[ 0x0b01 ]] @0x0b0100
-    #   [[ 0x0a02 ]] @0x0a0200  [[ 0x0b02 ]] @0x0b0200
-    #   [[ 0x0a03 ]] @0x0a0300  [[ 0x0b03 ]] @0x0b0300
-    #   [[ 0x0a04 ]] @0x0a0400  [[ 0x0b04 ]] @0x0b0400
-    #   [[ 0x0a05 ]] @0x0a0500  [[ 0x0b05 ]] @0x0b0500
-    #   [[ 0x0a06 ]] @0x0a0600  [[ 0x0b06 ]] @0x0b0600
-    #   [[ 0x0a07 ]] @0x0a0700  [[ 0x0b07 ]] @0x0b0700
-    #   [[ 0x0a08 ]] @0x0a0800  [[ 0x0b08 ]] @0x0b0800
-    #   [[ 0x0a09 ]] @0x0a0900  [[ 0x0b09 ]] @0x0b0900
-    #   [[ 0x0a10 ]] @0x0a1000  [[ 0x0b10 ]] @0x0b1000
-    #   [[ 0x0a11 ]] @0x0a1100  [[ 0x0b11 ]] @0x0b1100
-    #   [[ 0x0a12 ]] @0x0a1200  [[ 0x0b12 ]] @0x0b1200
-    #   [[ 0x0a13 ]] @0x0a1300  [[ 0x0b13 ]] @0x0b1300
-    #   [[ 0x0a14 ]] @0x0a1400  [[ 0x0b14 ]] @0x0b1400
-    #   [[ 0x0a15 ]] @0x0a1500  [[ 0x0b15 ]] @0x0b1500
-    #   [[ 0x0a16 ]] @0x0a1600  [[ 0x0b16 ]] @0x0b1600
-    #   [[ 0x0a17 ]] @0x0a1700  [[ 0x0b17 ]] @0x0b1700
-    #   [[ 0x0a18 ]] @0x0a1800  [[ 0x0b18 ]] @0x0b1800
-    #   [[ 0x0a19 ]] @0x0a1900  [[ 0x0b19 ]] @0x0b1900
-    #   [[ 0x0a20 ]] @0x0a2000  [[ 0x0b20 ]] @0x0b2000
-    # }
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0x0,
-            value=0xFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEED,  # noqa: E501
-        )
-        + Op.POP(
-            Op.STATICCALL(
-                gas=Op.GAS,
-                address=0xA000000000000000000000000000000000000000,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0xA0000,
-                ret_size=0x12020,
-            )
-        )
-        + Op.SSTORE(
-            key=0x1,
-            value=0xFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEED,  # noqa: E501
-        )
-        + Op.SSTORE(key=0xA00, value=Op.MLOAD(offset=0xA0000))
-        + Op.SSTORE(key=0xB00, value=Op.MLOAD(offset=0xB0000))
-        + Op.SSTORE(key=0xA01, value=Op.MLOAD(offset=0xA0100))
-        + Op.SSTORE(key=0xB01, value=Op.MLOAD(offset=0xB0100))
-        + Op.SSTORE(key=0xA02, value=Op.MLOAD(offset=0xA0200))
-        + Op.SSTORE(key=0xB02, value=Op.MLOAD(offset=0xB0200))
-        + Op.SSTORE(key=0xA03, value=Op.MLOAD(offset=0xA0300))
-        + Op.SSTORE(key=0xB03, value=Op.MLOAD(offset=0xB0300))
-        + Op.SSTORE(key=0xA04, value=Op.MLOAD(offset=0xA0400))
-        + Op.SSTORE(key=0xB04, value=Op.MLOAD(offset=0xB0400))
-        + Op.SSTORE(key=0xA05, value=Op.MLOAD(offset=0xA0500))
-        + Op.SSTORE(key=0xB05, value=Op.MLOAD(offset=0xB0500))
-        + Op.SSTORE(key=0xA06, value=Op.MLOAD(offset=0xA0600))
-        + Op.SSTORE(key=0xB06, value=Op.MLOAD(offset=0xB0600))
-        + Op.SSTORE(key=0xA07, value=Op.MLOAD(offset=0xA0700))
-        + Op.SSTORE(key=0xB07, value=Op.MLOAD(offset=0xB0700))
-        + Op.SSTORE(key=0xA08, value=Op.MLOAD(offset=0xA0800))
-        + Op.SSTORE(key=0xB08, value=Op.MLOAD(offset=0xB0800))
-        + Op.SSTORE(key=0xA09, value=Op.MLOAD(offset=0xA0900))
-        + Op.SSTORE(key=0xB09, value=Op.MLOAD(offset=0xB0900))
-        + Op.SSTORE(key=0xA10, value=Op.MLOAD(offset=0xA1000))
-        + Op.SSTORE(key=0xB10, value=Op.MLOAD(offset=0xB1000))
-        + Op.SSTORE(key=0xA11, value=Op.MLOAD(offset=0xA1100))
-        + Op.SSTORE(key=0xB11, value=Op.MLOAD(offset=0xB1100))
-        + Op.SSTORE(key=0xA12, value=Op.MLOAD(offset=0xA1200))
-        + Op.SSTORE(key=0xB12, value=Op.MLOAD(offset=0xB1200))
-        + Op.SSTORE(key=0xA13, value=Op.MLOAD(offset=0xA1300))
-        + Op.SSTORE(key=0xB13, value=Op.MLOAD(offset=0xB1300))
-        + Op.SSTORE(key=0xA14, value=Op.MLOAD(offset=0xA1400))
-        + Op.SSTORE(key=0xB14, value=Op.MLOAD(offset=0xB1400))
-        + Op.SSTORE(key=0xA15, value=Op.MLOAD(offset=0xA1500))
-        + Op.SSTORE(key=0xB15, value=Op.MLOAD(offset=0xB1500))
-        + Op.SSTORE(key=0xA16, value=Op.MLOAD(offset=0xA1600))
-        + Op.SSTORE(key=0xB16, value=Op.MLOAD(offset=0xB1600))
-        + Op.SSTORE(key=0xA17, value=Op.MLOAD(offset=0xA1700))
-        + Op.SSTORE(key=0xB17, value=Op.MLOAD(offset=0xB1700))
-        + Op.SSTORE(key=0xA18, value=Op.MLOAD(offset=0xA1800))
-        + Op.SSTORE(key=0xB18, value=Op.MLOAD(offset=0xB1800))
-        + Op.SSTORE(key=0xA19, value=Op.MLOAD(offset=0xA1900))
-        + Op.SSTORE(key=0xB19, value=Op.MLOAD(offset=0xB1900))
-        + Op.SSTORE(key=0xA20, value=Op.MLOAD(offset=0xA2000))
-        + Op.SSTORE(key=0xB20, value=Op.MLOAD(offset=0xB2000))
-        + Op.STOP,
-        storage={
-            0: 0xDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAF,  # noqa: E501
-            1: 0xDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAF,  # noqa: E501
-        },
-        balance=1000,
-        nonce=0,
-        address=Address(0xB000000000000000000000000000000000000000),  # noqa: E501
-    )
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {
     #   ;; Recovery of ECDSA signature
@@ -572,7 +475,104 @@ def test_callcode_to_precompile_from_transaction(
         nonce=0,
         address=Address(0xA000000000000000000000000000000000000000),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
+    # Source: lll
+    # {
+    #   [[ 0x00 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed  # noqa: E501
+    #   (STATICCALL (GAS) 0xa000000000000000000000000000000000000000 0 0 0x0a0000 0x012020)  # noqa: E501
+    #   [[ 0x01 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed  # noqa: E501
+    #   ;; save results to store
+    #   [[ 0x0a00 ]] @0x0a0000  [[ 0x0b00 ]] @0x0b0000
+    #   [[ 0x0a01 ]] @0x0a0100  [[ 0x0b01 ]] @0x0b0100
+    #   [[ 0x0a02 ]] @0x0a0200  [[ 0x0b02 ]] @0x0b0200
+    #   [[ 0x0a03 ]] @0x0a0300  [[ 0x0b03 ]] @0x0b0300
+    #   [[ 0x0a04 ]] @0x0a0400  [[ 0x0b04 ]] @0x0b0400
+    #   [[ 0x0a05 ]] @0x0a0500  [[ 0x0b05 ]] @0x0b0500
+    #   [[ 0x0a06 ]] @0x0a0600  [[ 0x0b06 ]] @0x0b0600
+    #   [[ 0x0a07 ]] @0x0a0700  [[ 0x0b07 ]] @0x0b0700
+    #   [[ 0x0a08 ]] @0x0a0800  [[ 0x0b08 ]] @0x0b0800
+    #   [[ 0x0a09 ]] @0x0a0900  [[ 0x0b09 ]] @0x0b0900
+    #   [[ 0x0a10 ]] @0x0a1000  [[ 0x0b10 ]] @0x0b1000
+    #   [[ 0x0a11 ]] @0x0a1100  [[ 0x0b11 ]] @0x0b1100
+    #   [[ 0x0a12 ]] @0x0a1200  [[ 0x0b12 ]] @0x0b1200
+    #   [[ 0x0a13 ]] @0x0a1300  [[ 0x0b13 ]] @0x0b1300
+    #   [[ 0x0a14 ]] @0x0a1400  [[ 0x0b14 ]] @0x0b1400
+    #   [[ 0x0a15 ]] @0x0a1500  [[ 0x0b15 ]] @0x0b1500
+    #   [[ 0x0a16 ]] @0x0a1600  [[ 0x0b16 ]] @0x0b1600
+    #   [[ 0x0a17 ]] @0x0a1700  [[ 0x0b17 ]] @0x0b1700
+    #   [[ 0x0a18 ]] @0x0a1800  [[ 0x0b18 ]] @0x0b1800
+    #   [[ 0x0a19 ]] @0x0a1900  [[ 0x0b19 ]] @0x0b1900
+    #   [[ 0x0a20 ]] @0x0a2000  [[ 0x0b20 ]] @0x0b2000
+    # }
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=0xFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEED,  # noqa: E501
+        )
+        + Op.POP(
+            Op.STATICCALL(
+                gas=Op.GAS,
+                address=contract_1,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0xA0000,
+                ret_size=0x12020,
+            )
+        )
+        + Op.SSTORE(
+            key=0x1,
+            value=0xFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEED,  # noqa: E501
+        )
+        + Op.SSTORE(key=0xA00, value=Op.MLOAD(offset=0xA0000))
+        + Op.SSTORE(key=0xB00, value=Op.MLOAD(offset=0xB0000))
+        + Op.SSTORE(key=0xA01, value=Op.MLOAD(offset=0xA0100))
+        + Op.SSTORE(key=0xB01, value=Op.MLOAD(offset=0xB0100))
+        + Op.SSTORE(key=0xA02, value=Op.MLOAD(offset=0xA0200))
+        + Op.SSTORE(key=0xB02, value=Op.MLOAD(offset=0xB0200))
+        + Op.SSTORE(key=0xA03, value=Op.MLOAD(offset=0xA0300))
+        + Op.SSTORE(key=0xB03, value=Op.MLOAD(offset=0xB0300))
+        + Op.SSTORE(key=0xA04, value=Op.MLOAD(offset=0xA0400))
+        + Op.SSTORE(key=0xB04, value=Op.MLOAD(offset=0xB0400))
+        + Op.SSTORE(key=0xA05, value=Op.MLOAD(offset=0xA0500))
+        + Op.SSTORE(key=0xB05, value=Op.MLOAD(offset=0xB0500))
+        + Op.SSTORE(key=0xA06, value=Op.MLOAD(offset=0xA0600))
+        + Op.SSTORE(key=0xB06, value=Op.MLOAD(offset=0xB0600))
+        + Op.SSTORE(key=0xA07, value=Op.MLOAD(offset=0xA0700))
+        + Op.SSTORE(key=0xB07, value=Op.MLOAD(offset=0xB0700))
+        + Op.SSTORE(key=0xA08, value=Op.MLOAD(offset=0xA0800))
+        + Op.SSTORE(key=0xB08, value=Op.MLOAD(offset=0xB0800))
+        + Op.SSTORE(key=0xA09, value=Op.MLOAD(offset=0xA0900))
+        + Op.SSTORE(key=0xB09, value=Op.MLOAD(offset=0xB0900))
+        + Op.SSTORE(key=0xA10, value=Op.MLOAD(offset=0xA1000))
+        + Op.SSTORE(key=0xB10, value=Op.MLOAD(offset=0xB1000))
+        + Op.SSTORE(key=0xA11, value=Op.MLOAD(offset=0xA1100))
+        + Op.SSTORE(key=0xB11, value=Op.MLOAD(offset=0xB1100))
+        + Op.SSTORE(key=0xA12, value=Op.MLOAD(offset=0xA1200))
+        + Op.SSTORE(key=0xB12, value=Op.MLOAD(offset=0xB1200))
+        + Op.SSTORE(key=0xA13, value=Op.MLOAD(offset=0xA1300))
+        + Op.SSTORE(key=0xB13, value=Op.MLOAD(offset=0xB1300))
+        + Op.SSTORE(key=0xA14, value=Op.MLOAD(offset=0xA1400))
+        + Op.SSTORE(key=0xB14, value=Op.MLOAD(offset=0xB1400))
+        + Op.SSTORE(key=0xA15, value=Op.MLOAD(offset=0xA1500))
+        + Op.SSTORE(key=0xB15, value=Op.MLOAD(offset=0xB1500))
+        + Op.SSTORE(key=0xA16, value=Op.MLOAD(offset=0xA1600))
+        + Op.SSTORE(key=0xB16, value=Op.MLOAD(offset=0xB1600))
+        + Op.SSTORE(key=0xA17, value=Op.MLOAD(offset=0xA1700))
+        + Op.SSTORE(key=0xB17, value=Op.MLOAD(offset=0xB1700))
+        + Op.SSTORE(key=0xA18, value=Op.MLOAD(offset=0xA1800))
+        + Op.SSTORE(key=0xB18, value=Op.MLOAD(offset=0xB1800))
+        + Op.SSTORE(key=0xA19, value=Op.MLOAD(offset=0xA1900))
+        + Op.SSTORE(key=0xB19, value=Op.MLOAD(offset=0xB1900))
+        + Op.SSTORE(key=0xA20, value=Op.MLOAD(offset=0xA2000))
+        + Op.SSTORE(key=0xB20, value=Op.MLOAD(offset=0xB2000))
+        + Op.STOP,
+        storage={
+            0: 0xDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAF,  # noqa: E501
+            1: 0xDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAF,  # noqa: E501
+        },
+        balance=1000,
+        nonce=0,
+        address=Address(0xB000000000000000000000000000000000000000),  # noqa: E501
+    )
 
     tx = Transaction(
         sender=sender,
@@ -589,7 +589,7 @@ def test_callcode_to_precompile_from_transaction(
                 0: 0xFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEED,  # noqa: E501
                 1: 0xFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEED,  # noqa: E501
                 2560: 1,
-                2561: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                2561: sender,
                 2562: 1,
                 2563: 1,
                 2564: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC000000,  # noqa: E501
@@ -610,7 +610,7 @@ def test_callcode_to_precompile_from_transaction(
                 2585: 1,
                 2592: 1,
                 2816: 1,
-                2817: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                2817: sender,
                 2818: 1,
                 2819: 1,
                 2820: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC000000,  # noqa: E501

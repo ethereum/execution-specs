@@ -95,6 +95,16 @@ def test_create_oo_gafter_init_code_revert2(
         address=Address(0x1000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
+    # { (MSTORE 0 0x6460016001556000526005601bf3) (CREATE 0 18 14) (REVERT 0 32) }  # noqa: E501
+    contract_3 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=0x6460016001556000526005601BF3)
+        + Op.POP(Op.CREATE(value=0x0, offset=0x12, size=0xE))
+        + Op.REVERT(offset=0x0, size=0x20)
+        + Op.STOP,
+        nonce=0,
+        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
+    )
+    # Source: lll
     # { (CALL 33000 0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0 32) [[ 1 ]] (MLOAD 0) }  # noqa: E501
     contract_1 = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
@@ -133,16 +143,6 @@ def test_create_oo_gafter_init_code_revert2(
         storage={1: 255},
         nonce=0,
         address=Address(0xD94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
-    )
-    # Source: lll
-    # { (MSTORE 0 0x6460016001556000526005601bf3) (CREATE 0 18 14) (REVERT 0 32) }  # noqa: E501
-    contract_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=0x6460016001556000526005601BF3)
-        + Op.POP(Op.CREATE(value=0x0, offset=0x12, size=0xE))
-        + Op.REVERT(offset=0x0, size=0x20)
-        + Op.STOP,
-        nonce=0,
-        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

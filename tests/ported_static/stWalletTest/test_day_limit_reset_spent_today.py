@@ -56,7 +56,7 @@ def test_day_limit_reset_spent_today(
         storage={
             0: 1,
             1: 1,
-            3: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+            3: sender,
             260: 1,
             261: 2,
             263: 0xC22E4,
@@ -82,7 +82,7 @@ def test_day_limit_reset_spent_today(
             storage={
                 0: 1,
                 1: 1,
-                3: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                3: sender,
                 260: 2,
                 261: 2,
                 263: 0xC22E4,

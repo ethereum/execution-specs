@@ -47,6 +47,23 @@ def test_random_statetest267(
         gas_limit=9223372036854775807,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
+    # Source: raw
+    # 0x6000355415600957005b60203560003555
+    coinbase = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMPI(
+            pc=0x9,
+            condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
+        )
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.SSTORE(
+            key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
+        ),
+        balance=46,
+        nonce=0,
+        address=Address(0x945304EB96065B2A98B57A48A06AE28D285A71B5),  # noqa: E501
+    )
     # Source: raw
     # 0x447f000000000000000000000000000000000000000000000000000000000000c3507ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f00000000000000000000000100000000000000000000000000000000000000007f000000000000000000000000945304eb96065b2a98b57a48a06ae28d285a71b57f00000000000000000000000000000000000000000000000000000000000000007e7f000000000000000000000000945304eb96065b2a98b57a48a06ae28d285a71b5a132776d398e3b7c14686a07346f60005155  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -65,23 +82,6 @@ def test_random_statetest267(
         nonce=0,
         address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
-    # Source: raw
-    # 0x6000355415600957005b60203560003555
-    coinbase = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMPI(
-            pc=0x9,
-            condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
-        )
-        + Op.STOP
-        + Op.JUMPDEST
-        + Op.SSTORE(
-            key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
-        ),
-        balance=46,
-        nonce=0,
-        address=Address(0x945304EB96065B2A98B57A48A06AE28D285A71B5),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

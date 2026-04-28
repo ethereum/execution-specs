@@ -7,7 +7,6 @@ state_tests/stRandom/randomStatetest307Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_random_statetest307(
     """Test_random_statetest307."""
     coinbase = Address(0x945304EB96065B2A98B57A48A06AE28D285A71B5)
     contract_0 = Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -48,23 +45,6 @@ def test_random_statetest307(
         gas_limit=9223372036854775807,
     )
 
-    # Source: raw
-    # 0x7f000000000000000000000000945304eb96065b2a98b57a48a06ae28d285a71b57f000000000000000000000000000000000000000000000000000000000000c3507f000000000000000000000000945304eb96065b2a98b57a48a06ae28d285a71b5547f000000000000000000000000000000000000000000000000000000000000c3507f000000000000000000000000000000000000000000000000000000000000c3507f00000000000000000000000000000000000000000000000000000000000000007f000000000000000000000000000000000000000000000000000000000000000037f055  # noqa: E501
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH32[0x945304EB96065B2A98B57A48A06AE28D285A71B5]
-        + Op.PUSH32[0xC350]
-        + Op.SLOAD(key=Op.PUSH32[0x945304EB96065B2A98B57A48A06AE28D285A71B5])
-        + Op.PUSH32[0xC350]
-        + Op.CALLDATACOPY(
-            dest_offset=Op.PUSH32[0x0],
-            offset=Op.PUSH32[0x0],
-            size=Op.PUSH32[0xC350],
-        )
-        + Op.CREATE
-        + Op.SSTORE,
-        nonce=0,
-        address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
-    )
     # Source: raw
     # 0x6000355415600957005b60203560003555
     coinbase = pre.deploy_contract(  # noqa: F841
@@ -81,7 +61,22 @@ def test_random_statetest307(
         nonce=0,
         address=Address(0x945304EB96065B2A98B57A48A06AE28D285A71B5),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
+    # Source: raw
+    # 0x7f000000000000000000000000945304eb96065b2a98b57a48a06ae28d285a71b57f000000000000000000000000000000000000000000000000000000000000c3507f000000000000000000000000945304eb96065b2a98b57a48a06ae28d285a71b5547f000000000000000000000000000000000000000000000000000000000000c3507f000000000000000000000000000000000000000000000000000000000000c3507f00000000000000000000000000000000000000000000000000000000000000007f000000000000000000000000000000000000000000000000000000000000000037f055  # noqa: E501
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.PUSH32[0x945304EB96065B2A98B57A48A06AE28D285A71B5]
+        + Op.PUSH32[0xC350]
+        + Op.SLOAD(key=Op.PUSH32[0x945304EB96065B2A98B57A48A06AE28D285A71B5])
+        + Op.PUSH32[0xC350]
+        + Op.CALLDATACOPY(
+            dest_offset=Op.PUSH32[0x0],
+            offset=Op.PUSH32[0x0],
+            size=Op.PUSH32[0xC350],
+        )
+        + Op.CREATE
+        + Op.SSTORE,
+        nonce=0,
+    )
 
     tx = Transaction(
         sender=sender,
@@ -95,11 +90,13 @@ def test_random_statetest307(
 
     post = {
         contract_0: Account(storage={}, nonce=0),
-        Address(
-            0x62C01474F089B07DAE603491675DC5B5748F7049
+        compute_create_address(
+            address=compute_create_address(address=contract_0, nonce=0),
+            nonce=0,
         ): Account.NONEXISTENT,
-        Address(
-            0x91ED00A0A906270D466AF043C4E111DADCA970A3
+        compute_create_address(
+            address=compute_create_address(address=contract_0, nonce=0),
+            nonce=1,
         ): Account.NONEXISTENT,
         coinbase: Account(storage={}, nonce=0),
         compute_create_address(

@@ -7,7 +7,6 @@ state_tests/stRevertTest/RevertPrefoundOOGFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,10 +32,7 @@ def test_revert_prefound_oog(
 ) -> None:
     """Test_revert_prefound_oog."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    addr = Address(0x85FDDE91FD0CE22A2968E1F1B2EBB9F9E5A180BA)
-    sender = EOA(
-        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -47,8 +43,7 @@ def test_revert_prefound_oog(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
-    pre[addr] = Account(balance=1)
+    addr = pre.fund_eoa(amount=1)  # noqa: F841
     # Source: lll
     # { [[0]] (CREATE 0 0 32) (KECCAK256 0x00 0x2fffff) }
     target = pre.deploy_contract(  # noqa: F841
@@ -59,7 +54,6 @@ def test_revert_prefound_oog(
         + Op.STOP,
         balance=1,
         nonce=0,
-        address=Address(0x35B3F8CA79C46F2CBC3DB596A2162ADE570B0ADD),  # noqa: E501
     )
 
     tx = Transaction(

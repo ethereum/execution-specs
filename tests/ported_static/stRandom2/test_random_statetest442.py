@@ -46,6 +46,7 @@ def test_random_statetest442(
         gas_limit=9223372036854775807,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: raw
     # 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff917f00000000000000000000000100000000000000000000000000000000000000007f00000000000000000000000000000000000000000000000000000000000000007ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f000000000000000000000000000000000000000000000000000000000000c3501833815560005155  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -82,7 +83,6 @@ def test_random_statetest442(
         nonce=0,
         address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
@@ -98,7 +98,7 @@ def test_random_statetest442(
         target: Account(
             storage={
                 0: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF3CAE,  # noqa: E501
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF3CAE: 0x2E3D0156D2B99A6EACBA540C55F423C8F5A33143,  # noqa: E501
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF3CAE: sender,  # noqa: E501
             },
             nonce=0,
         ),

@@ -56,6 +56,7 @@ from execution_testing.test_types import (
 from execution_testing.tools import Initcode
 from execution_testing.vm import Op
 
+from ...shared.address_stubs import StubAddress
 from ..pre_alloc import AddressStubs
 from ..rpc.chain_builder_eth_rpc import ChainBuilderEthRPC, TestingRPC
 
@@ -771,7 +772,7 @@ def test_fail_fund_account_in_alloc(
         case "stubbed_contract":
             stub_name = "stubbed_contract"
             stub_address = contract_deployer.deploy(code)
-            stubs = AddressStubs({stub_name: stub_address})
+            stubs = AddressStubs({stub_name: StubAddress(addr=stub_address)})
             account_in_alloc = (
                 f'pre.deploy_contract({code}, stub="{stub_name}")'
             )
@@ -842,7 +843,7 @@ def test_stubs(
         stub_address=f"{stub_address}",
     )
 
-    stubs = AddressStubs({stub_name: stub_address})
+    stubs = AddressStubs({stub_name: StubAddress(addr=stub_address)})
     execute_runner.run_assert(test_method=test_method, stubs=stubs)
 
 

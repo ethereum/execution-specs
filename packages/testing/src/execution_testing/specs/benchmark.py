@@ -305,6 +305,7 @@ class BenchmarkTest(BaseTest):
         default_factory=lambda: int(Environment().gas_limit)
     )
     fixed_opcode_count: float | None = None
+    expected_opcode_count: int | None = None
     target_opcode: Op | OpcodeTarget | None = None
     code_generator: BenchmarkCodeGenerator | None = None
     # By default, benchmark tests require neither of these
@@ -363,14 +364,9 @@ class BenchmarkTest(BaseTest):
 
         blocks: List[Block] = self.setup_blocks
 
-        if (
-            self.fixed_opcode_count is not None
-            and self.code_generator is None
-            and self.target_opcode is None
-        ):
+        if self.fixed_opcode_count is not None and self.code_generator is None:
             pytest.skip(
-                "Cannot run fixed opcode count tests without a "
-                "code generator or a target opcode set"
+                "Cannot run fixed opcode count tests without a code generator"
             )
 
         if self.code_generator is not None:
@@ -525,34 +521,28 @@ class BenchmarkTest(BaseTest):
             include_tx_receipts_in_output=self.include_tx_receipts_in_output,
         )
 
+    @staticmethod
     def _verify_target_opcode_count(
-        self, opcode_count: OpcodeCount | None
+        *,
+        target_opcode: Op | OpcodeTarget,
+        opcode_count: OpcodeCount,
+        expected_opcode_count: int,
+        tolerance: float = 0.05,
     ) -> None:
         """Verify target opcode was executed the expected number of times."""
-        # Skip validation if opcode count is not available
-        if opcode_count is None:
-            return
-
-        assert self.target_opcode is not None, "target_opcode is not set"
-        assert self.fixed_opcode_count is not None, (
-            "fixed_opcode_count is not set"
-        )
-
-        # fixed_opcode_count is in thousands units
-        expected = self.fixed_opcode_count * 1000
-
         count_opcode = (
-            self.target_opcode.opcode
-            if isinstance(self.target_opcode, OpcodeTarget)
-            else self.target_opcode
+            target_opcode.opcode
+            if isinstance(target_opcode, OpcodeTarget)
+            else target_opcode
         )
         actual = opcode_count.root.get(count_opcode, 0)
-        tolerance = expected * 0.05  # 5% tolerance
+        max_difference = expected_opcode_count * tolerance  # 5% tolerance
 
-        if abs(actual - expected) > tolerance:
+        if abs(actual - expected_opcode_count) > max_difference:
             raise ValueError(
-                f"Target opcode {self.target_opcode} count mismatch: "
-                f"expected ~{expected} (±5%), got {actual}"
+                f"Target opcode {target_opcode} count mismatch: "
+                f"expected ~{expected_opcode_count} "
+                f"(±{tolerance * 100}%), got {actual}"
             )
 
     def generate(
@@ -571,12 +561,34 @@ class BenchmarkTest(BaseTest):
 
             # Verify target opcode count if specified
             if (
-                self.target_opcode is not None
-                and self.fixed_opcode_count is not None
+                self.fixed_opcode_count is not None
+                or self.expected_opcode_count is not None
             ):
-                self._verify_target_opcode_count(
-                    fill_result.benchmark_opcode_count
-                )
+                target_opcode = self.target_opcode
+                assert target_opcode is not None, "target_opcode is not set"
+                opcode_count = fill_result.benchmark_opcode_count
+                if opcode_count is not None:
+                    if self.fixed_opcode_count is not None:
+                        self._verify_target_opcode_count(
+                            target_opcode=target_opcode,
+                            opcode_count=opcode_count,
+                            expected_opcode_count=int(
+                                # fixed_opcode_count is in thousands units
+                                self.fixed_opcode_count * 1000
+                            ),
+                        )
+                    elif self.expected_opcode_count is not None:
+                        self._verify_target_opcode_count(
+                            target_opcode=target_opcode,
+                            opcode_count=opcode_count,
+                            expected_opcode_count=self.expected_opcode_count,
+                        )
+                    else:
+                        raise Exception(
+                            "Opcode verification needs either "
+                            "`fixed_opcode_count` or `expected_opcode_count` "
+                            "to be set."
+                        )
 
             if self.target_opcode is not None:
                 fill_result.metadata["target_opcode"] = str(self.target_opcode)

@@ -18,7 +18,7 @@ from typing import Dict, List, Optional, Set, Tuple, TypeAlias
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.frozen import slotted_freezable
-from ethereum_types.numeric import U16, U64, U256, Uint
+from ethereum_types.numeric import U32, U64, U256, Uint, ulen
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.state import EMPTY_CODE_HASH, Account, Address, PreState
@@ -46,7 +46,7 @@ CodeData: TypeAlias = Bytes
 Bytecode associated with an [`Account`](ref:ethereum.state.Account).
 """
 
-BlockAccessIndex: TypeAlias = U16
+BlockAccessIndex: TypeAlias = U32
 """
 Position within the set of all changes in a [`Block`].
 
@@ -744,7 +744,7 @@ def validate_block_access_list_gas_limit(
     The total number of items (addresses + unique storage keys) must not
     exceed ``block_gas_limit // GAS_BLOCK_ACCESS_LIST_ITEM``.
     """
-    from .vm.gas import GAS_BLOCK_ACCESS_LIST_ITEM
+    from .vm.gas import GasCosts
 
     bal_items = Uint(0)
     for account in block_access_list:
@@ -760,11 +760,11 @@ def validate_block_access_list_gas_limit(
             unique_slots.add(slot)
 
         # Count each unique storage key as one item
-        bal_items += Uint(len(unique_slots))
+        bal_items += ulen(unique_slots)
 
-    if bal_items > block_gas_limit // GAS_BLOCK_ACCESS_LIST_ITEM:
+    if bal_items > block_gas_limit // GasCosts.BLOCK_ACCESS_LIST_ITEM:
         raise BlockAccessListGasLimitExceededError(
             f"Block access list exceeds gas limit, {bal_items} items "
             f"exceeds limit of "
-            f"{block_gas_limit // GAS_BLOCK_ACCESS_LIST_ITEM}."
+            f"{block_gas_limit // GasCosts.BLOCK_ACCESS_LIST_ITEM}."
         )

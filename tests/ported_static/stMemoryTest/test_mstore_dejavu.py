@@ -7,7 +7,6 @@ state_tests/stMemoryTest/mstore_dejavuFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_mstore_dejavu(
 ) -> None:
     """Test_mstore_dejavu."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x7DD1D0EC78FE936B0E88F8C21226F51F048579915C7BAFF1C5D7FD84B2139BF1
-    )
+    sender = pre.fund_eoa(amount=0x271000000000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -52,9 +49,7 @@ def test_mstore_dejavu(
         code=Op.MSTORE(offset=0xFFFFFFF, value=0xF1),
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x31FE53A538F8D289FA848C04EDC3664468340362),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x271000000000)
 
     tx = Transaction(
         sender=sender,

@@ -46,6 +46,23 @@ def test_random_statetest358(
         gas_limit=9223372036854775807,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
+    # Source: raw
+    # 0x6000355415600957005b60203560003555
+    coinbase = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMPI(
+            pc=0x9,
+            condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
+        )
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.SSTORE(
+            key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
+        ),
+        balance=46,
+        nonce=0,
+        address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
+    )
     # Source: raw
     # 0x7f000000000000000000000000<contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5>7f00000000000000000000000100000000000000000000000000000000000000007f000000000000000000000000<contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5>7f000000000000000000000000<contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5>417fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff437f000000000000000000000000000000000000000000000000000000000000c3506f679b82a092078f136b5541888c057a5560005155  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -64,23 +81,6 @@ def test_random_statetest358(
         nonce=0,
         address=Address(0x009C8651CA2D7C8DFBF9E9DB5C57A213E25F0AAC),  # noqa: E501
     )
-    # Source: raw
-    # 0x6000355415600957005b60203560003555
-    coinbase = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMPI(
-            pc=0x9,
-            condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
-        )
-        + Op.STOP
-        + Op.JUMPDEST
-        + Op.SSTORE(
-            key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
-        ),
-        balance=46,
-        nonce=0,
-        address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

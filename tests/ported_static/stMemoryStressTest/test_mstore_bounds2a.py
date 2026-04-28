@@ -7,7 +7,6 @@ state_tests/stMemoryStressTest/MSTORE_Bounds2aFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -59,8 +58,8 @@ def test_mstore_bounds2a(
 ) -> None:
     """Test_mstore_bounds2a."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x50EADFB1030587AB3A993A6ECC073041FC3B45E119DAA31A13D78C7E209631A5
+    sender = pre.fund_eoa(
+        amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
     )
 
     env = Environment(
@@ -77,10 +76,6 @@ def test_mstore_bounds2a(
     target = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x3FFFFF, value=0x1) + Op.STOP,
         nonce=0,
-        address=Address(0x10DA52CBD00939AEBE8218A1DD2EDA0BFFE93F30),  # noqa: E501
-    )
-    pre[sender] = Account(
-        balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

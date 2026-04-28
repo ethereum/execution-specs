@@ -46,6 +46,7 @@ def test_shl01_minus_ff(
         gas_limit=1000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: raw
     # 0x600160ff1b600055
     target = pre.deploy_contract(  # noqa: F841
@@ -55,7 +56,6 @@ def test_shl01_minus_ff(
         nonce=0,
         address=Address(0x6750CCB18BD2D092093F25BF1EAEBE77F4ECB9A2),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

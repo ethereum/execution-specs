@@ -851,10 +851,13 @@ def pytest_collection_modifyitems(
         if isinstance(item, EIPSpecTestItem):
             continue
         params: Dict[str, Any] = item.callspec.params  # type: ignore
-        if "fork" not in params or params["fork"] is None:
+        if (
+            "parametrized_fork" not in params
+            or params["parametrized_fork"] is None
+        ):
             items_for_removal.append(i)
             continue
-        fork: Fork | TransitionFork = params["fork"]
+        fork: Fork | TransitionFork = params["parametrized_fork"]
         spec_type, execute_format = get_spec_format_for_item(params)
         assert issubclass(execute_format, BaseExecute)
         markers = list(item.iter_markers())

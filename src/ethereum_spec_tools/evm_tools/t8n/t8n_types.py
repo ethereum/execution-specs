@@ -315,10 +315,10 @@ class Result:
         if t8n.fork.has_block_state:
             # TODO: remove this once the state tracker is ported over
             # to the older forks
-            from ethereum.forks.amsterdam.state import apply_changes_to_state
             from ethereum.forks.amsterdam.state_tracker import (
                 extract_block_diff,
             )
+            from ethereum.state import apply_changes_to_state
 
             block_diff = extract_block_diff(t8n._block_state)
             state_root_value, _ = (

@@ -7,7 +7,6 @@ state_tests/stBugs/randomStatetestDEFAULT-Tue_07_58_41-15153-575192Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_random_statetest_default_minus_tue_07_58_41_minus_15153_minus_575192(
 ) -> None:
     """Test: tis is a canon example of a test found by fuzzing with EVMlab,..."""  # noqa: E501
     coinbase = Address(0xDF5277352F687058BEC2D433F2E2D1B7F0C970AE)
-    sender = EOA(
-        key=0xEDDB5B1A0109F06919449A6279E9DE92A892086BDD851894EB8FFA6C8FF4E563
-    )
+    sender = pre.fund_eoa(amount=0x5D8FDD3FF54298B4, nonce=28)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -53,7 +50,6 @@ def test_random_statetest_default_minus_tue_07_58_41_minus_15153_minus_575192(
     addr = pre.deploy_contract(  # noqa: F841
         code=Op.SELFDESTRUCT(address=0xABCDEF),
         nonce=28,
-        address=Address(0x589D1B72331C25EFFEE38732D79F48F729681853),  # noqa: E501
     )
     # Source: raw
     # 0x61dead6000600060006000600061dead5af162abcdef3f600155
@@ -72,7 +68,6 @@ def test_random_statetest_default_minus_tue_07_58_41_minus_15153_minus_575192(
         nonce=28,
         address=Address(0xDF5277352F687058BEC2D433F2E2D1B7F0C970AE),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x5D8FDD3FF54298B4, nonce=28)
 
     tx = Transaction(
         sender=sender,

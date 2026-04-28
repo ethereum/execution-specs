@@ -73,7 +73,7 @@ def test_contract_calling_many_addresses(
 
     intrinsic_cost_calc = fork.transaction_intrinsic_cost_calculator()
     intrinsic_cost = intrinsic_cost_calc()
-    access_list_addr_cost = fork.gas_costs().GAS_TX_ACCESS_LIST_ADDRESS
+    access_list_addr_cost = fork.gas_costs().TX_ACCESS_LIST_ADDRESS
 
     txs = []
     remaining_gas = gas_benchmark_value

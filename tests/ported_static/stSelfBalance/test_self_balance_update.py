@@ -7,7 +7,6 @@ state_tests/stSelfBalance/selfBalanceUpdateFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_self_balance_update(
 ) -> None:
     """Test_self_balance_update."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x897B12D02D588D8A4FE16FF831CBD4459C6F62F8C845B0CCDD31CAF068C84A26
-    )
+    sender = pre.fund_eoa(amount=0x3635C9ADC5DEA00000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -69,9 +66,7 @@ def test_self_balance_update(
         + Op.STOP,
         balance=500,
         nonce=0,
-        address=Address(0xFF44472F5FFDD079C61153F097871F57C1F689CA),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x3635C9ADC5DEA00000)
 
     tx = Transaction(
         sender=sender,

@@ -46,20 +46,7 @@ def test_random_statetest215(
         gas_limit=9223372036854775807,
     )
 
-    # Source: raw
-    # 0x7f00000000000000000000000000000000000000000000000000000000000000017f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000<contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5>7f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff446f728f4f1065583139780a981510173b9c60005155  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH32[0x1]
-        + Op.PUSH32[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-        + Op.PUSH32[0x4F3F701464972E74606D6EA82D4D3080599A0E79]
-        + Op.PUSH32[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF] * 3
-        + Op.PREVRANDAO
-        + Op.SSTORE(
-            key=Op.MLOAD(offset=0x0), value=0x728F4F1065583139780A981510173B9C
-        ),
-        nonce=0,
-        address=Address(0xBE34DF8C26E53DBCAD75702212DEF7CC965BA9C4),  # noqa: E501
-    )
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: raw
     # 0x6000355415600957005b60203560003555
     coinbase = pre.deploy_contract(  # noqa: F841
@@ -76,7 +63,20 @@ def test_random_statetest215(
         nonce=0,
         address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
+    # Source: raw
+    # 0x7f00000000000000000000000000000000000000000000000000000000000000017f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000<contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5>7f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff446f728f4f1065583139780a981510173b9c60005155  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.PUSH32[0x1]
+        + Op.PUSH32[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
+        + Op.PUSH32[0x4F3F701464972E74606D6EA82D4D3080599A0E79]
+        + Op.PUSH32[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF] * 3
+        + Op.PREVRANDAO
+        + Op.SSTORE(
+            key=Op.MLOAD(offset=0x0), value=0x728F4F1065583139780A981510173B9C
+        ),
+        nonce=0,
+        address=Address(0xBE34DF8C26E53DBCAD75702212DEF7CC965BA9C4),  # noqa: E501
+    )
 
     tx = Transaction(
         sender=sender,

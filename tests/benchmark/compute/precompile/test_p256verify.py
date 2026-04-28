@@ -3,10 +3,15 @@
 import pytest
 from execution_testing import (
     Address,
+    Alloc,
     BenchmarkTestFiller,
+    Block,
+    Bytes,
     Fork,
     JumpLoopGenerator,
     Op,
+    Transaction,
+    WhileGas,
 )
 
 from tests.osaka.eip7951_p256verify_precompiles import spec as p256verify_spec
@@ -87,4 +92,131 @@ def test_p256verify(
             attack_block=attack_block,
             tx_kwargs={"data": calldata},
         ),
+    )
+
+
+@pytest.mark.repricing
+@pytest.mark.parametrize(
+    "precompile_address,calldata",
+    [
+        pytest.param(
+            p256verify_spec.Spec.P256VERIFY,
+            concatenate_parameters(
+                [
+                    p256verify_spec.Spec.H0,
+                    p256verify_spec.Spec.R0,
+                    p256verify_spec.Spec.S0,
+                    p256verify_spec.Spec.X0,
+                    p256verify_spec.Spec.Y0,
+                ]
+            ),
+            id="p256verify",
+        ),
+    ],
+)
+def test_p256verify_uncachable(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_benchmark_value: int,
+    tx_gas_limit: int,
+    precompile_address: Address,
+    calldata: bytes,
+) -> None:
+    """Benchmark P256VERIFY with unique input per call."""
+    if precompile_address not in fork.precompiles():
+        pytest.skip("Precompile not enabled")
+
+    gsc = fork.gas_costs()
+    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
+
+    precompile_cost = gsc.PRECOMPILE_P256VERIFY
+
+    # h: data[0:32] 32 bytes
+    # r: data[32:64] 32 bytes
+    # s: data[64:96] 32 bytes
+    # qx: data[96:128] 32 bytes
+    # qy: data[128:160] 32 bytes
+    attack_block = Op.MSTORE(
+        0,
+        Op.ADD(
+            Op.MLOAD(0),
+            Op.STATICCALL(
+                gas=Op.GAS,
+                address=precompile_address,
+                args_size=Op.CALLDATASIZE,
+                ret_offset=Op.CALLDATASIZE,
+                ret_size=0x20,
+                # gas accounting
+                address_warm=True,
+                inner_call_cost=precompile_cost,
+            ),
+        ),
+        # gas accounting
+        old_memory_size=160,
+        new_memory_size=160,
+    )
+
+    setup = Op.CALLDATACOPY(
+        0,
+        0,
+        Op.CALLDATASIZE,
+        # gas accounting
+        data_size=160,
+        old_memory_size=0,
+        new_memory_size=160,
+    )
+    setup_cost = setup.gas_cost(fork)
+
+    loop = WhileGas(
+        body=attack_block,
+        fork=fork,
+        extra_gas=precompile_cost,
+    )
+    code = setup + loop
+    attack_contract_address = pre.deploy_contract(code=code)
+
+    iteration_cost = loop.gas_cost(fork)
+
+    txs: list[Transaction] = []
+    remaining_gas = gas_benchmark_value
+    seed = 0
+    expected_opcode_count = 0
+    while remaining_gas > 0:
+        per_tx_gas = min(tx_gas_limit, remaining_gas)
+        h = int.from_bytes(calldata[:32], "big") + seed
+
+        tx_calldata = Bytes(
+            h.to_bytes(32, "big")  # hash
+            + calldata[32:]  # r, s, qx, qy
+        )
+
+        intrinsic = intrinsic_gas_calculator(
+            calldata=tx_calldata,
+            return_cost_deducted_prior_execution=True,
+        )
+        gas_for_loop = per_tx_gas - intrinsic - setup_cost
+        if gas_for_loop < iteration_cost:
+            break
+        expected_opcode_count += gas_for_loop // iteration_cost
+
+        txs.append(
+            Transaction(
+                to=attack_contract_address,
+                sender=pre.fund_eoa(),
+                gas_limit=per_tx_gas,
+                data=tx_calldata,
+            )
+        )
+        remaining_gas -= per_tx_gas
+        seed += 10000
+
+    assert len(txs) != 0, "No transactions were added to the test."
+
+    benchmark_test(
+        target_opcode=Precompile.P256VERIFY,
+        skip_gas_used_validation=True,
+        expected_receipt_status=1,
+        blocks=[Block(txs=txs)],
+        expected_opcode_count=expected_opcode_count,
     )

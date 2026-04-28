@@ -48,6 +48,7 @@ def test_callcode_sha256_3_postfix0(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { (MSTORE 0 0xf34578907f00) [[ 2 ]] (CALLCODE 500 2 0 0 37 0 32) [[ 0 ]] (MLOAD 0)}  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -70,7 +71,6 @@ def test_callcode_sha256_3_postfix0(
         nonce=0,
         address=Address(0x47623157953751C765B038FEA97F26122EE130CA),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

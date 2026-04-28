@@ -50,6 +50,7 @@ def test_sender_balance(
         gas_limit=30000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: yul
     # london
     # {
@@ -60,7 +61,6 @@ def test_sender_balance(
         nonce=0,
         address=Address(0x420132F96200BA8E5C98298A85633C35C4F052EF),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

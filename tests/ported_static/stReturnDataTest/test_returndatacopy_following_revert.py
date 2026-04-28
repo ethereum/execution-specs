@@ -48,6 +48,7 @@ def test_returndatacopy_following_revert(
         gas_limit=111669149696,
     )
 
+    pre[sender] = Account(balance=0x6400000000)
     # Source: lll
     # { (seq (MSTORE 0 0x0000111122223333444455556666777788889999aaaabbbbccccddddeeeeffff) (REVERT 0 32)) }  # noqa: E501
     addr = pre.deploy_contract(  # noqa: F841
@@ -66,7 +67,7 @@ def test_returndatacopy_following_revert(
         code=Op.POP(
             Op.CALL(
                 gas=0x900000000,
-                address=0x2159735BA26480ADC67F0EE9D4A05E5405A5CF83,
+                address=addr,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -81,7 +82,6 @@ def test_returndatacopy_following_revert(
         nonce=0,
         address=Address(0x2FAF9D2A81304665C9A06A42935DDC42B24F488B),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x6400000000)
 
     tx = Transaction(
         sender=sender,

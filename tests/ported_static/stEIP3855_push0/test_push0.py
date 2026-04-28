@@ -159,6 +159,25 @@ def test_push0(
         nonce=0,
         address=Address(0x0000000000000000000000000000000000000400),  # noqa: E501
     )
+    # Source: raw
+    # 0x60ff5f5360016000f3
+    contract_6 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE8(offset=Op.PUSH0, value=0xFF)
+        + Op.RETURN(offset=0x0, size=0x1),
+        nonce=0,
+        address=Address(0x0000000000000000000000000000000000000600),  # noqa: E501
+    )
+    # Source: raw
+    # 0x6004565f5b60015f5500
+    contract_7 = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMP(pc=0x4)
+        + Op.PUSH0
+        + Op.JUMPDEST
+        + Op.SSTORE(key=Op.PUSH0, value=0x1)
+        + Op.STOP,
+        nonce=0,
+        address=Address(0x0000000000000000000000000000000000000700),  # noqa: E501
+    )
     # Source: yul
     # berlin
     # {
@@ -186,25 +205,6 @@ def test_push0(
         + Op.STOP,
         nonce=0,
         address=Address(0x0000000000000000000000000000000000000500),  # noqa: E501
-    )
-    # Source: raw
-    # 0x60ff5f5360016000f3
-    contract_6 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE8(offset=Op.PUSH0, value=0xFF)
-        + Op.RETURN(offset=0x0, size=0x1),
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000000600),  # noqa: E501
-    )
-    # Source: raw
-    # 0x6004565f5b60015f5500
-    contract_7 = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMP(pc=0x4)
-        + Op.PUSH0
-        + Op.JUMPDEST
-        + Op.SSTORE(key=Op.PUSH0, value=0x1)
-        + Op.STOP,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000000700),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

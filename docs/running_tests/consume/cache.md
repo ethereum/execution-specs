@@ -10,7 +10,7 @@ All `consume` subcommands have an `--input` argument, which implements the same 
 
 ## Example: Two-liner to Download the Latest Fixture Release
 
-Releases can be downloaded using EEST tooling without (manually) cloning and installing the @ethereum/execution-spec-tests tools as following:
+Releases can be downloaded using EEST tooling without (manually) cloning and installing the @ethereum/execution-specs tools as following:
 
 1. Install `uv` (a fast, rust-based Python package manager):
 
@@ -21,22 +21,20 @@ Releases can be downloaded using EEST tooling without (manually) cloning and ins
 2. Run EEST's `consume cache` command via `uv` and request the latest ["stable" fixture release](../releases.md):
 
     ```console
-    uvx --from git+https://github.com/ethereum/execution-spec-tests \
+    uvx --from "git+https://github.com/ethereum/execution-specs.git#subdirectory=packages/testing" \
         consume cache --input=stable@latest
     ```
 
+    <!-- TODO: Re-capture this example output from the new repo; the command works but the transcript still shows the legacy repo identity. -->
     Expected output, as of `v4.5.0`:
 
     ```console
-    Updated https://github.com/ethereum/execution-spec-tests (8c3cbd7a4eef3967abd78db32ee45ef8f7cf8271)
-    Updated https://github.com/petertdavies/ethereum-spec-evm-resolver (623ac4565025e72b65f45b926da2a3552041b469)
-    Built ethereum-execution-spec-tests @ git+https://github.com/ethereum/execution-spec-tests@8c3cbd7a4eef3967abd78db32ee45ef8f7cf8271
+    Built ethereum-execution-testing @ git+https://github.com/ethereum/execution-specs.git@a48e0b381d5225a6c3de2d06cd9ee7ae0b6ca9bb#subdirectory=packages/testing
+    Installed 70 packages in 15ms
 
-    Installed 69 packages in 10ms
-    Exit: Fixtures downloaded and cached.
-    Path: /home/dtopz/.cache/ethereum-execution-spec-tests/cached_downloads/ethereum/execution-spec-tests/v4.5.0/fixtures_stable/fixtures
-    Input: https://github.com/ethereum/execution-spec-tests/releases/download/v4.5.0/fixtures_stable.tar.gz
-    Release page: https://github.com/ethereum/execution-spec-tests/releases/tag/v4.5.0
+    Path: /home/dtopz/.cache/ethereum-execution-spec-tests/cached_downloads/ethereum/execution-spec-tests/v5.4.0/fixtures_stable/fixtures
+    Input: https://github.com/ethereum/execution-spec-tests/releases/download/v5.4.0/fixtures_stable.tar.gz
+    Release page: https://github.com/ethereum/execution-spec-tests/releases/tag/v5.4.0
     ```
 
     **Note:** Use direct URLs to avoid GitHub API calls (better for CI environments). Version specifiers like `stable@latest` will always use the GitHub API to resolve versions. More details on the arguments to `--input` are provided below.

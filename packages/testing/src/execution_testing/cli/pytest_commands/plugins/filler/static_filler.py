@@ -275,7 +275,7 @@ class FillerFile(pytest.File):
                             ps_id = fixture_format_parameter_set.id
                             test_id = f"fork_{fork.name()}-{ps_id}"
                             if "fork" in func_parameters:
-                                params["fork"] = fork
+                                params["parametrized_fork"] = fork
                             if "pre" in func_parameters:
                                 fixturenames.append("pre")
                             if "request" in func_parameters:

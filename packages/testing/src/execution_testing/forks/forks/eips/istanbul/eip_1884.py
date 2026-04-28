@@ -23,7 +23,7 @@ class EIP1884(BaseFork):
         """Add SELFBALANCE opcode gas cost."""
         gas_costs = cls.gas_costs()
         base_map = super(EIP1884, cls).opcode_gas_map()
-        return {**base_map, Opcodes.SELFBALANCE: gas_costs.GAS_LOW}
+        return {**base_map, Opcodes.SELFBALANCE: gas_costs.LOW}
 
     @classmethod
     def valid_opcodes(cls) -> List[Opcodes]:

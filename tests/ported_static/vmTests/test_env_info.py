@@ -131,6 +131,7 @@ def test_env_info(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
     # Source: lll
     # {
     #    [[0]] (address)
@@ -269,13 +270,12 @@ def test_env_info(
         nonce=0,
         address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     expect_entries_: list[dict] = [
         {
             "indexes": {"data": [0], "gas": -1, "value": -1},
             "network": [">=Cancun"],
-            "result": {contract_0: Account(storage={0: 4096})},
+            "result": {contract_0: Account(storage={0: contract_0})},
         },
         {
             "indexes": {"data": [1], "gas": -1, "value": -1},
@@ -301,11 +301,7 @@ def test_env_info(
         {
             "indexes": {"data": [4], "gas": -1, "value": -1},
             "network": [">=Cancun"],
-            "result": {
-                contract_4: Account(
-                    storage={0: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC},
-                ),
-            },
+            "result": {contract_4: Account(storage={0: contract_10})},
         },
         {
             "indexes": {"data": [5], "gas": -1, "value": -1},
@@ -325,11 +321,7 @@ def test_env_info(
         {
             "indexes": {"data": [8], "gas": -1, "value": -1},
             "network": [">=Cancun"],
-            "result": {
-                contract_8: Account(
-                    storage={0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B},
-                ),
-            },
+            "result": {contract_8: Account(storage={0: sender})},
         },
         {
             "indexes": {"data": [9], "gas": -1, "value": -1},

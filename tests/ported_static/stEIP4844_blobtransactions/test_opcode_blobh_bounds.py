@@ -51,6 +51,7 @@ def test_opcode_blobh_bounds(
         gas_limit=68719476736,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {
     #    ; Can also add lll style comments here
@@ -82,7 +83,6 @@ def test_opcode_blobh_bounds(
         nonce=0,
         address=Address(0xC8126E943C569C35DF09619F8E1E67460ACFF695),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
@@ -103,7 +103,7 @@ def test_opcode_blobh_bounds(
         ],
         access_list=[
             AccessList(
-                address=Address(0xC8126E943C569C35DF09619F8E1E67460ACFF695),
+                address=target,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501

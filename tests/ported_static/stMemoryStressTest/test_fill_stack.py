@@ -7,7 +7,6 @@ state_tests/stMemoryStressTest/FillStackFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -58,9 +57,7 @@ def test_fill_stack(
 ) -> None:
     """Test_fill_stack."""
     coinbase = Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79)
-    sender = EOA(
-        key=0x23000FE3D08CDEBA75EB2E2E2909F842DBF48AA0C566F49101E8285C8DEC62D6
-    )
+    sender = pre.fund_eoa(amount=0x152D02C7E14AF6800000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -95,7 +92,6 @@ def test_fill_stack(
         + Op.MLOAD(offset=0x0)
         + Op.SSTORE,
         nonce=0,
-        address=Address(0x709EE68118AB00CE0BAB659C9AA89744B35703FA),  # noqa: E501
     )
     # Source: raw
     # 0x6000355415600957005b60203560003555
@@ -113,7 +109,6 @@ def test_fill_stack(
         nonce=0,
         address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x152D02C7E14AF6800000)
 
     expect_entries_: list[dict] = [
         {

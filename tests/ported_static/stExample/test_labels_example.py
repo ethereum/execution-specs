@@ -83,6 +83,7 @@ def test_labels_example(
         gas_limit=71794957647893862,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {
     #    [[0]] (CALLDATALOAD 0)
@@ -93,7 +94,6 @@ def test_labels_example(
         nonce=0,
         address=Address(0xA054BC58F204030CBC0EC558A5B88AC9BD5ADED2),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     expect_entries_: list[dict] = [
         {

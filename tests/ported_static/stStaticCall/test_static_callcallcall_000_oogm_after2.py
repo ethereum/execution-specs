@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_callcallcall_000_OOGMAfter2Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -34,9 +33,7 @@ def test_static_callcallcall_000_oogm_after2(
 ) -> None:
     """Test_static_callcallcall_000_oogm_after2."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -48,24 +45,28 @@ def test_static_callcallcall_000_oogm_after2(
     )
 
     # Source: lll
-    # {  [[ 0 ]] (STATICCALL 700000 <contract:0x1000000000000000000000000000000000000001> 0 64 0 64 ) [[ 111 ]] 1 }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0x0,
-            value=Op.STATICCALL(
-                gas=0xAAE60,
-                address=0x10345562E309B2045C737FFDD46E941710495FC4,
+    # {  (MSTORE 3 1) }
+    addr_3 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x3, value=0x1) + Op.STOP,
+        nonce=0,
+    )
+    # Source: lll
+    # {   (MSTORE 3 1) (STATICCALL 120020 <contract:0x1000000000000000000000000000000000000003> 0 64 0 64 )  (MSTORE 32 1)}  # noqa: E501
+    addr_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x3, value=0x1)
+        + Op.POP(
+            Op.STATICCALL(
+                gas=0x1D4D4,
+                address=addr_3,
                 args_offset=0x0,
                 args_size=0x40,
                 ret_offset=0x0,
                 ret_size=0x40,
-            ),
+            )
         )
-        + Op.SSTORE(key=0x6F, value=0x1)
+        + Op.MSTORE(offset=0x20, value=0x1)
         + Op.STOP,
-        balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x6DE4E4FA82A7139E6804B5B47B42E366A9595946),  # noqa: E501
     )
     # Source: lll
     # {   (MSTORE 3 1) (STATICCALL 450000 <contract:0x1000000000000000000000000000000000000002> 0 64 0 64 ) (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (EXTCODESIZE 1)  ) }  # noqa: E501
@@ -74,7 +75,7 @@ def test_static_callcallcall_000_oogm_after2(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x6DDD0,
-                address=0xA34EEE061F267A63C872265BED51C483F777A7B0,
+                address=addr_2,
                 args_offset=0x0,
                 args_size=0x40,
                 ret_offset=0x0,
@@ -91,35 +92,26 @@ def test_static_callcallcall_000_oogm_after2(
         + Op.JUMPDEST
         + Op.STOP,
         nonce=0,
-        address=Address(0x10345562E309B2045C737FFDD46E941710495FC4),  # noqa: E501
     )
     # Source: lll
-    # {   (MSTORE 3 1) (STATICCALL 120020 <contract:0x1000000000000000000000000000000000000003> 0 64 0 64 )  (MSTORE 32 1)}  # noqa: E501
-    addr_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x3, value=0x1)
-        + Op.POP(
-            Op.STATICCALL(
-                gas=0x1D4D4,
-                address=0x335C5531B84765A7626E6E76688F18B81BE5259C,
+    # {  [[ 0 ]] (STATICCALL 700000 <contract:0x1000000000000000000000000000000000000001> 0 64 0 64 ) [[ 111 ]] 1 }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.STATICCALL(
+                gas=0xAAE60,
+                address=addr,
                 args_offset=0x0,
                 args_size=0x40,
                 ret_offset=0x0,
                 ret_size=0x40,
-            )
+            ),
         )
-        + Op.MSTORE(offset=0x20, value=0x1)
+        + Op.SSTORE(key=0x6F, value=0x1)
         + Op.STOP,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0xA34EEE061F267A63C872265BED51C483F777A7B0),  # noqa: E501
     )
-    # Source: lll
-    # {  (MSTORE 3 1) }
-    addr_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x3, value=0x1) + Op.STOP,
-        nonce=0,
-        address=Address(0x335C5531B84765A7626E6E76688F18B81BE5259C),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

@@ -48,6 +48,17 @@ def test_call_one_v_call_suicide2(
     )
 
     pre[sender] = Account(balance=0xE8D4A51000)
+    pre[addr_2] = Account(balance=0, nonce=1)
+    # Source: lll
+    # { (SELFDESTRUCT <eoa:0xd94f5374fce5edbc8e2a8697c15331677e6ebf0b>) }
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.SELFDESTRUCT(
+            address=0xEB201D2887816E041F6E807E804F64F3A7A226FE
+        )
+        + Op.STOP,
+        nonce=0,
+        address=Address(0x99378E0DB04E57AE174AD69770E1B7A0AA805930),  # noqa: E501
+    )
     # Source: lll
     # { [0](GAS) (CALL 60000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 1 0 0 0 0) [[100]] (SUB @0 (GAS)) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -69,17 +80,6 @@ def test_call_one_v_call_suicide2(
         nonce=0,
         address=Address(0xEA04224539257FBE043981AA6058FBC1D5E21B1A),  # noqa: E501
     )
-    # Source: lll
-    # { (SELFDESTRUCT <eoa:0xd94f5374fce5edbc8e2a8697c15331677e6ebf0b>) }
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.SELFDESTRUCT(
-            address=0xEB201D2887816E041F6E807E804F64F3A7A226FE
-        )
-        + Op.STOP,
-        nonce=0,
-        address=Address(0x99378E0DB04E57AE174AD69770E1B7A0AA805930),  # noqa: E501
-    )
-    pre[addr_2] = Account(balance=0, nonce=1)
 
     tx = Transaction(
         sender=sender,

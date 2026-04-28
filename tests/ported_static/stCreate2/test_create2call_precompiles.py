@@ -190,11 +190,7 @@ def test_create2call_precompiles(
             "result": {
                 sender: Account(nonce=1),
                 Address(0xF68E26002DB0F9CA9B54367C57C25E474C581622): Account(
-                    storage={
-                        0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                        1: 1,
-                        2: 1,
-                    },
+                    storage={0: sender, 1: 1, 2: 1}
                 ),
             },
         },

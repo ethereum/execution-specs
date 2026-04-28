@@ -7,7 +7,6 @@ state_tests/stMemoryStressTest/JUMP_BoundsFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -55,9 +54,7 @@ def test_jump_bounds(
 ) -> None:
     """Test_jump_bounds."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x31B5AF02B012484AE954B3A43943242EDE546A2E76FC0A6ACC17435107C385EB
-    )
+    sender = pre.fund_eoa(amount=0x7FFFFFFFFFFFFFFF)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -73,9 +70,7 @@ def test_jump_bounds(
     target = pre.deploy_contract(  # noqa: F841
         code=Op.JUMP(pc=0x0) + Op.STOP,
         nonce=0,
-        address=Address(0xB2448DEB71E9FD31ED854E3B856F729ADBC0C288),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x7FFFFFFFFFFFFFFF)
 
     tx_data = [
         Bytes(""),

@@ -25,9 +25,9 @@ class EIP145(BaseFork):
         base_map = super(EIP145, cls).opcode_gas_map()
         return {
             **base_map,
-            Opcodes.SHL: gas_costs.GAS_VERY_LOW,
-            Opcodes.SHR: gas_costs.GAS_VERY_LOW,
-            Opcodes.SAR: gas_costs.GAS_VERY_LOW,
+            Opcodes.SHL: gas_costs.VERY_LOW,
+            Opcodes.SHR: gas_costs.VERY_LOW,
+            Opcodes.SAR: gas_costs.VERY_LOW,
         }
 
     @classmethod

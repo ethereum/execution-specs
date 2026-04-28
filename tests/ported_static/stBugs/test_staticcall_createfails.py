@@ -7,7 +7,6 @@ state_tests/stBugs/staticcall_createfailsFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -59,9 +58,7 @@ def test_staticcall_createfails(
     contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_1 = Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_2 = Address(0xD94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0x38BEEC8FEECA2598)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -72,7 +69,6 @@ def test_staticcall_createfails(
         gas_limit=23826461031063688,
     )
 
-    pre[sender] = Account(balance=0x38BEEC8FEECA2598)
     # Source: lll
     # { [[1]] (STATICCALL 70000 (CALLDATALOAD 0) 0 0 0 0) }
     contract_0 = pre.deploy_contract(  # noqa: F841

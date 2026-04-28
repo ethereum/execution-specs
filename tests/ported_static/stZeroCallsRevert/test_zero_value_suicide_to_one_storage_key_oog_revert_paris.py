@@ -50,6 +50,18 @@ def test_zero_value_suicide_to_one_storage_key_oog_revert_paris(
     )
 
     pre[sender] = Account(balance=0xE8D4A51000)
+    pre[addr_2] = Account(balance=10, storage={0: 1})
+    # Source: lll
+    # { (SELFDESTRUCT <eoa:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b>) }
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.SELFDESTRUCT(
+            address=0x4757608F18B70777AE788DD4056EEED52F7AA68F
+        )
+        + Op.STOP,
+        storage={0: 1},
+        nonce=0,
+        address=Address(0x8D444744833C9B79FDFE630F155CF1F3BBEB92E3),  # noqa: E501
+    )
     # Source: lll
     # { (CALL 50000 <contract:0xd94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[2]]12 [[3]]12 [[4]]12 }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -72,18 +84,6 @@ def test_zero_value_suicide_to_one_storage_key_oog_revert_paris(
         nonce=0,
         address=Address(0x1D63510FCD4F3069306EBAE45EC6910C0BC944C8),  # noqa: E501
     )
-    # Source: lll
-    # { (SELFDESTRUCT <eoa:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b>) }
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.SELFDESTRUCT(
-            address=0x4757608F18B70777AE788DD4056EEED52F7AA68F
-        )
-        + Op.STOP,
-        storage={0: 1},
-        nonce=0,
-        address=Address(0x8D444744833C9B79FDFE630F155CF1F3BBEB92E3),  # noqa: E501
-    )
-    pre[addr_2] = Account(balance=10, storage={0: 1})
 
     tx = Transaction(
         sender=sender,

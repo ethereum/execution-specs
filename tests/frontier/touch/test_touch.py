@@ -12,7 +12,7 @@ from execution_testing import (
 
 
 @pytest.mark.valid_from("Frontier")
-@pytest.mark.valid_until("Berlin")
+@pytest.mark.valid_before("EIP1559")
 @pytest.mark.eels_base_coverage
 def test_zero_gas_price_and_touching(
     state_test: StateTestFiller,

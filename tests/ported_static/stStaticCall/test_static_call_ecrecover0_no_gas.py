@@ -7,8 +7,6 @@ state_tests/stStaticCall/static_CallEcrecover0_NoGasFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
-    Account,
     Address,
     Alloc,
     Bytes,
@@ -34,9 +32,7 @@ def test_static_call_ecrecover0_no_gas(
 ) -> None:
     """Test_static_call_ecrecover0_no_gas."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -81,9 +77,7 @@ def test_static_call_ecrecover0_no_gas(
         + Op.STOP,
         balance=0x1312D00,
         nonce=0,
-        address=Address(0x6231F5F50790A293B60749CF936C2F442D692BB4),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

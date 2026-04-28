@@ -76,7 +76,7 @@ def test_end_to_end(template_fork: str) -> None:
 
             expected = [
                 "BLOB_TARGET_GAS_PER_BLOCK = U64(199)",
-                "GAS_PER_BLOB = U64(1)",
+                "PER_BLOB = U64(1)",
                 "BLOB_MIN_GASPRICE = Uint(2)",
                 "BLOB_BASE_FEE_UPDATE_FRACTION = Uint(750)",
                 "BLOB_SCHEDULE_TARGET = U64(88)",
@@ -89,11 +89,15 @@ def test_end_to_end(template_fork: str) -> None:
         with (fork_dir / "fork.py").open("r") as f:
             assert "MAX_BLOB_GAS_PER_BLOCK = U64(99)" in f.read()
 
-        with (fork_dir / "trie.py").open("r") as f:
-            assert (
-                "from ethereum.forks.paris import trie as previous_trie"
-                in f.read()
-            )
+        # TODO: Remove this condition once trie.py is removed from all
+        # forks (i.e. fork-agnostic Trie is ported to pre-amsterdam forks).
+        template_has_trie = (
+            Path("src/ethereum/forks") / template_fork / "trie.py"
+        ).exists()
+        if template_has_trie:
+            assert (fork_dir / "trie.py").exists()
+        else:
+            assert not (fork_dir / "trie.py").exists()
 
 
 def has_module_docstring(file_path: Path) -> bool:

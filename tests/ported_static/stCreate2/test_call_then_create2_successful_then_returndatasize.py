@@ -50,6 +50,7 @@ def test_call_then_create2_successful_then_returndatasize(
         gas_limit=47244640256,
     )
 
+    pre[sender] = Account(balance=0x6400000000)
     # Source: lll
     # { (seq (MSTORE 0 0x0000111122223333444455556666777788889999aaaabbbbccccddddeeeeffff) (RETURN 0 32) (STOP) ) }  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -68,7 +69,7 @@ def test_call_then_create2_successful_then_returndatasize(
         code=Op.POP(
             Op.CALL(
                 gas=0x900000000,
-                address=0xAABBCCDD5C57F15886F9B263E2F6D2D6C7B5EC6,
+                address=contract_0,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -91,7 +92,6 @@ def test_call_then_create2_successful_then_returndatasize(
         nonce=0,
         address=Address(0x0F572E5295C57F15886F9B263E2F6D2D6C7B5EC6),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x6400000000)
 
     tx = Transaction(
         sender=sender,

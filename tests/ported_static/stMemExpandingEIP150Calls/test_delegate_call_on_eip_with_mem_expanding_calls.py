@@ -7,7 +7,6 @@ state_tests/stMemExpandingEIP150Calls/DelegateCallOnEIPWithMemExpandingCallsFill
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_delegate_call_on_eip_with_mem_expanding_calls(
 ) -> None:
     """Test_delegate_call_on_eip_with_mem_expanding_calls."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x8D19F2B0D2F5689C1771FBCA70476CA6E877A81EE15C3733DE87FAE38E5ABCEF
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -48,7 +45,12 @@ def test_delegate_call_on_eip_with_mem_expanding_calls(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
+    # Source: hex
+    # 0x6012600055
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=0x12),
+        nonce=0,
+    )
     # Source: hex
     # 0x5a60085560ff60ff60ff60ff73<contract:0x1000000000000000000000000000000000000105>620927c0f4600955  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -57,7 +59,7 @@ def test_delegate_call_on_eip_with_mem_expanding_calls(
             key=0x9,
             value=Op.DELEGATECALL(
                 gas=0x927C0,
-                address=0xA1F6E75A455896613053D45331763A07F4718969,
+                address=addr,
                 args_offset=0xFF,
                 args_size=0xFF,
                 ret_offset=0xFF,
@@ -65,14 +67,6 @@ def test_delegate_call_on_eip_with_mem_expanding_calls(
             ),
         ),
         nonce=0,
-        address=Address(0x3FC906A124D4054023BE5DD8666CE29AA3712CCB),  # noqa: E501
-    )
-    # Source: hex
-    # 0x6012600055
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x12),
-        nonce=0,
-        address=Address(0xA1F6E75A455896613053D45331763A07F4718969),  # noqa: E501
     )
 
     tx = Transaction(

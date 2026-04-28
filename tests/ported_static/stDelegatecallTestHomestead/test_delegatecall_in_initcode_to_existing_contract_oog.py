@@ -51,6 +51,7 @@ def test_delegatecall_in_initcode_to_existing_contract_oog(
         gas_limit=1000000,
     )
 
+    pre[sender] = Account(balance=0x2386F26FC10000)
     # Source: lll
     # { (MSTORE 0 0x604060006040600073945304eb96065b2a98b57a48a06ae28d285a71b5620186) (MSTORE 32 0xa0f4600a5533600b550000000000000000000000000000000000000000000000) (CREATE 5 0 64) }  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -75,7 +76,6 @@ def test_delegatecall_in_initcode_to_existing_contract_oog(
         nonce=0,
         address=Address(0x945304EB96065B2A98B57A48A06AE28D285A71B5),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x2386F26FC10000)
 
     tx = Transaction(
         sender=sender,

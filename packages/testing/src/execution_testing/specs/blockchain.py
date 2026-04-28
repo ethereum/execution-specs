@@ -164,7 +164,7 @@ class Header(CamelModel):
     excess_blob_gas: Removable | HexNumber | None = None
     parent_beacon_block_root: Removable | Hash | None = None
     requests_hash: Removable | Hash | None = None
-    bal_hash: Removable | Hash | None = None
+    block_access_list_hash: Removable | Hash | None = None
 
     REMOVE_FIELD: ClassVar[Removable] = Removable()
     """
@@ -216,12 +216,18 @@ class Header(CamelModel):
         """
         Produce a fixture header copy with the set values from the modifier.
         """
-        return target.copy(
-            **{
-                k: (v if v is not Header.REMOVE_FIELD else None)
-                for k, v in self.model_dump(exclude_none=True).items()
-            }
-        )
+        overrides = {
+            k: (v if v is not Header.REMOVE_FIELD else None)
+            for k, v in self.model_dump(exclude_none=True).items()
+        }
+        unknown = overrides.keys() - target.__class__.model_fields.keys()
+        if unknown:
+            raise ValueError(
+                f"Header fields {unknown} do not exist on "
+                f"{target.__class__.__name__}. Check for field name "
+                f"mismatches between Header and {target.__class__.__name__}."
+            )
+        return target.copy(**overrides)
 
     def verify(self, target: FixtureHeader) -> None:
         """Verify that the header fields from self are as expected."""
@@ -334,7 +340,9 @@ class Block(Header):
             not isinstance(self.requests_hash, Removable)
             and self.block_access_list is not None
         ):
-            new_env_values["bal_hash"] = self.block_access_list.keccak256()
+            new_env_values["block_access_list_hash"] = (
+                self.block_access_list.keccak256()
+            )
             new_env_values["block_access_list"] = self.block_access_list
         if (
             not isinstance(self.block_access_list, Removable)
@@ -723,11 +731,14 @@ class BlockchainTest(BaseTest):
                 "provided by the transition tool"
             )
 
-            computed_bal_hash = Hash(t8n_bal.rlp.keccak256())
-            assert computed_bal_hash == header.block_access_list_hash, (
+            computed_block_access_list_hash = Hash(t8n_bal.rlp.keccak256())
+            assert (
+                computed_block_access_list_hash
+                == header.block_access_list_hash
+            ), (
                 "Block access list hash in header does not match the "
                 f"computed hash from BAL: {header.block_access_list_hash} "
-                f"!= {computed_bal_hash}"
+                f"!= {computed_block_access_list_hash}"
             )
 
         if block.rlp_modifier is not None:

@@ -107,6 +107,8 @@ def test_coinbase_warm_account_call_gas(
         gas_limit=100000000,
     )
 
+    pre[coinbase] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
     # Source: yul
     # berlin
     # {
@@ -257,8 +259,6 @@ def test_coinbase_warm_account_call_gas(
         nonce=1,
         address=Address(0xA4A48FC5F3526A9BC06A0136AB0BA1D9574D15BA),  # noqa: E501
     )
-    pre[coinbase] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
 
     tx_data = [
         Bytes("693c6139") + Hash(0x0),

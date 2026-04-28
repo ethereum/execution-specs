@@ -269,49 +269,31 @@ def test_revert_opcode_multiple_sub_calls(
         address=Address(0x89AB420962193A25593B5663462B75C083D56148),  # noqa: E501
     )
     # Source: lll
-    # { [[10]](CALL 50000 <contract:0xb000000000000000000000000000000000000000> 0 0 0 0 0) [[11]](CALL 50000 <contract:0xc000000000000000000000000000000000000000> 0 0 0 0 0) [[12]](CALL 50000 <contract:0xd000000000000000000000000000000000000000> 0 0 0 0 0) [[4]]12 [[5]]12 }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0xA,
-            value=Op.CALL(
-                gas=0xC350,
-                address=0x86C575F296A8A021A2A64972E57A20B06FE8B897,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.SSTORE(
-            key=0xB,
-            value=Op.CALL(
-                gas=0xC350,
-                address=0x3D2496D905CF0E9C77473CBFB6E100062B5AF57F,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.SSTORE(
-            key=0xC,
-            value=Op.CALL(
-                gas=0xC350,
-                address=0x83BAC26DD305C061381C042D0BAC07B08D15BBCE,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.SSTORE(key=0x4, value=0xC)
-        + Op.SSTORE(key=0x5, value=0xC)
+    # { [[1]] 12 (REVERT 0 1) }
+    addr_5 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x1, value=0xC)
+        + Op.REVERT(offset=0x0, size=0x1)
         + Op.STOP,
         nonce=0,
-        address=Address(0xD7E294F032A5CC430E9E6C4148220867E9704DCD),  # noqa: E501
+        address=Address(0x86C575F296A8A021A2A64972E57A20B06FE8B897),  # noqa: E501
+    )
+    # Source: lll
+    # { [[2]] 12 (REVERT 0 1) }
+    addr_6 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x2, value=0xC)
+        + Op.REVERT(offset=0x0, size=0x1)
+        + Op.STOP,
+        nonce=0,
+        address=Address(0x3D2496D905CF0E9C77473CBFB6E100062B5AF57F),  # noqa: E501
+    )
+    # Source: lll
+    # { [[3]] 12 (REVERT 0 1) }
+    addr_7 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x3, value=0xC)
+        + Op.REVERT(offset=0x0, size=0x1)
+        + Op.STOP,
+        nonce=0,
+        address=Address(0x83BAC26DD305C061381C042D0BAC07B08D15BBCE),  # noqa: E501
     )
     # Source: lll
     # { [[10]](CALLCODE 50000 <contract:0xb000000000000000000000000000000000000000> 0 0 0 0 0) [[11]](CALLCODE 50000 <contract:0xc000000000000000000000000000000000000000> 0 0 0 0 0) [[12]](CALLCODE 50000 <contract:0xd000000000000000000000000000000000000000> 0 0 0 0 0) [[4]]12 [[5]]12 }  # noqa: E501
@@ -359,48 +341,6 @@ def test_revert_opcode_multiple_sub_calls(
         address=Address(0xEE88DFD8455D7D9D6D33231F3DAF6D9A4526D5CF),  # noqa: E501
     )
     # Source: lll
-    # { [[10]](DELEGATECALL 50000 <contract:0xb000000000000000000000000000000000000000> 0 0 0 0) [[11]](DELEGATECALL 50000 <contract:0xc000000000000000000000000000000000000000> 0 0 0 0) [[12]](DELEGATECALL 50000 <contract:0xd000000000000000000000000000000000000000> 0 0 0 0) [[4]]12 [[5]]12 }  # noqa: E501
-    addr_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0xA,
-            value=Op.DELEGATECALL(
-                gas=0xC350,
-                address=0x86C575F296A8A021A2A64972E57A20B06FE8B897,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.SSTORE(
-            key=0xB,
-            value=Op.DELEGATECALL(
-                gas=0xC350,
-                address=0x3D2496D905CF0E9C77473CBFB6E100062B5AF57F,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.SSTORE(
-            key=0xC,
-            value=Op.DELEGATECALL(
-                gas=0xC350,
-                address=0x83BAC26DD305C061381C042D0BAC07B08D15BBCE,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.SSTORE(key=0x4, value=0xC)
-        + Op.SSTORE(key=0x5, value=0xC)
-        + Op.STOP,
-        nonce=0,
-        address=Address(0x68CF97C6CA41ECFC5623D8A7E9B6F72068213E95),  # noqa: E501
-    )
-    # Source: lll
     # { [[10]](CALL 50000 <contract:0xb000000000000000000000000000000000000000> 0 0 0 0 0) [[11]](DELEGATECALL 50000 <contract:0xc000000000000000000000000000000000000000> 0 0 0 0) [[12]](CALLCODE 50000 <contract:0xd000000000000000000000000000000000000000> 0 0 0 0 0) [[4]]12 [[5]]12 }  # noqa: E501
     addr_4 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(
@@ -445,31 +385,91 @@ def test_revert_opcode_multiple_sub_calls(
         address=Address(0x1302FD3B212E7E634F82ED6D00AC14544E8B1CAB),  # noqa: E501
     )
     # Source: lll
-    # { [[1]] 12 (REVERT 0 1) }
-    addr_5 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x1, value=0xC)
-        + Op.REVERT(offset=0x0, size=0x1)
+    # { [[10]](DELEGATECALL 50000 <contract:0xb000000000000000000000000000000000000000> 0 0 0 0) [[11]](DELEGATECALL 50000 <contract:0xc000000000000000000000000000000000000000> 0 0 0 0) [[12]](DELEGATECALL 50000 <contract:0xd000000000000000000000000000000000000000> 0 0 0 0) [[4]]12 [[5]]12 }  # noqa: E501
+    addr_3 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0xA,
+            value=Op.DELEGATECALL(
+                gas=0xC350,
+                address=0x86C575F296A8A021A2A64972E57A20B06FE8B897,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
+        + Op.SSTORE(
+            key=0xB,
+            value=Op.DELEGATECALL(
+                gas=0xC350,
+                address=0x3D2496D905CF0E9C77473CBFB6E100062B5AF57F,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
+        + Op.SSTORE(
+            key=0xC,
+            value=Op.DELEGATECALL(
+                gas=0xC350,
+                address=0x83BAC26DD305C061381C042D0BAC07B08D15BBCE,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
+        + Op.SSTORE(key=0x4, value=0xC)
+        + Op.SSTORE(key=0x5, value=0xC)
         + Op.STOP,
         nonce=0,
-        address=Address(0x86C575F296A8A021A2A64972E57A20B06FE8B897),  # noqa: E501
+        address=Address(0x68CF97C6CA41ECFC5623D8A7E9B6F72068213E95),  # noqa: E501
     )
     # Source: lll
-    # { [[2]] 12 (REVERT 0 1) }
-    addr_6 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x2, value=0xC)
-        + Op.REVERT(offset=0x0, size=0x1)
+    # { [[10]](CALL 50000 <contract:0xb000000000000000000000000000000000000000> 0 0 0 0 0) [[11]](CALL 50000 <contract:0xc000000000000000000000000000000000000000> 0 0 0 0 0) [[12]](CALL 50000 <contract:0xd000000000000000000000000000000000000000> 0 0 0 0 0) [[4]]12 [[5]]12 }  # noqa: E501
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0xA,
+            value=Op.CALL(
+                gas=0xC350,
+                address=0x86C575F296A8A021A2A64972E57A20B06FE8B897,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
+        + Op.SSTORE(
+            key=0xB,
+            value=Op.CALL(
+                gas=0xC350,
+                address=0x3D2496D905CF0E9C77473CBFB6E100062B5AF57F,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
+        + Op.SSTORE(
+            key=0xC,
+            value=Op.CALL(
+                gas=0xC350,
+                address=0x83BAC26DD305C061381C042D0BAC07B08D15BBCE,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
+        + Op.SSTORE(key=0x4, value=0xC)
+        + Op.SSTORE(key=0x5, value=0xC)
         + Op.STOP,
         nonce=0,
-        address=Address(0x3D2496D905CF0E9C77473CBFB6E100062B5AF57F),  # noqa: E501
-    )
-    # Source: lll
-    # { [[3]] 12 (REVERT 0 1) }
-    addr_7 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x3, value=0xC)
-        + Op.REVERT(offset=0x0, size=0x1)
-        + Op.STOP,
-        nonce=0,
-        address=Address(0x83BAC26DD305C061381C042D0BAC07B08D15BBCE),  # noqa: E501
+        address=Address(0xD7E294F032A5CC430E9E6C4148220867E9704DCD),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

@@ -7,7 +7,6 @@ state_tests/stStackTests/shallowStackFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -518,7 +517,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_shallow_stack(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -529,9 +527,7 @@ def test_shallow_stack(
 ) -> None:
     """Test_shallow_stack."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0x271000000000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -541,8 +537,6 @@ def test_shallow_stack(
         base_fee_per_gas=10,
         gas_limit=42949672960,
     )
-
-    pre[sender] = Account(balance=0x271000000000)
 
     tx_data = [
         Op.PUSH1[0x1] + Op.SSTORE(key=0x0, value=Op.ADD),

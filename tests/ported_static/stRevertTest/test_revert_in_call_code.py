@@ -7,7 +7,6 @@ state_tests/stRevertTest/RevertInCallCodeFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_revert_in_call_code(
 ) -> None:
     """Test_revert_in_call_code."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xA2333EEF5630066B928DEA5FD85A239F511B5B067D1441EE7AC290D0122B917B
-    )
+    sender = pre.fund_eoa(amount=0x5F5E100)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -47,13 +44,21 @@ def test_revert_in_call_code(
     )
 
     # Source: lll
+    # { (MSTORE 0 0x2232) (REVERT 0 32) }
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=0x2232)
+        + Op.REVERT(offset=0x0, size=0x20)
+        + Op.STOP,
+        nonce=0,
+    )
+    # Source: lll
     # { [[ 0 ]] (CALLCODE 50000 <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 1000 0 64 0 64 ) [[ 1 ]] (RETURNDATASIZE) (RETURNDATACOPY 64 0 32) [[ 2 ]] (MLOAD 64) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALLCODE(
                 gas=0xC350,
-                address=0x26BC42B8191CCB142CB8CBC3490BD3BDCE465591,
+                address=addr,
                 value=0x3E8,
                 args_offset=0x0,
                 args_size=0x40,
@@ -67,18 +72,7 @@ def test_revert_in_call_code(
         + Op.STOP,
         balance=1000,
         nonce=0,
-        address=Address(0x5E1D76D7BADBAD41710E47410DBA9226C255D229),  # noqa: E501
     )
-    # Source: lll
-    # { (MSTORE 0 0x2232) (REVERT 0 32) }
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=0x2232)
-        + Op.REVERT(offset=0x0, size=0x20)
-        + Op.STOP,
-        nonce=0,
-        address=Address(0x26BC42B8191CCB142CB8CBC3490BD3BDCE465591),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0x5F5E100)
 
     tx = Transaction(
         sender=sender,

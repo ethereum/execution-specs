@@ -16,13 +16,7 @@ from ethereum_types.numeric import U256, Uint
 from ...state_tracker import get_storage
 from ...utils.hexadecimal import hex_to_address
 from .. import Evm
-from ..gas import (
-    GAS_BASE,
-    GAS_BLOCK_HASH,
-    GAS_COLD_STORAGE_ACCESS,
-    GAS_WARM_ACCESS,
-    charge_gas,
-)
+from ..gas import GasCosts, charge_gas
 from ..stack import pop, push
 
 HISTORY_STORAGE_ADDRESS = hex_to_address(
@@ -59,7 +53,7 @@ def block_hash(evm: Evm) -> None:
     block_number = Uint(pop(evm.stack))
 
     # GAS
-    charge_gas(evm, GAS_BLOCK_HASH)
+    charge_gas(evm, GasCosts.OPCODE_BLOCKHASH)
 
     # OPERATION
     current_block_number = evm.message.block_env.number
@@ -78,10 +72,10 @@ def block_hash(evm: Evm) -> None:
         HISTORY_STORAGE_ADDRESS,
         storage_key,
     ) in evm.accessed_storage_keys:
-        charge_gas(evm, GAS_WARM_ACCESS)
+        charge_gas(evm, GasCosts.WARM_ACCESS)
     else:
         evm.accessed_storage_keys.add((HISTORY_STORAGE_ADDRESS, storage_key))
-        charge_gas(evm, GAS_COLD_STORAGE_ACCESS)
+        charge_gas(evm, GasCosts.COLD_STORAGE_ACCESS)
 
     tx_state = evm.message.tx_env.state
     hash_value = get_storage(
@@ -121,7 +115,7 @@ def coinbase(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, GasCosts.OPCODE_COINBASE)
 
     # OPERATION
     push(evm.stack, U256.from_be_bytes(evm.message.block_env.coinbase))
@@ -155,7 +149,7 @@ def timestamp(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, GasCosts.OPCODE_TIMESTAMP)
 
     # OPERATION
     push(evm.stack, evm.message.block_env.time)
@@ -188,7 +182,7 @@ def number(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, GasCosts.OPCODE_NUMBER)
 
     # OPERATION
     push(evm.stack, U256(evm.message.block_env.number))
@@ -221,7 +215,7 @@ def prev_randao(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, GasCosts.OPCODE_PREVRANDAO)
 
     # OPERATION
     push(evm.stack, U256.from_be_bytes(evm.message.block_env.prev_randao))
@@ -254,7 +248,7 @@ def gas_limit(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, GasCosts.OPCODE_GASLIMIT)
 
     # OPERATION
     push(evm.stack, U256(evm.message.block_env.block_gas_limit))
@@ -284,7 +278,7 @@ def chain_id(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, GasCosts.OPCODE_CHAINID)
 
     # OPERATION
     push(evm.stack, U256(evm.message.block_env.chain_id))

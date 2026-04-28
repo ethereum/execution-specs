@@ -7,7 +7,6 @@ state_tests/stRandom2/randomStatetest643Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -31,9 +30,7 @@ def test_random_statetest643(
     pre: Alloc,
 ) -> None:
     """Return ~1 MB out of bounds of the init code."""
-    sender = EOA(
-        key=0x2C6BEC15D915620A88056CC6BFB70707AFA902ABD52C7DFEAB0864BE472CB8AF
-    )
+    sender = pre.fund_eoa(amount=0xA015CDDAB7107B04)
 
     env = Environment(
         fee_recipient=sender,
@@ -65,9 +62,7 @@ def test_random_statetest643(
         ),
         balance=0x3F91B25C1601534B,
         nonce=210,
-        address=Address(0x6E40C70F8BE9A7633E8A31580C85F275B86362EF),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xA015CDDAB7107B04)
     # Source: raw
     # 0x436debc3912504eded08f73b9ff9490d73fc4f820a0890b7e8417fa97940713aeb870e59a790607f6b3d5649e57458ea8692da323253735967657e3fc6e02f6de1c0ff6cc18e051bdd52ad7b1eb441440620426b3485ab683d44ff8d5544eb7f7fb3e1f4c30063640b5a626f341b6271dd59621208476208431973<contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b>6338f86b9af4  # noqa: E501
     addr_2 = pre.deploy_contract(  # noqa: F841

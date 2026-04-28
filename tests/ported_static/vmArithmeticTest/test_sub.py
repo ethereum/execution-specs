@@ -96,6 +96,7 @@ def test_sub(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
     # Source: lll
     # {
     #    [[0]] (- 23 1)
@@ -185,7 +186,6 @@ def test_sub(
         nonce=0,
         address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     expect_entries_: list[dict] = [
         {

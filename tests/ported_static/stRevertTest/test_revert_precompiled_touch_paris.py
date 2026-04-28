@@ -70,14 +70,14 @@ def test_revert_precompiled_touch_paris(
 ) -> None:
     """Test_revert_precompiled_touch_paris."""
     coinbase = Address(0x68795C4AA09D6F4ED3E5DEDDF8C2AD3049A601DA)
-    addr_5 = Address(0x6EB9AFCB5D985B12549B7AC2E65C093F7113A0C7)
-    addr_6 = Address(0xF07A794E0F8AAB4242B86368503D3C1DE15481F8)
-    addr_7 = Address(0x9E6C35DECED6E05EB21D3465B5BBBB57B9CD57D6)
-    addr_8 = Address(0x1688023D9AE9E25EA02A2447A77B9CC9D22CE57B)
-    addr_9 = Address(0xD085AB47BC36D1238FC092679B21B10792746640)
-    addr_10 = Address(0xAD3DF2901B7C6642E397C35E0E9F3DEA5D098238)
-    addr_11 = Address(0xBE44B82021B08CFECC33A2E57FF5ADCB7FE3B049)
-    addr_12 = Address(0x85FDDE91FD0CE22A2968E1F1B2EBB9F9E5A180BA)
+    addr_5 = Address(0x0000000000000000000000000000000000000001)
+    addr_6 = Address(0x0000000000000000000000000000000000000002)
+    addr_7 = Address(0x0000000000000000000000000000000000000003)
+    addr_8 = Address(0x0000000000000000000000000000000000000004)
+    addr_9 = Address(0x0000000000000000000000000000000000000005)
+    addr_10 = Address(0x0000000000000000000000000000000000000006)
+    addr_11 = Address(0x0000000000000000000000000000000000000007)
+    addr_12 = Address(0x0000000000000000000000000000000000000008)
     sender = EOA(
         key=0xFF8D58222F34F6890DDAA468C023B77D6691ED7D3C4DCDDAE38336212FAF54B
     )
@@ -91,6 +91,15 @@ def test_revert_precompiled_touch_paris(
         gas_limit=4012015,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
+    pre[addr_5] = Account(balance=1)
+    pre[addr_6] = Account(balance=1)
+    pre[addr_7] = Account(balance=1)
+    pre[addr_8] = Account(balance=1)
+    pre[addr_9] = Account(balance=1)
+    pre[addr_10] = Account(balance=1)
+    pre[addr_11] = Account(balance=1)
+    pre[addr_12] = Account(balance=1)
     # Source: lll
     # {  (CALLCODE (GAS) (CALLDATALOAD 0) 0 0 0 0 0) }
     target = pre.deploy_contract(  # noqa: F841
@@ -483,15 +492,6 @@ def test_revert_precompiled_touch_paris(
         nonce=0,
         address=Address(0x10EF6D6218ADA53728683CEC4D5160C8C72159BD),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
-    pre[addr_5] = Account(balance=1)
-    pre[addr_6] = Account(balance=1)
-    pre[addr_7] = Account(balance=1)
-    pre[addr_8] = Account(balance=1)
-    pre[addr_9] = Account(balance=1)
-    pre[addr_10] = Account(balance=1)
-    pre[addr_11] = Account(balance=1)
-    pre[addr_12] = Account(balance=1)
 
     expect_entries_: list[dict] = [
         {

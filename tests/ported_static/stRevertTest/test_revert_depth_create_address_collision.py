@@ -109,6 +109,16 @@ def test_revert_depth_create_address_collision(
 
     pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
+    # { [[2]] 8 (CREATE 0 0 0) [[3]] 12}
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x2, value=0x8)
+        + Op.POP(Op.CREATE(value=0x0, offset=0x0, size=0x0))
+        + Op.SSTORE(key=0x3, value=0xC)
+        + Op.STOP,
+        nonce=0,
+        address=Address(0xB1B49241A4ECF7860872E686090781C906B1B437),  # noqa: E501
+    )
+    # Source: lll
     # { [[0]] 1 [[1]] (CALL (CALLDATALOAD 0) <contract:0xb000000000000000000000000000000000000000> 0 0 0 0 0) [[4]] 12 }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=0x1)
@@ -129,16 +139,6 @@ def test_revert_depth_create_address_collision(
         balance=5,
         nonce=54,
         address=Address(0x97E33A176B7C8D61B356D1C170AC2119D28867DF),  # noqa: E501
-    )
-    # Source: lll
-    # { [[2]] 8 (CREATE 0 0 0) [[3]] 12}
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x2, value=0x8)
-        + Op.POP(Op.CREATE(value=0x0, offset=0x0, size=0x0))
-        + Op.SSTORE(key=0x3, value=0xC)
-        + Op.STOP,
-        nonce=0,
-        address=Address(0xB1B49241A4ECF7860872E686090781C906B1B437),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

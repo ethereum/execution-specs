@@ -7,7 +7,6 @@ state_tests/stQuadraticComplexityTest/Create1000Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -62,9 +61,7 @@ def test_create1000(
     """Gas analysis showed this test's gas can go as low as 21053, and..."""
     coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_0 = Address(0xBBBF5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -75,7 +72,6 @@ def test_create1000(
         gas_limit=8600000000,
     )
 
-    pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 1000) [i](+ @i 1) [[ 0 ]] (CREATE 1 0 50000) ) [[ 1 ]] @i}  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -93,7 +89,6 @@ def test_create1000(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
-        address=Address(0xBBBF5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -101,30 +96,30 @@ def test_create1000(
             "indexes": {"data": -1, "gas": 0, "value": -1},
             "network": [">=Cancun<Osaka"],
             "result": {
-                Address(
-                    0x010D8B0816E30FF51BA07678C64B272CDEDDB807
+                compute_create_address(
+                    address=contract_0, nonce=866
                 ): Account.NONEXISTENT,
-                Address(
-                    0x014830FE159F418212E5C39B4B2E2DDC7B295395
+                compute_create_address(
+                    address=contract_0, nonce=780
                 ): Account.NONEXISTENT,
                 contract_0: Account(storage={0: 0, 1: 0}, nonce=0),
-                Address(
-                    0x0C6A8F1BF692CB9E4F9D9C5A2785D58EDFD42457
+                compute_create_address(
+                    address=contract_0, nonce=959
                 ): Account.NONEXISTENT,
-                Address(
-                    0x198D23BEDD1A9FDBD4ADB5760930F6877F5D142F
+                compute_create_address(
+                    address=contract_0, nonce=393
                 ): Account.NONEXISTENT,
-                Address(
-                    0x266C09580D28C1C576E5C6B9ADC926BE1FECFFB1
+                compute_create_address(
+                    address=contract_0, nonce=499
                 ): Account.NONEXISTENT,
                 compute_create_address(
                     address=contract_0, nonce=19
                 ): Account.NONEXISTENT,
-                Address(
-                    0xFDBD2625737DF76E194C99994BE160C5F8248DAD
+                compute_create_address(
+                    address=contract_0, nonce=327
                 ): Account.NONEXISTENT,
-                Address(
-                    0xFFF043ABCBF2B0972C1DCA19B2BA3CD682F10E90
+                compute_create_address(
+                    address=contract_0, nonce=493
                 ): Account.NONEXISTENT,
             },
         },
@@ -132,30 +127,30 @@ def test_create1000(
             "indexes": {"data": -1, "gas": 1, "value": -1},
             "network": [">=Cancun<Osaka"],
             "result": {
-                Address(
-                    0x010D8B0816E30FF51BA07678C64B272CDEDDB807
+                compute_create_address(
+                    address=contract_0, nonce=866
                 ): Account.NONEXISTENT,
-                Address(
-                    0x014830FE159F418212E5C39B4B2E2DDC7B295395
+                compute_create_address(
+                    address=contract_0, nonce=780
                 ): Account.NONEXISTENT,
                 contract_0: Account(storage={0: 0, 1: 0}, nonce=0),
-                Address(
-                    0x0C6A8F1BF692CB9E4F9D9C5A2785D58EDFD42457
+                compute_create_address(
+                    address=contract_0, nonce=959
                 ): Account.NONEXISTENT,
-                Address(
-                    0x198D23BEDD1A9FDBD4ADB5760930F6877F5D142F
+                compute_create_address(
+                    address=contract_0, nonce=393
                 ): Account.NONEXISTENT,
-                Address(
-                    0x266C09580D28C1C576E5C6B9ADC926BE1FECFFB1
+                compute_create_address(
+                    address=contract_0, nonce=499
                 ): Account.NONEXISTENT,
                 compute_create_address(
                     address=contract_0, nonce=19
                 ): Account.NONEXISTENT,
-                Address(
-                    0xFDBD2625737DF76E194C99994BE160C5F8248DAD
+                compute_create_address(
+                    address=contract_0, nonce=327
                 ): Account.NONEXISTENT,
-                Address(
-                    0xFFF043ABCBF2B0972C1DCA19B2BA3CD682F10E90
+                compute_create_address(
+                    address=contract_0, nonce=493
                 ): Account.NONEXISTENT,
             },
         },

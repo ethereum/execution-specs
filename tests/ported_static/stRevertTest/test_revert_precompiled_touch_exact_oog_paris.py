@@ -7,7 +7,6 @@ state_tests/stRevertTest/RevertPrecompiledTouchExactOOG_ParisFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -624,17 +623,15 @@ def test_revert_precompiled_touch_exact_oog_paris(
 ) -> None:
     """Test_revert_precompiled_touch_exact_oog_paris."""
     coinbase = Address(0x68795C4AA09D6F4ED3E5DEDDF8C2AD3049A601DA)
-    addr_5 = Address(0x6EB9AFCB5D985B12549B7AC2E65C093F7113A0C7)
-    addr_6 = Address(0xF07A794E0F8AAB4242B86368503D3C1DE15481F8)
-    addr_7 = Address(0x9E6C35DECED6E05EB21D3465B5BBBB57B9CD57D6)
-    addr_8 = Address(0x1688023D9AE9E25EA02A2447A77B9CC9D22CE57B)
-    addr_9 = Address(0xD085AB47BC36D1238FC092679B21B10792746640)
-    addr_10 = Address(0xAD3DF2901B7C6642E397C35E0E9F3DEA5D098238)
-    addr_11 = Address(0xBE44B82021B08CFECC33A2E57FF5ADCB7FE3B049)
-    addr_12 = Address(0x85FDDE91FD0CE22A2968E1F1B2EBB9F9E5A180BA)
-    sender = EOA(
-        key=0xFF8D58222F34F6890DDAA468C023B77D6691ED7D3C4DCDDAE38336212FAF54B
-    )
+    addr_5 = Address(0x0000000000000000000000000000000000000001)
+    addr_6 = Address(0x0000000000000000000000000000000000000002)
+    addr_7 = Address(0x0000000000000000000000000000000000000003)
+    addr_8 = Address(0x0000000000000000000000000000000000000004)
+    addr_9 = Address(0x0000000000000000000000000000000000000005)
+    addr_10 = Address(0x0000000000000000000000000000000000000006)
+    addr_11 = Address(0x0000000000000000000000000000000000000007)
+    addr_12 = Address(0x0000000000000000000000000000000000000008)
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000, nonce=1)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -645,6 +642,14 @@ def test_revert_precompiled_touch_exact_oog_paris(
         gas_limit=4012015,
     )
 
+    pre[addr_5] = Account(balance=1)
+    pre[addr_6] = Account(balance=1)
+    pre[addr_7] = Account(balance=1)
+    pre[addr_8] = Account(balance=1)
+    pre[addr_9] = Account(balance=1)
+    pre[addr_10] = Account(balance=1)
+    pre[addr_11] = Account(balance=1)
+    pre[addr_12] = Account(balance=1)
     # Source: lll
     # {  (CALLCODE (GAS) (CALLDATALOAD 0) 0 0 (CALLDATALOAD 32) 0 0) }
     target = pre.deploy_contract(  # noqa: F841
@@ -723,15 +728,6 @@ def test_revert_precompiled_touch_exact_oog_paris(
         nonce=0,
         address=Address(0xC02FFF115E5EEE4FF4420EBA1CB7CB8772E0598E),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
-    pre[addr_5] = Account(balance=1)
-    pre[addr_6] = Account(balance=1)
-    pre[addr_7] = Account(balance=1)
-    pre[addr_8] = Account(balance=1)
-    pre[addr_9] = Account(balance=1)
-    pre[addr_10] = Account(balance=1)
-    pre[addr_11] = Account(balance=1)
-    pre[addr_12] = Account(balance=1)
 
     expect_entries_: list[dict] = [
         {
@@ -864,38 +860,70 @@ def test_revert_precompiled_touch_exact_oog_paris(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Hash(0x1000000000000000000000000000000000000000) + Hash(0x1),
-        Hash(0x1000000000000000000000000000000000000000) + Hash(0x2),
-        Hash(0x1000000000000000000000000000000000000000) + Hash(0x3),
-        Hash(0x1000000000000000000000000000000000000000) + Hash(0x4),
-        Hash(0x1000000000000000000000000000000000000000) + Hash(0x5),
-        Hash(0x1000000000000000000000000000000000000000) + Hash(0x6),
-        Hash(0x1000000000000000000000000000000000000000) + Hash(0x7),
-        Hash(0x1000000000000000000000000000000000000000) + Hash(0x8),
-        Hash(0x2000000000000000000000000000000000000000) + Hash(0x1),
-        Hash(0x2000000000000000000000000000000000000000) + Hash(0x2),
-        Hash(0x2000000000000000000000000000000000000000) + Hash(0x3),
-        Hash(0x2000000000000000000000000000000000000000) + Hash(0x4),
-        Hash(0x2000000000000000000000000000000000000000) + Hash(0x5),
-        Hash(0x2000000000000000000000000000000000000000) + Hash(0x6),
-        Hash(0x2000000000000000000000000000000000000000) + Hash(0x7),
-        Hash(0x2000000000000000000000000000000000000000) + Hash(0x8),
-        Hash(0x3000000000000000000000000000000000000000) + Hash(0x1),
-        Hash(0x3000000000000000000000000000000000000000) + Hash(0x2),
-        Hash(0x3000000000000000000000000000000000000000) + Hash(0x3),
-        Hash(0x3000000000000000000000000000000000000000) + Hash(0x4),
-        Hash(0x3000000000000000000000000000000000000000) + Hash(0x5),
-        Hash(0x3000000000000000000000000000000000000000) + Hash(0x6),
-        Hash(0x3000000000000000000000000000000000000000) + Hash(0x7),
-        Hash(0x3000000000000000000000000000000000000000) + Hash(0x8),
-        Hash(0x4000000000000000000000000000000000000000) + Hash(0x1),
-        Hash(0x4000000000000000000000000000000000000000) + Hash(0x2),
-        Hash(0x4000000000000000000000000000000000000000) + Hash(0x3),
-        Hash(0x4000000000000000000000000000000000000000) + Hash(0x4),
-        Hash(0x4000000000000000000000000000000000000000) + Hash(0x5),
-        Hash(0x4000000000000000000000000000000000000000) + Hash(0x6),
-        Hash(0x4000000000000000000000000000000000000000) + Hash(0x7),
-        Hash(0x4000000000000000000000000000000000000000) + Hash(0x8),
+        Hash(0x1000000000000000000000000000000000000000)
+        + Hash(addr_5, left_padding=True),
+        Hash(0x1000000000000000000000000000000000000000)
+        + Hash(addr_6, left_padding=True),
+        Hash(0x1000000000000000000000000000000000000000)
+        + Hash(addr_7, left_padding=True),
+        Hash(0x1000000000000000000000000000000000000000)
+        + Hash(addr_8, left_padding=True),
+        Hash(0x1000000000000000000000000000000000000000)
+        + Hash(addr_9, left_padding=True),
+        Hash(0x1000000000000000000000000000000000000000)
+        + Hash(addr_10, left_padding=True),
+        Hash(0x1000000000000000000000000000000000000000)
+        + Hash(addr_11, left_padding=True),
+        Hash(0x1000000000000000000000000000000000000000)
+        + Hash(addr_12, left_padding=True),
+        Hash(0x2000000000000000000000000000000000000000)
+        + Hash(addr_5, left_padding=True),
+        Hash(0x2000000000000000000000000000000000000000)
+        + Hash(addr_6, left_padding=True),
+        Hash(0x2000000000000000000000000000000000000000)
+        + Hash(addr_7, left_padding=True),
+        Hash(0x2000000000000000000000000000000000000000)
+        + Hash(addr_8, left_padding=True),
+        Hash(0x2000000000000000000000000000000000000000)
+        + Hash(addr_9, left_padding=True),
+        Hash(0x2000000000000000000000000000000000000000)
+        + Hash(addr_10, left_padding=True),
+        Hash(0x2000000000000000000000000000000000000000)
+        + Hash(addr_11, left_padding=True),
+        Hash(0x2000000000000000000000000000000000000000)
+        + Hash(addr_12, left_padding=True),
+        Hash(0x3000000000000000000000000000000000000000)
+        + Hash(addr_5, left_padding=True),
+        Hash(0x3000000000000000000000000000000000000000)
+        + Hash(addr_6, left_padding=True),
+        Hash(0x3000000000000000000000000000000000000000)
+        + Hash(addr_7, left_padding=True),
+        Hash(0x3000000000000000000000000000000000000000)
+        + Hash(addr_8, left_padding=True),
+        Hash(0x3000000000000000000000000000000000000000)
+        + Hash(addr_9, left_padding=True),
+        Hash(0x3000000000000000000000000000000000000000)
+        + Hash(addr_10, left_padding=True),
+        Hash(0x3000000000000000000000000000000000000000)
+        + Hash(addr_11, left_padding=True),
+        Hash(0x3000000000000000000000000000000000000000)
+        + Hash(addr_12, left_padding=True),
+        Hash(0x4000000000000000000000000000000000000000)
+        + Hash(addr_5, left_padding=True),
+        Hash(0x4000000000000000000000000000000000000000)
+        + Hash(addr_6, left_padding=True),
+        Hash(0x4000000000000000000000000000000000000000)
+        + Hash(addr_7, left_padding=True),
+        Hash(0x4000000000000000000000000000000000000000)
+        + Hash(addr_8, left_padding=True),
+        Hash(0x4000000000000000000000000000000000000000)
+        + Hash(addr_9, left_padding=True),
+        Hash(0x4000000000000000000000000000000000000000)
+        + Hash(addr_10, left_padding=True),
+        Hash(0x4000000000000000000000000000000000000000)
+        + Hash(addr_11, left_padding=True),
+        Hash(0x4000000000000000000000000000000000000000)
+        + Hash(addr_12, left_padding=True),
     ]
     tx_gas = [22500, 120000, 69000]
 

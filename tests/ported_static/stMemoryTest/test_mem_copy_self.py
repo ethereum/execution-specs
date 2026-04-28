@@ -46,6 +46,7 @@ def test_mem_copy_self(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
     # Source: yul
     # berlin
     # {
@@ -105,7 +106,6 @@ def test_mem_copy_self(
         nonce=1,
         address=Address(0xB595300AC049B84C5277C7CA68A96D74AE377B85),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
 
     tx = Transaction(
         sender=sender,

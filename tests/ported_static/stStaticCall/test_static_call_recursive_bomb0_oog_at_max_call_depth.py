@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_CallRecursiveBomb0_OOG_atMaxCallDepthFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -37,9 +36,7 @@ def test_static_call_recursive_bomb0_oog_at_max_call_depth(
 ) -> None:
     """Test_static_call_recursive_bomb0_oog_at_max_call_depth."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -50,26 +47,6 @@ def test_static_call_recursive_bomb0_oog_at_max_call_depth(
         gas_limit=110000000000,
     )
 
-    # Source: lll
-    # { (CALLCODE (GAS) <contract:0x095e7baea6a6c7c4c2dfeb977efac326af552d87> 0 0 0 0 0) [[ 1 ]] 1 }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.POP(
-            Op.CALLCODE(
-                gas=Op.GAS,
-                address=0xBB09BB747BB11897420C59CACB65853142C67BB7,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            )
-        )
-        + Op.SSTORE(key=0x1, value=0x1)
-        + Op.STOP,
-        balance=0x1312D00,
-        nonce=0,
-        address=Address(0x4A20A569D7008020C8CD630CFF560F3E627522D3),  # noqa: E501
-    )
     # Source: lll
     # { (MSTORE 0 (+ (SLOAD 0) 1)) (MSTORE 2 (MUL (DIV (MLOAD 0) 0x0402) 0xfffffffffffffffffff)) (STATICCALL (- (GAS) 1024) (ADDRESS) 0 (MUL (DIV (MLOAD 0) 0x0402) 0xfffffffffffffffffff) 0 0) }  # noqa: E501
     addr = pre.deploy_contract(  # noqa: F841
@@ -93,9 +70,26 @@ def test_static_call_recursive_bomb0_oog_at_max_call_depth(
         + Op.STOP,
         balance=0x1312D00,
         nonce=0,
-        address=Address(0xBB09BB747BB11897420C59CACB65853142C67BB7),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
+    # Source: lll
+    # { (CALLCODE (GAS) <contract:0x095e7baea6a6c7c4c2dfeb977efac326af552d87> 0 0 0 0 0) [[ 1 ]] 1 }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.POP(
+            Op.CALLCODE(
+                gas=Op.GAS,
+                address=addr,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.SSTORE(key=0x1, value=0x1)
+        + Op.STOP,
+        balance=0x1312D00,
+        nonce=0,
+    )
 
     tx = Transaction(
         sender=sender,

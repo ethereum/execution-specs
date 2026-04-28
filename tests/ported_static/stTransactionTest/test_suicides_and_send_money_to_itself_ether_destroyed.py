@@ -7,7 +7,6 @@ state_tests/stTransactionTest/SuicidesAndSendMoneyToItselfEtherDestroyedFiller.j
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_suicides_and_send_money_to_itself_ether_destroyed(
 ) -> None:
     """Test_suicides_and_send_money_to_itself_ether_destroyed."""
     coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
-    sender = EOA(
-        key=0xD066C5DB28BDA8940CFC5CBEFD1556CBC89C69B19F6D1AAA9FAC69AEE4B4A1BF
-    )
+    sender = pre.fund_eoa(amount=0x7459280)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -49,7 +46,6 @@ def test_suicides_and_send_money_to_itself_ether_destroyed(
     )
 
     pre[coinbase] = Account(balance=0, nonce=1)
-    pre[sender] = Account(balance=0x7459280)
     # Source: lll
     # {(SELFDESTRUCT <contract:target:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b>)}  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841

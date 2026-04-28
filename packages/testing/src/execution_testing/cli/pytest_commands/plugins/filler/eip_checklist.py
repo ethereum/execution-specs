@@ -392,6 +392,21 @@ class EIP:
         return output_dir
 
 
+def _find_eip_dir(tests_root: Path, eip_number: int) -> Path | None:
+    """
+    Return the first `eip<N>_*` directory under `tests_root`, if any.
+
+    Used as a fallback when an EIP is referenced from a test outside its
+    own `eipNNNN/` directory via the `eip=[N]` kwarg of `eip_checklist`,
+    so the checklist doc can still be attached to the EIP's canonical
+    location even when none of its primary tests were collected.
+    """
+    for match in tests_root.rglob(f"eip{eip_number}_*"):
+        if match.is_dir():
+            return match
+    return None
+
+
 class EIPChecklistCollector:
     """Collects and manages EIP checklist items from test markers."""
 
@@ -497,6 +512,14 @@ class EIPChecklistCollector:
                 continue
             self.collect_from_item(item, eip)
 
+        # Back-fill the canonical `eipNNNN_*` directory for any EIP added
+        # via the `eip=[N]` kwarg of `eip_checklist` whose primary tests
+        # weren't collected (e.g. because of a `-m` filter or `--until`).
+        tests_root = Path(config.rootpath) / "tests"
+        for eip in self.eips.values():
+            if eip.path is None:
+                eip.path = _find_eip_dir(tests_root, eip.number)
+
         # Check which mode we are in
         checklist_doc_gen = config.getoption("checklist_doc_gen", False)
         checklist_output = config.getoption(
@@ -512,7 +535,14 @@ class EIPChecklistCollector:
                 continue
 
             if checklist_doc_gen:
-                assert eip.path is not None
+                if eip.path is None:
+                    logger.warning(
+                        f"EIP-{eip.number} was referenced via the `eip` "
+                        "kwarg of `eip_checklist` but no `eip"
+                        f"{eip.number}_*` directory was found under "
+                        "tests/; skipping checklist doc generation for it."
+                    )
+                    continue
                 checklist_path = eip.path / "checklist.md"
                 checklist_props[checklist_path] = EipChecklistPageProps(
                     title=f"EIP-{eip.number} Test Checklist",

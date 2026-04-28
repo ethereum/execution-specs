@@ -7,7 +7,6 @@ state_tests/stSolidityTest/CallLowLevelCreatesSolidityFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_call_low_level_creates_solidity(
 ) -> None:
     """Test_call_low_level_creates_solidity."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xA2333EEF5630066B928DEA5FD85A239F511B5B067D1441EE7AC290D0122B917B
-    )
+    sender = pre.fund_eoa(amount=0x5F5E100)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -156,7 +153,6 @@ def test_call_low_level_creates_solidity(
         nonce=0,
         address=Address(0x5DA6FBE439A0C3AB33F813671A4E7767EE0A263B),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x5F5E100)
 
     tx = Transaction(
         sender=sender,
@@ -166,14 +162,6 @@ def test_call_low_level_creates_solidity(
         value=1,
     )
 
-    post = {
-        target: Account(
-            storage={
-                0: 225,
-                1: 0x5DA6FBE439A0C3AB33F813671A4E7767EE0A263B,
-            },
-            nonce=1,
-        ),
-    }
+    post = {target: Account(storage={0: 225, 1: target}, nonce=1)}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

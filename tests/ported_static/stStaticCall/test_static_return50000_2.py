@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_Return50000_2Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -34,9 +33,7 @@ def test_static_return50000_2(
 ) -> None:
     """Test_static_return50000_2."""
     coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0xE7C72B378297589ACEE4E0BA3272841BCFC5E220F86DE253F890274CFEE9E474
-    )
+    sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -47,7 +44,6 @@ def test_static_return50000_2(
         gas_limit=89250000,
     )
 
-    pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
     # Source: lll
     # { (MSTORE 0 (CALLDATALOAD 49999)) (RETURN (MLOAD 0) 1) }
     addr = pre.deploy_contract(  # noqa: F841
@@ -56,28 +52,6 @@ def test_static_return50000_2(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
-        address=Address(0x0D08FB89197BD8F97C770ED75E28ED610A3016E9),  # noqa: E501
-    )
-    # Source: lll
-    # { [[ 0 ]] (CALL (GAS) <contract:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[ 1 ]] 1 }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0x0,
-            value=Op.CALL(
-                gas=Op.GAS,
-                address=0xDF43BBA207127B641624B20497FA07055F4A3939,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.SSTORE(key=0x1, value=0x1)
-        + Op.STOP,
-        balance=0xFFFFFFFFFFFFF,
-        nonce=0,
-        address=Address(0x9A8CA98B299A0220FAAD60948D01CE83CCC97831),  # noqa: E501
     )
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) [[ 0 ]] (STATICCALL 1564 <contract:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 50000 0 0) ) [[ 1 ]] @i }  # noqa: E501
@@ -90,7 +64,7 @@ def test_static_return50000_2(
             key=0x0,
             value=Op.STATICCALL(
                 gas=0x61C,
-                address=0xD08FB89197BD8F97C770ED75E28ED610A3016E9,
+                address=addr,
                 args_offset=0x0,
                 args_size=0xC350,
                 ret_offset=0x0,
@@ -104,7 +78,26 @@ def test_static_return50000_2(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
-        address=Address(0xDF43BBA207127B641624B20497FA07055F4A3939),  # noqa: E501
+    )
+    # Source: lll
+    # { [[ 0 ]] (CALL (GAS) <contract:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[ 1 ]] 1 }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.CALL(
+                gas=Op.GAS,
+                address=addr_2,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
+        + Op.SSTORE(key=0x1, value=0x1)
+        + Op.STOP,
+        balance=0xFFFFFFFFFFFFF,
+        nonce=0,
     )
 
     tx = Transaction(

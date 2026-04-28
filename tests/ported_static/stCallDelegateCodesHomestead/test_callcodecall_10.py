@@ -7,7 +7,6 @@ state_tests/stCallDelegateCodesHomestead/callcodecall_10Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_callcodecall_10(
 ) -> None:
     """Test_callcodecall_10."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -46,45 +43,6 @@ def test_callcodecall_10(
         gas_limit=30000000,
     )
 
-    # Source: lll
-    # {  [[ 0 ]] (DELEGATECALL 350000 <contract:0x1000000000000000000000000000000000000001> 0 64 0 64 ) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0x0,
-            value=Op.DELEGATECALL(
-                gas=0x55730,
-                address=0xFD0CC1F9A105E057B84065348C4C878DD79FA4BE,
-                args_offset=0x0,
-                args_size=0x40,
-                ret_offset=0x0,
-                ret_size=0x40,
-            ),
-        )
-        + Op.STOP,
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0xD26E26D5A4796D450BFA296D70C05F02DBC1A4B9),  # noqa: E501
-    )
-    # Source: lll
-    # {  [[ 1 ]] (CALL 250000 <contract:0x1000000000000000000000000000000000000002> 1 0 64 0 64 ) }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0x1,
-            value=Op.CALL(
-                gas=0x3D090,
-                address=0xCB4336321FAC69281BD2902D427F4EF9E8584251,
-                value=0x1,
-                args_offset=0x0,
-                args_size=0x40,
-                ret_offset=0x0,
-                ret_size=0x40,
-            ),
-        )
-        + Op.STOP,
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0xFD0CC1F9A105E057B84065348C4C878DD79FA4BE),  # noqa: E501
-    )
     # Source: lll
     # {  (SSTORE 2 1) (SSTORE 4 (CALLER))  (SSTORE 7 (CALLVALUE)) (SSTORE 230 (ADDRESS)) (SSTORE 232 (ORIGIN)) (SSTORE 236 (CALLDATASIZE)) (SSTORE 238 (CODESIZE)) (SSTORE 240 (GASPRICE)) }  # noqa: E501
     addr_2 = pre.deploy_contract(  # noqa: F841
@@ -98,9 +56,44 @@ def test_callcodecall_10(
         + Op.SSTORE(key=0xF0, value=Op.GASPRICE)
         + Op.STOP,
         nonce=0,
-        address=Address(0xCB4336321FAC69281BD2902D427F4EF9E8584251),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
+    # Source: lll
+    # {  [[ 1 ]] (CALL 250000 <contract:0x1000000000000000000000000000000000000002> 1 0 64 0 64 ) }  # noqa: E501
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x1,
+            value=Op.CALL(
+                gas=0x3D090,
+                address=addr_2,
+                value=0x1,
+                args_offset=0x0,
+                args_size=0x40,
+                ret_offset=0x0,
+                ret_size=0x40,
+            ),
+        )
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
+        nonce=0,
+    )
+    # Source: lll
+    # {  [[ 0 ]] (DELEGATECALL 350000 <contract:0x1000000000000000000000000000000000000001> 0 64 0 64 ) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.DELEGATECALL(
+                gas=0x55730,
+                address=addr,
+                args_offset=0x0,
+                args_size=0x40,
+                ret_offset=0x0,
+                ret_size=0x40,
+            ),
+        )
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
+        nonce=0,
+    )
 
     tx = Transaction(
         sender=sender,
@@ -114,10 +107,10 @@ def test_callcodecall_10(
         addr_2: Account(
             storage={
                 2: 1,
-                4: 0xD26E26D5A4796D450BFA296D70C05F02DBC1A4B9,
+                4: target,
                 7: 1,
-                230: 0xCB4336321FAC69281BD2902D427F4EF9E8584251,
-                232: 0xEBAF50DEBF10E08302FE4280C32DF010463CA297,
+                230: addr_2,
+                232: sender,
                 236: 64,
                 238: 34,
                 240: 10,

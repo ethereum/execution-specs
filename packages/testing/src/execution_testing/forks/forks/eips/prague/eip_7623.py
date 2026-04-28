@@ -29,8 +29,8 @@ class EIP7623(BaseFork):
         """Add standard and floor token costs for calldata."""
         return replace(
             super(EIP7623, cls).gas_costs(),
-            GAS_TX_DATA_TOKEN_STANDARD=4,
-            GAS_TX_DATA_TOKEN_FLOOR=10,
+            TX_DATA_TOKEN_STANDARD=4,
+            TX_DATA_TOKEN_FLOOR=10,
         )
 
     @classmethod
@@ -47,8 +47,8 @@ class EIP7623(BaseFork):
             num_non_zeros = len(raw) - num_zeros
             tokens = num_zeros + num_non_zeros * 4
             if floor:
-                return tokens * gas_costs.GAS_TX_DATA_TOKEN_FLOOR
-            return tokens * gas_costs.GAS_TX_DATA_TOKEN_STANDARD
+                return tokens * gas_costs.TX_DATA_TOKEN_FLOOR
+            return tokens * gas_costs.TX_DATA_TOKEN_STANDARD
 
         return fn
 
@@ -65,7 +65,7 @@ class EIP7623(BaseFork):
         def fn(*, data: BytesConvertible) -> int:
             return (
                 calldata_gas_calculator(data=data, floor=True)
-                + gas_costs.GAS_TX_BASE
+                + gas_costs.TX_BASE
             )
 
         return fn

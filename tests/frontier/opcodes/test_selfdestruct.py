@@ -13,7 +13,7 @@ from execution_testing import (
 
 
 @pytest.mark.valid_from("Frontier")
-@pytest.mark.valid_until("Homestead")
+@pytest.mark.valid_before("SpuriousDragon")
 def test_double_kill(
     blockchain_test: BlockchainTestFiller, pre: Alloc
 ) -> None:

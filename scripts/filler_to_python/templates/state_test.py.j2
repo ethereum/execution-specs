@@ -159,7 +159,9 @@ def _storage_with_any(base: dict, any_keys: list) -> Storage:
 {% if has_exceptions and not is_multi_case %}
 @pytest.mark.exception_test
 {% endif %}
+{% if needs_mutable_pre %}
 @pytest.mark.pre_alloc_mutable
+{% endif %}
 def {{ test_name }}(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -176,7 +178,13 @@ def {{ test_name }}(
 {% for addr in address_constants %}
     {{ addr.var_name }} = Address({{ addr.hex }})
 {% endfor %}
-{% if sender.not_in_pre %}
+{% if sender.use_dynamic %}
+{% if sender.nonce %}
+    sender = pre.fund_eoa(amount={{ sender.balance | format_int }}, nonce={{ sender.nonce }})
+{% else %}
+    sender = pre.fund_eoa(amount={{ sender.balance | format_int }})
+{% endif %}
+{% elif sender.not_in_pre %}
     sender = pre.fund_eoa(amount=0)
 {% else %}
     sender = EOA(
@@ -205,15 +213,19 @@ def {{ test_name }}(
 
 {# Pre-state account setup #}
 {% for account in accounts %}
-{% if account.is_sender %}
+{% if account.is_sender and sender.use_dynamic %}
+{# Sender balance already set via pre.fund_eoa() above #}
+{% elif account.is_sender %}
     pre[sender] = Account(balance={{ account.balance | format_int }}{{ ", nonce=%d" | format(account.nonce) if account.nonce }}{{ ", storage=%s" | format(account.storage | format_storage) if account.storage }}{{ ", code=%s" | format(account.code_expr | wrap_op_chain(indent=8)) if account.code_expr }})
+{% elif account.is_eoa and account.use_dynamic %}
+    {{ account.var_name }} = pre.fund_eoa(amount={{ account.balance | format_int }})  # noqa: F841
 {% elif account.is_eoa %}
     pre[{{ account.var_name }}] = Account(balance={{ account.balance | format_int }}{{ ", nonce=%d" | format(account.nonce) if account.nonce }}{{ ", storage=%s" | format(account.storage | format_storage) if account.storage }}{{ ", code=%s" | format(account.code_expr | wrap_op_chain(indent=8)) if account.code_expr }})
 {% else %}
 {# Contract: source comment + deploy #}
 {{ account.source_comment }}
 {% if account.oversized_code %}
-    {{ account.var_name }} = Address({{ account.address }})
+    {{ account.var_name }} = Address({{ account.address }})  # oversized contract
     pre[{{ account.var_name }}] = Account(
         code={{ account.code_expr | wrap_op_chain(indent=8) }},
 {% if account.storage %}
@@ -238,7 +250,9 @@ def {{ test_name }}(
 {% if account.nonce is not none %}
         nonce={{ account.nonce }},
 {% endif %}
+{% if not account.use_dynamic %}
         address=Address({{ account.address }}),  # noqa: E501
+{% endif %}
     )
 {% endif %}
 {% endif %}
@@ -287,7 +301,11 @@ def {{ test_name }}(
         {{ d_idx }}: [
     {% for al in al_entries %}
             AccessList(
+    {% if al.use_dynamic %}
+                address={{ al.address }},
+    {% else %}
                 address=Address({{ al.address }}),
+    {% endif %}
                 storage_keys=[
     {% for sk in al.storage_keys %}
                     Hash("{{ sk }}"),  # noqa: E501
@@ -357,7 +375,11 @@ def {{ test_name }}(
         access_list=[
 {% for al in tx.access_list %}
             AccessList(
+{% if al.use_dynamic %}
+                address={{ al.address }},
+{% else %}
                 address=Address({{ al.address }}),
+{% endif %}
                 storage_keys=[
 {% for sk in al.storage_keys %}
                     Hash(

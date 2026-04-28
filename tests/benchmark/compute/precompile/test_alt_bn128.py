@@ -16,6 +16,7 @@ from execution_testing import (
     OpcodeTarget,
     Transaction,
     While,
+    WhileGas,
 )
 from py_ecc.bn128 import G1, G2, multiply
 
@@ -457,8 +458,8 @@ def test_bn128_pairings_amortized(
     size_per_pairing = 192
 
     gsc = fork.gas_costs()
-    base_cost = gsc.GAS_PRECOMPILE_ECPAIRING_BASE
-    pairing_cost = gsc.GAS_PRECOMPILE_ECPAIRING_PER_POINT
+    base_cost = gsc.PRECOMPILE_ECPAIRING_BASE
+    pairing_cost = gsc.PRECOMPILE_ECPAIRING_PER_POINT
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     mem_exp_gas_calculator = fork.memory_expansion_gas_calculator()
     warm_account_access_cost = Op.STATICCALL(
@@ -571,8 +572,8 @@ def test_ec_pairing(
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     mem_exp = fork.memory_expansion_gas_calculator()
     precompile_cost = (
-        gsc.GAS_PRECOMPILE_ECPAIRING_BASE
-        + gsc.GAS_PRECOMPILE_ECPAIRING_PER_POINT * num_pairs
+        gsc.PRECOMPILE_ECPAIRING_BASE
+        + gsc.PRECOMPILE_ECPAIRING_PER_POINT * num_pairs
     )
 
     # Each iteration: STATICCALL ecpairing at advancing calldata offset,
@@ -584,7 +585,9 @@ def test_ec_pairing(
             address=0x08,
             args_offset=Op.MLOAD(Op.CALLDATASIZE),
             args_size=pair_size,
+            # gas accounting
             address_warm=True,
+            inner_call_cost=precompile_cost,
         ),
     ) + Op.MSTORE(
         Op.CALLDATASIZE,
@@ -599,7 +602,7 @@ def test_ec_pairing(
     code = setup + loop
     attack_contract_address = pre.deploy_contract(code=code)
 
-    iteration_cost = loop.gas_cost(fork) + precompile_cost
+    iteration_cost = loop.gas_cost(fork)
     setup_cost = setup.gas_cost(fork)
 
     # Conservative per-variant estimate for sizing the calldata:
@@ -609,7 +612,7 @@ def test_ec_pairing(
     per_variant_gas = (
         iteration_cost
         + pair_size * 16
-        + words_per_variant * (gsc.GAS_COPY + gsc.GAS_MEMORY)
+        + words_per_variant * (gsc.OPCODE_COPY_PER_WORD + gsc.MEMORY_PER_WORD)
     )
     empty_intrinsic = intrinsic_gas_calculator(
         calldata=[], return_cost_deducted_prior_execution=True
@@ -620,6 +623,7 @@ def test_ec_pairing(
     txs: list[Transaction] = []
     remaining_gas = gas_benchmark_value
 
+    expected_opcode_count = 0
     while remaining_gas > 0:
         per_tx_gas = min(tx_gas_limit, remaining_gas)
         per_tx_variants = max(
@@ -640,12 +644,13 @@ def test_ec_pairing(
             per_tx_gas
             - execution_intrinsic
             - setup_cost
-            - math.ceil(len(calldata) / 32) * gsc.GAS_COPY
+            - math.ceil(len(calldata) / 32) * gsc.OPCODE_COPY_PER_WORD
             - mem_exp(new_bytes=len(calldata) + 32)
         )
 
-        if gas_for_loop < iteration_cost:
+        if gas_for_loop < per_tx_variants * iteration_cost:
             break
+        expected_opcode_count += per_tx_variants
 
         txs.append(
             Transaction(
@@ -658,9 +663,13 @@ def test_ec_pairing(
         remaining_gas -= per_tx_gas
         seed_offset += per_tx_variants
 
+    assert len(txs) != 0, "No transactions were added to the test."
+
     benchmark_test(
         target_opcode=Precompile.BN128_PAIRING,
         skip_gas_used_validation=True,
+        expected_receipt_status=1,
+        expected_opcode_count=expected_opcode_count,
         blocks=[Block(txs=txs)],
     )
 
@@ -713,7 +722,12 @@ def test_alt_bn128_uncachable(
     input, avoiding precompile result caching in clients.
     """
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-
+    gsc = fork.gas_costs()
+    precompile_cost = (
+        gsc.PRECOMPILE_ECMUL
+        if precompile_address == 0x07
+        else gsc.PRECOMPILE_ECADD
+    )
     attack_block = Op.POP(
         Op.STATICCALL(
             gas=Op.GAS,
@@ -722,11 +736,14 @@ def test_alt_bn128_uncachable(
             # One G1 point (2 * 32 bytes), overwrites the input point
             # so each iteration has unique precompile input.
             ret_size=64,
+            # gas accounting
+            address_warm=True,
+            inner_call_cost=precompile_cost,
         ),
     )
 
     setup = Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-    loop = While(body=attack_block, condition=Op.GAS)
+    loop = WhileGas(body=attack_block, fork=fork)
     code = setup + loop
     attack_contract_address = pre.deploy_contract(code=code)
 
@@ -734,6 +751,7 @@ def test_alt_bn128_uncachable(
     remaining_gas = gas_benchmark_value
 
     seed = 0
+    expected_opcode_count = 0
     while remaining_gas > 0:
         gas_available = min(tx_gas_limit, remaining_gas)
 
@@ -743,10 +761,14 @@ def test_alt_bn128_uncachable(
             else _generate_g1_point(seed) + scalar.to_bytes(32, "big")
         )
 
-        intrinsic = intrinsic_gas_calculator(calldata=calldata)
-        if gas_available <= intrinsic:
+        intrinsic = intrinsic_gas_calculator(
+            calldata=calldata,
+            return_cost_deducted_prior_execution=True,
+        )
+        gas_for_loop = gas_available - intrinsic - setup.gas_cost(fork)
+        if gas_for_loop < loop.gas_cost(fork):
             break
-
+        expected_opcode_count += gas_for_loop // loop.gas_cost(fork)
         txs.append(
             Transaction(
                 to=attack_contract_address,
@@ -760,5 +782,8 @@ def test_alt_bn128_uncachable(
 
     benchmark_test(
         target_opcode=target,
+        skip_gas_used_validation=True,
+        expected_receipt_status=1,
         blocks=[Block(txs=txs)],
+        expected_opcode_count=expected_opcode_count,
     )

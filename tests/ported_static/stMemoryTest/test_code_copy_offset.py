@@ -46,6 +46,7 @@ def test_code_copy_offset(
         gas_limit=1000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { (MSTORE 0x00 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) (CODECOPY 0x00 0xffff  0x10) (SSTORE 0x00 (MLOAD 0x00)) }  # noqa: E501
     addr = pre.deploy_contract(  # noqa: F841
@@ -66,7 +67,7 @@ def test_code_copy_offset(
         code=Op.MSTORE(offset=0x0, value=0x123456789ABCDEF)
         + Op.CALL(
             gas=0xFFFF,
-            address=0x27D16E1D3CC862149F1E7162E612635FCAEF9FF4,
+            address=addr,
             value=Op.DUP1,
             args_offset=Op.DUP2,
             args_size=0xF,
@@ -78,7 +79,6 @@ def test_code_copy_offset(
         nonce=1,
         address=Address(0xAF89A7504341A87E1CFDFFD483A00A4688469B3D),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

@@ -7,7 +7,6 @@ state_tests/stTransactionTest/CreateMessageSuccessFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_create_message_success(
     """Test_create_message_success."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0x17D78400)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -48,7 +45,6 @@ def test_create_message_success(
         gas_limit=1000000000000,
     )
 
-    pre[sender] = Account(balance=0x17D78400)
     # Source: lll
     # {(MSTORE 0 0x600c600055) (CREATE 0 27 5)}
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -56,7 +52,6 @@ def test_create_message_success(
         + Op.CREATE(value=0x0, offset=0x1B, size=0x5)
         + Op.STOP,
         nonce=0,
-        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     tx = Transaction(

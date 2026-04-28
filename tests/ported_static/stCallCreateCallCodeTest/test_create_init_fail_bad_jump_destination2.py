@@ -48,6 +48,7 @@ def test_create_init_fail_bad_jump_destination2(
         gas_limit=1000000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {(MSTORE 0 0x61ffff56 ) (SELFDESTRUCT (CREATE 1 28 4)) }
     target = pre.deploy_contract(  # noqa: F841
@@ -58,7 +59,6 @@ def test_create_init_fail_bad_jump_destination2(
         nonce=0,
         address=Address(0x9CC12364004E761C5C594F6DCE3787CFF273029C),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

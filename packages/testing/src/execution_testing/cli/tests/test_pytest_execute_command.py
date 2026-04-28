@@ -204,7 +204,7 @@ def test_execute_remote_accepts_address_stubs_with_env_rpc_endpoint(
                 "--collect-only",
                 "-q",
                 "--address-stubs",
-                '{"STUB":"0x0000000000000000000000000000000000000001"}',
+                '{"STUB":{"addr":"0x0000000000000000000000000000000000000001"}}',
                 str(inner_test),
             ],
             env={"RPC_ENDPOINT": "http://localhost:12345"},

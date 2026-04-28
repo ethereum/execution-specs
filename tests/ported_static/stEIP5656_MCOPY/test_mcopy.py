@@ -179,6 +179,7 @@ def test_mcopy(
         gas_limit=1000000,
     )
 
+    pre[sender] = Account(balance=0x3B9ACA00)
     # Source: yul
     # cancun {
     #   // Fill memory at [0-96] (3x32) with the pattern of unique bytes.
@@ -219,7 +220,6 @@ def test_mcopy(
         nonce=1,
         address=Address(0xBFD584EC9DC8FBADCEA812C707E1765B4DF8FA6C),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x3B9ACA00)
 
     expect_entries_: list[dict] = [
         {

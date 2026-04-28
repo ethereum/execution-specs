@@ -7,7 +7,6 @@ state_tests/stEIP150singleCodeGasPrices/RawCallGasAskFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_raw_call_gas_ask(
 ) -> None:
     """Test_raw_call_gas_ask."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -51,9 +48,7 @@ def test_raw_call_gas_ask(
     addr = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x2, value=Op.GAS) + Op.STOP,
         nonce=0,
-        address=Address(0xE497CD0909C3691E0B6D2A42E26F36696FC27BA5),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # { [0] (GAS) (CALL 3000000 <contract:0x094f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[1]] (SUB @0 (GAS)) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -61,7 +56,7 @@ def test_raw_call_gas_ask(
         + Op.POP(
             Op.CALL(
                 gas=0x2DC6C0,
-                address=0xE497CD0909C3691E0B6D2A42E26F36696FC27BA5,
+                address=addr,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -72,7 +67,6 @@ def test_raw_call_gas_ask(
         + Op.SSTORE(key=0x1, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
         + Op.STOP,
         nonce=0,
-        address=Address(0x18817869E5F5B3F55F57BB7791EA8EE6F62604C8),  # noqa: E501
     )
 
     tx = Transaction(

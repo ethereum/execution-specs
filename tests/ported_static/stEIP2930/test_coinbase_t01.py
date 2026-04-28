@@ -7,7 +7,6 @@ state_tests/stEIP2930/coinbaseT01Filler.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     AccessList,
     Account,
     Address,
@@ -66,9 +65,7 @@ def test_coinbase_t01(
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address(0x7704D8A022A1BA8F3539FC82C7D7FB065ABC0DF3)
-    sender = EOA(
-        key=0xDE0C95357363DA5C1C5A73BD7C2781CA5C9FECC1014103B5E1D1E990AE8208EC
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000, nonce=1)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -79,6 +76,7 @@ def test_coinbase_t01(
         gas_limit=71794957647893862,
     )
 
+    pre[coinbase] = Account(balance=0, nonce=1)
     # Source: yul
     # berlin
     # {
@@ -94,7 +92,7 @@ def test_coinbase_t01(
         + Op.POP(
             Op.CALL(
                 gas=Op.GAS,
-                address=0x7704D8A022A1BA8F3539FC82C7D7FB065ABC0DF3,
+                address=coinbase,
                 value=0xF4240,
                 args_offset=Op.DUP1,
                 args_size=Op.DUP1,
@@ -112,10 +110,7 @@ def test_coinbase_t01(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=1,
-        address=Address(0x30873F83C35401E315E6E5994C012F1EE8119585),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
-    pre[coinbase] = Account(balance=0, nonce=1)
 
     expect_entries_: list[dict] = [
         {
@@ -141,7 +136,7 @@ def test_coinbase_t01(
     tx_access_lists: dict[int, list] = {
         1: [
             AccessList(
-                address=Address(0x7704D8A022A1BA8F3539FC82C7D7FB065ABC0DF3),
+                address=coinbase,
                 storage_keys=[],
             ),
         ],

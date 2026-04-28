@@ -288,14 +288,6 @@ class FixtureOutput(BaseModel):
         output_path = Path(config.getoption("output"))
         should_generate_all_formats = config.getoption("generate_all_formats")
 
-        # Auto-enable --generate-all-formats for tarball output
-        # Use same logic as is_tarball property
-        if (
-            output_path.suffix == ".gz"
-            and output_path.with_suffix("").suffix == ".tar"
-        ):
-            should_generate_all_formats = True
-
         return cls(
             output_path=output_path,
             single_fixture_per_file=config.getoption(

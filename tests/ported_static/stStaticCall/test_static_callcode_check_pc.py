@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_callcode_checkPCFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -34,9 +33,7 @@ def test_static_callcode_check_pc(
 ) -> None:
     """Test_static_callcode_check_pc."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -48,12 +45,19 @@ def test_static_callcode_check_pc(
     )
 
     # Source: lll
+    # {}
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.STOP,
+        balance=0x2540BE400,
+        nonce=0,
+    )
+    # Source: lll
     # { (STATICCALL 1000000 <contract:0x1000000000000000000000000000000000000001> 0 64 0 64 ) [[3]] (PC)}  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
             Op.STATICCALL(
                 gas=0xF4240,
-                address=0xFA032348694AD238CCCC23B44FE450999CDC0FE,
+                address=addr,
                 args_offset=0x0,
                 args_size=0x40,
                 ret_offset=0x0,
@@ -64,17 +68,7 @@ def test_static_callcode_check_pc(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x6A1BC409E9C1914F80D4A72653F9D1C4A53C0343),  # noqa: E501
     )
-    # Source: lll
-    # {}
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.STOP,
-        balance=0x2540BE400,
-        nonce=0,
-        address=Address(0x0FA032348694AD238CCCC23B44FE450999CDC0FE),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

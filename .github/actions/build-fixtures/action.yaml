@@ -44,7 +44,7 @@ runs:
 
         if [ -n "$IS_SPLIT" ]; then
           OUTPUT_ARG="--output=fixtures_${{ inputs.release_name }}"
-          FORK_ARGS="--generate-all-formats --from=${{ inputs.from_fork }} --until=${{ inputs.until_fork }}"
+          FORK_ARGS="--from=${{ inputs.from_fork }} --until=${{ inputs.until_fork }}"
         else
           OUTPUT_ARG="--output=fixtures_${{ inputs.release_name }}.tar.gz"
           FORK_ARGS=""

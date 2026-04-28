@@ -75,6 +75,7 @@ def test_callcode_dynamic_code2_self_call(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0x2386F26FC10000)
     # Source: lll
     # { (CALL 800000 (CALLDATALOAD 0) 0 0 0 0 0) }
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -156,7 +157,6 @@ def test_callcode_dynamic_code2_self_call(
         nonce=0,
         address=Address(0x1000000000000000000000000000000000000000),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x2386F26FC10000)
 
     expect_entries_: list[dict] = [
         {
@@ -164,11 +164,7 @@ def test_callcode_dynamic_code2_self_call(
             "network": [">=Cancun"],
             "result": {
                 compute_create_address(address=contract_1, nonce=0): Account(
-                    storage={
-                        11: 1,
-                        12: 0xA000000000000000000000000000000000000000,
-                    },
-                    balance=1,
+                    storage={11: 1, 12: contract_1}, balance=1
                 ),
             },
         },
@@ -179,11 +175,13 @@ def test_callcode_dynamic_code2_self_call(
                 contract_2: Account(
                     storage={
                         0: 1,
-                        10: 0x13136008B64FF592819B2FA6D43F2835C452020E,
+                        10: compute_create_address(
+                            address=contract_2, nonce=0
+                        ),
                         11: 1,
-                        20: 0x1000000000000000000000000000000000000000,
-                        21: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                        22: 0x1000000000000000000000000000000000000000,
+                        20: contract_2,
+                        21: sender,
+                        22: contract_2,
                     },
                     nonce=1,
                 ),

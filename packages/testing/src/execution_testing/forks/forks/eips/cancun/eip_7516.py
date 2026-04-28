@@ -29,7 +29,7 @@ class EIP7516(BaseFork):
         # Add Cancun-specific opcodes
         return {
             **base_map,
-            Opcodes.BLOBBASEFEE: gas_costs.GAS_BASE,
+            Opcodes.BLOBBASEFEE: gas_costs.BASE,
         }
 
     @classmethod

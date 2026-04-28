@@ -18,8 +18,8 @@ class EIP1108(BaseFork):
         """Reduce BN254 precompile gas costs."""
         return replace(
             super(EIP1108, cls).gas_costs(),
-            GAS_PRECOMPILE_ECADD=150,
-            GAS_PRECOMPILE_ECMUL=6000,
-            GAS_PRECOMPILE_ECPAIRING_BASE=45_000,
-            GAS_PRECOMPILE_ECPAIRING_PER_POINT=34_000,
+            PRECOMPILE_ECADD=150,
+            PRECOMPILE_ECMUL=6000,
+            PRECOMPILE_ECPAIRING_BASE=45_000,
+            PRECOMPILE_ECPAIRING_PER_POINT=34_000,
         )

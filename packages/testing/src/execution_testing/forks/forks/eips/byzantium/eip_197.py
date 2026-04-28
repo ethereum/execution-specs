@@ -29,6 +29,6 @@ class EIP197(BaseFork):
         """Set gas costs for BN254 pairing check."""
         return replace(
             super(EIP197, cls).gas_costs(),
-            GAS_PRECOMPILE_ECPAIRING_BASE=100_000,
-            GAS_PRECOMPILE_ECPAIRING_PER_POINT=80_000,
+            PRECOMPILE_ECPAIRING_BASE=100_000,
+            PRECOMPILE_ECPAIRING_PER_POINT=80_000,
         )

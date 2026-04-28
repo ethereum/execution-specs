@@ -7,7 +7,6 @@ state_tests/stMemoryStressTest/DELEGATECALL_Bounds2Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -55,8 +54,8 @@ def test_delegatecall_bounds2(
 ) -> None:
     """Test_delegatecall_bounds2."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x50EADFB1030587AB3A993A6ECC073041FC3B45E119DAA31A13D78C7E209631A5
+    sender = pre.fund_eoa(
+        amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
     )
 
     env = Environment(
@@ -69,11 +68,18 @@ def test_delegatecall_bounds2(
     )
 
     # Source: lll
+    # { (SSTORE 0 (ADD 1 (SLOAD 0))) }
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=Op.ADD(0x1, Op.SLOAD(key=0x0)))
+        + Op.STOP,
+        nonce=0,
+    )
+    # Source: lll
     # { (DELEGATECALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0xffffffff 0xffffffff 0xffffffff 0xffffffff) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
         code=Op.DELEGATECALL(
             gas=0x7FFFFFFFFFFFFFF,
-            address=0x849F53126ADE5F72469029537296F2B6644D4D41,
+            address=addr,
             args_offset=0xFFFFFFFF,
             args_size=0xFFFFFFFF,
             ret_offset=0xFFFFFFFF,
@@ -81,18 +87,6 @@ def test_delegatecall_bounds2(
         )
         + Op.STOP,
         nonce=0,
-        address=Address(0x7B7E1FED40D6CB2420C7F2718725BADB76616D4D),  # noqa: E501
-    )
-    # Source: lll
-    # { (SSTORE 0 (ADD 1 (SLOAD 0))) }
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=Op.ADD(0x1, Op.SLOAD(key=0x0)))
-        + Op.STOP,
-        nonce=0,
-        address=Address(0x849F53126ADE5F72469029537296F2B6644D4D41),  # noqa: E501
-    )
-    pre[sender] = Account(
-        balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
     )
 
     tx_data = [

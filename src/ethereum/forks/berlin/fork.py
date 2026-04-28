@@ -56,11 +56,10 @@ from .transactions import (
 )
 from .trie import root, trie_set
 from .utils.message import prepare_message
+from .vm.gas import GasCosts
 from .vm.interpreter import process_message_call
 
 BLOCK_REWARD = U256(2 * 10**18)
-GAS_LIMIT_ADJUSTMENT_FACTOR = Uint(1024)
-GAS_LIMIT_MINIMUM = Uint(5000)
 MINIMUM_DIFFICULTY = Uint(131072)
 MAX_OMMER_DEPTH = Uint(6)
 BOMB_DELAY_BLOCKS = 9000000
@@ -734,14 +733,14 @@ def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
 
     The bounds of the gas limit, ``max_adjustment_delta``, is set as the
     quotient of the parent block's gas limit and the
-    ``GAS_LIMIT_ADJUSTMENT_FACTOR``. Therefore, if the gas limit that is
-    passed through as a parameter is greater than or equal to the *sum* of
-    the parent's gas and the adjustment delta then the limit for gas is too
-    high and fails this function's check. Similarly, if the limit is less
-    than or equal to the *difference* of the parent's gas and the adjustment
-    delta *or* the predefined ``GAS_LIMIT_MINIMUM`` then this function's
-    check fails because the gas limit doesn't allow for a sufficient or
-    reasonable amount of gas to be used on a block.
+    ``LIMIT_ADJUSTMENT_FACTOR``. Therefore, if the gas limit that is passed
+    through as a parameter is greater than or equal to the *sum* of the
+    parent's gas and the adjustment delta then the limit for gas is too high
+    and fails this function's check. Similarly, if the limit is less than or
+    equal to the *difference* of the parent's gas and the adjustment delta *or*
+    the predefined ``LIMIT_MINIMUM`` then this function's check fails because
+    the gas limit doesn't allow for a sufficient or reasonable amount of gas to
+    be used on a block.
 
     Parameters
     ----------
@@ -757,12 +756,12 @@ def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
         True if gas limit constraints are satisfied, False otherwise.
 
     """
-    max_adjustment_delta = parent_gas_limit // GAS_LIMIT_ADJUSTMENT_FACTOR
+    max_adjustment_delta = parent_gas_limit // GasCosts.LIMIT_ADJUSTMENT_FACTOR
     if gas_limit >= parent_gas_limit + max_adjustment_delta:
         return False
     if gas_limit <= parent_gas_limit - max_adjustment_delta:
         return False
-    if gas_limit < GAS_LIMIT_MINIMUM:
+    if gas_limit < GasCosts.LIMIT_MINIMUM:
         return False
 
     return True

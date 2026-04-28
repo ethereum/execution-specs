@@ -47,6 +47,7 @@ def test_static_call_ripemd160_2(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { (MSTORE 5 0xf34578907f) [[ 2 ]] (STATICCALL 6000 3 0 37 0 32) [[ 0 ]] (MLOAD 0)}  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -68,7 +69,6 @@ def test_static_call_ripemd160_2(
         nonce=0,
         address=Address(0x0D371480E081540255FBCEF75D8C5C09535CEC3A),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

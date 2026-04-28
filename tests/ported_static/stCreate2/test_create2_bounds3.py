@@ -7,7 +7,6 @@ state_tests/stCreate2/CREATE2_Bounds3Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -63,8 +62,8 @@ def test_create2_bounds3(
     """Test_create2_bounds3."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x1000000000000000000000000000000000000000)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    sender = pre.fund_eoa(
+        amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
     )
 
     env = Environment(
@@ -160,10 +159,6 @@ def test_create2_bounds3(
         + Op.STOP,
         balance=100,
         nonce=0,
-        address=Address(0x1000000000000000000000000000000000000000),  # noqa: E501
-    )
-    pre[sender] = Account(
-        balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
     )
 
     tx_data = [

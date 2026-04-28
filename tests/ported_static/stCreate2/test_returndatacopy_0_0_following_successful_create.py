@@ -49,6 +49,7 @@ def test_returndatacopy_0_0_following_successful_create(
         gas_limit=47244640256,
     )
 
+    pre[sender] = Account(balance=0x6400000000)
     # Source: lll
     # { (create2 0 0 (lll (seq (SSTORE 0 1) (STOP) ) 0) 0) (RETURNDATACOPY 0 0 0) (SSTORE 0 0) (STOP) }  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -67,7 +68,6 @@ def test_returndatacopy_0_0_following_successful_create(
         nonce=0,
         address=Address(0x0F572E5295C57F15886F9B263E2F6D2D6C7B5EC6),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x6400000000)
 
     tx = Transaction(
         sender=sender,

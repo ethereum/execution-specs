@@ -7,7 +7,6 @@ state_tests/stInitCodeTest/OutOfGasContractCreationFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -59,7 +58,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_out_of_gas_contract_creation(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -70,8 +68,8 @@ def test_out_of_gas_contract_creation(
 ) -> None:
     """Test_out_of_gas_contract_creation."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    sender = pre.fund_eoa(
+        amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
     )
 
     env = Environment(
@@ -81,10 +79,6 @@ def test_out_of_gas_contract_creation(
         prev_randao=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000000000,
-    )
-
-    pre[sender] = Account(
-        balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

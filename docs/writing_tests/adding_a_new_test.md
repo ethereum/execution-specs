@@ -3,7 +3,7 @@
 All test cases are located underneath the `tests` directory, which are then organized by fork. Each fork contains sub-directories containing test sub-categories.
 
 ```text
-📁 execution-test-specs/
+📁 execution-specs/
 ├─╴📁 tests/
 |   ├── 📄 __init__.py
 │   ├── 📁 cancun/

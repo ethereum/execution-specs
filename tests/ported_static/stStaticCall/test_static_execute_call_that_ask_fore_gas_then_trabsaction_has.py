@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_ExecuteCallThatAskForeGasThenTrabsactionHasFille
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -67,9 +66,7 @@ def test_static_execute_call_that_ask_fore_gas_then_trabsaction_has(
 ) -> None:
     """Test_static_execute_call_that_ask_fore_gas_then_trabsaction_has."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xDC4EFA209AECDD4C2D5201A419EA27506151B4EC687F14A613229E310932491B
-    )
+    sender = pre.fund_eoa(amount=0x989680)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -80,7 +77,6 @@ def test_static_execute_call_that_ask_fore_gas_then_trabsaction_has(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0x989680)
     # Source: lll
     # { [[1]] (STATICCALL 600000 (CALLDATALOAD 0) 0 0 0 0) }
     target = pre.deploy_contract(  # noqa: F841

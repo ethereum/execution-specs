@@ -39,6 +39,6 @@ class Spec:
     HASH_SIZE: int = 32  # Hash size in bytes
 
     # Numeric type limits
-    MAX_TX_INDEX: int = 2**16 - 1  # uint16 max value
+    MAX_TX_INDEX: int = 2**32 - 1  # uint32 max value
     MAX_BALANCE: int = 2**128 - 1  # uint128 max value
     MAX_NONCE: int = 2**64 - 1  # uint64 max value

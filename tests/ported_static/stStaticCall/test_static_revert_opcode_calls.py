@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_RevertOpcodeCallsFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -56,9 +55,7 @@ def test_static_revert_opcode_calls(
 ) -> None:
     """Test_static_revert_opcode_calls."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -69,7 +66,13 @@ def test_static_revert_opcode_calls(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
+    # Source: lll
+    # { (REVERT 0 1) }
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.REVERT(offset=0x0, size=0x1) + Op.STOP,
+        balance=1,
+        nonce=0,
+    )
     # Source: lll
     # {   [[0]] (STATICCALL 50000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) [[1]] (RETURNDATASIZE)}  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -77,7 +80,7 @@ def test_static_revert_opcode_calls(
             key=0x0,
             value=Op.STATICCALL(
                 gas=0xC350,
-                address=0xBE254B4ACEB5B7495F1A5646BE06FE5A158581EC,
+                address=addr,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -88,15 +91,6 @@ def test_static_revert_opcode_calls(
         + Op.STOP,
         balance=1,
         nonce=0,
-        address=Address(0x187C91277DEEEDF062A07B44DE3C96C6E7CBC7BB),  # noqa: E501
-    )
-    # Source: lll
-    # { (REVERT 0 1) }
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.REVERT(offset=0x0, size=0x1) + Op.STOP,
-        balance=1,
-        nonce=0,
-        address=Address(0xBE254B4ACEB5B7495F1A5646BE06FE5A158581EC),  # noqa: E501
     )
 
     tx_data = [

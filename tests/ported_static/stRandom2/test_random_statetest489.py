@@ -46,22 +46,7 @@ def test_random_statetest489(
         gas_limit=9223372036854775807,
     )
 
-    # Source: raw
-    # 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000<contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5>7f00000000000000000000000000000000000000000000000000000000000000007f0000000000000000000000000000000000000000000000000000000000000000456f2b8e846b91987417705a126e7707645560005155  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH32[
-            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-        ]
-        * 3
-        + Op.PUSH32[0x4F3F701464972E74606D6EA82D4D3080599A0E79]
-        + Op.PUSH32[0x0] * 2
-        + Op.GASLIMIT
-        + Op.SSTORE(
-            key=Op.MLOAD(offset=0x0), value=0x2B8E846B91987417705A126E77076455
-        ),
-        nonce=0,
-        address=Address(0x92E909C60772D315706B32F2A3271091EADD78ED),  # noqa: E501
-    )
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: raw
     # 0x6000355415600957005b60203560003555
     coinbase = pre.deploy_contract(  # noqa: F841
@@ -78,7 +63,22 @@ def test_random_statetest489(
         nonce=0,
         address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
+    # Source: raw
+    # 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000<contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5>7f00000000000000000000000000000000000000000000000000000000000000007f0000000000000000000000000000000000000000000000000000000000000000456f2b8e846b91987417705a126e7707645560005155  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.PUSH32[
+            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+        ]
+        * 3
+        + Op.PUSH32[0x4F3F701464972E74606D6EA82D4D3080599A0E79]
+        + Op.PUSH32[0x0] * 2
+        + Op.GASLIMIT
+        + Op.SSTORE(
+            key=Op.MLOAD(offset=0x0), value=0x2B8E846B91987417705A126E77076455
+        ),
+        nonce=0,
+        address=Address(0x92E909C60772D315706B32F2A3271091EADD78ED),  # noqa: E501
+    )
 
     tx = Transaction(
         sender=sender,

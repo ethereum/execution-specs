@@ -7,7 +7,6 @@ state_tests/stRevertTest/TouchToEmptyAccountRevert3_ParisFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,10 +32,7 @@ def test_touch_to_empty_account_revert3_paris(
 ) -> None:
     """Test_touch_to_empty_account_revert3_paris."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    addr = Address(0x76FAE819612A29489A1A43208613D8F8557B8898)
-    sender = EOA(
-        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -47,8 +43,38 @@ def test_touch_to_empty_account_revert3_paris(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
-    pre[addr] = Account(balance=10)
+    addr = pre.fund_eoa(amount=10)  # noqa: F841
+    # Source: lll
+    # { (SELFDESTRUCT <eoa:0x1000000000000000000000000000000000000000>) }
+    addr_3 = pre.deploy_contract(  # noqa: F841
+        code=Op.SELFDESTRUCT(address=addr) + Op.STOP,
+        nonce=0,
+    )
+    # Source: lll
+    # { (SELFDESTRUCT <eoa:0x1000000000000000000000000000000000000000>) }
+    addr_4 = pre.deploy_contract(  # noqa: F841
+        code=Op.SELFDESTRUCT(address=addr) + Op.STOP,
+        nonce=0,
+    )
+    # Source: lll
+    # { [[2]](CALL 100000 <contract:0xe94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) (KECCAK256 0x00 0x2fffff) }  # noqa: E501
+    addr_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x2,
+            value=Op.CALL(
+                gas=0x186A0,
+                address=addr_4,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
+        + Op.SHA3(offset=0x0, size=0x2FFFFF)
+        + Op.STOP,
+        nonce=0,
+    )
     # Source: lll
     # { [[0]](CALL 130000 <contract:0xd94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[1]](CALL 130000 <contract:0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -56,7 +82,7 @@ def test_touch_to_empty_account_revert3_paris(
             key=0x0,
             value=Op.CALL(
                 gas=0x1FBD0,
-                address=0x51CD6399DE7E11930D3AA146D45A2E327B5894B9,
+                address=addr_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -68,7 +94,7 @@ def test_touch_to_empty_account_revert3_paris(
             key=0x1,
             value=Op.CALL(
                 gas=0x1FBD0,
-                address=0x2620916B2F3D6B185F4D9DD1ECEE4A1F665D5C36,
+                address=addr_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -78,47 +104,6 @@ def test_touch_to_empty_account_revert3_paris(
         )
         + Op.STOP,
         nonce=0,
-        address=Address(0xCD48E0C45933CFA7AA1345807CF2D6B02875F627),  # noqa: E501
-    )
-    # Source: lll
-    # { [[2]](CALL 100000 <contract:0xe94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) (KECCAK256 0x00 0x2fffff) }  # noqa: E501
-    addr_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0x2,
-            value=Op.CALL(
-                gas=0x186A0,
-                address=0x28207E524CCB9DBC79BB3044819ACD87D630F27A,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.SHA3(offset=0x0, size=0x2FFFFF)
-        + Op.STOP,
-        nonce=0,
-        address=Address(0x2620916B2F3D6B185F4D9DD1ECEE4A1F665D5C36),  # noqa: E501
-    )
-    # Source: lll
-    # { (SELFDESTRUCT <eoa:0x1000000000000000000000000000000000000000>) }
-    addr_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.SELFDESTRUCT(
-            address=0x76FAE819612A29489A1A43208613D8F8557B8898
-        )
-        + Op.STOP,
-        nonce=0,
-        address=Address(0x51CD6399DE7E11930D3AA146D45A2E327B5894B9),  # noqa: E501
-    )
-    # Source: lll
-    # { (SELFDESTRUCT <eoa:0x1000000000000000000000000000000000000000>) }
-    addr_4 = pre.deploy_contract(  # noqa: F841
-        code=Op.SELFDESTRUCT(
-            address=0x76FAE819612A29489A1A43208613D8F8557B8898
-        )
-        + Op.STOP,
-        nonce=0,
-        address=Address(0x28207E524CCB9DBC79BB3044819ACD87D630F27A),  # noqa: E501
     )
 
     tx = Transaction(

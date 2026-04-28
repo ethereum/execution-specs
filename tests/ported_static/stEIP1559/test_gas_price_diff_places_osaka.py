@@ -7,7 +7,6 @@ state_tests/stEIP1559/gasPriceDiffPlacesOsakaFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -261,9 +260,7 @@ def test_gas_price_diff_places(
     contract_10 = Address(0x000000000000000000000000000000000060BACC)
     contract_11 = Address(0x00000000000000000000000000000000DEADDEAD)
     contract_12 = Address(0x00000000000000000000000000000060BACCFA57)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0x3635C9ADC5DEA00000, nonce=1)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -316,6 +313,66 @@ def test_gas_price_diff_places(
     )
     # Source: yul
     # berlin {
+    #   mstore(0, gasprice())
+    #
+    #
+    #   return(0, 0x20)     // return the result as our return value
+    # }
+    contract_4 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=Op.GASPRICE)
+        + Op.RETURN(offset=0x0, size=0x20),
+        balance=0xDE0B6B3A7640000,
+        nonce=1,
+        address=Address(0x000000000000000000000000000000000000CA11),  # noqa: E501
+    )
+    # Source: yul
+    # berlin {
+    #    mstore(0, gasprice())
+    #
+    #
+    #    sstore(0,mload(0))
+    #    invalid()
+    # }
+    contract_9 = pre.deploy_contract(  # noqa: F841
+        code=Op.GASPRICE
+        + Op.PUSH1[0x0]
+        + Op.MSTORE(offset=Op.DUP2, value=Op.DUP2)
+        + Op.SSTORE
+        + Op.INVALID,
+        storage={0: 24743},
+        balance=0xDE0B6B3A7640000,
+        nonce=1,
+        address=Address(0x0000000000000000000000000000000000060006),  # noqa: E501
+    )
+    # Source: yul
+    # berlin {
+    #    mstore(0, gasprice())
+    #
+    #
+    #    sstore(0,mload(0))
+    #    revert(0,0x20)
+    # }
+    contract_10 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=Op.GASPRICE)
+        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
+        + Op.REVERT(offset=0x0, size=0x20),
+        storage={0: 24743},
+        balance=0xDE0B6B3A7640000,
+        nonce=1,
+        address=Address(0x000000000000000000000000000000000060BACC),  # noqa: E501
+    )
+    # Source: yul
+    # berlin {
+    #    selfdestruct(0)
+    # }
+    contract_11 = pre.deploy_contract(  # noqa: F841
+        code=Op.SELFDESTRUCT(address=0x0),
+        balance=0xDE0B6B3A7640000,
+        nonce=1,
+        address=Address(0x00000000000000000000000000000000DEADDEAD),  # noqa: E501
+    )
+    # Source: yul
+    # berlin {
     #    let addr := 0x20C0DE
     #    let length := extcodesize(addr)
     #
@@ -339,6 +396,120 @@ def test_gas_price_diff_places(
         balance=0xDE0B6B3A7640000,
         nonce=1,
         address=Address(0x00000000000000000000000000000000C0DEC0DE),  # noqa: E501
+    )
+    # Source: yul
+    # berlin {
+    #   if iszero(callcode(gas(), 0xca11, 0, 0, 0, 0, 0x20))
+    #      { revert(0,0x20) }
+    #
+    #   return(0, 0x20)     // return the result as our return value
+    # }
+    contract_6 = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMPI(
+            pc=0x15,
+            condition=Op.ISZERO(
+                Op.CALLCODE(
+                    gas=Op.GAS,
+                    address=0xCA11,
+                    value=Op.DUP1,
+                    args_offset=Op.DUP1,
+                    args_size=Op.DUP1,
+                    ret_offset=0x0,
+                    ret_size=0x20,
+                )
+            ),
+        )
+        + Op.RETURN(offset=0x0, size=0x20)
+        + Op.JUMPDEST
+        + Op.REVERT(offset=0x0, size=0x20),
+        balance=0xDE0B6B3A7640000,
+        nonce=1,
+        address=Address(0x00000000000000000000000000000000CA1100F2),  # noqa: E501
+    )
+    # Source: yul
+    # berlin {
+    #   if iszero(call(gas(), 0xca11, 0, 0, 0, 0, 0x20))
+    #      { revert(0,0x20) }
+    #
+    #   return(0, 0x20)     // return the result as our return value
+    # }
+    contract_5 = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMPI(
+            pc=0x15,
+            condition=Op.ISZERO(
+                Op.CALL(
+                    gas=Op.GAS,
+                    address=0xCA11,
+                    value=Op.DUP1,
+                    args_offset=Op.DUP1,
+                    args_size=Op.DUP1,
+                    ret_offset=0x0,
+                    ret_size=0x20,
+                )
+            ),
+        )
+        + Op.RETURN(offset=0x0, size=0x20)
+        + Op.JUMPDEST
+        + Op.REVERT(offset=0x0, size=0x20),
+        balance=0xDE0B6B3A7640000,
+        nonce=1,
+        address=Address(0x00000000000000000000000000000000CA1100F1),  # noqa: E501
+    )
+    # Source: yul
+    # berlin {
+    #   if iszero(staticcall(gas(), 0xca11, 0, 0, 0, 0x20))
+    #      { revert(0,0x20) }
+    #
+    #   return(0, 0x20)     // return the result as our return value
+    # }
+    contract_8 = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMPI(
+            pc=0x14,
+            condition=Op.ISZERO(
+                Op.STATICCALL(
+                    gas=Op.GAS,
+                    address=0xCA11,
+                    args_offset=Op.DUP1,
+                    args_size=Op.DUP1,
+                    ret_offset=0x0,
+                    ret_size=0x20,
+                )
+            ),
+        )
+        + Op.RETURN(offset=0x0, size=0x20)
+        + Op.JUMPDEST
+        + Op.REVERT(offset=0x0, size=0x20),
+        balance=0xDE0B6B3A7640000,
+        nonce=1,
+        address=Address(0x00000000000000000000000000000000CA1100FA),  # noqa: E501
+    )
+    # Source: yul
+    # berlin {
+    #   if iszero(delegatecall(gas(), 0xca11, 0, 0, 0, 0x20))
+    #      { revert(0,0x20) }
+    #
+    #   return(0, 0x20)     // return the result as our return value
+    # }
+    contract_7 = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMPI(
+            pc=0x14,
+            condition=Op.ISZERO(
+                Op.DELEGATECALL(
+                    gas=Op.GAS,
+                    address=0xCA11,
+                    args_offset=Op.DUP1,
+                    args_size=Op.DUP1,
+                    ret_offset=0x0,
+                    ret_size=0x20,
+                )
+            ),
+        )
+        + Op.RETURN(offset=0x0, size=0x20)
+        + Op.JUMPDEST
+        + Op.REVERT(offset=0x0, size=0x20),
+        balance=0xDE0B6B3A7640000,
+        nonce=1,
+        address=Address(0x00000000000000000000000000000000CA1100F4),  # noqa: E501
     )
     # Source: yul
     # berlin {
@@ -976,180 +1147,6 @@ def test_gas_price_diff_places(
     )
     # Source: yul
     # berlin {
-    #   mstore(0, gasprice())
-    #
-    #
-    #   return(0, 0x20)     // return the result as our return value
-    # }
-    contract_4 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=Op.GASPRICE)
-        + Op.RETURN(offset=0x0, size=0x20),
-        balance=0xDE0B6B3A7640000,
-        nonce=1,
-        address=Address(0x000000000000000000000000000000000000CA11),  # noqa: E501
-    )
-    # Source: yul
-    # berlin {
-    #   if iszero(call(gas(), 0xca11, 0, 0, 0, 0, 0x20))
-    #      { revert(0,0x20) }
-    #
-    #   return(0, 0x20)     // return the result as our return value
-    # }
-    contract_5 = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMPI(
-            pc=0x15,
-            condition=Op.ISZERO(
-                Op.CALL(
-                    gas=Op.GAS,
-                    address=0xCA11,
-                    value=Op.DUP1,
-                    args_offset=Op.DUP1,
-                    args_size=Op.DUP1,
-                    ret_offset=0x0,
-                    ret_size=0x20,
-                )
-            ),
-        )
-        + Op.RETURN(offset=0x0, size=0x20)
-        + Op.JUMPDEST
-        + Op.REVERT(offset=0x0, size=0x20),
-        balance=0xDE0B6B3A7640000,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000CA1100F1),  # noqa: E501
-    )
-    # Source: yul
-    # berlin {
-    #   if iszero(callcode(gas(), 0xca11, 0, 0, 0, 0, 0x20))
-    #      { revert(0,0x20) }
-    #
-    #   return(0, 0x20)     // return the result as our return value
-    # }
-    contract_6 = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMPI(
-            pc=0x15,
-            condition=Op.ISZERO(
-                Op.CALLCODE(
-                    gas=Op.GAS,
-                    address=0xCA11,
-                    value=Op.DUP1,
-                    args_offset=Op.DUP1,
-                    args_size=Op.DUP1,
-                    ret_offset=0x0,
-                    ret_size=0x20,
-                )
-            ),
-        )
-        + Op.RETURN(offset=0x0, size=0x20)
-        + Op.JUMPDEST
-        + Op.REVERT(offset=0x0, size=0x20),
-        balance=0xDE0B6B3A7640000,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000CA1100F2),  # noqa: E501
-    )
-    # Source: yul
-    # berlin {
-    #   if iszero(delegatecall(gas(), 0xca11, 0, 0, 0, 0x20))
-    #      { revert(0,0x20) }
-    #
-    #   return(0, 0x20)     // return the result as our return value
-    # }
-    contract_7 = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMPI(
-            pc=0x14,
-            condition=Op.ISZERO(
-                Op.DELEGATECALL(
-                    gas=Op.GAS,
-                    address=0xCA11,
-                    args_offset=Op.DUP1,
-                    args_size=Op.DUP1,
-                    ret_offset=0x0,
-                    ret_size=0x20,
-                )
-            ),
-        )
-        + Op.RETURN(offset=0x0, size=0x20)
-        + Op.JUMPDEST
-        + Op.REVERT(offset=0x0, size=0x20),
-        balance=0xDE0B6B3A7640000,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000CA1100F4),  # noqa: E501
-    )
-    # Source: yul
-    # berlin {
-    #   if iszero(staticcall(gas(), 0xca11, 0, 0, 0, 0x20))
-    #      { revert(0,0x20) }
-    #
-    #   return(0, 0x20)     // return the result as our return value
-    # }
-    contract_8 = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMPI(
-            pc=0x14,
-            condition=Op.ISZERO(
-                Op.STATICCALL(
-                    gas=Op.GAS,
-                    address=0xCA11,
-                    args_offset=Op.DUP1,
-                    args_size=Op.DUP1,
-                    ret_offset=0x0,
-                    ret_size=0x20,
-                )
-            ),
-        )
-        + Op.RETURN(offset=0x0, size=0x20)
-        + Op.JUMPDEST
-        + Op.REVERT(offset=0x0, size=0x20),
-        balance=0xDE0B6B3A7640000,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000CA1100FA),  # noqa: E501
-    )
-    # Source: yul
-    # berlin {
-    #    mstore(0, gasprice())
-    #
-    #
-    #    sstore(0,mload(0))
-    #    invalid()
-    # }
-    contract_9 = pre.deploy_contract(  # noqa: F841
-        code=Op.GASPRICE
-        + Op.PUSH1[0x0]
-        + Op.MSTORE(offset=Op.DUP2, value=Op.DUP2)
-        + Op.SSTORE
-        + Op.INVALID,
-        storage={0: 24743},
-        balance=0xDE0B6B3A7640000,
-        nonce=1,
-        address=Address(0x0000000000000000000000000000000000060006),  # noqa: E501
-    )
-    # Source: yul
-    # berlin {
-    #    mstore(0, gasprice())
-    #
-    #
-    #    sstore(0,mload(0))
-    #    revert(0,0x20)
-    # }
-    contract_10 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=Op.GASPRICE)
-        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
-        + Op.REVERT(offset=0x0, size=0x20),
-        storage={0: 24743},
-        balance=0xDE0B6B3A7640000,
-        nonce=1,
-        address=Address(0x000000000000000000000000000000000060BACC),  # noqa: E501
-    )
-    # Source: yul
-    # berlin {
-    #    selfdestruct(0)
-    # }
-    contract_11 = pre.deploy_contract(  # noqa: F841
-        code=Op.SELFDESTRUCT(address=0x0),
-        balance=0xDE0B6B3A7640000,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000DEADDEAD),  # noqa: E501
-    )
-    # Source: yul
-    # berlin {
     #    let depth := calldataload(0)
     #
     #    if eq(depth,0) {
@@ -1201,7 +1198,6 @@ def test_gas_price_diff_places(
         nonce=1,
         address=Address(0x00000000000000000000000000000060BACCFA57),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x3635C9ADC5DEA00000, nonce=1)
 
     tx_data = [
         Bytes("693c6139") + Hash(0x0),

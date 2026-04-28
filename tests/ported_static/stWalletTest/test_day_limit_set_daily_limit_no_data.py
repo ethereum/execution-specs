@@ -56,7 +56,7 @@ def test_day_limit_set_daily_limit_no_data(
         storage={
             0: 1,
             1: 1,
-            3: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+            3: sender,
             263: 0xC22E4,
             0x6E369836487C234B9E553EF3F787C2D8865520739D340C67B3D251A33986E58D: 1,  # noqa: E501
         },
@@ -80,7 +80,7 @@ def test_day_limit_set_daily_limit_no_data(
             storage={
                 0: 1,
                 1: 1,
-                3: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                3: sender,
                 260: 1,
                 263: 0xC22E4,
                 0x6E369836487C234B9E553EF3F787C2D8865520739D340C67B3D251A33986E58D: 1,  # noqa: E501

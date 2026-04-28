@@ -47,6 +47,7 @@ def test_refund600(
     )
 
     pre[coinbase] = Account(balance=0, nonce=1)
+    pre[sender] = Account(balance=0x989680)
     # Source: lll
     # { @@1 @@2 [[ 10 ]] (EXP 2 0xffff) [[ 11 ]] (BALANCE (ADDRESS)) [[ 1 ]] 0 [[ 2 ]] 0 [[ 3 ]] 0 [[ 4 ]] 0 [[ 5 ]] 0 [[ 6 ]] 0 }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -66,7 +67,6 @@ def test_refund600(
         nonce=0,
         address=Address(0xC09923E2275E4EE7822A1FEB5EEE1C18143575C7),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x989680)
 
     tx = Transaction(
         sender=sender,

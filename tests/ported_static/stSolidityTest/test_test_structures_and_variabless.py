@@ -46,6 +46,7 @@ def test_test_structures_and_variabless(
         gas_limit=9223372036854775807,
     )
 
+    pre[sender] = Account(balance=0x2540BE400)
     # Source: raw
     # 0x7c010000000000000000000000000000000000000000000000000000000060003504632a9afb838114610039578063c04062261461004b57005b61004161005d565b8060005260206000f35b61005361016c565b8060005260206000f35b600160ff8154141561006e57610076565b506000610169565b60015460035414156100875761008f565b506000610169565b73<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>73ffffffffffffffffffffffffffffffffffffffff60016002540481161614156100cd576100d5565b506000610169565b7f676c6f62616c2064617461203332206c656e67746820737472696e670000000060045414156101045761010c565b506000610169565b6005600080815260200190815260200160002060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>141561016057610168565b506000610169565b5b90565b600060ff806001555073<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>6002805473ffffffffffffffffffffffffffffffffffffffff1916821790555060ff80600355507f676c6f62616c2064617461203332206c656e67746820737472696e6700000000806004555073<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>6005600080815260200190815260200160002060006101000a81548173ffffffffffffffffffffffffffffffffffffffff0219169083021790555061022f61005d565b600060006101000a81548160ff0219169083021790555060ff6001600054041690509056  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -98,7 +99,7 @@ def test_test_structures_and_variabless(
                         Op.AND(Op.DUP2, Op.DIV(Op.SLOAD(key=0x2), 0x1)),
                         0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
                     ),
-                    0xD96ED4431B417993AB4F4D4A656959D13C66E1DC,
+                    sender,
                 )
             ),
         )
@@ -144,7 +145,7 @@ def test_test_structures_and_variabless(
             pc=0x160,
             condition=Op.ISZERO(
                 Op.EQ(
-                    0xD96ED4431B417993AB4F4D4A656959D13C66E1DC,
+                    sender,
                     Op.AND(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF, Op.DIV),
                 )
             ),
@@ -225,7 +226,6 @@ def test_test_structures_and_variabless(
         nonce=0,
         address=Address(0x53D3DBDFD3AE109712A4771F7F37A6B1CDA7B864),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x2540BE400)
 
     tx = Transaction(
         sender=sender,
@@ -240,10 +240,10 @@ def test_test_structures_and_variabless(
             storage={
                 0: 1,
                 1: 255,
-                2: 0xD96ED4431B417993AB4F4D4A656959D13C66E1DC,
+                2: sender,
                 3: 255,
                 4: 0x676C6F62616C2064617461203332206C656E67746820737472696E6700000000,  # noqa: E501
-                0x5B8CCBB9D4D8FB16EA74CE3C29A41F1B461FBDAFF4714A0D9A8EB05499746BC: 0xD96ED4431B417993AB4F4D4A656959D13C66E1DC,  # noqa: E501
+                0x5B8CCBB9D4D8FB16EA74CE3C29A41F1B461FBDAFF4714A0D9A8EB05499746BC: sender,  # noqa: E501
             },
         ),
     }

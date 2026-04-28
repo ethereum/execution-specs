@@ -46,140 +46,7 @@ def test_subcall_return_more_then_expected(
         gas_limit=10000000,
     )
 
-    # Source: lll
-    # {
-    #   ;; Get returndata from a subcall
-    #   (CALL 200000 <contract:0x194f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 12)  # noqa: E501
-    #   [[0]] (MLOAD 0)
-    #   (MSTORE 0 0x0000000000000000000000000000000000000000000000000000000000000000)  # noqa: E501
-    #   (DELEGATECALL 200000 <contract:0x194f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 12)  # noqa: E501
-    #   [[1]] (MLOAD 0)
-    #   (MSTORE 0 0x0000000000000000000000000000000000000000000000000000000000000000)  # noqa: E501
-    #   (STATICCALL 200000 <contract:0x194f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 12)  # noqa: E501
-    #   [[2]] (MLOAD 0)
-    #   (MSTORE 0 0x0000000000000000000000000000000000000000000000000000000000000000)  # noqa: E501
-    #   (CALLCODE 200000 <contract:0x194f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 12)  # noqa: E501
-    #   [[3]] (MLOAD 0)
-    #   (MSTORE 0 0x0000000000000000000000000000000000000000000000000000000000000000)  # noqa: E501
-    #
-    #   ;; Get revert data from a subcall
-    #   (CALL 200000 <contract:0x294f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 12)  # noqa: E501
-    #   [[4]] (MLOAD 0)
-    #   (MSTORE 0 0x0000000000000000000000000000000000000000000000000000000000000000)  # noqa: E501
-    #   (DELEGATECALL 200000 <contract:0x294f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 12)  # noqa: E501
-    #   [[5]] (MLOAD 0)
-    #   (MSTORE 0 0x0000000000000000000000000000000000000000000000000000000000000000)  # noqa: E501
-    #   (STATICCALL 200000 <contract:0x294f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 12)  # noqa: E501
-    #   [[6]] (MLOAD 0)
-    #   (MSTORE 0 0x0000000000000000000000000000000000000000000000000000000000000000)  # noqa: E501
-    #   (CALLCODE 200000 <contract:0x294f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 12)  # noqa: E501
-    #   [[7]] (MLOAD 0)
-    # }
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.POP(
-            Op.CALL(
-                gas=0x30D40,
-                address=0xA8592F39B32943F9F464090497722B4F9C15F598,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0xC,
-            )
-        )
-        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
-        + Op.MSTORE(offset=0x0, value=0x0)
-        + Op.POP(
-            Op.DELEGATECALL(
-                gas=0x30D40,
-                address=0xA8592F39B32943F9F464090497722B4F9C15F598,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0xC,
-            )
-        )
-        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0))
-        + Op.MSTORE(offset=0x0, value=0x0)
-        + Op.POP(
-            Op.STATICCALL(
-                gas=0x30D40,
-                address=0xA8592F39B32943F9F464090497722B4F9C15F598,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0xC,
-            )
-        )
-        + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=0x0))
-        + Op.MSTORE(offset=0x0, value=0x0)
-        + Op.POP(
-            Op.CALLCODE(
-                gas=0x30D40,
-                address=0xA8592F39B32943F9F464090497722B4F9C15F598,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0xC,
-            )
-        )
-        + Op.SSTORE(key=0x3, value=Op.MLOAD(offset=0x0))
-        + Op.MSTORE(offset=0x0, value=0x0)
-        + Op.POP(
-            Op.CALL(
-                gas=0x30D40,
-                address=0x28CDAFC3D5D27D006FFB88E1ECF2FA4B412EE4F,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0xC,
-            )
-        )
-        + Op.SSTORE(key=0x4, value=Op.MLOAD(offset=0x0))
-        + Op.MSTORE(offset=0x0, value=0x0)
-        + Op.POP(
-            Op.DELEGATECALL(
-                gas=0x30D40,
-                address=0x28CDAFC3D5D27D006FFB88E1ECF2FA4B412EE4F,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0xC,
-            )
-        )
-        + Op.SSTORE(key=0x5, value=Op.MLOAD(offset=0x0))
-        + Op.MSTORE(offset=0x0, value=0x0)
-        + Op.POP(
-            Op.STATICCALL(
-                gas=0x30D40,
-                address=0x28CDAFC3D5D27D006FFB88E1ECF2FA4B412EE4F,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0xC,
-            )
-        )
-        + Op.SSTORE(key=0x6, value=Op.MLOAD(offset=0x0))
-        + Op.MSTORE(offset=0x0, value=0x0)
-        + Op.POP(
-            Op.CALLCODE(
-                gas=0x30D40,
-                address=0x28CDAFC3D5D27D006FFB88E1ECF2FA4B412EE4F,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0xC,
-            )
-        )
-        + Op.SSTORE(key=0x7, value=Op.MLOAD(offset=0x0))
-        + Op.STOP,
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0xCA70835D5E9B8C8E139A9693AB05705D291F86BB),  # noqa: E501
-    )
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {
     #   (MSTORE 0  0x1122334455667788991011121314151617181920212223242526272829303132)  # noqa: E501
@@ -222,7 +89,140 @@ def test_subcall_return_more_then_expected(
         nonce=0,
         address=Address(0x028CDAFC3D5D27D006FFB88E1ECF2FA4B412EE4F),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
+    # Source: lll
+    # {
+    #   ;; Get returndata from a subcall
+    #   (CALL 200000 <contract:0x194f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 12)  # noqa: E501
+    #   [[0]] (MLOAD 0)
+    #   (MSTORE 0 0x0000000000000000000000000000000000000000000000000000000000000000)  # noqa: E501
+    #   (DELEGATECALL 200000 <contract:0x194f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 12)  # noqa: E501
+    #   [[1]] (MLOAD 0)
+    #   (MSTORE 0 0x0000000000000000000000000000000000000000000000000000000000000000)  # noqa: E501
+    #   (STATICCALL 200000 <contract:0x194f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 12)  # noqa: E501
+    #   [[2]] (MLOAD 0)
+    #   (MSTORE 0 0x0000000000000000000000000000000000000000000000000000000000000000)  # noqa: E501
+    #   (CALLCODE 200000 <contract:0x194f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 12)  # noqa: E501
+    #   [[3]] (MLOAD 0)
+    #   (MSTORE 0 0x0000000000000000000000000000000000000000000000000000000000000000)  # noqa: E501
+    #
+    #   ;; Get revert data from a subcall
+    #   (CALL 200000 <contract:0x294f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 12)  # noqa: E501
+    #   [[4]] (MLOAD 0)
+    #   (MSTORE 0 0x0000000000000000000000000000000000000000000000000000000000000000)  # noqa: E501
+    #   (DELEGATECALL 200000 <contract:0x294f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 12)  # noqa: E501
+    #   [[5]] (MLOAD 0)
+    #   (MSTORE 0 0x0000000000000000000000000000000000000000000000000000000000000000)  # noqa: E501
+    #   (STATICCALL 200000 <contract:0x294f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 12)  # noqa: E501
+    #   [[6]] (MLOAD 0)
+    #   (MSTORE 0 0x0000000000000000000000000000000000000000000000000000000000000000)  # noqa: E501
+    #   (CALLCODE 200000 <contract:0x294f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 12)  # noqa: E501
+    #   [[7]] (MLOAD 0)
+    # }
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.POP(
+            Op.CALL(
+                gas=0x30D40,
+                address=addr,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0xC,
+            )
+        )
+        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
+        + Op.MSTORE(offset=0x0, value=0x0)
+        + Op.POP(
+            Op.DELEGATECALL(
+                gas=0x30D40,
+                address=addr,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0xC,
+            )
+        )
+        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0))
+        + Op.MSTORE(offset=0x0, value=0x0)
+        + Op.POP(
+            Op.STATICCALL(
+                gas=0x30D40,
+                address=addr,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0xC,
+            )
+        )
+        + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=0x0))
+        + Op.MSTORE(offset=0x0, value=0x0)
+        + Op.POP(
+            Op.CALLCODE(
+                gas=0x30D40,
+                address=addr,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0xC,
+            )
+        )
+        + Op.SSTORE(key=0x3, value=Op.MLOAD(offset=0x0))
+        + Op.MSTORE(offset=0x0, value=0x0)
+        + Op.POP(
+            Op.CALL(
+                gas=0x30D40,
+                address=addr_2,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0xC,
+            )
+        )
+        + Op.SSTORE(key=0x4, value=Op.MLOAD(offset=0x0))
+        + Op.MSTORE(offset=0x0, value=0x0)
+        + Op.POP(
+            Op.DELEGATECALL(
+                gas=0x30D40,
+                address=addr_2,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0xC,
+            )
+        )
+        + Op.SSTORE(key=0x5, value=Op.MLOAD(offset=0x0))
+        + Op.MSTORE(offset=0x0, value=0x0)
+        + Op.POP(
+            Op.STATICCALL(
+                gas=0x30D40,
+                address=addr_2,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0xC,
+            )
+        )
+        + Op.SSTORE(key=0x6, value=Op.MLOAD(offset=0x0))
+        + Op.MSTORE(offset=0x0, value=0x0)
+        + Op.POP(
+            Op.CALLCODE(
+                gas=0x30D40,
+                address=addr_2,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0xC,
+            )
+        )
+        + Op.SSTORE(key=0x7, value=Op.MLOAD(offset=0x0))
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
+        nonce=0,
+        address=Address(0xCA70835D5E9B8C8E139A9693AB05705D291F86BB),  # noqa: E501
+    )
 
     tx = Transaction(
         sender=sender,

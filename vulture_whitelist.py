@@ -28,6 +28,7 @@ from ethereum_spec_tools.lint.lints.glacier_forks_hygiene import (
     GlacierForksHygiene,
 )
 from ethereum_spec_tools.lint.lints.import_hygiene import ImportHygiene
+from ethereum_spec_tools.lint.lints.uint_len import UintLenHygiene
 from ethereum_spec_tools.new_fork.codemod.comment import CommentReplaceCommand
 from ethereum_spec_tools.new_fork.codemod.constant import SetConstantCommand
 from ethereum_spec_tools.new_fork.codemod.string_replace import (
@@ -55,6 +56,7 @@ State.rollback_db_transaction
 # src/ethereum_spec_tools/docc.py
 docc.EthereumDiscover
 docc.EthereumBuilder
+docc.EthereumListingDiscover
 docc.DiffSource.show_in_listing
 docc.FixIndexTransform
 docc.FixIndexTransform.transform
@@ -70,6 +72,7 @@ docc._HardenVisitor.enter
 docc._MinimizeDiffsVisitor.enter
 docc.render_diff
 docc.render_before_after
+docc._EthereumListingSource.listing_order_key
 
 # src/ethereum_spec_tools/evm_tools/daemon.py
 _EvmToolHandler.do_POST
@@ -112,6 +115,9 @@ Trace.refund
 Trace.opName
 FinalTrace.gasUsed
 
+# src/ethereum_spec_tools/lint/lints/uint_len.py
+UintLenHygiene
+
 # src/ethereum_spec_tools/lint/lints/glacier_forks_hygiene.py
 GlacierForksHygiene
 GlacierForksHygiene.visit_AnnAssign
@@ -137,6 +143,31 @@ CommentReplaceCommand
 CommentReplaceCommand.transform_module_impl
 
 _children  # unused attribute (src/ethereum_spec_tools/docc.py:751)
+
+# evm_tools/loaders/fixture_loader.py - abstract methods
+from ethereum_spec_tools.evm_tools.loaders.fixture_loader import BaseLoad
+
+BaseLoad.json_to_header
+BaseLoad.json_to_state
+BaseLoad.json_to_block
+json_data  # abstract method parameter used by concrete implementations
+
+# src/ethereum_spec_tools/lint/lints/patch_hygiene.py - discovered dynamically
+from ethereum_spec_tools.lint.lints.patch_hygiene import PatchHygiene
+
+PatchHygiene
+
+# src/ethereum_spec_tools/new_fork/codemod/constant.py - libcst visitor hooks
+SetConstantCommand.visit_AnnAssign_target
+SetConstantCommand.leave_AnnAssign_target
+SetConstantCommand.leave_AnnAssign
+
+# src/ethereum_spec_tools/new_fork/codemod/remove_docstring.py - codemod class
+from ethereum_spec_tools.new_fork.codemod.remove_docstring import (
+    RemoveDocstringCommand,
+)
+
+RemoveDocstringCommand
 
 # enginex/conftest.py - pytest fixtures (not direct calls)
 _configure_client_manager  # autouse fixture

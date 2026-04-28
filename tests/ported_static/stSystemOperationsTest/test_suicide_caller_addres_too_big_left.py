@@ -49,6 +49,7 @@ def test_suicide_caller_addres_too_big_left(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { [[0]] (CALLER) (SELFDESTRUCT 0xaaa94f5374fce5edbc8e2a8697c15331677e6ebf0b)}  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -59,7 +60,6 @@ def test_suicide_caller_addres_too_big_left(
         nonce=0,
         address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
@@ -71,11 +71,7 @@ def test_suicide_caller_addres_too_big_left(
 
     post = {
         sender: Account(nonce=1),
-        contract_0: Account(
-            storage={0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B},
-            balance=0,
-            nonce=0,
-        ),
+        contract_0: Account(storage={0: sender}, balance=0, nonce=0),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

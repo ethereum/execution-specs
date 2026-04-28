@@ -74,6 +74,7 @@ def test_returndatacopy_following_create(
         gas_limit=47244640256,
     )
 
+    pre[sender] = Account(balance=0x6400000000)
     # Source: lll
     # { (CALL (GAS) (CALLDATALOAD 0) 0 0 0 0 0) }
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -129,7 +130,6 @@ def test_returndatacopy_following_create(
         nonce=0,
         address=Address(0x1F572E5295C57F15886F9B263E2F6D2D6C7B5EC6),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x6400000000)
 
     expect_entries_: list[dict] = [
         {

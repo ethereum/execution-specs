@@ -48,6 +48,7 @@ def test_call_ecrecover_invalid_signature(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { (MSTORE 128 0x1122334455667788991011121314151617181920212223242526272829303132) (CALL 300000 1 0 0 128 128 32) [[ 0 ]] (MLOAD 128) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -72,7 +73,6 @@ def test_call_ecrecover_invalid_signature(
         nonce=0,
         address=Address(0x2B8FD4ADB0602FE9EE5823B0576F619DAEFBD369),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

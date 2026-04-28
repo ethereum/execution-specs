@@ -7,7 +7,6 @@ state_tests/stDelegatecallTestHomestead/delegatecallEmptycontractFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_delegatecall_emptycontract(
 ) -> None:
     """Test_delegatecall_emptycontract."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x11489F9B076D3F3185EBE5C6E2DBEDBE9E283A6CE75895780134252B3DD5DBCC
-    )
+    sender = pre.fund_eoa(amount=0x10C8E0)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -65,9 +62,7 @@ def test_delegatecall_emptycontract(
         + Op.STOP,
         balance=1000,
         nonce=0,
-        address=Address(0x4A88CF3B3F1DABDD27E62FCB5DF86D7D685E0044),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x10C8E0)
 
     tx = Transaction(
         sender=sender,

@@ -85,6 +85,23 @@ def test_double_selfdestruct_touch_paris(
     )
 
     pre[sender] = Account(balance=0x5F5E102)
+    pre[empty_account_1] = Account(balance=10)
+    pre[empty_account_2] = Account(balance=10)
+    # Source: yul
+    # berlin
+    # {
+    #   let index := add(sload(0), 1)
+    #   sstore(0, index)
+    #   selfdestruct(sload(index))
+    # }
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.ADD(Op.SLOAD(key=0x0), 0x1)
+        + Op.SSTORE(key=0x0, value=Op.DUP1)
+        + Op.SELFDESTRUCT(address=Op.SLOAD),
+        storage={0: 0, 1: empty_account_1, 2: empty_account_2},
+        nonce=0,
+        address=Address(0x29E4504A3D2A0E0AE0EBBBEFEDD4570639B3EBEE),  # noqa: E501
+    )
     # Source: yul
     # berlin
     # {
@@ -119,27 +136,6 @@ def test_double_selfdestruct_touch_paris(
         nonce=0,
         address=Address(0x8EC7465877D3957084DC907C0F6D8F2911A17A52),  # noqa: E501
     )
-    # Source: yul
-    # berlin
-    # {
-    #   let index := add(sload(0), 1)
-    #   sstore(0, index)
-    #   selfdestruct(sload(index))
-    # }
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.ADD(Op.SLOAD(key=0x0), 0x1)
-        + Op.SSTORE(key=0x0, value=Op.DUP1)
-        + Op.SELFDESTRUCT(address=Op.SLOAD),
-        storage={
-            0: 0,
-            1: 0x68FA59E127B7526718EB0A4E113DF5793628CB91,
-            2: 0x76FAE819612A29489A1A43208613D8F8557B8898,
-        },
-        nonce=0,
-        address=Address(0x29E4504A3D2A0E0AE0EBBBEFEDD4570639B3EBEE),  # noqa: E501
-    )
-    pre[empty_account_1] = Account(balance=10)
-    pre[empty_account_2] = Account(balance=10)
 
     expect_entries_: list[dict] = [
         {

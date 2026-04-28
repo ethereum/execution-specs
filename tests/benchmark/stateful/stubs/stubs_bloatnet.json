@@ -1,40 +1,128 @@
 {
-  "test_sload_empty_erc20_balanceof_50GB_ERC20": "0x398324972FcE0e89E048c2104f1298031d1931fc",
-  "test_sload_empty_erc20_balanceof_30GB_ERC20": "0x19fc17d87D946BBA47ca276f7b06Ee5737c4679C",
-  "test_sload_empty_erc20_balanceof_9_39GB_ERC20": "0xf7EfF64A1b7f3dB550A05fF2635Bb9744B8E21eb",
-  "test_sload_empty_erc20_balanceof_1GB_ERC20": "0x365cF1A2532919e1adf8650670B9e01e163a441D",
-  "test_sload_empty_erc20_balanceof_4_23MB_ERC20": "0xFdC419f77993E0E2E9Fed06299E367F6aEe909bE",
-  "test_sload_empty_erc20_balanceof_XEN": "0x06450dEe7FD2Fb8E39061434BAbCFC05599a6Fb8",
-  "test_sload_empty_erc20_balanceof_USDC": "0xA0b86991C6218B36c1d19D4a2E9Eb0CE3606EB48",
-  "test_sload_empty_erc20_balanceof_ARB": "0xad0c361ef902a7d9851ca7dcc85535da2d3c6fc7",
-  "test_sload_empty_erc20_balanceof_HST": "0x2e2a539285ce690e4c6bddd42deb7e37bdde9500",
-  "test_sstore_erc20_mint_50GB_ERC20": "0x398324972FcE0e89E048c2104f1298031d1931fc",
-  "test_sstore_erc20_mint_30GB_ERC20": "0x19fc17d87D946BBA47ca276f7b06Ee5737c4679C",
-  "test_sstore_erc20_mint_9_39GB_ERC20": "0xf7EfF64A1b7f3dB550A05fF2635Bb9744B8E21eb",
-  "test_sstore_erc20_mint_1GB_ERC20": "0x365cF1A2532919e1adf8650670B9e01e163a441D",
-  "test_sstore_erc20_mint_4_23MB_ERC20": "0xFdC419f77993E0E2E9Fed06299E367F6aEe909bE",
-  "test_sstore_erc20_approve_50GB_ERC20": "0x398324972FcE0e89E048c2104f1298031d1931fc",
-  "test_sstore_erc20_approve_30GB_ERC20": "0x19fc17d87D946BBA47ca276f7b06Ee5737c4679C",
-  "test_sstore_erc20_approve_9_39GB_ERC20": "0xf7EfF64A1b7f3dB550A05fF2635Bb9744B8E21eb",
-  "test_sstore_erc20_approve_1GB_ERC20": "0x365cF1A2532919e1adf8650670B9e01e163a441D",
-  "test_sstore_erc20_approve_4_23MB_ERC20": "0xFdC419f77993E0E2E9Fed06299E367F6aEe909bE",
-  "test_sstore_erc20_approve_XEN": "0x06450dEe7FD2Fb8E39061434BAbCFC05599a6Fb8",
-  "test_sstore_erc20_approve_USDC": "0xA0b86991C6218B36c1d19D4a2E9Eb0CE3606EB48",
-  "test_sstore_erc20_approve_ARB": "0xad0c361ef902a7d9851ca7dcc85535da2d3c6fc7",
-  "test_sstore_erc20_approve_HST": "0x2e2a539285ce690e4c6bddd42deb7e37bdde9500",
-  "test_mixed_sload_sstore_50GB_ERC20": "0x398324972FcE0e89E048c2104f1298031d1931fc",
-  "test_mixed_sload_sstore_30GB_ERC20": "0x19fc17d87D946BBA47ca276f7b06Ee5737c4679C",
-  "test_mixed_sload_sstore_9_39GB_ERC20": "0xf7EfF64A1b7f3dB550A05fF2635Bb9744B8E21eb",
-  "test_mixed_sload_sstore_1GB_ERC20": "0x365cF1A2532919e1adf8650670B9e01e163a441D",
-  "test_mixed_sload_sstore_4_23MB_ERC20": "0xFdC419f77993E0E2E9Fed06299E367F6aEe909bE",
-  "test_mixed_sload_sstore_XEN": "0x06450dEe7FD2Fb8E39061434BAbCFC05599a6Fb8",
-  "test_mixed_sload_sstore_USDC": "0xA0b86991C6218B36c1d19D4a2E9Eb0CE3606EB48",
-  "test_mixed_sload_sstore_ARB": "0xad0c361ef902a7d9851ca7dcc85535da2d3c6fc7",
-  "test_mixed_sload_sstore_HST": "0x2e2a539285ce690e4c6bddd42deb7e37bdde9500",
-  "bloatnet_factory_0_5kb": "0xDf9da7E8660d38654C8aA267635222c9f5Ac0530",
-  "bloatnet_factory_1kb": "0xA52178573dc859741499946148CA1Fc3822Af600",
-  "bloatnet_factory_2kb": "0x88c159584059308C4B466bafC82c45d52De9951D",
-  "bloatnet_factory_5kb": "0x3f59809dac4b33e251e518acDadf923184151334",
-  "bloatnet_factory_10kb": "0xf90E8a6Ce32A949Ce5F58803BBa07476404cD89F",
-  "bloatnet_factory_24kb": "0x091988Afd81E0a2A3E20530A2510c089fF4bfAef"
+  "test_sload_empty_erc20_balanceof_50GB_ERC20": {
+    "addr": "0x398324972FcE0e89E048c2104f1298031d1931fc"
+  },
+  "test_sload_empty_erc20_balanceof_30GB_ERC20": {
+    "addr": "0x19fc17d87D946BBA47ca276f7b06Ee5737c4679C"
+  },
+  "test_sload_empty_erc20_balanceof_9_39GB_ERC20": {
+    "addr": "0xf7EfF64A1b7f3dB550A05fF2635Bb9744B8E21eb"
+  },
+  "test_sload_empty_erc20_balanceof_1GB_ERC20": {
+    "addr": "0x365cF1A2532919e1adf8650670B9e01e163a441D"
+  },
+  "test_sload_empty_erc20_balanceof_4_23MB_ERC20": {
+    "addr": "0xFdC419f77993E0E2E9Fed06299E367F6aEe909bE"
+  },
+  "test_sload_empty_erc20_balanceof_XEN": {
+    "addr": "0x06450dEe7FD2Fb8E39061434BAbCFC05599a6Fb8"
+  },
+  "test_sload_empty_erc20_balanceof_USDC": {
+    "addr": "0xA0b86991C6218B36c1d19D4a2E9Eb0CE3606EB48"
+  },
+  "test_sload_empty_erc20_balanceof_ARB": {
+    "addr": "0xad0c361ef902a7d9851ca7dcc85535da2d3c6fc7"
+  },
+  "test_sload_empty_erc20_balanceof_HST": {
+    "addr": "0x2e2a539285ce690e4c6bddd42deb7e37bdde9500"
+  },
+  "test_sstore_erc20_mint_50GB_ERC20": {
+    "addr": "0x398324972FcE0e89E048c2104f1298031d1931fc"
+  },
+  "test_sstore_erc20_mint_30GB_ERC20": {
+    "addr": "0x19fc17d87D946BBA47ca276f7b06Ee5737c4679C"
+  },
+  "test_sstore_erc20_mint_9_39GB_ERC20": {
+    "addr": "0xf7EfF64A1b7f3dB550A05fF2635Bb9744B8E21eb"
+  },
+  "test_sstore_erc20_mint_1GB_ERC20": {
+    "addr": "0x365cF1A2532919e1adf8650670B9e01e163a441D"
+  },
+  "test_sstore_erc20_mint_4_23MB_ERC20": {
+    "addr": "0xFdC419f77993E0E2E9Fed06299E367F6aEe909bE"
+  },
+  "test_sstore_erc20_approve_50GB_ERC20": {
+    "addr": "0x398324972FcE0e89E048c2104f1298031d1931fc"
+  },
+  "test_sstore_erc20_approve_30GB_ERC20": {
+    "addr": "0x19fc17d87D946BBA47ca276f7b06Ee5737c4679C"
+  },
+  "test_sstore_erc20_approve_9_39GB_ERC20": {
+    "addr": "0xf7EfF64A1b7f3dB550A05fF2635Bb9744B8E21eb"
+  },
+  "test_sstore_erc20_approve_1GB_ERC20": {
+    "addr": "0x365cF1A2532919e1adf8650670B9e01e163a441D"
+  },
+  "test_sstore_erc20_approve_4_23MB_ERC20": {
+    "addr": "0xFdC419f77993E0E2E9Fed06299E367F6aEe909bE"
+  },
+  "test_sstore_erc20_approve_XEN": {
+    "addr": "0x06450dEe7FD2Fb8E39061434BAbCFC05599a6Fb8"
+  },
+  "test_sstore_erc20_approve_USDC": {
+    "addr": "0xA0b86991C6218B36c1d19D4a2E9Eb0CE3606EB48"
+  },
+  "test_sstore_erc20_approve_ARB": {
+    "addr": "0xad0c361ef902a7d9851ca7dcc85535da2d3c6fc7"
+  },
+  "test_sstore_erc20_approve_HST": {
+    "addr": "0x2e2a539285ce690e4c6bddd42deb7e37bdde9500"
+  },
+  "test_mixed_sload_sstore_50GB_ERC20": {
+    "addr": "0x398324972FcE0e89E048c2104f1298031d1931fc"
+  },
+  "test_mixed_sload_sstore_30GB_ERC20": {
+    "addr": "0x19fc17d87D946BBA47ca276f7b06Ee5737c4679C"
+  },
+  "test_mixed_sload_sstore_9_39GB_ERC20": {
+    "addr": "0xf7EfF64A1b7f3dB550A05fF2635Bb9744B8E21eb"
+  },
+  "test_mixed_sload_sstore_1GB_ERC20": {
+    "addr": "0x365cF1A2532919e1adf8650670B9e01e163a441D"
+  },
+  "test_mixed_sload_sstore_4_23MB_ERC20": {
+    "addr": "0xFdC419f77993E0E2E9Fed06299E367F6aEe909bE"
+  },
+  "test_mixed_sload_sstore_XEN": {
+    "addr": "0x06450dEe7FD2Fb8E39061434BAbCFC05599a6Fb8"
+  },
+  "test_mixed_sload_sstore_USDC": {
+    "addr": "0xA0b86991C6218B36c1d19D4a2E9Eb0CE3606EB48"
+  },
+  "test_mixed_sload_sstore_ARB": {
+    "addr": "0xad0c361ef902a7d9851ca7dcc85535da2d3c6fc7"
+  },
+  "test_mixed_sload_sstore_HST": {
+    "addr": "0x2e2a539285ce690e4c6bddd42deb7e37bdde9500"
+  },
+  "bloatnet_factory_0_5kb": {
+    "addr": "0xDf9da7E8660d38654C8aA267635222c9f5Ac0530"
+  },
+  "bloatnet_factory_1kb": {
+    "addr": "0xA52178573dc859741499946148CA1Fc3822Af600"
+  },
+  "bloatnet_factory_2kb": {
+    "addr": "0x88c159584059308C4B466bafC82c45d52De9951D"
+  },
+  "bloatnet_factory_5kb": {
+    "addr": "0x3f59809dac4b33e251e518acDadf923184151334"
+  },
+  "bloatnet_factory_10kb": {
+    "addr": "0xf90E8a6Ce32A949Ce5F58803BBa07476404cD89F"
+  },
+  "bloatnet_factory_24kb": {
+    "addr": "0x091988Afd81E0a2A3E20530A2510c089fF4bfAef"
+  },
+  "bloated_eoa_1GB": {
+    "addr": "0x3f8074692982594c1936bd27433a8b6e5d77e0f0",
+    "pkey": "0xc618d7bcd54de2f0dcf86e4ced86ccf07926619a74ee10432c3d1c60743e3427"
+  },
+  "bloated_eoa_10GB": {
+    "addr": "0x87a6314da5ac8832f6e7a176c8fb133b19f5be04",
+    "pkey": "0x4da32d29f6dcffa26e09dc4e102033f2d105de1444fb893493ae703289275e0e"
+  },
+  "bloated_eoa_20GB": {
+    "addr": "0x772604ee92ebc9afa5b6ce561f6f6a4c4cdd214a",
+    "pkey": "0xc025d5a1aa0f5eee1f50687901c5dc9a8e97a2be91aa381e4c938dc309105059"
+  }
 }

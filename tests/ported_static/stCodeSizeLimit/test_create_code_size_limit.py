@@ -7,7 +7,6 @@ state_tests/stCodeSizeLimit/createCodeSizeLimitFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -60,9 +59,7 @@ def test_create_code_size_limit(
     """Test_create_code_size_limit."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xBEBC200)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -73,7 +70,6 @@ def test_create_code_size_limit(
         gas_limit=20000000,
     )
 
-    pre[sender] = Account(balance=0xBEBC200)
     # Source: yul
     # berlin
     # {
@@ -90,7 +86,6 @@ def test_create_code_size_limit(
         + Op.SSTORE(key=Op.DUP1, value=0x1)
         + Op.STOP,
         nonce=0,
-        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -101,7 +96,7 @@ def test_create_code_size_limit(
                 sender: Account(nonce=1),
                 contract_0: Account(
                     storage={
-                        0: 0xF1ECF98489FA9ED60A664FC4998DB699CFA39D40,
+                        0: compute_create_address(address=contract_0, nonce=0),
                         1: 1,
                     },
                 ),

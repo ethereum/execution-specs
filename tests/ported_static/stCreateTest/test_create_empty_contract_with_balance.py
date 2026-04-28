@@ -7,7 +7,6 @@ state_tests/stCreateTest/CREATE_EmptyContractWithBalanceFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_create_empty_contract_with_balance(
     """Test_create_empty_contract_with_balance."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -48,7 +45,6 @@ def test_create_empty_contract_with_balance(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # { [[0]](GAS) [[1]] (CREATE 1 0 32) [[100]] (GAS) }
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -58,7 +54,6 @@ def test_create_empty_contract_with_balance(
         + Op.STOP,
         balance=1,
         nonce=0,
-        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     tx = Transaction(
@@ -72,7 +67,7 @@ def test_create_empty_contract_with_balance(
         contract_0: Account(
             storage={
                 0: 0x8D5B6,
-                1: 0xF1ECF98489FA9ED60A664FC4998DB699CFA39D40,
+                1: compute_create_address(address=contract_0, nonce=0),
                 100: 0x7ABF8,
             },
         ),

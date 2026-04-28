@@ -47,6 +47,7 @@ def test_shift_signed_combinations(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {
     #   (def 'sstore_n 0)
@@ -310,7 +311,6 @@ def test_shift_signed_combinations(
         nonce=0,
         address=Address(0x6C08B7236EE4784E5499B9A576902679D8F863D5),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

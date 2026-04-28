@@ -71,6 +71,7 @@ def test_sstore_bounds(
         gas_limit=9223372036854775807,
     )
 
+    pre[sender] = Account(balance=0x7FFFFFFFFFFFFFFFFFF)
     # Source: lll
     # { (SSTORE 0xffffffff 1) (SSTORE 0xffffffffffffffff 1) (SSTORE 0xffffffffffffffffffffffffffffffff 1) (SSTORE 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 1) (SSTORE 32 0xffffffff) (SSTORE 64 0xffffffffffffffff) (SSTORE 128 0xffffffffffffffffffffffffffffffff) (SSTORE 256 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -92,7 +93,6 @@ def test_sstore_bounds(
         nonce=0,
         address=Address(0x1F2AEE312C3C47BDEB27FF5275FDDB33C543E394),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x7FFFFFFFFFFFFFFFFFF)
 
     expect_entries_: list[dict] = [
         {

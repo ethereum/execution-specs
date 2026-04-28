@@ -489,16 +489,16 @@ class ForkBuilder:
         """Append a `CodemodArgs` that sets `BLOB_TARGET_GAS_PER_BLOCK`."""
         self.modifiers.append(
             SetConstant(
-                "vm.gas.BLOB_TARGET_GAS_PER_BLOCK",
+                "vm.gas.GasCosts.BLOB_TARGET_GAS_PER_BLOCK",
                 repr(blob_target_gas_per_block),
             )
         )
 
     def modify_gas_per_blob(self, gas_per_blob: U64) -> None:
-        """Append a `CodemodArgs` that sets `GAS_PER_BLOB`."""
+        """Append a `CodemodArgs` that sets `PER_BLOB`."""
         self.modifiers.append(
             SetConstant(
-                "vm.gas.GAS_PER_BLOB",
+                "vm.gas.GasCosts.PER_BLOB",
                 repr(gas_per_blob),
             )
         )
@@ -507,7 +507,7 @@ class ForkBuilder:
         """Append a `CodemodArgs` that sets `BLOB_MIN_GASPRICE`."""
         self.modifiers.append(
             SetConstant(
-                "vm.gas.BLOB_MIN_GASPRICE",
+                "vm.gas.GasCosts.BLOB_MIN_GASPRICE",
                 repr(blob_min_gasprice),
             )
         )
@@ -518,7 +518,7 @@ class ForkBuilder:
         """Append a `CodemodArgs` that sets `BLOB_BASE_FEE_UPDATE_FRACTION`."""
         self.modifiers.append(
             SetConstant(
-                "vm.gas.BLOB_BASE_FEE_UPDATE_FRACTION",
+                "vm.gas.GasCosts.BLOB_BASE_FEE_UPDATE_FRACTION",
                 repr(blob_base_fee_update_fraction),
             )
         )
@@ -538,7 +538,7 @@ class ForkBuilder:
         """Append a `CodemodArgs` that sets `BLOB_SCHEDULE_TARGET`."""
         self.modifiers.append(
             SetConstant(
-                "vm.gas.BLOB_SCHEDULE_TARGET",
+                "vm.gas.GasCosts.BLOB_SCHEDULE_TARGET",
                 repr(blob_schedule_target),
             )
         )
@@ -547,7 +547,7 @@ class ForkBuilder:
         """Append a `CodemodArgs` that sets `BLOB_SCHEDULE_MAX`."""
         self.modifiers.append(
             SetConstant(
-                "vm.gas.BLOB_SCHEDULE_MAX",
+                "vm.gas.GasCosts.BLOB_SCHEDULE_MAX",
                 repr(blob_schedule_max),
             )
         )
