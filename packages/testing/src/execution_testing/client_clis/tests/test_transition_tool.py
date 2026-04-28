@@ -296,6 +296,7 @@ def test_lazy_alloc_file_keepalive_pins_temp_dir() -> None:
     directly. Dropping the LazyAllocFile releases the keepalive and the
     temp dir is cleaned up.
     """
+    import gc
     import tempfile
 
     keep = tempfile.TemporaryDirectory()
@@ -314,8 +315,10 @@ def test_lazy_alloc_file_keepalive_pins_temp_dir() -> None:
     assert lazy.get() == TEST_ALLOC
 
     # Dropping the LazyAllocFile drops the keepalive; TemporaryDirectory's
-    # finalizer wipes the directory.
+    # finalizer wipes the directory. PyPy doesn't refcount, so trigger GC
+    # explicitly to run the finalizer deterministically.
     del lazy
+    gc.collect()
     assert not keep_path.exists()
 
 
