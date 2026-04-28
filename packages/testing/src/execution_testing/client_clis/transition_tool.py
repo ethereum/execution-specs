@@ -162,6 +162,15 @@ class OutputCache:
 
     def set(self, subkey: int, value: TransitionToolOutput) -> None:
         """Set a value in the cache for the current key."""
+        alloc = getattr(value, "alloc", None)
+        if isinstance(alloc, LazyAllocFile):
+            # Materialize the streamed alloc before caching so the producing
+            # `TemporaryDirectory` (pinned via `_keepalive`) can be released.
+            # Without this, every cached subcall would retain its own
+            # `output/alloc.json` on disk for the test's lifetime - O(N) for
+            # an N-block chained test.
+            alloc.get()
+            alloc._keepalive = None
         self._cache[subkey] = value
 
     def clear(self) -> None:
