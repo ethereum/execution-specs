@@ -7,7 +7,6 @@ state_tests/stReturnDataTest/returndatasize_initialFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_returndatasize_initial(
 ) -> None:
     """Test_returndatasize_initial."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
-    )
+    sender = pre.fund_eoa(amount=0x6400000000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -53,9 +50,7 @@ def test_returndatasize_initial(
         storage={0: 1},
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x3A939FCCA7DA8B1332893BCCA91690406F4B7A82),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x6400000000)
 
     tx = Transaction(
         sender=sender,

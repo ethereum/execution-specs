@@ -7,7 +7,6 @@ state_tests/stRandom2/randomStatetest650Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -34,9 +33,7 @@ def test_random_statetest650(
 ) -> None:
     """Consensus issue test produced by fuzz testing team..."""
     coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x61EC5E5029A151E121E39AE4D7546D549EA4B130F645F6F650CEEC0416FE27F4
-    )
+    sender = pre.fund_eoa(amount=0x3FFFFFFFFFFFFFFF)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -3303,9 +3300,7 @@ def test_random_statetest650(
             ret_size=0x20,
         ),
         nonce=0,
-        address=Address(0x9D258197DE5279A844B4BE3D23547CA4233A70BC),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x3FFFFFFFFFFFFFFF)
 
     tx = Transaction(
         sender=sender,

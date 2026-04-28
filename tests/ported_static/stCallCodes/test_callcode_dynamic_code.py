@@ -89,6 +89,7 @@ def test_callcode_dynamic_code(
         gas_limit=1000000,
     )
 
+    pre[sender] = Account(balance=0x2386F26FC10000)
     # Source: lll
     # { (CALL 800000 (CALLDATALOAD 0) 0 0 0 0 0) }
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -263,7 +264,6 @@ def test_callcode_dynamic_code(
         nonce=0,
         address=Address(0x4000000000000000000000000000000000000000),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x2386F26FC10000)
 
     expect_entries_: list[dict] = [
         {
@@ -273,11 +273,13 @@ def test_callcode_dynamic_code(
                 contract_1: Account(
                     storage={
                         0: 1,
-                        10: 0x13136008B64FF592819B2FA6D43F2835C452020E,
+                        10: compute_create_address(
+                            address=contract_1, nonce=0
+                        ),
                         11: 1,
-                        20: 0x1000000000000000000000000000000000000000,
-                        21: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                        22: 0x1000000000000000000000000000000000000000,
+                        20: contract_1,
+                        21: sender,
+                        22: contract_1,
                     },
                 ),
             },
@@ -291,9 +293,9 @@ def test_callcode_dynamic_code(
                         0: 1,
                         10: 0x2D39FAD743351D4CF3F4717907D3DDA5E0A689A7,
                         11: 1,
-                        20: 0x2000000000000000000000000000000000000000,
-                        21: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                        22: 0x2000000000000000000000000000000000000000,
+                        20: contract_2,
+                        21: sender,
+                        22: contract_2,
                     },
                 ),
             },
@@ -307,9 +309,13 @@ def test_callcode_dynamic_code(
                         0: 1,
                         10: 0xBF1676BE6038AB86D66E00824C2E3577858040F6,
                         11: 1,
-                        20: 0x4B86C4ED99B87F0F396BC0C76885453C343916ED,
-                        21: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                        22: 0x4B86C4ED99B87F0F396BC0C76885453C343916ED,
+                        20: compute_create_address(
+                            address=contract_3, nonce=0
+                        ),
+                        21: sender,
+                        22: compute_create_address(
+                            address=contract_3, nonce=0
+                        ),
                     },
                     code=b"",
                     balance=0,
@@ -326,9 +332,13 @@ def test_callcode_dynamic_code(
                         0: 1,
                         10: 0xF2D6BF688FAE45DA62AB2DD4F36945BC924CC61,
                         11: 1,
-                        20: 0xA51C188504A60578914FCAE68F7A1F0DCBB856A9,
-                        21: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                        22: 0xA51C188504A60578914FCAE68F7A1F0DCBB856A9,
+                        20: compute_create_address(
+                            address=contract_4, nonce=0
+                        ),
+                        21: sender,
+                        22: compute_create_address(
+                            address=contract_4, nonce=0
+                        ),
                     },
                     code=b"",
                     balance=0,

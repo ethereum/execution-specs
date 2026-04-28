@@ -92,7 +92,7 @@ def test_create2_refund_ef(
         + Op.POP(
             Op.CALL(
                 gas=0xC350,
-                address=0x5EF94D,
+                address=contract_0,
                 value=Op.DUP1,
                 args_offset=Op.DUP1,
                 args_size=Op.DUP1,

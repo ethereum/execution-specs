@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_Call1024PreCallsFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -60,10 +59,7 @@ def test_static_call1024_pre_calls(
 ) -> None:
     """Test_static_call1024_pre_calls."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    addr = Address(0xD9B97C712EBCE43F3C19179BBEF44B550F9E8BC0)
-    sender = EOA(
-        key=0xCC381C83857B17CA629268ED418E2915A0287B84EFE9CF2204C020302E83CDA0
-    )
+    sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -74,7 +70,7 @@ def test_static_call1024_pre_calls(
         gas_limit=9223372036854775807,
     )
 
-    pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+    addr = pre.fund_eoa(amount=7000)  # noqa: F841
     # Source: lll
     # {  [[ 0 ]] (CALL (GAS) (CALLDATALOAD 0) (CALLVALUE) 0 0 0 0) [[ 1 ]] 1 }
     target = pre.deploy_contract(  # noqa: F841
@@ -95,7 +91,6 @@ def test_static_call1024_pre_calls(
         nonce=0,
         address=Address(0xC0E4183389EB57F779A986D8C878F89B9401DC8E),  # noqa: E501
     )
-    pre[addr] = Account(balance=7000)
     # Source: lll
     # { [[ 2 ]] (STATICCALL 0xffff <eoa:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) [[ 3 ]] (STATICCALL 0xffff <eoa:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0)  [[ 0 ]] (ADD @@0 1) [[ 1 ]] (STATICCALL 0xfffffffffff <contract:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) }  # noqa: E501
     addr_2 = pre.deploy_contract(  # noqa: F841

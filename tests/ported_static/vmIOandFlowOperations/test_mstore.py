@@ -96,6 +96,7 @@ def test_mstore(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0x100000000000)
     # Source: lll
     # {
     #      (mstore 1 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)  # noqa: E501
@@ -189,7 +190,6 @@ def test_mstore(
         nonce=0,
         address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x100000000000)
 
     expect_entries_: list[dict] = [
         {

@@ -61,6 +61,10 @@ Conventions and patterns for writing consensus tests. Run this skill before writ
 - `@pytest.mark.parametrize("name", [pytest.param(val, id="label"), ...])` with descriptive `id=` strings
 - Stack parametrize decorators for multiple dimensions
 
+## Unit Tests (execution_testing package)
+
+Plain pytest. Tests are co-located with each module under `packages/testing/src/execution_testing/` in a sibling `tests/` directory. When adding a guardrail or validation, verify the tests fail without the change and pass with it.
+
 ## After Writing Tests
 
 After writing or modifying tests, ask the user: "Would you like me to load the `/fill-tests` skill to verify the new tests fill correctly? (This loads an additional skill into context.)" If they agree, run `/fill-tests`, fill the new tests, then inspect the generated fixture JSON to verify the fixture contents match what the test intends.

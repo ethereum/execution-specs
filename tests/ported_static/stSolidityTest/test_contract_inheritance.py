@@ -7,7 +7,6 @@ state_tests/stSolidityTest/ContractInheritanceFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -34,9 +33,7 @@ def test_contract_inheritance(
 ) -> None:
     """Test_contract_inheritance."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xA9AE12CB2700C0214F86B9796881BC03A1FD5605D0E76D2DA2CA592E62D53E52
-    )
+    sender = pre.fund_eoa(amount=0x12A05F200)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -206,9 +203,7 @@ def test_contract_inheritance(
         + Op.RETURN,
         balance=0x186A0,
         nonce=0,
-        address=Address(0x3809B123C157B2D0D3B998255F35B5F8B8AE4789),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x12A05F200)
 
     tx = Transaction(
         sender=sender,

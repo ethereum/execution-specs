@@ -1,0 +1,18 @@
+# Branches whose documentation is built and published to
+# steel.ethereum.foundation/docs/execution-specs/
+#
+# The `branches[]` list must stay in sync with steel-website's
+# `docs-config.yml`; a branch that publishes here but isn't listed there
+# is dispatched but dropped by the aggregator.
+#
+# Each entry defines:
+#   - path: The branch name (must match the Git branch exactly)
+#   - label: Human-readable label for the version switcher UI
+
+branches:
+  - path: "mainnet"
+    label: "Mainnet (BPO2)"
+  - path: "forks/amsterdam"
+    label: "Amsterdam"
+  - path: "devnets/bal/4"
+    label: "bal-devnet-4"

@@ -7,7 +7,6 @@ state_tests/stReturnDataTest/returndatacopy_following_createFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_returndatacopy_following_create(
 ) -> None:
     """Test_returndatacopy_following_create."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
-    )
+    sender = pre.fund_eoa(amount=0x6400000000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -58,7 +55,6 @@ def test_returndatacopy_following_create(
         + Op.RETURN(offset=0x0, size=0x20)
         + Op.STOP,
         nonce=0,
-        address=Address(0x9898DD5E5C526B55EC49B1047E298705C13279F1),  # noqa: E501
     )
     # Source: lll
     # { (seq (create (STOP)) (RETURNDATACOPY 0 0 32) (SSTORE 0 (MLOAD 0)) )}
@@ -79,9 +75,7 @@ def test_returndatacopy_following_create(
         + Op.STOP * 2,
         storage={0: 1},
         nonce=0,
-        address=Address(0xB2F12F3B77DAD19C11029CB8EE4EECB144E05AD3),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x6400000000)
 
     tx = Transaction(
         sender=sender,

@@ -7,7 +7,6 @@ state_tests/stSystemOperationsTest/callcodeToNameRegistratorAddresTooBigLeftFill
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_callcode_to_name_registrator_addres_too_big_left(
 ) -> None:
     """Test_callcode_to_name_registrator_addres_too_big_left."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -54,7 +51,6 @@ def test_callcode_to_name_registrator_addres_too_big_left(
         code="",
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0xCF5A2A9C286222B44BB932D847C4E05A2353B673),  # noqa: E501
     )
     # Source: raw
     # 0x6000355415600957005b60203560003555
@@ -70,9 +66,7 @@ def test_callcode_to_name_registrator_addres_too_big_left(
         ),
         balance=23,
         nonce=0,
-        address=Address(0x15EB18969E0925C8E4A76FD7CBCE36A2B056B27E),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

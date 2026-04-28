@@ -7,7 +7,6 @@ state_tests/stMemoryTest/calldatacopy_dejavuFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_calldatacopy_dejavu(
 ) -> None:
     """Test_calldatacopy_dejavu."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x7DD1D0EC78FE936B0E88F8C21226F51F048579915C7BAFF1C5D7FD84B2139BF1
-    )
+    sender = pre.fund_eoa(amount=0x271000000000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -53,9 +50,7 @@ def test_calldatacopy_dejavu(
         + Op.CALLDATACOPY(dest_offset=0xFFFFFFF, offset=0xFFFFFFF, size=0xFF),
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0xCB76EF53A4EB6CCF604DAED675E91DF8A0B544F8),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x271000000000)
 
     tx = Transaction(
         sender=sender,

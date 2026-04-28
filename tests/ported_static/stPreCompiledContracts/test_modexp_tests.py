@@ -7,7 +7,6 @@ state_tests/stPreCompiledContracts/modexpTestsFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -810,9 +809,7 @@ def test_modexp_tests(
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x48DC5A9F099CAAAA557742CA3A990A94BE45B9969126A1BC74E5E8BE5A2B5B47
-    )
+    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE, nonce=1)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -882,9 +879,7 @@ def test_modexp_tests(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address(0x6082A22DBF403B1AF4FE03A0CCBD9BB78DEFB44A),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
 
     expect_entries_: list[dict] = [
         {

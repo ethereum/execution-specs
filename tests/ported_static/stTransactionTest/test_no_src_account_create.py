@@ -273,7 +273,6 @@ def test_no_src_account_create(
     addr = pre.deploy_contract(  # noqa: F841
         code=Op.STOP,
         nonce=0,
-        address=Address(0x4D7B154E5BF8310A4D8220C8EED80020E4B8F86F),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -386,13 +385,13 @@ def test_no_src_account_create(
         2: [],
         3: [
             AccessList(
-                address=Address(0x4D7B154E5BF8310A4D8220C8EED80020E4B8F86F),
+                address=addr,
                 storage_keys=[],
             ),
         ],
         4: [
             AccessList(
-                address=Address(0x4D7B154E5BF8310A4D8220C8EED80020E4B8F86F),
+                address=addr,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501

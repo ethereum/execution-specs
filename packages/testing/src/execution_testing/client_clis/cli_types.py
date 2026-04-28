@@ -1,7 +1,9 @@
 """Types used in the transition tool interactions."""
 
 import json
-from dataclasses import dataclass
+import shutil
+import tempfile
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import (
     Annotated,
@@ -10,13 +12,16 @@ from typing import (
     Generic,
     List,
     NamedTuple,
+    Optional,
     Self,
     TypeVar,
 )
 
+import ijson  # type: ignore[import-untyped]
 from pydantic import Field, PlainSerializer, PlainValidator
 
 from execution_testing.base_types import (
+    Account,
     Bloom,
     Bytes,
     CamelModel,
@@ -459,6 +464,55 @@ class LazyAllocStr(LazyAlloc[str]):
         return Alloc.model_validate_json(self.raw)
 
 
+@dataclass(kw_only=True)
+class LazyAllocFile(LazyAlloc[Path]):
+    """
+    Lazy allocation backed by a filesystem path.
+
+    Parses `{address: account_or_null}` entries from the file incrementally
+    via `ijson.kvitems` and validates each `Account` one at a time through
+    `Account.model_validate`. The full mapping of validated accounts is still
+    accumulated before `Alloc.model_validate` is called, so peak memory
+    scales with the size of the alloc — but the raw JSON string is never
+    held in Python memory, and there is no re-serialize / re-parse round
+    trip, which is where `LazyAllocStr` incurs its multi-GB peak.
+
+    The optional ``_keepalive`` field holds the producing t8n call's
+    ``TemporaryDirectory`` so the on-disk alloc.json survives until this
+    LazyAllocFile is dropped. That lets a chained next-block t8n call
+    consume the alloc directly from disk (via ``--input.alloc=<path>`` for
+    geth, or ``shutil.copyfile`` for filesystem t8ns) without round-tripping
+    through ``Alloc.get().model_dump_json()`` in Python.
+    """
+
+    _keepalive: Optional[tempfile.TemporaryDirectory] = field(default=None)
+
+    def validate(self) -> Alloc:
+        """Validate the alloc by streaming entries from the backing file."""
+        accumulated: Dict[str, Account | None] = {}
+        with open(self.raw, "rb") as f:
+            # `ijson.kvitems(f, "")` silently yields nothing for non-object
+            # top-level JSON (`null`, `[]`, scalars), which would turn a
+            # corrupted alloc.json into an empty post-state. Probe the first
+            # parse event so the streaming path matches the fail-loud
+            # behavior of `LazyAllocStr.validate` /
+            # `Alloc.model_validate_json`.
+            first = next(ijson.parse(f), None)
+            if first is None or first[1] != "start_map":
+                raise ValueError(
+                    f"Expected JSON object at top level of {self.raw}"
+                )
+            f.seek(0)
+            for address_str, account_data in ijson.kvitems(f, ""):
+                if account_data is None:
+                    accumulated[address_str] = None
+                else:
+                    accumulated[address_str] = Account.model_validate(
+                        account_data
+                    )
+        return Alloc.model_validate(accumulated)
+
+
 @dataclass
 class TransitionToolInput:
     """Transition tool input."""
@@ -474,13 +528,20 @@ class TransitionToolInput:
         """
         Prepare the input in a directory path in the file system for
         consumption by the t8n tool.
+
+        For ``LazyAllocFile`` inputs whose backing file is still on disk
+        (chained-block handoff: previous t8n call's temp dir is pinned via
+        the keepalive field), the alloc is copied byte-for-byte rather than
+        round-tripped through ``Alloc.get().model_dump_json()``.
         """
-        if isinstance(self.alloc, Alloc):
-            alloc_contents = self.alloc.model_dump_json(**model_dump_config)
-        elif isinstance(self.alloc, LazyAllocStr):
-            alloc_contents = self.alloc.raw
+        alloc_path = directory_path / "alloc.json"
+        if (
+            isinstance(self.alloc, LazyAllocFile)
+            and Path(self.alloc.raw).exists()
+        ):
+            shutil.copyfile(self.alloc.raw, alloc_path)
         else:
-            raise Exception(f"Invalid alloc type: {type(self.alloc)}")
+            alloc_path.write_text(self._serialize_alloc(**model_dump_config))
 
         env_contents = self.env.model_dump_json(**model_dump_config)
         txs_contents = (
@@ -490,33 +551,41 @@ class TransitionToolInput:
             )
             + "]"
         )
-        input_contents: Dict[str, str] = {
-            "alloc": alloc_contents,
-            "env": env_contents,
-            "txs": txs_contents,
-        }
-        if self.blob_params is not None:
-            input_contents["blobParams"] = self.blob_params.model_dump_json(
-                **model_dump_config
-            )
 
-        input_paths: Dict[str, str] = {}
-        for content_type, contents in input_contents.items():
-            file_path = directory_path / f"{content_type}.json"
+        input_paths: Dict[str, str] = {"alloc": str(alloc_path)}
+        for name, contents in (("env", env_contents), ("txs", txs_contents)):
+            file_path = directory_path / f"{name}.json"
             file_path.write_text(contents)
-            input_paths[content_type] = str(file_path)
+            input_paths[name] = str(file_path)
+        if self.blob_params is not None:
+            blob_path = directory_path / "blobParams.json"
+            blob_path.write_text(
+                self.blob_params.model_dump_json(**model_dump_config)
+            )
+            input_paths["blobParams"] = str(blob_path)
 
         return input_paths
 
-    def model_dump_json(self, **model_dump_config: Any) -> str:
-        """Dump the model in string JSON format."""
+    def _serialize_alloc(self, **model_dump_config: Any) -> str:
+        """Serialize ``self.alloc`` to a JSON string."""
         if isinstance(self.alloc, Alloc):
-            alloc_contents = self.alloc.model_dump_json(**model_dump_config)
-        elif isinstance(self.alloc, LazyAllocStr):
-            alloc_contents = self.alloc.raw
-        else:
-            raise Exception(f"Invalid alloc type: {type(self.alloc)}")
+            return self.alloc.model_dump_json(**model_dump_config)
+        if isinstance(self.alloc, LazyAllocStr):
+            return self.alloc.raw
+        if isinstance(self.alloc, LazyAllocFile):
+            return self.alloc.get().model_dump_json(**model_dump_config)
+        raise Exception(f"Invalid alloc type: {type(self.alloc)}")
 
+    def model_dump_json(
+        self, *, exclude_alloc: bool = False, **model_dump_config: Any
+    ) -> str:
+        """
+        Dump the model in string JSON format.
+
+        Pass ``exclude_alloc=True`` when the t8n is reading the alloc from a
+        file path instead of the stdin bundle, to avoid building a multi-GB
+        JSON string in Python memory for chained-block handoffs.
+        """
         env_contents = self.env.model_dump_json(**model_dump_config)
         txs_contents = (
             "["
@@ -525,18 +594,21 @@ class TransitionToolInput:
             )
             + "]"
         )
-        input_contents: Dict[str, str] = {
-            "alloc": alloc_contents,
-            "env": env_contents,
-            "txs": txs_contents,
-        }
+        input_contents: Dict[str, str] = {}
+        if not exclude_alloc:
+            input_contents["alloc"] = self._serialize_alloc(
+                **model_dump_config
+            )
+        input_contents["env"] = env_contents
+        input_contents["txs"] = txs_contents
         if self.blob_params is not None:
             input_contents["blobParams"] = self.blob_params.model_dump_json(
                 **model_dump_config
             )
-        contents: List[str] = []
-        for content_type, type_contents in input_contents.items():
-            contents.append(f'"{content_type}": {type_contents}')
+        contents: List[str] = [
+            f'"{content_type}": {type_contents}'
+            for content_type, type_contents in input_contents.items()
+        ]
         return "{" + ",".join(contents) + "}"
 
     def model_dump(self, mode: str, **model_dump_config: Any) -> Any:
@@ -548,6 +620,10 @@ class TransitionToolInput:
             )
         elif isinstance(self.alloc, LazyAllocJson):
             alloc_contents = self.alloc.raw
+        elif isinstance(self.alloc, LazyAllocFile):
+            alloc_contents = self.alloc.get().model_dump(
+                mode=mode, **model_dump_config
+            )
         else:
             raise Exception(f"Invalid alloc type: {type(self.alloc)}")
 
@@ -583,13 +659,19 @@ class TransitionToolOutput:
         """
         Validate the model from the file system where each key is a
         different JSON file.
+
+        `alloc.json` is referenced by path and parsed incrementally on
+        `.get()` via `LazyAllocFile`, so the full file is never held in
+        memory alongside the validated `Alloc`.
         """
-        alloc_data = (directory_path / "alloc.json").read_text()
         result_data = (directory_path / "result.json").read_text()
         result = Result.model_validate_json(
             json_data=result_data, context=context
         )
-        alloc = LazyAllocStr(raw=alloc_data, _state_root=result.state_root)
+        alloc = LazyAllocFile(
+            raw=directory_path / "alloc.json",
+            _state_root=result.state_root,
+        )
         output = cls(result=result, alloc=alloc)
         return output
 

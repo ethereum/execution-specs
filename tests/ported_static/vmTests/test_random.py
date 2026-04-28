@@ -7,7 +7,6 @@ state_tests/VMTests/vmTests/randomFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -83,9 +82,7 @@ def test_random(
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xF3630C36A29EC9AF814AE38E4D48056A3368BB1435C5C2B3289763E4C77A3DF0
-    )
+    sender = pre.fund_eoa(amount=0x10000000000000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -179,7 +176,6 @@ def test_random(
         nonce=0,
         address=Address(0xA83DB56C7CE68C06129B80C7BE0D0F5E0869D536),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x10000000000000)
 
     expect_entries_: list[dict] = [
         {

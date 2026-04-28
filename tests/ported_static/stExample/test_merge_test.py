@@ -48,6 +48,7 @@ def test_merge_test(
         gas_limit=16777216,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
     # Source: lll
     # {
     #    (sstore 0 (gasprice))
@@ -63,7 +64,6 @@ def test_merge_test(
         nonce=1,
         address=Address(0x49A0FE79E28D1D65E16CDF53ACAFEAE7BACCAC0E),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
 
     tx = Transaction(
         sender=sender,
@@ -75,7 +75,7 @@ def test_merge_test(
         nonce=1,
         access_list=[
             AccessList(
-                address=Address(0x49A0FE79E28D1D65E16CDF53ACAFEAE7BACCAC0E),
+                address=target,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501

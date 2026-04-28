@@ -7,7 +7,6 @@ state_tests/stTransactionTest/StoreClearsAndInternalCallStoreClearsOOGFiller.jso
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_store_clears_and_internal_call_store_clears_oog(
 ) -> None:
     """Test_store_clears_and_internal_call_store_clears_oog."""
     coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x96C07046493EC8728482079AB999D2994420D9CF4D3491DFD06871B106D9D87B
-    )
+    sender = pre.fund_eoa(amount=0x1DCD6500)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -75,9 +72,7 @@ def test_store_clears_and_internal_call_store_clears_oog(
             9: 12,
         },
         nonce=0,
-        address=Address(0xD61E0564FAB2B0DA5136F75DB579B663BD9F2BD8),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x1DCD6500)
     # Source: lll
     # {(SSTORE 0 0)(SSTORE 1 0)(SSTORE 2 0)(SSTORE 3 0) (CALL 20000 <contract:0x0000000000000000000000000000000000000000> 1 0 0 0 0) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -87,7 +82,7 @@ def test_store_clears_and_internal_call_store_clears_oog(
         + Op.SSTORE(key=0x3, value=0x0)
         + Op.CALL(
             gas=0x4E20,
-            address=0xD61E0564FAB2B0DA5136F75DB579B663BD9F2BD8,
+            address=addr,
             value=0x1,
             args_offset=0x0,
             args_size=0x0,
@@ -98,7 +93,6 @@ def test_store_clears_and_internal_call_store_clears_oog(
         storage={0: 12, 1: 12, 2: 12, 3: 12, 4: 12},
         balance=10,
         nonce=0,
-        address=Address(0xF6694E843901AE9F4C9303557D000708DF9581DC),  # noqa: E501
     )
 
     tx = Transaction(

@@ -7,7 +7,6 @@ state_tests/stEIP150Specific/DelegateCallOnEIPFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_delegate_call_on_eip(
 ) -> None:
     """Test_delegate_call_on_eip."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -46,7 +43,12 @@ def test_delegate_call_on_eip(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
+    # Source: lll
+    # { (SSTORE 0 0x12) }
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=0x12) + Op.STOP,
+        nonce=0,
+    )
     # Source: lll
     # { [8] (GAS) (SSTORE 9 (DELEGATECALL 600000 <contract:0x1000000000000000000000000000000000000105> 0 0 0 0)) [[8]] (SUB @8 (GAS)) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -55,7 +57,7 @@ def test_delegate_call_on_eip(
             key=0x9,
             value=Op.DELEGATECALL(
                 gas=0x927C0,
-                address=0xFD59ABAE521384B5731AC657616680219FBC423D,
+                address=addr,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -65,14 +67,6 @@ def test_delegate_call_on_eip(
         + Op.SSTORE(key=0x8, value=Op.SUB(Op.MLOAD(offset=0x8), Op.GAS))
         + Op.STOP,
         nonce=0,
-        address=Address(0x90BC108216940A7DDAF3BA6624F2FDBE4C5E83DC),  # noqa: E501
-    )
-    # Source: lll
-    # { (SSTORE 0 0x12) }
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x12) + Op.STOP,
-        nonce=0,
-        address=Address(0xFD59ABAE521384B5731AC657616680219FBC423D),  # noqa: E501
     )
 
     tx = Transaction(

@@ -7,7 +7,6 @@ state_tests/stReturnDataTest/revertRetDataSizeFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -266,9 +265,7 @@ def test_revert_ret_data_size(
     contract_3 = Address(0x0000000000000000000000000000000000000300)
     contract_4 = Address(0x0000000000000000000000000000000000000400)
     contract_5 = Address(0x0000000000000000000000000000000000000500)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -279,6 +276,54 @@ def test_revert_ret_data_size(
         gas_limit=100000000,
     )
 
+    # Source: lll
+    # {
+    #    [0x00] (/ (- 0 1) 2)
+    #    [0x20] (+ @0x00 1)
+    #
+    #    (return 0 0x40)
+    # }
+    contract_1 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=Op.DIV(Op.SUB(0x0, 0x1), 0x2))
+        + Op.MSTORE(offset=0x20, value=Op.ADD(Op.MLOAD(offset=0x0), 0x1))
+        + Op.RETURN(offset=0x0, size=0x40)
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=0,
+        address=Address(0x0000000000000000000000000000000000001000),  # noqa: E501
+    )
+    # Source: raw
+    # 0x5000
+    contract_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.POP + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=0,
+        address=Address(0x0000000000000000000000000000000000000200),  # noqa: E501
+    )
+    # Source: raw
+    # 0x600056
+    contract_3 = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMP(pc=0x0),
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=0,
+        address=Address(0x0000000000000000000000000000000000000300),  # noqa: E501
+    )
+    # Source: raw
+    # 0x6001600157
+    contract_4 = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMPI(pc=0x1, condition=0x1),
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=0,
+        address=Address(0x0000000000000000000000000000000000000400),  # noqa: E501
+    )
+    # Source: raw
+    # 0xFE00
+    contract_5 = pre.deploy_contract(  # noqa: F841
+        code=Op.INVALID + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=0,
+        address=Address(0x0000000000000000000000000000000000000500),  # noqa: E501
+    )
     # Source: lll
     # {   ;  $4 is the type of thing that fails
     #     ; $36 is the failure itself
@@ -722,55 +767,6 @@ def test_revert_ret_data_size(
         nonce=0,
         address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
-    # Source: lll
-    # {
-    #    [0x00] (/ (- 0 1) 2)
-    #    [0x20] (+ @0x00 1)
-    #
-    #    (return 0 0x40)
-    # }
-    contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=Op.DIV(Op.SUB(0x0, 0x1), 0x2))
-        + Op.MSTORE(offset=0x20, value=Op.ADD(Op.MLOAD(offset=0x0), 0x1))
-        + Op.RETURN(offset=0x0, size=0x40)
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001000),  # noqa: E501
-    )
-    # Source: raw
-    # 0x5000
-    contract_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.POP + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000000200),  # noqa: E501
-    )
-    # Source: raw
-    # 0x600056
-    contract_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMP(pc=0x0),
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000000300),  # noqa: E501
-    )
-    # Source: raw
-    # 0x6001600157
-    contract_4 = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMPI(pc=0x1, condition=0x1),
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000000400),  # noqa: E501
-    )
-    # Source: raw
-    # 0xFE00
-    contract_5 = pre.deploy_contract(  # noqa: F841
-        code=Op.INVALID + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000000500),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     tx_data = [
         Bytes("1a8451e6") + Hash(0xF1) + Hash(0x0),

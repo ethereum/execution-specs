@@ -7,7 +7,6 @@ state_tests/VMTests/vmArithmeticTest/mulmodFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -160,9 +159,7 @@ def test_mulmod(
     contract_14 = Address(0x000000000000000000000000000000000000100E)
     contract_15 = Address(0x000000000000000000000000000000000000100F)
     contract_16 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -441,7 +438,6 @@ def test_mulmod(
         nonce=0,
         address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     expect_entries_: list[dict] = [
         {

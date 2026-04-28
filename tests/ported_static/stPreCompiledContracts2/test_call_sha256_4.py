@@ -46,6 +46,7 @@ def test_call_sha256_4(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { (MSTORE 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) [[ 2 ]] (CALL 100 2 0 0 32 0 32) [[ 0 ]] (MLOAD 0)}  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -71,7 +72,6 @@ def test_call_sha256_4(
         nonce=0,
         address=Address(0x6EAF78B8968E1AD784F281CC9FFC2ED8BDB61FBE),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

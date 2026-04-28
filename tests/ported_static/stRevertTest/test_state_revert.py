@@ -7,7 +7,6 @@ state_tests/stRevertTest/stateRevertFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -86,9 +85,7 @@ def test_state_revert(
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xA62D63F95900B04CCD3FEE13360DE78966F24695945E8B2C09E646352BC5AF94
-    )
+    sender = pre.fund_eoa(amount=0x100000000000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -274,7 +271,6 @@ def test_state_revert(
         nonce=0,
         address=Address(0x3559AFE49654B532B7E67E6ACD87DEB8C569E7AD),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x100000000000)
 
     tx_data = [
         Bytes("693c6139") + Hash(0x0),

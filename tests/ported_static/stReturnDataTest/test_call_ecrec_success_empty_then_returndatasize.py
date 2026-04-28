@@ -7,7 +7,6 @@ state_tests/stReturnDataTest/call_ecrec_success_empty_then_returndatasizeFiller.
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_call_ecrec_success_empty_then_returndatasize(
 ) -> None:
     """Test_call_ecrec_success_empty_then_returndatasize."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
-    )
+    sender = pre.fund_eoa(amount=0x6400000000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -66,9 +63,7 @@ def test_call_ecrec_success_empty_then_returndatasize(
         + Op.STOP,
         storage={0: 24743},
         nonce=0,
-        address=Address(0x77E2F61794BCFD86B1C2380C34AAB5FB7C25E95E),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x6400000000)
 
     tx = Transaction(
         sender=sender,

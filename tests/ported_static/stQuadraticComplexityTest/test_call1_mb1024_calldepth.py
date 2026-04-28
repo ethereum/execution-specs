@@ -7,7 +7,6 @@ state_tests/stQuadraticComplexityTest/Call1MB1024CalldepthFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -60,10 +59,7 @@ def test_call1_mb1024_calldepth(
 ) -> None:
     """Test_call1_mb1024_calldepth."""
     coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    addr = Address(0x2AB8257767339461506C0C67824CF17BC77B52CA)
-    sender = EOA(
-        key=0xE7C72B378297589ACEE4E0BA3272841BCFC5E220F86DE253F890274CFEE9E474
-    )
+    sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -74,8 +70,7 @@ def test_call1_mb1024_calldepth(
         gas_limit=882500000000,
     )
 
-    pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-    pre[addr] = Account(balance=0xFFFFFFFFFFFFF)
+    addr = pre.fund_eoa(amount=0xFFFFFFFFFFFFF)  # noqa: F841
     # Source: lll
     # { (def 'i 0x80) [[ 0 ]] (+ @@0 1) (if (LT @@0 1024) [[ 1 ]] (CALL (- (GAS) 1005000) <contract:target:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 1000000 0 0) [[ 2 ]] 1 )  }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841

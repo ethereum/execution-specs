@@ -7,7 +7,6 @@ state_tests/stMemoryStressTest/CALL_Bounds2Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -55,8 +54,8 @@ def test_call_bounds2(
 ) -> None:
     """Test_call_bounds2."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xEF111BBDAB3A1622936AFDFC9BBEC4B5BC05B4FA4B1EF0CE2A55CEF552F7650E
+    sender = pre.fund_eoa(
+        amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
     )
 
     env = Environment(
@@ -69,11 +68,18 @@ def test_call_bounds2(
     )
 
     # Source: lll
+    # { (SSTORE 0 (ADD 1 (SLOAD 0))) }
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=Op.ADD(0x1, Op.SLOAD(key=0x0)))
+        + Op.STOP,
+        nonce=0,
+    )
+    # Source: lll
     # {   (CALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0 0xfffffff 0xfffffff 0xfffffff 0xfffffff)   }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
         code=Op.CALL(
             gas=0x7FFFFFFFFFFFFFF,
-            address=0x849F53126ADE5F72469029537296F2B6644D4D41,
+            address=addr,
             value=0x0,
             args_offset=0xFFFFFFF,
             args_size=0xFFFFFFF,
@@ -82,18 +88,6 @@ def test_call_bounds2(
         )
         + Op.STOP,
         nonce=0,
-        address=Address(0xB6055EE15F692591C71B50A7BDA55180B78F6EF9),  # noqa: E501
-    )
-    # Source: lll
-    # { (SSTORE 0 (ADD 1 (SLOAD 0))) }
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=Op.ADD(0x1, Op.SLOAD(key=0x0)))
-        + Op.STOP,
-        nonce=0,
-        address=Address(0x849F53126ADE5F72469029537296F2B6644D4D41),  # noqa: E501
-    )
-    pre[sender] = Account(
-        balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
     )
 
     tx_data = [

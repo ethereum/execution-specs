@@ -7,7 +7,6 @@ state_tests/stRandom2/randomStatetest458Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -34,9 +33,7 @@ def test_random_statetest458(
 ) -> None:
     """Test_random_statetest458."""
     coinbase = Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79)
-    sender = EOA(
-        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -47,6 +44,22 @@ def test_random_statetest458(
         gas_limit=9223372036854775807,
     )
 
+    # Source: raw
+    # 0x6000355415600957005b60203560003555
+    coinbase = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMPI(
+            pc=0x9,
+            condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
+        )
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.SSTORE(
+            key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
+        ),
+        balance=46,
+        nonce=0,
+        address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
+    )
     # Source: raw
     # 0x7689747fb3520231748bbe5eb9617666e630019e3e84ce7179c5d83b7e36050e5c05623956e599f54eb56213e4f96f69f402cd73e13c366095a3fe56bdd6a815d9ba23f3a9729bc462385c697ed9f24192c949e33ff7ed256c84979d70148b8fd8a62438ca053de2642271456dde46ce78cf7c6d1d2cc48eee658a73ad9f9ca1e550720490e2d0769e0a429773e42fc965ea1030f6c0787b4e7bc4915150a99fc758d3373561d8917c4c7d605f0cd8d2203f4d69606198437429e2f2d2bf742b28760a9c0ab51203d0c5d5b9e16d74ce0428945aaff2d0f99240a901d3233bd04e366c367ab93ecea0c206fbf01084254636df9c1f308c7d6875d5d5d37f3ce27989e39048f175f0d2dc49eaa86530def7ab70553f5d3904c843b5736025e321e7e2ab92af570e5b3bef4014c54e65316bb546eb8906f155f7b9405326740104d8f5d98dc97ac374ad0c58f4385e086891b9b2657e982eb15a367eab6683b51ea9f219abae5ca39f669a1a88a82e14efd4192a3edbe04a12d35679cf6338130d67f37c324464d16cc866be846b0304ef9fd3c6611e6cdf1277d65f6b2a58ffb61ba979740b8df72816602071e979e6029c9307d718ffdc70f37ea0019353c06b0fb56d8e3738dfdb18418e952092e8625b51749f276cc6ae416a85bd070c61e65240d8c2719c76b0420f84ece41c9be0f93d4f30581c28f69768395163937f95b86da30fa76b6937870245d9250e06b6e07dffea8f849a37647378dd59ac8365a37dd908eea26be2f53375e1dbee32ecaa7e957eace8c6f0883e4ef830485bd43b2b7851a0b11497f752d3ee4560e312a7a91b7b2a88c109737c92feb7807d481ac3fd823f038c4ba82df40a60982a7c7a6f6ba2cb95233c257b30e1c9d3c84aa37b6f4268fec34fb9eef1f8602e6a7bf1ebfa162680b57af09f7a7fc584055ff32d68a92e59ddaf20bcaaaa70d5970fd71c04cdbab46cf86e566e870664b6df2c6861347b2a3886788bbebbd03cbb51ed29357f699c8b974c61528a0423f67a837bfab83afa78a0bff70a653ea0f398f73632d5e3bea0a31115d65486fb6d667110448e0208264a3f76f35972666e7aa7339f23b08e6028616337a0366016601d6014600b630e6db38e73<contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>635706352bf1695bb9e53d5ad3ba1191ea65ae1880d46c687605148e427a09d40172dbdd5fc72fffb1443080a39a0ee77feed9ddc9050affce41d68c34ad97c484f204a987bcfaf46b9fa4a9ed2dad3738771a3cf86b43f303a8db8cde3ed8a40ae35574b9084f4cab88701d150e628d9b2a33e71c8f9fb0ce9e72866257691776f999b7ddf64f22532351bd34743e08facd1acc94b0d6b56bf97491d5ed9d726af684d1a47abcb243b7c29d12a315e939f70af8d2617df63567c3bc56c16609a27871af77631fe1ccaa0d15f8da9bd9a712a544abb92b925b1d7561fced60b09b6b22f2121b105a65a209e151b76b31be481d57353d10a1d968ca7a185495a8a2935571a0d17443a327bf11cb421baca9064bc4e4497c7d4c486c40082cc2d01b3f6023b726de95ac2ad53ae0b731d741676338181e66c8ac8daf0d54776827987e79d9f617c51f6f4b87cf8fee734c99e5e3fc2e37f17e626cbfd1195157215d10fa39b4b0947c3339139b280c0b042da7ec93a24416d5c52e0ba21ec9d39d6fbcd3d74266580eef6ca9bb9d76bb4dc441f3d6d0cf38307b505251deea82ab39f9ccd17a6507bf16b38640679c22f2134e8258f79b  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -151,23 +164,6 @@ def test_random_statetest458(
         nonce=0,
         address=Address(0x4F391713BDCA6E610DEA121DF82FF743D96D33B6),  # noqa: E501
     )
-    # Source: raw
-    # 0x6000355415600957005b60203560003555
-    coinbase = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMPI(
-            pc=0x9,
-            condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
-        )
-        + Op.STOP
-        + Op.JUMPDEST
-        + Op.SSTORE(
-            key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
-        ),
-        balance=46,
-        nonce=0,
-        address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

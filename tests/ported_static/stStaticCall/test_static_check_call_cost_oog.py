@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_CheckCallCostOOGFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -56,9 +55,7 @@ def test_static_check_call_cost_oog(
 ) -> None:
     """Check balance in blackbox, just fill the balance consumed."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x3327048BBC0B8C348A6352BE62994144E64B8FF2CEC68D9FF4CA4E911ECD5D22
-    )
+    sender = pre.fund_eoa(amount=0x5AF3107A4000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -69,22 +66,6 @@ def test_static_check_call_cost_oog(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0x5AF3107A4000)
-    # Source: lll
-    # { (STATICCALL 100 <contract:0x2000000000000000000000000000000000000000> 0 0 0 0) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.STATICCALL(
-            gas=0x64,
-            address=0xEBE7ED7A6E995C9843A6DF04E332981EBB2772E0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.STOP,
-        nonce=0,
-        address=Address(0xB59292B3A630476ADBC4A3643C0815B682A5009A),  # noqa: E501
-    )
     # Source: lll
     # { (MSTORE 1 1) (KECCAK256 0x00 0x2fffff) }
     addr = pre.deploy_contract(  # noqa: F841
@@ -92,7 +73,20 @@ def test_static_check_call_cost_oog(
         + Op.SHA3(offset=0x0, size=0x2FFFFF)
         + Op.STOP,
         nonce=0,
-        address=Address(0xEBE7ED7A6E995C9843A6DF04E332981EBB2772E0),  # noqa: E501
+    )
+    # Source: lll
+    # { (STATICCALL 100 <contract:0x2000000000000000000000000000000000000000> 0 0 0 0) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.STATICCALL(
+            gas=0x64,
+            address=addr,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        nonce=0,
     )
 
     tx_data = [

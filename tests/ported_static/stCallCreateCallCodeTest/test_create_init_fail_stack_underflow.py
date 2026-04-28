@@ -48,6 +48,7 @@ def test_create_init_fail_stack_underflow(
         gas_limit=1000000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {(MSTORE8 0 0x01 ) (SELFDESTRUCT (CREATE 1 0 1)) }
     target = pre.deploy_contract(  # noqa: F841
@@ -58,7 +59,6 @@ def test_create_init_fail_stack_underflow(
         nonce=0,
         address=Address(0x1EC952083E988EEB19FCAB317760FFC6671246FD),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

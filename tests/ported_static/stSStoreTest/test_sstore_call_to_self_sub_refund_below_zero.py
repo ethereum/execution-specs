@@ -7,7 +7,6 @@ state_tests/stSStoreTest/SstoreCallToSelfSubRefundBelowZeroFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_sstore_call_to_self_sub_refund_below_zero(
 ) -> None:
     """Test where accnt has slot 1 value of '2', is cleared, then calls..."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xAF50993BA9FD52F2A61FCD1DC6D59A44E7AF39F4289201CC19EA7D30E8E27E83
-    )
+    sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFF)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -66,9 +63,7 @@ def test_sstore_call_to_self_sub_refund_below_zero(
         + Op.STOP,
         storage={1: 2},
         nonce=0,
-        address=Address(0xB48023055B6C3D565A6F5488459D64EFAB79B6C7),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFF)
 
     tx = Transaction(
         sender=sender,

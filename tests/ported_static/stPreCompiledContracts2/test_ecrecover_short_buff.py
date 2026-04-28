@@ -47,6 +47,7 @@ def test_ecrecover_short_buff(
         gas_limit=71794957647893862,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
     # Source: yul
     # berlin
     # {
@@ -149,7 +150,6 @@ def test_ecrecover_short_buff(
         nonce=1,
         address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
 
     tx = Transaction(
         sender=sender,

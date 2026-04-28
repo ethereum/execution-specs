@@ -1056,6 +1056,7 @@ def test_underflow_test(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
     # Source: raw
     # 0x600160015560800100
     addr = pre.deploy_contract(  # noqa: F841
@@ -2762,7 +2763,6 @@ def test_underflow_test(
         nonce=0,
         address=Address(0x4C5F839D523E76FC3837E085A3E1538CD36E288A),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     expect_entries_: list[dict] = [
         {

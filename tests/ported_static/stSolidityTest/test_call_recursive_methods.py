@@ -7,7 +7,6 @@ state_tests/stSolidityTest/CallRecursiveMethodsFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_call_recursive_methods(
 ) -> None:
     """Test_call_recursive_methods."""
     coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
-    sender = EOA(
-        key=0xA9AE12CB2700C0214F86B9796881BC03A1FD5605D0E76D2DA2CA592E62D53E52
-    )
+    sender = pre.fund_eoa(amount=0x12A05F200)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -90,9 +87,7 @@ def test_call_recursive_methods(
         + Op.JUMP,
         balance=0x186A0,
         nonce=0,
-        address=Address(0xC7C7851C7F3291BED1039BB4FFA166C290A605A9),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x12A05F200)
 
     tx = Transaction(
         sender=sender,

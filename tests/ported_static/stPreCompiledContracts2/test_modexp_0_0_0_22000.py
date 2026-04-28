@@ -92,6 +92,78 @@ def test_modexp_0_0_0_22000(
 
     pre[sender] = Account(balance=0xDE0B6B3A761FE12, nonce=1)
     # Source: hex
+    # 0x
+    coinbase = pre.deploy_contract(  # noqa: F841
+        code="",
+        balance=0x201EE,
+        nonce=0,
+        address=Address(0x3535353535353535353535353535353535353535),  # noqa: E501
+    )
+    # Source: hex
+    # 0x
+    contract_1 = pre.deploy_contract(  # noqa: F841
+        code="",
+        balance=1,
+        nonce=0,
+        address=Address(0x0000000000000000000000000000000000000001),  # noqa: E501
+    )
+    # Source: hex
+    # 0x
+    contract_2 = pre.deploy_contract(  # noqa: F841
+        code="",
+        balance=1,
+        nonce=0,
+        address=Address(0x0000000000000000000000000000000000000005),  # noqa: E501
+    )
+    # Source: hex
+    # 0x
+    contract_3 = pre.deploy_contract(  # noqa: F841
+        code="",
+        balance=1,
+        nonce=0,
+        address=Address(0x0000000000000000000000000000000000000008),  # noqa: E501
+    )
+    # Source: hex
+    # 0x
+    contract_4 = pre.deploy_contract(  # noqa: F841
+        code="",
+        balance=1,
+        nonce=0,
+        address=Address(0x0000000000000000000000000000000000000003),  # noqa: E501
+    )
+    # Source: hex
+    # 0x
+    contract_5 = pre.deploy_contract(  # noqa: F841
+        code="",
+        balance=1,
+        nonce=0,
+        address=Address(0x0000000000000000000000000000000000000006),  # noqa: E501
+    )
+    # Source: hex
+    # 0x
+    contract_6 = pre.deploy_contract(  # noqa: F841
+        code="",
+        balance=1,
+        nonce=0,
+        address=Address(0x0000000000000000000000000000000000000007),  # noqa: E501
+    )
+    # Source: hex
+    # 0x
+    contract_7 = pre.deploy_contract(  # noqa: F841
+        code="",
+        balance=1,
+        nonce=0,
+        address=Address(0x0000000000000000000000000000000000000004),  # noqa: E501
+    )
+    # Source: hex
+    # 0x
+    contract_8 = pre.deploy_contract(  # noqa: F841
+        code="",
+        balance=1,
+        nonce=0,
+        address=Address(0x0000000000000000000000000000000000000002),  # noqa: E501
+    )
+    # Source: hex
     # 0x600035601c52740100000000000000000000000000000000000000006020526fffffffffffffffffffffffffffffffff6040527fffffffffffffffffffffffffffffffff000000000000000000000000000000016060527402540be3fffffffffffffffffffffffffdabf41c006080527ffffffffffffffffffffffffdabf41c00000000000000000000000002540be40060a0526330c8d1da600051141561012b5760846004356004013511151558576004356004013560200160043560040161014037600161024061014051610160600060056305f5e0fff11558576001610220526102206021806102808284600060046015f150505061028080516020820120905060005561028060206020820352604081510160206001820306601f820103905060208203f350005b  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x1C, value=Op.CALLDATALOAD(offset=0x0))
@@ -185,78 +257,6 @@ def test_modexp_0_0_0_22000(
         + Op.JUMPDEST,
         nonce=1,
         address=Address(0xC305C901078781C232A2A521C2AF7980F8385EE9),  # noqa: E501
-    )
-    # Source: hex
-    # 0x
-    coinbase = pre.deploy_contract(  # noqa: F841
-        code="",
-        balance=0x201EE,
-        nonce=0,
-        address=Address(0x3535353535353535353535353535353535353535),  # noqa: E501
-    )
-    # Source: hex
-    # 0x
-    contract_1 = pre.deploy_contract(  # noqa: F841
-        code="",
-        balance=1,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000000001),  # noqa: E501
-    )
-    # Source: hex
-    # 0x
-    contract_2 = pre.deploy_contract(  # noqa: F841
-        code="",
-        balance=1,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000000005),  # noqa: E501
-    )
-    # Source: hex
-    # 0x
-    contract_3 = pre.deploy_contract(  # noqa: F841
-        code="",
-        balance=1,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000000008),  # noqa: E501
-    )
-    # Source: hex
-    # 0x
-    contract_4 = pre.deploy_contract(  # noqa: F841
-        code="",
-        balance=1,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000000003),  # noqa: E501
-    )
-    # Source: hex
-    # 0x
-    contract_5 = pre.deploy_contract(  # noqa: F841
-        code="",
-        balance=1,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000000006),  # noqa: E501
-    )
-    # Source: hex
-    # 0x
-    contract_6 = pre.deploy_contract(  # noqa: F841
-        code="",
-        balance=1,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000000007),  # noqa: E501
-    )
-    # Source: hex
-    # 0x
-    contract_7 = pre.deploy_contract(  # noqa: F841
-        code="",
-        balance=1,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000000004),  # noqa: E501
-    )
-    # Source: hex
-    # 0x
-    contract_8 = pre.deploy_contract(  # noqa: F841
-        code="",
-        balance=1,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000000002),  # noqa: E501
     )
 
     tx_data = [

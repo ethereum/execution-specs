@@ -46,6 +46,7 @@ def test_test_name_registrator(
         gas_limit=1000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: raw
     # 0x6000355415600957005b60203560003555
     target = pre.deploy_contract(  # noqa: F841
@@ -62,7 +63,6 @@ def test_test_name_registrator(
         nonce=0,
         address=Address(0xFD6034FF12FAD248C17CA3C09F0D7B19243275CD),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

@@ -50,6 +50,7 @@ def test_static_call_ecrecover0_complete_return_value(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { (MSTORE 0 0x18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c) (MSTORE 32 28) (MSTORE 64 0x73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75f) (MSTORE 96 0xeeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549) [[ 2 ]] (STATICCALL 13000 1 0 128 128 32) [[ 0 ]] (MLOAD 128) }  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -83,7 +84,6 @@ def test_static_call_ecrecover0_complete_return_value(
         nonce=0,
         address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
@@ -93,13 +93,6 @@ def test_static_call_ecrecover0_complete_return_value(
         value=0x186A0,
     )
 
-    post = {
-        contract_0: Account(
-            storage={
-                0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                2: 1,
-            },
-        ),
-    }
+    post = {contract_0: Account(storage={0: sender, 2: 1})}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

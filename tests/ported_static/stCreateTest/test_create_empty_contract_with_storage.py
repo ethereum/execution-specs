@@ -88,7 +88,7 @@ def test_create_empty_contract_with_storage(
         contract_0: Account(
             storage={
                 0: 0x8D5B6,
-                1: 0xF1ECF98489FA9ED60A664FC4998DB699CFA39D40,
+                1: compute_create_address(address=contract_0, nonce=0),
                 100: 0x6F4F0,
             },
         ),

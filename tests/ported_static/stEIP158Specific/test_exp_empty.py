@@ -7,7 +7,6 @@ state_tests/stEIP158Specific/EXP_EmptyFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_exp_empty(
 ) -> None:
     """Test_exp_empty."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -46,7 +43,6 @@ def test_exp_empty(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # { [0](GAS) [[1]](EXP 0 12)  [[2]](SUB @0 (GAS)) [0](GAS) [[3]](EXP 12 0) [[4]](SUB @0 (GAS)) [0](GAS) [[5]](EXP 0 0xffffffffffffffff) [[6]](SUB @0 (GAS)) [0](GAS) [[7]](EXP 0 0xffffffffffffffffffffffffffffffff) [[8]](SUB @0 (GAS)) [0](GAS) [[9]](EXP 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) [[10]](SUB @0 (GAS)) [0](GAS) [[11]](EXP 0xffffffffffffffff 0) [[12]](SUB @0 (GAS)) [0](GAS) [[13]](EXP 0xffffffffffffffffffffffffffffffff 0) [[14]](SUB @0 (GAS)) [0] (GAS) [[15]](EXP 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0) [[100]] (SUB @0 (GAS)) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -92,7 +88,6 @@ def test_exp_empty(
         + Op.SSTORE(key=0x64, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
         + Op.STOP,
         nonce=0,
-        address=Address(0x8A3C9879FC69C8C45C1201C27DA63312E9E9F6FE),  # noqa: E501
     )
 
     tx = Transaction(

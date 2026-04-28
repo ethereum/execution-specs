@@ -7,7 +7,6 @@ state_tests/stEIP2930/storageCostsFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     AccessList,
     Account,
     Address,
@@ -275,9 +274,7 @@ def test_storage_costs(
     contract_8 = Address(0x0000000000000000000000000000000000001020)
     contract_9 = Address(0x0000000000000000000000000000000000001021)
     contract_10 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -649,7 +646,6 @@ def test_storage_costs(
         nonce=0,
         address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     expect_entries_: list[dict] = [
         {
@@ -797,7 +793,7 @@ def test_storage_costs(
     tx_access_lists: dict[int, list] = {
         0: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001000),
+                address=contract_0,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -807,7 +803,7 @@ def test_storage_costs(
         ],
         1: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001001),
+                address=contract_1,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -817,7 +813,7 @@ def test_storage_costs(
         ],
         2: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001002),
+                address=contract_2,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -827,7 +823,7 @@ def test_storage_costs(
         ],
         3: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001003),
+                address=contract_3,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -837,7 +833,7 @@ def test_storage_costs(
         ],
         4: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001004),
+                address=contract_4,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -847,7 +843,7 @@ def test_storage_costs(
         ],
         5: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001005),
+                address=contract_5,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -857,7 +853,7 @@ def test_storage_costs(
         ],
         6: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001000),
+                address=contract_0,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000010"  # noqa: E501
@@ -867,7 +863,7 @@ def test_storage_costs(
         ],
         7: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001001),
+                address=contract_1,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000010"  # noqa: E501
@@ -877,7 +873,7 @@ def test_storage_costs(
         ],
         8: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001002),
+                address=contract_2,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000010"  # noqa: E501
@@ -887,7 +883,7 @@ def test_storage_costs(
         ],
         9: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001003),
+                address=contract_3,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000010"  # noqa: E501
@@ -897,7 +893,7 @@ def test_storage_costs(
         ],
         10: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001004),
+                address=contract_4,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000010"  # noqa: E501
@@ -907,7 +903,7 @@ def test_storage_costs(
         ],
         11: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001005),
+                address=contract_5,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000010"  # noqa: E501
@@ -977,7 +973,7 @@ def test_storage_costs(
         ],
         24: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001010),
+                address=contract_6,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -987,7 +983,7 @@ def test_storage_costs(
         ],
         25: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001010),
+                address=contract_6,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000010"  # noqa: E501
@@ -997,7 +993,7 @@ def test_storage_costs(
         ],
         26: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001011),
+                address=contract_7,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -1007,7 +1003,7 @@ def test_storage_costs(
         ],
         27: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001011),
+                address=contract_7,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000010"  # noqa: E501
@@ -1017,7 +1013,7 @@ def test_storage_costs(
         ],
         28: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001020),
+                address=contract_8,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -1027,7 +1023,7 @@ def test_storage_costs(
         ],
         29: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001020),
+                address=contract_8,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000010"  # noqa: E501
@@ -1037,7 +1033,7 @@ def test_storage_costs(
         ],
         30: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001021),
+                address=contract_9,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -1047,7 +1043,7 @@ def test_storage_costs(
         ],
         31: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001021),
+                address=contract_9,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000010"  # noqa: E501
@@ -1057,7 +1053,7 @@ def test_storage_costs(
         ],
         32: [
             AccessList(
-                address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),
+                address=contract_10,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -1095,7 +1091,7 @@ def test_storage_costs(
         ],
         34: [
             AccessList(
-                address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),
+                address=contract_10,
                 storage_keys=[
                     Hash(
                         "0x000000000000000000000000000000000000000000000000000000000000f000"  # noqa: E501
@@ -1131,7 +1127,7 @@ def test_storage_costs(
                 ],
             ),
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001000),
+                address=contract_0,
                 storage_keys=[
                     Hash(
                         "0x00000000000000000000000000000000000000000000000000000000000fffff"  # noqa: E501

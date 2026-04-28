@@ -1,9 +1,8 @@
-site_name: Ethereum Execution Layer Specifications
+site_name: Ethereum Execution Specs
 site_description: The Ethereum Execution Layer Specifications and Tests
-site_url: https://steel.ethereum.foundation/docs/
+site_url: !ENV [SITE_URL, "https://steel.ethereum.foundation/docs/execution-specs/"]
 repo_url: https://github.com/ethereum/execution-specs
 repo_name: execution-specs
-edit_uri: edit/forks/amsterdam/docs/
 copyright: "Copyright: 2026, Ethereum Community"
 
 plugins:
@@ -31,6 +30,9 @@ plugins:
         - docs/scripts/generate_fill_help.py
   - literate-nav:
       nav_file: navigation.md
+
+hooks:
+  - docs/hooks/reference_new_tab.py
 
 watch:
   - CONTRIBUTING.md

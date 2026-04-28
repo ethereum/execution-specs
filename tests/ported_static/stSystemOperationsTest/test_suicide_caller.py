@@ -7,7 +7,6 @@ state_tests/stSystemOperationsTest/suicideCallerFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_suicide_caller(
 ) -> None:
     """Test_suicide_caller."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -54,9 +51,7 @@ def test_suicide_caller(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x26A4C0125CC2AC853D5C04C3A710E7628EE352A3),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
@@ -68,11 +63,7 @@ def test_suicide_caller(
 
     post = {
         sender: Account(nonce=1),
-        target: Account(
-            storage={0: 0xEBAF50DEBF10E08302FE4280C32DF010463CA297},
-            balance=0,
-            nonce=0,
-        ),
+        target: Account(storage={0: sender}, balance=0, nonce=0),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

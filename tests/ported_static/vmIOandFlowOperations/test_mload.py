@@ -82,6 +82,7 @@ def test_mload(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0x100000000000)
     # Source: lll
     # {
     #      [0] 0x0000111122223333444455556666777788889999aaaabbbbccccddddeeeeffff  # noqa: E501
@@ -140,7 +141,6 @@ def test_mload(
         nonce=0,
         address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x100000000000)
 
     expect_entries_: list[dict] = [
         {

@@ -46,6 +46,7 @@ def test_caller_account_balance(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { [[0]] (balance (caller)) }
     target = pre.deploy_contract(  # noqa: F841
@@ -54,7 +55,6 @@ def test_caller_account_balance(
         nonce=0,
         address=Address(0x13AB36BAF5501D0A3C5CD05BE4788496F99A4E34),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

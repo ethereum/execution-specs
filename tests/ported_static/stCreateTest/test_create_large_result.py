@@ -16,6 +16,7 @@ from execution_testing import (
     Hash,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -159,6 +160,7 @@ def test_create_large_result(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
     # Source: yul
     # london
     # {
@@ -217,9 +219,9 @@ def test_create_large_result(
         + Op.CALLDATALOAD(offset=0x44)
         + Op.SWAP1
         + Op.PUSH1[0x1]
-        + Op.EXTCODESIZE(address=0xC0DE)
+        + Op.EXTCODESIZE(address=contract_0)
         + Op.EXTCODECOPY(
-            address=0xC0DE, dest_offset=Op.DUP1, offset=0x0, size=Op.DUP1
+            address=contract_0, dest_offset=Op.DUP1, offset=0x0, size=Op.DUP1
         )
         + Op.SUB
         + Op.MSTORE8
@@ -248,7 +250,6 @@ def test_create_large_result(
         nonce=1,
         address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
 
     expect_entries_: list[dict] = [
         {
@@ -257,7 +258,7 @@ def test_create_large_result(
             "result": {
                 contract_1: Account(
                     storage={
-                        0: 0x553E6C30AF61E7A3576F31311EA8A620F80D047E,
+                        0: compute_create_address(address=contract_1, nonce=1),
                         1: 0x1777F,
                         2: 0xD956C0ABD597440481902014A37B733358EE7685461EB1B5916EEFD83381E6D9,  # noqa: E501
                     },
@@ -293,7 +294,7 @@ def test_create_large_result(
             "result": {
                 contract_1: Account(
                     storage={
-                        0: 0x553E6C30AF61E7A3576F31311EA8A620F80D047E,
+                        0: compute_create_address(address=contract_1, nonce=1),
                         1: 0x4BBCE4,
                         2: 0xDCBCC213F0C91B71D38DEDD06C95CCB99467B9B05F275BED536DE1044F5F18FA,  # noqa: E501
                     },

@@ -46,6 +46,7 @@ def test_call_ecrecover3(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { (MSTORE 0 0x2f380a2dea7e778d81affc2443403b8fe4644db442ae4862ff5bb3732829cdb9) (MSTORE 32 27) (MSTORE 64 0x6b65ccb0558806e9b097f27a396d08f964e37b8b7af6ceeb516ff86739fbea0a) (MSTORE 96 0x37cbc8d883e129a4b1ef9d5f1df53c4f21a3ef147cf2a50a4ede0eb06ce092d4) [[ 2 ]] (CALL 100000 1 0 0 128 128 32) [[ 0 ]] (MOD (MLOAD 128) (EXP 2 160)) [[ 1 ]] (EQ (ORIGIN) (SLOAD 0))  }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -83,7 +84,6 @@ def test_call_ecrecover3(
         nonce=0,
         address=Address(0x28D98D7CC227972A80FA4A16964272BF8738D792),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

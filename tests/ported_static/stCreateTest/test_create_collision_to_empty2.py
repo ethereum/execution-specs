@@ -138,6 +138,8 @@ def test_create_collision_to_empty2(
     )
 
     pre[sender] = Account(balance=0xE8D4A51000)
+    pre[contract_4] = Account(balance=10)
+    pre[contract_5] = Account(balance=0, nonce=2)
     # Source: lll
     # { (CALL 80000 (CALLDATALOAD 0) 0 0 0 0 0) }
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -181,8 +183,6 @@ def test_create_collision_to_empty2(
         nonce=0,
         address=Address(0x3000000000000000000000000000000000000000),  # noqa: E501
     )
-    pre[contract_4] = Account(balance=10)
-    pre[contract_5] = Account(balance=0, nonce=2)
     # Source: raw
     # 0x1122334455
     contract_6 = pre.deploy_contract(  # noqa: F841
@@ -206,10 +206,7 @@ def test_create_collision_to_empty2(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                contract_1: Account(
-                    storage={1: 0x13136008B64FF592819B2FA6D43F2835C452020E},
-                    nonce=1,
-                ),
+                contract_1: Account(storage={1: contract_4}, nonce=1),
                 contract_4: Account(
                     storage={1: 1}, code=b"", balance=10, nonce=1
                 ),

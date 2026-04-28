@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_Call1024BalanceTooLowFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -60,10 +59,7 @@ def test_static_call1024_balance_too_low(
 ) -> None:
     """Test_static_call1024_balance_too_low."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    addr = Address(0xD9B97C712EBCE43F3C19179BBEF44B550F9E8BC0)
-    sender = EOA(
-        key=0xE7C72B378297589ACEE4E0BA3272841BCFC5E220F86DE253F890274CFEE9E474
-    )
+    sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -74,8 +70,7 @@ def test_static_call1024_balance_too_low(
         gas_limit=9223372036854775807,
     )
 
-    pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-    pre[addr] = Account(balance=7000)
+    addr = pre.fund_eoa(amount=7000)  # noqa: F841
     # Source: lll
     # {  [[ 0 ]] (CALL (GAS) (CALLDATALOAD 0) (CALLVALUE) 0 0 0 0) [[ 1 ]] 1 }
     target = pre.deploy_contract(  # noqa: F841

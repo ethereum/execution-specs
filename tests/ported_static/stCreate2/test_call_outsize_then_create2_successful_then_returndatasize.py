@@ -7,7 +7,6 @@ state_tests/stCreate2/call_outsize_then_create2_successful_then_returndatasizeFi
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -40,9 +39,7 @@ def test_call_outsize_then_create2_successful_then_returndatasize(
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x0AABBCCDD5C57F15886F9B263E2F6D2D6C7B5EC6)
     contract_1 = Address(0x0F572E5295C57F15886F9B263E2F6D2D6C7B5EC6)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0x6400000000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -62,7 +59,6 @@ def test_call_outsize_then_create2_successful_then_returndatasize(
         + Op.RETURN(offset=0x0, size=0x20)
         + Op.STOP,
         nonce=0,
-        address=Address(0x0AABBCCDD5C57F15886F9B263E2F6D2D6C7B5EC6),  # noqa: E501
     )
     # Source: lll
     # { (seq (CALL 0x0900000000 0x0aabbccdd5c57f15886f9b263e2f6d2d6c7b5ec6 0 0 0 0 0x20) (CREATE2 0 0 (lll (seq (mstore 0 0x112233) (RETURN 0 32) (STOP) ) 0) 0) (SSTORE 0 (RETURNDATASIZE)) (STOP) )}  # noqa: E501
@@ -70,7 +66,7 @@ def test_call_outsize_then_create2_successful_then_returndatasize(
         code=Op.POP(
             Op.CALL(
                 gas=0x900000000,
-                address=0xAABBCCDD5C57F15886F9B263E2F6D2D6C7B5EC6,
+                address=contract_0,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -91,9 +87,7 @@ def test_call_outsize_then_create2_successful_then_returndatasize(
         + Op.STOP * 2,
         storage={0: 1},
         nonce=0,
-        address=Address(0x0F572E5295C57F15886F9B263E2F6D2D6C7B5EC6),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x6400000000)
 
     tx = Transaction(
         sender=sender,

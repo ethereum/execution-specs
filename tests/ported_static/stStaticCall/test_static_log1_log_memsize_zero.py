@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_log1_logMemsizeZeroFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -34,9 +33,7 @@ def test_static_log1_log_memsize_zero(
 ) -> None:
     """Test_static_log1_log_memsize_zero."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -48,25 +45,6 @@ def test_static_log1_log_memsize_zero(
     )
 
     # Source: lll
-    # { [[ 0 ]] (STATICCALL 1000 <contract:0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6> 0 0 0 0) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0x0,
-            value=Op.STATICCALL(
-                gas=0x3E8,
-                address=0xC1F290174E61D4F7F40C5E11677591C31E0F63C7,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.STOP,
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0xE230B8D7763E30CA988447DAA182146B0BEA3764),  # noqa: E501
-    )
-    # Source: lll
     # { (MSTORE 0 0xaabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd) (LOG1 1 0 0) }  # noqa: E501
     addr = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(
@@ -77,9 +55,25 @@ def test_static_log1_log_memsize_zero(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0xC1F290174E61D4F7F40C5E11677591C31E0F63C7),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
+    # Source: lll
+    # { [[ 0 ]] (STATICCALL 1000 <contract:0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6> 0 0 0 0) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.STATICCALL(
+                gas=0x3E8,
+                address=addr,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
+        nonce=0,
+    )
 
     tx = Transaction(
         sender=sender,

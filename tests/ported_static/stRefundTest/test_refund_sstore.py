@@ -7,7 +7,6 @@ state_tests/stRefundTest/refundSSTOREFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_refund_sstore(
 ) -> None:
     """Ori Pomerantz   qbzzt1@gmail."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x8C45B94DCA330650C0392398FB2097BB64764E973720A845EE67605FFABF0C7C
-    )
+    sender = pre.fund_eoa(amount=0xE8D631F190, nonce=1)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -56,9 +53,7 @@ def test_refund_sstore(
         storage={0: 24743},
         balance=0xDE0B6B3A7640000,
         nonce=1,
-        address=Address(0xF5F86B947FC07A75E19106A6B7E4953D431AD57F),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xE8D631F190, nonce=1)
 
     tx = Transaction(
         sender=sender,

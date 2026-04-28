@@ -48,6 +48,7 @@ def test_suicide_not_existing_account(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { (SELFDESTRUCT 0xaa1722f3947def4cf144679da39c4c32bdc35681 )}
     target = pre.deploy_contract(  # noqa: F841
@@ -59,7 +60,6 @@ def test_suicide_not_existing_account(
         nonce=0,
         address=Address(0x70C22830049F2678C8AA93D0060683CD67696495),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

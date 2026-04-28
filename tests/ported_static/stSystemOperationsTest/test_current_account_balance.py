@@ -46,6 +46,7 @@ def test_current_account_balance(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { [[0]] (balance (address)) }
     target = pre.deploy_contract(  # noqa: F841
@@ -55,7 +56,6 @@ def test_current_account_balance(
         nonce=0,
         address=Address(0xFA1ADC30EF8A61E7996FA659B532621C0816E14D),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

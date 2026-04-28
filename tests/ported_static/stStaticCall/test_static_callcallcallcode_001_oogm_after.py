@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_callcallcallcode_001_OOGMAfterFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -58,9 +57,7 @@ def test_static_callcallcallcode_001_oogm_after(
 ) -> None:
     """Test_static_callcallcallcode_001_oogm_after."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -92,23 +89,30 @@ def test_static_callcallcallcode_001_oogm_after(
         address=Address(0xF1F083974FD68B961E68130C27FC5EF37B49C1DF),  # noqa: E501
     )
     # Source: lll
-    # {  (MSTORE 3 1) (STATICCALL 400085 <contract:0x1000000000000000000000000000000000000002> 0 64 0 64 ) (SSTORE 3 1) }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
+    # {  (MSTORE 3 1) }
+    addr_4 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x3, value=0x1) + Op.STOP,
+        nonce=0,
+        address=Address(0x335C5531B84765A7626E6E76688F18B81BE5259C),  # noqa: E501
+    )
+    # Source: lll
+    # {  (MSTORE 3 1) (DELEGATECALL 120020 <contract:0x1000000000000000000000000000000000000003> 0 64 0 64 ) (MSTORE 32 1) }  # noqa: E501
+    addr_3 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x3, value=0x1)
         + Op.POP(
-            Op.STATICCALL(
-                gas=0x61AD5,
-                address=0x265EEB9A84FEA22DA8B58252402B03BAFE1A6324,
+            Op.DELEGATECALL(
+                gas=0x1D4D4,
+                address=0x335C5531B84765A7626E6E76688F18B81BE5259C,
                 args_offset=0x0,
                 args_size=0x40,
                 ret_offset=0x0,
                 ret_size=0x40,
             )
         )
-        + Op.SSTORE(key=0x3, value=0x1)
+        + Op.MSTORE(offset=0x20, value=0x1)
         + Op.STOP,
         nonce=0,
-        address=Address(0x4CD868420CBC0E9D9BA63455A2D0A36CE0FABF2C),  # noqa: E501
+        address=Address(0x265EEB9A84FEA22DA8B58252402B03BAFE1A6324),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 3 1) (STATICCALL 400085 <contract:0x1000000000000000000000000000000000000002> 0 64 0 64 ) (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (EXTCODESIZE 1)  ) }  # noqa: E501
@@ -137,32 +141,24 @@ def test_static_callcallcallcode_001_oogm_after(
         address=Address(0xEE8F7E38BE79A20210BA7860A51507505984E4ED),  # noqa: E501
     )
     # Source: lll
-    # {  (MSTORE 3 1) (DELEGATECALL 120020 <contract:0x1000000000000000000000000000000000000003> 0 64 0 64 ) (MSTORE 32 1) }  # noqa: E501
-    addr_3 = pre.deploy_contract(  # noqa: F841
+    # {  (MSTORE 3 1) (STATICCALL 400085 <contract:0x1000000000000000000000000000000000000002> 0 64 0 64 ) (SSTORE 3 1) }  # noqa: E501
+    addr = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x3, value=0x1)
         + Op.POP(
-            Op.DELEGATECALL(
-                gas=0x1D4D4,
-                address=0x335C5531B84765A7626E6E76688F18B81BE5259C,
+            Op.STATICCALL(
+                gas=0x61AD5,
+                address=0x265EEB9A84FEA22DA8B58252402B03BAFE1A6324,
                 args_offset=0x0,
                 args_size=0x40,
                 ret_offset=0x0,
                 ret_size=0x40,
             )
         )
-        + Op.MSTORE(offset=0x20, value=0x1)
+        + Op.SSTORE(key=0x3, value=0x1)
         + Op.STOP,
         nonce=0,
-        address=Address(0x265EEB9A84FEA22DA8B58252402B03BAFE1A6324),  # noqa: E501
+        address=Address(0x4CD868420CBC0E9D9BA63455A2D0A36CE0FABF2C),  # noqa: E501
     )
-    # Source: lll
-    # {  (MSTORE 3 1) }
-    addr_4 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x3, value=0x1) + Op.STOP,
-        nonce=0,
-        address=Address(0x335C5531B84765A7626E6E76688F18B81BE5259C),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx_data = [
         Hash(addr, left_padding=True),

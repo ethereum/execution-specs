@@ -7,7 +7,6 @@ state_tests/stEIP150Specific/CreateAndGasInsideCreateFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_create_and_gas_inside_create(
     """Test_create_and_gas_inside_create."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -48,7 +45,6 @@ def test_create_and_gas_inside_create(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # { [100] (GAS) (MSTORE 0 0x5a60fd55) (SSTORE 11 (CREATE 0 28 4)) (SSTORE 9 (SUB @100 (GAS))) }  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -58,7 +54,6 @@ def test_create_and_gas_inside_create(
         + Op.SSTORE(key=0x9, value=Op.SUB(Op.MLOAD(offset=0x64), Op.GAS))
         + Op.STOP,
         nonce=0,
-        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     tx = Transaction(
@@ -72,7 +67,7 @@ def test_create_and_gas_inside_create(
         contract_0: Account(
             storage={
                 9: 0x129DB,
-                11: 0xF1ECF98489FA9ED60A664FC4998DB699CFA39D40,
+                11: compute_create_address(address=contract_0, nonce=0),
             },
         ),
         compute_create_address(address=contract_0, nonce=0): Account(

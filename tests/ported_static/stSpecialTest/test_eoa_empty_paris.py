@@ -239,7 +239,7 @@ def test_eoa_empty_paris(
                 sender: Account(nonce=1),
                 contract_5: Account(
                     storage={
-                        0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        0: sender,
                         49: 0,
                         59: 0,
                         63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
@@ -261,7 +261,7 @@ def test_eoa_empty_paris(
                 sender: Account(nonce=1),
                 contract_5: Account(
                     storage={
-                        0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        0: sender,
                         49: 0,
                         59: 0,
                         63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
@@ -291,7 +291,7 @@ def test_eoa_empty_paris(
                 sender: Account(nonce=1),
                 contract_5: Account(
                     storage={
-                        0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        0: sender,
                         49: 100,
                         59: 0,
                         63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
@@ -313,7 +313,7 @@ def test_eoa_empty_paris(
                 sender: Account(nonce=1),
                 contract_5: Account(
                     storage={
-                        0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        0: sender,
                         49: 100,
                         59: 0,
                         63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
@@ -335,7 +335,7 @@ def test_eoa_empty_paris(
                 sender: Account(nonce=1),
                 contract_5: Account(
                     storage={
-                        0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        0: sender,
                         49: 0,
                         59: 0,
                         63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
@@ -357,7 +357,7 @@ def test_eoa_empty_paris(
                 sender: Account(nonce=1),
                 contract_5: Account(
                     storage={
-                        0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        0: sender,
                         49: 0,
                         59: 0,
                         63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501

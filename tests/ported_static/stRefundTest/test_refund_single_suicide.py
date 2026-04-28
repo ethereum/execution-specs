@@ -7,7 +7,6 @@ state_tests/stRefundTest/refund_singleSuicideFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_refund_single_suicide(
 ) -> None:
     """Test_refund_single_suicide."""
     coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
-    sender = EOA(
-        key=0x2B75D0C814EB07C075FCCBDD9A036FAF651D9C46D7477D6C4F30772CFCA90D38
-    )
+    sender = pre.fund_eoa(amount=0x1C9C380)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -120,9 +117,7 @@ def test_refund_single_suicide(
         + Op.JUMP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0xFC2C9403120F755B844FD30D99C231483E701631),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x1C9C380)
 
     tx = Transaction(
         sender=sender,

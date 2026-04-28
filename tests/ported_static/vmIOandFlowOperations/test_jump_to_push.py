@@ -624,26 +624,7 @@ def test_jump_to_push(
         gas_limit=100000000,
     )
 
-    # Source: raw
-    # 0x6001600055600A56605B5B
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.JUMP(pc=0xA)
-        + Op.PUSH1[0x5B]
-        + Op.JUMPDEST,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000001A),  # noqa: E501
-    )
-    # Source: raw
-    # 0x6001600055600956605B5B
-    contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.JUMP(pc=0x9)
-        + Op.PUSH1[0x5B]
-        + Op.JUMPDEST,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000001B),  # noqa: E501
-    )
+    pre[sender] = Account(balance=0x100000000000)
     # Source: raw
     # 0x6001600055600B56615B5B5B
     contract_2 = pre.deploy_contract(  # noqa: F841
@@ -1095,16 +1076,6 @@ def test_jump_to_push(
         address=Address(0x000000000000000000000000000000000000010C),  # noqa: E501
     )
     # Source: raw
-    # 0x6001600055601A56705B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
-    contract_47 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.JUMP(pc=0x1A)
-        + Op.PUSH17[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
-        + Op.JUMPDEST,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000011A),  # noqa: E501
-    )
-    # Source: raw
     # 0x6001600055600956705B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
     contract_48 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=0x1)
@@ -1125,16 +1096,6 @@ def test_jump_to_push(
         address=Address(0x000000000000000000000000000000000000011C),  # noqa: E501
     )
     # Source: raw
-    # 0x6001600055601B56715B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
-    contract_50 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.JUMP(pc=0x1B)
-        + Op.PUSH18[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
-        + Op.JUMPDEST,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000012A),  # noqa: E501
-    )
-    # Source: raw
     # 0x6001600055600956715B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
     contract_51 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=0x1)
@@ -1143,16 +1104,6 @@ def test_jump_to_push(
         + Op.JUMPDEST,
         nonce=0,
         address=Address(0x000000000000000000000000000000000000012B),  # noqa: E501
-    )
-    # Source: raw
-    # 0x6001600055601A56715B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
-    contract_52 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.JUMP(pc=0x1A)
-        + Op.PUSH18[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
-        + Op.JUMPDEST,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000012C),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055601C56725B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1173,16 +1124,6 @@ def test_jump_to_push(
         + Op.JUMPDEST,
         nonce=0,
         address=Address(0x000000000000000000000000000000000000013B),  # noqa: E501
-    )
-    # Source: raw
-    # 0x6001600055601B56725B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
-    contract_55 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.JUMP(pc=0x1B)
-        + Op.PUSH19[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
-        + Op.JUMPDEST,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000013C),  # noqa: E501
     )
     # Source: raw
     # 0x6001600055601D56735B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
@@ -1617,7 +1558,66 @@ def test_jump_to_push(
         nonce=0,
         address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x100000000000)
+    # Source: raw
+    # 0x6001600055600956605B5B
+    contract_1 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=0x1)
+        + Op.JUMP(pc=0x9)
+        + Op.PUSH1[0x5B]
+        + Op.JUMPDEST,
+        nonce=0,
+        address=Address(0x000000000000000000000000000000000000001B),  # noqa: E501
+    )
+    # Source: raw
+    # 0x6001600055600A56605B5B
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=0x1)
+        + Op.JUMP(pc=0xA)
+        + Op.PUSH1[0x5B]
+        + Op.JUMPDEST,
+        nonce=0,
+        address=Address(0x000000000000000000000000000000000000001A),  # noqa: E501
+    )
+    # Source: raw
+    # 0x6001600055601B56725B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+    contract_55 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=0x1)
+        + Op.JUMP(pc=0x1B)
+        + Op.PUSH19[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
+        + Op.JUMPDEST,
+        nonce=0,
+        address=Address(0x000000000000000000000000000000000000013C),  # noqa: E501
+    )
+    # Source: raw
+    # 0x6001600055601B56715B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+    contract_50 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=0x1)
+        + Op.JUMP(pc=0x1B)
+        + Op.PUSH18[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
+        + Op.JUMPDEST,
+        nonce=0,
+        address=Address(0x000000000000000000000000000000000000012A),  # noqa: E501
+    )
+    # Source: raw
+    # 0x6001600055601A56705B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+    contract_47 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=0x1)
+        + Op.JUMP(pc=0x1A)
+        + Op.PUSH17[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
+        + Op.JUMPDEST,
+        nonce=0,
+        address=Address(0x000000000000000000000000000000000000011A),  # noqa: E501
+    )
+    # Source: raw
+    # 0x6001600055601A56715B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B
+    contract_52 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=0x1)
+        + Op.JUMP(pc=0x1A)
+        + Op.PUSH18[0x5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B]
+        + Op.JUMPDEST,
+        nonce=0,
+        address=Address(0x000000000000000000000000000000000000012C),  # noqa: E501
+    )
 
     expect_entries_: list[dict] = [
         {

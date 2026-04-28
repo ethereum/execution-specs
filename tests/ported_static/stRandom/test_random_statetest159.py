@@ -47,6 +47,23 @@ def test_random_statetest159(
         gas_limit=9223372036854775807,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
+    # Source: raw
+    # 0x6000355415600957005b60203560003555
+    coinbase = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMPI(
+            pc=0x9,
+            condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
+        )
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.SSTORE(
+            key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
+        ),
+        balance=46,
+        nonce=0,
+        address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
+    )
     # Source: raw
     # 0x324260e172acf6051580ff4e3ba75da449e7ab2b705cf75873b252caf4b51def86cf4988747e4b77d541c09d316acfebf3871d3a1944a5b975670f11d63a7d9c9b49750a0734d7313f746ba5fba6f3ff04148f4f39e4a28cc271e1ae0b89f2ad1413af2317c6a9628006d4157cdf7a3f30103f20611fe88431b16a79be995278aec271b56bc32543196c650621b66f1bfc718c0d9360cfb17a079aeca76a0b08cb4f0e5789426a6a26c3bef3710be80e4d646135f26076a178e17952f1667fa85f3b72ffa4c95bda9db87e2b8409a9b1c9e27346e5b9a49fd3689f943925eb4618577675acf6bf7b1b665940c32ef9086a95914496bc8bb76245fa2dc9cd3e29618e568966b2893ecd2e84766a8cf184a772e70b3e042b9584601e600b600760136304b1e2f273<contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>6339570738f16df327f570c11aa84a7a5480b98c5175cbd00120239df2d03db2fdd9c233df848ead9d3c84d4556f6030a17e0f41dfce8be36a92b0d5e0d67a71c146187edefc7923a8aad22ca228ecee824c2d7c237ace7e52fd62bd649662a4fe5f78a0b34d84a28c14c9fea0f18d1d55870173546b3b99e17cae467e2f1667b7c9445b11382bf9d7ff632d1ccdc973ba913d9ebbb219ac7aa0f3b579caa81065e433d2b8cf8cbfb998ec52fe1eaea6d87bc7728315cc653ccf904948918741  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -101,23 +118,6 @@ def test_random_statetest159(
         nonce=0,
         address=Address(0xBADAB8EC78E07CDBB4B25F913769FEA51E5A9C2A),  # noqa: E501
     )
-    # Source: raw
-    # 0x6000355415600957005b60203560003555
-    coinbase = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMPI(
-            pc=0x9,
-            condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
-        )
-        + Op.STOP
-        + Op.JUMPDEST
-        + Op.SSTORE(
-            key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
-        ),
-        balance=46,
-        nonce=0,
-        address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
