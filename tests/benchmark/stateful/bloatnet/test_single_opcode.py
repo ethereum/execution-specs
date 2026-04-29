@@ -93,6 +93,7 @@ def _sender_generator(
 
 def delegate_with_calldata(
     pre: Alloc,
+    fork: Fork,
     authority: EOA,
     address: Address,
     calldata: Hash,
@@ -103,8 +104,12 @@ def delegate_with_calldata(
     The delegated code determines what happens with the calldata.
     The authority nonce is incremented in-place.
     """
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        calldata=bytes(calldata),
+        authorization_list_or_count=1,
+    )
     tx = Transaction(
-        gas_limit=100_000,
+        gas_limit=intrinsic_gas,
         to=authority,
         value=0,
         data=calldata,
@@ -144,10 +149,18 @@ def run_bloated_eoa_benchmark(
     runtime_address = pre.deploy_contract(code=runtime_code)
 
     init_tx = delegate_with_calldata(
-        pre, authority, setter_address, slot_0_value
+        pre,
+        fork,
+        authority,
+        setter_address,
+        slot_0_value,
     )
     runtime_tx = delegate_with_calldata(
-        pre, authority, runtime_address, Hash(0)
+        pre,
+        fork,
+        authority,
+        runtime_address,
+        Hash(0),
     )
 
     blocks: list[Block] = [Block(txs=[init_tx, runtime_tx])]
@@ -311,7 +324,11 @@ def test_sload_bloated_prefetch_miss(
     # forcing the prefetcher's pre-block snapshot to disagree with
     # the actual slot 0 value seen by every max-gas tx that follows.
     delegation_tx = delegate_with_calldata(
-        pre, authority, runtime_address, Hash(0)
+        pre,
+        fork,
+        authority,
+        runtime_address,
+        Hash(0),
     )
 
     blocks: list[Block] = [Block(txs=[delegation_tx])]
