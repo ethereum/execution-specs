@@ -38,7 +38,6 @@ from ..state_tracker import (
     account_has_storage,
     compute_state_byte_diff,
     copy_tx_state,
-    destroy_account,
     destroy_storage,
     get_account,
     get_code,
@@ -236,7 +235,7 @@ def apply_frame_state_gas(
     ephemeral, `already_paid` is negative, which flips this frame's
     residual to positive and naturally cancels out the over-credit.
 
-    On out-of-gas, roll back to ``snapshot`` and mark ``evm.error``.
+    On out-of-gas, mark ``evm.error``.
     """
     if evm.error:
         return
@@ -259,10 +258,8 @@ def apply_frame_state_gas(
             evm.state_gas_reservoir = Uint(0)
             evm.gas_left -= remainder
         else:
-            # Combined budget can't cover the growth → OOG. Roll
-            # back state changes; same semantics as a regular-gas
-            # OOG mid-frame.
-            restore_tx_state(tx_state, snapshot)
+            # Combined budget can't cover the growth → OOG; same
+            # semantics as a regular-gas OOG mid-frame.
             evm.error = OutOfGasError()
             evm.output = b""
         if not evm.error:

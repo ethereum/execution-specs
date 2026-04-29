@@ -200,7 +200,7 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
 
     """
     evm.gas_left += child_evm.gas_left
-    evm.state_gas_reservoir += child_evm.state_gas_reservoir
+    evm.state_gas_reservoir = child_evm.state_gas_reservoir
     evm.logs += child_evm.logs
     evm.refund_counter += child_evm.refund_counter
     evm.accounts_to_delete.update(child_evm.accounts_to_delete)
@@ -217,8 +217,9 @@ def incorporate_child_on_error(
     """
     Incorporate the state of an unsuccessful `child_evm` into the parent `evm`.
 
-    All state gas the child held is returned to the parent
-    `state_gas_reservoir`.
+    The parent's `state_gas_reservoir` is left untouched: the child
+    received a copy of it as its starting reservoir, and on error any
+    modifications the child made to that copy are discarded.
 
     Parameters
     ----------
@@ -229,9 +230,6 @@ def incorporate_child_on_error(
 
     """
     evm.gas_left += child_evm.gas_left
-    evm.state_gas_reservoir += (
-        Uint(max(0, child_evm.state_gas_used)) + child_evm.state_gas_reservoir
-    )
     evm.regular_gas_used += child_evm.regular_gas_used
 
 
