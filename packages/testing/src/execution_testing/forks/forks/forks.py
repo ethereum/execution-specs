@@ -1567,3 +1567,14 @@ class Amsterdam(
     #  live on mainnet.
 
     pass
+
+
+class Binary(
+    BPO2,
+    deployed=False,
+):
+    """
+    Binary fork is wiring up to geth's UBT branch for testing.
+    """
+
+    pass
