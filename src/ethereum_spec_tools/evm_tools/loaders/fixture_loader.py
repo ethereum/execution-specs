@@ -55,11 +55,7 @@ class Load(BaseLoad):
         if isinstance(fork_module, Hardfork):
             self.fork = ForkLoad(fork_module)
         else:
-            for fork in Hardfork.discover():
-                if fork.short_name == fork_module:
-                    self.fork = ForkLoad(fork)
-                    return
-            raise Exception(f"fork `{fork_module}` not found")
+            self.fork = ForkLoad(Hardfork.by_short_name(fork_module))
 
     def json_to_state(self, raw: Any) -> Any:
         """Converts json state data to a state object."""

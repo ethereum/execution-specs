@@ -1,6 +1,5 @@
 """Helper class to load and run VM tests."""
 
-from importlib import import_module
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Tuple
 
@@ -49,6 +48,7 @@ class VmTestLoader:
     def __init__(self, network: str, fork_name: str):
         self.network = network
         self.fork_name = fork_name
+        self.hardfork = TestHardfork.by_short_name(fork_name)
 
         # Import relevant items from fork
         self.fork = self._module("fork")
@@ -84,7 +84,7 @@ class VmTestLoader:
         self.process_message_call = self.interpreter.process_message_call
 
     def _module(self, name: str) -> Any:
-        return import_module(f"ethereum.forks.{self.fork_name}.{name}")
+        return self.hardfork.module(name)
 
     def _state_module(self) -> Any:
         # TODO: remove this fallback once the state module is ported over

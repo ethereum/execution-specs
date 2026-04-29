@@ -17,14 +17,6 @@ from typing_extensions import override
 from ethereum import trace
 from ethereum.exceptions import EthereumException, InvalidBlock
 from ethereum.fork_criteria import ByBlockNumber, ByTimestamp, Unscheduled
-
-# TODO: Make this not amsterdam specific once the state tracker has
-# been added to older forks.
-from ethereum.forks.amsterdam.block_access_lists import (
-    BlockAccessIndex,
-    BlockAccessListBuilder,
-    validate_block_access_list_gas_limit,
-)
 from ethereum_spec_tools.forks import Hardfork, TemporaryHardfork
 
 from ..loaders.fixture_loader import Load
@@ -384,11 +376,7 @@ class T8N(Load):
         }
 
         if self.fork.has_block_state:
-            from ethereum.forks.amsterdam.state_tracker import (
-                BlockState,
-            )
-
-            block_state = BlockState(pre_state=self.alloc.state)
+            block_state = self.fork.BlockState(pre_state=self.alloc.state)
             kw_arguments["state"] = block_state
             self._block_state = block_state
         else:
@@ -412,7 +400,7 @@ class T8N(Load):
 
         if self.fork.has_hash_block_access_list:
             kw_arguments["block_access_list_builder"] = (
-                BlockAccessListBuilder()
+                self.fork.BlockAccessListBuilder()
             )
 
         return block_environment(**kw_arguments)
@@ -523,7 +511,7 @@ class T8N(Load):
         num_txs = len(self.txs.transactions)
         if self.fork.has_hash_block_access_list:
             block_env.block_access_list_builder.block_access_index = (
-                BlockAccessIndex(Uint(num_txs) + Uint(1))
+                self.fork.BlockAccessIndex(Uint(num_txs) + Uint(1))
             )
 
         if not self.fork.proof_of_stake:
@@ -548,7 +536,7 @@ class T8N(Load):
             )
 
             # Validate block access list gas limit constraint (EIP-7928)
-            validate_block_access_list_gas_limit(
+            self.fork.validate_block_access_list_gas_limit(
                 block_access_list=block_output.block_access_list,
                 block_gas_limit=block_env.block_gas_limit,
             )

@@ -12,13 +12,13 @@ This module contains optimized POW functions that can be monkey patched into
 the `fork` module of a fork.
 """
 
-from importlib import import_module
 from typing import Any, Dict, cast
 
 from ethereum_types.numeric import U256, Uint
 
 from ethereum.ethash import epoch
 from ethereum.exceptions import InvalidBlock
+from ethereum_spec_tools.forks import Hardfork
 
 from .utils import add_item
 
@@ -34,14 +34,17 @@ except ImportError as e:
 Header_ = Any
 
 
-def get_optimized_pow_patches(_fork_name: str) -> Dict[str, Any]:
+def get_optimized_pow_patches(fork: Hardfork | str) -> Dict[str, Any]:
     """
     Get a dictionary of patches to be patched into the fork to make it
     optimized.
     """
     patches: Dict[str, Any] = {}
 
-    mod = cast(Any, import_module("ethereum.forks." + _fork_name + ".fork"))
+    hardfork = (
+        fork if isinstance(fork, Hardfork) else Hardfork.by_short_name(fork)
+    )
+    mod = cast(Any, hardfork.module("fork"))
 
     if not hasattr(mod, "validate_proof_of_work"):
         raise Exception(

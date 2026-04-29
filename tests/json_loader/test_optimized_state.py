@@ -9,6 +9,7 @@ from ethereum_types.numeric import U256
 import ethereum.forks.frontier.state as state
 from ethereum.forks.frontier.fork_types import EMPTY_ACCOUNT
 from ethereum.forks.tangerine_whistle.utils.hexadecimal import hex_to_address
+from ethereum_spec_tools.forks import Hardfork
 
 try:
     import ethereum_optimized.state_db as state_db
@@ -20,9 +21,8 @@ try:
 
     optimized_state = cast(Any, OptimizedState())
 
-    for name, value in state_db.get_optimized_state_patches(
-        "frontier"
-    ).items():
+    frontier = Hardfork.by_short_name("frontier")
+    for name, value in state_db.get_optimized_state_patches(frontier).items():
         setattr(optimized_state, name, value)
 
 except ImportError:

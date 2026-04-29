@@ -145,9 +145,25 @@ class ForkLoad:
         return self._module("block_access_lists").build_block_access_list
 
     @property
+    def BlockAccessIndex(self) -> Any:
+        """BlockAccessIndex class of the fork."""
+        return self._module("block_access_lists").BlockAccessIndex
+
+    @property
+    def BlockAccessListBuilder(self) -> Any:
+        """BlockAccessListBuilder class of the fork."""
+        return self._module("block_access_lists").BlockAccessListBuilder
+
+    @property
     def hash_block_access_list(self) -> Any:
         """hash_block_access_list function of the fork."""
         return self._module("block_access_lists").hash_block_access_list
+
+    @property
+    def validate_block_access_list_gas_limit(self) -> Any:
+        """validate_block_access_list_gas_limit function of the fork."""
+        block_access_lists = self._module("block_access_lists")
+        return block_access_lists.validate_block_access_list_gas_limit
 
     @property
     def has_hash_block_access_list(self) -> bool:
@@ -303,6 +319,16 @@ class ForkLoad:
         except ModuleNotFoundError:
             return False
         return hasattr(module, "BlockState")
+
+    @property
+    def BlockState(self) -> Any:
+        """BlockState class of the fork."""
+        return self._module("state_tracker").BlockState
+
+    @property
+    def extract_block_diff(self) -> Any:
+        """extract_block_diff function of the fork."""
+        return self._module("state_tracker").extract_block_diff
 
     @property
     def State(self) -> Any:

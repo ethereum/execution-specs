@@ -313,14 +313,9 @@ class Result:
         self.bloom = t8n.fork.logs_bloom(block_output.block_logs)
         self.logs_hash = keccak256(rlp.encode(block_output.block_logs))
         if t8n.fork.has_block_state:
-            # TODO: remove this once the state tracker is ported over
-            # to the older forks
-            from ethereum.forks.amsterdam.state_tracker import (
-                extract_block_diff,
-            )
             from ethereum.state import apply_changes_to_state
 
-            block_diff = extract_block_diff(t8n._block_state)
+            block_diff = t8n.fork.extract_block_diff(t8n._block_state)
             state_root_value, _ = (
                 t8n.alloc.state.compute_state_root_and_trie_changes(
                     block_diff.account_changes, block_diff.storage_changes
