@@ -585,6 +585,11 @@ class Alloc(SharedAlloc):
         # Send a transaction to fund the EOA
         fund_tx: PendingTransaction | None = None
         if delegation is not None or storage is not None:
+            fork = self._fork.fork_at(
+                block_number=self._block_number, timestamp=self._timestamp
+            )
+            intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
+
             if storage is not None:
                 if not isinstance(storage, Storage):
                     storage = Storage.model_validate(storage)
@@ -592,14 +597,24 @@ class Alloc(SharedAlloc):
                     f"Deploying storage contract for EOA {eoa} "
                     f"with {len(storage)} storage slots"
                 )
-                sstore_address = self.deploy_contract(
-                    code=(
-                        sum(
-                            Op.SSTORE(key, value)
-                            for key, value in storage.items()
+
+                storage_init_code = (
+                    sum(
+                        Op.SSTORE(
+                            key,
+                            value,
+                            # gas accounting
+                            key_warm=False,
+                            original_value=0,
+                            current_value=0,
+                            new_value=1,
                         )
-                        + Op.STOP
+                        for key, value in storage.items()
                     )
+                    + Op.STOP
+                )
+                sstore_address = self.deploy_contract(
+                    code=storage_init_code,
                 )
                 logger.debug(
                     f"Storage contract deployed at {sstore_address} "
@@ -619,7 +634,11 @@ class Alloc(SharedAlloc):
                             signer=eoa,
                         ),
                     ],
-                    gas_limit=100_000,
+                    gas_limit=(
+                        intrinsic_calc(authorization_list_or_count=1)
+                        + storage_init_code.gas_cost(fork)
+                        + 500_000
+                    ),
                 )
                 eoa.nonce = Number(eoa.nonce + 1)
 
@@ -644,7 +663,7 @@ class Alloc(SharedAlloc):
                             signer=eoa,
                         ),
                     ],
-                    gas_limit=100_000,
+                    gas_limit=(intrinsic_calc(authorization_list_or_count=1)),
                 )
                 eoa.nonce = Number(eoa.nonce + 1)
             else:
@@ -662,7 +681,7 @@ class Alloc(SharedAlloc):
                             signer=eoa,
                         ),
                     ],
-                    gas_limit=100_000,
+                    gas_limit=intrinsic_calc(authorization_list_or_count=1),
                 )
                 eoa.nonce = Number(eoa.nonce + 1)
 
