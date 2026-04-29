@@ -612,7 +612,6 @@ def test_nested_create_code_deposit_cannot_borrow_parent_gas(
     """
     init_code = Op.RETURN(0, 1)
     gas_costs = fork.gas_costs()
-    new_acct_state = gas_costs.NEW_ACCOUNT
     code_deposit_state = fork.code_deposit_state_gas(code_size=1)
 
     factory = pre.deploy_contract(

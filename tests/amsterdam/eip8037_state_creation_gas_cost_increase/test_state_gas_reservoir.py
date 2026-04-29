@@ -1074,16 +1074,13 @@ def test_top_level_opcode_oog_before_frame_end_does_not_refund_state_gas(
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
     sstore_state_gas = fork.sstore_state_gas()
 
-    code = (
-        Op.SSTORE(0, 1)
-        + Op.MCOPY(
-            0x1000,
-            0,
-            1,
-            old_memory_size=0,
-            new_memory_size=0x1001,
-            data_size=1,
-        )
+    code = Op.SSTORE(0, 1) + Op.MCOPY(
+        0x1000,
+        0,
+        1,
+        old_memory_size=0,
+        new_memory_size=0x1001,
+        data_size=1,
     )
     contract = pre.deploy_contract(code=code)
 
@@ -1242,4 +1239,116 @@ def test_access_list_warm_savings_stay_regular(
             ),
         ],
         post={contract: Account(storage={0: 1})},
+    )
+
+
+# @pytest.mark.skip("todo")
+@pytest.mark.valid_from("EIP8037")
+def test_subcall_revert_does_not_leak_grandchild_storage_clear_credit(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify a grandchild's storage-clear reservoir credit cannot leak
+    past a reverting parent into the top frame's reservoir.
+
+    Three-frame DELEGATECALL chain so all SSTOREs target the top
+    contract's storage:
+
+      - top: SSTOREs slots[0..4]=1, DELEGATECALLs `mid`, then
+        SSTOREs slots[10..14]=1.
+      - mid: DELEGATECALLs `inner`, then REVERTs.
+      - inner: SSTOREs slots[0..4]=0, clearing what top set.
+
+    Inner's frame-end sees byte_delta=-160 against its own snapshot
+    (slots non-zero at frame entry, zero at tx start, zero at exit)
+    and credits its reservoir by 5 * sstore_state_gas. On mid's
+    revert that storage clear is rolled back, but the credit lives
+    on inside mid's reservoir from the prior
+    `incorporate_child_on_success`. The credit must not propagate
+    out of mid via `incorporate_child_on_error`, because the
+    underlying state transition no longer exists.
+
+    The reservoir is sized to the legitimate state cost
+    (10 * sstore_state_gas: 5 setup writes + 5 phantom writes). Top
+    drains the reservoir at frame-end and the receipt charges the
+    full legitimate cost. If the credit leaks, an extra
+    5 * sstore_state_gas remains in `state_gas_reservoir` at tx end
+    and the receipt formula `tx.gas - gas_left -
+    state_gas_reservoir` would charge the sender 5 * sstore_state_gas
+    less.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+
+    num_slots = 5
+    phantom_base = 10
+
+    # `inner` clears slots [0..num_slots-1] in the caller's storage
+    # context, which under the DELEGATECALL chain is `top`. The
+    # slots are warm because top accessed them during setup and
+    # `accessed_storage_keys` propagated through the DELEGATECALLs.
+    inner_code = Bytecode()
+    for i in range(num_slots):
+        inner_code += Op.SSTORE.with_metadata(
+            key_warm=True,
+            original_value=0,
+            current_value=1,
+            new_value=0,
+        )(i, 0)
+    inner = pre.deploy_contract(code=inner_code)
+
+    mid_code = Op.POP(Op.DELEGATECALL(gas=Op.GAS, address=inner)) + Op.REVERT(
+        0, 0
+    )
+    mid = pre.deploy_contract(code=mid_code)
+
+    setup_code = Bytecode()
+    for i in range(num_slots):
+        setup_code += Op.SSTORE(i, 1)
+    delegatecall_step = Op.POP(Op.DELEGATECALL(gas=Op.GAS, address=mid))
+    phantom_code = Bytecode()
+    for i in range(num_slots):
+        phantom_code += Op.SSTORE(phantom_base + i, 1)
+    top_code = setup_code + delegatecall_step + phantom_code
+    top = pre.deploy_contract(code=top_code)
+
+    # Reservoir sized to the legitimate state cost only; any
+    # phantom credit surfaces as residual reservoir at tx end.
+    legit_state_cost = 2 * num_slots * sstore_state_gas
+    tx_gas = gas_limit_cap + legit_state_cost
+
+    # `bytecode.gas_cost(fork)` sums each opcode's regular and state
+    # contributions. Setup/phantom SSTOREs predict +sstore_state_gas
+    # each; inner's clears predict 0 (the negative byte_delta is a
+    # frame-level effect, not per-opcode). The frame-end byte_delta
+    # at top is +320 (10 set slots persist, the inner clear is rolled
+    # back), so the predicted state total of 10 * sstore_state_gas
+    # matches the actual charge.
+    expected_cumulative = (
+        intrinsic_cost
+        + top_code.gas_cost(fork)
+        + mid_code.gas_cost(fork)
+        + inner_code.gas_cost(fork)
+    )
+
+    tx = Transaction(
+        to=top,
+        gas_limit=tx_gas,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_cumulative,
+        ),
+    )
+    expected_storage = dict.fromkeys(range(num_slots), 1) | {
+        phantom_base + i: 1 for i in range(num_slots)
+    }
+
+    state_test(
+        pre=pre,
+        post={top: Account(storage=expected_storage)},
+        tx=tx,
     )

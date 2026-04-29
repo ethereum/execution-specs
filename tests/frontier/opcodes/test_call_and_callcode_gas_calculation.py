@@ -84,7 +84,11 @@ def sufficient_gas(
     """
     is_value_call = callee_opcode in [Op.CALL, Op.CALLCODE]
 
-    if fork.is_eip_enabled(8037) and is_value_call and callee_opcode == Op.CALL:
+    if (
+        fork.is_eip_enabled(8037)
+        and is_value_call
+        and callee_opcode == Op.CALL
+    ):
         # EIP-8037 moves NEW_ACCOUNT off the CALL static gate. The new
         # account is created by `move_ether` before the grandchild's
         # diff snapshot, so the +112-byte delta lands at the *callee's*

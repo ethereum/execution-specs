@@ -159,9 +159,10 @@ def test_call_memory_expands_on_early_revert(
     mstore_cost = Op.MSTORE(new_memory_size=0).gas_cost(fork)
     state_test(
         env=Environment(),
-        pre=pre,# EIP-8037 reclassifies NEW_ACCOUNT as state-gas paid at the new
-# account's frame end. This CALL early-reverts on the balance check,
-# so the cost is never paid.
+        pre=pre,
+        # EIP-8037 reclassifies NEW_ACCOUNT as state-gas paid at the new
+        # account's frame end. This CALL early-reverts on the balance check,
+        # so the cost is never paid.
         tx=tx,
         post={
             contract: Account(
