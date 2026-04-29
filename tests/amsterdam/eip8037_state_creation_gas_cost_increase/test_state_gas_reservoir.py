@@ -1459,3 +1459,60 @@ def test_revert_discards_descendant_storage_clear_credit_through_depth(
         post={top: Account(storage=expected_storage)},
         tx=tx,
     )
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_set_and_clear_pays_no_state_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    A 0→X SSTORE paired with an X→0 on the same slot must cancel in
+    the state-gas reservoir. With a tight regular-gas budget and no
+    reservoir headroom (tx.gas <= TX_MAX_GAS_LIMIT, so reservoir = 0),
+    the tx completes only because the frame-end byte_delta nets to
+    zero.
+
+    A standalone 0→X here would charge +sstore_state_gas at frame
+    end, spill into gas_left, and OOG against this budget. The
+    follow-up X→0 returns the slot to its tx-start original (0), so
+    `compute_state_byte_diff` reports byte_delta=0 and the
+    state-gas reservoir is never touched.
+    """
+    gas_costs = fork.gas_costs()
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+
+    # Same slot, set then cleared. Frame-end byte_delta = 0.
+    set_op = Op.SSTORE.with_metadata(
+        key_warm=False,
+        original_value=0,
+        current_value=0,
+        new_value=1,
+    )(0, 1)
+    clear_op = Op.SSTORE.with_metadata(
+        key_warm=True,
+        original_value=0,
+        current_value=1,
+        new_value=0,
+    )(0, 0)
+    code = set_op + clear_op
+    contract = pre.deploy_contract(code=code)
+
+    # Tight budget: bytecode regular gas plus the headroom required by
+    # the warm SSTORE's `check_gas(CALL_STIPEND + 1)` precondition.
+    # The warm 100-gas charge is already inside `code.regular_cost`,
+    # so the extra headroom needed is `CALL_STIPEND + 1 - WARM_ACCESS`.
+    extra_for_stipend = gas_costs.CALL_STIPEND + 1 - gas_costs.WARM_ACCESS
+    gas_limit = intrinsic_cost + code.regular_cost(fork) + extra_for_stipend
+
+    tx = Transaction(
+        to=contract,
+        gas_limit=gas_limit,
+        sender=pre.fund_eoa(),
+    )
+
+    # Slot 0 returns to its tx-start value (0). The reservoir was
+    # never touched because frame-end byte_delta was zero.
+    post = {contract: Account(storage={0: 0})}
+    state_test(pre=pre, post=post, tx=tx)
