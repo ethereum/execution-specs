@@ -1351,3 +1351,111 @@ def test_subcall_revert_does_not_leak_grandchild_storage_clear_credit(
         post={top: Account(storage=expected_storage)},
         tx=tx,
     )
+
+
+@pytest.mark.parametrize(
+    "intermediate_depth",
+    [
+        pytest.param(0, id="direct"),
+        pytest.param(1, id="depth_1"),
+        pytest.param(3, id="depth_3"),
+        pytest.param(10, id="depth_10"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_revert_discards_descendant_storage_clear_credit_through_depth(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    intermediate_depth: int,
+) -> None:
+    """
+    A reverted ancestor must discard a clear-credit regardless of
+    how many successful frames sit between the X→0 source and the
+    revert.
+
+    top → reverter (REVERT)
+            → pass_1 → … → pass_k → inner (X→0)
+
+    Each pass frame returns successfully, so the inner credit walks
+    up through `incorporate_child_on_success` at every layer before
+    landing in the reverter, where it must be dropped on
+    `incorporate_child_on_error`. The receipt invariant holds for
+    every `k`.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+
+    num_slots = 5
+    phantom_base = 10
+
+    # Slots are warm at inner: top's setup populates the access list
+    # and DELEGATECALL preserves it down the chain.
+    inner_code = Bytecode()
+    for i in range(num_slots):
+        inner_code += Op.SSTORE.with_metadata(
+            key_warm=True,
+            original_value=0,
+            current_value=1,
+            new_value=0,
+        )(i, 0)
+    inner = pre.deploy_contract(code=inner_code)
+
+    # Build the pass-through chain bottom-up so each frame can encode
+    # the next address. Each pass_i DELEGATECALLs into the next frame
+    # and STOPs successfully, propagating inner's credit upward.
+    pass_codes = []
+    next_addr = inner
+    for _ in range(intermediate_depth):
+        pass_code = (
+            Op.POP(Op.DELEGATECALL(gas=Op.GAS, address=next_addr)) + Op.STOP
+        )
+        pass_codes.append(pass_code)
+        next_addr = pre.deploy_contract(code=pass_code)
+
+    # Reverter sits between top and the chain: enters, then REVERTs.
+    reverter_code = Op.POP(Op.DELEGATECALL(gas=Op.GAS, address=next_addr)) + (
+        Op.REVERT(0, 0)
+    )
+    reverter = pre.deploy_contract(code=reverter_code)
+
+    setup_code = Bytecode()
+    for i in range(num_slots):
+        setup_code += Op.SSTORE(i, 1)
+    delegatecall_step = Op.POP(Op.DELEGATECALL(gas=Op.GAS, address=reverter))
+    phantom_code = Bytecode()
+    for i in range(num_slots):
+        phantom_code += Op.SSTORE(phantom_base + i, 1)
+    top_code = setup_code + delegatecall_step + phantom_code
+    top = pre.deploy_contract(code=top_code)
+
+    legit_state_cost = 2 * num_slots * sstore_state_gas
+    tx_gas = gas_limit_cap + legit_state_cost
+
+    expected_cumulative = (
+        intrinsic_cost
+        + top_code.gas_cost(fork)
+        + reverter_code.gas_cost(fork)
+        + sum(c.gas_cost(fork) for c in pass_codes)
+        + inner_code.gas_cost(fork)
+    )
+
+    tx = Transaction(
+        to=top,
+        gas_limit=tx_gas,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_cumulative,
+        ),
+    )
+    expected_storage = dict.fromkeys(range(num_slots), 1) | {
+        phantom_base + i: 1 for i in range(num_slots)
+    }
+
+    state_test(
+        pre=pre,
+        post={top: Account(storage=expected_storage)},
+        tx=tx,
+    )
