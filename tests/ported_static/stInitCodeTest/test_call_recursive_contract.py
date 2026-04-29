@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
 )
@@ -30,6 +31,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_call_recursive_contract(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_call_recursive_contract."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
@@ -44,10 +46,10 @@ def test_call_recursive_contract(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=100000000,
+        gas_limit=100_000_000,
     )
 
-    pre[sender] = Account(balance=0x989680)
+    pre[sender] = Account(balance=10_000_000_000)
     # Source: lll
     # {[[ 2 ]](ADDRESS)(CODECOPY 0 0 32)(CREATE 0 0 32)}
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -56,14 +58,17 @@ def test_call_recursive_contract(
         + Op.CREATE(value=0x0, offset=0x0, size=0x20)
         + Op.STOP,
         nonce=40,
-        address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
+        address=contract_0,  # noqa: E501
     )
 
+    gas_limit = 400_000
+    if fork.is_eip_enabled(8037):
+        gas_limit = 20_000_000
     tx = Transaction(
         sender=sender,
         to=contract_0,
         data=Bytes("00"),
-        gas_limit=400000,
+        gas_limit=gas_limit,
         value=1,
     )
 
