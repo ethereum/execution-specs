@@ -1242,7 +1242,6 @@ def test_access_list_warm_savings_stay_regular(
     )
 
 
-# @pytest.mark.skip("todo")
 @pytest.mark.valid_from("EIP8037")
 def test_subcall_revert_does_not_leak_grandchild_storage_clear_credit(
     state_test: StateTestFiller,
