@@ -87,21 +87,6 @@ def tx_access_list() -> List[AccessList]:
 
 
 @pytest.fixture
-def failed_state_gas_refund(  # noqa: D103
-    request: pytest.FixtureRequest,
-    fork: Fork,
-    successful: bool,
-) -> int:
-    if (
-        getattr(request, "param", "none") == "settled_sstore_minus_one"
-        and not successful
-        and fork.is_eip_enabled(8037)
-    ):
-        return fork.sstore_state_gas() - 1
-    return 0
-
-
-@pytest.fixture
 def block_gas_limit(env: Environment) -> int:  # noqa: D103
     return env.gas_limit
 
@@ -143,9 +128,15 @@ def tx(  # noqa: D103
     initial_memory: bytes,
     tx_gas_limit: int,
     tx_access_list: List[AccessList],
-    failed_state_gas_refund: int,
+    fork: Fork,
+    successful: bool,
 ) -> Transaction:
-    expected_gas = tx_gas_limit - failed_state_gas_refund
+    # EIP-8037: on top-level OOG, execution state gas is returned to the
+    # reservoir and not billed. The callee's SSTORE contributes state
+    # gas that gets refunded on failure.
+    expected_gas = tx_gas_limit
+    if not successful and fork.is_eip_enabled(8037):
+        expected_gas -= fork.sstore_state_gas()
     return Transaction(
         sender=sender,
         to=caller_address,
@@ -207,11 +198,6 @@ def post(  # noqa: D103
         "from_empty_memory",
     ],
 )
-@pytest.mark.parametrize(
-    "failed_state_gas_refund",
-    ["settled_sstore_minus_one"],
-    indirect=True,
-)
 @pytest.mark.valid_from("Cancun")
 def test_mcopy_memory_expansion(
     state_test: StateTestFiller,
@@ -269,7 +255,6 @@ def test_mcopy_memory_expansion(
         "from_empty_memory",
     ],
 )
-@pytest.mark.parametrize("failed_state_gas_refund", [0], indirect=True)
 @pytest.mark.valid_from("Cancun")
 def test_mcopy_huge_memory_expansion(
     state_test: StateTestFiller,
