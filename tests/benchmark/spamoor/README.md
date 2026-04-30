@@ -19,16 +19,35 @@ pip install git+https://github.com/ethereum/execution-specs.git#subdirectory=tes
 
 ## Use
 
+The builders return *unsigned* type-2 transaction dictionaries — signing is the
+caller's responsibility. `rpc_client` is invoked with `(method, params)` and
+must return the *unwrapped* JSON-RPC `result` (not the full envelope).
+
 ```python
 from eels_spamoor_builders import build_eoatx_transactions
+
+
+def rpc_client(method, params):
+    if method == "eth_getTransactionCount":
+        return "0x0"  # nonce hex
+    if method == "eth_feeHistory":
+        return {
+            "oldestBlock": "0x0",
+            "baseFeePerGas": ["0x1", "0x1"],
+            "gasUsedRatio": [0.5],
+            "reward": [],
+        }
+    raise NotImplementedError(method)
+
 
 txs = build_eoatx_transactions(
     count=10,
     throughput=1.0,
-    from_addr="0x1111…",
+    from_addr="0x1111111111111111111111111111111111111111",
     private_key="0x" + "11" * 32,
-    rpc_client=lambda method, params: {"jsonrpc": "2.0", "result": "0x0"},
+    rpc_client=rpc_client,
 )
+# txs is a list of unsigned tx dicts; sign them downstream.
 ```
 
 The 12 builders are:
@@ -40,10 +59,11 @@ The 12 builders are:
 `build_storagespam_transactions`, `build_uniswap_swaps_transactions`.
 
 The `spamoor_signer_context` and `broadcast_and_assert_receipts` helpers in
-`helpers.py` are *not* re-exported because they import `pytest` and
-`execution_testing.test_types` lazily; install the `test` extra
-(`pip install eels-spamoor-builders[test]`) and import them from
-`eels_spamoor_builders.helpers` if you need them.
+`helpers.py` are *not* re-exported. They import `pytest` and
+`execution_testing.test_types` lazily — neither is a hard dependency of this
+package. If you need them, install both manually
+(`pip install pytest "ethereum-execution @ git+https://github.com/ethereum/execution-specs.git#subdirectory=src/ethereum_spec_tools"` — adjust to whichever package ships `execution_testing` in your tree)
+and import them from `eels_spamoor_builders.helpers`.
 
 ## Layout
 

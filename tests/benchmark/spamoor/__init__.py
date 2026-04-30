@@ -8,7 +8,9 @@ This directory is dual-purpose:
   to work unchanged.
 - As a *standalone pip package* (``eels-spamoor-builders``, declared in
   the sibling ``pyproject.toml``). Downstream tooling that only needs to
-  build signed Spamoor transactions can ``pip install`` it without
+  build Spamoor transaction dictionaries (the ``build_*`` helpers return
+  unsigned ``dict``\\ s; signing is done downstream — typically via
+  ``spamoor_dict_to_transaction``) can ``pip install`` it without
   pulling in the rest of execution-specs:
 
       pip install git+https://github.com/ethereum/execution-specs.git#subdirectory=tests/benchmark/spamoor
