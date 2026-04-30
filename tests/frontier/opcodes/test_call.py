@@ -148,6 +148,11 @@ def test_call_memory_expands_on_early_revert(
         ).gas_cost(fork)
         - gsc.CALL_STIPEND
     )
+    if fork.is_eip_enabled(8037):
+        # EIP-8037 reclassifies NEW_ACCOUNT as state-gas paid at the new
+        # account's frame end. This CALL early-reverts on the balance check,
+        # so the cost is never paid, and we must subtract that out.
+        call_cost -= gsc.NEW_ACCOUNT
 
     # mstore cost: base cost. No memory expansion cost needed, it was expanded
     # on CALL.
@@ -155,6 +160,9 @@ def test_call_memory_expands_on_early_revert(
     state_test(
         env=Environment(),
         pre=pre,
+        # EIP-8037 reclassifies NEW_ACCOUNT as state-gas paid at the new
+        # account's frame end. This CALL early-reverts on the balance check,
+        # so the cost is never paid.
         tx=tx,
         post={
             contract: Account(

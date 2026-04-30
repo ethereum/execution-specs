@@ -11,7 +11,6 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
-    Fork,
     Op,
     StateTestFiller,
     Transaction,
@@ -489,7 +488,6 @@ def test_modexp(
     mod_exp_input: ModExpInput | Bytes,
     output: ModExpOutput,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """Test the MODEXP precompile."""
     env = Environment()
@@ -531,15 +529,11 @@ def test_modexp(
         + Op.STOP(),
     )
 
-    gas_limit = 2_000_000
-    if fork.is_eip_enabled(8037):
-        gas_limit = 4_000_000
-
     tx = Transaction(
         ty=0x0,
         to=account,
         data=mod_exp_input,
-        gas_limit=gas_limit,
+        gas_limit=2_000_000,
         protected=True,
         sender=sender,
     )

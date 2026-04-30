@@ -88,6 +88,50 @@ def test_child_call_uses_reservoir(
 
 
 @pytest.mark.valid_from("EIP8037")
+def test_delegatecall_child_spill_not_double_charged(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Test DELEGATECALL child state gas paid from `gas_left` is not recharged.
+
+    With gas below the Amsterdam tx gas cap, the top-level frame starts with
+    no state gas reservoir and the child pays for SSTOREs by spilling from
+    `gas_left`. The parent frame must not charge the same state growth again
+    at frame end.
+    """
+    env = Environment()
+
+    child_code = sum(Op.SSTORE(i, i + 1) for i in range(6)) + Op.STOP
+    child = pre.deploy_contract(code=child_code)
+
+    caller = pre.deploy_contract(
+        code=Op.POP(
+            Op.DELEGATECALL(
+                gas=Op.GAS,
+                address=child,
+                args_offset=0,
+                args_size=0,
+                ret_offset=0,
+                ret_size=0,
+            )
+        )
+    )
+
+    tx = Transaction(
+        to=caller,
+        gas_limit=500_000,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {
+        caller: Account(storage={i: i + 1 for i in range(6)}),
+    }
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("EIP8037")
 def test_reservoir_returned_on_revert(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -1338,10 +1382,15 @@ def test_top_level_halt_preserves_restored_reservoir(
         sender=pre.fund_eoa(),
     )
 
-    # When the reservoir is one short of the child's SSTORE, the
-    # spill from regular gas is restored on the child's failure,
-    # lowering the block regular total by the same amount.
-    expected_gas_used = gas_limit_cap + min(reservoir_delta, 0)
+    # New model: SSTORE never drains the reservoir at opcode time,
+    # so reservoir-vs-child-cost relationship is irrelevant on a
+    # failing child path. All three reservoir sizes produce the
+    # same gas_used: parent's INVALID consumes its regular gas_left,
+    # incorporate_child_on_error returns the child's reservoir
+    # untouched, and top-level halt restores any remaining
+    # state_gas_used into the reservoir. Block totals: regular =
+    # gas_limit_cap (full burn), state = 0.
+    expected_gas_used = gas_limit_cap
 
     blockchain_test(
         pre=pre,

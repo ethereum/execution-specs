@@ -858,7 +858,12 @@ def test_create_address_warm_after_fail(
         Bytes("52c3fd24") + Hash(0x7),
         Bytes("52c3fd24") + Hash(0x11),
     ]
-    tx_gas = [16777216]
+    # The dispatcher writes to ~14 fresh storage slots; under EIP-8037
+    # each slot's 32-byte cost is settled at frame end out of the
+    # reservoir/`gas_left` (~37_500 gas/slot on Amsterdam). Add that
+    # headroom — `sstore_state_gas` is 0 pre-EIP-8037, so the budget
+    # is unchanged on older forks.
+    tx_gas = [16777216 + 14 * fork.sstore_state_gas()]
     tx_value = [0, 1]
 
     tx = Transaction(

@@ -265,11 +265,10 @@ def test_block_state_gas_limit_boundary(
     """
     Verify the per-tx state check at the strict-greater-than boundary.
 
-    tx1 consumes `tx1_state` via cold SSTOREs. tx2 is sized so that
-    its worst-case state contribution `tx.gas - intrinsic_regular`
-    equals `state_available` (delta=0, accepted because the check is
-    strict `>`) or exceeds it by 1 (delta=1, rejected with
-    `GAS_ALLOWANCE_EXCEEDED`).
+    tx1 consumes `tx1_state` via cold SSTOREs. tx2 is sized so its
+    worst-case state contribution `tx.gas` equals `state_available`
+    (delta=0, accepted because the check is strict `>`) or exceeds it
+    by 1 (delta=1, rejected with `GAS_ALLOWANCE_EXCEEDED`).
 
     The regular check is asserted to pass so rejection on delta=1 is
     pinned to the state dimension.
@@ -297,11 +296,8 @@ def test_block_state_gas_limit_boundary(
     tx1_regular = intrinsic_cost() + tx1_code.gas_cost(fork) - tx1_state
     tx1_gas = gas_limit_cap + tx1_state
 
-    # tx2: worst-case state contribution = state_available + delta.
-    # Plain call, so intrinsic_state is zero.
-    tx2_intrinsic_regular = intrinsic_cost()
     state_available = block_gas_limit - tx1_state
-    tx2_gas = tx2_intrinsic_regular + state_available + delta
+    tx2_gas = state_available + delta
 
     # Pin the rejection (when delta > 0) to the state check: the
     # regular check must not fire.
@@ -343,22 +339,22 @@ def test_block_state_gas_limit_boundary(
     )
 
 
+@pytest.mark.exception_test
 @pytest.mark.valid_from("EIP8037")
-def test_creation_tx_regular_check_subtracts_intrinsic_state(
+def test_creation_tx_regular_check_no_intrinsic_state_subtraction(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
-    Verify the regular check subtracts `intrinsic.state` from tx.gas.
+    Verify the regular check uses raw `tx.gas`, not `tx.gas - intrinsic.state`.
 
-    The EIP regular check is
-    `min(TX_MAX, tx.gas - intrinsic.state) > regular_available`. For a
-    creation tx, `intrinsic.state = GAS_NEW_ACCOUNT`. This test sizes a
-    creation tx whose raw `tx.gas` exceeds `regular_available` but
-    `tx.gas - intrinsic.state` fits; it must be accepted. The old
-    formula `min(TX_MAX, tx.gas)` would reject the same tx, proving
-    the subtraction is honored.
+    The current EIP regular check is
+    `min(TX_MAX, tx.gas) > regular_available`. For a creation tx whose
+    raw `tx.gas` exceeds `regular_available` but `tx.gas -
+    intrinsic.state` would fit, the tx must be **rejected**. A prior
+    spec draft used `min(TX_MAX, tx.gas - intrinsic.state)` and would
+    have accepted the same tx; this test pins the current behavior.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -372,10 +368,10 @@ def test_creation_tx_regular_check_subtracts_intrinsic_state(
     ) - fork.transaction_intrinsic_state_gas(contract_creation=True)
 
     # Tight boundary: after the filler consumes gas_limit_cap, the
-    # remaining regular is exactly intrinsic_regular + 1. The old
+    # remaining regular is exactly intrinsic_regular + 1. The current
     # formula `min(TX_MAX, tx.gas)` rejects (tx.gas = intrinsic_total
-    # > intrinsic_regular + 1); the new formula `min(TX_MAX, tx.gas
-    # - intrinsic.state)` accepts (equals intrinsic_regular).
+    # > intrinsic_regular + 1); the prior formula `min(TX_MAX, tx.gas
+    # - intrinsic.state)` would have accepted (equals intrinsic_regular).
     block_gas_limit = gas_limit_cap + intrinsic_regular + 1
 
     # TODO(EIP-8037): pin `_env_gas_limit` to the actual block limit
@@ -397,10 +393,11 @@ def test_creation_tx_regular_check_subtracts_intrinsic_state(
     remaining_regular = block_gas_limit - gas_limit_cap
 
     assert create_tx_gas > remaining_regular, (
-        "old formula must reject to prove new formula differs"
+        "current formula must reject (tx.gas exceeds remaining regular)"
     )
     assert create_tx_gas - intrinsic_state <= remaining_regular, (
-        "new formula must accept"
+        "prior formula would have accepted (after subtracting "
+        "intrinsic.state); test pins divergence between formulas"
     )
 
     filler_tx = Transaction(
@@ -412,6 +409,7 @@ def test_creation_tx_regular_check_subtracts_intrinsic_state(
         to=None,
         gas_limit=create_tx_gas,
         sender=pre.fund_eoa(),
+        error=TransactionException.GAS_ALLOWANCE_EXCEEDED,
     )
 
     blockchain_test(
@@ -421,6 +419,7 @@ def test_creation_tx_regular_check_subtracts_intrinsic_state(
             Block(
                 txs=[filler_tx, create_tx],
                 gas_limit=block_gas_limit,
+                exception=TransactionException.GAS_ALLOWANCE_EXCEEDED,
             )
         ],
         post={},
@@ -1057,6 +1056,86 @@ def test_top_level_failure_refunds_state_gas_propagated_from_child(
     state_test(pre=pre, post={child: Account(storage={})}, tx=tx)
 
 
+@pytest.mark.valid_from("EIP8037")
+def test_top_level_opcode_oog_before_frame_end_does_not_refund_state_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify an opcode OOG before frame-end settlement does not refund
+    unsettled state gas.
+
+    The transaction has enough gas for the SSTORE and all preceding
+    regular work, but is one gas short of the MCOPY regular cost. The
+    frame halts before frame-end settlement runs, so the earlier SSTORE
+    never contributes execution state gas to refund.
+    """
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+    sstore_state_gas = fork.sstore_state_gas()
+
+    code = Op.SSTORE(0, 1) + Op.MCOPY(
+        0x1000,
+        0,
+        1,
+        old_memory_size=0,
+        new_memory_size=0x1001,
+        data_size=1,
+    )
+    contract = pre.deploy_contract(code=code)
+
+    # One gas short of the regular-gas portion of successful execution.
+    tx_gas = intrinsic_cost + code.gas_cost(fork) - sstore_state_gas - 1
+
+    tx = Transaction(
+        to=contract,
+        gas_limit=tx_gas,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=tx_gas,
+        ),
+    )
+
+    state_test(pre=pre, post={contract: Account(storage={})}, tx=tx)
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_top_level_frame_end_oog_does_not_refund_unsettled_state_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify frame-end OOG does not refund state gas that never settled.
+
+    The opcode path completes after a zero-to-nonzero SSTORE, but the
+    tx is one gas short of paying the frame-end state-growth charge. The
+    frame reports an error without ever increasing `state_gas_used`, so
+    the sender is billed only the intrinsic and regular execution gas
+    plus the final missing gas unit.
+    """
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+    sstore_state_gas = fork.sstore_state_gas()
+
+    code = Op.SSTORE(0, 1) + Op.STOP
+    contract = pre.deploy_contract(code=code)
+
+    # One gas short of the full successful execution cost.
+    tx_gas = intrinsic_cost + code.gas_cost(fork) - 1
+    expected_cumulative = tx_gas - (sstore_state_gas - 1)
+
+    tx = Transaction(
+        to=contract,
+        gas_limit=tx_gas,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_cumulative,
+        ),
+    )
+
+    state_test(pre=pre, post={contract: Account(storage={})}, tx=tx)
+
+
 @pytest.mark.parametrize(
     "num_access_list_entries",
     [
@@ -1161,3 +1240,279 @@ def test_access_list_warm_savings_stay_regular(
         ],
         post={contract: Account(storage={0: 1})},
     )
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_subcall_revert_does_not_leak_grandchild_storage_clear_credit(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify a grandchild's storage-clear reservoir credit cannot leak
+    past a reverting parent into the top frame's reservoir.
+
+    Three-frame DELEGATECALL chain so all SSTOREs target the top
+    contract's storage:
+
+      - top: SSTOREs slots[0..4]=1, DELEGATECALLs `mid`, then
+        SSTOREs slots[10..14]=1.
+      - mid: DELEGATECALLs `inner`, then REVERTs.
+      - inner: SSTOREs slots[0..4]=0, clearing what top set.
+
+    Inner's frame-end sees byte_delta=-160 against its own snapshot
+    (slots non-zero at frame entry, zero at tx start, zero at exit)
+    and credits its reservoir by 5 * sstore_state_gas. On mid's
+    revert that storage clear is rolled back, but the credit lives
+    on inside mid's reservoir from the prior
+    `incorporate_child_on_success`. The credit must not propagate
+    out of mid via `incorporate_child_on_error`, because the
+    underlying state transition no longer exists.
+
+    The reservoir is sized to the legitimate state cost
+    (10 * sstore_state_gas: 5 setup writes + 5 phantom writes). Top
+    drains the reservoir at frame-end and the receipt charges the
+    full legitimate cost. If the credit leaks, an extra
+    5 * sstore_state_gas remains in `state_gas_reservoir` at tx end
+    and the receipt formula `tx.gas - gas_left -
+    state_gas_reservoir` would charge the sender 5 * sstore_state_gas
+    less.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+
+    num_slots = 5
+    phantom_base = 10
+
+    # `inner` clears slots [0..num_slots-1] in the caller's storage
+    # context, which under the DELEGATECALL chain is `top`. The
+    # slots are warm because top accessed them during setup and
+    # `accessed_storage_keys` propagated through the DELEGATECALLs.
+    inner_code = Bytecode()
+    for i in range(num_slots):
+        inner_code += Op.SSTORE.with_metadata(
+            key_warm=True,
+            original_value=0,
+            current_value=1,
+            new_value=0,
+        )(i, 0)
+    inner = pre.deploy_contract(code=inner_code)
+
+    mid_code = Op.POP(Op.DELEGATECALL(gas=Op.GAS, address=inner)) + Op.REVERT(
+        0, 0
+    )
+    mid = pre.deploy_contract(code=mid_code)
+
+    setup_code = Bytecode()
+    for i in range(num_slots):
+        setup_code += Op.SSTORE(i, 1)
+    delegatecall_step = Op.POP(Op.DELEGATECALL(gas=Op.GAS, address=mid))
+    phantom_code = Bytecode()
+    for i in range(num_slots):
+        phantom_code += Op.SSTORE(phantom_base + i, 1)
+    top_code = setup_code + delegatecall_step + phantom_code
+    top = pre.deploy_contract(code=top_code)
+
+    # Reservoir sized to the legitimate state cost only; any
+    # phantom credit surfaces as residual reservoir at tx end.
+    legit_state_cost = 2 * num_slots * sstore_state_gas
+    tx_gas = gas_limit_cap + legit_state_cost
+
+    # `bytecode.gas_cost(fork)` sums each opcode's regular and state
+    # contributions. Setup/phantom SSTOREs predict +sstore_state_gas
+    # each; inner's clears predict 0 (the negative byte_delta is a
+    # frame-level effect, not per-opcode). The frame-end byte_delta
+    # at top is +320 (10 set slots persist, the inner clear is rolled
+    # back), so the predicted state total of 10 * sstore_state_gas
+    # matches the actual charge.
+    expected_cumulative = (
+        intrinsic_cost
+        + top_code.gas_cost(fork)
+        + mid_code.gas_cost(fork)
+        + inner_code.gas_cost(fork)
+    )
+
+    tx = Transaction(
+        to=top,
+        gas_limit=tx_gas,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_cumulative,
+        ),
+    )
+    expected_storage = dict.fromkeys(range(num_slots), 1) | {
+        phantom_base + i: 1 for i in range(num_slots)
+    }
+
+    state_test(
+        pre=pre,
+        post={top: Account(storage=expected_storage)},
+        tx=tx,
+    )
+
+
+@pytest.mark.parametrize(
+    "intermediate_depth",
+    [
+        pytest.param(0, id="direct"),
+        pytest.param(1, id="depth_1"),
+        pytest.param(3, id="depth_3"),
+        pytest.param(10, id="depth_10"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_revert_discards_descendant_storage_clear_credit_through_depth(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    intermediate_depth: int,
+) -> None:
+    """
+    A reverted ancestor must discard a clear-credit regardless of
+    how many successful frames sit between the X→0 source and the
+    revert.
+
+    top → reverter (REVERT)
+            → pass_1 → … → pass_k → inner (X→0)
+
+    Each pass frame returns successfully, so the inner credit walks
+    up through `incorporate_child_on_success` at every layer before
+    landing in the reverter, where it must be dropped on
+    `incorporate_child_on_error`. The receipt invariant holds for
+    every `k`.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+
+    num_slots = 5
+    phantom_base = 10
+
+    # Slots are warm at inner: top's setup populates the access list
+    # and DELEGATECALL preserves it down the chain.
+    inner_code = Bytecode()
+    for i in range(num_slots):
+        inner_code += Op.SSTORE.with_metadata(
+            key_warm=True,
+            original_value=0,
+            current_value=1,
+            new_value=0,
+        )(i, 0)
+    inner = pre.deploy_contract(code=inner_code)
+
+    # Build the pass-through chain bottom-up so each frame can encode
+    # the next address. Each pass_i DELEGATECALLs into the next frame
+    # and STOPs successfully, propagating inner's credit upward.
+    pass_codes = []
+    next_addr = inner
+    for _ in range(intermediate_depth):
+        pass_code = (
+            Op.POP(Op.DELEGATECALL(gas=Op.GAS, address=next_addr)) + Op.STOP
+        )
+        pass_codes.append(pass_code)
+        next_addr = pre.deploy_contract(code=pass_code)
+
+    # Reverter sits between top and the chain: enters, then REVERTs.
+    reverter_code = Op.POP(Op.DELEGATECALL(gas=Op.GAS, address=next_addr)) + (
+        Op.REVERT(0, 0)
+    )
+    reverter = pre.deploy_contract(code=reverter_code)
+
+    setup_code = Bytecode()
+    for i in range(num_slots):
+        setup_code += Op.SSTORE(i, 1)
+    delegatecall_step = Op.POP(Op.DELEGATECALL(gas=Op.GAS, address=reverter))
+    phantom_code = Bytecode()
+    for i in range(num_slots):
+        phantom_code += Op.SSTORE(phantom_base + i, 1)
+    top_code = setup_code + delegatecall_step + phantom_code
+    top = pre.deploy_contract(code=top_code)
+
+    legit_state_cost = 2 * num_slots * sstore_state_gas
+    tx_gas = gas_limit_cap + legit_state_cost
+
+    expected_cumulative = (
+        intrinsic_cost
+        + top_code.gas_cost(fork)
+        + reverter_code.gas_cost(fork)
+        + sum(c.gas_cost(fork) for c in pass_codes)
+        + inner_code.gas_cost(fork)
+    )
+
+    tx = Transaction(
+        to=top,
+        gas_limit=tx_gas,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_cumulative,
+        ),
+    )
+    expected_storage = dict.fromkeys(range(num_slots), 1) | {
+        phantom_base + i: 1 for i in range(num_slots)
+    }
+
+    state_test(
+        pre=pre,
+        post={top: Account(storage=expected_storage)},
+        tx=tx,
+    )
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_set_and_clear_pays_no_state_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    A 0→X SSTORE paired with an X→0 on the same slot must cancel in
+    the state-gas reservoir. With a tight regular-gas budget and no
+    reservoir headroom (tx.gas <= TX_MAX_GAS_LIMIT, so reservoir = 0),
+    the tx completes only because the frame-end byte_delta nets to
+    zero.
+
+    A standalone 0→X here would charge +sstore_state_gas at frame
+    end, spill into gas_left, and OOG against this budget. The
+    follow-up X→0 returns the slot to its tx-start original (0), so
+    `compute_state_byte_diff` reports byte_delta=0 and the
+    state-gas reservoir is never touched.
+    """
+    gas_costs = fork.gas_costs()
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+
+    # Same slot, set then cleared. Frame-end byte_delta = 0.
+    set_op = Op.SSTORE.with_metadata(
+        key_warm=False,
+        original_value=0,
+        current_value=0,
+        new_value=1,
+    )(0, 1)
+    clear_op = Op.SSTORE.with_metadata(
+        key_warm=True,
+        original_value=0,
+        current_value=1,
+        new_value=0,
+    )(0, 0)
+    code = set_op + clear_op
+    contract = pre.deploy_contract(code=code)
+
+    # Tight budget: bytecode regular gas plus the headroom required by
+    # the warm SSTORE's `check_gas(CALL_STIPEND + 1)` precondition.
+    # The warm 100-gas charge is already inside `code.regular_cost`,
+    # so the extra headroom needed is `CALL_STIPEND + 1 - WARM_ACCESS`.
+    extra_for_stipend = gas_costs.CALL_STIPEND + 1 - gas_costs.WARM_ACCESS
+    gas_limit = intrinsic_cost + code.regular_cost(fork) + extra_for_stipend
+
+    tx = Transaction(
+        to=contract,
+        gas_limit=gas_limit,
+        sender=pre.fund_eoa(),
+    )
+
+    # Slot 0 returns to its tx-start value (0). The reservoir was
+    # never touched because frame-end byte_delta was zero.
+    post = {contract: Account(storage={0: 0})}
+    state_test(pre=pre, post=post, tx=tx)
