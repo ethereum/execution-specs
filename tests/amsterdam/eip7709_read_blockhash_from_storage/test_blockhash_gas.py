@@ -136,8 +136,9 @@ def test_blockhash_different_blocks_both_cold(
     fork: Fork,
 ) -> None:
     """
-    Test that valid BLOCKHASH queries for different block numbers map to
-    different history slots and each cold access pays the cold cost.
+    Test that a prior BLOCKHASH(0) does not warm the history slot used
+    by BLOCKHASH(1), so the measured BLOCKHASH(1) access pays the cold
+    access cost.
     """
     code = Op.POP(Op.BLOCKHASH(0)) + CodeGasMeasure(
         code=Op.BLOCKHASH(1),
@@ -185,8 +186,8 @@ def test_blockhash_out_of_range_charges_base_only(
     fork: Fork,
 ) -> None:
     """
-    Test that an out-of-range BLOCKHASH charges only the base opcode
-    cost and does not charge any history-slot access gas.
+    Test that a future out-of-range BLOCKHASH charges only the base
+    opcode cost and does not charge any history-slot access gas.
     """
     code = CodeGasMeasure(
         code=Op.BLOCKHASH(0xFFFFFF),
@@ -333,7 +334,7 @@ def test_blockhash_out_of_range_does_not_warm_aliased_slot(
     fork: Fork,
 ) -> None:
     """
-    Test that an out-of-range BLOCKHASH does not warm the aliased
+    Test that a future out-of-range BLOCKHASH does not warm the aliased
     history slot for a later valid query.
     """
     # 8192 and 1 alias to the same history slot because 8192 % 8191 == 1.

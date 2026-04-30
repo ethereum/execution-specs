@@ -55,14 +55,16 @@ def test_blockhash_valid_block(
     block_offset: int,
 ) -> None:
     """
-    Test that BLOCKHASH matches the history contract and returns a
-    non-zero value for valid ancestors within the 256-block window.
+    Test that BLOCKHASH(1) matches the history contract and returns
+    a non-zero value when block 1 is one or two blocks behind the
+    executing block.
     """
     storage = Storage()
 
     query_block = 1
     code = (
-        # Save the history contract read as the reference result.
+        # Check that the history contract call succeeds and writes the
+        # reference block hash to memory.
         Op.SSTORE(
             storage.store_next(True),
             history_staticcall(query_block),
@@ -198,17 +200,19 @@ def test_blockhash_boundary_256(
     expect_equal: bool,
 ) -> None:
     """
-    Test the 256-block BLOCKHASH window boundary.
+    Test the 256-block BLOCKHASH window boundary for block 1.
 
-    `BLOCKHASH(N - 256)` must equal the history contract and be non-zero,
-    while `BLOCKHASH(N - 257)` must be zero even though the history
-    contract still returns the stored hash.
+    When block 1 is `N - 256`, `BLOCKHASH(1)` must equal the history
+    contract and be non-zero. When block 1 is `N - 257`, `BLOCKHASH(1)`
+    must be zero even though the history contract still returns the
+    stored hash.
     """
     storage = Storage()
 
     query_block = 1
     code = (
-        # Save the history contract read as the reference result.
+        # Check that the history contract call succeeds and writes the
+        # reference block hash to memory.
         Op.SSTORE(
             storage.store_next(True),
             history_staticcall(query_block),
