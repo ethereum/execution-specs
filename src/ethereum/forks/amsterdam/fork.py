@@ -1166,7 +1166,11 @@ def process_transaction(
         destroy_account(tx_state, block_env.coinbase)
 
     tx_regular_gas = tx_env.intrinsic_regular_gas + tx_output.regular_gas_used
-    tx_state_gas = tx_env.intrinsic_state_gas + tx_output.state_gas_used
+    tx_state_gas = (
+        tx_env.intrinsic_state_gas
+        + tx_output.state_gas_used
+        - tx_output.state_refund
+    )
     block_output.block_gas_used += max(
         tx_regular_gas, intrinsic.calldata_floor
     )

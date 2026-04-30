@@ -87,6 +87,10 @@ class MessageCallOutput:
           6. `return_data`: The output of the execution.
           7. `regular_gas_used`: Regular gas used during execution.
           8. `state_gas_used`: State gas used during execution.
+          9. `state_refund`: State gas refunded by `set_delegation` for
+             authorities that already existed in state. Subtracted from
+             `tx_state_gas` in block accounting so `block.gas_used`
+             matches the receipt `cumulative_gas_used`.
     """
 
     gas_left: Uint
@@ -98,6 +102,7 @@ class MessageCallOutput:
     return_data: Bytes
     regular_gas_used: Uint
     state_gas_used: Uint
+    state_refund: Uint
 
 
 def process_message_call(message: Message) -> MessageCallOutput:
@@ -118,6 +123,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
     """
     tx_state = message.tx_env.state
     refund_counter = U256(0)
+    state_refund = Uint(0)
     if message.target == Bytes0(b""):
         is_collision = account_has_code_or_nonce(
             tx_state, message.current_target
@@ -133,12 +139,13 @@ def process_message_call(message: Message) -> MessageCallOutput:
                 return_data=Bytes(b""),
                 regular_gas_used=message.gas,
                 state_gas_used=Uint(0),
+                state_refund=Uint(0),
             )
         else:
             evm = process_create_message(message)
     else:
         if message.tx_env.authorizations != ():
-            set_delegation(message)
+            state_refund += set_delegation(message)
 
         delegated_address = get_delegated_code_address(message.code)
         if delegated_address is not None:
@@ -175,6 +182,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
         return_data=evm.output,
         regular_gas_used=evm.regular_gas_used,
         state_gas_used=evm.state_gas_used,
+        state_refund=state_refund,
     )
 
 

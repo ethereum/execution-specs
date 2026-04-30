@@ -158,20 +158,29 @@ def calculate_delegation_cost(
     return True, delegated_address, delegation_gas_cost
 
 
-def set_delegation(message: Message) -> None:
+def set_delegation(message: Message) -> Uint:
     """
     Set the delegation code for the authorities in the message.
 
     For existing accounts, refunds the account-creation component of
-    state gas to the reservoir (no mutation of intrinsic_state_gas).
+    state gas to the reservoir (no mutation of intrinsic_state_gas) and
+    accumulates the same amount as the auth state refund returned to the
+    caller, so block accounting can subtract it from `tx_state_gas`.
 
     Parameters
     ----------
     message :
         Transaction specific items.
 
+    Returns
+    -------
+    auth_state_refund : `Uint`
+        Total state gas refunded across all authorizations whose
+        authority already existed in state.
+
     """
     tx_state = message.tx_env.state
+    auth_state_refund = Uint(0)
     for auth in message.tx_env.authorizations:
         if auth.chain_id not in (message.block_env.chain_id, U256(0)):
             continue
@@ -202,6 +211,7 @@ def set_delegation(message: Message) -> None:
         if account_exists(tx_state, authority):
             refund = STATE_BYTES_PER_NEW_ACCOUNT * COST_PER_STATE_BYTE
             message.state_gas_reservoir += refund
+            auth_state_refund += refund
 
         if auth.address == NULL_ADDRESS:
             code_to_set = b""
@@ -218,3 +228,5 @@ def set_delegation(message: Message) -> None:
         tx_state,
         get_account(tx_state, message.code_address).code_hash,
     )
+
+    return auth_state_refund
