@@ -266,13 +266,15 @@ def test_reservoir_restored_after_child_spill_and_halt(
     fork: Fork,
 ) -> None:
     """
-    Test all state gas recovered when child spills then halts.
+    Test parent gets reservoir back after child spill + halt.
 
     The child performs two SSTOREs (zero-to-nonzero), exhausting the
     reservoir and spilling into `gas_left`, then hits INVALID causing
-    an exceptional halt. On halt `gas_left` is zeroed but all state gas
-    (reservoir + spill) is restored to the parent's reservoir. The
-    parent can then perform two SSTOREs using the recovered reservoir.
+    an exceptional halt. The child's halt resets its frame to (0,
+    R0_child) — only the reservoir-portion is returned to the
+    parent; the spilled gas stays burned (re-classified as regular).
+    The parent does two SSTOREs: the first drains the recovered
+    reservoir, the second spills from the parent's own `gas_left`.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -288,8 +290,9 @@ def test_reservoir_restored_after_child_spill_and_halt(
     parent = pre.deploy_contract(
         code=(
             Op.POP(Op.CALL(gas=500_000, address=child))
-            # All state gas recovered (reservoir + spill), parent
-            # can perform two SSTOREs from the recovered reservoir
+            # First SSTORE drains the recovered reservoir; second
+            # SSTORE spills from parent's gas_left (gas_limit_cap is
+            # large enough to absorb it).
             + Op.SSTORE(parent_storage.store_next(1), 1)
             + Op.SSTORE(parent_storage.store_next(1), 1)
         ),
@@ -1358,8 +1361,15 @@ def test_top_level_halt_preserves_restored_reservoir(
     reservoir_delta: int,
 ) -> None:
     """
-    Verify the reservoir is refunded on a top-level halt after a
-    failing child restored state gas to the parent frame.
+    Verify a top-level halt resets `state_gas_left` to the frame's
+    entry reservoir regardless of child failure mode or in-frame
+    drain/spill. The parent calls a child that either reverts (which
+    refunds the full `state_gas_used` back to the parent's reservoir)
+    or halts (which leaves only the reservoir-portion behind), then
+    the parent INVALIDs. In both child-failure paths and across all
+    three reservoir sizes (one short / exact / one over the child's
+    SSTORE cost), the top-level halt collapses to a final reservoir
+    equal to the original tx-level R0 — billed as `gas_limit_cap`.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -1382,14 +1392,13 @@ def test_top_level_halt_preserves_restored_reservoir(
         sender=pre.fund_eoa(),
     )
 
-    # New model: SSTORE never drains the reservoir at opcode time,
-    # so reservoir-vs-child-cost relationship is irrelevant on a
-    # failing child path. All three reservoir sizes produce the
-    # same gas_used: parent's INVALID consumes its regular gas_left,
-    # incorporate_child_on_error returns the child's reservoir
-    # untouched, and top-level halt restores any remaining
-    # state_gas_used into the reservoir. Block totals: regular =
-    # gas_limit_cap (full burn), state = 0.
+    # Halt rule: every halted frame's (gas_left, state_gas_left) is
+    # reset to (0, message.state_gas_reservoir). Whatever the child
+    # did inside the call — drain, spill, or revert refund — is
+    # wiped when the parent's INVALID hits. The user's final
+    # reservoir is exactly the top-level R0 = sstore + delta, and
+    # `tx_gas_used = tx.gas - 0 - R0 = gas_limit_cap` for all six
+    # combinations.
     expected_gas_used = gas_limit_cap
 
     blockchain_test(
