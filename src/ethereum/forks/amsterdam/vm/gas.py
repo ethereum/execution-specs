@@ -17,7 +17,7 @@ from typing import List, Tuple
 from ethereum_types.numeric import U64, U256, Uint, ulen
 
 from ethereum.forks.bpo5.blocks import Header as PreviousHeader
-from ethereum.trace import GasAndRefund, evm_trace
+from ethereum.trace import GasAndRefund, StateGasAndRefund, evm_trace
 from ethereum.utils.numeric import ceil32, taylor_exponential
 
 from ..blocks import Header
@@ -25,24 +25,16 @@ from ..transactions import BlobTransaction, Transaction
 from . import Evm
 from .exceptions import OutOfGasError
 
+# EIP-8037 state gas accounting constants
+COST_PER_STATE_BYTE = Uint(1174)
 
-class StateCosts:
-    """
-    State byte costs and per byte gas charge.
+STATE_BYTES_PER_NEW_ACCOUNT = Uint(112)
+STATE_BYTES_PER_STORAGE_SET = Uint(32)
+STATE_BYTES_PER_AUTH_BASE = Uint(23)
 
-    Kept separate from `GasCosts` so the two dimensions don't share
-    units. `NEW_ACCOUNT`, `STORAGE_SET`, `AUTH_BASE` are *byte counts*
-    (not gas) — `compute_state_byte_diff` returns a signed sum of
-    these, multiplied by `PER_BYTE` at frame-end to convert into gas.
-    """
+PER_AUTH_BASE_COST = Uint(7500)
 
-    # State-byte counts of common state-mutating operations.
-    NEW_ACCOUNT = Uint(112)  # account record
-    STORAGE_SET = Uint(32)  # storage slot key/value pair
-    AUTH_BASE = Uint(23)  # 7702 delegation marker (0xef0100 + 20)
-    # Fixed cost-per-state-byte. Calibrated for 100 GiB/year state
-    # growth at a 96M gas-limit reference utilization.
-    PER_BYTE = Uint(1174)
+REGULAR_GAS_CREATE = Uint(9000)
 
 
 # These values may be patched at runtime by a future gas repricing utility
@@ -77,7 +69,7 @@ class GasCosts:
     CODE_INIT_PER_WORD = Uint(2)
 
     # Authorization
-    PER_AUTH_BASE_COST = Uint(7500)
+    AUTH_PER_EMPTY_ACCOUNT = 25000
 
     # Utility
     ZERO = Uint(0)
@@ -123,7 +115,7 @@ class GasCosts:
 
     # Transactions
     TX_BASE = Uint(21000)
-    TX_CREATE = Uint(9000)
+    TX_CREATE = Uint(32000)
     TX_DATA_TOKEN_STANDARD = Uint(4)
     TX_DATA_TOKEN_FLOOR = Uint(16)
     TX_ACCESS_LIST_ADDRESS = Uint(2400)
@@ -204,7 +196,7 @@ class GasCosts:
     OPCODE_MSTORE_BASE = VERY_LOW
     OPCODE_MSTORE8_BASE = VERY_LOW
     OPCODE_COPY_PER_WORD = Uint(3)
-    OPCODE_CREATE_BASE = Uint(9000)
+    OPCODE_CREATE_BASE = Uint(32000)
     OPCODE_EXP_BASE = Uint(10)
     OPCODE_EXP_PER_BYTE = Uint(50)
     OPCODE_KECCAK256_BASE = Uint(30)
@@ -285,6 +277,33 @@ def charge_gas(evm: Evm, amount: Uint) -> None:
     evm.gas_left -= amount
 
     evm.regular_gas_used += amount
+
+
+def charge_state_gas(evm: Evm, amount: Uint) -> None:
+    """
+    Subtracts `amount` from the state gas reservoir, then from
+    `evm.gas_left` when the reservoir is empty. Records state gas usage.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM.
+    amount :
+        The amount of state gas the current operation requires.
+
+    """
+    evm_trace(evm, StateGasAndRefund(int(amount)))
+
+    if evm.state_gas_left >= amount:
+        evm.state_gas_left -= amount
+    elif evm.state_gas_left + evm.gas_left >= amount:
+        remainder = amount - evm.state_gas_left
+        evm.state_gas_left = Uint(0)
+        evm.gas_left -= remainder
+    else:
+        raise OutOfGasError
+
+    evm.state_gas_used += amount
 
 
 def calculate_memory_gas_cost(size_in_bytes: Uint) -> Uint:
