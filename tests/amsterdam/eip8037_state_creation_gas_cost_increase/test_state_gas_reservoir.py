@@ -1069,13 +1069,11 @@ def test_top_level_failure_propagated_state_gas(
     child_code = Op.SSTORE(0, 1)
     child = pre.deploy_contract(code=child_code)
     if failure_mode == "revert":
-        parent_code = (
-            Op.POP(Op.CALL(gas=Op.GAS, address=child)) + Op.REVERT(0, 0)
+        parent_code = Op.POP(Op.CALL(gas=Op.GAS, address=child)) + Op.REVERT(
+            0, 0
         )
     else:
-        parent_code = (
-            Op.POP(Op.CALL(gas=Op.GAS, address=child)) + Op.INVALID
-        )
+        parent_code = Op.POP(Op.CALL(gas=Op.GAS, address=child)) + Op.INVALID
     parent = pre.deploy_contract(code=parent_code)
 
     # Reservoir sized to half the SSTORE state gas so the child's
@@ -1109,6 +1107,162 @@ def test_top_level_failure_propagated_state_gas(
     )
 
     state_test(pre=pre, post={child: Account(storage={})}, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "frame_bodies",
+    [
+        pytest.param(
+            [
+                Op.SSTORE(0, 1),
+                Op.SSTORE(1, 1),
+                Op.SSTORE(2, 1),
+                Op.SSTORE(3, 1),
+            ],
+            id="depth_4_sstore_each",
+        ),
+        pytest.param(
+            [
+                Op.SSTORE(0, 1),
+                Bytecode(),
+                Op.SSTORE(2, 1),
+                Bytecode(),
+            ],
+            id="depth_4_alternating_state",
+        ),
+        pytest.param(
+            [Bytecode(), Bytecode(), Bytecode(), Bytecode()],
+            id="depth_4_no_state",
+        ),
+        pytest.param(
+            [
+                Op.SSTORE(0, 1) + Op.SSTORE(1, 1),
+                Op.SSTORE(2, 1) + Op.SSTORE(3, 1),
+                Op.SSTORE(4, 1) + Op.SSTORE(5, 1),
+            ],
+            id="depth_3_two_sstores_each",
+        ),
+        pytest.param(
+            [
+                Bytecode(),
+                Bytecode(),
+                Op.SSTORE(0, 1)
+                + Op.SSTORE(
+                    0,
+                    0,
+                    key_warm=True,
+                    original_value=0,
+                    current_value=1,
+                    new_value=0,
+                ),
+            ],
+            id="depth_3_deepest_0_to_x_to_0",
+        ),
+        pytest.param(
+            [
+                Bytecode(),
+                Bytecode(),
+                Op.SSTORE(0, 1)
+                + Op.SSTORE(
+                    0,
+                    2,
+                    key_warm=True,
+                    original_value=0,
+                    current_value=1,
+                    new_value=2,
+                )
+                + Op.SSTORE(
+                    0,
+                    0,
+                    key_warm=True,
+                    original_value=0,
+                    current_value=2,
+                    new_value=0,
+                ),
+            ],
+            id="depth_3_deepest_0_to_x_to_y_to_0",
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "failure_mode",
+    [
+        pytest.param("revert", id="revert"),
+        pytest.param("halt", id="halt"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_nested_failure_resets_to_tx_reservoir(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    failure_mode: str,
+    frame_bodies: list[Bytecode],
+) -> None:
+    """
+    Verify failure cascade resets state_gas_left to R_tx for any chain.
+
+    Each frame runs its parametrized body, then calls the next frame
+    or terminates; every frame ends with the failure terminator so
+    the cascade reaches the top. Bodies need accurate opcode
+    metadata for `regular_cost(fork)`, `state_cost(fork)` and
+    `state_refund(fork)` to match the actual runtime charges.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+
+    # Reservoir covers all body state costs without spilling.
+    body_state_total = sum(b.state_cost(fork) for b in frame_bodies)
+    reservoir = max(body_state_total + sstore_state_gas, sstore_state_gas)
+    tx_gas = gas_limit_cap + reservoir
+
+    terminator = Op.REVERT(0, 0) if failure_mode == "revert" else Op.INVALID
+
+    deepest_idx = len(frame_bodies) - 1
+    deepest_code = frame_bodies[deepest_idx] + terminator
+    frame_codes: list[Bytecode] = [deepest_code]
+    inner_addr = pre.deploy_contract(code=deepest_code)
+    for depth in range(deepest_idx - 1, -1, -1):
+        code = (
+            frame_bodies[depth]
+            + Op.POP(Op.CALL(gas=Op.GAS, address=inner_addr))
+            + terminator
+        )
+        inner_addr = pre.deploy_contract(code=code)
+        frame_codes.insert(0, code)
+
+    top = inner_addr
+
+    if failure_mode == "halt":
+        expected_cumulative = tx_gas - reservoir
+    elif failure_mode == "revert":
+        sum_regular = sum(code.regular_cost(fork) for code in frame_codes)
+        # Non-top frames' inline state-gas refunds get burned at the
+        # incorporate boundary (incorporate_child_on_error subtracts
+        # `state_gas_refund` so the refund doesn't leak across the
+        # rolled-back state change). Top frame's refund is preserved
+        # by the tx-level error handler.
+        non_top_refund_burn = sum(
+            b.state_refund(fork) for b in frame_bodies[1:]
+        )
+        expected_cumulative = (
+            intrinsic_cost + sum_regular + non_top_refund_burn
+        )
+    else:
+        raise ValueError("Invariant, unreachable code.")
+
+    tx = Transaction(
+        to=top,
+        gas_limit=tx_gas,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_cumulative,
+        ),
+    )
+
+    state_test(pre=pre, post={}, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
