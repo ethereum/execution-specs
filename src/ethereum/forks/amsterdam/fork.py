@@ -1095,7 +1095,7 @@ def process_transaction(
                 # pre-deletion.
                 account = get_account(tx_state, address)
                 code = get_code(tx_state, account.code_hash)
-                selfdestruct_refund += Uint(len(code)) * COST_PER_STATE_BYTE
+                selfdestruct_refund += ulen(code) * COST_PER_STATE_BYTE
                 selfdestruct_refund = min(
                     selfdestruct_refund, tx_output.state_gas_used
                 )

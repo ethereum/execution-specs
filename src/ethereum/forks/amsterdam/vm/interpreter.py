@@ -226,13 +226,11 @@ def process_create_message(message: Message) -> Evm:
             # Hash cost for computing keccak256 of deployed bytecode
             code_hash_gas = (
                 GasCosts.OPCODE_KECCACK256_PER_WORD
-                * ceil32(Uint(len(contract_code)))
+                * ceil32(ulen(contract_code))
                 // Uint(32)
             )
             charge_gas(evm, code_hash_gas)
-            code_deposit_state_gas = (
-                Uint(len(contract_code)) * COST_PER_STATE_BYTE
-            )
+            code_deposit_state_gas = ulen(contract_code) * COST_PER_STATE_BYTE
             charge_state_gas(evm, code_deposit_state_gas)
         except ExceptionalHalt as error:
             restore_tx_state(tx_state, snapshot)
