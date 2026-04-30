@@ -1193,7 +1193,7 @@ def test_top_level_failure_propagated_state_gas(
 )
 @pytest.mark.valid_from("EIP8037")
 def test_nested_failure_resets_to_tx_reservoir(
-    state_test: StateTestFiller,
+    blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
     failure_mode: str,
@@ -1207,6 +1207,14 @@ def test_nested_failure_resets_to_tx_reservoir(
     the cascade reaches the top. Bodies need accurate opcode
     metadata for `regular_cost(fork)`, `state_cost(fork)` and
     `state_refund(fork)` to match the actual runtime charges.
+
+    Two assertions cross-check the gas accounting:
+    - `cumulative_gas_used` (receipt) pins `tx.gas - gas_left -
+      state_gas_left`, catching bugs in the leftover split.
+    - `header.gas_used` pins `regular_gas_used + state_gas_used`
+      via the block accumulators, catching bugs in the
+      regular-vs-state attribution. They differ by exactly
+      `refund_burn` in REVERT cases with non-top inline refunds.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -1235,10 +1243,14 @@ def test_nested_failure_resets_to_tx_reservoir(
 
     top = inner_addr
 
+    sum_regular = sum(code.regular_cost(fork) for code in frame_codes)
     if failure_mode == "halt":
+        # gas_left = 0 (consumed by halt), state_gas_left = R_tx
+        # (entry reservoir restored). regular_gas_used eats every
+        # post-intrinsic gas unit (charges + burned gas_left).
         expected_cumulative = tx_gas - reservoir
+        expected_header_gas_used = gas_limit_cap
     elif failure_mode == "revert":
-        sum_regular = sum(code.regular_cost(fork) for code in frame_codes)
         # Non-top frames' inline state-gas refunds get burned at the
         # incorporate boundary (incorporate_child_on_error subtracts
         # `state_gas_refund` so the refund doesn't leak across the
@@ -1250,6 +1262,12 @@ def test_nested_failure_resets_to_tx_reservoir(
         expected_cumulative = (
             intrinsic_cost + sum_regular + non_top_refund_burn
         )
+        # Header reflects the regular-vs-state attribution directly:
+        # state_gas_used is zeroed by the tx error handler, so only
+        # regular gas usage shows up. The refund burn lives in the
+        # `state_gas_left` shortfall (visible in cumulative), not
+        # the regular accumulator.
+        expected_header_gas_used = intrinsic_cost + sum_regular
     else:
         raise ValueError("Invariant, unreachable code.")
 
@@ -1262,7 +1280,16 @@ def test_nested_failure_resets_to_tx_reservoir(
         ),
     )
 
-    state_test(pre=pre, post={}, tx=tx)
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=expected_header_gas_used),
+            )
+        ],
+        post={},
+    )
 
 
 @pytest.mark.valid_from("EIP8037")
