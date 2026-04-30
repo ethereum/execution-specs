@@ -84,25 +84,7 @@ def sufficient_gas(
     """
     is_value_call = callee_opcode in [Op.CALL, Op.CALLCODE]
 
-    if (
-        fork.is_eip_enabled(8037)
-        and is_value_call
-        and callee_opcode == Op.CALL
-    ):
-        # EIP-8037 moves NEW_ACCOUNT off the CALL static gate. The new
-        # account is created by `move_ether` before the grandchild's
-        # diff snapshot, so the +112-byte delta lands at the *callee's*
-        # frame end. The grandchild has no code and runs no opcodes, so
-        # it returns its (forward + stipend) gas to the callee intact;
-        # the only net drain through the CALL is `static_cost - stipend`.
-        # `sufficient_gas` therefore needs `NEW_ACCOUNT - stipend` of
-        # extra budget on top of the static cost so that the callee
-        # has exactly `NEW_ACCOUNT` gas left when the state-gas charge
-        # lands; one gas short tips it into OOG.
-        gas_costs = fork.gas_costs()
-        static_cost = gas_costs.COLD_ACCOUNT_ACCESS + gas_costs.CALL_VALUE
-        cost = static_cost + gas_costs.NEW_ACCOUNT - gas_costs.CALL_STIPEND
-    elif fork >= Berlin:
+    if fork >= Berlin:
         metadata: dict = {"address_warm": False}
         if is_value_call:
             metadata["value_transfer"] = True
