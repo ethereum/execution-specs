@@ -76,7 +76,7 @@ class EIP8037(BaseFork):
                 + STATE_BYTES_PER_STORAGE_SET * cpsb
             ),
             NEW_ACCOUNT=new_acct,
-            OPCODE_CREATE_BASE=REGULAR_GAS_CREATE + new_acct,
+            OPCODE_CREATE_BASE=REGULAR_GAS_CREATE,
             TX_CREATE=(REGULAR_GAS_CREATE + new_acct),
             AUTH_PER_EMPTY_ACCOUNT=(
                 PER_AUTH_BASE_COST
@@ -132,6 +132,15 @@ class EIP8037(BaseFork):
                 op, gas_costs
             ),
             Opcodes.RETURN: lambda op: cls._calculate_return_state_gas(
+                op, gas_costs
+            ),
+            # New-account state gas (NEW_ACCOUNT × CPSB) lives here so
+            # that `OPCODE_CREATE_BASE` stays regular-only and matches
+            # the spec EVM constant.
+            Opcodes.CREATE: lambda op: cls._calculate_create_state_gas(
+                op, gas_costs
+            ),
+            Opcodes.CREATE2: lambda op: cls._calculate_create_state_gas(
                 op, gas_costs
             ),
         }
@@ -445,3 +454,17 @@ class EIP8037(BaseFork):
         if code_deposit_size > 0:
             return code_deposit_size * cls.cost_per_state_byte()
         return 0
+
+    @classmethod
+    def _calculate_create_state_gas(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """
+        Calculate CREATE/CREATE2 state gas cost (`NEW_ACCOUNT × CPSB`).
+
+        Pre-EIP-8037 this was folded into `OPCODE_CREATE_BASE`; under
+        EIP-8037 it is exposed here so that `OPCODE_CREATE_BASE` stays
+        regular-only and matches the spec EVM constant.
+        """
+        del opcode
+        return gas_costs.NEW_ACCOUNT
