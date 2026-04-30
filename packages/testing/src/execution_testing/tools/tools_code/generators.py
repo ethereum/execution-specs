@@ -806,6 +806,10 @@ class IteratingBytecode(Bytecode):
     """
     cleanup: Bytecode
     """Bytecode executed once at the end after all iterations complete."""
+    iterating_state_gas: int
+    """
+    State-gas portion (EIP-8037) charged per loop iteration.
+    """
 
     def __new__(
         cls,
@@ -815,6 +819,7 @@ class IteratingBytecode(Bytecode):
         cleanup: Bytecode | None = None,
         warm_iterating: Bytecode | None = None,
         iterating_subcall: Bytecode | int | None = None,
+        iterating_state_gas: int = 0,
     ) -> Self:
         """
         Create a new iterating bytecode.
@@ -833,6 +838,9 @@ class IteratingBytecode(Bytecode):
                 calculation. The value can also be an integer, in which case it
                 represents the gas cost of the subcall (e.g. the subcall is a
                 precompiled contract).
+            iterating_state_gas: EIP-8037 state-gas portion charged
+                per iteration (see field docstring). Defaults to 0,
+                preserving pre-EIP-8037 allocator behavior.
 
         Returns:
             A new IteratingBytecode instance.
@@ -860,6 +868,7 @@ class IteratingBytecode(Bytecode):
         if cleanup is None:
             cleanup = Bytecode()
         instance.cleanup = cleanup
+        instance.iterating_state_gas = iterating_state_gas
         return instance
 
     def iterating_subcall_gas_cost(
@@ -985,61 +994,106 @@ class IteratingBytecode(Bytecode):
             **intrinsic_cost_kwargs,
         ) + self.iterating_subcall_reserve(fork=fork)
 
+    def _iterations_fit_within_gas_limits(
+        self,
+        *,
+        fork: Fork,
+        iteration_count: int,
+        start_iteration: int,
+        gas_limit: int,
+        compute_gas_limit: int | None = None,
+        **intrinsic_cost_kwargs: Any,
+    ) -> Tuple[bool, int]:
+        """
+        Check whether iteration_count iterations fit within the gas limits.
+
+        Returns (fits, combined_gas) where combined_gas is the
+        total regular+state gas (i.e. tx.gas) given the iteration
+        count. fits is True when both:
+          - combined_gas <= gas_limit (block-budget constraint).
+          - When compute_gas_limit is set, the compute portion
+            combined - iteration_count * iterating_state_gas
+            does not exceed `compute_gas_limit` (EIP-8037 per-tx
+            compute cap). With `self.iterating_state_gas == 0`
+            this reduces to `combined <= compute_gas_limit`.
+        """
+        if iteration_count <= 0:
+            return True, 0
+        combined = self.tx_gas_limit_by_iteration_count(
+            fork=fork,
+            iteration_count=iteration_count,
+            start_iteration=start_iteration,
+            **intrinsic_cost_kwargs,
+        )
+        if combined > gas_limit:
+            return False, combined
+        if compute_gas_limit is not None:
+            compute = combined - iteration_count * self.iterating_state_gas
+            if compute > compute_gas_limit:
+                return False, combined
+        return True, combined
+
     def _binary_search_iterations(
         self,
         *,
         fork: Fork,
         gas_limit: int,
         start_iteration: int,
+        compute_gas_limit: int | None = None,
         **intrinsic_cost_kwargs: Any,
     ) -> Tuple[int, int]:
         """
         Binary search for the maximum iterations that fit within a gas limit.
+
+        `gas_limit` bounds the combined (regular+state) gas, i.e., the
+        emitted `tx.gas`.
+
+        When `compute_gas_limit` is supplied alongside a non-zero
+        `self.iterating_state_gas`, the search additionally
+        requires that the regular (compute) portion fits within
+        `compute_gas_limit`. This models EIP-8037: state gas rides in
+        the per-tx reservoir on top of the compute gas cap rather than
+        eating into it. With `self.iterating_state_gas == 0` the
+        second constraint reduces to `combined ≤ compute_gas_limit`,
+        which matches today's `min(remaining, cap)` behavior.
         """
-        single_iteration_gas = self.tx_gas_limit_by_iteration_count(
-            fork=fork,
-            iteration_count=1,
-            start_iteration=start_iteration,
+        fits_kwargs: Dict[str, Any] = {
+            "fork": fork,
+            "start_iteration": start_iteration,
+            "gas_limit": gas_limit,
+            "compute_gas_limit": compute_gas_limit,
             **intrinsic_cost_kwargs,
+        }
+
+        ok, _ = self._iterations_fit_within_gas_limits(
+            iteration_count=1, **fits_kwargs
         )
-        if single_iteration_gas > gas_limit:
+        if not ok:
             raise ValueError(
                 "Single iteration gas cost is greater than gas limit."
             )
+
         low = 1
         high = 2
 
         # Exponential search to find upper bound
-        high_gas_cost = self.tx_gas_limit_by_iteration_count(
-            fork=fork,
-            iteration_count=high,
-            start_iteration=start_iteration,
-            **intrinsic_cost_kwargs,
+        ok, _ = self._iterations_fit_within_gas_limits(
+            iteration_count=high, **fits_kwargs
         )
-        while high_gas_cost < gas_limit:
+        while ok:
             low = high
             high *= 2
-            high_gas_cost = self.tx_gas_limit_by_iteration_count(
-                fork=fork,
-                iteration_count=high,
-                start_iteration=start_iteration,
-                **intrinsic_cost_kwargs,
+            ok, _ = self._iterations_fit_within_gas_limits(
+                iteration_count=high, **fits_kwargs
             )
 
         # Binary search for exact fit
-        best_iterations = 0
         while low < high:
             mid = (low + high) // 2
-
-            if (
-                self.tx_gas_limit_by_iteration_count(
-                    fork=fork,
-                    iteration_count=mid,
-                    start_iteration=start_iteration,
-                    **intrinsic_cost_kwargs,
-                )
-                > gas_limit
-            ):
+            ok, _ = self._iterations_fit_within_gas_limits(
+                iteration_count=mid, **fits_kwargs
+            )
+            if not ok:
                 high = mid
             else:
                 low = mid + 1
@@ -1072,6 +1126,14 @@ class IteratingBytecode(Bytecode):
         list will contain one item per transaction that represents the
         iteration count for that transaction, and no transaction will exceed
         the gas limit cap.
+
+        When `self.iterating_state_gas > 0` (EIP-8037), the per-tx
+        cap is applied to the *compute* portion only — state gas rides
+        in the tx-level reservoir on top. Each emitted tx then carries
+        `tx.gas = compute + state`, which is also what the block budget
+        (`gas_limit`) accounts against. With
+        `self.iterating_state_gas == 0` the function behaves
+        identically to today's logic.
         """
         gas_limit_cap = fork.transaction_gas_limit_cap()
         remaining_gas = gas_limit
@@ -1082,17 +1144,11 @@ class IteratingBytecode(Bytecode):
             start_iteration=start_iteration,
             **intrinsic_cost_kwargs,
         ):
-            # Binary search for the maximum number of iterations that fits
-            # within remaining_gas
-            max_gas_limit = (
-                min(remaining_gas, gas_limit_cap)
-                if gas_limit_cap is not None
-                else remaining_gas
-            )
             best_iterations, best_iterations_gas = (
                 self._binary_search_iterations(
                     fork=fork,
-                    gas_limit=max_gas_limit,
+                    gas_limit=remaining_gas,
+                    compute_gas_limit=gas_limit_cap,
                     start_iteration=start_iteration,
                     **intrinsic_cost_kwargs,
                 )
@@ -1179,6 +1235,12 @@ class IteratingBytecode(Bytecode):
         E.g. when the calldata that needs to be passed to the iterating
         bytecode changes with each iteration, the calldata can be generated
         dynamically by passing a callable to the calldata keyword argument.
+
+        EIP-8037-aware worst-case allocation engages automatically when
+        the bytecode has a non-zero ``iterating_state_gas``: the
+        per-tx cap then constrains the regular (compute) portion only,
+        and each emitted tx carries ``tx.gas = compute + state`` so
+        that the EVM-side reservoir sizes correctly.
 
         The returned object also contains an extra field with the expected
         gas cost of the transaction by the end of execution.
