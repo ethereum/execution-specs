@@ -196,7 +196,14 @@ def test_revert_depth_create_address_collision(
         Hash(0xEA60),
         Hash(0x1EA60),
     ]
-    tx_gas = [110000, 170000]
+    # EIP-8037: when the inner CREATE2 OOGs, the state-gas it spilled
+    # into its own gas_left is no longer refunded to the parent's
+    # reservoir on halt. Bump the budget by one SSTORE's worth so the
+    # outer's final SSTORE has the spill replacement in gas_left.
+    # `sstore_state_gas()` returns 0 pre-EIP-8037, leaving the
+    # canonical budget unchanged on older forks.
+    sstore_state_gas = fork.sstore_state_gas()
+    tx_gas = [110000 + sstore_state_gas, 170000 + sstore_state_gas]
     tx_value = [1, 0]
 
     tx = Transaction(
