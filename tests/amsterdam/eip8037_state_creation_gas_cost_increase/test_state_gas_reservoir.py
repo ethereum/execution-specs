@@ -964,36 +964,60 @@ def test_subcall_failure_does_not_zero_top_level_state_gas(
     )
 
 
+@pytest.mark.parametrize(
+    "failure_mode",
+    [
+        pytest.param("revert", id="revert"),
+        pytest.param("halt", id="halt"),
+    ],
+)
 @pytest.mark.valid_from("EIP8037")
-def test_top_level_failure_refunds_spilled_state_gas(
+def test_top_level_failure_spilled_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    failure_mode: str,
 ) -> None:
     """
-    Verify the top level failure refund covers state gas that
-    spilled from the reservoir into gas_left.
+    Verify the top-level failure handling for state gas that spilled
+    from the reservoir into `gas_left`.
 
     When the reservoir is smaller than the state gas charge, the
-    overflow spills and is drawn from gas_left. On top level failure
-    the full consumed state gas (reservoir portion plus spilled
-    portion) is credited back to the reservoir so the sender is not
-    billed for any of it.
+    overflow spills and is drawn from `gas_left`. The two failure
+    modes diverge in how the spill is treated:
+
+    - REVERT preserves `gas_left` and refunds the full
+      `state_gas_used` (reservoir-portion + spilled-portion) to the
+      reservoir. The user is billed only the regular component.
+    - Exceptional halt resets the frame to `(0, R0)`. The spilled
+      portion stays burned alongside `gas_left` (re-classified as
+      regular gas usage). Only the reservoir-portion is restored.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     sstore_state_gas = fork.sstore_state_gas()
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
 
-    code = Op.SSTORE(0, 1) + Op.REVERT(0, 0)
+    if failure_mode == "revert":
+        code = Op.SSTORE(0, 1) + Op.REVERT(0, 0)
+    else:
+        code = Op.SSTORE(0, 1) + Op.INVALID
     contract = pre.deploy_contract(code=code)
 
     # Reservoir sized to cover only half the SSTORE state gas; the
-    # other half must spill into gas_left.
+    # other half spills into gas_left.
     tx_gas = gas_limit_cap + sstore_state_gas // 2
-    expected_cumulative = (
-        intrinsic_cost + code.gas_cost(fork) - sstore_state_gas
-    )
+
+    if failure_mode == "revert":
+        # gas_left preserved; full state_gas_used refunded to
+        # reservoir → sender billed only the regular component.
+        expected_cumulative = (
+            intrinsic_cost + code.gas_cost(fork) - sstore_state_gas
+        )
+    else:
+        # gas_left burned; only the reservoir-portion (sstore/2) is
+        # restored. tx_gas_used = tx_gas - 0 - sstore/2.
+        expected_cumulative = tx_gas - sstore_state_gas // 2
 
     tx = Transaction(
         to=contract,
@@ -1007,21 +1031,35 @@ def test_top_level_failure_refunds_spilled_state_gas(
     state_test(pre=pre, post={contract: Account(storage={})}, tx=tx)
 
 
+@pytest.mark.parametrize(
+    "failure_mode",
+    [
+        pytest.param("revert", id="revert"),
+        pytest.param("halt", id="halt"),
+    ],
+)
 @pytest.mark.valid_from("EIP8037")
-def test_top_level_failure_refunds_state_gas_propagated_from_child(
+def test_top_level_failure_propagated_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    failure_mode: str,
 ) -> None:
     """
-    Verify the top level failure refund catches state gas propagated
+    Verify the top-level failure handling for state gas propagated
     from a successful subcall.
 
     The parent calls a child that runs SSTORE and returns. The
-    child's state gas usage is folded into the parent frame via the
-    success path. When the parent then reverts at the top level, the
-    full propagated state gas must be refunded so the sender fee
-    excludes it.
+    child's `state_gas_used` is folded into the parent frame via the
+    success path so the parent's reservoir is empty and its
+    `state_gas_used` carries the SSTORE charge.
+
+    - REVERT preserves `gas_left` and refunds the full propagated
+      `state_gas_used` to the reservoir. The user is billed only the
+      regular component.
+    - Exceptional halt resets the parent frame to `(0, R0)`, where
+      `R0 = sstore_state_gas`. The propagated charge re-converges to
+      the entry reservoir; `tx_gas_used = tx_gas - R0 = gas_limit_cap`.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -1030,20 +1068,36 @@ def test_top_level_failure_refunds_state_gas_propagated_from_child(
 
     child_code = Op.SSTORE(0, 1)
     child = pre.deploy_contract(code=child_code)
-    parent_code = Op.POP(Op.CALL(gas=Op.GAS, address=child)) + Op.REVERT(0, 0)
+    if failure_mode == "revert":
+        parent_code = (
+            Op.POP(Op.CALL(gas=Op.GAS, address=child)) + Op.REVERT(0, 0)
+        )
+    else:
+        parent_code = (
+            Op.POP(Op.CALL(gas=Op.GAS, address=child)) + Op.INVALID
+        )
     parent = pre.deploy_contract(code=parent_code)
 
-    # Reservoir sized for the child's SSTORE. After the propagated
-    # state gas is refunded, the sender is billed only the regular
-    # gas: parent + CALL dispatch + child regular (SSTORE minus its
-    # state component).
-    tx_gas = gas_limit_cap + sstore_state_gas
-    expected_cumulative = (
-        intrinsic_cost
-        + parent_code.gas_cost(fork)
-        + child_code.gas_cost(fork)
-        - sstore_state_gas
-    )
+    # Reservoir sized to half the SSTORE state gas so the child's
+    # charge drains the reservoir AND spills into gas_left. This
+    # makes the halt path actually exercise the (0, R0) rule (no
+    # spill at the parent boundary would let halt and revert
+    # produce identical answers).
+    tx_gas = gas_limit_cap + sstore_state_gas // 2
+
+    if failure_mode == "revert":
+        # gas_left preserved; full propagated state_gas_used refunded
+        # → sender billed only the regular component.
+        expected_cumulative = (
+            intrinsic_cost
+            + parent_code.gas_cost(fork)
+            + child_code.gas_cost(fork)
+            - sstore_state_gas
+        )
+    else:
+        # Halt resets parent to (0, R0=sstore/2); the spilled
+        # portion stays burned. tx_gas_used = tx_gas - 0 - sstore/2.
+        expected_cumulative = tx_gas - sstore_state_gas // 2
 
     tx = Transaction(
         to=parent,
