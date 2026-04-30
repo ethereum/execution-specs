@@ -55,6 +55,7 @@ State.rollback_db_transaction
 # src/ethereum_spec_tools/docc.py
 docc.EthereumDiscover
 docc.EthereumBuilder
+docc.EthereumPythonDiscover
 docc.EthereumListingDiscover
 docc.DiffSource.show_in_listing
 docc.FixIndexTransform
