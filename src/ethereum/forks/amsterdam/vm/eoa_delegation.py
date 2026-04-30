@@ -14,18 +14,14 @@ from ethereum.state import Address
 
 from ..fork_types import Authorization
 from ..state_tracker import (
-    account_exists,
     get_account,
     get_code,
     increment_nonce,
+    is_account_alive,
     set_code,
 )
 from ..utils.hexadecimal import hex_to_address
-from ..vm.gas import (
-    COST_PER_STATE_BYTE,
-    STATE_BYTES_PER_NEW_ACCOUNT,
-    GasCosts,
-)
+from ..vm.gas import GasCosts, StateCosts
 from . import Evm, Message
 
 SET_CODE_TX_MAGIC = b"\x05"
@@ -162,9 +158,6 @@ def set_delegation(message: Message) -> None:
     """
     Set the delegation code for the authorities in the message.
 
-    For existing accounts, refunds the account-creation component of
-    state gas to the reservoir (no mutation of intrinsic_state_gas).
-
     Parameters
     ----------
     message :
@@ -196,11 +189,8 @@ def set_delegation(message: Message) -> None:
         if authority_nonce != auth.nonce:
             continue
 
-        # For existing accounts, no account creation needed.
-        # Refund the account creation state gas to the reservoir.
-        # intrinsic_state_gas is immutable after validation.
-        if account_exists(tx_state, authority):
-            refund = STATE_BYTES_PER_NEW_ACCOUNT * COST_PER_STATE_BYTE
+        if is_account_alive(tx_state, authority):
+            refund = StateCosts.NEW_ACCOUNT * StateCosts.PER_BYTE
             message.state_gas_reservoir += refund
 
         if auth.address == NULL_ADDRESS:

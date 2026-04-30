@@ -84,7 +84,6 @@ from .transactions import (
     TX_MAX_GAS_LIMIT,
     BlobTransaction,
     FeeMarketTransaction,
-    IntrinsicGasCost,
     LegacyTransaction,
     SetCodeTransaction,
     Transaction,
@@ -100,9 +99,6 @@ from .utils.message import prepare_message
 from .vm import Message
 from .vm.eoa_delegation import is_valid_delegation
 from .vm.gas import (
-    COST_PER_STATE_BYTE,
-    STATE_BYTES_PER_NEW_ACCOUNT,
-    STATE_BYTES_PER_STORAGE_SET,
     GasCosts,
     calculate_blob_gas_price,
     calculate_data_fee,
@@ -490,7 +486,6 @@ def check_transaction(
     block_output: vm.BlockOutput,
     tx: Transaction,
     tx_state: TransactionState,
-    intrinsic: IntrinsicGasCost,
 ) -> Tuple[Address, Uint, Tuple[VersionedHash, ...], U64]:
     """
     Check if the transaction is includable in the block.
@@ -505,9 +500,6 @@ def check_transaction(
         The transaction.
     tx_state :
         The transaction state tracker.
-    intrinsic :
-        The transaction's intrinsic gas cost, split into regular and
-        state components.
 
     Returns
     -------
@@ -555,10 +547,6 @@ def check_transaction(
         is empty.
 
     """
-    # Per-tx 2D gas inclusion check: for each dimension the worst-case
-    # contribution must fit in the remaining budget.  Block-end
-    # validation still enforces
-    # max(block_regular_gas_used, block_state_gas_used) <= gas_limit.
     regular_gas_available = (
         block_env.block_gas_limit - block_output.block_gas_used
     )
@@ -567,16 +555,9 @@ def check_transaction(
     )
     blob_gas_available = MAX_BLOB_GAS_PER_BLOCK - block_output.blob_gas_used
 
-    # Worst-case regular contribution: tx.gas minus the portion that
-    # must go to intrinsic state gas, capped at TX_MAX_GAS_LIMIT.
-    if min(TX_MAX_GAS_LIMIT, tx.gas - intrinsic.state) > (
-        regular_gas_available
-    ):
+    if min(TX_MAX_GAS_LIMIT, tx.gas) > regular_gas_available:
         raise GasUsedExceedsLimitError("gas used exceeds limit")
-
-    # Worst-case state contribution: tx.gas minus the portion that
-    # must go to intrinsic regular gas.
-    if tx.gas - intrinsic.regular > state_gas_available:
+    if tx.gas > state_gas_available:
         raise GasUsedExceedsLimitError("gas used exceeds limit")
 
     tx_blob_gas_used = calculate_total_blob_gas(tx)
@@ -1010,7 +991,6 @@ def process_transaction(
         block_output=block_output,
         tx=tx,
         tx_state=tx_state,
-        intrinsic=intrinsic,
     )
 
     sender_account = get_account(tx_state, sender)
@@ -1022,8 +1002,6 @@ def process_transaction(
 
     effective_gas_fee = tx.gas * effective_gas_price
 
-    # Split execution gas into gas_left (capped by remaining regular gas
-    # budget) and state_gas_reservoir.
     execution_gas = tx.gas - intrinsic_gas
     regular_gas_budget = TX_MAX_GAS_LIMIT - intrinsic.regular
     gas = min(regular_gas_budget, execution_gas)
@@ -1074,39 +1052,13 @@ def process_transaction(
     tx_output = process_message_call(message)
 
     if tx_output.error is not None:
-        tx_output.state_gas_left += tx_output.state_gas_used
-        tx_output.state_gas_used = Uint(0)
+        tx_output.state_gas_reservoir += Uint(max(0, tx_output.state_gas_used))
+        tx_output.state_gas_used = 0
+    total_remaining = tx_output.gas_left + tx_output.state_gas_reservoir
+    if total_remaining > tx.gas:
+        tx_gas_used_before_refund = Uint(0)
     else:
-        # Refund state gas for accounts created and destroyed in the
-        # same tx (EIP-6780). Covers account, storage, and code.
-        for address in tx_output.accounts_to_delete:
-            if address in tx_state.created_accounts:
-                selfdestruct_refund = (
-                    STATE_BYTES_PER_NEW_ACCOUNT * COST_PER_STATE_BYTE
-                )
-                storage = tx_state.storage_writes.get(address, {})
-                created_slots = sum(1 for v in storage.values() if v != 0)
-                selfdestruct_refund += (
-                    Uint(created_slots)
-                    * STATE_BYTES_PER_STORAGE_SET
-                    * COST_PER_STATE_BYTE
-                )
-                # EIP-6780 defers account/storage/code removal to
-                # tx-end, so `account.code_hash` still points at the
-                # deployed code here and `get_code` returns it
-                # pre-deletion.
-                account = get_account(tx_state, address)
-                code = get_code(tx_state, account.code_hash)
-                selfdestruct_refund += Uint(len(code)) * COST_PER_STATE_BYTE
-                selfdestruct_refund = min(
-                    selfdestruct_refund, tx_output.state_gas_used
-                )
-                tx_output.state_gas_left += selfdestruct_refund
-                tx_output.state_gas_used -= selfdestruct_refund
-
-    tx_gas_used_before_refund = (
-        tx.gas - tx_output.gas_left - tx_output.state_gas_left
-    )
+        tx_gas_used_before_refund = tx.gas - total_remaining
     tx_gas_refund = min(
         tx_gas_used_before_refund // Uint(5), Uint(tx_output.refund_counter)
     )
@@ -1166,7 +1118,13 @@ def process_transaction(
         destroy_account(tx_state, block_env.coinbase)
 
     tx_regular_gas = tx_env.intrinsic_regular_gas + tx_output.regular_gas_used
-    tx_state_gas = tx_env.intrinsic_state_gas + tx_output.state_gas_used
+    # `state_gas_used` is signed (can go negative due to deferred
+    # SELFDESTRUCT refunds offsetting the intrinsic portion). Clamp
+    # at 0 because the block-level Uint counter cannot go negative;
+    # a tx that net-creates no state contributes nothing here.
+    tx_state_gas = Uint(
+        max(0, int(tx_env.intrinsic_state_gas) + tx_output.state_gas_used)
+    )
     block_output.block_gas_used += max(
         tx_regular_gas, intrinsic.calldata_floor
     )
