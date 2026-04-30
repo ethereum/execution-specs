@@ -219,6 +219,50 @@ def test_blockhash_out_of_range_charges_base_only(
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
+@pytest.mark.slow()
+def test_blockhash_too_old_but_available_in_history_charges_base_only(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Test that a BLOCKHASH query older than 256 blocks charges only the
+    base opcode cost, even when EIP-2935 still serves the hash.
+    """
+    query_block = 1
+
+    code = CodeGasMeasure(
+        code=Op.BLOCKHASH(query_block),
+        extra_stack_items=1,
+        overhead_cost=Op.PUSH1.gas_cost(fork),
+        sstore_key=0,
+    )
+
+    contract_address = pre.deploy_contract(
+        code,
+        storage={0: 0xDEADBEEF},
+    )
+    sender = pre.fund_eoa()
+
+    blocks = [Block() for _ in range(Spec.BLOCKHASH_SERVE_WINDOW + 1)]
+    blocks.append(
+        Block(
+            txs=[
+                Transaction(
+                    to=contract_address,
+                    gas_limit=1_000_000,
+                    sender=sender,
+                )
+            ]
+        )
+    )
+
+    post: Dict[Address, Account] = {
+        contract_address: Account(storage={0: blockhash_cost(fork)}),
+    }
+    blockchain_test(pre=pre, blocks=blocks, post=post)
+
+
 def test_blockhash_warm_via_prior_history_call(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
