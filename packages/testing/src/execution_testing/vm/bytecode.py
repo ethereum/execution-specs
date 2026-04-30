@@ -38,6 +38,8 @@ class Bytecode:
     _gas_cost_fork_: Type[ForkOpcodeInterface] | None = None
     _state_cost_: int | None = None
     _state_cost_fork_: Type[ForkOpcodeInterface] | None = None
+    _regular_cost_: int | None = None
+    _regular_cost_fork_: Type[ForkOpcodeInterface] | None = None
     _refund_: int | None = None
     _refund_fork_: Type[ForkOpcodeInterface] | None = None
     _state_refund_: int | None = None
@@ -318,6 +320,20 @@ class Bytecode:
             for opcode in self.opcode_list:
                 self._state_cost_ += opcode_state_calculator(opcode)
         return self._state_cost_
+
+    def regular_cost(self, fork: Type[ForkOpcodeInterface]) -> int:
+        """
+        Use a fork object to calculate the regular gas used by this
+        bytecode (i.e. excluding the state-gas portion under EIP-8037).
+
+        Useful for OOG-boundary tests that need to land at the regular
+        gas charge of an opcode rather than its combined regular + state
+        cost.
+        """
+        if self._regular_cost_ is None or self._regular_cost_fork_ != fork:
+            self._regular_cost_fork_ = fork
+            self._regular_cost_ = self.gas_cost(fork) - self.state_cost(fork)
+        return self._regular_cost_
 
     def refund(self, fork: Type[ForkOpcodeInterface]) -> int:
         """Use a fork object to calculate the gas refund from this bytecode."""
