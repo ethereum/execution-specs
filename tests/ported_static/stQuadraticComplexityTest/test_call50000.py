@@ -70,7 +70,7 @@ def test_call50000(
         gas_limit=860000000,
     )
 
-    addr = pre.fund_eoa(amount=7000)  # noqa: F841
+    addr = pre.fund_eoa(amount=7000)
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) [[ 0 ]] (CALL 1600 <eoa:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 1 0 50000 0 0) ) [[ 1 ]] @i}  # noqa: E501
     target_code = (
@@ -96,7 +96,7 @@ def test_call50000(
         + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x80))
         + Op.STOP
     )
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=target_code,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
