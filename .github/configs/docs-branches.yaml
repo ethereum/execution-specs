@@ -16,3 +16,5 @@ branches:
     label: "Amsterdam"
   - path: "devnets/bal/4"
     label: "bal-devnet-4"
+  - path: "devnets/snobal/6"
+    label: "bal-devnet-6"
