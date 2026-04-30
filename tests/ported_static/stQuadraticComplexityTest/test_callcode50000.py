@@ -3,6 +3,9 @@ Test_callcode50000.
 
 Ported from:
 state_tests/stQuadraticComplexityTest/Callcode50000Filler.json
+
+@manually-enhanced: Do not overwrite. Post-state expectations corrected
+manually (see PR #2784).
 """
 
 import pytest

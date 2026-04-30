@@ -3,6 +3,9 @@ Test_call20_kbytes_contract50_2.
 
 Ported from:
 state_tests/stQuadraticComplexityTest/Call20KbytesContract50_2Filler.json
+
+@manually-enhanced: Do not overwrite. Post-state expectations corrected
+manually (see PR #2784).
 """
 
 import pytest
