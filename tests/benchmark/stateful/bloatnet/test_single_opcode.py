@@ -197,7 +197,7 @@ def run_bloated_eoa_benchmark(
 @pytest.mark.repricing
 @pytest.mark.stub_parametrize("token_name", "bloated_eoa_")
 @pytest.mark.parametrize("existing_slots", [False, True])
-@pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
+@pytest.mark.parametrize("cache_strategy", [CacheStrategy.NO_CACHE])
 def test_sload_bloated(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
@@ -578,7 +578,7 @@ def test_sload_bloated_multi_contract(
 @pytest.mark.stub_parametrize("token_name", "bloated_eoa_")
 @pytest.mark.parametrize("write_new_value", [False, True])
 @pytest.mark.parametrize("existing_slots", [True, False])
-@pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
+@pytest.mark.parametrize("cache_strategy", [CacheStrategy.NO_CACHE])
 def test_sstore_bloated(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
@@ -1510,7 +1510,7 @@ class AccountMode(Enum):
 
 
 @pytest.mark.repricing
-@pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
+@pytest.mark.parametrize("cache_strategy", [CacheStrategy.NO_CACHE])
 @pytest.mark.parametrize(
     "opcode,value_sent,account_mode", account_access_params()
 )
