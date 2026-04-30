@@ -15,7 +15,6 @@ from execution_testing import (
 
 from .helpers import (
     WithdrawalRequest,
-    WithdrawalRequestContract,
     WithdrawalRequestInteractionBase,
 )
 from .spec import Spec
@@ -113,15 +112,6 @@ def blocks(
             block_number=len(blocks) + 1,
             timestamp=timestamp,
         )
-        if block_fork.is_eip_enabled(8037):
-            gas_costs = block_fork.gas_costs()
-            for r in block_requests:
-                if isinstance(r, WithdrawalRequestContract):
-                    # Each withdrawal request writes 3 new storage slots
-                    # in the system contract queue (source, pubkey, amount).
-                    r.tx_gas_limit += (
-                        len(r.requests) * 3 * gas_costs.STORAGE_SET
-                    )
         header_verify: Header | None = None
         if block_fork.header_requests_required():
             header_verify = Header(
