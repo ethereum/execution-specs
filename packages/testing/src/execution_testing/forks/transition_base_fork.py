@@ -1,8 +1,8 @@
 """Base objects used to define transition forks."""
 
-from typing import Any, Callable, ClassVar, Dict, Type
+from typing import Any, Callable, ClassVar, Dict, Optional, Type
 
-from .base_fork import BaseFork
+from .base_fork import BaseFork, BaseForkMeta
 
 
 class TransitionBaseMetaClass(type):
@@ -14,6 +14,19 @@ class TransitionBaseMetaClass(type):
         implemented by subclasses.
         """
         raise Exception("Not implemented")
+
+    def __eq__(cls, other: object) -> bool:
+        """
+        Compare transition fork identity, treating variants created by
+        `with_env_gas_limit` as equal to their canonical parent.
+        """
+        if not isinstance(other, type):
+            return NotImplemented
+        return BaseForkMeta._identity(cls) is BaseForkMeta._identity(other)
+
+    def __hash__(cls) -> int:
+        """Hash by canonical transition fork identity."""
+        return id(BaseForkMeta._identity(cls))
 
     def transitions_to(cls) -> Type[BaseFork]:
         """
@@ -76,6 +89,7 @@ class TransitionBaseClass(metaclass=TransitionBaseMetaClass):
     at_timestamp: ClassVar[int] = 0
     _ignore: ClassVar[bool] = False
     _env_gas_limit: ClassVar[int] = 0
+    _base_fork: ClassVar[Optional[Type["TransitionBaseClass"]]] = None
 
     @classmethod
     def fork_at(
@@ -117,6 +131,7 @@ class TransitionBaseClass(metaclass=TransitionBaseMetaClass):
         """
         new_cls = type(cls.__name__, (cls,), {})
         new_cls._env_gas_limit = env_gas_limit  # type: ignore[attr-defined]
+        new_cls._base_fork = cls._base_fork or cls  # type: ignore[attr-defined]
         return new_cls
 
 

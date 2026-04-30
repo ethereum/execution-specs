@@ -184,7 +184,7 @@ class BaseForkMeta(ABCMeta):
         return cls.name()
 
     @staticmethod
-    def _maybe_transitioned(fork_cls: "BaseForkMeta") -> "BaseForkMeta":
+    def _maybe_transitioned(fork_cls: type) -> type:
         """
         Return the transitioned fork, if a transition fork, otherwise return
         `fork_cls`.
@@ -203,14 +203,14 @@ class BaseForkMeta(ABCMeta):
         """
         # Resolve variants to canonical identity so comparisons between
         # a variant and a canonical descendant fork work as expected.
-        a = BaseForkMeta._identity(a)
-        b = BaseForkMeta._identity(b)
-        a = BaseForkMeta._maybe_transitioned(a)
-        b = BaseForkMeta._maybe_transitioned(b)
-        return issubclass(a, b)
+        a_id: type = BaseForkMeta._identity(a)
+        b_id: type = BaseForkMeta._identity(b)
+        a_id = BaseForkMeta._maybe_transitioned(a_id)
+        b_id = BaseForkMeta._maybe_transitioned(b_id)
+        return issubclass(a_id, b_id)
 
     @staticmethod
-    def _identity(fork_cls: "BaseForkMeta") -> "BaseForkMeta":
+    def _identity(fork_cls: type) -> type:
         """Return the canonical fork class, resolving variants."""
         base = getattr(fork_cls, "_base_fork", None)
         return base if base is not None else fork_cls
