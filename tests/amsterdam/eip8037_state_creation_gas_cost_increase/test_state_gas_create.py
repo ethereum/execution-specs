@@ -2202,7 +2202,6 @@ def test_inner_create_fail_refunds_in_creation_tx(
 def test_create_collision_burned_gas_counted_in_block_regular(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    fork: Fork,
     create_opcode: Op,
 ) -> None:
     """
@@ -2244,7 +2243,7 @@ def test_create_collision_burned_gas_counted_in_block_regular(
     # header.gas_used equals the regular-gas total. A mutation that
     # drops the burned create_message_gas from regular accounting
     # would reduce this value.
-    baseline_gas_used = 0x03C325
+    baseline_gas_used = 117132
 
     blockchain_test(
         pre=pre,
