@@ -614,42 +614,38 @@ def test_nested_create_code_deposit_cannot_borrow_parent_gas(
     gas_costs = fork.gas_costs()
     code_deposit_state = fork.code_deposit_state_gas(code_size=1)
 
+    factory_mstore = Op.MSTORE(
+        0, Op.PUSH32(bytes(init_code)), new_memory_size=32
+    )
+    factory_create = Op.CREATE(
+        value=0,
+        offset=32 - len(init_code),
+        size=len(init_code),
+        init_code_size=len(init_code),
+    )
     factory = pre.deploy_contract(
-        code=(
-            Op.MSTORE(0, Op.PUSH32(bytes(init_code)))
-            + Op.POP(
-                Op.CREATE(
-                    value=0,
-                    offset=32 - len(init_code),
-                    size=len(init_code),
-                ),
-            )
-        ),
+        code=factory_mstore + Op.POP(factory_create),
     )
     created = compute_create_address(address=factory, nonce=1)
 
-    # Gas consumed before the child CREATE frame receives gas:
-    # Intrinsic + factory code (PUSH32+PUSH1+MSTORE+mem +
-    # 3xPUSH1) + CREATE regular (+ init_code_cost) + new account
-    # state gas (spilled from gas_left, no reservoir).
-    init_code_word_cost = gas_costs.CODE_INIT_PER_WORD * (
-        (len(init_code) + 31) // 32
-    )
-    pre_child_gas = (
-        gas_costs.TX_BASE
-        + 7 * gas_costs.VERY_LOW
-        + gas_costs.MEMORY_PER_WORD
-        + gas_costs.OPCODE_CREATE_BASE
-        + init_code_word_cost
-    )
-
-    # Init code cost: PUSH1 + PUSH1 + RETURN(+mem expansion)
+    # Init code child execution: PUSH1 + PUSH1 + RETURN's mem_exp.
+    # Code deposit (keccak + state) is charged AFTER the child returns.
     init_cost = 2 * gas_costs.VERY_LOW + gas_costs.MEMORY_PER_WORD
-    # Target child gas: enough for init, not enough for code deposit
+    # Target child: enough for init, not enough for code deposit state.
     target_child = (init_cost + code_deposit_state) // 2
-    # Invert EIP-150 63/64ths rule: ceil(target_child * 64 / 63)
+    # Invert EIP-150 63/64ths rule: ceil(target_child * 64 / 63).
     factory_remaining = (target_child * 64 + 62) // 63
-    gas_limit = pre_child_gas + factory_remaining
+
+    # NEW_ACCOUNT state gas spills into gas_left (no reservoir at the
+    # top level), so it must be funded out of the regular budget.
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+    gas_limit = (
+        intrinsic_cost
+        + factory_mstore.regular_cost(fork)
+        + factory_create.regular_cost(fork)
+        + gas_costs.NEW_ACCOUNT
+        + factory_remaining
+    )
 
     tx = Transaction(
         to=factory,
