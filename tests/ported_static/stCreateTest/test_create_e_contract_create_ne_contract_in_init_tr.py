@@ -7,7 +7,6 @@ state_tests/stCreateTest/CREATE_EContractCreateNEContractInInit_TrFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -36,9 +35,7 @@ def test_create_e_contract_create_ne_contract_in_init_tr(
     """Test_create_e_contract_create_ne_contract_in_init_tr."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -49,14 +46,12 @@ def test_create_e_contract_create_ne_contract_in_init_tr(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # {[[1]]12}
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x1, value=0xC) + Op.STOP,
         balance=0xE8D4A51000,
         nonce=0,
-        address=Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     tx = Transaction(
@@ -81,9 +76,9 @@ def test_create_e_contract_create_ne_contract_in_init_tr(
     post = {
         contract_0: Account(storage={1: 12}),
         compute_create_address(address=sender, nonce=0): Account(nonce=2),
-        Address(0x64E2EBD6405AF8CB348AEC519084D3FFF42EBBA6): Account(
-            code=bytes.fromhex("600c600055")
-        ),
+        compute_create_address(
+            address=compute_create_address(address=sender, nonce=0), nonce=1
+        ): Account(code=bytes.fromhex("600c600055")),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

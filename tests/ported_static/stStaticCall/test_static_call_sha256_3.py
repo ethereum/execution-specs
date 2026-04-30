@@ -47,6 +47,7 @@ def test_static_call_sha256_3(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { (MSTORE 0 0xf34578907f) [[ 2 ]] (STATICCALL 500 2 0 37 0 32) [[ 0 ]] (MLOAD 0)}  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -68,7 +69,6 @@ def test_static_call_sha256_3(
         nonce=0,
         address=Address(0x9B35A511EDE9CDECC6DFC827744E0CA1D0E5F236),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

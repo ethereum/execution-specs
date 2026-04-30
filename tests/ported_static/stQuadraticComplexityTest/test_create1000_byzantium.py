@@ -7,7 +7,6 @@ state_tests/stQuadraticComplexityTest/Create1000ByzantiumFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -15,6 +14,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.vm import Op
@@ -58,9 +58,7 @@ def test_create1000_byzantium(
     """Gas analysis showed this test's gas can go as low as 21053, and..."""
     coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_0 = Address(0xBBBF5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -71,7 +69,6 @@ def test_create1000_byzantium(
         gas_limit=8600000000,
     )
 
-    pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 1000) [i](+ @i 1) [[ 0 ]] (CREATE 1 0 50000) ) [[ 1 ]] @i}  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -89,7 +86,6 @@ def test_create1000_byzantium(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
-        address=Address(0xBBBF5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     tx_data = [
@@ -107,8 +103,8 @@ def test_create1000_byzantium(
     )
 
     post = {
-        Address(
-            0x010D8B0816E30FF51BA07678C64B272CDEDDB807
+        compute_create_address(
+            address=contract_0, nonce=866
         ): Account.NONEXISTENT,
     }
 

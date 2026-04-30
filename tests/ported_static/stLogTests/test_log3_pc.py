@@ -7,7 +7,6 @@ state_tests/stLogTests/log3_PCFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_log3_pc(
 ) -> None:
     """Test_log3_pc."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -47,13 +44,24 @@ def test_log3_pc(
     )
 
     # Source: lll
+    # { (MSTORE8 0 0xff) (LOG3 0 32 (PC) (PC) (PC) ) }
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE8(offset=0x0, value=0xFF)
+        + Op.LOG3(
+            offset=0x0, size=0x20, topic_1=Op.PC, topic_2=Op.PC, topic_3=Op.PC
+        )
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
+        nonce=0,
+    )
+    # Source: lll
     # { [[ 0 ]] (CALL 1000 <contract:0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6> 23 0 0 0 0) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALL(
                 gas=0x3E8,
-                address=0x2D74CBAE3F7951CF201441F09537705A05E5290C,
+                address=addr,
                 value=0x17,
                 args_offset=0x0,
                 args_size=0x0,
@@ -64,21 +72,7 @@ def test_log3_pc(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x1E5597B6168FE79952CB2DE7AF91C3449BC95BD4),  # noqa: E501
     )
-    # Source: lll
-    # { (MSTORE8 0 0xff) (LOG3 0 32 (PC) (PC) (PC) ) }
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE8(offset=0x0, value=0xFF)
-        + Op.LOG3(
-            offset=0x0, size=0x20, topic_1=Op.PC, topic_2=Op.PC, topic_3=Op.PC
-        )
-        + Op.STOP,
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x2D74CBAE3F7951CF201441F09537705A05E5290C),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

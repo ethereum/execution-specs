@@ -46,6 +46,7 @@ def test_arith(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
     # Source: raw
     # 0x600160019001600702600501600290046004906021900560170160030260059007600303600960110A60005560086000F3  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -69,7 +70,6 @@ def test_arith(
         nonce=0,
         address=Address(0x14814D06E93EFB1102A15D5881432C9FF6C91362),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     tx = Transaction(
         sender=sender,

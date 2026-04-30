@@ -7,7 +7,6 @@ state_tests/Shanghai/stEIP3855_push0/push0GasFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_push0_gas(
 ) -> None:
     """Test_push0_gas."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xDC4EFA209AECDD4C2D5201A419EA27506151B4EC687F14A613229E310932491B
-    )
+    sender = pre.fund_eoa(amount=0x989680)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -46,7 +43,6 @@ def test_push0_gas(
         gas_limit=89128960,
     )
 
-    pre[sender] = Account(balance=0x989680)
     # Source: raw
     # 0x5a6000555f5a6000540360015500
     target = pre.deploy_contract(  # noqa: F841
@@ -55,7 +51,6 @@ def test_push0_gas(
         + Op.SSTORE(key=0x1, value=Op.SUB(Op.SLOAD(key=0x0), Op.GAS))
         + Op.STOP,
         nonce=0,
-        address=Address(0xC1ACA9DA71F5EA8DB94B3428D8CBE5D544472FF7),  # noqa: E501
     )
 
     tx = Transaction(

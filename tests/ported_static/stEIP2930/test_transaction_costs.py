@@ -7,7 +7,6 @@ state_tests/stEIP2930/transactionCostsFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     AccessList,
     Account,
     Address,
@@ -120,9 +119,7 @@ def test_transaction_costs(
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x7778A3B885EA30938725C6E00831943A454477163CDBC252DEBEB9612B4FA5F7
-    )
+    sender = pre.fund_eoa(amount=0x5FA9C18)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -139,9 +136,7 @@ def test_transaction_costs(
         code=Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address(0x1BF4BD50BBDA0F09948556F87D37F86F2E19E84A),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x5FA9C18)
 
     expect_entries: list[dict] = [
         # EIP-7981 changes access list costs in Amsterdam+. Balance is a

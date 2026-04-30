@@ -75,6 +75,7 @@ def test_create_fail_balance_too_low(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {(MSTORE 0 0x6001600255 ) (SELFDESTRUCT (CREATE 1000000000000000024 27 5)) }  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -87,7 +88,6 @@ def test_create_fail_balance_too_low(
         nonce=0,
         address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     expect_entries_: list[dict] = [
         {

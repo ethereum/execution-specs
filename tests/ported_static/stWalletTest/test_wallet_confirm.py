@@ -66,8 +66,8 @@ def test_wallet_confirm(
         storage={
             0: 2,
             1: 2,
-            3: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-            4: 0x3FB1CD2CD96C6D5C0B5EB3322D807B34482481D4,
+            3: contract_0,
+            4: sender,
             260: 1,
             263: 0xC22E4,
             0x3736DCA762B6FCB9A97D5EAFDA4032FDBA21DBFA25F875001D51E03EFF955FB2: 1,  # noqa: E501
@@ -103,8 +103,8 @@ def test_wallet_confirm(
             storage={
                 0: 2,
                 1: 2,
-                3: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                4: 0x3FB1CD2CD96C6D5C0B5EB3322D807B34482481D4,
+                3: contract_0,
+                4: sender,
                 260: 1,
                 263: 0xC22E4,
                 0x6E369836487C234B9E553EF3F787C2D8865520739D340C67B3D251A33986E58D: 1,  # noqa: E501

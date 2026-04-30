@@ -7,7 +7,6 @@ state_tests/stArgsZeroOneBalance/createNonConstFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -15,6 +14,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -59,9 +59,7 @@ def test_create_non_const(
     """Test_create_non_const."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -93,7 +91,6 @@ def test_create_non_const(
         nonce=0,
         address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     expect_entries_: list[dict] = [
         {
@@ -101,7 +98,9 @@ def test_create_non_const(
             "network": [">=Cancun"],
             "result": {
                 contract_0: Account(
-                    storage={0: 0xD2571607E241ECF590ED94B12D87C94BABE36DB6},
+                    storage={
+                        0: compute_create_address(address=contract_0, nonce=0),
+                    },
                 ),
             },
         },
@@ -110,7 +109,9 @@ def test_create_non_const(
             "network": [">=Cancun"],
             "result": {
                 contract_0: Account(
-                    storage={0: 0xD2571607E241ECF590ED94B12D87C94BABE36DB6},
+                    storage={
+                        0: compute_create_address(address=contract_0, nonce=0),
+                    },
                 ),
             },
         },

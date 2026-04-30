@@ -7,7 +7,6 @@ state_tests/stRefundTest/refundMaxFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_refund_max(
 ) -> None:
     """Ori Pomerantz   qbzzt1@gmail."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xB5555C6F8171A6EB3C0A84ED8F01AF5CE65A85A096A824A60EE5E2C2C2E076D1
-    )
+    sender = pre.fund_eoa(amount=0xE8D848C3A0, nonce=1)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -86,9 +83,7 @@ def test_refund_max(
         },
         balance=0xDE0B6B3A7640000,
         nonce=1,
-        address=Address(0x7E9D1FF50F8EB9591A0434ABFE3230054A934124),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xE8D848C3A0, nonce=1)
 
     tx = Transaction(
         sender=sender,

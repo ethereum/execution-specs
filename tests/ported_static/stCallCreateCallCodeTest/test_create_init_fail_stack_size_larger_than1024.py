@@ -48,6 +48,7 @@ def test_create_init_fail_stack_size_larger_than1024(
         gas_limit=1000000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {(MSTORE 0 0x6103ff6000525b7f0102030405060708090a0102030405060708090a01020304) (MSTORE 32 0x05060708090a0102600160005103600052600051600657000000000000000000 ) (SELFDESTRUCT (CREATE 1 0 64)) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -65,7 +66,6 @@ def test_create_init_fail_stack_size_larger_than1024(
         nonce=0,
         address=Address(0x0EE6DB8C4A76CAB3BB0584E06916CEA75D307DB0),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

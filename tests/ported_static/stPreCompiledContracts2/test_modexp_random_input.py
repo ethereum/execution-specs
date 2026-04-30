@@ -7,7 +7,6 @@ state_tests/stPreCompiledContracts2/modexpRandomInputFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -68,7 +67,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_modexp_random_input(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -79,9 +77,7 @@ def test_modexp_random_input(
 ) -> None:
     """Fuzzed input discovered by Guido."""
     coinbase = Address(0x3535353535353535353535353535353535353535)
-    sender = EOA(
-        key=0x897B12D02D588D8A4FE16FF831CBD4459C6F62F8C845B0CCDD31CAF068C84A26
-    )
+    sender = pre.fund_eoa(amount=0x3635C9ADC5DEA00000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -91,8 +87,6 @@ def test_modexp_random_input(
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
-
-    pre[sender] = Account(balance=0x3635C9ADC5DEA00000)
 
     tx_data = [
         Bytes(

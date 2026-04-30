@@ -7,7 +7,6 @@ state_tests/stRefundTest/refund50_1Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_refund50_1(
 ) -> None:
     """Test_refund50_1."""
     coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
-    sender = EOA(
-        key=0xDC4EFA209AECDD4C2D5201A419EA27506151B4EC687F14A613229E310932491B
-    )
+    sender = pre.fund_eoa(amount=0x989680)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -59,9 +56,7 @@ def test_refund50_1(
         storage={1: 1, 2: 1, 3: 1, 4: 1, 5: 1},
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x6737EAC10F0B6FF19A1C903CAFC30B26752A5AF4),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x989680)
 
     tx = Transaction(
         sender=sender,

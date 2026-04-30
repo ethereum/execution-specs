@@ -52,23 +52,11 @@ def test_create_oo_gafter_init_code_revert(
 
     pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
-    # { (CALL (GAS) 0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0 32) [[ 1 ]] (MLOAD 0) }  # noqa: E501
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.POP(
-            Op.CALL(
-                gas=Op.GAS,
-                address=0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x20,
-            )
-        )
-        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0))
-        + Op.STOP,
+    # { (KECCAK256 0x00 0x2fffff) }
+    contract_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.SHA3(offset=0x0, size=0x2FFFFF) + Op.STOP,
         nonce=0,
-        address=Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
+        address=Address(0x094F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 0 0x6460016001556000526005601bf3) (CREATE 0 18 14) (CALLCODE 10000 0x094f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0 0) (REVERT 0 32) }  # noqa: E501
@@ -78,7 +66,7 @@ def test_create_oo_gafter_init_code_revert(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x2710,
-                address=0x94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                address=contract_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -92,11 +80,23 @@ def test_create_oo_gafter_init_code_revert(
         address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
     # Source: lll
-    # { (KECCAK256 0x00 0x2fffff) }
-    contract_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.SHA3(offset=0x0, size=0x2FFFFF) + Op.STOP,
+    # { (CALL (GAS) 0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0 32) [[ 1 ]] (MLOAD 0) }  # noqa: E501
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.POP(
+            Op.CALL(
+                gas=Op.GAS,
+                address=contract_1,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x20,
+            )
+        )
+        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0))
+        + Op.STOP,
         nonce=0,
-        address=Address(0x094F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
+        address=Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     tx = Transaction(

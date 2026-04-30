@@ -7,7 +7,6 @@ state_tests/stMemoryStressTest/JUMPI_BoundsFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -55,9 +54,7 @@ def test_jumpi_bounds(
 ) -> None:
     """Test_jumpi_bounds."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x31B5AF02B012484AE954B3A43943242EDE546A2E76FC0A6ACC17435107C385EB
-    )
+    sender = pre.fund_eoa(amount=0x7FFFFFFFFFFFFFFF)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -80,9 +77,7 @@ def test_jumpi_bounds(
         )
         + Op.STOP,
         nonce=0,
-        address=Address(0x147F3300E29F2F09880E97B81F7B3EBCF78863E9),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x7FFFFFFFFFFFFFFF)
 
     tx_data = [
         Bytes(""),

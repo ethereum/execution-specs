@@ -72,6 +72,7 @@ def test_static_call_with_high_value_and_gas_oog(
         gas_limit=30000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { (CALL 500000 (CALLDATALOAD 0) 0 0 0 0 0) }
     target = pre.deploy_contract(  # noqa: F841
@@ -88,6 +89,23 @@ def test_static_call_with_high_value_and_gas_oog(
         balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address(0x46FCFDFD17A5789B6AB6D7E23F33F4EADECFB5AD),  # noqa: E501
+    )
+    # Source: raw
+    # 0x603760005360026000f3
+    addr_3 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE8(offset=0x0, value=0x37)
+        + Op.RETURN(offset=0x0, size=0x2),
+        balance=23,
+        nonce=0,
+        address=Address(0xD5D9E9E0158920B17B6DF82FAC474B3E2691EE99),  # noqa: E501
+    )
+    # Source: lll
+    # { (KECCAK256 0x00 0x2fffff) }
+    addr_4 = pre.deploy_contract(  # noqa: F841
+        code=Op.SHA3(offset=0x0, size=0x2FFFFF) + Op.STOP,
+        balance=23,
+        nonce=0,
+        address=Address(0xD2B07D10E28B46411527B841F0E0382A8E3BCB80),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) (MSTORE 32 0xaaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffaa ) [[ 0 ]] (STATICCALL 0xffffffffffffffffffffffff <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 0 64 0 2 ) [[ 1 ]] (MLOAD 0)}  # noqa: E501
@@ -146,24 +164,6 @@ def test_static_call_with_high_value_and_gas_oog(
         nonce=0,
         address=Address(0xBE9C847927D7E832FF5655392C160933D99CB4E8),  # noqa: E501
     )
-    # Source: raw
-    # 0x603760005360026000f3
-    addr_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE8(offset=0x0, value=0x37)
-        + Op.RETURN(offset=0x0, size=0x2),
-        balance=23,
-        nonce=0,
-        address=Address(0xD5D9E9E0158920B17B6DF82FAC474B3E2691EE99),  # noqa: E501
-    )
-    # Source: lll
-    # { (KECCAK256 0x00 0x2fffff) }
-    addr_4 = pre.deploy_contract(  # noqa: F841
-        code=Op.SHA3(offset=0x0, size=0x2FFFFF) + Op.STOP,
-        balance=23,
-        nonce=0,
-        address=Address(0xD2B07D10E28B46411527B841F0E0382A8E3BCB80),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     expect_entries_: list[dict] = [
         {

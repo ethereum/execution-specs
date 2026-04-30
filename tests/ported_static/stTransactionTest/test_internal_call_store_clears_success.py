@@ -7,7 +7,6 @@ state_tests/stTransactionTest/InternalCallStoreClearsSuccessFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_internal_call_store_clears_success(
 ) -> None:
     """Test_internal_call_store_clears_success."""
     coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0xF79127A3004ABDE26A4CBD80C428CB10F829FA11B54D36E7B326F4F4A5927ACF
-    )
+    sender = pre.fund_eoa(amount=0x3B9ACA00)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -75,15 +72,13 @@ def test_internal_call_store_clears_success(
             9: 12,
         },
         nonce=0,
-        address=Address(0xD61E0564FAB2B0DA5136F75DB579B663BD9F2BD8),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x3B9ACA00)
     # Source: lll
     # { (CALL 100000 <contract:0x0000000000000000000000000000000000000000> 1 0 0 0 0) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
         code=Op.CALL(
             gas=0x186A0,
-            address=0xD61E0564FAB2B0DA5136F75DB579B663BD9F2BD8,
+            address=addr,
             value=0x1,
             args_offset=0x0,
             args_size=0x0,
@@ -93,7 +88,6 @@ def test_internal_call_store_clears_success(
         + Op.STOP,
         balance=10,
         nonce=0,
-        address=Address(0x4583A4F45BCB657469D752196A99ED546C8464EF),  # noqa: E501
     )
 
     tx = Transaction(

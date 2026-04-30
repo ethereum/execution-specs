@@ -7,7 +7,6 @@ state_tests/stEIP150Specific/CallGoesOOGOnSecondLevel2Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_call_goes_oog_on_second_level2(
 ) -> None:
     """Test_call_goes_oog_on_second_level2."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -46,26 +43,13 @@ def test_call_goes_oog_on_second_level2(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
-    # { (SSTORE 8 (GAS)) (SSTORE 9 (CALL 600000 <contract:0x1000000000000000000000000000000000000113> 0 0 0 0 0)) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    # { (SSTORE 8 (GAS)) (KECCAK256 0x00 0x2fffff) }
+    addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x8, value=Op.GAS)
-        + Op.SSTORE(
-            key=0x9,
-            value=Op.CALL(
-                gas=0x927C0,
-                address=0xE1D370A0538366EAFFBC9FCD571AF7B1E80D377C,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
+        + Op.SHA3(offset=0x0, size=0x2FFFFF)
         + Op.STOP,
         nonce=0,
-        address=Address(0x171742E7809E3B571E899F0D4D9D35CD5DEEACF1),  # noqa: E501
     )
     # Source: lll
     # { (SSTORE 8 (GAS)) (SSTORE 9 (CALL 600000 <contract:0x1000000000000000000000000000000000000114> 0 0 0 0 0)) }  # noqa: E501
@@ -75,7 +59,7 @@ def test_call_goes_oog_on_second_level2(
             key=0x9,
             value=Op.CALL(
                 gas=0x927C0,
-                address=0xBFB2B65E4EF26A144A185B32C7BAF39EF8E40B4B,
+                address=addr_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -85,16 +69,25 @@ def test_call_goes_oog_on_second_level2(
         )
         + Op.STOP,
         nonce=0,
-        address=Address(0xE1D370A0538366EAFFBC9FCD571AF7B1E80D377C),  # noqa: E501
     )
     # Source: lll
-    # { (SSTORE 8 (GAS)) (KECCAK256 0x00 0x2fffff) }
-    addr_2 = pre.deploy_contract(  # noqa: F841
+    # { (SSTORE 8 (GAS)) (SSTORE 9 (CALL 600000 <contract:0x1000000000000000000000000000000000000113> 0 0 0 0 0)) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x8, value=Op.GAS)
-        + Op.SHA3(offset=0x0, size=0x2FFFFF)
+        + Op.SSTORE(
+            key=0x9,
+            value=Op.CALL(
+                gas=0x927C0,
+                address=addr,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
         + Op.STOP,
         nonce=0,
-        address=Address(0xBFB2B65E4EF26A144A185B32C7BAF39EF8E40B4B),  # noqa: E501
     )
 
     tx = Transaction(

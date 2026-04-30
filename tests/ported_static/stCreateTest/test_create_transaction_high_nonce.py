@@ -9,8 +9,6 @@ state_tests/stCreateTest/CreateTransactionHighNonceFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
-    Account,
     Alloc,
     Environment,
     StateTestFiller,
@@ -60,9 +58,7 @@ def test_create_transaction_high_nonce(
     v: int,
 ) -> None:
     """The test check if the create transaction is reject if the origin's..."""
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0x5AF3107A4000, nonce=18446744073709551615)
 
     env = Environment(
         fee_recipient=sender,
@@ -72,8 +68,6 @@ def test_create_transaction_high_nonce(
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
-
-    pre[sender] = Account(balance=0x5AF3107A4000, nonce=18446744073709551615)
 
     expect_entries_: list[dict] = [
         {

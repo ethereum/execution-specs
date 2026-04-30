@@ -7,7 +7,6 @@ state_tests/stRevertTest/RevertPrecompiledTouch_nonceFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -67,17 +66,15 @@ def test_revert_precompiled_touch_nonce(
 ) -> None:
     """Test_revert_precompiled_touch_nonce."""
     coinbase = Address(0x68795C4AA09D6F4ED3E5DEDDF8C2AD3049A601DA)
-    addr_5 = Address(0xB478E245708BE95C33C6C35DEA161C0429D02DD2)
-    addr_6 = Address(0x6A22458E937F487E2DAFFA193B9C5FB610DC4789)
-    addr_7 = Address(0x8D1D883976DF004B96C383782A828DC5BC82EF9D)
-    addr_8 = Address(0x05A4FAF1EDE8E96AAE92AE51915074E42787F868)
-    addr_9 = Address(0xF8F0AEC70F4BBDADCE829783A0AFFF43F384C640)
-    addr_10 = Address(0x4BA6259BB96E9D7822A5FB3A1F8037BC68A08D43)
-    addr_11 = Address(0xBEB47E021A70649B079C4BDF150108C0D8C6ACCB)
-    addr_12 = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
-    sender = EOA(
-        key=0xFF8D58222F34F6890DDAA468C023B77D6691ED7D3C4DCDDAE38336212FAF54B
-    )
+    addr_5 = Address(0x0000000000000000000000000000000000000001)
+    addr_6 = Address(0x0000000000000000000000000000000000000002)
+    addr_7 = Address(0x0000000000000000000000000000000000000003)
+    addr_8 = Address(0x0000000000000000000000000000000000000004)
+    addr_9 = Address(0x0000000000000000000000000000000000000005)
+    addr_10 = Address(0x0000000000000000000000000000000000000006)
+    addr_11 = Address(0x0000000000000000000000000000000000000007)
+    addr_12 = Address(0x0000000000000000000000000000000000000008)
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000, nonce=1)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -88,6 +85,14 @@ def test_revert_precompiled_touch_nonce(
         gas_limit=4012015,
     )
 
+    pre[addr_5] = Account(balance=0, nonce=1)
+    pre[addr_6] = Account(balance=0, nonce=1)
+    pre[addr_7] = Account(balance=0, nonce=1)
+    pre[addr_8] = Account(balance=0, nonce=1)
+    pre[addr_9] = Account(balance=0, nonce=1)
+    pre[addr_10] = Account(balance=0, nonce=1)
+    pre[addr_11] = Account(balance=0, nonce=1)
+    pre[addr_12] = Account(balance=0, nonce=1)
     # Source: lll
     # {  (CALLCODE (GAS) (CALLDATALOAD 0) 0 0 0 0 0) }
     target = pre.deploy_contract(  # noqa: F841
@@ -480,15 +485,6 @@ def test_revert_precompiled_touch_nonce(
         nonce=0,
         address=Address(0x10EF6D6218ADA53728683CEC4D5160C8C72159BD),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
-    pre[addr_5] = Account(balance=0, nonce=1)
-    pre[addr_6] = Account(balance=0, nonce=1)
-    pre[addr_7] = Account(balance=0, nonce=1)
-    pre[addr_8] = Account(balance=0, nonce=1)
-    pre[addr_9] = Account(balance=0, nonce=1)
-    pre[addr_10] = Account(balance=0, nonce=1)
-    pre[addr_11] = Account(balance=0, nonce=1)
-    pre[addr_12] = Account(balance=0, nonce=1)
 
     tx_data = [
         Hash(addr, left_padding=True),

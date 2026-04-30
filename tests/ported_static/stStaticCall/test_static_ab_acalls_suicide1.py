@@ -71,6 +71,7 @@ def test_static_ab_acalls_suicide1(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {  (MSTORE 0 (CALLDATALOAD 0)) (STATICCALL (CALLDATALOAD 0) 0x945304eb96065b2a98b57a48a06ae28d285a71b5 0 32 0 0)   }  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -108,7 +109,6 @@ def test_static_ab_acalls_suicide1(
         nonce=0,
         address=Address(0x945304EB96065B2A98B57A48A06AE28D285A71B5),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx_data = [
         Hash(0x186A0),

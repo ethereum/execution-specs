@@ -728,6 +728,7 @@ def test_gas_cost(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
     # Source: lll
     # { ; LLL doesn't let us call arbitrary code, so we craft
     #   ; a new contract with the opcode and then call it to see
@@ -851,7 +852,6 @@ def test_gas_cost(
         nonce=0,
         address=Address(0xCCDCF3FF42C8382ABEEF05BB8949F975A6BC345C),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     expect_entries_: list[dict] = [
         {

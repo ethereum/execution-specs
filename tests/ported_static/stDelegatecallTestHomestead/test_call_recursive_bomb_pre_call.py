@@ -7,7 +7,6 @@ state_tests/stDelegatecallTestHomestead/CallRecursiveBombPreCallFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -36,9 +35,7 @@ def test_call_recursive_bomb_pre_call(
 ) -> None:
     """Test_call_recursive_bomb_pre_call."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x77F65B71F1F16A75476F469F7106D1B60BFEC266AE25B8DA16A9091D223AA24A
-    )
+    sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -97,7 +94,6 @@ def test_call_recursive_bomb_pre_call(
         nonce=0,
         address=Address(0x3046257C307A51F1A8AE73F6F6360937DD21138E),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
     tx = Transaction(
         sender=sender,

@@ -48,6 +48,7 @@ def test_create_init_fail_undefined_instruction2(
         gas_limit=1000000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {(MSTORE8 0 0xf4 ) (SELFDESTRUCT (CREATE 1 0 1)) }
     target = pre.deploy_contract(  # noqa: F841
@@ -58,7 +59,6 @@ def test_create_init_fail_undefined_instruction2(
         nonce=0,
         address=Address(0xCB1256D163AB8CC6FEFA7F8EEE45BA8DB7EA9946),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

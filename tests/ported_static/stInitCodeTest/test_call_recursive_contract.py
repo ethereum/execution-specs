@@ -47,6 +47,7 @@ def test_call_recursive_contract(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0x989680)
     # Source: lll
     # {[[ 2 ]](ADDRESS)(CODECOPY 0 0 32)(CREATE 0 0 32)}
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -57,7 +58,6 @@ def test_call_recursive_contract(
         nonce=40,
         address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x989680)
 
     tx = Transaction(
         sender=sender,
@@ -68,11 +68,7 @@ def test_call_recursive_contract(
     )
 
     post = {
-        contract_0: Account(
-            storage={2: 0x95E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87},
-            balance=1,
-            nonce=41,
-        ),
+        contract_0: Account(storage={2: contract_0}, balance=1, nonce=41),
         Address(
             0x1A4C83E1A9834CDC7E4A905FF7F0CF44AED73180
         ): Account.NONEXISTENT,

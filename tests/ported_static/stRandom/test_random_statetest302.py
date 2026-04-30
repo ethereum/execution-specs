@@ -7,7 +7,6 @@ state_tests/stRandom/randomStatetest302Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_random_statetest302(
 ) -> None:
     """Test_random_statetest302."""
     coinbase = Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79)
-    sender = EOA(
-        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -46,23 +43,6 @@ def test_random_statetest302(
         gas_limit=9223372036854775807,
     )
 
-    # Source: raw
-    # 0x7f000000000000000000000000<contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5>7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000010000000000000000000000000000000000000000971a7f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff447f00000000000000000000000000000000000000000000000000000000000000006989206c0b8a01867bf155  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH32[0x4F3F701464972E74606D6EA82D4D3080599A0E79]
-        + Op.PUSH32[
-            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-        ]
-        + Op.PUSH32[0x10000000000000000000000000000000000000000]
-        + Op.SWAP8
-        + Op.BYTE
-        + Op.PUSH32[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-        + Op.PREVRANDAO
-        + Op.PUSH32[0x0]
-        + Op.PUSH10[0x89206C0B8A01867BF155],
-        nonce=0,
-        address=Address(0xFCBCBA7CBA75059C569BE5870CA9B87A68DA093A),  # noqa: E501
-    )
     # Source: raw
     # 0x6000355415600957005b60203560003555
     coinbase = pre.deploy_contract(  # noqa: F841
@@ -79,7 +59,22 @@ def test_random_statetest302(
         nonce=0,
         address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
+    # Source: raw
+    # 0x7f000000000000000000000000<contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5>7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000010000000000000000000000000000000000000000971a7f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff447f00000000000000000000000000000000000000000000000000000000000000006989206c0b8a01867bf155  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.PUSH32[0x4F3F701464972E74606D6EA82D4D3080599A0E79]
+        + Op.PUSH32[
+            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+        ]
+        + Op.PUSH32[0x10000000000000000000000000000000000000000]
+        + Op.SWAP8
+        + Op.BYTE
+        + Op.PUSH32[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
+        + Op.PREVRANDAO
+        + Op.PUSH32[0x0]
+        + Op.PUSH10[0x89206C0B8A01867BF155],
+        nonce=0,
+    )
 
     tx = Transaction(
         sender=sender,

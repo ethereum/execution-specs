@@ -50,6 +50,7 @@ def test_delegatecode_dynamic_code2_self_call(
         gas_limit=1000000,
     )
 
+    pre[sender] = Account(balance=0x2386F26FC10000)
     # Source: lll
     # {(MSTORE 0 0x60406000604060007313136008b64ff592819b2fa6d43f2835c452020e620186) (MSTORE 32 0xa0f4600b5533600c550000000000000000000000000000000000000000000000) (CREATE 1 0 64) }  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -67,7 +68,6 @@ def test_delegatecode_dynamic_code2_self_call(
         nonce=0,
         address=Address(0x1000000000000000000000000000000000000000),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x2386F26FC10000)
 
     tx = Transaction(
         sender=sender,
@@ -78,11 +78,7 @@ def test_delegatecode_dynamic_code2_self_call(
 
     post = {
         compute_create_address(address=contract_0, nonce=0): Account(
-            storage={
-                11: 1,
-                12: 0x1000000000000000000000000000000000000000,
-            },
-            balance=1,
+            storage={11: 1, 12: contract_0}, balance=1
         ),
     }
 

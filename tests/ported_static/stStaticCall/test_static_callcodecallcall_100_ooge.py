@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_callcodecallcall_100_OOGEFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -56,9 +55,7 @@ def test_static_callcodecallcall_100_ooge(
 ) -> None:
     """Test_static_callcodecallcall_100_ooge."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -69,46 +66,6 @@ def test_static_callcodecallcall_100_ooge(
         gas_limit=30000000,
     )
 
-    # Source: lll
-    # {  (MSTORE 0 (CALLDATALOAD 0)) [[ 0 ]] (DELEGATECALL 150000 <contract:0x1000000000000000000000000000000000000001> 0 64 0 64 ) [[ 1 ]] 1 }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=Op.CALLDATALOAD(offset=0x0))
-        + Op.SSTORE(
-            key=0x0,
-            value=Op.DELEGATECALL(
-                gas=0x249F0,
-                address=0xC4961FC5BDC17DA68E909D07947A5E030952891E,
-                args_offset=0x0,
-                args_size=0x40,
-                ret_offset=0x0,
-                ret_size=0x40,
-            ),
-        )
-        + Op.SSTORE(key=0x1, value=0x1)
-        + Op.STOP,
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0xDCFF1EF291EC7B6A606AC4284680DB5A06F33054),  # noqa: E501
-    )
-    # Source: lll
-    # {  (MSTORE 32 (CALLDATALOAD 0)) (STATICCALL 100000 <contract:0x1000000000000000000000000000000000000002> 0 64 0 64 ) (MSTORE 3 1) }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x20, value=Op.CALLDATALOAD(offset=0x0))
-        + Op.POP(
-            Op.STATICCALL(
-                gas=0x186A0,
-                address=0x5AC4EE179ABD5EA5F60962E651DED51161A55B6E,
-                args_offset=0x0,
-                args_size=0x40,
-                ret_offset=0x0,
-                ret_size=0x40,
-            )
-        )
-        + Op.MSTORE(offset=0x3, value=0x1)
-        + Op.STOP,
-        nonce=0,
-        address=Address(0xC4961FC5BDC17DA68E909D07947A5E030952891E),  # noqa: E501
-    )
     # Source: lll
     # {  (STATICCALL 20020 (CALLDATALOAD 32) 0 64 0 64 ) (MSTORE 3 1) }
     addr_2 = pre.deploy_contract(  # noqa: F841
@@ -149,7 +106,46 @@ def test_static_callcodecallcall_100_ooge(
         nonce=0,
         address=Address(0xFBEF21C5A6C2ADCF3D769F085E0CC9FE9A8DF954),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
+    # Source: lll
+    # {  (MSTORE 32 (CALLDATALOAD 0)) (STATICCALL 100000 <contract:0x1000000000000000000000000000000000000002> 0 64 0 64 ) (MSTORE 3 1) }  # noqa: E501
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x20, value=Op.CALLDATALOAD(offset=0x0))
+        + Op.POP(
+            Op.STATICCALL(
+                gas=0x186A0,
+                address=0x5AC4EE179ABD5EA5F60962E651DED51161A55B6E,
+                args_offset=0x0,
+                args_size=0x40,
+                ret_offset=0x0,
+                ret_size=0x40,
+            )
+        )
+        + Op.MSTORE(offset=0x3, value=0x1)
+        + Op.STOP,
+        nonce=0,
+        address=Address(0xC4961FC5BDC17DA68E909D07947A5E030952891E),  # noqa: E501
+    )
+    # Source: lll
+    # {  (MSTORE 0 (CALLDATALOAD 0)) [[ 0 ]] (DELEGATECALL 150000 <contract:0x1000000000000000000000000000000000000001> 0 64 0 64 ) [[ 1 ]] 1 }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=Op.CALLDATALOAD(offset=0x0))
+        + Op.SSTORE(
+            key=0x0,
+            value=Op.DELEGATECALL(
+                gas=0x249F0,
+                address=0xC4961FC5BDC17DA68E909D07947A5E030952891E,
+                args_offset=0x0,
+                args_size=0x40,
+                ret_offset=0x0,
+                ret_size=0x40,
+            ),
+        )
+        + Op.SSTORE(key=0x1, value=0x1)
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
+        nonce=0,
+        address=Address(0xDCFF1EF291EC7B6A606AC4284680DB5A06F33054),  # noqa: E501
+    )
 
     tx_data = [
         Hash(addr_3, left_padding=True),

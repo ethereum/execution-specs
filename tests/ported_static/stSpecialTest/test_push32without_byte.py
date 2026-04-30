@@ -7,7 +7,6 @@ state_tests/stSpecialTest/push32withoutByteFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -32,9 +31,7 @@ def test_push32without_byte(
 ) -> None:
     """Push expect 32 bytes."""
     coinbase = Address(0x68795C4AA09D6F4ED3E5DEDDF8C2AD3049A601DA)
-    sender = EOA(
-        key=0x43F683FF58B5310699989DD19A4E1439E5333E2E3445374F7BC1446BAEDDD80
-    )
+    sender = pre.fund_eoa(amount=0x8AC7230489E80000, nonce=1)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -50,9 +47,7 @@ def test_push32without_byte(
     target = pre.deploy_contract(  # noqa: F841
         code=bytes.fromhex("7f11223344556677889910"),
         nonce=0,
-        address=Address(0xC46EA1C1AD6C8EE63711D0377EF63E51C05D38A0),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x8AC7230489E80000, nonce=1)
 
     tx = Transaction(
         sender=sender,

@@ -83,6 +83,7 @@ def test_calldataload_non_const(
         gas_limit=1000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { [[ 0 ]](CALLDATALOAD (BALANCE <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>)) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -98,7 +99,6 @@ def test_calldataload_non_const(
         nonce=0,
         address=Address(0x148F97630D3668441F1A33A5E509F268B64F998F),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     expect_entries_: list[dict] = [
         {

@@ -7,7 +7,6 @@ state_tests/stSystemOperationsTest/CallToNameRegistratorMemOOGAndInsufficientBal
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_call_to_name_registrator_mem_oog_and_insufficient_balance(
 ) -> None:
     """Test_call_to_name_registrator_mem_oog_and_insufficient_balance."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -48,6 +45,21 @@ def test_call_to_name_registrator_mem_oog_and_insufficient_balance(
         gas_limit=10000000,
     )
 
+    # Source: raw
+    # 0x6000355415600957005b60203560003555
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMPI(
+            pc=0x9,
+            condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
+        )
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.SSTORE(
+            key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
+        ),
+        balance=23,
+        nonce=0,
+    )
     # Source: lll
     # { (MSTORE 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) (MSTORE 32 0xaaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffaa ) [[ 0 ]] (CALL 0xffffffffff <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 23 0 0xffffffffffff 64 0) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -63,7 +75,7 @@ def test_call_to_name_registrator_mem_oog_and_insufficient_balance(
             key=0x0,
             value=Op.CALL(
                 gas=0xFFFFFFFFFF,
-                address=0x15EB18969E0925C8E4A76FD7CBCE36A2B056B27E,
+                address=addr,
                 value=0x17,
                 args_offset=0x0,
                 args_size=0xFFFFFFFFFFFF,
@@ -74,25 +86,7 @@ def test_call_to_name_registrator_mem_oog_and_insufficient_balance(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x74859A27DC2F1EE153CF9B4E4BAC1133F3B01B17),  # noqa: E501
     )
-    # Source: raw
-    # 0x6000355415600957005b60203560003555
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMPI(
-            pc=0x9,
-            condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
-        )
-        + Op.STOP
-        + Op.JUMPDEST
-        + Op.SSTORE(
-            key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
-        ),
-        balance=23,
-        nonce=0,
-        address=Address(0x15EB18969E0925C8E4A76FD7CBCE36A2B056B27E),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

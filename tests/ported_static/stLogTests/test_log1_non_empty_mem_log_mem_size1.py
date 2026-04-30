@@ -7,7 +7,6 @@ state_tests/stLogTests/log1_nonEmptyMem_logMemSize1Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_log1_non_empty_mem_log_mem_size1(
 ) -> None:
     """Test_log1_non_empty_mem_log_mem_size1."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -47,26 +44,6 @@ def test_log1_non_empty_mem_log_mem_size1(
     )
 
     # Source: lll
-    # { [[ 0 ]] (CALL 1000 <contract:0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6> 23 0 0 0 0) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0x0,
-            value=Op.CALL(
-                gas=0x3E8,
-                address=0xAA71C9D8F626B8430A90ADE1BC39F086C51A2E13,
-                value=0x17,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.STOP,
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x1E5597B6168FE79952CB2DE7AF91C3449BC95BD4),  # noqa: E501
-    )
-    # Source: lll
     # { (MSTORE 0 0xaabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd) (LOG1 0 1 0) }  # noqa: E501
     addr = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(
@@ -77,9 +54,26 @@ def test_log1_non_empty_mem_log_mem_size1(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0xAA71C9D8F626B8430A90ADE1BC39F086C51A2E13),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
+    # Source: lll
+    # { [[ 0 ]] (CALL 1000 <contract:0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6> 23 0 0 0 0) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.CALL(
+                gas=0x3E8,
+                address=addr,
+                value=0x17,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
+        nonce=0,
+    )
 
     tx = Transaction(
         sender=sender,

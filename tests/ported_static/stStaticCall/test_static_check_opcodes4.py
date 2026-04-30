@@ -218,13 +218,7 @@ def test_static_check_opcodes4(
             "result": {
                 sender: Account(nonce=1),
                 target: Account(
-                    storage={
-                        1: 1,
-                        2: 1,
-                        3: 0xFAA10B404AB607779993C016CD5DA73AE1F29D7E,
-                        5: 0xFAA10B404AB607779993C016CD5DA73AE1F29D7E,
-                        6: 0x3350A62DDDDD0FF0E39CD82E2D185FE06B5FCF49,
-                    },
+                    storage={1: 1, 2: 1, 3: sender, 5: sender, 6: target},
                 ),
             },
         },
@@ -245,10 +239,10 @@ def test_static_check_opcodes4(
                     storage={
                         1: 1,
                         2: 1,
-                        3: 0xFAA10B404AB607779993C016CD5DA73AE1F29D7E,
+                        3: sender,
                         4: 100,
-                        5: 0xFAA10B404AB607779993C016CD5DA73AE1F29D7E,
-                        6: 0x3350A62DDDDD0FF0E39CD82E2D185FE06B5FCF49,
+                        5: sender,
+                        6: target,
                     },
                 ),
             },

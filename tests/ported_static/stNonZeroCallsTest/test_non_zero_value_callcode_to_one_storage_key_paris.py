@@ -50,6 +50,7 @@ def test_non_zero_value_callcode_to_one_storage_key_paris(
     )
 
     pre[sender] = Account(balance=0xE8D4A51000)
+    pre[addr] = Account(balance=10, storage={0: 1})
     # Source: lll
     # { [0](GAS) [[1]] (CALLCODE 60000 <eoa:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 1 0 0 0 0) [[100]] (SUB @0 (GAS)) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -72,7 +73,6 @@ def test_non_zero_value_callcode_to_one_storage_key_paris(
         nonce=0,
         address=Address(0xB7BB61C75BE691459CEF9A8FD7EC074933FA1D1F),  # noqa: E501
     )
-    pre[addr] = Account(balance=10, storage={0: 1})
 
     tx = Transaction(
         sender=sender,

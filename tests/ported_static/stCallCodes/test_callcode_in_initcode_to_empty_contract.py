@@ -75,6 +75,7 @@ def test_callcode_in_initcode_to_empty_contract(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0x2386F26FC10000)
     # Source: lll
     # { (CALL 300000 (CALLDATALOAD 0) 0 0 0 0 0) }
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -146,7 +147,6 @@ def test_callcode_in_initcode_to_empty_contract(
         nonce=0,
         address=Address(0x2000000000000000000000000000000000000000),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x2386F26FC10000)
 
     expect_entries_: list[dict] = [
         {

@@ -16,6 +16,7 @@ from execution_testing import (
     Hash,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -131,6 +132,7 @@ def test_create_fail_result(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
     # Source: yul
     # berlin
     # {
@@ -161,81 +163,29 @@ def test_create_fail_result(
         nonce=1,
         address=Address(0x0000000000000000000000000000000000000BAD),  # noqa: E501
     )
-    # Source: yul
-    # berlin
-    # {
-    #    mstore(0, 0x600D)
-    #    return(0, 0x20)
-    # }
-    contract_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=0x600D)
-        + Op.RETURN(offset=0x0, size=0x20),
-        balance=0xBA1A9CE0BA1A9CE,
+    # Source: raw
+    # 0x600100
+    contract_6 = pre.deploy_contract(  # noqa: F841
+        code=Op.PUSH1[0x1] + Op.STOP,
+        balance=24589,
         nonce=1,
-        address=Address(0x000000000000000000000000000000000000600D),  # noqa: E501
+        address=Address(0xBB0237AB04970E3CF3E813C02064662ADC89336B),  # noqa: E501
     )
-    # Source: yul
-    # berlin
-    # {
-    #    // Before the main call, call DA7A to fill up the return buffer
-    #    sstore(0x10, call(gas(), 0xDA7A, 0, 0, 0, 0x100, 0x40))
-    #    sstore(0x11, returndatasize())
-    #    sstore(0x12, mload(0x100))
-    #    sstore(0x13, mload(0x120))
-    #
-    #
-    #    // Read the constructor code from the appropriate contract
-    #    let srcAddr := calldataload(0)   // either 600D or BAD
-    #
-    #    let codeSize := extcodesize(srcAddr)
-    #    extcodecopy(srcAddr, 0, 0, codeSize)
-    #
-    #    // Create
-    #    sstore(0,create(0, 0, codeSize))
-    #
-    #    // If we have a returned buffer, see what it is
-    #    sstore(1,returndatasize())
-    #    returndatacopy(0x200, 0, returndatasize())
-    #    sstore(2, mload(0x200))
-    #    sstore(3, mload(0x220))
-    # }
-    contract_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0x10,
-            value=Op.CALL(
-                gas=Op.GAS,
-                address=0xDA7A,
-                value=Op.DUP1,
-                args_offset=Op.DUP1,
-                args_size=0x0,
-                ret_offset=0x100,
-                ret_size=0x40,
-            ),
-        )
-        + Op.SSTORE(key=0x11, value=Op.RETURNDATASIZE)
-        + Op.SSTORE(key=0x12, value=Op.MLOAD(offset=0x100))
-        + Op.SSTORE(key=0x13, value=Op.MLOAD(offset=0x120))
-        + Op.PUSH1[0x0]
-        + Op.CALLDATALOAD(offset=Op.DUP1)
-        + Op.DUP2
-        + Op.EXTCODESIZE(address=Op.DUP2)
-        + Op.SWAP3
-        + Op.DUP4
-        + Op.SWAP3
-        + Op.EXTCODECOPY
-        + Op.PUSH1[0x0]
-        + Op.DUP1
-        + Op.SSTORE(key=0x0, value=Op.CREATE)
-        + Op.SSTORE(key=0x1, value=Op.RETURNDATASIZE)
-        + Op.RETURNDATACOPY(
-            dest_offset=0x200, offset=0x0, size=Op.RETURNDATASIZE
-        )
-        + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=0x200))
-        + Op.SSTORE(key=0x3, value=Op.MLOAD(offset=0x220))
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
+    # Source: raw
+    # 0x600100
+    contract_7 = pre.deploy_contract(  # noqa: F841
+        code=Op.PUSH1[0x1] + Op.STOP,
+        balance=24589,
         nonce=1,
-        address=Address(0x0000000000000000000000000000000000C0DEF0),  # noqa: E501
+        address=Address(0x13C950F8740FFAEA1869A88D70B029E8B0C9A8DA),  # noqa: E501
+    )
+    # Source: raw
+    # 0x600100
+    contract_9 = pre.deploy_contract(  # noqa: F841
+        code=Op.PUSH1[0x1] + Op.STOP,
+        balance=24589,
+        nonce=1,
+        address=Address(0xF9D1EA8EAB6963659EE85B3E0B4D8A57E7EDBA2B),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -266,7 +216,7 @@ def test_create_fail_result(
             key=0x10,
             value=Op.CALL(
                 gas=Op.GAS,
-                address=0xDA7A,
+                address=contract_0,
                 value=Op.DUP1,
                 args_offset=Op.DUP1,
                 args_size=0x0,
@@ -316,85 +266,6 @@ def test_create_fail_result(
     #    extcodecopy(srcAddr, 0, 0, codeSize)
     #
     #    // Create
-    #    sstore(0,create2(0, 0, codeSize, 0xBAD05A17))
-    #
-    #    // If we have a returned buffer, see what it is
-    #    sstore(1,returndatasize())
-    #    returndatacopy(0x200, 0, returndatasize())
-    #    sstore(2, mload(0x200))
-    #    sstore(3, mload(0x220))
-    # }
-    contract_5 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0x10,
-            value=Op.CALL(
-                gas=Op.GAS,
-                address=0xDA7A,
-                value=Op.DUP1,
-                args_offset=Op.DUP1,
-                args_size=0x0,
-                ret_offset=0x100,
-                ret_size=0x40,
-            ),
-        )
-        + Op.SSTORE(key=0x11, value=Op.RETURNDATASIZE)
-        + Op.SSTORE(key=0x12, value=Op.MLOAD(offset=0x100))
-        + Op.SSTORE(key=0x13, value=Op.MLOAD(offset=0x120))
-        + Op.PUSH4[0xBAD05A17]
-        + Op.PUSH1[0x0]
-        + Op.CALLDATALOAD(offset=Op.DUP1)
-        + Op.DUP2
-        + Op.EXTCODESIZE(address=Op.DUP2)
-        + Op.SWAP3
-        + Op.DUP4
-        + Op.SWAP3
-        + Op.EXTCODECOPY
-        + Op.PUSH1[0x0]
-        + Op.DUP1
-        + Op.SSTORE(key=0x0, value=Op.CREATE2)
-        + Op.SSTORE(key=0x1, value=Op.RETURNDATASIZE)
-        + Op.RETURNDATACOPY(
-            dest_offset=0x200, offset=0x0, size=Op.RETURNDATASIZE
-        )
-        + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=0x200))
-        + Op.SSTORE(key=0x3, value=Op.MLOAD(offset=0x220))
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x0000000000000000000000000000000000C0DEFF),  # noqa: E501
-    )
-    # Source: raw
-    # 0x600100
-    contract_6 = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH1[0x1] + Op.STOP,
-        balance=24589,
-        nonce=1,
-        address=Address(0xBB0237AB04970E3CF3E813C02064662ADC89336B),  # noqa: E501
-    )
-    # Source: raw
-    # 0x600100
-    contract_7 = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH1[0x1] + Op.STOP,
-        balance=24589,
-        nonce=1,
-        address=Address(0x13C950F8740FFAEA1869A88D70B029E8B0C9A8DA),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #    // Before the main call, call DA7A to fill up the return buffer
-    #    sstore(0x10, call(gas(), 0xDA7A, 0, 0, 0, 0x100, 0x40))
-    #    sstore(0x11, returndatasize())
-    #    sstore(0x12, mload(0x100))
-    #    sstore(0x13, mload(0x120))
-    #
-    #    // Read the constructor code from the appropriate contract
-    #    let srcAddr := calldataload(0)   // either 600D or BAD
-    #
-    #    let codeSize := extcodesize(srcAddr)
-    #    extcodecopy(srcAddr, 0, 0, codeSize)
-    #
-    #    // Create
     #    sstore(0,create(0, 0, codeSize))
     #
     #    // If we have a returned buffer, see what it is
@@ -408,7 +279,7 @@ def test_create_fail_result(
             key=0x10,
             value=Op.CALL(
                 gas=Op.GAS,
-                address=0xDA7A,
+                address=contract_0,
                 value=Op.DUP1,
                 args_offset=Op.DUP1,
                 args_size=0x0,
@@ -440,14 +311,6 @@ def test_create_fail_result(
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
         address=Address(0x0000000000000000000000000000000000C0DEEE),  # noqa: E501
-    )
-    # Source: raw
-    # 0x600100
-    contract_9 = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH1[0x1] + Op.STOP,
-        balance=24589,
-        nonce=1,
-        address=Address(0xF9D1EA8EAB6963659EE85B3E0B4D8A57E7EDBA2B),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -493,7 +356,7 @@ def test_create_fail_result(
             key=0x10,
             value=Op.CALL(
                 gas=Op.GAS,
-                address=0xDA7A,
+                address=contract_0,
                 value=Op.DUP1,
                 args_offset=Op.DUP1,
                 args_size=Op.DUP5,
@@ -523,7 +386,145 @@ def test_create_fail_result(
         nonce=1,
         address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
+    # Source: yul
+    # berlin
+    # {
+    #    // Before the main call, call DA7A to fill up the return buffer
+    #    sstore(0x10, call(gas(), 0xDA7A, 0, 0, 0, 0x100, 0x40))
+    #    sstore(0x11, returndatasize())
+    #    sstore(0x12, mload(0x100))
+    #    sstore(0x13, mload(0x120))
+    #
+    #
+    #    // Read the constructor code from the appropriate contract
+    #    let srcAddr := calldataload(0)   // either 600D or BAD
+    #
+    #    let codeSize := extcodesize(srcAddr)
+    #    extcodecopy(srcAddr, 0, 0, codeSize)
+    #
+    #    // Create
+    #    sstore(0,create(0, 0, codeSize))
+    #
+    #    // If we have a returned buffer, see what it is
+    #    sstore(1,returndatasize())
+    #    returndatacopy(0x200, 0, returndatasize())
+    #    sstore(2, mload(0x200))
+    #    sstore(3, mload(0x220))
+    # }
+    contract_3 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x10,
+            value=Op.CALL(
+                gas=Op.GAS,
+                address=contract_0,
+                value=Op.DUP1,
+                args_offset=Op.DUP1,
+                args_size=0x0,
+                ret_offset=0x100,
+                ret_size=0x40,
+            ),
+        )
+        + Op.SSTORE(key=0x11, value=Op.RETURNDATASIZE)
+        + Op.SSTORE(key=0x12, value=Op.MLOAD(offset=0x100))
+        + Op.SSTORE(key=0x13, value=Op.MLOAD(offset=0x120))
+        + Op.PUSH1[0x0]
+        + Op.CALLDATALOAD(offset=Op.DUP1)
+        + Op.DUP2
+        + Op.EXTCODESIZE(address=Op.DUP2)
+        + Op.SWAP3
+        + Op.DUP4
+        + Op.SWAP3
+        + Op.EXTCODECOPY
+        + Op.PUSH1[0x0]
+        + Op.DUP1
+        + Op.SSTORE(key=0x0, value=Op.CREATE)
+        + Op.SSTORE(key=0x1, value=Op.RETURNDATASIZE)
+        + Op.RETURNDATACOPY(
+            dest_offset=0x200, offset=0x0, size=Op.RETURNDATASIZE
+        )
+        + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=0x200))
+        + Op.SSTORE(key=0x3, value=Op.MLOAD(offset=0x220))
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=1,
+        address=Address(0x0000000000000000000000000000000000C0DEF0),  # noqa: E501
+    )
+    # Source: yul
+    # berlin
+    # {
+    #    // Before the main call, call DA7A to fill up the return buffer
+    #    sstore(0x10, call(gas(), 0xDA7A, 0, 0, 0, 0x100, 0x40))
+    #    sstore(0x11, returndatasize())
+    #    sstore(0x12, mload(0x100))
+    #    sstore(0x13, mload(0x120))
+    #
+    #    // Read the constructor code from the appropriate contract
+    #    let srcAddr := calldataload(0)   // either 600D or BAD
+    #
+    #    let codeSize := extcodesize(srcAddr)
+    #    extcodecopy(srcAddr, 0, 0, codeSize)
+    #
+    #    // Create
+    #    sstore(0,create2(0, 0, codeSize, 0xBAD05A17))
+    #
+    #    // If we have a returned buffer, see what it is
+    #    sstore(1,returndatasize())
+    #    returndatacopy(0x200, 0, returndatasize())
+    #    sstore(2, mload(0x200))
+    #    sstore(3, mload(0x220))
+    # }
+    contract_5 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x10,
+            value=Op.CALL(
+                gas=Op.GAS,
+                address=contract_0,
+                value=Op.DUP1,
+                args_offset=Op.DUP1,
+                args_size=0x0,
+                ret_offset=0x100,
+                ret_size=0x40,
+            ),
+        )
+        + Op.SSTORE(key=0x11, value=Op.RETURNDATASIZE)
+        + Op.SSTORE(key=0x12, value=Op.MLOAD(offset=0x100))
+        + Op.SSTORE(key=0x13, value=Op.MLOAD(offset=0x120))
+        + Op.PUSH4[0xBAD05A17]
+        + Op.PUSH1[0x0]
+        + Op.CALLDATALOAD(offset=Op.DUP1)
+        + Op.DUP2
+        + Op.EXTCODESIZE(address=Op.DUP2)
+        + Op.SWAP3
+        + Op.DUP4
+        + Op.SWAP3
+        + Op.EXTCODECOPY
+        + Op.PUSH1[0x0]
+        + Op.DUP1
+        + Op.SSTORE(key=0x0, value=Op.CREATE2)
+        + Op.SSTORE(key=0x1, value=Op.RETURNDATASIZE)
+        + Op.RETURNDATACOPY(
+            dest_offset=0x200, offset=0x0, size=Op.RETURNDATASIZE
+        )
+        + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=0x200))
+        + Op.SSTORE(key=0x3, value=Op.MLOAD(offset=0x220))
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=1,
+        address=Address(0x0000000000000000000000000000000000C0DEFF),  # noqa: E501
+    )
+    # Source: yul
+    # berlin
+    # {
+    #    mstore(0, 0x600D)
+    #    return(0, 0x20)
+    # }
+    contract_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=0x600D)
+        + Op.RETURN(offset=0x0, size=0x20),
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=1,
+        address=Address(0x000000000000000000000000000000000000600D),  # noqa: E501
+    )
 
     expect_entries_: list[dict] = [
         {
@@ -549,7 +550,7 @@ def test_create_fail_result(
             "result": {
                 contract_3: Account(
                     storage={
-                        0: 0xB44F2C88D3D4283CD1E54E418C4FF7E6A6C73202,
+                        0: compute_create_address(address=contract_3, nonce=1),
                         1: 0,
                         2: 0,
                         3: 0,

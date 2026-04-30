@@ -50,6 +50,7 @@ def test_suicides_and_internal_call_suicides_bonus_gas_at_call(
         gas_limit=1000000,
     )
 
+    pre[sender] = Account(balance=0x5F5E100)
     # Source: lll
     # {(SELFDESTRUCT 0x0000000000000000000000000000000000000001)}
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -57,22 +58,21 @@ def test_suicides_and_internal_call_suicides_bonus_gas_at_call(
         nonce=0,
         address=Address(0x0000000000000000000000000000000000000000),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x5F5E100)
     # Source: lll
     # {(CALL 0 0x0000000000000000000000000000000000000000 1 0 0 0 0) (SELFDESTRUCT 0)}  # noqa: E501
     contract_1 = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
             Op.CALL(
-                gas=0x0,
-                address=0x0,
+                gas=contract_0,
+                address=contract_0,
                 value=0x1,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
+                args_offset=contract_0,
+                args_size=contract_0,
+                ret_offset=contract_0,
+                ret_size=contract_0,
             )
         )
-        + Op.SELFDESTRUCT(address=0x0)
+        + Op.SELFDESTRUCT(address=contract_0)
         + Op.STOP,
         balance=10,
         nonce=0,

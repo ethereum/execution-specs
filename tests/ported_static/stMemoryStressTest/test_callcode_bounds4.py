@@ -7,7 +7,6 @@ state_tests/stMemoryStressTest/CALLCODE_Bounds4Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -61,8 +60,8 @@ def test_callcode_bounds4(
 ) -> None:
     """Test_callcode_bounds4."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x50EADFB1030587AB3A993A6ECC073041FC3B45E119DAA31A13D78C7E209631A5
+    sender = pre.fund_eoa(
+        amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
     )
 
     env = Environment(
@@ -75,12 +74,19 @@ def test_callcode_bounds4(
     )
 
     # Source: lll
+    # { (SSTORE 0 (ADD 1 (SLOAD 0))) }
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=Op.ADD(0x1, Op.SLOAD(key=0x0)))
+        + Op.STOP,
+        nonce=0,
+    )
+    # Source: lll
     # { (CALLCODE 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0 0 0xffffffffffffffff 0 0xffffffffffffffff) (CALLCODE 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0 0 0xffffffffffffffffffffffffffffffff 0 0xffffffffffffffffffffffffffffffff) (CALLCODE 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) (CALLCODE 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0 0xffffffffffffffff 0xffffffffffffffff 0xffffffffffffffff 0xffffffffffffffff) (CALLCODE 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0 0xffffffffffffffff 0xffffffffffffffff 0xffffffffffffffff 0xffffffffffffffff) (CALLCODE 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) (CALLCODE 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0 0xffffffffffffffffffffffffffffffff 0xffffffffffffffffffffffffffffffff 0xffffffffffffffffffffffffffffffff 0xffffffffffffffffffffffffffffffff) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
             Op.CALLCODE(
                 gas=0x7FFFFFFFFFFFFFF,
-                address=0x849F53126ADE5F72469029537296F2B6644D4D41,
+                address=addr,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0xFFFFFFFFFFFFFFFF,
@@ -91,7 +97,7 @@ def test_callcode_bounds4(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x7FFFFFFFFFFFFFF,
-                address=0x849F53126ADE5F72469029537296F2B6644D4D41,
+                address=addr,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
@@ -102,7 +108,7 @@ def test_callcode_bounds4(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x7FFFFFFFFFFFFFF,
-                address=0x849F53126ADE5F72469029537296F2B6644D4D41,
+                address=addr,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
@@ -113,7 +119,7 @@ def test_callcode_bounds4(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x7FFFFFFFFFFFFFF,
-                address=0x849F53126ADE5F72469029537296F2B6644D4D41,
+                address=addr,
                 value=0x0,
                 args_offset=0xFFFFFFFFFFFFFFFF,
                 args_size=0xFFFFFFFFFFFFFFFF,
@@ -125,7 +131,7 @@ def test_callcode_bounds4(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x7FFFFFFFFFFFFFF,
-                address=0x849F53126ADE5F72469029537296F2B6644D4D41,
+                address=addr,
                 value=0x0,
                 args_offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
                 args_size=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
@@ -135,7 +141,7 @@ def test_callcode_bounds4(
         )
         + Op.CALLCODE(
             gas=0x7FFFFFFFFFFFFFF,
-            address=0x849F53126ADE5F72469029537296F2B6644D4D41,
+            address=addr,
             value=0x0,
             args_offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
             args_size=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
@@ -144,18 +150,6 @@ def test_callcode_bounds4(
         )
         + Op.STOP,
         nonce=0,
-        address=Address(0xC0479FBAC15CB575E66DED014FD60CEB98749B04),  # noqa: E501
-    )
-    # Source: lll
-    # { (SSTORE 0 (ADD 1 (SLOAD 0))) }
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=Op.ADD(0x1, Op.SLOAD(key=0x0)))
-        + Op.STOP,
-        nonce=0,
-        address=Address(0x849F53126ADE5F72469029537296F2B6644D4D41),  # noqa: E501
-    )
-    pre[sender] = Account(
-        balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
     )
 
     tx_data = [

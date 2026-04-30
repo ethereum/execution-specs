@@ -7,7 +7,6 @@ state_tests/stSpecialTest/JUMPDEST_AttackwithJumpFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -34,9 +33,7 @@ def test_jumpdest_attackwith_jump(
 ) -> None:
     """Test_jumpdest_attackwith_jump."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -65,9 +62,7 @@ def test_jumpdest_attackwith_jump(
         + Op.JUMPDEST * 15000,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x3F9D62603C0D43765C8BC6EF623E68A4FC7D78EB),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

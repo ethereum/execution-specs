@@ -7,7 +7,6 @@ state_tests/stCallDelegateCodesHomestead/callcodecallcode_11_OOGEFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_callcodecallcode_11_ooge(
 ) -> None:
     """DELEGATE -> DELEGATE -> CODE OOG."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -49,23 +46,12 @@ def test_callcodecallcode_11_ooge(
     )
 
     # Source: lll
-    # {  [[ 0 ]] (DELEGATECALL 800000 <contract:0x1000000000000000000000000000000000000001> 0 64 0 64 ) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0x0,
-            value=Op.DELEGATECALL(
-                gas=0xC3500,
-                address=0xECB18A704984B0E051E46358D64EF7811F2945BA,
-                args_offset=0x0,
-                args_size=0x40,
-                ret_offset=0x0,
-                ret_size=0x40,
-            ),
-        )
+    # {  (SSTORE 2 1) (KECCAK256 0x00 0x2fffff) }
+    addr_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x2, value=0x1)
+        + Op.SHA3(offset=0x0, size=0x2FFFFF)
         + Op.STOP,
-        balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x0E7163A4A90126C4A13E52F48E84C74600E844DA),  # noqa: E501
     )
     # Source: lll
     # {  [[ 1 ]] (DELEGATECALL 600000 <contract:0x1000000000000000000000000000000000000002> 0 64 0 64 ) [[11]] 1}  # noqa: E501
@@ -74,7 +60,7 @@ def test_callcodecallcode_11_ooge(
             key=0x1,
             value=Op.DELEGATECALL(
                 gas=0x927C0,
-                address=0x766B2CF0691F51029181FC511395B7AB71353A88,
+                address=addr_2,
                 args_offset=0x0,
                 args_size=0x40,
                 ret_offset=0x0,
@@ -84,18 +70,25 @@ def test_callcodecallcode_11_ooge(
         + Op.SSTORE(key=0xB, value=0x1)
         + Op.STOP,
         nonce=0,
-        address=Address(0xECB18A704984B0E051E46358D64EF7811F2945BA),  # noqa: E501
     )
     # Source: lll
-    # {  (SSTORE 2 1) (KECCAK256 0x00 0x2fffff) }
-    addr_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x2, value=0x1)
-        + Op.SHA3(offset=0x0, size=0x2FFFFF)
+    # {  [[ 0 ]] (DELEGATECALL 800000 <contract:0x1000000000000000000000000000000000000001> 0 64 0 64 ) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.DELEGATECALL(
+                gas=0xC3500,
+                address=addr,
+                args_offset=0x0,
+                args_size=0x40,
+                ret_offset=0x0,
+                ret_size=0x40,
+            ),
+        )
         + Op.STOP,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x766B2CF0691F51029181FC511395B7AB71353A88),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

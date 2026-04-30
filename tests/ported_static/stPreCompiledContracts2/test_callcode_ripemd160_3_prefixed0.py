@@ -48,6 +48,7 @@ def test_callcode_ripemd160_3_prefixed0(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { (MSTORE 0 0x00f34578907f) [[ 2 ]] (CALLCODE 6000 3 0 0 37 0 32) [[ 0 ]] (MLOAD 0)}  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -70,7 +71,6 @@ def test_callcode_ripemd160_3_prefixed0(
         nonce=0,
         address=Address(0x063102841B53CEA1BE51EBA298D1B86B90F7C071),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

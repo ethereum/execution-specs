@@ -50,6 +50,7 @@ def test_non_zero_value_suicide_to_empty_paris(
     )
 
     pre[sender] = Account(balance=0xE8D4A51000)
+    pre[addr] = Account(balance=10)
     # Source: lll
     # { (SELFDESTRUCT <eoa:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b>) }
     target = pre.deploy_contract(  # noqa: F841
@@ -61,7 +62,6 @@ def test_non_zero_value_suicide_to_empty_paris(
         nonce=0,
         address=Address(0xEB9A4C7A191790631D13FC4927446F5EF9D201FC),  # noqa: E501
     )
-    pre[addr] = Account(balance=10)
 
     tx = Transaction(
         sender=sender,
