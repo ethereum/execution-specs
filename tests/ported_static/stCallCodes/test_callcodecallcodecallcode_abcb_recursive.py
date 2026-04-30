@@ -116,7 +116,7 @@ def test_callcodecallcodecallcode_abcb_recursive(
     )
 
     post = {
-        target: Account(storage={0: 1, 1: 1}),
+        target: Account(storage={0: 1, 1: 1, 2: 0}),
         addr: Account(storage={1: 0, 2: 0}),
         addr_2: Account(storage={1: 0, 2: 0}),
     }

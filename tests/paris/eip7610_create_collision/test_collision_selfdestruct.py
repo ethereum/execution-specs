@@ -80,7 +80,7 @@ def test_selfdestruct_after_create2_collision(
         # Call target to trigger SELFDESTRUCT
         + Op.SSTORE(
             storage.store_next(1, "selfdestruct_call_success"),
-            Op.CALL(gas=100_000, address=target_address),
+            Op.CALL(gas=500_000, address=target_address),
         )
         + Op.STOP
     )

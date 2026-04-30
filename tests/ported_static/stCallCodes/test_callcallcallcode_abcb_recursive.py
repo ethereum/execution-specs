@@ -116,7 +116,12 @@ def test_callcallcallcode_abcb_recursive(
     post = {
         target: Account(storage={0: 1, 1: 0}),
         addr: Account(storage={1: 1, 2: 0}),
-        addr_2: Account(storage={1: 0, 2: 0}),
+        addr_2: Account(
+            storage={
+                1: 0,
+                2: 0,
+            }
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

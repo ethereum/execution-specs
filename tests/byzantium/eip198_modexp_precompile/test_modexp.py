@@ -531,15 +531,11 @@ def test_modexp(
         + Op.STOP(),
     )
 
-    gas_limit = 500_000
-    if fork.is_eip_enabled(8037):
-        gas_limit = 1_000_000
-
     tx = Transaction(
         ty=0x0,
         to=account,
         data=mod_exp_input,
-        gas_limit=gas_limit,
+        gas_limit=2_000_000,
         protected=True,
         sender=sender,
     )
