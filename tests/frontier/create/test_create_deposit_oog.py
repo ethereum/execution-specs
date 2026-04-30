@@ -60,19 +60,14 @@ def test_create_deposit_oog(
         factory_memory_expansion_code + factory_create_code + Op.STOP
     )
 
-    factory_address = pre.deploy_contract(code=factory_code, label="factory")
+    factory_address = pre.deploy_contract(code=factory_code)
     create_gas = return_code.gas_cost(fork) + expand_memory_code.gas_cost(fork)
     if not enough_gas:
         create_gas -= 1
     if fork >= TangerineWhistle:
         # Increment the gas for the 63/64 rule
         create_gas = (create_gas * 64) // 63
-    call_gas = create_gas + factory_code.regular_cost(fork)
-    if fork.is_eip_enabled(8037) and enough_gas:
-        # On success, factory's own frame-end byte_delta covers the new
-        # account + deposited code, charging NEW_ACCOUNT × CPSB of state
-        # gas out of gas_left. Add that margin so factory survives.
-        call_gas += fork.gas_costs().NEW_ACCOUNT
+    call_gas = create_gas + factory_code.gas_cost(fork)
     caller_address = pre.deploy_contract(
         code=Op.CALL(
             gas=call_gas, address=factory_address, ret_offset=0, ret_size=32
@@ -96,17 +91,9 @@ def test_create_deposit_oog(
     )
 
     created_account: Account | None = Account(code=b"\x00" * deposited_len)
-    if fork.is_eip_enabled(8037):
-        # Under EIP-8037 we charge for the new account being created at the
-        # parent frame, so to avoid that charge and being able to return from
-        # the parent successfully, we pre-fund the created contract's address.
-        pre.fund_address(new_address, 1)
     if not enough_gas:
         if fork > Frontier:
-            if fork.is_eip_enabled(8037):
-                created_account = Account(balance=1)
-            else:
-                created_account = None
+            created_account = None
         else:
             # At Frontier, OOG on return yields an empty account.
             created_account = Account()
