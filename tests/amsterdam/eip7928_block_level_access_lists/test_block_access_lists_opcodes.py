@@ -2975,13 +2975,9 @@ def test_bal_create_and_oog(
     )
 
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
-    # Use regular gas only: under EIP-8037 the CREATE static-charge
-    # gate is regular-gas-only (state-byte cost is settled at
-    # frame-end). `gas_cost(fork)` would also include the deferred
-    # state portion and overshoot the boundary by NEW_ACCOUNT × CPSB.
-    create_static_cost = factory_mstore.regular_cost(
+    create_static_cost = factory_mstore.gas_cost(
         fork
-    ) + factory_create.regular_cost(fork)
+    ) + factory_create.gas_cost(fork)
 
     if oog_boundary == OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS:
         # 1 gas short of CREATE static cost — no state access
@@ -2991,12 +2987,8 @@ def test_bal_create_and_oog(
         # frame gets 0 gas, CREATE fails, parent OOGs at next opcode
         gas_limit = intrinsic_cost + create_static_cost
     else:
-        # Full success: child needs init-code gas (incl. RETURN's
-        # code-deposit state) plus the NEW_ACCOUNT state cost that
-        # spills into its `gas_left` at frame-end. Parent must forward
-        # `child_gas × 64/63` to satisfy EIP-150's 63/64 rule, then
-        # has its 1/64 retention + unused child gas to pay SSTORE.
-        child_gas = init_code.gas_cost(fork) + factory_create.state_cost(fork)
+        # Full success: static cost + child frame (63/64 rule) + SSTORE
+        child_gas = init_code.gas_cost(fork)
         remaining_needed = (child_gas * 64 + 62) // 63
         gas_limit = (
             intrinsic_cost
