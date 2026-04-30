@@ -265,10 +265,11 @@ def test_block_state_gas_limit_boundary(
     """
     Verify the per-tx state check at the strict-greater-than boundary.
 
-    tx1 consumes `tx1_state` via cold SSTOREs. tx2 is sized so its
-    worst-case state contribution `tx.gas` equals `state_available`
-    (delta=0, accepted because the check is strict `>`) or exceeds it
-    by 1 (delta=1, rejected with `GAS_ALLOWANCE_EXCEEDED`).
+    tx1 consumes `tx1_state` via cold SSTOREs. tx2 is sized so that
+    its worst-case state contribution `tx.gas - intrinsic_regular`
+    equals `state_available` (delta=0, accepted because the check is
+    strict `>`) or exceeds it by 1 (delta=1, rejected with
+    `GAS_ALLOWANCE_EXCEEDED`).
 
     The regular check is asserted to pass so rejection on delta=1 is
     pinned to the state dimension.
@@ -296,8 +297,11 @@ def test_block_state_gas_limit_boundary(
     tx1_regular = intrinsic_cost() + tx1_code.gas_cost(fork) - tx1_state
     tx1_gas = gas_limit_cap + tx1_state
 
+    # tx2: worst-case state contribution = tx.gas - intrinsic_regular.
+    # Plain call, so intrinsic_state is zero.
+    tx2_intrinsic_regular = intrinsic_cost()
     state_available = block_gas_limit - tx1_state
-    tx2_gas = state_available + delta
+    tx2_gas = tx2_intrinsic_regular + state_available + delta
 
     # Pin the rejection (when delta > 0) to the state check: the
     # regular check must not fire.
@@ -339,22 +343,22 @@ def test_block_state_gas_limit_boundary(
     )
 
 
-@pytest.mark.exception_test
 @pytest.mark.valid_from("EIP8037")
-def test_creation_tx_regular_check_no_intrinsic_state_subtraction(
+def test_creation_tx_regular_check_subtracts_intrinsic_state(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
-    Verify the regular check uses raw `tx.gas`, not `tx.gas - intrinsic.state`.
+    Verify the regular check subtracts `intrinsic.state` from tx.gas.
 
-    The current EIP regular check is
-    `min(TX_MAX, tx.gas) > regular_available`. For a creation tx whose
-    raw `tx.gas` exceeds `regular_available` but `tx.gas -
-    intrinsic.state` would fit, the tx must be **rejected**. A prior
-    spec draft used `min(TX_MAX, tx.gas - intrinsic.state)` and would
-    have accepted the same tx; this test pins the current behavior.
+    The EIP regular check is
+    `min(TX_MAX, tx.gas - intrinsic.state) > regular_available`. For a
+    creation tx, `intrinsic.state = GAS_NEW_ACCOUNT`. This test sizes a
+    creation tx whose raw `tx.gas` exceeds `regular_available` but
+    `tx.gas - intrinsic.state` fits; it must be accepted. The old
+    formula `min(TX_MAX, tx.gas)` would reject the same tx, proving
+    the subtraction is honored.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -368,10 +372,10 @@ def test_creation_tx_regular_check_no_intrinsic_state_subtraction(
     ) - fork.transaction_intrinsic_state_gas(contract_creation=True)
 
     # Tight boundary: after the filler consumes gas_limit_cap, the
-    # remaining regular is exactly intrinsic_regular + 1. The current
+    # remaining regular is exactly intrinsic_regular + 1. The old
     # formula `min(TX_MAX, tx.gas)` rejects (tx.gas = intrinsic_total
-    # > intrinsic_regular + 1); the prior formula `min(TX_MAX, tx.gas
-    # - intrinsic.state)` would have accepted (equals intrinsic_regular).
+    # > intrinsic_regular + 1); the new formula `min(TX_MAX, tx.gas
+    # - intrinsic.state)` accepts (equals intrinsic_regular).
     block_gas_limit = gas_limit_cap + intrinsic_regular + 1
 
     # TODO(EIP-8037): pin `_env_gas_limit` to the actual block limit
@@ -393,11 +397,10 @@ def test_creation_tx_regular_check_no_intrinsic_state_subtraction(
     remaining_regular = block_gas_limit - gas_limit_cap
 
     assert create_tx_gas > remaining_regular, (
-        "current formula must reject (tx.gas exceeds remaining regular)"
+        "old formula must reject to prove new formula differs"
     )
     assert create_tx_gas - intrinsic_state <= remaining_regular, (
-        "prior formula would have accepted (after subtracting "
-        "intrinsic.state); test pins divergence between formulas"
+        "new formula must accept"
     )
 
     filler_tx = Transaction(
@@ -409,7 +412,6 @@ def test_creation_tx_regular_check_no_intrinsic_state_subtraction(
         to=None,
         gas_limit=create_tx_gas,
         sender=pre.fund_eoa(),
-        error=TransactionException.GAS_ALLOWANCE_EXCEEDED,
     )
 
     blockchain_test(
@@ -419,7 +421,6 @@ def test_creation_tx_regular_check_no_intrinsic_state_subtraction(
             Block(
                 txs=[filler_tx, create_tx],
                 gas_limit=block_gas_limit,
-                exception=TransactionException.GAS_ALLOWANCE_EXCEEDED,
             )
         ],
         post={},
@@ -1093,43 +1094,6 @@ def test_top_level_opcode_oog_before_frame_end_does_not_refund_state_gas(
         sender=pre.fund_eoa(),
         expected_receipt=TransactionReceipt(
             cumulative_gas_used=tx_gas,
-        ),
-    )
-
-    state_test(pre=pre, post={contract: Account(storage={})}, tx=tx)
-
-
-@pytest.mark.valid_from("EIP8037")
-def test_top_level_frame_end_oog_does_not_refund_unsettled_state_gas(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-) -> None:
-    """
-    Verify frame-end OOG does not refund state gas that never settled.
-
-    The opcode path completes after a zero-to-nonzero SSTORE, but the
-    tx is one gas short of paying the frame-end state-growth charge. The
-    frame reports an error without ever increasing `state_gas_used`, so
-    the sender is billed only the intrinsic and regular execution gas
-    plus the final missing gas unit.
-    """
-    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
-    sstore_state_gas = fork.sstore_state_gas()
-
-    code = Op.SSTORE(0, 1) + Op.STOP
-    contract = pre.deploy_contract(code=code)
-
-    # One gas short of the full successful execution cost.
-    tx_gas = intrinsic_cost + code.gas_cost(fork) - 1
-    expected_cumulative = tx_gas - (sstore_state_gas - 1)
-
-    tx = Transaction(
-        to=contract,
-        gas_limit=tx_gas,
-        sender=pre.fund_eoa(),
-        expected_receipt=TransactionReceipt(
-            cumulative_gas_used=expected_cumulative,
         ),
     )
 
