@@ -125,13 +125,13 @@ def process_message_call(message: Message) -> MessageCallOutput:
         if is_collision:
             return MessageCallOutput(
                 gas_left=Uint(0),
-                state_gas_left=Uint(0),
+                state_gas_left=message.state_gas_reservoir,
                 refund_counter=U256(0),
                 logs=tuple(),
                 accounts_to_delete=set(),
                 error=AddressCollision(),
                 return_data=Bytes(b""),
-                regular_gas_used=Uint(0),
+                regular_gas_used=message.gas,
                 state_gas_used=Uint(0),
             )
         else:
