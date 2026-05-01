@@ -267,6 +267,14 @@ def test_multi_transaction_gas_accounting(
 
     This tests that clients correctly use pre-refund gas for block accounting.
     """
+    # Skipped on snøbal -- see test_state_gas_snobal_quirks.py.
+    if refund_type == RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY:
+        pytest.skip(
+            "snøbal spec quirk: EIP-7702 auth refund not deducted from "
+            "block_state_gas_used; behavior pinned by "
+            "test_state_gas_snobal_quirks.py"
+        )
+
     intrinsic_cost_calc = fork.transaction_intrinsic_cost_calculator()
 
     refunds_count = 10
@@ -402,6 +410,28 @@ def test_varying_calldata_costs(
     2. tx_gas_after_refund < calldata_floor < tx_gas_before_refund
     3. calldata_floor > tx_gas_before_refund
     """
+    if refund_type == RefundTypes.STORAGE_CLEAR:
+        if (
+            refund_tx_reverts
+            and calldata_test_type
+            == CallDataTestType.DATA_FLOOR_BETWEEN_TX_GAS_BEFORE_AND_AFTER
+        ):
+            pytest.skip(
+                "calldata_cost cannot be between pre and post refund gas"
+                "since refund is zero when execution reverts"
+            )
+
+    # Skipped on snøbal -- see test_state_gas_snobal_quirks.py.
+    if refund_type == RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY:
+        if calldata_test_type == (
+            CallDataTestType.DATA_FLOOR_BETWEEN_TX_GAS_BEFORE_AND_AFTER
+        ):
+            pytest.skip(
+                "snøbal spec quirk: EIP-7702 auth refund routes to "
+                "state reservoir, collapsing pre/post-refund range "
+                "(see test_state_gas_snobal_quirks.py)"
+            )
+
     match refund_type:
         case RefundTypes.STORAGE_CLEAR:
             bytes_to_add_per_iteration = b"00" * 2
