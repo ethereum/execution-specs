@@ -86,9 +86,9 @@ def _sender_generator(
     benchmarks so the BAL builder can group nonce changes by sender
     uniformly regardless of mode.
     """
-    sender = pre.fund_eoa()
+    shared_sender = None if distinct_senders else pre.fund_eoa()
     while True:
-        yield sender if not distinct_senders else pre.fund_eoa()
+        yield pre.fund_eoa() if distinct_senders else shared_sender
 
 
 def delegate_with_calldata(

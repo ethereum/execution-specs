@@ -4,6 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 from functools import partial
+from math import ceil
 
 from execution_testing import (
     EOA,
@@ -225,7 +226,7 @@ def build_delegated_storage_setup(
             start_iteration=1,
             calldata=initializer_calldata_generator,
         )
-        iteration_count = max(1, tx_gas_limit // iteration_cost)
+        iteration_count = ceil(tx_gas_limit // iteration_cost)
 
         init_txs: list[Transaction] = []
         for start in range(1, num_target_slots + 1, iteration_count):
