@@ -72,7 +72,6 @@ class TestGasConsumption:
                 True,
                 [Address(1)],
                 id="type_4",
-                marks=pytest.mark.valid_before("EIP8037"),
             ),
         ],
         indirect=["authorization_list"],
