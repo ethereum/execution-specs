@@ -34,17 +34,14 @@ except ImportError as e:
 Header_ = Any
 
 
-def get_optimized_pow_patches(fork: Hardfork | str) -> Dict[str, Any]:
+def get_optimized_pow_patches(fork: Hardfork) -> Dict[str, Any]:
     """
     Get a dictionary of patches to be patched into the fork to make it
     optimized.
     """
     patches: Dict[str, Any] = {}
 
-    hardfork = (
-        fork if isinstance(fork, Hardfork) else Hardfork.by_short_name(fork)
-    )
-    mod = cast(Any, hardfork.module("fork"))
+    mod = cast(Any, fork.module("fork"))
 
     if not hasattr(mod, "validate_proof_of_work"):
         raise Exception(

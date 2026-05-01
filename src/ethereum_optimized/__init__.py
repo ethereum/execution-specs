@@ -23,18 +23,8 @@ from .fork import get_optimized_pow_patches
 from .state_db import get_optimized_state_patches
 
 
-def _hardfork(fork_name: Hardfork | str) -> Hardfork:
-    """
-    Return a hardfork for the given hardfork or short name.
-    """
-    if isinstance(fork_name, Hardfork):
-        return fork_name
-
-    return Hardfork.by_short_name(fork_name)
-
-
 def monkey_patch_optimized_state_db(
-    fork_name: Hardfork | str, state_path: Optional[str]
+    fork: Hardfork, state_path: Optional[str]
 ) -> None:
     """
     Replace the state interface with one that supports high performance
@@ -43,10 +33,9 @@ def monkey_patch_optimized_state_db(
     This function must be called before the state interface is imported
     anywhere.
     """
-    hardfork = _hardfork(fork_name)
-    slow_state = cast(Any, hardfork.module("state"))
+    slow_state = cast(Any, fork.module("state"))
 
-    optimized_state_db_patches = get_optimized_state_patches(hardfork)
+    optimized_state_db_patches = get_optimized_state_patches(fork)
 
     for name, value in optimized_state_db_patches.items():
         setattr(slow_state, name, value)
@@ -55,7 +44,7 @@ def monkey_patch_optimized_state_db(
         slow_state.State.default_path = state_path
 
 
-def monkey_patch_optimized_spec(fork_name: Hardfork | str) -> None:
+def monkey_patch_optimized_spec(fork: Hardfork) -> None:
     """
     Replace the ethash implementation with one that supports higher
     performance.
@@ -63,10 +52,9 @@ def monkey_patch_optimized_spec(fork_name: Hardfork | str) -> None:
     This function must be called before the spec interface is imported
     anywhere.
     """
-    hardfork = _hardfork(fork_name)
-    slow_spec = hardfork.module("fork")
+    slow_spec = fork.module("fork")
 
-    optimized_pow_patches = get_optimized_pow_patches(hardfork)
+    optimized_pow_patches = get_optimized_pow_patches(fork)
 
     for name, value in optimized_pow_patches.items():
         setattr(slow_spec, name, value)

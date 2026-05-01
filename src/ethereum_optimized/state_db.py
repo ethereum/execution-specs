@@ -52,18 +52,15 @@ class UnmodifiedType:
 Unmodified = UnmodifiedType()
 
 
-def get_optimized_state_patches(fork: Hardfork | str) -> Dict[str, Any]:
+def get_optimized_state_patches(fork: Hardfork) -> Dict[str, Any]:
     """
     Get a dictionary of functions/objects to be monkey patched into the state
     to make it optimized.
     """
     patches: Dict[str, Any] = {}
 
-    hardfork = (
-        fork if isinstance(fork, Hardfork) else Hardfork.by_short_name(fork)
-    )
-    types_mod = cast(Any, hardfork.module("fork_types"))
-    state_mod = cast(Any, hardfork.module("state"))
+    types_mod = cast(Any, fork.module("fork_types"))
+    state_mod = cast(Any, fork.module("state"))
     Account = types_mod.Account  # noqa N806
 
     has_transient_storage = hasattr(state_mod, "TransientStorage")
