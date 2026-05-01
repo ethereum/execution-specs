@@ -9,7 +9,7 @@ abstract: BloatNet single-opcode benchmark cases for state-related operations.
 
 from enum import Enum, auto
 from functools import partial
-from typing import Callable, Generator, List
+from typing import Generator, List
 
 import pytest
 from execution_testing import (
@@ -901,50 +901,6 @@ def test_sstore_erc20_generic(
         skip_gas_used_validation=True,
         expected_receipt_status=True,
     )
-
-
-def create_sstore_initializer(init_val: int) -> IteratingBytecode:
-    """
-    Create a contract that initializes storage slots from calldata parameters.
-
-    - CALLDATA[0..32] start slot (index)
-    - CALLDATA[32..64] slot count (num)
-
-    storage[i] = init_val for i in [index, index + num).
-
-    Returns: IteratingBytecode representing the storage initializer.
-    """
-    # Setup: [index, index + num]
-    prefix = (
-        Op.CALLDATALOAD(0)  # [index]
-        + Op.DUP1  # [index, index]
-        + Op.CALLDATALOAD(32)  # [index, index, num]
-        + Op.ADD  # [index, index + num]
-    )
-
-    # Loop: decrement counter and store at current position
-    # Stack after subtraction: [index, current]
-    # where current goes from index+num-1 down to index
-    loop = (
-        Op.JUMPDEST
-        + Op.PUSH1(1)  # [index, current, 1]
-        + Op.SWAP1  # [index, 1, current]
-        + Op.SUB  # [index, current - 1]
-        + Op.SSTORE(  # STORAGE[current-1] = initial_value
-            Op.DUP2,
-            init_val,
-            key_warm=False,
-            # gas accounting
-            original_value=0,
-            current_value=0,
-            new_value=init_val,
-        )
-        # After SSTORE: [index, current - 1]
-        # Continue while current - 1 > index
-        + Op.JUMPI(len(prefix), Op.GT(Op.DUP2, Op.DUP2))
-    )
-
-    return IteratingBytecode(setup=prefix, iterating=loop)
 
 
 def create_sstore_executor(
