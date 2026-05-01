@@ -3,6 +3,10 @@ Test_create_oog_from_call_refunds.
 
 Ported from:
 state_tests/stCreateTest/CreateOOGFromCallRefundsFiller.yml
+
+@manually-enhanced: Do not overwrite. Post-state expectations include
+fork-specific overrides for Amsterdam (EIP-8037 changes the OoG refund
+arithmetic; sender keeps a non-zero residue).
 """
 
 import pytest
@@ -947,6 +951,24 @@ def test_create_oog_from_call_refunds(
             },
         },
         {
+            # EIP-8037 (Amsterdam) two-dimensional gas model changes the
+            # OoG refund — sender keeps a non-zero residue. Listed before
+            # the >=Cancun entry so resolve_expect_post matches Amsterdam
+            # specifically (first-match wins).
+            "indexes": {
+                "data": [1, 2, 4, 5, 7, 8, 10, 11],
+                "gas": -1,
+                "value": -1,
+            },
+            "network": [">=Amsterdam"],
+            "result": {
+                sender: Account(balance=0x19CBC0, nonce=2),
+                compute_create_address(
+                    address=contract_0, nonce=1
+                ): Account.NONEXISTENT,
+            },
+        },
+        {
             "indexes": {
                 "data": [1, 2, 4, 5, 7, 8, 10, 11],
                 "gas": -1,
@@ -969,6 +991,20 @@ def test_create_oog_from_call_refunds(
                     storage={0: 1}, code=bytes.fromhex("00"), nonce=1
                 ),
                 contract_26: Account(balance=0, nonce=1),
+            },
+        },
+        {
+            # Amsterdam refund residue (see SStore_Refund_OoG comment).
+            "indexes": {"data": [13, 14], "gas": -1, "value": -1},
+            "network": [">=Amsterdam"],
+            "result": {
+                sender: Account(balance=0x19CBC0, nonce=2),
+                compute_create_address(
+                    address=contract_0, nonce=1
+                ): Account.NONEXISTENT,
+                contract_26: Account(
+                    storage={1: 1}, code=bytes.fromhex("32ff"), nonce=1
+                ),
             },
         },
         {
@@ -995,6 +1031,17 @@ def test_create_oog_from_call_refunds(
             },
         },
         {
+            # Amsterdam refund residue (see SStore_Refund_OoG comment).
+            "indexes": {"data": [16, 17], "gas": -1, "value": -1},
+            "network": [">=Amsterdam"],
+            "result": {
+                sender: Account(balance=0x19CBC0, nonce=2),
+                compute_create_address(
+                    address=contract_0, nonce=1
+                ): Account.NONEXISTENT,
+            },
+        },
+        {
             "indexes": {"data": [16, 17], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
@@ -1015,6 +1062,21 @@ def test_create_oog_from_call_refunds(
                 Address(0x522C2E1C5DA65010908EF9929E327FE8B6CC86DA): Account(
                     storage={}, code=bytes.fromhex("00"), nonce=1
                 ),
+            },
+        },
+        {
+            # Amsterdam refund residue is larger for the SStore+Create
+            # paths (see SStore_Refund_OoG comment).
+            "indexes": {"data": [19, 20], "gas": -1, "value": -1},
+            "network": [">=Amsterdam"],
+            "result": {
+                sender: Account(balance=0x284E5C, nonce=2),
+                compute_create_address(
+                    address=contract_0, nonce=1
+                ): Account.NONEXISTENT,
+                Address(
+                    0x522C2E1C5DA65010908EF9929E327FE8B6CC86DA
+                ): Account.NONEXISTENT,
             },
         },
         {
@@ -1041,6 +1103,20 @@ def test_create_oog_from_call_refunds(
                 Address(0x06019547B6E360ABDAFEADE158A9667CC6106C17): Account(
                     storage={}, code=bytes.fromhex("00"), nonce=1
                 ),
+            },
+        },
+        {
+            # Amsterdam refund residue (see SStore_Create_Refund_OoG).
+            "indexes": {"data": [22, 23], "gas": -1, "value": -1},
+            "network": [">=Amsterdam"],
+            "result": {
+                sender: Account(balance=0x284E5C, nonce=2),
+                compute_create_address(
+                    address=contract_0, nonce=1
+                ): Account.NONEXISTENT,
+                Address(
+                    0x06019547B6E360ABDAFEADE158A9667CC6106C17
+                ): Account.NONEXISTENT,
             },
         },
         {
