@@ -36,6 +36,9 @@ REFERENCE_SPEC_VERSION = ref_spec_7702.version
 
 
 @pytest.mark.valid_from("Prague")
+# TODO[EIP-8037]: Amsterdam expected_loop_count needs
+# recalculating due to state gas.
+@pytest.mark.valid_before("EIP8037")
 # TODO[EIP-8037]: Fix Storage.KeyValueMismatchError for
 # contract_loop expected values.
 @pytest.mark.skip(
@@ -689,6 +692,7 @@ class AccessListTo(Enum):
     [AccessListTo.POINTER_ADDRESS, AccessListTo.CONTRACT_ADDRESS],
 )
 @pytest.mark.valid_from("Prague")
+@pytest.mark.valid_before("EIP8037")
 def test_gas_diff_pointer_vs_direct_call(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -903,6 +907,7 @@ def test_gas_diff_pointer_vs_direct_call(
 
 
 @pytest.mark.valid_from("Prague")
+@pytest.mark.valid_before("EIP8037")
 def test_pointer_call_followed_by_direct_call(
     state_test: StateTestFiller,
     pre: Alloc,
