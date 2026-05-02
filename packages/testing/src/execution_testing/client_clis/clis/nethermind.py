@@ -405,7 +405,14 @@ class NethermindExceptionMapper(ExceptionMapper):
         TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
             r"insufficient sender balance|"
             r"insufficient MaxFeePerGas for sender balance"
+            r"|insufficient funds for gas \* price \+ value"
+            r"|insufficient funds for transfer|insufficient funds for gas"
         ),
+        TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: (
+            r"max fee per gas less than block base fee"
+        ),
+        TransactionException.NONCE_MISMATCH_TOO_LOW: (r"nonce too low"),
+        TransactionException.NONCE_MISMATCH_TOO_HIGH: (r"nonce too high"),
         TransactionException.TYPE_3_TX_WITH_FULL_BLOBS: (
             r"Transaction \d+ is not valid"
         ),
@@ -418,7 +425,7 @@ class NethermindExceptionMapper(ExceptionMapper):
             r"exceeded MaxBlobGas per transaction=\d+"
         ),
         TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
-            r"TxGasLimitCapExceeded: Gas limit \d+ \w+ cap of \d+\.?"
+            r"TxGasLimitCapExceeded:"
         ),
         BlockException.INCORRECT_EXCESS_BLOB_GAS: (
             r"HeaderExcessBlobGasMismatch: Excess blob gas in header "
@@ -442,14 +449,18 @@ class NethermindExceptionMapper(ExceptionMapper):
         BlockException.INVALID_BLOCK_ACCESS_LIST: (
             r"InvalidBlockLevelAccessListHash:"
             r"|InvalidBlockLevelAccessList:"
+            r"|BlockLevelAccessListIndexOutOfRange:"
             r"|could not be parsed as a block: "
             r"Error decoding block access list:"
+            r"|Error decoding block access list:"
         ),
         BlockException.INCORRECT_BLOCK_FORMAT: (
             r"could not be parsed as a block: "
             r"Error decoding block access list:"
+            r"|Error decoding block access list:"
         ),
         TransactionException.GAS_ALLOWANCE_EXCEEDED: (
             r"TxGasLimitCapExceeded:"
+            r"|BlockAccessListGasLimitExceeded:"
         ),
     }
