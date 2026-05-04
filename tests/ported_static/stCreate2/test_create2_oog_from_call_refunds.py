@@ -241,14 +241,14 @@ def test_create2_oog_from_call_refunds(
     # changing CREATE / SSTORE still refunds the state-gas component
     # of those operations (state gas is not subject to the EIP-3529
     # /5 cap). Pre-Amsterdam these helpers return 0, so the same
-    # formulas collapse to balance=0 for older forks.
-    gas_price = env.base_fee_per_gas
+    # formulas collapse to balance=0 for older forks. gas_price is
+    # the literal 10 used by env.base_fee_per_gas above.
+    gas_price = 10
     residue_sstore = (
         fork.create_state_gas(code_size=0) + fork.sstore_state_gas()
     ) * gas_price
     residue_sstore_create = (
-        fork.create_state_gas(code_size=0)
-        + fork.create_state_gas(code_size=1)
+        fork.create_state_gas(code_size=0) + fork.create_state_gas(code_size=1)
     ) * gas_price
 
     pre[sender] = Account(balance=0x3D0900, nonce=1)
