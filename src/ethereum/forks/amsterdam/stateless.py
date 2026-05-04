@@ -165,9 +165,6 @@ class ForkConfig:
 class ChainConfig:
     """
     Chain configuration needed for stateless validation.
-
-    TODO: Since we do not want the client to hold all possible chains,
-    we may want to add more to the chain config, like a genesis file.
     """
 
     chain_id: U64
