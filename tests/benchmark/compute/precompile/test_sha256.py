@@ -53,7 +53,7 @@ def test_sha256(
 
 
 @pytest.mark.repricing
-@pytest.mark.parametrize("size", [0, 32, 256, 1024])
+@pytest.mark.parametrize("size", [0, 32, 64, 256, 1024])
 def test_sha256_fixed_size(
     benchmark_test: BenchmarkTestFiller, size: int
 ) -> None:
@@ -71,7 +71,7 @@ def test_sha256_fixed_size(
 
 
 @pytest.mark.repricing
-@pytest.mark.parametrize("size", [32, 256, 1024])
+@pytest.mark.parametrize("size", [32, 64, 256, 1024])
 def test_sha256_uncachable(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
