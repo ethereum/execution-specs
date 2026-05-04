@@ -25,6 +25,7 @@ on:
       - "src/ethereum/**"
       - "src/ethereum_spec_tools/docc.py"
       - "src/ethereum_spec_tools/forks.py"
+      - "tests/spec_tools/**"
       - "static/**"
       - "docs/**"
       - "packages/testing/**"
@@ -234,6 +235,9 @@ jobs:
           submodules: recursive
 
       - uses: ./.github/actions/setup-uv
+
+      - name: Run docc diff regression test
+        run: uv run --group test --group doc pytest tests/spec_tools/test_docc.py
 
       - name: Build spec documentation
         run: just docs-spec

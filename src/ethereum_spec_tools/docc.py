@@ -148,6 +148,18 @@ def _diff_path(before: Hardfork, after: Hardfork) -> PurePath:
     return PurePath("diffs") / before.short_name / after.short_name
 
 
+def _diff_source_paths(
+    diff_root: PurePath, path: PurePath
+) -> Tuple[PurePath, PurePath]:
+    listing_path = diff_root / path
+    output_path = listing_path
+
+    if path.name == "__init__.py":
+        output_path = output_path.with_name("index")
+
+    return listing_path, output_path
+
+
 class _ForkOrder:
     forks: List[PurePath]
     diffs: List[PurePath]
@@ -295,16 +307,16 @@ class EthereumDiscover(Discover):
 
                 assert before_source or after_source
 
-                if path.name == "__init__.py":
-                    path = path.with_name("index")
-
-                output_path = _diff_path(before, after) / path
+                relative_path, output_path = _diff_source_paths(
+                    _diff_path(before, after), path
+                )
 
                 yield DiffSource(
                     before.name,
                     before_source,
                     after.name,
                     after_source,
+                    relative_path,
                     output_path,
                 )
 
@@ -327,6 +339,7 @@ class DiffSource(Generic[S], Source, Listable):
 
     after_name: str
     after: Optional[S]
+    _relative_path: PurePath
     _output_path: PurePath
 
     def __init__(
@@ -335,6 +348,7 @@ class DiffSource(Generic[S], Source, Listable):
         before: Optional[S],
         after_name: str,
         after: Optional[S],
+        relative_path: PurePath,
         output_path: PurePath,
     ) -> None:
         self.before_name = before_name
@@ -343,6 +357,7 @@ class DiffSource(Generic[S], Source, Listable):
         self.after_name = after_name
         self.after = after
 
+        self._relative_path = relative_path
         self._output_path = output_path
 
     @property
@@ -357,7 +372,7 @@ class DiffSource(Generic[S], Source, Listable):
         """
         Path to the Source (if one exists) relative to the project root.
         """
-        return None
+        return self._relative_path
 
     @property
     def output_path(self) -> PurePath:
