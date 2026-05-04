@@ -3,6 +3,7 @@ Stateless validation interfaces.
 """
 
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import List, Sequence, Tuple
 
 from ethereum_rlp import rlp
@@ -74,6 +75,73 @@ class NewPayloadRequestHeader:
     execution_requests: ExecutionRequests
 
 
+class ProtocolFork(StrEnum):
+    """
+    Semantic execution-layer fork names understood by stateless inputs.
+    """
+
+    Frontier = "Frontier"
+    Homestead = "Homestead"
+    DAOFork = "DAOFork"
+    TangerineWhistle = "TangerineWhistle"
+    SpuriousDragon = "SpuriousDragon"
+    Byzantium = "Byzantium"
+    Constantinople = "Constantinople"
+    ConstantinopleFix = "ConstantinopleFix"
+    Istanbul = "Istanbul"
+    MuirGlacier = "MuirGlacier"
+    Berlin = "Berlin"
+    London = "London"
+    ArrowGlacier = "ArrowGlacier"
+    GrayGlacier = "GrayGlacier"
+    Paris = "Paris"
+    Shanghai = "Shanghai"
+    Cancun = "Cancun"
+    Prague = "Prague"
+    Osaka = "Osaka"
+    BPO1 = "BPO1"
+    BPO2 = "BPO2"
+    BPO3 = "BPO3"
+    BPO4 = "BPO4"
+    BPO5 = "BPO5"
+    Amsterdam = "Amsterdam"
+
+
+@slotted_freezable
+@dataclass
+class ForkActivation:
+    """
+    Activation point for a protocol fork.
+    """
+
+    block_number: U64 | None
+    timestamp: U64 | None
+
+
+@slotted_freezable
+@dataclass
+class BlobSchedule:
+    """
+    Effective blob parameters for a protocol fork.
+    """
+
+    target: U64
+    max: U64
+    base_fee_update_fraction: U64
+
+
+@slotted_freezable
+@dataclass
+class ForkConfig:
+    """
+    Per-fork configuration needed to interpret stateless inputs.
+    """
+
+    fork: ProtocolFork
+    activation: ForkActivation
+    blob_schedule: BlobSchedule | None
+
+
 @slotted_freezable
 @dataclass
 class ChainConfig:
@@ -85,6 +153,7 @@ class ChainConfig:
     """
 
     chain_id: U64
+    forks: Tuple[ForkConfig, ...]
 
 
 @slotted_freezable

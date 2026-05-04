@@ -95,7 +95,7 @@ def _make_stateless_input() -> StatelessInput:
             codes=(Bytes(_rb(48)), Bytes(_rb(96))),
             headers=(Bytes(_rb(512)), Bytes(_rb(512))),
         ),
-        chain_config=ChainConfig(chain_id=U64(1)),
+        chain_config=ChainConfig(chain_id=U64(1), forks=()),
         public_keys=(Bytes(_rb(33)), Bytes(_rb(33))),
     )
 
@@ -104,7 +104,7 @@ def _make_stateless_output() -> StatelessValidationResult:
     return StatelessValidationResult(
         new_payload_request_root=Hash32(_rb(32)),
         successful_validation=True,
-        chain_config=ChainConfig(chain_id=U64(1)),
+        chain_config=ChainConfig(chain_id=U64(1), forks=()),
     )
 
 
@@ -132,7 +132,7 @@ class TestSerializeStatelessInput:
                 ),
             ),
             witness=ExecutionWitness(state=(), codes=(), headers=()),
-            chain_config=ChainConfig(chain_id=U64(1)),
+            chain_config=ChainConfig(chain_id=U64(1), forks=()),
             public_keys=(),
         )
         encoded = serialize_stateless_input(original)
@@ -164,7 +164,7 @@ class TestDeserializeStatelessInput:
                 ),
             ),
             witness=ExecutionWitness(state=(), codes=(), headers=()),
-            chain_config=ChainConfig(chain_id=U64(1)),
+            chain_config=ChainConfig(chain_id=U64(1), forks=()),
             public_keys=(),
         )
         encoded = serialize_stateless_input(original)
@@ -187,7 +187,7 @@ class TestSerializeStatelessOutput:
         original = StatelessValidationResult(
             new_payload_request_root=Hash32(_rb(32)),
             successful_validation=False,
-            chain_config=ChainConfig(chain_id=U64(1)),
+            chain_config=ChainConfig(chain_id=U64(1), forks=()),
         )
         encoded = serialize_stateless_output(original)
         recovered = deserialize_stateless_output(encoded)

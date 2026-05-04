@@ -117,6 +117,6 @@ def build_stateless_input(
     return StatelessInput(
         new_payload_request=new_payload,
         witness=execution_witness,
-        chain_config=ChainConfig(chain_id=chain_id),
+        chain_config=ChainConfig(chain_id=chain_id, forks=()),
         public_keys=(),
     )
