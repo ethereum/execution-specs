@@ -211,6 +211,56 @@ def test_factory_reverts_short_calldata(
     )
 
 
+def test_factory_exactly_32_bytes(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Calldata of exactly 32 bytes (the salt alone, with no initcode) is the
+    boundary between revert and accept. The factory should deploy an empty
+    contract at the computed `CREATE2` address and return that address.
+    """
+    salt = 0xAA
+    initcode = b""
+    expected_address = compute_create2_address(FACTORY, salt, initcode)
+
+    storage = Storage()
+    caller = pre.deploy_contract(
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.SSTORE(
+            storage.store_next(1, "factory_call_success"),
+            Op.CALL(
+                gas=Op.GAS,
+                address=FACTORY,
+                value=0,
+                args_offset=0,
+                args_size=Op.CALLDATASIZE,
+                ret_offset=0,
+                ret_size=32,
+            ),
+        )
+        + Op.SSTORE(
+            storage.store_next(expected_address, "returned_address"),
+            Op.MLOAD(0),
+        )
+        + Op.STOP,
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(
+            sender=pre.fund_eoa(),
+            to=caller,
+            data=Hash(salt),
+            gas_limit=200_000,
+        ),
+        post={
+            caller: Account(storage=storage),
+            expected_address: Account(nonce=1, code=b""),
+        },
+    )
+
+
 def test_factory_propagates_initcode_revert(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -325,5 +375,313 @@ def test_factory_address_collision_reverts(
         post={
             caller: Account(storage=storage),
             target: Account(nonce=1, code=bytes(runtime_code)),
+        },
+    )
+
+
+def test_factory_different_salts_produce_different_addresses(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Two calls to the factory with the same initcode but different salts
+    must deploy at distinct, salt-derived addresses, proving the salt is
+    actually plumbed through to `CREATE2`.
+    """
+    salt_a = 0x11
+    salt_b = 0x22
+    runtime_code = Op.PUSH1(0x01) + Op.PUSH1(0x00) + Op.RETURN
+    initcode = Initcode(deploy_code=runtime_code)
+    addr_a = compute_create2_address(FACTORY, salt_a, initcode)
+    addr_b = compute_create2_address(FACTORY, salt_b, initcode)
+    assert addr_a != addr_b
+
+    initcode_offset = 32
+    args_size = initcode_offset + len(bytes(initcode))
+
+    caller = pre.deploy_contract(
+        Op.CALLDATACOPY(initcode_offset, 0, Op.CALLDATASIZE)
+        + Op.MSTORE(0, salt_a)
+        + Op.SSTORE(
+            0,
+            Op.CALL(
+                gas=Op.GAS,
+                address=FACTORY,
+                value=0,
+                args_offset=0,
+                args_size=args_size,
+                ret_offset=0x200,
+                ret_size=32,
+            ),
+        )
+        + Op.SSTORE(1, Op.MLOAD(0x200))
+        + Op.MSTORE(0, salt_b)
+        + Op.SSTORE(
+            2,
+            Op.CALL(
+                gas=Op.GAS,
+                address=FACTORY,
+                value=0,
+                args_offset=0,
+                args_size=args_size,
+                ret_offset=0x200,
+                ret_size=32,
+            ),
+        )
+        + Op.SSTORE(3, Op.MLOAD(0x200))
+        + Op.STOP,
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(
+            sender=pre.fund_eoa(),
+            to=caller,
+            data=bytes(initcode),
+            gas_limit=1_000_000,
+        ),
+        post={
+            caller: Account(
+                storage={0: 1, 1: addr_a, 2: 1, 3: addr_b},
+            ),
+            addr_a: Account(nonce=1, code=bytes(runtime_code)),
+            addr_b: Account(nonce=1, code=bytes(runtime_code)),
+        },
+    )
+
+
+def test_factory_direct_eoa_call(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    A transaction sent directly to the factory address (no relay contract)
+    deploys at the expected `CREATE2` address.
+    """
+    salt = 0xCAFE
+    runtime_code = Op.PUSH1(0x01) + Op.PUSH1(0x00) + Op.RETURN
+    initcode = Initcode(deploy_code=runtime_code)
+    expected_address = compute_create2_address(FACTORY, salt, initcode)
+
+    state_test(
+        pre=pre,
+        tx=Transaction(
+            sender=pre.fund_eoa(),
+            to=FACTORY,
+            data=Hash(salt) + bytes(initcode),
+            gas_limit=200_000,
+        ),
+        post={
+            expected_address: Account(nonce=1, code=bytes(runtime_code)),
+        },
+    )
+
+
+def test_factory_staticcall_reverts(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Calling the factory via `STATICCALL` fails because `CREATE2` requires a
+    writable context. No contract is deployed.
+    """
+    salt = 0x33
+    runtime_code = Op.STOP
+    initcode = Initcode(deploy_code=runtime_code)
+    expected_address = compute_create2_address(FACTORY, salt, initcode)
+
+    storage = Storage()
+    caller = pre.deploy_contract(
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.SSTORE(
+            storage.store_next(0, "staticcall_failed"),
+            Op.STATICCALL(
+                gas=Op.GAS,
+                address=FACTORY,
+                args_offset=0,
+                args_size=Op.CALLDATASIZE,
+                ret_offset=0x100,
+                ret_size=32,
+            ),
+        )
+        + Op.STOP,
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(
+            sender=pre.fund_eoa(),
+            to=caller,
+            data=Hash(salt) + bytes(initcode),
+            gas_limit=500_000,
+        ),
+        post={
+            caller: Account(storage=storage),
+            expected_address: Account.NONEXISTENT,
+        },
+    )
+
+
+def test_factory_delegatecall_uses_caller_address(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Under `DELEGATECALL`, the factory's code runs in the caller's context,
+    so `CREATE2`'s deployer is the caller — not the factory. The contract
+    is deployed at the address derived from the caller, and the
+    factory-derived address is empty.
+    """
+    salt = 0x44
+    runtime_code = Op.STOP
+    initcode = Initcode(deploy_code=runtime_code)
+    factory_derived = compute_create2_address(FACTORY, salt, initcode)
+
+    caller = pre.deploy_contract(
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.SSTORE(
+            0,
+            Op.DELEGATECALL(
+                gas=Op.GAS,
+                address=FACTORY,
+                args_offset=0,
+                args_size=Op.CALLDATASIZE,
+                ret_offset=0x100,
+                ret_size=32,
+            ),
+        )
+        + Op.SSTORE(1, Op.MLOAD(0x100))
+        + Op.STOP,
+    )
+    caller_derived = compute_create2_address(caller, salt, initcode)
+
+    state_test(
+        pre=pre,
+        tx=Transaction(
+            sender=pre.fund_eoa(),
+            to=caller,
+            data=Hash(salt) + bytes(initcode),
+            gas_limit=500_000,
+        ),
+        post={
+            caller: Account(storage={0: 1, 1: caller_derived}),
+            caller_derived: Account(nonce=1, code=bytes(runtime_code)),
+            factory_derived: Account.NONEXISTENT,
+        },
+    )
+
+
+def test_factory_caller_revert_rolls_back_deployment(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    A successful factory deployment is rolled back when the calling frame
+    reverts. Standard EVM semantics, but worth pinning explicitly.
+    """
+    salt = 0x55
+    runtime_code = Op.STOP
+    initcode = Initcode(deploy_code=runtime_code)
+    expected_address = compute_create2_address(FACTORY, salt, initcode)
+
+    inner = pre.deploy_contract(
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.POP(
+            Op.CALL(
+                gas=Op.GAS,
+                address=FACTORY,
+                value=0,
+                args_offset=0,
+                args_size=Op.CALLDATASIZE,
+                ret_offset=0x100,
+                ret_size=32,
+            )
+        )
+        + Op.REVERT(0, 0),
+    )
+
+    storage = Storage()
+    caller = pre.deploy_contract(
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.SSTORE(
+            storage.store_next(0, "inner_reverted"),
+            Op.CALL(
+                gas=Op.GAS,
+                address=inner,
+                value=0,
+                args_offset=0,
+                args_size=Op.CALLDATASIZE,
+                ret_offset=0,
+                ret_size=0,
+            ),
+        )
+        + Op.STOP,
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(
+            sender=pre.fund_eoa(),
+            to=caller,
+            data=Hash(salt) + bytes(initcode),
+            gas_limit=1_000_000,
+        ),
+        post={
+            caller: Account(storage=storage),
+            expected_address: Account.NONEXISTENT,
+        },
+    )
+
+
+@pytest.mark.pre_alloc_mutable
+def test_factory_deploys_to_pre_funded_address(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    `CREATE2` to an address that has only a balance (no code, no storage,
+    nonce 0) succeeds and preserves the existing balance.
+    """
+    salt = 0x66
+    runtime_code = Op.STOP
+    initcode = Initcode(deploy_code=runtime_code)
+    expected_address = compute_create2_address(FACTORY, salt, initcode)
+    pre_balance = 0xBA1
+
+    pre[expected_address] = Account(balance=pre_balance)
+
+    storage = Storage()
+    caller = pre.deploy_contract(
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.SSTORE(
+            storage.store_next(1, "factory_call_success"),
+            Op.CALL(
+                gas=Op.GAS,
+                address=FACTORY,
+                value=0,
+                args_offset=0,
+                args_size=Op.CALLDATASIZE,
+                ret_offset=0x100,
+                ret_size=32,
+            ),
+        )
+        + Op.STOP,
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(
+            sender=pre.fund_eoa(),
+            to=caller,
+            data=Hash(salt) + bytes(initcode),
+            gas_limit=500_000,
+        ),
+        post={
+            caller: Account(storage=storage),
+            expected_address: Account(
+                nonce=1,
+                balance=pre_balance,
+                code=bytes(runtime_code),
+            ),
         },
     )
