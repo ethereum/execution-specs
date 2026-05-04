@@ -1084,7 +1084,9 @@ class BlockchainTest(BaseTest):
                 raise Exception(
                     "Stateless output decoding is only supported for Amsterdam"
                 )
-            canonical_successful_validation = stateless_output.successful_validation
+            canonical_successful_validation = (
+                stateless_output.successful_validation
+            )
 
         should_rerun_stateless_guest = has_witness_modifier
         if should_rerun_stateless_guest:
