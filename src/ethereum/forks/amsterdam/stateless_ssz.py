@@ -6,6 +6,8 @@ types in ``stateless`` and ``execution_engine.types``, plus conversion
 functions between the two representations.
 """
 
+from typing import TypeAlias
+
 from ethereum_types.bytes import Bytes, Bytes48, Bytes96
 from ethereum_types.numeric import U64, U256, Uint
 from remerkleable.basic import boolean, uint64, uint256
@@ -66,7 +68,7 @@ MAX_BYTES_PER_PUBLIC_KEY = 65
 # --- SSZ Container types ---
 
 
-SszOptionalForkActivationValue = SszList[
+SszOptionalForkActivationValue: TypeAlias = SszList[
     uint64, MAX_OPTIONAL_FORK_ACTIVATION_VALUES
 ]
 
@@ -175,7 +177,7 @@ class SszBlobSchedule(Container):
     base_fee_update_fraction: uint64
 
 
-SszOptionalBlobSchedule = SszList[
+SszOptionalBlobSchedule: TypeAlias = SszList[
     SszBlobSchedule, MAX_BLOB_SCHEDULES_PER_FORK
 ]
 
@@ -188,7 +190,7 @@ class SszForkConfig(Container):
     blob_schedule: SszOptionalBlobSchedule
 
 
-SszForkConfigList = SszList[SszForkConfig, MAX_FORK_CONFIGS]
+SszForkConfigList: TypeAlias = SszList[SszForkConfig, MAX_FORK_CONFIGS]
 
 
 class SszChainConfig(Container):
