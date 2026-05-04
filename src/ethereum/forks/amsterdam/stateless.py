@@ -18,7 +18,7 @@ from ethereum.state import Root
 from .blocks import Block, Header
 from .execution_engine.new_payload import execute_new_payload_request
 from .execution_engine.requests import ExecutionRequests
-from .execution_engine.types import NewPayloadRequest
+from .execution_engine.types import ExecutionPayload, NewPayloadRequest
 from .fork import ChainContext
 from .fork_types import VersionedHash
 from .witness_state import WitnessState, build_code_db, build_node_db
@@ -105,6 +105,24 @@ class ProtocolFork(StrEnum):
     BPO4 = "BPO4"
     BPO5 = "BPO5"
     Amsterdam = "Amsterdam"
+
+
+class ChainConfigValidationError(Exception):
+    """
+    Raised when a chain config cannot be used by this stateless guest.
+    """
+
+
+class MissingActiveForkError(ChainConfigValidationError):
+    """
+    Raised when no fork entry is active for the target payload.
+    """
+
+
+class InvalidForkActivationError(ChainConfigValidationError):
+    """
+    Raised when a fork entry has a malformed activation point.
+    """
 
 
 @slotted_freezable
@@ -260,6 +278,53 @@ def validate_headers(
     return headers, block_hashes
 
 
+def _is_activation_active(
+    activation: ForkActivation,
+    execution_payload: ExecutionPayload,
+) -> bool:
+    """
+    Return whether an activation point is active for the payload.
+    """
+    if activation.block_number is None and activation.timestamp is None:
+        raise InvalidForkActivationError(
+            "Fork activation must set block_number or timestamp"
+        )
+
+    if activation.block_number is not None and int(
+        execution_payload.block_number
+    ) < int(activation.block_number):
+        return False
+
+    if activation.timestamp is not None and int(
+        execution_payload.timestamp
+    ) < int(activation.timestamp):
+        return False
+
+    return True
+
+
+def validate_chain_config(
+    chain_config: ChainConfig,
+    new_payload_request: NewPayloadRequest,
+) -> ForkConfig:
+    """
+    Validate the chain config and return the target payload's active fork.
+    """
+    active_fork: ForkConfig | None = None
+    execution_payload = new_payload_request.execution_payload
+
+    for fork_config in chain_config.forks:
+        if _is_activation_active(fork_config.activation, execution_payload):
+            active_fork = fork_config
+
+    if active_fork is None:
+        raise MissingActiveForkError(
+            "No ChainConfig fork is active for the target payload"
+        )
+
+    return active_fork
+
+
 def verify_stateless_new_payload(
     stateless_input: StatelessInput,
 ) -> StatelessValidationResult:
@@ -272,6 +337,11 @@ def verify_stateless_new_payload(
     witness = stateless_input.witness
 
     try:
+        validate_chain_config(
+            stateless_input.chain_config,
+            stateless_input.new_payload_request,
+        )
+
         # Validate the headers are contiguous and compute their
         # blockhashes.
         decoded_headers, block_hashes = validate_headers(witness.headers)
