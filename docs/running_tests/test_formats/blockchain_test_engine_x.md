@@ -139,7 +139,7 @@ Engine API payload structure identical to the one defined in [Blockchain Engine 
 ## Usage Notes
 
 - This format is generated when using:
-    - `--generate-pre-alloc-groups` flag (automatically triggers 2-phase execution, generates only `BlockchainEngineXFixture`)
+    - `--generate-pre-alloc-groups` followed by `--use-pre-alloc-groups` (two invocations: phase 1 populates the `pre_alloc` folder, phase 2 generates only `BlockchainEngineXFixture`)
     - `--generate-all-formats` flag (automatically triggers 2-phase execution, generates all fixture formats)
 - The `pre_alloc` folder is essential and must be distributed with the test fixtures
 - Tests are grouped by identical (fork + environment + pre-allocation) combinations

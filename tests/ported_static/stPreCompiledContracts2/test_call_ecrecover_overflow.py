@@ -107,6 +107,7 @@ def test_call_ecrecover_overflow(
         base_fee_per_gas=10,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: yul
     # berlin
     # {
@@ -136,7 +137,6 @@ def test_call_ecrecover_overflow(
         nonce=0,
         address=Address(0xDB8963071FEAE3B63E19D9D7AF8EE89A92E99356),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     expect_entries_: list[dict] = [
         {

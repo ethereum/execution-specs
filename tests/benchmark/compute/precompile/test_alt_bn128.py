@@ -648,7 +648,7 @@ def test_ec_pairing(
             - mem_exp(new_bytes=len(calldata) + 32)
         )
 
-        if gas_for_loop < (per_tx_variants + 1) * iteration_cost:
+        if gas_for_loop < per_tx_variants * iteration_cost:
             break
         expected_opcode_count += per_tx_variants
 
@@ -662,6 +662,8 @@ def test_ec_pairing(
         )
         remaining_gas -= per_tx_gas
         seed_offset += per_tx_variants
+
+    assert len(txs) != 0, "No transactions were added to the test."
 
     benchmark_test(
         target_opcode=Precompile.BN128_PAIRING,

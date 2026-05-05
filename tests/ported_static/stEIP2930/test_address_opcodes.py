@@ -7,7 +7,6 @@ state_tests/stEIP2930/addressOpcodesFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     AccessList,
     Account,
     Address,
@@ -338,9 +337,7 @@ def test_address_opcodes(
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x0000000000000000000000000000000000001000)
     contract_1 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -547,7 +544,6 @@ def test_address_opcodes(
         nonce=0,
         address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     expect_entries_: list[dict] = [
         {
@@ -701,7 +697,7 @@ def test_address_opcodes(
         ],
         4: [
             AccessList(
-                address=Address(0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),
+                address=sender,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -715,7 +711,7 @@ def test_address_opcodes(
         5: [],
         6: [
             AccessList(
-                address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),
+                address=contract_1,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -729,7 +725,7 @@ def test_address_opcodes(
         7: [],
         8: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001000),
+                address=contract_0,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -790,7 +786,7 @@ def test_address_opcodes(
         ],
         16: [
             AccessList(
-                address=Address(0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),
+                address=sender,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -804,7 +800,7 @@ def test_address_opcodes(
         17: [],
         18: [
             AccessList(
-                address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),
+                address=contract_1,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -818,7 +814,7 @@ def test_address_opcodes(
         19: [],
         20: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001000),
+                address=contract_0,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -879,7 +875,7 @@ def test_address_opcodes(
         ],
         28: [
             AccessList(
-                address=Address(0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),
+                address=sender,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -893,7 +889,7 @@ def test_address_opcodes(
         29: [],
         30: [
             AccessList(
-                address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),
+                address=contract_1,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -907,7 +903,7 @@ def test_address_opcodes(
         31: [],
         32: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001000),
+                address=contract_0,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -968,7 +964,7 @@ def test_address_opcodes(
         ],
         40: [
             AccessList(
-                address=Address(0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),
+                address=sender,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -982,7 +978,7 @@ def test_address_opcodes(
         41: [],
         42: [
             AccessList(
-                address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),
+                address=contract_1,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -996,7 +992,7 @@ def test_address_opcodes(
         43: [],
         44: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000001000),
+                address=contract_0,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501

@@ -7,7 +7,6 @@ state_tests/stSpecialTest/deploymentErrorFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -28,7 +27,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stSpecialTest/deploymentErrorFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_deployment_error(
     state_test: StateTestFiller,
     fork: Fork,
@@ -36,9 +34,7 @@ def test_deployment_error(
 ) -> None:
     """Test_deployment_error."""
     coinbase = Address(0x68795C4AA09D6F4ED3E5DEDDF8C2AD3049A601DA)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -47,8 +43,6 @@ def test_deployment_error(
         prev_randao=0x20000,
         base_fee_per_gas=10,
     )
-
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

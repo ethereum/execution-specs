@@ -115,6 +115,7 @@ def test_double_selfdestruct_test(
         base_fee_per_gas=10,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
     # Source: yul
     # berlin
     # {
@@ -225,7 +226,6 @@ def test_double_selfdestruct_test(
         nonce=1,
         address=Address(0x000000000000000000000000000000000000C0DE),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
 
     expect_entries_: list[dict] = [
         {

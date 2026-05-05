@@ -18,7 +18,7 @@ bal:
   fill-params: --until=Amsterdam
   feature_only: true
 
-snøbal-devnet-4:
+snobal-devnet-6:
   evm-type: eels
   fill-params: --until=Amsterdam
   feature_only: true

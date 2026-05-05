@@ -359,8 +359,9 @@ def test_finalization_burn_logs(
     Test Burn logs at finalization for post-selfdestruct balance.
 
     X contracts (x1, x2, x3) selfdestruct, then receive ETH via payer contracts
-    (p1, p2, p3). At finalization, X contracts emit Burn logs for their
-    in lexicographical address order (only if they received ETH).
+    (p1, p2, p3). At finalization, X contracts emit Burn logs for their burnt
+    ether, emitted in lexicographical address order
+    (only if they received ETH).
 
     When to_self=True, X contracts SELFDESTRUCT to themselves (burning ETH
     with LOG2). When to_self=False, X contracts SELFDESTRUCT to a beneficiary

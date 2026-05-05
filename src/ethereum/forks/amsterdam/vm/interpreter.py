@@ -125,13 +125,13 @@ def process_message_call(message: Message) -> MessageCallOutput:
         if is_collision:
             return MessageCallOutput(
                 gas_left=Uint(0),
-                state_gas_left=Uint(0),
+                state_gas_left=message.state_gas_reservoir,
                 refund_counter=U256(0),
                 logs=tuple(),
                 accounts_to_delete=set(),
                 error=AddressCollision(),
                 return_data=Bytes(b""),
-                regular_gas_used=Uint(0),
+                regular_gas_used=message.gas,
                 state_gas_used=Uint(0),
             )
         else:
@@ -226,20 +226,29 @@ def process_create_message(message: Message) -> Evm:
             # Hash cost for computing keccak256 of deployed bytecode
             code_hash_gas = (
                 GasCosts.OPCODE_KECCACK256_PER_WORD
-                * ceil32(Uint(len(contract_code)))
+                * ceil32(ulen(contract_code))
                 // Uint(32)
             )
             charge_gas(evm, code_hash_gas)
-            code_deposit_state_gas = (
-                Uint(len(contract_code)) * COST_PER_STATE_BYTE
-            )
+            code_deposit_state_gas = ulen(contract_code) * COST_PER_STATE_BYTE
             charge_state_gas(evm, code_deposit_state_gas)
         except ExceptionalHalt as error:
             restore_tx_state(tx_state, snapshot)
             evm.regular_gas_used += evm.gas_left
             evm.gas_left = Uint(0)
-            # State gas is preserved on exceptional halt so it can be
-            # returned to the parent frame via incorporate_child_on_error.
+            # On halt, restore the state gas reservoir to what was
+            # passed into this frame. State-gas charges in excess of
+            # the original reservoir came from gas_left (spill) or
+            # from a child revert refund; either way they get
+            # re-classified as regular gas usage on halt.
+            total_state = evm.state_gas_used + evm.state_gas_left
+            reservoir = evm.message.state_gas_reservoir
+            if total_state > reservoir:
+                evm.regular_gas_used += total_state - reservoir
+            evm.state_gas_left = reservoir
+            evm.state_gas_used = Uint(0)
+            evm.state_gas_refund = Uint(0)
+            evm.state_gas_refund_pending = Uint(0)
             evm.output = b""
             evm.error = error
         else:
@@ -331,8 +340,19 @@ def process_message(message: Message) -> Evm:
         evm_trace(evm, OpException(error))
         evm.regular_gas_used += evm.gas_left
         evm.gas_left = Uint(0)
-        # State gas is preserved on exceptional halt so it can be
-        # returned to the parent frame via incorporate_child_on_error.
+        # On halt, restore the state gas reservoir to what was passed
+        # into this frame. State-gas charges in excess of the original
+        # reservoir came from gas_left (spill) or from a child revert
+        # refund; either way they get re-classified as regular gas
+        # usage on halt.
+        total_state = evm.state_gas_used + evm.state_gas_left
+        reservoir = evm.message.state_gas_reservoir
+        if total_state > reservoir:
+            evm.regular_gas_used += total_state - reservoir
+        evm.state_gas_left = reservoir
+        evm.state_gas_used = Uint(0)
+        evm.state_gas_refund = Uint(0)
+        evm.state_gas_refund_pending = Uint(0)
         evm.output = b""
         evm.error = error
     except Revert as error:

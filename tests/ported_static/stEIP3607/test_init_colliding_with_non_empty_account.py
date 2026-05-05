@@ -12,6 +12,7 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Header,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -163,4 +164,28 @@ def test_init_colliding_with_non_empty_account(
         sender: Account(nonce=1),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    # On collision, all execution gas is reclassified to regular and the
+    # tx-time state reservoir is restored. Under EIP-8037 2D gas this
+    # gives header.gas_used = max(intrinsic_regular + execution_gas,
+    # intrinsic_state); pre-EIP-8037 the state component is zero, so the
+    # same expression collapses to tx.gas.
+    intrinsic_total = fork.transaction_intrinsic_cost_calculator()(
+        calldata=bytes(tx_data[d]),
+        contract_creation=True,
+    )
+    intrinsic_state = fork.create_state_gas()
+    intrinsic_regular = intrinsic_total - intrinsic_state
+    execution_gas = tx_gas[g] - intrinsic_total
+    expected_header_gas_used = max(
+        intrinsic_regular + execution_gas, intrinsic_state
+    )
+
+    state_test(
+        env=env,
+        pre=pre,
+        post=post,
+        tx=tx,
+        blockchain_test_header_verify=Header(
+            gas_used=expected_header_gas_used,
+        ),
+    )

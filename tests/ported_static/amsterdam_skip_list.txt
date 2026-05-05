@@ -8,7 +8,7 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 455
+# Total entries: 465
 
 # stAttackTest (1)
 stAttackTest/test_crashing_transaction.py::test_crashing_transaction[fork_Amsterdam]
@@ -124,7 +124,7 @@ stCreate2/test_revert_depth_create_address_collision.py::test_revert_depth_creat
 stCreate2/test_revert_depth_create_address_collision_berlin.py::test_revert_depth_create_address_collision_berlin[fork_Amsterdam-d1-g1-v0]
 stCreate2/test_revert_depth_create_address_collision_berlin.py::test_revert_depth_create_address_collision_berlin[fork_Amsterdam-d1-g1-v1]
 
-# stCreateTest (59)
+# stCreateTest (63)
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create-0xef-v1]
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create-code-too-big-v1]
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create-contructor-revert-v1]
@@ -132,14 +132,18 @@ stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_af
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create-high-nonce-v1]
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create-invalid-opcode-v1]
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create-ok-v1]
+stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create-oog-constructor-v0]
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create-oog-constructor-v1]
+stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create-oog-post-constr-v0]
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create-oog-post-constr-v1]
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create2-0xef-v1]
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create2-code-too-big-v1]
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create2-contructor-revert-v1]
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create2-invalid-opcode-v1]
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create2-ok-v1]
+stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create2-oog-constructor-v0]
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create2-oog-constructor-v1]
+stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create2-oog-post-constr-v0]
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create2-oog-post-constr-v1]
 stCreateTest/test_create_collision_to_empty2.py::test_create_collision_to_empty2[fork_Amsterdam-d0-g0-v0]
 stCreateTest/test_create_collision_to_empty2.py::test_create_collision_to_empty2[fork_Amsterdam-d0-g0-v1]
@@ -332,8 +336,9 @@ stInitCodeTest/test_out_of_gas_prefunded_contract_creation.py::test_out_of_gas_p
 stInitCodeTest/test_transaction_create_auto_suicide_contract.py::test_transaction_create_auto_suicide_contract[fork_Amsterdam]
 stInitCodeTest/test_transaction_create_stop_in_initcode.py::test_transaction_create_stop_in_initcode[fork_Amsterdam]
 
-# stMemExpandingEIP150Calls (3)
+# stMemExpandingEIP150Calls (4)
 stMemExpandingEIP150Calls/test_call_ask_more_gas_on_depth2_then_transaction_has_with_mem_expanding_calls.py::test_call_ask_more_gas_on_depth2_then_transaction_has_with_mem_expanding_calls[fork_Amsterdam]
+stMemExpandingEIP150Calls/test_call_goes_oog_on_second_level_with_mem_expanding_calls.py::test_call_goes_oog_on_second_level_with_mem_expanding_calls[fork_Amsterdam]
 stMemExpandingEIP150Calls/test_create_and_gas_inside_create_with_mem_expanding_calls.py::test_create_and_gas_inside_create_with_mem_expanding_calls[fork_Amsterdam]
 stMemExpandingEIP150Calls/test_new_gas_price_for_codes_with_mem_expanding_calls.py::test_new_gas_price_for_codes_with_mem_expanding_calls[fork_Amsterdam]
 
@@ -396,6 +401,9 @@ stPreCompiledContracts2/test_modexp_0_0_0_22000.py::test_modexp_0_0_0_22000[fork
 stPreCompiledContracts2/test_modexp_0_0_0_25000.py::test_modexp_0_0_0_25000[fork_Amsterdam--g0]
 stPreCompiledContracts2/test_modexp_0_0_0_35000.py::test_modexp_0_0_0_35000[fork_Amsterdam--g0]
 
+# stRecursiveCreate (1)
+stRecursiveCreate/test_recursive_create.py::test_recursive_create[fork_Amsterdam]
+
 # stRefundTest (7)
 stRefundTest/test_refund50_2.py::test_refund50_2[fork_Amsterdam]
 stRefundTest/test_refund50percent_cap.py::test_refund50percent_cap[fork_Amsterdam]
@@ -405,7 +413,10 @@ stRefundTest/test_refund_suicide50procent_cap.py::test_refund_suicide50procent_c
 stRefundTest/test_refund_suicide50procent_cap.py::test_refund_suicide50procent_cap[fork_Amsterdam-d1]
 stRefundTest/test_refund_tx_to_suicide.py::test_refund_tx_to_suicide[fork_Amsterdam]
 
-# stRevertTest (4)
+# stRevertTest (7)
+stRevertTest/test_revert_depth2.py::test_revert_depth2[fork_Amsterdam--g1]
+stRevertTest/test_revert_depth_create_address_collision.py::test_revert_depth_create_address_collision[fork_Amsterdam-d1-g1-v0]
+stRevertTest/test_revert_depth_create_address_collision.py::test_revert_depth_create_address_collision[fork_Amsterdam-d1-g1-v1]
 stRevertTest/test_revert_depth_create_oog.py::test_revert_depth_create_oog[fork_Amsterdam-d1-g1-v0]
 stRevertTest/test_revert_depth_create_oog.py::test_revert_depth_create_oog[fork_Amsterdam-d1-g1-v1]
 stRevertTest/test_revert_opcode_in_init.py::test_revert_opcode_in_init[fork_Amsterdam--v0]
@@ -489,6 +500,9 @@ stSStoreTest/test_sstore_xto_yto_z.py::test_sstore_xto_yto_z[fork_Amsterdam-d0-g
 stSStoreTest/test_sstore_xto_yto_z.py::test_sstore_xto_yto_z[fork_Amsterdam-d1-g1]
 stSStoreTest/test_sstore_xto_yto_z.py::test_sstore_xto_yto_z[fork_Amsterdam-d2-g1]
 
+# stSolidityTest (1)
+stSolidityTest/test_recursive_create_contracts.py::test_recursive_create_contracts[fork_Amsterdam]
+
 # stSpecialTest (1)
 stSpecialTest/test_make_money.py::test_make_money[fork_Amsterdam]
 
@@ -511,7 +525,7 @@ stWalletTest/test_wallet_construction.py::test_wallet_construction[fork_Amsterda
 stWalletTest/test_wallet_construction_oog.py::test_wallet_construction_oog[fork_Amsterdam--g1]
 stWalletTest/test_wallet_construction_partial.py::test_wallet_construction_partial[fork_Amsterdam]
 
-# stZeroKnowledge (20)
+# stZeroKnowledge (19)
 stZeroKnowledge/test_point_mul_add.py::test_point_mul_add[fork_Amsterdam-d2-g3]
 stZeroKnowledge/test_point_mul_add.py::test_point_mul_add[fork_Amsterdam-d7-g3]
 stZeroKnowledge/test_point_mul_add.py::test_point_mul_add[fork_Amsterdam-d8-g3]

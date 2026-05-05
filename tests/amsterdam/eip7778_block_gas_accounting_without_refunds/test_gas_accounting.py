@@ -309,12 +309,12 @@ def test_multi_transaction_gas_accounting(
 
     This tests that clients correctly use pre-refund gas for block accounting.
     """
-    # TODO: fix test to work with EIP-8037 two-dimensional gas model
-    # instead of skipping.
+    # Skipped on snøbal -- see test_state_gas_snobal_quirks.py.
     if refund_type == RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY:
         pytest.skip(
-            "EIP-8037: tx gas_limit includes state gas but block_gas_used "
-            "uses max(regular, state)"
+            "snøbal spec quirk: EIP-7702 auth refund not deducted from "
+            "block_state_gas_used; behavior pinned by "
+            "test_state_gas_snobal_quirks.py"
         )
 
     intrinsic_cost_calc = fork.transaction_intrinsic_cost_calculator()
@@ -454,15 +454,15 @@ def test_varying_calldata_costs(
                 "since refund is zero when execution reverts"
             )
 
-    # TODO: fix test to work with EIP-8037 two-dimensional gas model
-    # instead of skipping.
+    # Skipped on snøbal -- see test_state_gas_snobal_quirks.py.
     if refund_type == RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY:
         if calldata_test_type == (
             CallDataTestType.DATA_FLOOR_BETWEEN_TX_GAS_BEFORE_AND_AFTER
         ):
             pytest.skip(
-                "EIP-8037: auth refund bypasses refund counter, "
-                "so pre/post refund block gas are equal"
+                "snøbal spec quirk: EIP-7702 auth refund routes to "
+                "state reservoir, collapsing pre/post-refund range "
+                "(see test_state_gas_snobal_quirks.py)"
             )
 
     match refund_type:

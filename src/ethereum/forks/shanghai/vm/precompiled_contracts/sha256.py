@@ -13,7 +13,7 @@ Implementation of the `SHA256` precompiled contract.
 
 import hashlib
 
-from ethereum_types.numeric import Uint
+from ethereum_types.numeric import Uint, ulen
 
 from ethereum.utils.numeric import ceil32
 
@@ -34,7 +34,7 @@ def sha256(evm: Evm) -> None:
     data = evm.message.data
 
     # GAS
-    word_count = ceil32(Uint(len(data))) // Uint(32)
+    word_count = ceil32(ulen(data)) // Uint(32)
     charge_gas(
         evm,
         GasCosts.PRECOMPILE_SHA256_BASE

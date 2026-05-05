@@ -2,6 +2,9 @@
 
 from unittest.mock import patch
 
+import click
+import pytest
+
 from execution_testing.cli.pytest_commands.fill import (
     FillCommand,
 )
@@ -76,26 +79,79 @@ def test_generate_all_formats_removes_clean_from_phase2() -> None:
     assert "--clean" not in phase2_args
 
 
-def test_legacy_generate_pre_alloc_groups_still_works() -> None:
-    """Test that the legacy --generate-pre-alloc-groups flag still works."""
+def test_generate_pre_alloc_groups_alone_is_phase_1_only() -> None:
+    """
+    Test that --generate-pre-alloc-groups without --generate-all-formats
+    runs phase 1 only, so CI can populate pre-alloc groups on a
+    dedicated runner without wasting time on phase 2.
+    """
     command = FillCommand()
 
     with patch.object(command, "process_arguments", side_effect=lambda x: x):
         pytest_args = ["--generate-pre-alloc-groups", "tests/somedir/"]
         executions = command.create_executions(pytest_args)
 
-    assert len(executions) == 2
+    assert len(executions) == 1
 
-    # Phase 1: Should have --generate-pre-alloc-groups
     phase1_args = executions[0].args
     assert "--generate-pre-alloc-groups" in phase1_args
+    assert "--use-pre-alloc-groups" not in phase1_args
+    assert "--generate-all-formats" not in phase1_args
 
-    # Phase 2: Should have --use-pre-alloc-groups but NOT --generate-all-
-    # formats
-    phase2_args = executions[1].args
-    assert "--use-pre-alloc-groups" in phase2_args
-    assert "--generate-all-formats" not in phase2_args
-    assert "--generate-pre-alloc-groups" not in phase2_args
+
+def test_use_pre_alloc_groups_forces_single_phase() -> None:
+    """
+    Test that --use-pre-alloc-groups always runs a single phase, even
+    alongside --generate-all-formats (pre-alloc groups already exist on
+    disk from a previous run).
+    """
+    command = FillCommand()
+
+    with patch.object(command, "process_arguments", side_effect=lambda x: x):
+        pytest_args = [
+            "--use-pre-alloc-groups",
+            "--generate-all-formats",
+            "tests/somedir/",
+        ]
+        executions = command.create_executions(pytest_args)
+
+    assert len(executions) == 1
+    assert "--use-pre-alloc-groups" in executions[0].args
+    assert "--generate-all-formats" in executions[0].args
+
+
+def test_use_and_generate_pre_alloc_groups_together_is_rejected() -> None:
+    """
+    --use-pre-alloc-groups + --generate-pre-alloc-groups are contradictory:
+    the first asserts the groups exist, the second regenerates them.
+    """
+    command = FillCommand()
+
+    with patch.object(command, "process_arguments", side_effect=lambda x: x):
+        pytest_args = [
+            "--use-pre-alloc-groups",
+            "--generate-pre-alloc-groups",
+            "tests/somedir/",
+        ]
+        with pytest.raises(click.UsageError, match="mutually exclusive"):
+            command.create_executions(pytest_args)
+
+
+def test_use_pre_alloc_groups_with_clean_is_rejected() -> None:
+    """
+    --use-pre-alloc-groups + --clean is contradictory: --clean wipes the
+    output directory that holds the pre-alloc groups.
+    """
+    command = FillCommand()
+
+    with patch.object(command, "process_arguments", side_effect=lambda x: x):
+        pytest_args = [
+            "--use-pre-alloc-groups",
+            "--clean",
+            "tests/somedir/",
+        ]
+        with pytest.raises(click.UsageError, match="--clean"):
+            command.create_executions(pytest_args)
 
 
 def test_single_phase_without_flags() -> None:

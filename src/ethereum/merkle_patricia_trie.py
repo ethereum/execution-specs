@@ -12,9 +12,12 @@ The state trie is the structure responsible for storing
 `.fork_types.Account` objects.
 """
 
+from __future__ import annotations
+
 import copy
 from dataclasses import dataclass, field
 from typing import (
+    TYPE_CHECKING,
     Callable,
     Dict,
     Generic,
@@ -30,26 +33,15 @@ from typing import (
 
 from ethereum_rlp import Extended, rlp
 from ethereum_types.bytes import Bytes
-from ethereum_types.numeric import U256, Uint
+from ethereum_types.frozen import slotted_freezable
+from ethereum_types.numeric import Uint
 from typing_extensions import assert_type
 
-from ethereum.crypto.hash import keccak256
-from ethereum.forks.bpo5 import trie as previous_trie
-from ethereum.state import (
-    Account,
-    Address,
-    BranchNode,
-    BranchSubnodes,
-    ExtensionNode,
-    InternalNode,
-    LeafNode,
-    Root,
-)
+from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.utils.hexadecimal import hex_to_bytes
 
-from .blocks import Receipt, Withdrawal
-from .fork_types import encode_account
-from .transactions import LegacyTransaction
+if TYPE_CHECKING:
+    from ethereum.state import Account, Address, Root
 
 # note: an empty trie (regardless of whether it is secured) has root:
 #
@@ -64,25 +56,86 @@ from .transactions import LegacyTransaction
 #   1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347 # noqa: E501
 #
 # which is the sha3Uncles hash in block header with no uncles
-EMPTY_TRIE_ROOT = Root(
+#
+# Note: `Hash32` is used here rather than `Root` because `Root` is defined in
+# `ethereum.state`, which imports from this module — referring to it at module
+# scope would create a circular import.
+EMPTY_TRIE_ROOT = Hash32(
     hex_to_bytes(
         "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
     )
 )
 
-Node = Account | Bytes | LegacyTransaction | Receipt | Uint | U256 | Withdrawal
+
+@slotted_freezable
+@dataclass
+class LeafNode:
+    """Leaf node in the Merkle Trie."""
+
+    rest_of_key: Bytes
+    value: Extended
+
+
+@slotted_freezable
+@dataclass
+class ExtensionNode:
+    """Extension node in the Merkle Trie."""
+
+    key_segment: Bytes
+    subnode: Extended
+
+
+BranchSubnodes = Tuple[
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+]
+
+
+@slotted_freezable
+@dataclass
+class BranchNode:
+    """Branch node in the Merkle Trie."""
+
+    subnodes: BranchSubnodes
+    value: Extended
+
+
+InternalNode = LeafNode | ExtensionNode | BranchNode
+
+
 K = TypeVar("K", bound=Bytes)
-V = TypeVar(
-    "V",
-    Optional[Account],
-    Optional[Bytes],
-    Bytes,
-    Optional[LegacyTransaction | Bytes],
-    Optional[Receipt | Bytes],
-    Optional[Withdrawal | Bytes],
-    Uint,
-    U256,
-)
+V = TypeVar("V", bound=Extended | None)
+
+
+def encode_account(raw_account_data: Account, storage_root: Bytes) -> Bytes:
+    """
+    Encode `Account` dataclass.
+
+    Storage is not stored in the `Account` dataclass, so `Accounts` cannot be
+    encoded without providing a storage root.
+    """
+    return rlp.encode(
+        (
+            raw_account_data.nonce,
+            raw_account_data.balance,
+            storage_root,
+            raw_account_data.code_hash,
+        )
+    )
 
 
 def encode_internal_node(node: Optional[InternalNode]) -> Extended:
@@ -130,21 +183,19 @@ def encode_internal_node(node: Optional[InternalNode]) -> Extended:
         return keccak256(encoded)
 
 
-def encode_node(node: Node, storage_root: Optional[Bytes] = None) -> Bytes:
+def encode_node(node: Extended, storage_root: Bytes | None = None) -> Bytes:
     """
     Encode a Node for storage in the Merkle Trie.
     """
+    from ethereum.state import Account
+
     if isinstance(node, Account):
         assert storage_root is not None
         return encode_account(node, storage_root)
-    elif isinstance(
-        node, (LegacyTransaction, Receipt, Withdrawal, U256, Uint)
-    ):
-        return rlp.encode(node)
     elif isinstance(node, Bytes):
         return node
     else:
-        return previous_trie.encode_node(node, storage_root)
+        return rlp.encode(node)
 
 
 @dataclass
@@ -326,6 +377,8 @@ def _prepare_trie(
         Object with keys mapped to nibble-byte form.
 
     """
+    from ethereum.state import Account, Address
+
     mapped: MutableMapping[Bytes, Bytes] = {}
 
     for preimage, value in trie._data.items():
@@ -368,10 +421,12 @@ def root(
 
     Returns
     -------
-    root : `.fork_types.Root`
+    root : `.state.Root`
         MPT root of the underlying key-value pairs.
 
     """
+    from ethereum.state import Root
+
     obj = _prepare_trie(trie, get_storage_root)
 
     root_node = encode_internal_node(patricialize(obj, Uint(0)))
@@ -443,9 +498,6 @@ def patricialize(
     value = b""
     for key in obj:
         if len(key) == level:
-            # shouldn't ever have an account or receipt in an internal node
-            if isinstance(obj[key], (Account, Receipt, Uint)):
-                raise AssertionError
             value = obj[key]
         else:
             branches[key[level]][key] = obj[key]
