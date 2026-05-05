@@ -41,8 +41,7 @@ def test_legacy_tx_intrinsic_and_floor_gas() -> None:
     intrinsic_gas, floor_gas = calculate_intrinsic_cost(tx)
 
     assert intrinsic_gas == Uint(
-        GasCosts.TX_BASE
-        + tokens_in_calldata * GasCosts.TX_DATA_TOKEN_STANDARD
+        GasCosts.TX_BASE + tokens_in_calldata * GasCosts.TX_DATA_TOKEN_STANDARD
     )
     assert floor_gas == Uint(
         GasCosts.TX_BASE + tokens_in_calldata * GasCosts.TX_DATA_TOKEN_FLOOR
@@ -167,8 +166,7 @@ def test_access_list_helpers_keep_intrinsic_and_floor_separate() -> None:
         calculate_floor_tokens_in_access_list(tx),
     ) == Uint(
         GasCosts.TX_BASE
-        + calculate_floor_tokens_in_calldata(tx)
-        * GasCosts.TX_DATA_TOKEN_FLOOR
+        + calculate_floor_tokens_in_calldata(tx) * GasCosts.TX_DATA_TOKEN_FLOOR
     )
 
 

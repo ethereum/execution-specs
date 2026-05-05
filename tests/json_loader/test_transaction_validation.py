@@ -107,7 +107,4 @@ def test_validate_transaction_rules_accepts_valid_transaction() -> None:
     tx = make_legacy_transaction()
     intrinsic_gas, data_floor_gas_cost = calculate_intrinsic_cost(tx)
 
-    assert (
-        validate_transaction_rules(tx, intrinsic_gas, data_floor_gas_cost)
-        is None
-    )
+    validate_transaction_rules(tx, intrinsic_gas, data_floor_gas_cost)
