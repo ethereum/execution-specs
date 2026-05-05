@@ -9,7 +9,7 @@ abstract: BloatNet single-opcode benchmark cases for state-related operations.
 
 from enum import Enum, auto
 from functools import partial
-from typing import Callable, Generator, List
+from typing import Any, Callable, Generator, List
 
 import pytest
 from execution_testing import (
@@ -135,12 +135,10 @@ def run_bloated_eoa_benchmark(
     existing_slots: bool,
     runtime_code: Bytecode,
     cache_strategy: CacheStrategy,
+    tx_generator: Callable[[EOA], list[Transaction]] | None = None,
 ) -> None:
     """
     Run a bloated-EOA benchmark with the given runtime delegation code.
-
-    Handles authority setup, slot 0 initialization, delegation to
-    runtime code, benchmark tx generation, and test invocation.
     """
     slot_0_value = Hash(1) if existing_slots else Hash(START_SLOT)
 
@@ -164,22 +162,25 @@ def run_bloated_eoa_benchmark(
 
     blocks: list[Block] = [Block(txs=[init_tx, runtime_tx])]
 
-    gas_available = gas_benchmark_value
-    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
     sender = pre.fund_eoa()
 
     txs: list[Transaction] = []
     with TestPhaseManager.execution():
-        while gas_available >= intrinsic_gas:
-            tx_gas = min(gas_available, tx_gas_limit)
-            txs.append(
-                Transaction(
-                    gas_limit=tx_gas,
-                    to=authority,
-                    sender=sender,
+        if tx_generator is not None:
+            txs = tx_generator(sender)
+        else:
+            gas_available = gas_benchmark_value
+            intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
+            while gas_available >= intrinsic_gas:
+                tx_gas = min(gas_available, tx_gas_limit)
+                txs.append(
+                    Transaction(
+                        gas_limit=tx_gas,
+                        to=authority,
+                        sender=sender,
+                    )
                 )
-            )
-            gas_available -= tx_gas
+                gas_available -= tx_gas
 
     cache_txs: list[Transaction] = []
     if cache_strategy == CacheStrategy.CACHE_PREVIOUS_BLOCK:
@@ -189,6 +190,7 @@ def run_bloated_eoa_benchmark(
                 cache_txs.append(
                     Transaction(
                         gas_limit=tx.gas_limit,
+                        data=tx.data,
                         to=authority,
                         sender=cache_sender,
                     )
@@ -606,62 +608,106 @@ def test_sstore_bloated(
 ) -> None:
     """
     Benchmark SSTORE opcodes targeting an EOA with storage bloated.
-
-    The storage is assumed to be filled from 0-N linearly, where
-    each slot has the value of the key. Except slot 0, this is the
-    pointer to the next free (empty) storage slot.
-
-    For this test to work correctly under all parameters then above
-    has to be true. If this is not the case then some tests will not
-    test what they claim to do. For instance, for `write_new_value`
-    set to False we need to know the current value of the slots.
     """
+    sstore_metadata: dict[str, Any] = {}
+    # If CACHE_TX, there would be one cold SLOAD before SSTORE
+    sstore_metadata["key_warm"] = cache_strategy == CacheStrategy.CACHE_TX
+
+    # SSTORE metadata matrix:
+    #
+    # existing_slots | write_new_value | original | current | new
+    # ---------------+-----------------+----------+---------+-----
+    # True           | True            | 1        | 1       | 2
+    # True           | False           | 1        | 1       | 1
+    # False          | True            | 0        | 0       | 1
+    # False          | False           | 0        | 0       | 0
+
+    # When existing_slots is False, the initial value is always 0
+    # Otherwise, the initial value starts at 1 instead.
+    sstore_metadata["original_value"] = existing_slots
+    sstore_metadata["current_value"] = existing_slots
+
+    # If not writing a new value, the new value is the same as the current one
+    # If writing a new value, the new value is current value + 1
+    sstore_metadata["new_value"] = (
+        existing_slots if not write_new_value else existing_slots + 1
+    )
+
+    sstore_metadata["key_warm"] = cache_strategy == CacheStrategy.CACHE_TX
+
     setup = (
-        Op.PUSH0  # [0]
-        + Op.SLOAD  # [key], s[0] = key
-        + Op.DUP1  # [key, key]
+        Op.CALLDATALOAD(32)  # [end_slot]
+        + Op.CALLDATALOAD(0)  # [counter, end_slot]
     )
 
-    if write_new_value:
-        setup += (
-            Op.PUSH1(1)  # [1, key, key]
-            + Op.ADD  # [key+1, key]
-            + Op.SWAP1  # [key, key+1]
-        )
+    # stack element: [counter, end_slot]
 
-    # After setup phase, the stack element represents
-    # [slot, value], slot to write and value to write
+    loop = Op.JUMPDEST  # jump target
 
-    cache_op = Bytecode()
+    # If CACHE_TX, warm the slot with a cold SLOAD before the SSTORE loop
     if cache_strategy == CacheStrategy.CACHE_TX:
-        cache_op = (
-            Op.DUP1  # [slot, slot, value]
-            + Op.SLOAD  # [s[slot], slot, value]
-            + Op.POP  # [slot, value]
+        loop += Op.POP(Op.SLOAD(Op.DUP1, key_warm=False))
+
+    sstore_op: Bytecode = Bytecode()
+    if write_new_value:
+        # s[counter] = counter + 1
+        sstore_op = (
+            Op.DUP1  # [counter, counter, end_slot]
+            + Op.DUP1  # [counter, counter, counter, end_slot]
+            + Op.PUSH1(1)  # [1, counter, counter, counter, end_slot]
+            + Op.ADD  # [counter+1, counter, counter, end_slot]
+            + Op.SWAP1  # [counter, counter+1, counter, end_slot]
+            + Op.SSTORE(**sstore_metadata)  # [counter, end_slot]
+        )
+    else:
+        # s[counter] = counter (existing slot) or 0 (non existing slot)
+        push_value = Op.DUP1 if existing_slots else Op.PUSH1(0)
+        sstore_op = (
+            push_value  # [value, counter, end_slot]
+            + Op.DUP2  # [counter, value, counter, end_slot]
+            + Op.SSTORE(**sstore_metadata)  # [counter, end_slot]
         )
 
-    # The cache mechanism touches the slot before SSTORE
+    loop += sstore_op
 
-    runtime_code = (
-        setup
-        + While(
-            body=(
-                cache_op  # [slot, value]
-                + Op.DUP2  # [value, slot, value]
-                + Op.DUP2  # [slot, value, slot, value]
-                + Op.SSTORE  # [slot, value], s[slot] = value
-                + Op.PUSH1(1)  # [1, slot, value]
-                + Op.ADD  # [slot+1, value]
-                + Op.SWAP1  # [value, slot+1]
-                + Op.PUSH1(1)  # [1, value, slot+1]
-                + Op.ADD  # [value+1, slot+1]
-                + Op.SWAP1  # [slot+1, value+1]
-            ),
-            condition=Op.GT(Op.GAS, 0xFFFF),
-        )
-        + Op.PUSH0  # [0, slot+1, value+1]
-        + Op.SSTORE  # s[0] = slot+1
+    # stack element: [counter, end_slot]
+
+    loop += (
+        Op.PUSH1(1)  # [1, counter, end_slot]
+        + Op.ADD  # [counter+1, end_slot]
+        + Op.DUP2  # [end_slot, counter+1, end_slot]
+        + Op.DUP2  # [counter+1, end_slot, counter+1, end_slot]
+        + Op.LT  # [counter+1<end_slot, counter+1, end_slot]
+        + Op.PUSH1(len(setup))  # [dest, condition, counter+1, end_slot]
+        + Op.JUMPI  # [counter+1, end_slot]
     )
+
+    runtime_code = IteratingBytecode(
+        setup=setup,
+        iterating=loop,
+        cleanup=Op.STOP,
+        iterating_state_gas=fork.sstore_state_gas()
+        if (not existing_slots and write_new_value)
+        else 0,
+    )
+
+    authority = pre.stub_eoa(token_name)
+    start_slot = 1 if existing_slots else START_SLOT
+
+    def calldata_gen(iteration_count: int, start_iteration: int) -> bytes:
+        return Hash(start_iteration) + Hash(start_iteration + iteration_count)
+
+    def tx_generator(sender: EOA) -> list[Transaction]:
+        return list(
+            runtime_code.transactions_by_gas_limit(
+                fork=fork,
+                gas_limit=gas_benchmark_value,
+                sender=sender,
+                to=authority,
+                start_iteration=start_slot,
+                calldata=calldata_gen,
+            )
+        )
 
     run_bloated_eoa_benchmark(
         benchmark_test=benchmark_test,
@@ -669,10 +715,11 @@ def test_sstore_bloated(
         fork=fork,
         gas_benchmark_value=gas_benchmark_value,
         tx_gas_limit=tx_gas_limit,
-        authority=pre.stub_eoa(token_name),
+        authority=authority,
         existing_slots=existing_slots,
         runtime_code=runtime_code,
         cache_strategy=cache_strategy,
+        tx_generator=tx_generator,
     )
 
 
