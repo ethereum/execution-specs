@@ -40,6 +40,20 @@ from ..helpers import Precompile, concatenate_parameters
             id="bn128_add",
             marks=pytest.mark.repricing,
         ),
+        pytest.param(
+            0x06,
+            concatenate_parameters(
+                [
+                    "18B18ACFB4C2C30276DB5411368E7185B311DD124691610C5D3B74034E093DC9",
+                    "063C909C4720840CB5134CB9F59FA749755796819658D32EFC0D288198F37266",
+                    "18B18ACFB4C2C30276DB5411368E7185B311DD124691610C5D3B74034E093DC9",
+                    "063C909C4720840CB5134CB9F59FA749755796819658D32EFC0D288198F37266",
+                ]
+            ),
+            Precompile.BN128_ADD,
+            id="bn128_double",
+            marks=pytest.mark.repricing,
+        ),
         # Ported from
         # https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCase.cs#L326
         pytest.param(
