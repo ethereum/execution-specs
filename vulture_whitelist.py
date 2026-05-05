@@ -122,6 +122,7 @@ UintLenHygiene
 # src/ethereum_spec_tools/lint/lints/glacier_forks_hygiene.py
 GlacierForksHygiene
 GlacierForksHygiene.visit_AnnAssign
+GlacierForksHygiene.visit_Pass
 
 # src/ethereum_spec_tools/lint/lints/glacier_forks_hygiene.py
 ImportHygiene
