@@ -12,7 +12,7 @@ from typing import Callable, List, Optional, Sized
 
 from execution_testing.base_types import AccessList
 from execution_testing.base_types.conversions import BytesConvertible
-from execution_testing.vm import OpcodeBase
+from execution_testing.vm import OpcodeBase, Opcodes
 
 from .....recipient_type import RecipientType
 from ....base_fork import (
@@ -37,6 +37,7 @@ class EIP2780(BaseFork):
             COLD_ACCOUNT_COST_CODE=2_600,
             COLD_ACCOUNT_COST_NO_CODE=500,
             STATE_UPDATE=1_000,
+            TRANSFER_LOG_COST=1_756,
         )
 
     @classmethod
@@ -78,6 +79,7 @@ class EIP2780(BaseFork):
                 " RecipientType.DELEGATION_7702"
             )
 
+            log_cost = 0
             if contract_creation or recipient_type == RecipientType.SELF:
                 access_cost = 0
                 update_cost = 0
@@ -86,6 +88,7 @@ class EIP2780(BaseFork):
                 update_cost = 0
                 if sends_value:
                     update_cost += gas_costs.STATE_UPDATE
+                    log_cost = gas_costs.TRANSFER_LOG_COST
             else:
                 if recipient_is_warm:
                     access_cost = gas_costs.WARM_ACCESS
@@ -109,8 +112,9 @@ class EIP2780(BaseFork):
                         update_cost = gas_costs.NEW_ACCOUNT
                     else:
                         update_cost = gas_costs.STATE_UPDATE
+                    log_cost = gas_costs.TRANSFER_LOG_COST
 
-            intrinsic_cost += access_cost + update_cost
+            intrinsic_cost += access_cost + update_cost + log_cost
 
             if return_cost_deducted_prior_execution:
                 return intrinsic_cost
@@ -138,8 +142,18 @@ class EIP2780(BaseFork):
         - ``COLD_ACCOUNT_COST_CODE`` (2600) for targets with code
 
         Value transfer replaces ``CALL_VALUE`` (9000) with:
-        - ``2 * STATE_UPDATE`` (2000) for non-empty targets
-        - ``STATE_UPDATE + NEW_ACCOUNT`` (26000) for empty targets
+        - ``STATE_UPDATE`` (1000) for self-calls (``caller == to``); no
+          ``TRANSFER_LOG_COST`` applies since EIP-7708 does not emit a log
+          for self-transfers. ``CALLCODE`` is always a self-call because
+          it runs target code in the caller's own context.
+        - ``2 * STATE_UPDATE + TRANSFER_LOG_COST`` (3756) for existing
+          non-self targets.
+        - ``STATE_UPDATE + NEW_ACCOUNT + TRANSFER_LOG_COST`` (27756) for
+          empty non-self targets.
+
+        Self-call scenarios for ``CALL`` are indicated by the
+        ``self_call`` metadata flag; it defaults to ``False`` so existing
+        non-self tests remain unaffected.
         """
         metadata = opcode.metadata
 
@@ -152,10 +166,21 @@ class EIP2780(BaseFork):
 
         value_cost = 0
         if "value_transfer" in metadata and metadata["value_transfer"]:
-            if metadata["account_new"]:
-                value_cost = gas_costs.STATE_UPDATE + gas_costs.NEW_ACCOUNT
+            is_self_call = opcode == Opcodes.CALLCODE or metadata.get(
+                "self_call", False
+            )
+            if is_self_call:
+                value_cost = gas_costs.STATE_UPDATE
+            elif metadata["account_new"]:
+                value_cost = (
+                    gas_costs.STATE_UPDATE
+                    + gas_costs.NEW_ACCOUNT
+                    + gas_costs.TRANSFER_LOG_COST
+                )
             else:
-                value_cost = 2 * gas_costs.STATE_UPDATE
+                value_cost = (
+                    2 * gas_costs.STATE_UPDATE + gas_costs.TRANSFER_LOG_COST
+                )
 
         delegation_cost = 0
         if metadata["delegated_address"] or metadata["delegated_address_warm"]:
@@ -165,6 +190,24 @@ class EIP2780(BaseFork):
                 delegation_cost = gas_costs.COLD_ACCOUNT_COST_CODE
 
         return access_cost + value_cost + delegation_cost
+
+    @classmethod
+    def _calculate_selfdestruct_gas(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """
+        SELFDESTRUCT adds ``TRANSFER_LOG_COST`` when the destruction
+        moves non-zero balance to a different beneficiary, mirroring the
+        runtime rule in EIP-2780.
+        """
+        base_cost = super(EIP2780, cls)._calculate_selfdestruct_gas(
+            opcode, gas_costs
+        )
+
+        if opcode.metadata.get("transfers_value", False):
+            base_cost += gas_costs.TRANSFER_LOG_COST
+
+        return base_cost
 
     @classmethod
     def _with_account_access(

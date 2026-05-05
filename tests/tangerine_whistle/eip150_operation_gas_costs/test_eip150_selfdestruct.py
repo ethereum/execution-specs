@@ -64,11 +64,16 @@ def calculate_selfdestruct_gas(
             # Pre-EIP-161: always charged when beneficiary is dead
             needs_new_account = True
 
-    # PUSH + SELFDESTRUCT (with metadata for warm/cold and new account)
+    # PUSH + SELFDESTRUCT (with metadata for warm/cold and new account).
+    # ``transfers_value`` triggers the EIP-2780 TRANSFER_LOG_COST when
+    # destruction moves non-zero balance to a different beneficiary; the
+    # tests here always use a distinct beneficiary, so it reduces to
+    # "does the originator hold any balance?".
     return Op.SELFDESTRUCT(
         0,  # beneficiary address (generates a PUSH)
         address_warm=beneficiary_warm or fork < Berlin,
         account_new=needs_new_account,
+        transfers_value=originator_balance > 0,
     ).gas_cost(fork)
 
 
@@ -367,7 +372,10 @@ def test_selfdestruct_to_account(
     if not is_success:
         inner_call_gas -= 1
 
-    # In BAL if: success OR NEW_ACCOUNT charged (OOG after access)
+    # In BAL if: success OR a post-state-access charge applies (OOG
+    # happens after state access, so beneficiary is still recorded).
+    # Post-state-access charges are NEW_ACCOUNT and, on >= Amsterdam,
+    # TRANSFER_LOG_COST (since beneficiary != originator here).
     needs_new_account = False
     if beneficiary_dead:
         if fork >= SpuriousDragon:
@@ -375,7 +383,13 @@ def test_selfdestruct_to_account(
         else:
             needs_new_account = True
 
-    beneficiary_in_bal = is_success or needs_new_account
+    transfers_value = originator_balance > 0
+    transfer_log_charged = (
+        fork.gas_costs().TRANSFER_LOG_COST > 0 and transfers_value
+    )
+    beneficiary_in_bal = (
+        is_success or needs_new_account or transfer_log_charged
+    )
 
     alice, caller, victim, tx = setup_selfdestruct_test(
         pre,
@@ -507,9 +521,19 @@ def test_selfdestruct_state_access_boundary(
         else:
             needs_new_account = True
 
-    # At exact_gas: success if no NEW_ACCOUNT needed
-    # At exact_gas_minus_1: always OOG (before state access)
-    operation_success = is_success and not needs_new_account
+    # At exact_gas: success if no post-state-access charge applies.
+    # Post-state-access charges are NEW_ACCOUNT (when beneficiary is
+    # dead and originator has balance) and, on >= Amsterdam,
+    # TRANSFER_LOG_COST (when originator has balance and beneficiary is
+    # a different account — always true in this test).
+    # At exact_gas_minus_1: always OOG (before state access).
+    transfers_value = originator_balance > 0
+    transfer_log_charged = (
+        fork.gas_costs().TRANSFER_LOG_COST > 0 and transfers_value
+    )
+    operation_success = (
+        is_success and not needs_new_account and not transfer_log_charged
+    )
 
     alice, caller, victim, tx = setup_selfdestruct_test(
         pre,
@@ -613,7 +637,10 @@ def test_selfdestruct_to_precompile(
     if not is_success:
         inner_call_gas -= 1
 
-    # In BAL if: success OR NEW_ACCOUNT charged (OOG after access)
+    # In BAL if: success OR a post-state-access charge applies
+    # (OOG happens after state access, so beneficiary is still
+    # recorded). Post-state-access charges are NEW_ACCOUNT and, on
+    # >= Amsterdam, TRANSFER_LOG_COST.
     needs_new_account = False
     if beneficiary_dead:
         if fork >= SpuriousDragon:
@@ -621,7 +648,13 @@ def test_selfdestruct_to_precompile(
         else:
             needs_new_account = True
 
-    beneficiary_in_bal = is_success or needs_new_account
+    transfers_value = originator_balance > 0
+    transfer_log_charged = (
+        fork.gas_costs().TRANSFER_LOG_COST > 0 and transfers_value
+    )
+    beneficiary_in_bal = (
+        is_success or needs_new_account or transfer_log_charged
+    )
 
     alice, caller, victim, tx = setup_selfdestruct_test(
         pre,
@@ -720,7 +753,10 @@ def test_selfdestruct_to_precompile_state_access_boundary(
     if not is_success:
         inner_call_gas -= 1
 
-    # Success at base cost if no NEW_ACCOUNT needed
+    # Success at base cost if no post-state-access charge applies.
+    # Post-state-access charges are NEW_ACCOUNT and, on >= Amsterdam,
+    # TRANSFER_LOG_COST (when originator has balance — precompile
+    # beneficiary is always a different account).
     needs_new_account = False
     if beneficiary_dead:
         if fork >= SpuriousDragon:
@@ -728,7 +764,13 @@ def test_selfdestruct_to_precompile_state_access_boundary(
         else:
             needs_new_account = True
 
-    operation_success = is_success and not needs_new_account
+    transfers_value = originator_balance > 0
+    transfer_log_charged = (
+        fork.gas_costs().TRANSFER_LOG_COST > 0 and transfers_value
+    )
+    operation_success = (
+        is_success and not needs_new_account and not transfer_log_charged
+    )
 
     alice, caller, victim, tx = setup_selfdestruct_test(
         pre,
