@@ -3,6 +3,9 @@ Test_quadratic_complexity_solidity_call_data_copy.
 
 Ported from:
 state_tests/stQuadraticComplexityTest/QuadraticComplexitySolidity_CallDataCopyFiller.json
+
+@manually-enhanced: Do not overwrite. Post-state expectations corrected
+manually (see PR #2784).
 """
 
 import pytest
