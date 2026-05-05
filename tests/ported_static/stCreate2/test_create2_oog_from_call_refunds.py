@@ -3,11 +3,6 @@ Test_create2_oog_from_call_refunds.
 
 Ported from:
 state_tests/stCreate2/Create2OOGFromCallRefundsFiller.yml
-
-@manually-enhanced: Do not overwrite. Post-state expectations for OoG
-parametrizations are computed from EIP-8037 state-gas helpers
-(`fork.create_state_gas`, `fork.sstore_state_gas`) so the residue is
-fork-correct on Amsterdam and collapses to zero on earlier forks.
 """
 
 import pytest
@@ -236,20 +231,6 @@ def test_create2_oog_from_call_refunds(
         prev_randao=0x20000,
         base_fee_per_gas=10,
     )
-
-    # Under EIP-8037 (Amsterdam), an OoG that aborts after a state-
-    # changing CREATE / SSTORE still refunds the state-gas component
-    # of those operations (state gas is not subject to the EIP-3529
-    # /5 cap). Pre-Amsterdam these helpers return 0, so the same
-    # formulas collapse to balance=0 for older forks. gas_price is
-    # the literal 10 used by env.base_fee_per_gas above.
-    gas_price = 10
-    residue_sstore = (
-        fork.create_state_gas(code_size=0) + fork.sstore_state_gas()
-    ) * gas_price
-    residue_sstore_create = (
-        fork.create_state_gas(code_size=0) + fork.create_state_gas(code_size=1)
-    ) * gas_price
 
     pre[sender] = Account(balance=0x3D0900, nonce=1)
     # Source: yul
@@ -1006,7 +987,7 @@ def test_create2_oog_from_call_refunds(
             },
             "network": [">=Cancun"],
             "result": {
-                sender: Account(balance=residue_sstore, nonce=2),
+                sender: Account(balance=0, nonce=2),
                 Address(
                     0x95E88628C53B5C0E40FF6DE65A3CF8CDC3B477F7
                 ): Account.NONEXISTENT,
@@ -1048,7 +1029,7 @@ def test_create2_oog_from_call_refunds(
             "indexes": {"data": [13, 14], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                sender: Account(balance=residue_sstore, nonce=2),
+                sender: Account(balance=0, nonce=2),
                 Address(
                     0x8F6E6C741AC95C1A9109850EA1A3FFC722DC3BF8
                 ): Account.NONEXISTENT,
@@ -1074,7 +1055,7 @@ def test_create2_oog_from_call_refunds(
             "indexes": {"data": [16, 17], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                sender: Account(balance=residue_sstore, nonce=2),
+                sender: Account(balance=0, nonce=2),
                 Address(
                     0x74B39291DFC237C0D42FD15457754778F51C6DE8
                 ): Account.NONEXISTENT,
@@ -1100,7 +1081,7 @@ def test_create2_oog_from_call_refunds(
             "indexes": {"data": [19, 20], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                sender: Account(balance=residue_sstore_create, nonce=2),
+                sender: Account(balance=0, nonce=2),
                 Address(
                     0xF922B2F70110C83F8EC7DF512B41BAC5627E8E59
                 ): Account.NONEXISTENT,
@@ -1132,7 +1113,7 @@ def test_create2_oog_from_call_refunds(
             "indexes": {"data": [22, 23], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                sender: Account(balance=residue_sstore_create, nonce=2),
+                sender: Account(balance=0, nonce=2),
                 Address(
                     0xDD2C53BFCAF5C1D698A2B21C0908F15F7FBFD635
                 ): Account.NONEXISTENT,
