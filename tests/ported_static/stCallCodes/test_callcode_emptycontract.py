@@ -7,7 +7,6 @@ state_tests/stCallCodes/callcodeEmptycontractFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_callcode_emptycontract(
 ) -> None:
     """Test_callcode_emptycontract."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xA2333EEF5630066B928DEA5FD85A239F511B5B067D1441EE7AC290D0122B917B
-    )
+    sender = pre.fund_eoa(amount=0x5F5E100)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -64,9 +61,7 @@ def test_callcode_emptycontract(
         + Op.STOP,
         balance=1000,
         nonce=0,
-        address=Address(0x594F6A1A002FC9949AC40616CC146845680302E1),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x5F5E100)
 
     tx = Transaction(
         sender=sender,

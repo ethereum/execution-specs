@@ -7,7 +7,6 @@ state_tests/stRevertTest/RevertOnEmptyStackFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_revert_on_empty_stack(
 ) -> None:
     """Calling a runtime code that contains only a single `REVERT` should..."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x3327048BBC0B8C348A6352BE62994144E64B8FF2CEC68D9FF4CA4E911ECD5D22
-    )
+    sender = pre.fund_eoa(amount=0x5AF3107A4000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -46,13 +43,11 @@ def test_revert_on_empty_stack(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0x5AF3107A4000)
     # Source: raw
     # 0xfd
     target = pre.deploy_contract(  # noqa: F841
         code=Op.REVERT,
         nonce=0,
-        address=Address(0x3141BB954E8294E47A14EBD08229F30E6294BA83),  # noqa: E501
     )
 
     tx = Transaction(

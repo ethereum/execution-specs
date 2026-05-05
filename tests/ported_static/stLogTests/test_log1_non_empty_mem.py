@@ -46,6 +46,20 @@ def test_log1_non_empty_mem(
         gas_limit=1000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
+    # Source: lll
+    # { (MSTORE 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) (LOG1 0 32 0) }  # noqa: E501
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(
+            offset=0x0,
+            value=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
+        )
+        + Op.LOG1(offset=0x0, size=0x20, topic_1=0x0)
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
+        nonce=0,
+        address=Address(0x6727EA02222B905F7708C2B4CB20898F34DFF1DD),  # noqa: E501
+    )
     # Source: lll
     # { [[ 0 ]] (CALL 1000 <contract:0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6> 23 0 0 0 0) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -66,20 +80,6 @@ def test_log1_non_empty_mem(
         nonce=0,
         address=Address(0x1E5597B6168FE79952CB2DE7AF91C3449BC95BD4),  # noqa: E501
     )
-    # Source: lll
-    # { (MSTORE 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) (LOG1 0 32 0) }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(
-            offset=0x0,
-            value=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
-        )
-        + Op.LOG1(offset=0x0, size=0x20, topic_1=0x0)
-        + Op.STOP,
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x6727EA02222B905F7708C2B4CB20898F34DFF1DD),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

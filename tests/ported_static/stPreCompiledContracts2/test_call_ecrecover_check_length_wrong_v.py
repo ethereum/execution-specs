@@ -48,6 +48,7 @@ def test_call_ecrecover_check_length_wrong_v(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { (MSTORE 128 0x1122334455667788990011223344556677889900112233445566778899001122) (MSTORE 0 0x18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c) (MSTORE 32 29) (MSTORE 64 0x73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75f) (MSTORE 96 0xeeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549) [[ 2 ]] (CALL 300000 1 0 0 128 128 32) [[ 0 ]] (MLOAD 128) [[ 1 ]] (MSIZE) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -87,7 +88,6 @@ def test_call_ecrecover_check_length_wrong_v(
         nonce=0,
         address=Address(0x5CC93303C292C9573FA7DE40FF6281B18DBF491E),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

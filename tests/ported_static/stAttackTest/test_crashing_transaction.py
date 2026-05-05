@@ -7,13 +7,13 @@ state_tests/stAttackTest/CrashingTransactionFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.vm import Op
 
@@ -32,9 +32,7 @@ def test_crashing_transaction(
 ) -> None:
     """Https://ropsten."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000, nonce=3270)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -44,8 +42,6 @@ def test_crashing_transaction(
         base_fee_per_gas=10,
         gas_limit=4712388,
     )
-
-    pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=3270)
 
     tx = Transaction(
         sender=sender,
@@ -101,7 +97,7 @@ def test_crashing_transaction(
 
     post = {
         sender: Account(nonce=3271),
-        Address(0xECBF9AA676D9E0BBBA7E517D1350C1B64F8C6779): Account(
+        compute_create_address(address=sender, nonce=3270): Account(
             code=bytes.fromhex("60606040526008565b00"),
             balance=1,
             nonce=124,

@@ -7,7 +7,6 @@ state_tests/stRevertTest/RevertPrecompiledTouch_noncestorageFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -69,17 +68,15 @@ def test_revert_precompiled_touch_noncestorage(
 ) -> None:
     """Test_revert_precompiled_touch_noncestorage."""
     coinbase = Address(0x68795C4AA09D6F4ED3E5DEDDF8C2AD3049A601DA)
-    addr_5 = Address(0xB0A7B7B80BC0F95F8890E6E2070DDC906BBFDBCD)
-    addr_6 = Address(0xE2041123687B446E6F4BA274BFED4CE0206D4C8E)
-    addr_7 = Address(0x0D6D2DA01A9DA2C336E2AFFE3E6A9D0787069B56)
-    addr_8 = Address(0x1E28DB5341D617CCE6178F0BBCCB352C51C5909D)
-    addr_9 = Address(0xAE321AB38D9488985A884ED293F2C1466D2C806B)
-    addr_10 = Address(0xF6165BB84BEB5028557005861FAA9B085C1381D9)
-    addr_11 = Address(0x9BCE9E56A0A95F42D0B6A7B550E26604D7C5299F)
-    addr_12 = Address(0x0E145EDEA519E730A2C24124733E22E8B8DE1202)
-    sender = EOA(
-        key=0xFF8D58222F34F6890DDAA468C023B77D6691ED7D3C4DCDDAE38336212FAF54B
-    )
+    addr_5 = Address(0x0000000000000000000000000000000000000001)
+    addr_6 = Address(0x0000000000000000000000000000000000000002)
+    addr_7 = Address(0x0000000000000000000000000000000000000003)
+    addr_8 = Address(0x0000000000000000000000000000000000000004)
+    addr_9 = Address(0x0000000000000000000000000000000000000005)
+    addr_10 = Address(0x0000000000000000000000000000000000000006)
+    addr_11 = Address(0x0000000000000000000000000000000000000007)
+    addr_12 = Address(0x0000000000000000000000000000000000000008)
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000, nonce=1)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -90,6 +87,14 @@ def test_revert_precompiled_touch_noncestorage(
         gas_limit=4012015,
     )
 
+    pre[addr_5] = Account(balance=0, nonce=1, storage={0: addr_5})
+    pre[addr_6] = Account(balance=0, nonce=1, storage={0: addr_5})
+    pre[addr_7] = Account(balance=0, nonce=1, storage={0: addr_5})
+    pre[addr_8] = Account(balance=0, nonce=1, storage={0: addr_5})
+    pre[addr_9] = Account(balance=0, nonce=1, storage={0: addr_5})
+    pre[addr_10] = Account(balance=0, nonce=1, storage={0: addr_5})
+    pre[addr_11] = Account(balance=0, nonce=1, storage={0: addr_5})
+    pre[addr_12] = Account(balance=0, nonce=1, storage={0: addr_5})
     # Source: lll
     # {  (CALLCODE (GAS) (CALLDATALOAD 0) 0 0 0 0 0) }
     target = pre.deploy_contract(  # noqa: F841
@@ -482,15 +487,6 @@ def test_revert_precompiled_touch_noncestorage(
         nonce=0,
         address=Address(0x10EF6D6218ADA53728683CEC4D5160C8C72159BD),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
-    pre[addr_5] = Account(balance=0, nonce=1, storage={0: 1})
-    pre[addr_6] = Account(balance=0, nonce=1, storage={0: 1})
-    pre[addr_7] = Account(balance=0, nonce=1, storage={0: 1})
-    pre[addr_8] = Account(balance=0, nonce=1, storage={0: 1})
-    pre[addr_9] = Account(balance=0, nonce=1, storage={0: 1})
-    pre[addr_10] = Account(balance=0, nonce=1, storage={0: 1})
-    pre[addr_11] = Account(balance=0, nonce=1, storage={0: 1})
-    pre[addr_12] = Account(balance=0, nonce=1, storage={0: 1})
 
     tx_data = [
         Hash(addr, left_padding=True),
@@ -509,14 +505,14 @@ def test_revert_precompiled_touch_noncestorage(
     )
 
     post = {
-        addr_5: Account(storage={0: 1}, nonce=1),
-        addr_6: Account(storage={0: 1}, nonce=1),
-        addr_7: Account(storage={0: 1}, nonce=1),
-        addr_8: Account(storage={0: 1}, nonce=1),
-        addr_9: Account(storage={0: 1}, nonce=1),
-        addr_10: Account(storage={0: 1}, nonce=1),
-        addr_11: Account(storage={0: 1}, nonce=1),
-        addr_12: Account(storage={0: 1}, nonce=1),
+        addr_5: Account(storage={0: addr_5}, nonce=1),
+        addr_6: Account(storage={0: addr_5}, nonce=1),
+        addr_7: Account(storage={0: addr_5}, nonce=1),
+        addr_8: Account(storage={0: addr_5}, nonce=1),
+        addr_9: Account(storage={0: addr_5}, nonce=1),
+        addr_10: Account(storage={0: addr_5}, nonce=1),
+        addr_11: Account(storage={0: addr_5}, nonce=1),
+        addr_12: Account(storage={0: addr_5}, nonce=1),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

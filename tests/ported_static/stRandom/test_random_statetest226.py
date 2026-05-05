@@ -7,7 +7,6 @@ state_tests/stRandom/randomStatetest226Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -34,9 +33,7 @@ def test_random_statetest226(
 ) -> None:
     """Test_random_statetest226."""
     coinbase = Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79)
-    sender = EOA(
-        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -47,24 +44,6 @@ def test_random_statetest226(
         gas_limit=9223372036854775807,
     )
 
-    # Source: raw
-    # 0x7f000000000000000000000000000000000000000000000000000000000000c350357fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000<contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5>7f000000000000000000000000000000000000000000000000000000000000c3507f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe5a605560005155  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.CALLDATALOAD(offset=Op.PUSH32[0xC350])
-        + Op.PUSH32[
-            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-        ]
-        + Op.PUSH32[0x4F3F701464972E74606D6EA82D4D3080599A0E79]
-        + Op.PUSH32[0xC350]
-        + Op.PUSH32[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF] * 2
-        + Op.PUSH32[
-            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
-        ]
-        + Op.GAS
-        + Op.SSTORE(key=Op.MLOAD(offset=0x0), value=0x55),
-        nonce=0,
-        address=Address(0xC5676AEAB3D49C7E165B0F09B63906F533BC6232),  # noqa: E501
-    )
     # Source: raw
     # 0x6000355415600957005b60203560003555
     coinbase = pre.deploy_contract(  # noqa: F841
@@ -81,7 +60,23 @@ def test_random_statetest226(
         nonce=0,
         address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
+    # Source: raw
+    # 0x7f000000000000000000000000000000000000000000000000000000000000c350357fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000<contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5>7f000000000000000000000000000000000000000000000000000000000000c3507f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe5a605560005155  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.CALLDATALOAD(offset=Op.PUSH32[0xC350])
+        + Op.PUSH32[
+            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+        ]
+        + Op.PUSH32[0x4F3F701464972E74606D6EA82D4D3080599A0E79]
+        + Op.PUSH32[0xC350]
+        + Op.PUSH32[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF] * 2
+        + Op.PUSH32[
+            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
+        ]
+        + Op.GAS
+        + Op.SSTORE(key=Op.MLOAD(offset=0x0), value=0x55),
+        nonce=0,
+    )
 
     tx = Transaction(
         sender=sender,

@@ -7,7 +7,6 @@ state_tests/stEIP150singleCodeGasPrices/eip2929Filler.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -279,9 +278,7 @@ def test_eip2929(
     contract_1 = Address(0x000000000000000000000000000000CA1100CA11)
     contract_2 = Address(0x00000000000000000000000000000000CA110100)
     contract_3 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -302,16 +299,6 @@ def test_eip2929(
     )
     # Source: lll
     # {
-    #      (balance 0xca11)
-    # }
-    contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.BALANCE(address=0xCA11) + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000CA1100CA11),  # noqa: E501
-    )
-    # Source: lll
-    # {
     #     @@0x100
     # }
     contract_2 = pre.deploy_contract(  # noqa: F841
@@ -319,6 +306,16 @@ def test_eip2929(
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address(0x00000000000000000000000000000000CA110100),  # noqa: E501
+    )
+    # Source: lll
+    # {
+    #      (balance 0xca11)
+    # }
+    contract_1 = pre.deploy_contract(  # noqa: F841
+        code=Op.BALANCE(address=0xCA11) + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=0,
+        address=Address(0x000000000000000000000000000000CA1100CA11),  # noqa: E501
     )
     # Source: lll
     # {
@@ -355,8 +352,8 @@ def test_eip2929(
     contract_3 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.MSTORE(offset=0x20, value=Op.GAS)
-        + Op.POP(Op.BALANCE(address=0xCA1100CA11))
-        + Op.POP(Op.BALANCE(address=0xCA110100))
+        + Op.POP(Op.BALANCE(address=contract_1))
+        + Op.POP(Op.BALANCE(address=contract_2))
         + Op.MSTORE(offset=0x40, value=Op.CALLDATALOAD(offset=0x4))
         + Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.JUMPI(
@@ -382,7 +379,7 @@ def test_eip2929(
         + Op.PUSH1[0x0]
         + Op.JUMP(pc=Op.PUSH2[0x66])
         + Op.JUMPDEST
-        + Op.BALANCE(address=0xCA11)
+        + Op.BALANCE(address=contract_0)
         + Op.JUMPDEST
         + Op.POP
         + Op.JUMPI(
@@ -391,7 +388,7 @@ def test_eip2929(
         + Op.PUSH1[0x0]
         + Op.JUMP(pc=Op.PUSH2[0x7D])
         + Op.JUMPDEST
-        + Op.EXTCODESIZE(address=0xCA11)
+        + Op.EXTCODESIZE(address=contract_0)
         + Op.JUMPDEST
         + Op.POP
         + Op.JUMPI(
@@ -400,7 +397,9 @@ def test_eip2929(
         + Op.POP(0x0)
         + Op.JUMP(pc=Op.PUSH2[0x9B])
         + Op.JUMPDEST
-        + Op.EXTCODECOPY(address=0xCA11, dest_offset=0x0, offset=0x0, size=0x0)
+        + Op.EXTCODECOPY(
+            address=contract_0, dest_offset=0x0, offset=0x0, size=0x0
+        )
         + Op.JUMPDEST
         + Op.JUMPI(
             pc=Op.PUSH2[0xAC], condition=Op.EQ(Op.MLOAD(offset=0x40), 0xE)
@@ -408,7 +407,7 @@ def test_eip2929(
         + Op.PUSH1[0x0]
         + Op.JUMP(pc=Op.PUSH2[0xB1])
         + Op.JUMPDEST
-        + Op.EXTCODEHASH(address=0xCA11)
+        + Op.EXTCODEHASH(address=contract_0)
         + Op.JUMPDEST
         + Op.POP
         + Op.JUMPI(
@@ -419,7 +418,7 @@ def test_eip2929(
         + Op.JUMPDEST
         + Op.CALL(
             gas=0x1000,
-            address=0xCA11,
+            address=contract_0,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -436,7 +435,7 @@ def test_eip2929(
         + Op.JUMPDEST
         + Op.CALLCODE(
             gas=0x1000,
-            address=0xCA11,
+            address=contract_0,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -451,7 +450,7 @@ def test_eip2929(
         + Op.JUMPDEST
         + Op.DELEGATECALL(
             gas=0x1000,
-            address=0xCA11,
+            address=contract_0,
             args_offset=0x0,
             args_size=0x0,
             ret_offset=0x0,
@@ -465,7 +464,7 @@ def test_eip2929(
         + Op.JUMPDEST
         + Op.STATICCALL(
             gas=0x1000,
-            address=0xCA11,
+            address=contract_0,
             args_offset=0x0,
             args_size=0x0,
             ret_offset=0x0,
@@ -479,7 +478,7 @@ def test_eip2929(
         + Op.JUMPDEST
         + Op.CALL(
             gas=0x1000,
-            address=0xCA1100CA11,
+            address=contract_1,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -494,7 +493,7 @@ def test_eip2929(
         + Op.JUMPDEST
         + Op.CALLCODE(
             gas=0x1000,
-            address=0xCA110100,
+            address=contract_2,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -509,7 +508,7 @@ def test_eip2929(
         + Op.JUMPDEST
         + Op.DELEGATECALL(
             gas=0x1000,
-            address=0xCA110100,
+            address=contract_2,
             args_offset=0x0,
             args_size=0x0,
             ret_offset=0x0,
@@ -543,27 +542,29 @@ def test_eip2929(
         + Op.PUSH1[0x0]
         + Op.JUMP(pc=0x211)
         + Op.JUMPDEST
-        + Op.BALANCE(address=0xCA11)
+        + Op.BALANCE(address=contract_0)
         + Op.JUMPDEST
         + Op.POP
         + Op.JUMPI(pc=0x223, condition=Op.EQ(Op.MLOAD(offset=0x40), 0xC))
         + Op.PUSH1[0x0]
         + Op.JUMP(pc=0x228)
         + Op.JUMPDEST
-        + Op.EXTCODESIZE(address=0xCA11)
+        + Op.EXTCODESIZE(address=contract_0)
         + Op.JUMPDEST
         + Op.POP
         + Op.JUMPI(pc=0x23B, condition=Op.EQ(Op.MLOAD(offset=0x40), 0xD))
         + Op.POP(0x0)
         + Op.JUMP(pc=0x246)
         + Op.JUMPDEST
-        + Op.EXTCODECOPY(address=0xCA11, dest_offset=0x0, offset=0x0, size=0x0)
+        + Op.EXTCODECOPY(
+            address=contract_0, dest_offset=0x0, offset=0x0, size=0x0
+        )
         + Op.JUMPDEST
         + Op.JUMPI(pc=0x257, condition=Op.EQ(Op.MLOAD(offset=0x40), 0xE))
         + Op.PUSH1[0x0]
         + Op.JUMP(pc=0x25C)
         + Op.JUMPDEST
-        + Op.EXTCODEHASH(address=0xCA11)
+        + Op.EXTCODEHASH(address=contract_0)
         + Op.JUMPDEST
         + Op.POP
         + Op.JUMPI(pc=0x26E, condition=Op.EQ(Op.MLOAD(offset=0x40), 0x15))
@@ -572,7 +573,7 @@ def test_eip2929(
         + Op.JUMPDEST
         + Op.CALL(
             gas=0x1000,
-            address=0xCA11,
+            address=contract_0,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -587,7 +588,7 @@ def test_eip2929(
         + Op.JUMPDEST
         + Op.CALLCODE(
             gas=0x1000,
-            address=0xCA11,
+            address=contract_0,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -602,7 +603,7 @@ def test_eip2929(
         + Op.JUMPDEST
         + Op.DELEGATECALL(
             gas=0x1000,
-            address=0xCA11,
+            address=contract_0,
             args_offset=0x0,
             args_size=0x0,
             ret_offset=0x0,
@@ -616,7 +617,7 @@ def test_eip2929(
         + Op.JUMPDEST
         + Op.STATICCALL(
             gas=0x1000,
-            address=0xCA11,
+            address=contract_0,
             args_offset=0x0,
             args_size=0x0,
             ret_offset=0x0,
@@ -630,7 +631,7 @@ def test_eip2929(
         + Op.JUMPDEST
         + Op.CALL(
             gas=0x1000,
-            address=0xCA1100CA11,
+            address=contract_1,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -645,7 +646,7 @@ def test_eip2929(
         + Op.JUMPDEST
         + Op.CALLCODE(
             gas=0x1000,
-            address=0xCA110100,
+            address=contract_2,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -660,7 +661,7 @@ def test_eip2929(
         + Op.JUMPDEST
         + Op.DELEGATECALL(
             gas=0x1000,
-            address=0xCA110100,
+            address=contract_2,
             args_offset=0x0,
             args_size=0x0,
             ret_offset=0x0,
@@ -694,27 +695,29 @@ def test_eip2929(
         + Op.PUSH1[0x0]
         + Op.JUMP(pc=0x3BC)
         + Op.JUMPDEST
-        + Op.BALANCE(address=0xCA11)
+        + Op.BALANCE(address=contract_0)
         + Op.JUMPDEST
         + Op.POP
         + Op.JUMPI(pc=0x3CE, condition=Op.EQ(Op.MLOAD(offset=0x40), 0xC))
         + Op.PUSH1[0x0]
         + Op.JUMP(pc=0x3D3)
         + Op.JUMPDEST
-        + Op.EXTCODESIZE(address=0xCA11)
+        + Op.EXTCODESIZE(address=contract_0)
         + Op.JUMPDEST
         + Op.POP
         + Op.JUMPI(pc=0x3E6, condition=Op.EQ(Op.MLOAD(offset=0x40), 0xD))
         + Op.POP(0x0)
         + Op.JUMP(pc=0x3F1)
         + Op.JUMPDEST
-        + Op.EXTCODECOPY(address=0xCA11, dest_offset=0x0, offset=0x0, size=0x0)
+        + Op.EXTCODECOPY(
+            address=contract_0, dest_offset=0x0, offset=0x0, size=0x0
+        )
         + Op.JUMPDEST
         + Op.JUMPI(pc=0x402, condition=Op.EQ(Op.MLOAD(offset=0x40), 0xE))
         + Op.PUSH1[0x0]
         + Op.JUMP(pc=0x407)
         + Op.JUMPDEST
-        + Op.EXTCODEHASH(address=0xCA11)
+        + Op.EXTCODEHASH(address=contract_0)
         + Op.JUMPDEST
         + Op.POP
         + Op.JUMPI(pc=0x419, condition=Op.EQ(Op.MLOAD(offset=0x40), 0x15))
@@ -723,7 +726,7 @@ def test_eip2929(
         + Op.JUMPDEST
         + Op.CALL(
             gas=0x1000,
-            address=0xCA11,
+            address=contract_0,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -738,7 +741,7 @@ def test_eip2929(
         + Op.JUMPDEST
         + Op.CALLCODE(
             gas=0x1000,
-            address=0xCA11,
+            address=contract_0,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -753,7 +756,7 @@ def test_eip2929(
         + Op.JUMPDEST
         + Op.DELEGATECALL(
             gas=0x1000,
-            address=0xCA11,
+            address=contract_0,
             args_offset=0x0,
             args_size=0x0,
             ret_offset=0x0,
@@ -767,7 +770,7 @@ def test_eip2929(
         + Op.JUMPDEST
         + Op.STATICCALL(
             gas=0x1000,
-            address=0xCA11,
+            address=contract_0,
             args_offset=0x0,
             args_size=0x0,
             ret_offset=0x0,
@@ -781,7 +784,7 @@ def test_eip2929(
         + Op.JUMPDEST
         + Op.CALL(
             gas=0x1000,
-            address=0xCA1100CA11,
+            address=contract_1,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -796,7 +799,7 @@ def test_eip2929(
         + Op.JUMPDEST
         + Op.CALLCODE(
             gas=0x1000,
-            address=0xCA110100,
+            address=contract_2,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -811,7 +814,7 @@ def test_eip2929(
         + Op.JUMPDEST
         + Op.DELEGATECALL(
             gas=0x1000,
-            address=0xCA110100,
+            address=contract_2,
             args_offset=0x0,
             args_size=0x0,
             ret_offset=0x0,
@@ -831,9 +834,7 @@ def test_eip2929(
         storage={256: 24743},
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     expect_entries_: list[dict] = [
         {

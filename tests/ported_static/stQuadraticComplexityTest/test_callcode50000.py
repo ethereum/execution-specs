@@ -7,7 +7,6 @@ state_tests/stQuadraticComplexityTest/Callcode50000Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -60,10 +59,7 @@ def test_callcode50000(
 ) -> None:
     """Test_callcode50000."""
     coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    addr = Address(0xD9B97C712EBCE43F3C19179BBEF44B550F9E8BC0)
-    sender = EOA(
-        key=0xE7C72B378297589ACEE4E0BA3272841BCFC5E220F86DE253F890274CFEE9E474
-    )
+    sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -74,12 +70,11 @@ def test_callcode50000(
         gas_limit=8600000000,
     )
 
-    pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-    pre[addr] = Account(balance=7000)
+    addr = pre.fund_eoa(amount=7000)  # noqa: F841
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) [[ 0 ]] (CALLCODE 1600 <eoa:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 1 0 50000 0 0) ) [[ 1 ]] @i}  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMPDEST
+    target_code = (
+        Op.JUMPDEST
         + Op.JUMPI(
             pc=0x3F, condition=Op.ISZERO(Op.LT(Op.MLOAD(offset=0x80), 0xC350))
         )
@@ -87,7 +82,7 @@ def test_callcode50000(
             key=0x0,
             value=Op.CALLCODE(
                 gas=0x640,
-                address=0xD9B97C712EBCE43F3C19179BBEF44B550F9E8BC0,
+                address=addr,
                 value=0x1,
                 args_offset=0x0,
                 args_size=0xC350,
@@ -99,10 +94,12 @@ def test_callcode50000(
         + Op.JUMP(pc=0x0)
         + Op.JUMPDEST
         + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x80))
-        + Op.STOP,
+        + Op.STOP
+    )
+    target = pre.deploy_contract(  # noqa: F841
+        code=target_code,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
-        address=Address(0x7FC89545BED7AF26B6EF809B53E9A93FD0718468),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -114,9 +111,7 @@ def test_callcode50000(
                 addr: Account(storage={}, code=b"", nonce=0),
                 target: Account(
                     storage={},
-                    code=bytes.fromhex(
-                        "5b61c3506080511015603f576000600061c3506000600173d9b97c712ebce43f3c19179bbef44b550f9e8bc0610640f26000556001608051016080526000565b60805160015500"  # noqa: E501
-                    ),
+                    code=bytes(target_code),
                     nonce=0,
                 ),
             },
@@ -129,9 +124,7 @@ def test_callcode50000(
                 addr: Account(storage={}, code=b"", nonce=0),
                 target: Account(
                     storage={},
-                    code=bytes.fromhex(
-                        "5b61c3506080511015603f576000600061c3506000600173d9b97c712ebce43f3c19179bbef44b550f9e8bc0610640f26000556001608051016080526000565b60805160015500"  # noqa: E501
-                    ),
+                    code=bytes(target_code),
                     nonce=0,
                 ),
             },

@@ -7,7 +7,6 @@ state_tests/stNonZeroCallsTest/NonZeroValue_TransactionCALL_ToEmpty_ParisFiller.
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -27,17 +26,13 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_non_zero_value_transaction_call_to_empty_paris(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_non_zero_value_transaction_call_to_empty_paris."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    addr = Address(0x76FAE819612A29489A1A43208613D8F8557B8898)
-    sender = EOA(
-        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -48,8 +43,7 @@ def test_non_zero_value_transaction_call_to_empty_paris(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
-    pre[addr] = Account(balance=10)
+    addr = pre.fund_eoa(amount=10)  # noqa: F841
 
     tx = Transaction(
         sender=sender,

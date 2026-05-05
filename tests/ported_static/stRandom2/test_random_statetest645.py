@@ -69,6 +69,8 @@ def test_random_statetest645(
         gas_limit=13175566155172316,
     )
 
+    pre[sender] = Account(balance=0x6F1F70FEA641F30A)
+    pre[addr_2] = Account(balance=0xB3508C0F8A22F8A1, nonce=28)
     # Source: raw
     # 0x58679b8e24022d8c28f3620b55a06384bc2f83136515b61916f0f579ea3e9d28799d45aa77bf1fc1a84edf0193dea2d610209eaaf9c814  # noqa: E501
     addr = pre.deploy_contract(  # noqa: F841
@@ -83,7 +85,6 @@ def test_random_statetest645(
         nonce=29,
         address=Address(0x322C72DEDAD1A81092AB9BA908FBEC8779CE1C32),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x6F1F70FEA641F30A)
     # Source: raw
     # 0x63cbb01282621d72de5268022948f746c938a0cb7c01ef17f23ed237d9f3262c4eb1b95112820595b127c516074df06223db7e0c396eb18074f148d96fd766dda35b6cc250661b5f83f0ed625ba68a5ff49aa1  # noqa: E501
     coinbase = pre.deploy_contract(  # noqa: F841
@@ -97,7 +98,6 @@ def test_random_statetest645(
         nonce=175,
         address=Address(0xAA0103980A7C3113D3A8F81478B0281492EB3D38),  # noqa: E501
     )
-    pre[addr_2] = Account(balance=0xB3508C0F8A22F8A1, nonce=28)
 
     tx_data = [
         Bytes(

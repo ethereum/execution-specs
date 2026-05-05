@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_CREATE_ContractSuicideDuringInitFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -74,9 +73,7 @@ def test_static_create_contract_suicide_during_init(
     contract_1 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_2 = Address(0xD94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_3 = Address(0xE94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -87,13 +84,11 @@ def test_static_create_contract_suicide_during_init(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # { (MSTORE 1 1) }
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x1, value=0x1) + Op.STOP,
         nonce=0,
-        address=Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (EXTCODESIZE 1)) }
@@ -109,7 +104,6 @@ def test_static_create_contract_suicide_during_init(
         + Op.STOP,
         balance=11,
         nonce=0,
-        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
     # Source: lll
     # { (SSTORE 1 1) }
@@ -117,14 +111,13 @@ def test_static_create_contract_suicide_during_init(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.STOP,
         balance=11,
         nonce=0,
-        address=Address(0xD94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
     # Source: lll
     # { (CALL 100 0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b 1 0 0 0 0) }
     contract_3 = pre.deploy_contract(  # noqa: F841
         code=Op.CALL(
             gas=0x64,
-            address=0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+            address=contract_0,
             value=0x1,
             args_offset=0x0,
             args_size=0x0,
@@ -134,7 +127,6 @@ def test_static_create_contract_suicide_during_init(
         + Op.STOP,
         balance=11,
         nonce=0,
-        address=Address(0xE94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     tx_data = [

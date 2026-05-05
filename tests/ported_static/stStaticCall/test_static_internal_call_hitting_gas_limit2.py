@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_InternalCallHittingGasLimit2Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -36,9 +35,7 @@ def test_static_internal_call_hitting_gas_limit2(
 ) -> None:
     """Test_static_internal_call_hitting_gas_limit2."""
     coinbase = Address(0x2ADF5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x7C857D62C76CE09F2E8EC3FA9277578C67B69C6547364568FDDB841071E5BD7
-    )
+    sender = pre.fund_eoa(amount=0xF4240)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -49,25 +46,6 @@ def test_static_internal_call_hitting_gas_limit2(
         gas_limit=47766,
     )
 
-    pre[sender] = Account(balance=0xF4240)
-    # Source: lll
-    # { [[ 1 ]] (STATICCALL 25000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0x1,
-            value=Op.STATICCALL(
-                gas=0x61A8,
-                address=0x285BB5C8A71646AB9A5796D4A718CC4826AF8D06,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.STOP,
-        nonce=0,
-        address=Address(0xF0801B78978104BAE7D7D679F8E3990492825C3E),  # noqa: E501
-    )
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (EXTCODESIZE 1)) }
     addr = pre.deploy_contract(  # noqa: F841
@@ -81,7 +59,23 @@ def test_static_internal_call_hitting_gas_limit2(
         + Op.JUMPDEST
         + Op.STOP,
         nonce=0,
-        address=Address(0x285BB5C8A71646AB9A5796D4A718CC4826AF8D06),  # noqa: E501
+    )
+    # Source: lll
+    # { [[ 1 ]] (STATICCALL 25000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x1,
+            value=Op.STATICCALL(
+                gas=0x61A8,
+                address=addr,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
+        + Op.STOP,
+        nonce=0,
     )
 
     tx = Transaction(

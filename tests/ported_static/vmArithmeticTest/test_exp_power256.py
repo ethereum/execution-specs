@@ -47,6 +47,7 @@ def test_exp_power256(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
     # Source: lll
     # {
     #     (def 'storageJump 0x10)
@@ -323,7 +324,6 @@ def test_exp_power256(
         nonce=0,
         address=Address(0xE660D528E4A7AD36825F9D64F5F141596FEFF7AE),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     tx = Transaction(
         sender=sender,

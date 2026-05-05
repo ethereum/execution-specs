@@ -48,6 +48,7 @@ def test_new_gas_price_for_codes_with_mem_expanding_calls(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xE8D4A5100000)
     # Source: hex
     # 0x1122334455667788991011121314151617181920212223242526272829303132
     addr = pre.deploy_contract(  # noqa: F841
@@ -65,29 +66,18 @@ def test_new_gas_price_for_codes_with_mem_expanding_calls(
         nonce=0,
         address=Address(0x7B8C83E74CC8DFADB03138C2743C70588ACE4222),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xE8D4A5100000)
     # Source: hex
     # 0x73<contract:0x1000000000000000000000000000000000000010>3b60015560146000600073<contract:0x1000000000000000000000000000000000000010>3c60005160025560005460045560ff60ff60ff60ff600173<contract:0x1000000000000000000000000000000000000011>617530f160055560ff60ff60ff60ff600173<contract:0x1000000000000000000000000000000000000011>617530f260065560ff60ff60ff60ff73<contract:0x1000000000000000000000000000000000000011>617530f460075560ff60ff60ff60ff6000731000000000000000000000000000000000000013617530f160085573<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>316003555a600a55  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0x1,
-            value=Op.EXTCODESIZE(
-                address=0x6B6AF3C6E1714081C8C3085ACBAC8C2B21FADF0B
-            ),
-        )
-        + Op.EXTCODECOPY(
-            address=0x6B6AF3C6E1714081C8C3085ACBAC8C2B21FADF0B,
-            dest_offset=0x0,
-            offset=0x0,
-            size=0x14,
-        )
+        code=Op.SSTORE(key=0x1, value=Op.EXTCODESIZE(address=addr))
+        + Op.EXTCODECOPY(address=addr, dest_offset=0x0, offset=0x0, size=0x14)
         + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=0x0))
         + Op.SSTORE(key=0x4, value=Op.SLOAD(key=0x0))
         + Op.SSTORE(
             key=0x5,
             value=Op.CALL(
                 gas=0x7530,
-                address=0x7B8C83E74CC8DFADB03138C2743C70588ACE4222,
+                address=addr_2,
                 value=0x1,
                 args_offset=0xFF,
                 args_size=0xFF,
@@ -99,7 +89,7 @@ def test_new_gas_price_for_codes_with_mem_expanding_calls(
             key=0x6,
             value=Op.CALLCODE(
                 gas=0x7530,
-                address=0x7B8C83E74CC8DFADB03138C2743C70588ACE4222,
+                address=addr_2,
                 value=0x1,
                 args_offset=0xFF,
                 args_size=0xFF,
@@ -111,7 +101,7 @@ def test_new_gas_price_for_codes_with_mem_expanding_calls(
             key=0x7,
             value=Op.DELEGATECALL(
                 gas=0x7530,
-                address=0x7B8C83E74CC8DFADB03138C2743C70588ACE4222,
+                address=addr_2,
                 args_offset=0xFF,
                 args_size=0xFF,
                 ret_offset=0xFF,
@@ -130,12 +120,7 @@ def test_new_gas_price_for_codes_with_mem_expanding_calls(
                 ret_size=0xFF,
             ),
         )
-        + Op.SSTORE(
-            key=0x3,
-            value=Op.BALANCE(
-                address=0xF1100237A29F570CBF8B107BA3CB5BF2DB42BD3F
-            ),
-        )
+        + Op.SSTORE(key=0x3, value=Op.BALANCE(address=sender))
         + Op.SSTORE(key=0xA, value=Op.GAS),
         storage={0: 18},
         nonce=0,

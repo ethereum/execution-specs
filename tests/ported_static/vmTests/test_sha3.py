@@ -180,6 +180,7 @@ def test_sha3(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0x100000000000)
     # Source: lll
     # {
     #     [[0]] (sha3 0 0)
@@ -401,7 +402,6 @@ def test_sha3(
         nonce=0,
         address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x100000000000)
 
     expect_entries_: list[dict] = [
         {

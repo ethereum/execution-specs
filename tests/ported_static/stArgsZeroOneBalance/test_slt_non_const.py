@@ -7,7 +7,6 @@ state_tests/stArgsZeroOneBalance/sltNonConstFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -58,9 +57,7 @@ def test_slt_non_const(
 ) -> None:
     """Test_slt_non_const."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -85,7 +82,6 @@ def test_slt_non_const(
         nonce=0,
         address=Address(0x31D72308BB942D557F1F7AD5987321FB3D75C896),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     expect_entries_: list[dict] = [
         {

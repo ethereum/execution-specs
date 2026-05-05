@@ -17,7 +17,7 @@ from typing import List, Optional, Tuple
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
 from ethereum_types.frozen import slotted_freezable
-from ethereum_types.numeric import U64, U256, Uint
+from ethereum_types.numeric import U64, U256, Uint, ulen
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import (
@@ -29,7 +29,14 @@ from ethereum.exceptions import (
     NonceMismatchError,
 )
 from ethereum.forks.bpo5.blocks import Header as PreviousHeader
-from ethereum.state import EMPTY_CODE_HASH, Address, BlockDiff, PreState
+from ethereum.merkle_patricia_trie import root, trie_set
+from ethereum.state import (
+    EMPTY_CODE_HASH,
+    Address,
+    BlockDiff,
+    State,
+    apply_changes_to_state,
+)
 from ethereum.utils.byte import left_pad_zero_bytes
 
 from . import vm
@@ -61,10 +68,6 @@ from .requests import (
     compute_requests_hash,
     parse_deposit_requests,
 )
-from .state import (
-    State,
-    apply_changes_to_state,
-)
 from .state_tracker import (
     BlockState,
     TransactionState,
@@ -92,7 +95,6 @@ from .transactions import (
     recover_sender,
     validate_transaction,
 )
-from .trie import root, trie_set
 from .utils.hexadecimal import hex_to_address
 from .utils.message import prepare_message
 from .vm import Message
@@ -269,7 +271,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
 
 def execute_block(
     block: Block,
-    pre_state: PreState,
+    pre_state: State,
     chain_context: ChainContext,
 ) -> BlockDiff:
     """
@@ -885,7 +887,7 @@ def apply_body(
 
     # EIP-7928: Post-execution operations use index N+1
     block_env.block_access_list_builder.block_access_index = BlockAccessIndex(
-        Uint(len(transactions)) + Uint(1)
+        ulen(transactions) + Uint(1)
     )
 
     process_withdrawals(block_env, block_output, withdrawals)
@@ -1095,7 +1097,7 @@ def process_transaction(
                 # pre-deletion.
                 account = get_account(tx_state, address)
                 code = get_code(tx_state, account.code_hash)
-                selfdestruct_refund += Uint(len(code)) * COST_PER_STATE_BYTE
+                selfdestruct_refund += ulen(code) * COST_PER_STATE_BYTE
                 selfdestruct_refund = min(
                     selfdestruct_refund, tx_output.state_gas_used
                 )

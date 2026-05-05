@@ -45,6 +45,7 @@ def test_calldatacopy_dejavu2(
         base_fee_per_gas=10,
     )
 
+    pre[sender] = Account(balance=0x271000000000)
     # Source: yul
     # berlin { mstore8(0x1f, 0x42) calldatacopy(0x1f, 0, 0x0103) let mem := mload(0) if eq(mem,0x60) { stop() }  sstore(0xff, 0x0badc0ffee) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -58,7 +59,6 @@ def test_calldatacopy_dejavu2(
         nonce=0,
         address=Address(0xD6A7F80046F7576FA76EE5198426097F149E60FF),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x271000000000)
 
     tx = Transaction(
         sender=sender,

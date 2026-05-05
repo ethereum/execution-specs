@@ -7,7 +7,6 @@ state_tests/stRandom/randomStatetest347Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -26,16 +25,13 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRandom/randomStatetest347Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_random_statetest347(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_random_statetest347."""
     coinbase = Address(0xA7F7C8EF9BBBCFB0F7E81C1FD46BB732FBA60592)
-    sender = EOA(
-        key=0x1F2F6944F70460E655546D414267BD3491A2DD9DAFB2280605404C858990D053
-    )
+    sender = pre.fund_eoa(amount=0x1024D289465FA51769)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -159,7 +155,6 @@ def test_random_statetest347(
         + Op.SWAP6,
         balance=0x33498455,
         nonce=233,
-        address=Address(0x97BC67B6EE773E59E516D02EDB13B971C3CBD856),  # noqa: E501
     )
     # Source: raw
     # 0x36
@@ -167,9 +162,7 @@ def test_random_statetest347(
         code=Op.CALLDATASIZE,
         balance=0x4EA91708,
         nonce=89,
-        address=Address(0x79D9FBE6AC70917CB2E16EC4CD32968CE19C724D),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x1024D289465FA51769)
 
     tx = Transaction(
         sender=sender,

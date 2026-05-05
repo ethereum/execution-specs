@@ -7,7 +7,6 @@ state_tests/stRandom2/randomStatetest601Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_random_statetest601(
 ) -> None:
     """Test_random_statetest601."""
     coinbase = Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79)
-    sender = EOA(
-        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -53,7 +50,6 @@ def test_random_statetest601(
             "7f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f000000000000000000000000945304eb96065b2a98b57a48a06ae28d285a71b57f00000000000000000000000000000000000000000000000000000000000000007f000000000000000000000000000000000000000000000000000000000000c350377f000000000000000000000000000000000000000000000000000000000000c3507f00000000000000000000000100000000000000000000000000000000000000000b3a09785b1084418866100af0868a3455"  # noqa: E501
         ),
         nonce=0,
-        address=Address(0x287D3F26FEBB148710A503235EBF7AC1F1B75838),  # noqa: E501
     )
     # Source: raw
     # 0x6000355415600957005b60203560003555
@@ -71,7 +67,6 @@ def test_random_statetest601(
         nonce=0,
         address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

@@ -7,8 +7,6 @@ state_tests/stEIP1559/valCausesOOFFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
-    Account,
     Address,
     Alloc,
     Bytes,
@@ -126,9 +124,7 @@ def test_val_causes_oof(
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x7608AB0A661408930040C5E3EB5B0C6520ACBB6CE5B28DDBE53676109E8EA24B
-    )
+    sender = pre.fund_eoa(amount=0x5F5E100, nonce=1)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -160,9 +156,7 @@ def test_val_causes_oof(
         + Op.JUMP(pc=0x3),
         balance=0x5AF3107A4000,
         nonce=0,
-        address=Address(0x71E12B76AB6BE1EFBC98AC17EBFE5FAF488DA45E),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x5F5E100, nonce=1)
 
     expect_entries_: list[dict] = [
         {

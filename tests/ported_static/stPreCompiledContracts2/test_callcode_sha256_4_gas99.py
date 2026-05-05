@@ -46,6 +46,7 @@ def test_callcode_sha256_4_gas99(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { (MSTORE 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) [[ 2 ]] (CALLCODE 99 2 0 0 32 0 32) [[ 0 ]] (MLOAD 0)}  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -71,7 +72,6 @@ def test_callcode_sha256_4_gas99(
         nonce=0,
         address=Address(0xBDC43A81E62F216D623D3E91F1F5FE1E3730A068),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

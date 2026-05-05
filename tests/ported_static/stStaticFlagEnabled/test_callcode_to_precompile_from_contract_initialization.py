@@ -58,6 +58,7 @@ def test_callcode_to_precompile_from_contract_initialization(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {
     #   [[ 0x00 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed  # noqa: E501
@@ -510,7 +511,6 @@ def test_callcode_to_precompile_from_contract_initialization(
         nonce=0,
         address=Address(0xA000000000000000000000000000000000000000),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
@@ -536,7 +536,7 @@ def test_callcode_to_precompile_from_contract_initialization(
                 0: 0xFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEED,  # noqa: E501
                 1: 0xFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEED,  # noqa: E501
                 2560: 1,
-                2561: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                2561: sender,
                 2562: 1,
                 2563: 1,
                 2564: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC000000,  # noqa: E501
@@ -557,7 +557,7 @@ def test_callcode_to_precompile_from_contract_initialization(
                 2585: 1,
                 2592: 1,
                 2816: 1,
-                2817: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                2817: sender,
                 2818: 1,
                 2819: 1,
                 2820: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC000000,  # noqa: E501

@@ -7,7 +7,6 @@ state_tests/stReturnDataTest/returndatacopy_following_too_big_transferFiller.jso
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_returndatacopy_following_too_big_transfer(
 ) -> None:
     """Test: tis test tries RETURNDATACOPY with a non-zero size after a CALL..."""  # noqa: E501
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
-    )
+    sender = pre.fund_eoa(amount=0x6400000000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -58,7 +55,6 @@ def test_returndatacopy_following_too_big_transfer(
         + Op.RETURN(offset=0x0, size=0x20)
         + Op.STOP,
         nonce=0,
-        address=Address(0x9898DD5E5C526B55EC49B1047E298705C13279F1),  # noqa: E501
     )
     # Source: lll
     # { (seq (CALL 0x0900000000 <contract:0x0aabbccdd5c57f15886f9b263e2f6d2d6c7b5ec6> 10000000 0 0 0 0) (RETURNDATACOPY 0 0 32) (SSTORE 0 200) )}  # noqa: E501
@@ -66,7 +62,7 @@ def test_returndatacopy_following_too_big_transfer(
         code=Op.POP(
             Op.CALL(
                 gas=0x900000000,
-                address=0x9898DD5E5C526B55EC49B1047E298705C13279F1,
+                address=addr,
                 value=0x989680,
                 args_offset=0x0,
                 args_size=0x0,
@@ -79,9 +75,7 @@ def test_returndatacopy_following_too_big_transfer(
         + Op.STOP,
         storage={0: 1},
         nonce=0,
-        address=Address(0x386E9FC96C1E60F449C2DF320F37545CCA30F58D),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x6400000000)
 
     tx = Transaction(
         sender=sender,

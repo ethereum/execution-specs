@@ -7,7 +7,6 @@ state_tests/stExample/eip1559Filler.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     AccessList,
     Account,
     Address,
@@ -35,9 +34,7 @@ def test_eip1559(
 ) -> None:
     """Ori Pomerantz   qbzzt1@gmail."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xDE0C95357363DA5C1C5A73BD7C2781CA5C9FECC1014103B5E1D1E990AE8208EC
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000, nonce=1)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -59,9 +56,7 @@ def test_eip1559(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=1,
-        address=Address(0x38DC047054D46298A5BB7ED3A0BAD84BF69090D4),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
 
     tx = Transaction(
         sender=sender,
@@ -73,7 +68,7 @@ def test_eip1559(
         nonce=1,
         access_list=[
             AccessList(
-                address=Address(0x38DC047054D46298A5BB7ED3A0BAD84BF69090D4),
+                address=target,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501

@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_CallRecursiveBombPreCall2Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_static_call_recursive_bomb_pre_call2(
 ) -> None:
     """Test_static_call_recursive_bomb_pre_call2."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x77F65B71F1F16A75476F469F7106D1B60BFEC266AE25B8DA16A9091D223AA24A
-    )
+    sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -48,6 +45,22 @@ def test_static_call_recursive_bomb_pre_call2(
         gas_limit=9223372036854775807,
     )
 
+    # Source: lll
+    # { (MSTORE 0 (+ (MLOAD 0) 1)) (STATICCALL (- (GAS) 224000) (ADDRESS) 0 0 0 0) }  # noqa: E501
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=Op.ADD(Op.MLOAD(offset=0x0), 0x1))
+        + Op.STATICCALL(
+            gas=Op.SUB(Op.GAS, 0x36B00),
+            address=Op.ADDRESS,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
+        nonce=0,
+    )
     # Source: lll
     # { (STATICCALL 100000 0xbad304eb96065b2a98b57a48a06ae28d285a71b5 0 0 0 0)  [[ 0 ]] (STATICCALL 0x7ffffffffffffff <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 0 0 0 0)  [[ 1 ]] 1 }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -65,7 +78,7 @@ def test_static_call_recursive_bomb_pre_call2(
             key=0x0,
             value=Op.STATICCALL(
                 gas=0x7FFFFFFFFFFFFFF,
-                address=0xED136EDCE8F08EF121C25430E7DEC4ED3FEB511D,
+                address=addr,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -76,26 +89,7 @@ def test_static_call_recursive_bomb_pre_call2(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
         nonce=0,
-        address=Address(0x5E01FE5D73A471C61018A02F7CF7D8F977343093),  # noqa: E501
     )
-    # Source: lll
-    # { (MSTORE 0 (+ (MLOAD 0) 1)) (STATICCALL (- (GAS) 224000) (ADDRESS) 0 0 0 0) }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=Op.ADD(Op.MLOAD(offset=0x0), 0x1))
-        + Op.STATICCALL(
-            gas=Op.SUB(Op.GAS, 0x36B00),
-            address=Op.ADDRESS,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.STOP,
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0xED136EDCE8F08EF121C25430E7DEC4ED3FEB511D),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
     tx = Transaction(
         sender=sender,

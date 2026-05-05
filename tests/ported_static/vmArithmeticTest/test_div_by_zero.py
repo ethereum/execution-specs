@@ -7,7 +7,6 @@ state_tests/VMTests/vmArithmeticTest/divByZeroFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -632,9 +631,7 @@ def test_div_by_zero(
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x40AC0FC28C27E961EE46EC43355A094DE205856EDBD4654CF2577C2608D4EC1E
-    )
+    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -711,9 +708,7 @@ def test_div_by_zero(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address(0x935E36EE6CD0F1602D1ABCA9A391C696CFA4C04D),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     tx_data = [
         Bytes("1a8451e6") + Hash(0x4) + Hash(0x2),

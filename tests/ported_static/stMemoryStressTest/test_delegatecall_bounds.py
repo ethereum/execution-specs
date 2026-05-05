@@ -7,7 +7,6 @@ state_tests/stMemoryStressTest/DELEGATECALL_BoundsFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -55,8 +54,8 @@ def test_delegatecall_bounds(
 ) -> None:
     """Test_delegatecall_bounds."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x50EADFB1030587AB3A993A6ECC073041FC3B45E119DAA31A13D78C7E209631A5
+    sender = pre.fund_eoa(
+        amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
     )
 
     env = Environment(
@@ -69,12 +68,19 @@ def test_delegatecall_bounds(
     )
 
     # Source: lll
+    # { (SSTORE 0 (ADD 1 (SLOAD 0))) }
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=Op.ADD(0x1, Op.SLOAD(key=0x0)))
+        + Op.STOP,
+        nonce=0,
+    )
+    # Source: lll
     # {(DELEGATECALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0 0 0 0) (DELEGATECALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0 0xfffffff 0 0xfffffff) (DELEGATECALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0 0xffffffff 0 0xffffffff) (DELEGATECALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0xfffffff 0 0xfffffff 0) (DELEGATECALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0xffffffff 0 0xffffffff 0)  (DELEGATECALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0xffffffffffffffff 0 0xffffffffffffffff 0) (DELEGATECALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0xffffffffffffffffffffffffffffffff 0 0xffffffffffffffffffffffffffffffff 0) (DELEGATECALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0) (DELEGATECALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0xfffffff 0xfffffff 0xfffffff 0xfffffff)  }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
             Op.DELEGATECALL(
                 gas=0x7FFFFFFFFFFFFFF,
-                address=0x849F53126ADE5F72469029537296F2B6644D4D41,
+                address=addr,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -84,7 +90,7 @@ def test_delegatecall_bounds(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x7FFFFFFFFFFFFFF,
-                address=0x849F53126ADE5F72469029537296F2B6644D4D41,
+                address=addr,
                 args_offset=0x0,
                 args_size=0xFFFFFFF,
                 ret_offset=0x0,
@@ -94,7 +100,7 @@ def test_delegatecall_bounds(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x7FFFFFFFFFFFFFF,
-                address=0x849F53126ADE5F72469029537296F2B6644D4D41,
+                address=addr,
                 args_offset=0x0,
                 args_size=0xFFFFFFFF,
                 ret_offset=0x0,
@@ -104,7 +110,7 @@ def test_delegatecall_bounds(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x7FFFFFFFFFFFFFF,
-                address=0x849F53126ADE5F72469029537296F2B6644D4D41,
+                address=addr,
                 args_offset=0xFFFFFFF,
                 args_size=0x0,
                 ret_offset=0xFFFFFFF,
@@ -114,7 +120,7 @@ def test_delegatecall_bounds(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x7FFFFFFFFFFFFFF,
-                address=0x849F53126ADE5F72469029537296F2B6644D4D41,
+                address=addr,
                 args_offset=0xFFFFFFFF,
                 args_size=0x0,
                 ret_offset=0xFFFFFFFF,
@@ -124,7 +130,7 @@ def test_delegatecall_bounds(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x7FFFFFFFFFFFFFF,
-                address=0x849F53126ADE5F72469029537296F2B6644D4D41,
+                address=addr,
                 args_offset=0xFFFFFFFFFFFFFFFF,
                 args_size=0x0,
                 ret_offset=0xFFFFFFFFFFFFFFFF,
@@ -134,7 +140,7 @@ def test_delegatecall_bounds(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x7FFFFFFFFFFFFFF,
-                address=0x849F53126ADE5F72469029537296F2B6644D4D41,
+                address=addr,
                 args_offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
                 args_size=0x0,
                 ret_offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
@@ -144,7 +150,7 @@ def test_delegatecall_bounds(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=0x7FFFFFFFFFFFFFF,
-                address=0x849F53126ADE5F72469029537296F2B6644D4D41,
+                address=addr,
                 args_offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
                 args_size=0x0,
                 ret_offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
@@ -153,7 +159,7 @@ def test_delegatecall_bounds(
         )
         + Op.DELEGATECALL(
             gas=0x7FFFFFFFFFFFFFF,
-            address=0x849F53126ADE5F72469029537296F2B6644D4D41,
+            address=addr,
             args_offset=0xFFFFFFF,
             args_size=0xFFFFFFF,
             ret_offset=0xFFFFFFF,
@@ -161,18 +167,6 @@ def test_delegatecall_bounds(
         )
         + Op.STOP,
         nonce=0,
-        address=Address(0x75BC6DCEF9BDDA4E2EB511E92ED4815699F32B4F),  # noqa: E501
-    )
-    # Source: lll
-    # { (SSTORE 0 (ADD 1 (SLOAD 0))) }
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=Op.ADD(0x1, Op.SLOAD(key=0x0)))
-        + Op.STOP,
-        nonce=0,
-        address=Address(0x849F53126ADE5F72469029537296F2B6644D4D41),  # noqa: E501
-    )
-    pre[sender] = Account(
-        balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
     )
 
     tx_data = [

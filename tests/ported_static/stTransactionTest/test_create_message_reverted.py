@@ -7,7 +7,6 @@ state_tests/stTransactionTest/CreateMessageRevertedFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_create_message_reverted(
 ) -> None:
     """Test_create_message_reverted."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x2B75D0C814EB07C075FCCBDD9A036FAF651D9C46D7477D6C4F30772CFCA90D38
-    )
+    sender = pre.fund_eoa(amount=0x1C9C380)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -46,7 +43,6 @@ def test_create_message_reverted(
         gas_limit=1000000000000,
     )
 
-    pre[sender] = Account(balance=0x1C9C380)
     # Source: lll
     # {(MSTORE 0 0x600c600055) (CREATE 0 27 5)}
     target = pre.deploy_contract(  # noqa: F841
@@ -54,7 +50,6 @@ def test_create_message_reverted(
         + Op.CREATE(value=0x0, offset=0x1B, size=0x5)
         + Op.STOP,
         nonce=0,
-        address=Address(0xC9B0CA064C8B73A1D845547CD28D4E97FE4EC8A0),  # noqa: E501
     )
 
     tx = Transaction(

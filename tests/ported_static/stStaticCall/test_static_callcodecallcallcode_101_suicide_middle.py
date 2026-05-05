@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_callcodecallcallcode_101_SuicideMiddleFiller.jso
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -40,9 +39,7 @@ def test_static_callcodecallcallcode_101_suicide_middle(
     contract_1 = Address(0x1000000000000000000000000000000000000001)
     contract_2 = Address(0x1000000000000000000000000000000000000002)
     contract_3 = Address(0x1000000000000000000000000000000000000003)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -53,6 +50,14 @@ def test_static_callcodecallcallcode_101_suicide_middle(
         gas_limit=30000000,
     )
 
+    # Source: lll
+    # {  (MSTORE 3 1) }
+    contract_3 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x3, value=0x1) + Op.STOP,
+        balance=0x2540BE400,
+        nonce=0,
+        address=Address(0x1000000000000000000000000000000000000003),  # noqa: E501
+    )
     # Source: lll
     # {  [[ 0 ]] (DELEGATECALL 150000 0x1000000000000000000000000000000000000001 0 64 0 64 ) [[ 1 ]] 1 }  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -112,15 +117,6 @@ def test_static_callcodecallcallcode_101_suicide_middle(
         nonce=0,
         address=Address(0x1000000000000000000000000000000000000002),  # noqa: E501
     )
-    # Source: lll
-    # {  (MSTORE 3 1) }
-    contract_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x3, value=0x1) + Op.STOP,
-        balance=0x2540BE400,
-        nonce=0,
-        address=Address(0x1000000000000000000000000000000000000003),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

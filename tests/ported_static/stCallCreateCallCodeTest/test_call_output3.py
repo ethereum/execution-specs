@@ -46,6 +46,15 @@ def test_call_output3(
         gas_limit=1000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
+    # Source: raw
+    # 0x6001600101600055
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=Op.ADD(0x1, 0x1)),
+        balance=0xDE0B6B3A7640000,
+        nonce=0,
+        address=Address(0xBCC1197CCD23A97607F2F96D031F3432E0D16A02),  # noqa: E501
+    )
     # Source: lll
     # { (MSTORE 0 0x5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6) (CALL 150000 <contract:0xaaae7baea6a6c7c4c2dfeb977efac326af552d87> 0 0 0 0 32) [[ 0 ]] (MLOAD 0)}  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -56,7 +65,7 @@ def test_call_output3(
         + Op.POP(
             Op.CALL(
                 gas=0x249F0,
-                address=0xBCC1197CCD23A97607F2F96D031F3432E0D16A02,
+                address=addr,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -69,15 +78,6 @@ def test_call_output3(
         balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address(0xD4E4BFA87DC8F20706BF63F45861945315BE24F0),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
-    # Source: raw
-    # 0x6001600101600055
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=Op.ADD(0x1, 0x1)),
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0xBCC1197CCD23A97607F2F96D031F3432E0D16A02),  # noqa: E501
     )
 
     tx = Transaction(

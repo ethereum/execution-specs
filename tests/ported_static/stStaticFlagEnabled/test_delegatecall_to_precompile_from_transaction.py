@@ -54,73 +54,7 @@ def test_delegatecall_to_precompile_from_transaction(
         gas_limit=10000000,
     )
 
-    # Source: lll
-    # {
-    #   [[ 0x00 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed  # noqa: E501
-    #   (STATICCALL (GAS) 0xa000000000000000000000000000000000000000 0 0 0x0a0000 0x012020)  # noqa: E501
-    #   [[ 0x01 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed  # noqa: E501
-    #   ;; save results to store
-    #   [[ 0x0a00 ]] @0x0a0000  [[ 0x0a11 ]] @0x0a1100
-    #   [[ 0x0a01 ]] @0x0a0100  [[ 0x0a12 ]] @0x0a1200
-    #   [[ 0x0a02 ]] @0x0a0200  [[ 0x0a13 ]] @0x0a1300
-    #   [[ 0x0a03 ]] @0x0a0300  [[ 0x0a14 ]] @0x0a1400
-    #   [[ 0x0a04 ]] @0x0a0400  [[ 0x0a15 ]] @0x0a1500
-    #   [[ 0x0a05 ]] @0x0a0500  [[ 0x0a16 ]] @0x0a1600
-    #   [[ 0x0a06 ]] @0x0a0600  [[ 0x0a17 ]] @0x0a1700
-    #   [[ 0x0a07 ]] @0x0a0700  [[ 0x0a18 ]] @0x0a1800
-    #   [[ 0x0a08 ]] @0x0a0800  [[ 0x0a19 ]] @0x0a1900
-    #   [[ 0x0a09 ]] @0x0a0900  [[ 0x0a20 ]] @0x0a2000
-    #   [[ 0x0a10 ]] @0x0a1000
-    # }
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0x0,
-            value=0xFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEED,  # noqa: E501
-        )
-        + Op.POP(
-            Op.STATICCALL(
-                gas=Op.GAS,
-                address=0xA000000000000000000000000000000000000000,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0xA0000,
-                ret_size=0x12020,
-            )
-        )
-        + Op.SSTORE(
-            key=0x1,
-            value=0xFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEED,  # noqa: E501
-        )
-        + Op.SSTORE(key=0xA00, value=Op.MLOAD(offset=0xA0000))
-        + Op.SSTORE(key=0xA11, value=Op.MLOAD(offset=0xA1100))
-        + Op.SSTORE(key=0xA01, value=Op.MLOAD(offset=0xA0100))
-        + Op.SSTORE(key=0xA12, value=Op.MLOAD(offset=0xA1200))
-        + Op.SSTORE(key=0xA02, value=Op.MLOAD(offset=0xA0200))
-        + Op.SSTORE(key=0xA13, value=Op.MLOAD(offset=0xA1300))
-        + Op.SSTORE(key=0xA03, value=Op.MLOAD(offset=0xA0300))
-        + Op.SSTORE(key=0xA14, value=Op.MLOAD(offset=0xA1400))
-        + Op.SSTORE(key=0xA04, value=Op.MLOAD(offset=0xA0400))
-        + Op.SSTORE(key=0xA15, value=Op.MLOAD(offset=0xA1500))
-        + Op.SSTORE(key=0xA05, value=Op.MLOAD(offset=0xA0500))
-        + Op.SSTORE(key=0xA16, value=Op.MLOAD(offset=0xA1600))
-        + Op.SSTORE(key=0xA06, value=Op.MLOAD(offset=0xA0600))
-        + Op.SSTORE(key=0xA17, value=Op.MLOAD(offset=0xA1700))
-        + Op.SSTORE(key=0xA07, value=Op.MLOAD(offset=0xA0700))
-        + Op.SSTORE(key=0xA18, value=Op.MLOAD(offset=0xA1800))
-        + Op.SSTORE(key=0xA08, value=Op.MLOAD(offset=0xA0800))
-        + Op.SSTORE(key=0xA19, value=Op.MLOAD(offset=0xA1900))
-        + Op.SSTORE(key=0xA09, value=Op.MLOAD(offset=0xA0900))
-        + Op.SSTORE(key=0xA20, value=Op.MLOAD(offset=0xA2000))
-        + Op.SSTORE(key=0xA10, value=Op.MLOAD(offset=0xA1000))
-        + Op.STOP,
-        storage={
-            0: 0xDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAF,  # noqa: E501
-            1: 0xDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAF,  # noqa: E501
-        },
-        balance=1000,
-        nonce=0,
-        address=Address(0xB000000000000000000000000000000000000000),  # noqa: E501
-    )
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {
     #   ;; Recovery of ECDSA signature
@@ -409,7 +343,73 @@ def test_delegatecall_to_precompile_from_transaction(
         nonce=0,
         address=Address(0xA000000000000000000000000000000000000000),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
+    # Source: lll
+    # {
+    #   [[ 0x00 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed  # noqa: E501
+    #   (STATICCALL (GAS) 0xa000000000000000000000000000000000000000 0 0 0x0a0000 0x012020)  # noqa: E501
+    #   [[ 0x01 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed  # noqa: E501
+    #   ;; save results to store
+    #   [[ 0x0a00 ]] @0x0a0000  [[ 0x0a11 ]] @0x0a1100
+    #   [[ 0x0a01 ]] @0x0a0100  [[ 0x0a12 ]] @0x0a1200
+    #   [[ 0x0a02 ]] @0x0a0200  [[ 0x0a13 ]] @0x0a1300
+    #   [[ 0x0a03 ]] @0x0a0300  [[ 0x0a14 ]] @0x0a1400
+    #   [[ 0x0a04 ]] @0x0a0400  [[ 0x0a15 ]] @0x0a1500
+    #   [[ 0x0a05 ]] @0x0a0500  [[ 0x0a16 ]] @0x0a1600
+    #   [[ 0x0a06 ]] @0x0a0600  [[ 0x0a17 ]] @0x0a1700
+    #   [[ 0x0a07 ]] @0x0a0700  [[ 0x0a18 ]] @0x0a1800
+    #   [[ 0x0a08 ]] @0x0a0800  [[ 0x0a19 ]] @0x0a1900
+    #   [[ 0x0a09 ]] @0x0a0900  [[ 0x0a20 ]] @0x0a2000
+    #   [[ 0x0a10 ]] @0x0a1000
+    # }
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=0xFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEED,  # noqa: E501
+        )
+        + Op.POP(
+            Op.STATICCALL(
+                gas=Op.GAS,
+                address=contract_1,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0xA0000,
+                ret_size=0x12020,
+            )
+        )
+        + Op.SSTORE(
+            key=0x1,
+            value=0xFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEED,  # noqa: E501
+        )
+        + Op.SSTORE(key=0xA00, value=Op.MLOAD(offset=0xA0000))
+        + Op.SSTORE(key=0xA11, value=Op.MLOAD(offset=0xA1100))
+        + Op.SSTORE(key=0xA01, value=Op.MLOAD(offset=0xA0100))
+        + Op.SSTORE(key=0xA12, value=Op.MLOAD(offset=0xA1200))
+        + Op.SSTORE(key=0xA02, value=Op.MLOAD(offset=0xA0200))
+        + Op.SSTORE(key=0xA13, value=Op.MLOAD(offset=0xA1300))
+        + Op.SSTORE(key=0xA03, value=Op.MLOAD(offset=0xA0300))
+        + Op.SSTORE(key=0xA14, value=Op.MLOAD(offset=0xA1400))
+        + Op.SSTORE(key=0xA04, value=Op.MLOAD(offset=0xA0400))
+        + Op.SSTORE(key=0xA15, value=Op.MLOAD(offset=0xA1500))
+        + Op.SSTORE(key=0xA05, value=Op.MLOAD(offset=0xA0500))
+        + Op.SSTORE(key=0xA16, value=Op.MLOAD(offset=0xA1600))
+        + Op.SSTORE(key=0xA06, value=Op.MLOAD(offset=0xA0600))
+        + Op.SSTORE(key=0xA17, value=Op.MLOAD(offset=0xA1700))
+        + Op.SSTORE(key=0xA07, value=Op.MLOAD(offset=0xA0700))
+        + Op.SSTORE(key=0xA18, value=Op.MLOAD(offset=0xA1800))
+        + Op.SSTORE(key=0xA08, value=Op.MLOAD(offset=0xA0800))
+        + Op.SSTORE(key=0xA19, value=Op.MLOAD(offset=0xA1900))
+        + Op.SSTORE(key=0xA09, value=Op.MLOAD(offset=0xA0900))
+        + Op.SSTORE(key=0xA20, value=Op.MLOAD(offset=0xA2000))
+        + Op.SSTORE(key=0xA10, value=Op.MLOAD(offset=0xA1000))
+        + Op.STOP,
+        storage={
+            0: 0xDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAF,  # noqa: E501
+            1: 0xDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAFDEADBEAF,  # noqa: E501
+        },
+        balance=1000,
+        nonce=0,
+        address=Address(0xB000000000000000000000000000000000000000),  # noqa: E501
+    )
 
     tx = Transaction(
         sender=sender,
@@ -426,7 +426,7 @@ def test_delegatecall_to_precompile_from_transaction(
                 0: 0xFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEED,  # noqa: E501
                 1: 0xFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEED,  # noqa: E501
                 2560: 1,
-                2561: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                2561: sender,
                 2562: 1,
                 2563: 1,
                 2564: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC000000,  # noqa: E501

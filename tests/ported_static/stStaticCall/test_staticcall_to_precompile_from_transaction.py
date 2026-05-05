@@ -53,6 +53,7 @@ def test_staticcall_to_precompile_from_transaction(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {
     #   ;; Recovery of ECDSA signature
@@ -335,7 +336,6 @@ def test_staticcall_to_precompile_from_transaction(
         nonce=0,
         address=Address(0xA000000000000000000000000000000000000000),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
@@ -349,7 +349,7 @@ def test_staticcall_to_precompile_from_transaction(
         contract_0: Account(
             storage={
                 0: 1,
-                1: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                1: sender,
                 2: 1,
                 3: 1,
                 4: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC000000,

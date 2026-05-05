@@ -7,7 +7,6 @@ state_tests/stMemoryStressTest/DUP_BoundsFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -61,9 +60,7 @@ def test_dup_bounds(
 ) -> None:
     """Test_dup_bounds."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x31B5AF02B012484AE954B3A43943242EDE546A2E76FC0A6ACC17435107C385EB
-    )
+    sender = pre.fund_eoa(amount=0x7FFFFFFFFFFFFFFF)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -220,9 +217,7 @@ def test_dup_bounds(
         * 8
         + Op.DUP8,
         nonce=0,
-        address=Address(0xE860BD7BF0474923E526CBE86FA5B5F76AEE36ED),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x7FFFFFFFFFFFFFFF)
 
     tx_data = [
         Bytes(""),

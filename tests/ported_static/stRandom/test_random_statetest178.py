@@ -7,7 +7,6 @@ state_tests/stRandom/randomStatetest178Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -34,9 +33,7 @@ def test_random_statetest178(
 ) -> None:
     """Test_random_statetest178."""
     coinbase = Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79)
-    sender = EOA(
-        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -47,6 +44,22 @@ def test_random_statetest178(
         gas_limit=9223372036854775807,
     )
 
+    # Source: raw
+    # 0x6000355415600957005b60203560003555
+    coinbase = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMPI(
+            pc=0x9,
+            condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
+        )
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.SSTORE(
+            key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
+        ),
+        balance=46,
+        nonce=0,
+        address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
+    )
     # Source: raw
     # 0x7d342beabe599e4bc177fd97d36df48d50650ba6129a9a83d4cf809ec21452357c620167f530c3265be9887f6e5b8186decdc00a6a801e5f56dd8d9d36a4806dbccc299e4bbf46ad577e25b5b1fc76b6999cb23a6a03c4035e36b8494135ee170647395da00b6e0a64c43f3358b8bdcf593c89fb70b865ef153b5195c77959256beb4f932095eb8ac80bc2c050f6f550a362aac77f5c4b197151df039d64b77dca22eb8fd4b8cf50fb85a36f1d909d1919a47fe97de5526726b4a47b866b7b13471056439457cd7cbc5060d978056ff5dd24a1f49e50b9f5924f473b2dc5306d67054ca575d0603e616291a3601460106009601f6338a57ddc73<contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>630e3319c8f133  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -85,23 +98,6 @@ def test_random_statetest178(
         nonce=0,
         address=Address(0x1B0A78BDF6595742D34BF13386BCC01EFADDF68C),  # noqa: E501
     )
-    # Source: raw
-    # 0x6000355415600957005b60203560003555
-    coinbase = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMPI(
-            pc=0x9,
-            condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
-        )
-        + Op.STOP
-        + Op.JUMPDEST
-        + Op.SSTORE(
-            key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
-        ),
-        balance=46,
-        nonce=0,
-        address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

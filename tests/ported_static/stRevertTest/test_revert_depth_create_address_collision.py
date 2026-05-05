@@ -108,6 +108,16 @@ def test_revert_depth_create_address_collision(
 
     pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
+    # { [[2]] 8 (CREATE 0 0 0) [[3]] 12}
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x2, value=0x8)
+        + Op.POP(Op.CREATE(value=0x0, offset=0x0, size=0x0))
+        + Op.SSTORE(key=0x3, value=0xC)
+        + Op.STOP,
+        nonce=0,
+        address=Address(0xB1B49241A4ECF7860872E686090781C906B1B437),  # noqa: E501
+    )
+    # Source: lll
     # { [[0]] 1 [[1]] (CALL (CALLDATALOAD 0) <contract:0xb000000000000000000000000000000000000000> 0 0 0 0 0) [[4]] 12 }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=0x1)
@@ -128,16 +138,6 @@ def test_revert_depth_create_address_collision(
         balance=5,
         nonce=54,
         address=Address(0x97E33A176B7C8D61B356D1C170AC2119D28867DF),  # noqa: E501
-    )
-    # Source: lll
-    # { [[2]] 8 (CREATE 0 0 0) [[3]] 12}
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x2, value=0x8)
-        + Op.POP(Op.CREATE(value=0x0, offset=0x0, size=0x0))
-        + Op.SSTORE(key=0x3, value=0xC)
-        + Op.STOP,
-        nonce=0,
-        address=Address(0xB1B49241A4ECF7860872E686090781C906B1B437),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -206,7 +206,14 @@ def test_revert_depth_create_address_collision(
         Hash(0xEA60),
         Hash(0x1EA60),
     ]
-    tx_gas = [110000, 160000]
+    # EIP-8037: when the inner CREATE OOGs, the state-gas it spilled
+    # into its own gas_left is no longer refunded to the parent's
+    # reservoir on halt. Bump the budget by one SSTORE's worth so the
+    # outer's final SSTORE has the spill replacement in gas_left.
+    # `sstore_state_gas()` returns 0 pre-EIP-8037, leaving the
+    # canonical budget unchanged on older forks.
+    sstore_state_gas = fork.sstore_state_gas()
+    tx_gas = [110000 + sstore_state_gas, 160000 + sstore_state_gas]
     tx_value = [1, 0]
 
     tx = Transaction(

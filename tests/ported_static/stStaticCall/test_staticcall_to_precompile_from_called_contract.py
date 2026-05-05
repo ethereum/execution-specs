@@ -54,27 +54,7 @@ def test_staticcall_to_precompile_from_called_contract(
         gas_limit=10000000,
     )
 
-    # Source: lll
-    # {
-    #   [[ 0 ]] (CALL (GAS) 0xa000000000000000000000000000000000000000 0 0 0 0 0 )  # noqa: E501
-    # }
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0x0,
-            value=Op.CALL(
-                gas=Op.GAS,
-                address=0xA000000000000000000000000000000000000000,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.STOP,
-        nonce=0,
-        address=Address(0xB000000000000000000000000000000000000000),  # noqa: E501
-    )
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {
     #   ;; Recovery of ECDSA signature
@@ -357,7 +337,27 @@ def test_staticcall_to_precompile_from_called_contract(
         nonce=0,
         address=Address(0xA000000000000000000000000000000000000000),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
+    # Source: lll
+    # {
+    #   [[ 0 ]] (CALL (GAS) 0xa000000000000000000000000000000000000000 0 0 0 0 0 )  # noqa: E501
+    # }
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.CALL(
+                gas=Op.GAS,
+                address=contract_1,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
+        + Op.STOP,
+        nonce=0,
+        address=Address(0xB000000000000000000000000000000000000000),  # noqa: E501
+    )
 
     tx = Transaction(
         sender=sender,
@@ -372,7 +372,7 @@ def test_staticcall_to_precompile_from_called_contract(
         contract_1: Account(
             storage={
                 0: 1,
-                1: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                1: sender,
                 2: 1,
                 3: 1,
                 4: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC000000,

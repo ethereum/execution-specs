@@ -82,6 +82,7 @@ def test_mstore8(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0x100000000000)
     # Source: lll
     # {
     #      ; It ignores all but one byte, the least significant one
@@ -144,7 +145,6 @@ def test_mstore8(
         nonce=0,
         address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x100000000000)
 
     expect_entries_: list[dict] = [
         {

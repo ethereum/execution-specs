@@ -225,7 +225,7 @@ actionlint = [
     "shellcheck-py>=0.10",
 ]
 doc = [
-    "docc>=0.5.0,<0.6.0",
+    "docc>=0.5.1,<0.6.0",
     "fladrif>=0.2.0,<0.3.0",
     "mistletoe>=1.5.0,<2",
 ]
@@ -271,6 +271,7 @@ ethereum-spec-evm = "ethereum_spec_tools.evm_tools:main"
 whitelist = "ethereum_spec_tools.whitelist:main"
 
 [project.entry-points."docc.plugins"]
+"ethereum_spec_tools.docc.listing" = "ethereum_spec_tools.docc:EthereumListingDiscover"
 "ethereum_spec_tools.docc.discover" = "ethereum_spec_tools.docc:EthereumDiscover"
 "ethereum_spec_tools.docc.build" = "ethereum_spec_tools.docc:EthereumBuilder"
 "ethereum_spec_tools.docc.fix-indexes" = "ethereum_spec_tools.docc:FixIndexTransform"
@@ -312,7 +313,7 @@ discovery = [
     "docc.html.discover",
     "docc.python.discover",
     "ethereum_spec_tools.docc.discover",
-    "docc.listing.discover",
+    "ethereum_spec_tools.docc.listing",
     "docc.files.discover",
 ]
 build = [

@@ -7,7 +7,6 @@ state_tests/stRevertTest/LoopCallsDepthThenRevert2Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -36,9 +35,7 @@ def test_loop_calls_depth_then_revert2(
     """Test_loop_calls_depth_then_revert2."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xA000000000000000000000000000000000000000)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0x13426172C74D822B878FE800000000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -49,7 +46,6 @@ def test_loop_calls_depth_then_revert2(
         gas_limit=9223372036854775807,
     )
 
-    pre[sender] = Account(balance=0x13426172C74D822B878FE800000000)
     # Source: raw
     # 0x6103ff60005414603f576001600054016000556000600060006000600073a0000000000000000000000000000000000000005af15061041a600054106053575b66600060006002f0600052600760196003f0505b  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841

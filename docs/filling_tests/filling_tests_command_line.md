@@ -107,14 +107,6 @@ This flag automatically performs a two-phase execution:
     uv run fill --generate-all-formats --output=fixtures.tar.gz tests/shanghai/
     ```
 
-!!! note "Alternative approach"
-    You can still use the legacy approach, but this will only generate the `BlockchainEngineXFixture` format:
-    ```console
-    # Single command that automatically does 2-phase execution
-    # but only generates BlockchainEngineXFixture
-    uv run fill --generate-pre-alloc-groups tests/shanghai/
-    ```
-
 ## Debugging the `t8n` Command
 
 The `--evm-dump-dir` flag can be used to dump the inputs and outputs of every call made to the `t8n` command for debugging purposes, see [Debugging Transition Tools](./debugging_t8n_tools.md).

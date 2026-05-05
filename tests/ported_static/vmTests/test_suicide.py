@@ -82,6 +82,7 @@ def test_suicide(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0x5AF3107A4000)
     # Source: lll
     # {
     #    (selfdestruct (caller))
@@ -131,7 +132,6 @@ def test_suicide(
         nonce=0,
         address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x5AF3107A4000)
 
     expect_entries_: list[dict] = [
         {

@@ -47,6 +47,7 @@ def test_static_call_identity_4(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { (MSTORE 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) [[ 2 ]] (STATICCALL 100 4 0 32 0 32) [[ 0 ]] (MLOAD 0)}  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -71,7 +72,6 @@ def test_static_call_identity_4(
         nonce=0,
         address=Address(0x1E23B8487DE5C16B372F0ABE69D7C9D57118DEFD),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

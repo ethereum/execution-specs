@@ -7,7 +7,6 @@ state_tests/stSolidityTest/TestStoreGasPricesFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -34,9 +33,7 @@ def test_test_store_gas_prices(
 ) -> None:
     """Test_test_store_gas_prices."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x185FBEA9F643C40E33475353B07FA51D0695CA94789492166B67D60FDB6EF7FB
-    )
+    sender = pre.fund_eoa(amount=0x746A528800)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -102,9 +99,7 @@ def test_test_store_gas_prices(
         + Op.JUMP,
         balance=0x186A0,
         nonce=0,
-        address=Address(0xFE58F48415DCF9D527F770E3148B769A76EF83F1),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x746A528800)
 
     tx = Transaction(
         sender=sender,

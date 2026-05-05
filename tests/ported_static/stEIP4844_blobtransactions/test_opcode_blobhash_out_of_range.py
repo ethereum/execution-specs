@@ -51,6 +51,7 @@ def test_opcode_blobhash_out_of_range(
         gas_limit=68719476736,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {
     #    ; Can also add lll style comments here
@@ -66,7 +67,6 @@ def test_opcode_blobhash_out_of_range(
         nonce=0,
         address=Address(0x0C4D6F62D3C85069CEA2411284BD520AC87FB7EB),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
@@ -87,7 +87,7 @@ def test_opcode_blobhash_out_of_range(
         ],
         access_list=[
             AccessList(
-                address=Address(0x0C4D6F62D3C85069CEA2411284BD520AC87FB7EB),
+                address=target,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501

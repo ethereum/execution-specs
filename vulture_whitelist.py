@@ -28,6 +28,7 @@ from ethereum_spec_tools.lint.lints.glacier_forks_hygiene import (
     GlacierForksHygiene,
 )
 from ethereum_spec_tools.lint.lints.import_hygiene import ImportHygiene
+from ethereum_spec_tools.lint.lints.uint_len import UintLenHygiene
 from ethereum_spec_tools.new_fork.codemod.comment import CommentReplaceCommand
 from ethereum_spec_tools.new_fork.codemod.constant import SetConstantCommand
 from ethereum_spec_tools.new_fork.codemod.string_replace import (
@@ -55,6 +56,7 @@ State.rollback_db_transaction
 # src/ethereum_spec_tools/docc.py
 docc.EthereumDiscover
 docc.EthereumBuilder
+docc.EthereumListingDiscover
 docc.DiffSource.show_in_listing
 docc.FixIndexTransform
 docc.FixIndexTransform.transform
@@ -70,6 +72,7 @@ docc._HardenVisitor.enter
 docc._MinimizeDiffsVisitor.enter
 docc.render_diff
 docc.render_before_after
+docc._EthereumListingSource.listing_order_key
 
 # src/ethereum_spec_tools/evm_tools/daemon.py
 _EvmToolHandler.do_POST
@@ -113,6 +116,9 @@ Trace.opName
 Trace.stateGas
 Trace.stateGasCost
 FinalTrace.gasUsed
+
+# src/ethereum_spec_tools/lint/lints/uint_len.py
+UintLenHygiene
 
 # src/ethereum_spec_tools/lint/lints/glacier_forks_hygiene.py
 GlacierForksHygiene

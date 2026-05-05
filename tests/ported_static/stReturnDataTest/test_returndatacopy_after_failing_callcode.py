@@ -50,13 +50,22 @@ def test_returndatacopy_after_failing_callcode(
     )
 
     pre[addr] = Account(balance=0x10000000)
+    pre[sender] = Account(balance=0x6400000000)
+    # Source: raw
+    # 0xfd
+    addr_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.REVERT,
+        balance=0x6400000000,
+        nonce=0,
+        address=Address(0x665521FD750490FD880EE369C267FCA44ED8A078),  # noqa: E501
+    )
     # Source: lll
     # {  (CALLCODE 0 <contract:0x1000000000000000000000000000000000000002> 0 0 0 0 0) (RETURNDATACOPY 0x0 0x0 32) (SSTORE 0 (MLOAD 0))}  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
             Op.CALLCODE(
                 gas=0x0,
-                address=0x665521FD750490FD880EE369C267FCA44ED8A078,
+                address=addr_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -71,15 +80,6 @@ def test_returndatacopy_after_failing_callcode(
         nonce=0,
         address=Address(0x24878B81DD27C2D76258B421ACDDF26835BC1484),  # noqa: E501
     )
-    # Source: raw
-    # 0xfd
-    addr_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.REVERT,
-        balance=0x6400000000,
-        nonce=0,
-        address=Address(0x665521FD750490FD880EE369C267FCA44ED8A078),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0x6400000000)
 
     tx = Transaction(
         sender=sender,

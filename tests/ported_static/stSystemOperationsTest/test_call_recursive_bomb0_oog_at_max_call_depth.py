@@ -7,7 +7,6 @@ state_tests/stSystemOperationsTest/CallRecursiveBomb0_OOG_atMaxCallDepthFiller.j
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -36,9 +35,7 @@ def test_call_recursive_bomb0_oog_at_max_call_depth(
 ) -> None:
     """Test_call_recursive_bomb0_oog_at_max_call_depth."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -76,9 +73,7 @@ def test_call_recursive_bomb0_oog_at_max_call_depth(
         + Op.STOP,
         balance=0x1312D00,
         nonce=0,
-        address=Address(0x44872316EF00E0CD82E980900E6B85077B65E32F),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

@@ -14,6 +14,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.vm import Op
 
@@ -155,7 +156,7 @@ def test_vitalik_transaction_test_paris(
     post = {
         coinbase: Account(storage={}, code=b"", nonce=1),
         sender: Account(storage={}, code=b"", nonce=336),
-        Address(0x1BC78AE0E5EC5CB439F1D5355D6F90D38343E109): Account(
+        compute_create_address(address=sender, nonce=335): Account(
             storage={}, code=b"", nonce=3
         ),
         Address(0x51F9D7F98E997BDD6BEBDE4C2DD27BE8C99303AA): Account(

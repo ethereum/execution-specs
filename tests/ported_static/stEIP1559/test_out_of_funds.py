@@ -7,8 +7,6 @@ state_tests/stEIP1559/outOfFundsFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
-    Account,
     Address,
     Alloc,
     Bytes,
@@ -74,9 +72,7 @@ def test_out_of_funds(
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xDE0C95357363DA5C1C5A73BD7C2781CA5C9FECC1014103B5E1D1E990AE8208EC
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000, nonce=1)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -95,9 +91,7 @@ def test_out_of_funds(
         code=Op.SSTORE(key=0x0, value=0x2) + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0xD71B14C239FC39327F25764DD784C85EF0285FDA),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
 
     expect_entries_: list[dict] = [
         {

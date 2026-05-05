@@ -52,6 +52,13 @@ def test_contract_creation_oo_gdont_leave_empty_contract_via_transaction(
 
     pre[sender] = Account(balance=0x10C8E0)
     # Source: lll
+    # {(SSTORE 1 1)}
+    contract_1 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x1, value=0x1) + Op.STOP,
+        nonce=0,
+        address=Address(0x1000000000000000000000000000000000000001),  # noqa: E501
+    )
+    # Source: lll
     # {(CALL 50000 0x1000000000000000000000000000000000000001 0 0 64 0 64)}
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.CALL(
@@ -67,13 +74,6 @@ def test_contract_creation_oo_gdont_leave_empty_contract_via_transaction(
         balance=0x186A0,
         nonce=0,
         address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
-    )
-    # Source: lll
-    # {(SSTORE 1 1)}
-    contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x1, value=0x1) + Op.STOP,
-        nonce=0,
-        address=Address(0x1000000000000000000000000000000000000001),  # noqa: E501
     )
 
     tx = Transaction(

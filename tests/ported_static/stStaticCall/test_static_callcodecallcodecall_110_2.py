@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_callcodecallcodecall_110_2Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -62,9 +61,7 @@ def test_static_callcodecallcodecall_110_2(
 ) -> None:
     """Test_static_callcodecallcodecall_110_2."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -76,25 +73,29 @@ def test_static_callcodecallcodecall_110_2(
     )
 
     # Source: lll
-    # {  [[ 0 ]] (CALLCODE 350000 <contract:0x1000000000000000000000000000000000000001> (CALLVALUE) 0 64 0 64 ) [[ 1 ]] 1 }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0x0,
-            value=Op.CALLCODE(
-                gas=0x55730,
-                address=0x611CB29449C75E44440DB4985DBB84732BC18342,
-                value=Op.CALLVALUE,
+    # {  (MSTORE 1 1) }
+    addr_3 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x1, value=0x1) + Op.STOP,
+        nonce=0,
+    )
+    # Source: lll
+    # {  (MSTORE 1 1) (STATICCALL 250000 <contract:0x1000000000000000000000000000000000000003> 0 64 0 64 ) (MSTORE 31 1) }  # noqa: E501
+    addr_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x1, value=0x1)
+        + Op.POP(
+            Op.STATICCALL(
+                gas=0x3D090,
+                address=addr_3,
                 args_offset=0x0,
                 args_size=0x40,
                 ret_offset=0x0,
                 ret_size=0x40,
-            ),
+            )
         )
-        + Op.SSTORE(key=0x1, value=0x1)
+        + Op.MSTORE(offset=0x1F, value=0x1)
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x4BE1B24080B17ED1F5F4C0FF9CD820D764A32620),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 1 1) (CALLCODE 300000 <contract:0x1000000000000000000000000000000000000002> ( - (CALLVALUE) 1) 0 64 0 64 ) (MSTORE 31 1) }  # noqa: E501
@@ -103,7 +104,7 @@ def test_static_callcodecallcodecall_110_2(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x493E0,
-                address=0xB1927ADAFCD3B2ECEF7B7508CB3A8D7B41FCAE73,
+                address=addr_2,
                 value=Op.SUB(Op.CALLVALUE, 0x1),
                 args_offset=0x0,
                 args_size=0x40,
@@ -115,36 +116,27 @@ def test_static_callcodecallcodecall_110_2(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x611CB29449C75E44440DB4985DBB84732BC18342),  # noqa: E501
     )
     # Source: lll
-    # {  (MSTORE 1 1) (STATICCALL 250000 <contract:0x1000000000000000000000000000000000000003> 0 64 0 64 ) (MSTORE 31 1) }  # noqa: E501
-    addr_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x1, value=0x1)
-        + Op.POP(
-            Op.STATICCALL(
-                gas=0x3D090,
-                address=0x2A142C79A9B097C111CE945214226126B75E332C,
+    # {  [[ 0 ]] (CALLCODE 350000 <contract:0x1000000000000000000000000000000000000001> (CALLVALUE) 0 64 0 64 ) [[ 1 ]] 1 }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.CALLCODE(
+                gas=0x55730,
+                address=addr,
+                value=Op.CALLVALUE,
                 args_offset=0x0,
                 args_size=0x40,
                 ret_offset=0x0,
                 ret_size=0x40,
-            )
+            ),
         )
-        + Op.MSTORE(offset=0x1F, value=0x1)
+        + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0xB1927ADAFCD3B2ECEF7B7508CB3A8D7B41FCAE73),  # noqa: E501
     )
-    # Source: lll
-    # {  (MSTORE 1 1) }
-    addr_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x1, value=0x1) + Op.STOP,
-        nonce=0,
-        address=Address(0x2A142C79A9B097C111CE945214226126B75E332C),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx_data = [
         Bytes(""),

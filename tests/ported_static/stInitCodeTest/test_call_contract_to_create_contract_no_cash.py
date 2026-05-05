@@ -7,7 +7,6 @@ state_tests/stInitCodeTest/CallContractToCreateContractNoCashFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_call_contract_to_create_contract_no_cash(
 ) -> None:
     """Test_call_contract_to_create_contract_no_cash."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xF79127A3004ABDE26A4CBD80C428CB10F829FA11B54D36E7B326F4F4A5927ACF
-    )
+    sender = pre.fund_eoa(amount=0x3B9ACA00)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -60,9 +57,7 @@ def test_call_contract_to_create_contract_no_cash(
         + Op.STOP,
         balance=10000,
         nonce=0,
-        address=Address(0x985ACA92559C5B1B9CD7897FEC0F7C7993AD0D60),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x3B9ACA00)
 
     tx = Transaction(
         sender=sender,

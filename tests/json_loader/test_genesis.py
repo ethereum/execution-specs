@@ -67,22 +67,50 @@ def fork_name(fork: Hardfork) -> str:
 @pytest.mark.parametrize("fork", Hardfork.discover(), ids=fork_name)
 def test_genesis(fork: Hardfork) -> None:
     """Tests genesis block creation for all hardforks."""
+    # TODO: remove once the changes have been back-ported
+    from ethereum.merkle_patricia_trie import Trie
+    from ethereum.state import (
+        Address,
+        State,
+        root,
+        set_account,
+        set_storage,
+        state_root,
+        store_code,
+    )
+
+    try:
+        _trie = fork.module("trie").Trie
+        _set_account = fork.module("state").set_account
+        _set_storage = fork.module("state").set_storage
+        _state_root = fork.module("state").state_root
+        _root = fork.module("trie").root
+        _store_code = fork.module("state").store_code
+        state = fork.module("state").State()
+    except ModuleNotFoundError:
+        _trie = Trie
+        _set_account = set_account
+        _set_storage = set_storage
+        _state_root = state_root
+        _root = root
+        _store_code = store_code
+        state = State()
+
     description: GenesisFork = GenesisFork(
         Address=Address,
         Account=fork.module("fork_types").Account,
-        Trie=fork.module("trie").Trie,
+        Trie=_trie,
         Bloom=fork.module("fork_types").Bloom,
         Header=fork.module("blocks").Header,
         Block=fork.module("blocks").Block,
-        set_account=fork.module("state").set_account,
-        set_storage=fork.module("state").set_storage,
-        state_root=fork.module("state").state_root,
-        root=fork.module("trie").root,
+        set_account=_set_account,
+        set_storage=_set_storage,
+        state_root=_state_root,
+        root=_root,
         hex_to_address=fork.module("utils.hexadecimal").hex_to_address,
-        store_code=fork.module("state").store_code,
+        store_code=_store_code,
     )
 
-    state = fork.module("state").State()
     chain = fork.module("fork").BlockChain([], state, U64(1))
     add_genesis_block(description, chain, MAINNET_GENESIS_CONFIGURATION)
 

@@ -9,7 +9,6 @@ state_tests/stCreateTest/CreateTransactionCallDataFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Alloc,
     Environment,
@@ -64,9 +63,7 @@ def test_create_transaction_call_data(
     v: int,
 ) -> None:
     """Tests if CALLDATALOAD, CALLDATACOPY, CODECOPY and CODESIZE work..."""
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0x5AF3107A4000)
 
     env = Environment(
         fee_recipient=sender,
@@ -76,8 +73,6 @@ def test_create_transaction_call_data(
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
-
-    pre[sender] = Account(balance=0x5AF3107A4000)
 
     expect_entries_: list[dict] = [
         {

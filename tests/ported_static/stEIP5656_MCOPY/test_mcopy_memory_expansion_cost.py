@@ -7,7 +7,6 @@ state_tests/Cancun/stEIP5656_MCOPY/MCOPY_memory_expansion_costFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -169,7 +168,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_mcopy_memory_expansion_cost(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -180,9 +178,7 @@ def test_mcopy_memory_expansion_cost(
 ) -> None:
     """Test cases for the memory expansion cost in the MCOPY instruction."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xF79127A3004ABDE26A4CBD80C428CB10F829FA11B54D36E7B326F4F4A5927ACF
-    )
+    sender = pre.fund_eoa(amount=0x3B9ACA00)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -215,9 +211,7 @@ def test_mcopy_memory_expansion_cost(
         + Op.STOP,
         storage={0: 0xFA11ED},
         nonce=1,
-        address=Address(0x147DAECF943FA4FB48D1B7287571525B0BAEFEB9),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x3B9ACA00)
 
     expect_entries_: list[dict] = [
         {

@@ -146,8 +146,12 @@ class WithdrawalRequestTransaction(WithdrawalRequestInteractionBase):
 class WithdrawalRequestContract(WithdrawalRequestInteractionBase):
     """Class used to describe a withdrawal originated from a contract."""
 
-    tx_gas_limit: int = 1_000_000
-    """Gas limit for the transaction."""
+    tx_gas_limit: int = 3_000_000
+    """
+    Gas limit for the transaction. Sized to comfortably cover
+    `MAX_WITHDRAWAL_REQUESTS_PER_BLOCK` zero-to-nonzero state-set
+    charges per tx under EIP-8037 plus regular dispatch overhead.
+    """
 
     contract_balance: int = 1_000_000_000_000_000_000
     """
@@ -166,6 +170,13 @@ class WithdrawalRequestContract(WithdrawalRequestInteractionBase):
     """Frame depth of the pre-deploy contract when it executes the call."""
     extra_code: Bytecode = field(default_factory=Bytecode)
     """Extra code to be added to the contract code."""
+    fund_state_reservoir: bool = False
+    """
+    When True (and EIP-8037 is active), pad `tx_gas_limit` by exactly the
+    per-request state-set work so the excess funds the EIP-8037 reservoir.
+    Use only when `tx_gas_limit` is held at the cap (reservoir would
+    otherwise be empty) and state work must not drain the regular pool.
+    """
 
     @property
     def contract_code(self) -> Bytecode:
@@ -196,11 +207,14 @@ class WithdrawalRequestContract(WithdrawalRequestInteractionBase):
         """Return a transaction for the withdrawal request."""
         assert self.entry_address is not None, "Entry address not initialized"
         gas_limit = self.tx_gas_limit
-        if fork is not None and fork.is_eip_enabled(8037):
+        if (
+            self.fund_state_reservoir
+            and fork is not None
+            and fork.is_eip_enabled(8037)
+        ):
             # Each withdrawal request writes 3 new storage slots
             # in the system contract queue (source, pubkey, amount).
-            gas_costs = fork.gas_costs()
-            gas_limit += len(self.requests) * 3 * gas_costs.STORAGE_SET
+            gas_limit += len(self.requests) * 3 * fork.sstore_state_gas()
         return [
             Transaction(
                 gas_limit=gas_limit,

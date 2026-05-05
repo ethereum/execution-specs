@@ -7,7 +7,6 @@ state_tests/stTransactionTest/ContractStoreClearsOOGFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_contract_store_clears_oog(
 ) -> None:
     """Test_contract_store_clears_oog."""
     coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x2B75D0C814EB07C075FCCBDD9A036FAF651D9C46D7477D6C4F30772CFCA90D38
-    )
+    sender = pre.fund_eoa(amount=0x1C9C380)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -46,7 +43,6 @@ def test_contract_store_clears_oog(
         gas_limit=100000,
     )
 
-    pre[sender] = Account(balance=0x1C9C380)
     # Source: lll
     # {(SSTORE 0 0)(SSTORE 1 0)(SSTORE 2 0)(SSTORE 3 0)(SSTORE 4 0)(SSTORE 5 0)(SSTORE 6 0)(SSTORE 7 0)(SSTORE 8 0)(SSTORE 9 12)}  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -74,7 +70,6 @@ def test_contract_store_clears_oog(
             9: 12,
         },
         nonce=0,
-        address=Address(0xC9C8CE4628BDA9F8BC4A2CAAEBB3616F83C4305D),  # noqa: E501
     )
 
     tx = Transaction(

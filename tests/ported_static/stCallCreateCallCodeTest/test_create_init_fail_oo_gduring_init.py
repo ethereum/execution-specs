@@ -49,6 +49,7 @@ def test_create_init_fail_oo_gduring_init(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {(MSTORE8 0 0x5a ) (SELFDESTRUCT (CREATE 1 0 1)) }
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -59,7 +60,6 @@ def test_create_init_fail_oo_gduring_init(
         nonce=0,
         address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

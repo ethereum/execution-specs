@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_refund_CallToSuicideNoStorageFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -58,9 +57,7 @@ def test_static_refund_call_to_suicide_no_storage(
 ) -> None:
     """Test_static_refund_call_to_suicide_no_storage."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x6F0117D3E9C684C7D6E1E6B79DC3880DA2BEBE77C765B171C062FDFFD38A673F
-    )
+    sender = pre.fund_eoa(amount=0x2540BE400)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -92,7 +89,6 @@ def test_static_refund_call_to_suicide_no_storage(
         nonce=0,
         address=Address(0xA2A10D67C0F0864B703D90D9C36296AD8A547AE6),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x2540BE400)
     # Source: lll
     # { (SELFDESTRUCT <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>) }  # noqa: E501
     addr = pre.deploy_contract(  # noqa: F841

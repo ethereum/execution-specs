@@ -7,7 +7,6 @@ state_tests/stMemoryStressTest/MLOAD_BoundsFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -55,9 +54,7 @@ def test_mload_bounds(
 ) -> None:
     """Test_mload_bounds."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xFE5BE118AD5955E30E0FFC4E1F1BBDCAA7F5A67CB1426C4AC19E32C80ECCDC06
-    )
+    sender = pre.fund_eoa(amount=0x7FFFFFFFFFFFFFFFFFF)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -75,9 +72,7 @@ def test_mload_bounds(
         + Op.MLOAD(offset=0xFFFFFFFF)
         + Op.STOP,
         nonce=0,
-        address=Address(0x8B0647E983082E6923F7B20E38972690FCE91E9B),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x7FFFFFFFFFFFFFFFFFF)
 
     tx_data = [
         Bytes(""),

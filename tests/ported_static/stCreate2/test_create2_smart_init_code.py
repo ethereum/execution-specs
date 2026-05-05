@@ -74,6 +74,7 @@ def test_create2_smart_init_code(
         gas_limit=47244640256,
     )
 
+    pre[sender] = Account(balance=0x6400000000)
     # Source: lll
     # { (MSTORE 0 0x600060015414601157600a6000f3601a565b60016001556001ff5b) [[1]](CREATE2 1 5 27 0) [[2]](CREATE2 1 5 27 0) }  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -114,7 +115,6 @@ def test_create2_smart_init_code(
         nonce=0,
         address=Address(0x1F572E5295C57F15886F9B263E2F6D2D6C7B5EC6),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x6400000000)
     # Source: lll
     # { (CALL (GAS) (CALLDATALOAD 0) 0 0 0 0 0) }
     contract_2 = pre.deploy_contract(  # noqa: F841
