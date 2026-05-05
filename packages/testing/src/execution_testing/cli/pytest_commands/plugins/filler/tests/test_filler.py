@@ -841,6 +841,40 @@ test_module_execution_witness = textwrap.dedent(
     """
 )
 
+test_module_execution_witness_skip_stateless = textwrap.dedent(
+    """\
+    import pytest
+
+    from execution_testing import (
+        Account,
+        Alloc,
+        Block,
+        BlockchainTestFiller,
+        Op,
+        Transaction,
+    )
+
+    @pytest.mark.valid_at("Amsterdam")
+    @pytest.mark.skip_stateless_validation
+    def test_skip_stateless_validation(
+        pre: Alloc,
+        blockchain_test: BlockchainTestFiller,
+    ) -> None:
+        contract = pre.deploy_contract(code=Op.SSTORE(0, 1) + Op.STOP)
+        sender = pre.fund_eoa()
+        tx = Transaction(to=contract, gas_limit=100_000, sender=sender)
+
+        blockchain_test(
+            pre=pre,
+            post={
+                contract: Account(storage={0: 1}),
+                sender: Account(nonce=1),
+            },
+            blocks=[Block(txs=[tx])],
+        )
+    """
+)
+
 test_module_execution_witness_soundness = textwrap.dedent(
     """\
     import pytest
@@ -1082,6 +1116,55 @@ def test_execution_witness_in_blockchain_fixture(
         "engine executionWitness.headers is empty"
     )
     assert engine_witness == witness
+
+
+def test_execution_witness_skip_stateless_validation(
+    testdir: pytest.Testdir,
+) -> None:
+    """The skip marker omits stateless witness and byte outputs."""
+    tests_dir = testdir.mkdir("tests")
+    amsterdam_tests_dir = tests_dir.mkdir("amsterdam")
+    test_module = amsterdam_tests_dir.join(
+        "test_module_skip_stateless_validation.py"
+    )
+    test_module.write(test_module_execution_witness_skip_stateless)
+
+    testdir.copy_example(
+        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
+    args = [
+        "-c",
+        "pytest-fill.ini",
+        "-v",
+        "--until=Amsterdam",
+        "-m",
+        "blockchain_test",
+        "--no-html",
+    ]
+    result = testdir.runpytest(*args)
+    result.assert_outcomes(
+        passed=1,
+        failed=0,
+        skipped=0,
+        errors=0,
+    )
+
+    fixture_path = Path(
+        "fixtures/blockchain_tests/for_amsterdam/amsterdam/"
+        "module_skip_stateless_validation/skip_stateless_validation.json"
+    )
+    assert fixture_path.exists(), f"{fixture_path} does not exist"
+
+    with open(fixture_path, "r") as f:
+        fixture_data = json.load(f)
+
+    assert len(fixture_data) == 1, "Expected exactly one fixture"
+    fixture = next(iter(fixture_data.values()))
+    block = fixture["blocks"][0]
+
+    assert "executionWitness" not in block
+    assert "statelessInputBytes" not in block
+    assert "statelessOutputBytes" not in block
 
 
 def test_execution_witness_expected_true_reuses_canonical_stateless_result(

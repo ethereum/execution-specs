@@ -95,6 +95,15 @@ def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
     t8n_parser.add_argument("--opcode.count", dest="opcode_count", type=str)
 
     t8n_parser.add_argument("--state-test", action="store_true")
+    t8n_parser.add_argument(
+        "--no-stateless",
+        dest="no_stateless",
+        action="store_true",
+        help=(
+            "Skip stateless witness generation, input serialization, "
+            "and guest validation."
+        ),
+    )
 
 
 class ForkCache(AbstractContextManager):
