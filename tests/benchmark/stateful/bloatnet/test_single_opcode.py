@@ -622,18 +622,18 @@ def test_sstore_bloated(
     # False          | True            | 0        | 0       | 1
     # False          | False           | 0        | 0       | 0
 
+    initial_value = int(existing_slots)
+
     # When existing_slots is False, the initial value is always 0
     # Otherwise, the initial value starts at 1 instead.
-    sstore_metadata["original_value"] = existing_slots
-    sstore_metadata["current_value"] = existing_slots
+    sstore_metadata["original_value"] = initial_value
+    sstore_metadata["current_value"] = initial_value
 
     # If not writing a new value, the new value is the same as the current one
     # If writing a new value, the new value is current value + 1
     sstore_metadata["new_value"] = (
-        existing_slots if not write_new_value else existing_slots + 1
+        initial_value if not write_new_value else initial_value + 1
     )
-
-    sstore_metadata["key_warm"] = cache_strategy == CacheStrategy.CACHE_TX
 
     setup = (
         Op.CALLDATALOAD(32)  # [end_slot]
@@ -642,7 +642,8 @@ def test_sstore_bloated(
 
     # stack element: [counter, end_slot]
 
-    loop = Op.JUMPDEST  # jump target
+    loop = Bytecode()
+    loop += Op.JUMPDEST  # jump target
 
     # If CACHE_TX, warm the slot with a cold SLOAD before the SSTORE loop
     if cache_strategy == CacheStrategy.CACHE_TX:
