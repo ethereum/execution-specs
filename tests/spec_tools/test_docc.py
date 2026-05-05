@@ -1,3 +1,5 @@
+"""Regression tests for diff listing labels in docc-generated pages."""
+
 from pathlib import PurePath
 
 from docc.context import Context
@@ -9,6 +11,7 @@ from ethereum_spec_tools.docc import DiffSource, _diff_source_paths
 
 
 def _render_listing_label(source: DiffSource[Source]) -> str:
+    """Render a leaf listing for a single source and return its label text."""
     listing = Listing()
     listing.add_source(source)
 
@@ -24,12 +27,13 @@ def _render_listing_label(source: DiffSource[Source]) -> str:
 
 
 def test_diff_source_renders_init_label_but_writes_to_index() -> None:
+    """Render `__init__.py` in Browse while preserving the `index` output."""
     relative_path, output_path = _diff_source_paths(
         PurePath("diffs/frontier/homestead"),
         PurePath("vm/__init__.py"),
     )
 
-    old_shape_source = DiffSource(
+    old_shape_source: DiffSource[Source] = DiffSource(
         "frontier",
         None,
         "homestead",
@@ -37,7 +41,7 @@ def test_diff_source_renders_init_label_but_writes_to_index() -> None:
         PurePath("diffs/frontier/homestead/vm/index"),
         PurePath("diffs/frontier/homestead/vm/index"),
     )
-    diff_source = DiffSource(
+    diff_source: DiffSource[Source] = DiffSource(
         "frontier",
         None,
         "homestead",
@@ -55,12 +59,13 @@ def test_diff_source_renders_init_label_but_writes_to_index() -> None:
 
 
 def test_diff_source_renders_normal_module_label() -> None:
+    """Render normal modules with their filename unchanged."""
     relative_path, output_path = _diff_source_paths(
         PurePath("diffs/frontier/homestead"),
         PurePath("vm/gas.py"),
     )
 
-    diff_source = DiffSource(
+    diff_source: DiffSource[Source] = DiffSource(
         "frontier",
         None,
         "homestead",

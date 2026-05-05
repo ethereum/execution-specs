@@ -58,6 +58,7 @@ args = [
     "--checklist-doc-gen",
     "--skip-index",
     "--ignore=tests/ported_static",
+    "--ignore=tests/spec_tools",
     "-m",
     "not blockchain_test_engine",
     "-s",
