@@ -5,7 +5,7 @@ mainnet:
 
 benchmark:
   evm-type: benchmark
-  fill-params: --fork=Osaka --generate-all-formats --gas-benchmark-values 1,5,10,30,60,100,150 ./tests/benchmark/compute --maxprocesses=30 --dist=worksteal
+  fill-params: --fork=Osaka --generate-all-formats --gas-benchmark-values 1,5,10,30,60,100,150 ./tests/benchmark/compute --maxprocesses=30 --dist=worksteal -m test_blockhash
   feature_only: true
 
 benchmark_fast:
