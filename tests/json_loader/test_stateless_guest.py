@@ -3,6 +3,7 @@
 import random
 from typing import Tuple
 
+import pytest
 from ethereum_types.bytes import Bytes, Bytes8, Bytes32, Bytes48, Bytes96
 from ethereum_types.numeric import U64, U256, Uint
 
@@ -21,6 +22,7 @@ from ethereum.forks.amsterdam.fork_types import Bloom
 from ethereum.forks.amsterdam.stateless import (
     BlobSchedule,
     ChainConfig,
+    ChainConfigValidationError,
     ExecutionWitness,
     ForkActivation,
     ForkConfig,
@@ -28,6 +30,7 @@ from ethereum.forks.amsterdam.stateless import (
     StatelessInput,
     StatelessValidationResult,
     compute_new_payload_request_root,
+    validate_chain_config,
 )
 from ethereum.forks.amsterdam.stateless_guest import (
     deserialize_stateless_input,
@@ -116,20 +119,16 @@ def _make_block() -> Block:
 def _expected_amsterdam_chain_config(chain_id: U64) -> ChainConfig:
     return ChainConfig(
         chain_id=chain_id,
-        forks=(
-            ForkConfig(
-                fork=ProtocolFork.Amsterdam,
-                activation=ForkActivation(
-                    block_number=None,
-                    timestamp=U64(0),
-                ),
-                blob_schedule=BlobSchedule(
-                    target=BLOB_SCHEDULE_TARGET,
-                    max=BLOB_SCHEDULE_MAX,
-                    base_fee_update_fraction=U64(
-                        BLOB_BASE_FEE_UPDATE_FRACTION
-                    ),
-                ),
+        active_fork=ForkConfig(
+            fork=ProtocolFork.Amsterdam,
+            activation=ForkActivation(
+                block_number=None,
+                timestamp=U64(0),
+            ),
+            blob_schedule=BlobSchedule(
+                target=BLOB_SCHEDULE_TARGET,
+                max=BLOB_SCHEDULE_MAX,
+                base_fee_update_fraction=U64(BLOB_BASE_FEE_UPDATE_FRACTION),
             ),
         ),
     )
@@ -237,7 +236,7 @@ class TestSerializeStatelessInput:
                 ),
             ),
             witness=ExecutionWitness(state=(), codes=(), headers=()),
-            chain_config=ChainConfig(chain_id=U64(1), forks=()),
+            chain_config=build_chain_config(U64(1)),
             public_keys=(),
         )
         encoded = serialize_stateless_input(original)
@@ -269,7 +268,7 @@ class TestDeserializeStatelessInput:
                 ),
             ),
             witness=ExecutionWitness(state=(), codes=(), headers=()),
-            chain_config=ChainConfig(chain_id=U64(1), forks=()),
+            chain_config=build_chain_config(U64(1)),
             public_keys=(),
         )
         encoded = serialize_stateless_input(original)
@@ -292,7 +291,7 @@ class TestSerializeStatelessOutput:
         original = StatelessValidationResult(
             new_payload_request_root=Hash32(_rb(32)),
             successful_validation=False,
-            chain_config=ChainConfig(chain_id=U64(1), forks=()),
+            chain_config=build_chain_config(U64(1)),
         )
         encoded = serialize_stateless_output(original)
         recovered = deserialize_stateless_output(encoded)

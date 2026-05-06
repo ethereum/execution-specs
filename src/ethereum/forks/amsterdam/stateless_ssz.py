@@ -58,7 +58,6 @@ MAX_WITNESS_HEADERS = 256
 MAX_BYTES_PER_WITNESS_NODE = 2**20
 MAX_BYTES_PER_CODE = 2**24
 MAX_BYTES_PER_HEADER = 2**10
-MAX_FORK_CONFIGS = 64
 MAX_OPTIONAL_FORK_ACTIVATION_VALUES = 1
 MAX_BLOB_SCHEDULES_PER_FORK = 1
 MAX_PUBLIC_KEYS = 2**20
@@ -190,14 +189,11 @@ class SszForkConfig(Container):
     blob_schedule: SszOptionalBlobSchedule
 
 
-SszForkConfigList: TypeAlias = SszList[SszForkConfig, MAX_FORK_CONFIGS]
-
-
 class SszChainConfig(Container):
     """SSZ container mirroring ``ChainConfig``."""
 
     chain_id: uint64
-    forks: SszForkConfigList
+    active_fork: SszForkConfig
 
 
 class SszStatelessInput(Container):
@@ -587,9 +583,7 @@ def _chain_config_to_ssz(
     """Convert a ChainConfig to its SSZ form."""
     return SszChainConfig(
         chain_id=uint64(int(cc.chain_id)),
-        forks=SszForkConfigList(
-            _fork_config_to_ssz(fork_config) for fork_config in cc.forks
-        ),
+        active_fork=_fork_config_to_ssz(cc.active_fork),
     )
 
 
@@ -599,10 +593,7 @@ def _ssz_to_chain_config(
     """Convert an SSZ chain config back."""
     return ChainConfig(
         chain_id=U64(scc.chain_id),
-        forks=tuple(
-            _ssz_to_fork_config(ssz_fork_config)
-            for ssz_fork_config in scc.forks
-        ),
+        active_fork=_ssz_to_fork_config(scc.active_fork),
     )
 
 

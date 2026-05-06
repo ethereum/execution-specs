@@ -64,20 +64,16 @@ def build_chain_config(chain_id: U64) -> ChainConfig:
     """
     return ChainConfig(
         chain_id=chain_id,
-        forks=(
-            ForkConfig(
-                fork=ProtocolFork.Amsterdam,
-                activation=ForkActivation(
-                    block_number=None,
-                    timestamp=U64(0),
-                ),
-                blob_schedule=BlobSchedule(
-                    target=BLOB_SCHEDULE_TARGET,
-                    max=BLOB_SCHEDULE_MAX,
-                    base_fee_update_fraction=U64(
-                        BLOB_BASE_FEE_UPDATE_FRACTION
-                    ),
-                ),
+        active_fork=ForkConfig(
+            fork=ProtocolFork.Amsterdam,
+            activation=ForkActivation(
+                block_number=None,
+                timestamp=U64(0),
+            ),
+            blob_schedule=BlobSchedule(
+                target=BLOB_SCHEDULE_TARGET,
+                max=BLOB_SCHEDULE_MAX,
+                base_fee_update_fraction=U64(BLOB_BASE_FEE_UPDATE_FRACTION),
             ),
         ),
     )

@@ -21,6 +21,11 @@ from .execution_engine.requests import ExecutionRequests
 from .execution_engine.types import ExecutionPayload, NewPayloadRequest
 from .fork import ChainContext
 from .fork_types import VersionedHash
+from .vm.gas import (
+    BLOB_BASE_FEE_UPDATE_FRACTION,
+    BLOB_SCHEDULE_MAX,
+    BLOB_SCHEDULE_TARGET,
+)
 from .witness_state import WitnessState, build_code_db, build_node_db
 
 
@@ -113,15 +118,21 @@ class ChainConfigValidationError(Exception):
     """
 
 
-class MissingActiveForkError(ChainConfigValidationError):
+class InactiveForkConfigError(ChainConfigValidationError):
     """
-    Raised when no fork entry is active for the target payload.
+    Raised when the configured active fork is not active for the payload.
     """
 
 
 class InvalidForkActivationError(ChainConfigValidationError):
     """
     Raised when a fork entry has a malformed activation point.
+    """
+
+
+class UnsupportedForkConfigError(ChainConfigValidationError):
+    """
+    Raised when this guest cannot execute the configured active fork.
     """
 
 
@@ -168,7 +179,7 @@ class ChainConfig:
     """
 
     chain_id: U64
-    forks: Tuple[ForkConfig, ...]
+    active_fork: ForkConfig
 
 
 @slotted_freezable
@@ -300,23 +311,40 @@ def _is_activation_active(
     return True
 
 
+def _expected_amsterdam_blob_schedule() -> BlobSchedule:
+    """
+    Return the blob schedule currently compiled into the Amsterdam guest.
+    """
+    return BlobSchedule(
+        target=BLOB_SCHEDULE_TARGET,
+        max=BLOB_SCHEDULE_MAX,
+        base_fee_update_fraction=U64(BLOB_BASE_FEE_UPDATE_FRACTION),
+    )
+
+
 def validate_chain_config(
     chain_config: ChainConfig,
     new_payload_request: NewPayloadRequest,
 ) -> ForkConfig:
     """
-    Validate the chain config and return the target payload's active fork.
+    Validate and return the target payload's active fork config.
     """
-    active_fork: ForkConfig | None = None
+    active_fork = chain_config.active_fork
     execution_payload = new_payload_request.execution_payload
 
-    for fork_config in chain_config.forks:
-        if _is_activation_active(fork_config.activation, execution_payload):
-            active_fork = fork_config
+    if not _is_activation_active(active_fork.activation, execution_payload):
+        raise InactiveForkConfigError(
+            "ChainConfig active_fork is not active for the target payload"
+        )
 
-    if active_fork is None:
-        raise MissingActiveForkError(
-            "No ChainConfig fork is active for the target payload"
+    if active_fork.fork != ProtocolFork.Amsterdam:
+        raise UnsupportedForkConfigError(
+            f"Amsterdam stateless guest cannot execute {active_fork.fork}"
+        )
+
+    if active_fork.blob_schedule != _expected_amsterdam_blob_schedule():
+        raise UnsupportedForkConfigError(
+            "ChainConfig active_fork blob_schedule does not match Amsterdam"
         )
 
     return active_fork
