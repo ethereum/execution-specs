@@ -3,6 +3,7 @@
 from .account_types import EOA, Alloc
 from .blob_types import Blob
 from .block_access_list import (
+    BalAccountAbsentValues,
     BalAccountChange,
     BalAccountExpectation,
     BalBalanceChange,
@@ -54,6 +55,7 @@ __all__ = (
     "DETERMINISTIC_FACTORY_ADDRESS",
     "Alloc",
     "AuthorizationTuple",
+    "BalAccountAbsentValues",
     "BalAccountChange",
     "BalAccountExpectation",
     "BalBalanceChange",
