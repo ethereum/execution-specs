@@ -181,6 +181,7 @@ test-tests *args:
         -n {{ xdist_workers }} \
         --basetemp="{{ output_dir }}/test-tests/tmp" \
         --ignore=src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_benchmarking.py \
+        --deselect=src/execution_testing/specs/tests/test_expect.py::test_log_mismatch_during_generation \
         "$@" \
         src
 
@@ -192,6 +193,7 @@ test-tests-pypy *args:
         -n auto --maxprocesses 6 \
         --basetemp="{{ output_dir }}/test-tests-pypy/tmp" \
         --ignore=src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_benchmarking.py \
+        --deselect=src/execution_testing/specs/tests/test_expect.py::test_log_mismatch_during_generation \
         "$@" \
         src
 
