@@ -22,8 +22,9 @@ effects. Higher-level nibbles wire these cases into pytest.
     <address>__missing                            - account-level missing
 
 ``<address>`` is ``str(address)`` — the canonical 0x-prefixed lowercase
-hex form. Using the address directly makes IDs independent of dict
-iteration order. ``<change>`` is ``wrong`` (Correctness) or ``missing``
+hex form. ``<slot>`` is the slot key as 0x-prefixed lowercase hex.
+Using the address directly makes IDs independent of dict iteration
+order. ``<change>`` is ``wrong`` (Correctness) or ``missing``
 (Completeness).
 
 ## Cases
@@ -245,7 +246,7 @@ def _account_cases(
             bai = int(sc.block_access_index)
             cases.append(
                 CorruptionCase(
-                    id=f"{addr}__wrong__storage__{slot}__{bai}",
+                    id=f"{addr}__wrong__storage__{slot:#x}__{bai}",
                     modifier=modify_storage(
                         address, bai, slot, _flip(int(sc.post_value))
                     ),
@@ -254,17 +255,17 @@ def _account_cases(
             )
             cases.append(
                 CorruptionCase(
-                    id=f"{addr}__missing__storage__{slot}__{bai}",
+                    id=f"{addr}__missing__storage__{slot:#x}__{bai}",
                     modifier=_remove_slot_change_at(address, slot, bai),
                     expected_exception=_INVALID_BAL,
                 )
             )
 
     for sr in account_exp.storage_reads:
-        slot = int(sr)
+        slot = int.from_bytes(bytes(sr), "big")
         cases.append(
             CorruptionCase(
-                id=f"{addr}__wrong__storage_read__{slot}",
+                id=f"{addr}__wrong__storage_read__{slot:#x}",
                 modifier=_replace_storage_read_slot(
                     address, slot, _flip(slot)
                 ),
@@ -273,7 +274,7 @@ def _account_cases(
         )
         cases.append(
             CorruptionCase(
-                id=f"{addr}__missing__storage_read__{slot}",
+                id=f"{addr}__missing__storage_read__{slot:#x}",
                 modifier=_remove_storage_read_at(address, slot),
                 expected_exception=_INVALID_BAL,
             )
