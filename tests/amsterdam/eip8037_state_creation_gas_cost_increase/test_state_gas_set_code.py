@@ -291,25 +291,30 @@ def test_existing_account_refund_enables_sstore(
 
 @pytest.mark.valid_from("EIP8037")
 def test_auth_refund_block_gas_accounting(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
-    Verify block gas accounting with an authorization refund for an
-    existing account.
+    Verify block gas accounting deducts the existing-authority refund.
 
-    The refund for an existing authority goes to the state gas
-    reservoir and does not alter the intrinsic state gas carried into
-    block accounting. Block state gas used reflects the worst case
-    intrinsic state gas component regardless of how many authorities
-    were existing accounts.
+    For an authorization whose authority already exists in state, the
+    new-account state gas is refunded both to the in-tx state gas
+    reservoir and from the per-tx state gas accounted into the block
+    header. block.header.gas_used therefore equals
+    `max(tx_regular_gas, intrinsic_state_gas - auth_refund)`, not the
+    full intrinsic state gas.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    auth_state_gas = fork.transaction_intrinsic_state_gas(
+    intrinsic_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )
+    total_intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        authorization_list_or_count=1,
+    )
+    intrinsic_regular = total_intrinsic - intrinsic_state_gas
+    auth_refund = fork.gas_costs().REFUND_AUTH_PER_EXISTING_ACCOUNT
 
     contract = pre.deploy_contract(code=Op.STOP)
 
@@ -325,21 +330,21 @@ def test_auth_refund_block_gas_accounting(
     sender = pre.fund_eoa()
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + auth_state_gas,
+        gas_limit=gas_limit_cap + intrinsic_state_gas,
         authorization_list=authorization_list,
         sender=sender,
     )
 
-    # State gas component dominates the tx regular component, so the
-    # block header gas_used equals the worst case intrinsic state gas.
-    # A mutating refund would reduce this value; the immutable behavior
-    # keeps it at the worst case.
-    blockchain_test(
+    expected_gas_used = max(
+        intrinsic_regular,
+        intrinsic_state_gas - auth_refund,
+    )
+
+    state_test(
         pre=pre,
-        blocks=[
-            Block(txs=[tx], header_verify=Header(gas_used=auth_state_gas))
-        ],
         post={},
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )
 
 
