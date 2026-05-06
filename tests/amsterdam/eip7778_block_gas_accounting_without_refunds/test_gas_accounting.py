@@ -192,13 +192,14 @@ def build_refund_tx(
     if not exceed_block_gas_limit:
         post[refund_tx_sender] = Account(balance=expected_balance)
 
-    # block_state_gas_used reflects the full intrinsic_state: the AUTH
-    # refund adds back to the reservoir (state_gas_left) and does not
-    # subtract from state_gas_used.
+    # block_state_gas_used reflects intrinsic_state minus the
+    # existing-authority auth refund (state_refund), since
+    # `process_transaction` deducts it from `tx_state_gas` before
+    # accumulating into `block_state_gas_used`.
     return (
         receipt_gas_used,
         gas_used_pre_refund,
-        auth_state_gas,
+        remaining_state_gas,
         call_data_floor_cost,
         refund_tx,
     )
@@ -309,12 +310,16 @@ def test_multi_transaction_gas_accounting(
 
     This tests that clients correctly use pre-refund gas for block accounting.
     """
-    # Skipped on snøbal -- see test_state_gas_snobal_quirks.py.
+    # TODO[EIP-8037]: this test's exceed_block_gas_limit branch builds
+    # `environment_gas_limit = total - 1` from a single combined
+    # `total_block_gas_used`, but post-fix the auth refund splits the
+    # regular vs state dimensions further. Reworking the per-dimension
+    # budget math is out of scope for the auth-refund spec fix; until
+    # then, skip the AUTHORIZATION_EXISTING_AUTHORITY case here.
     if refund_type == RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY:
         pytest.skip(
-            "snøbal spec quirk: EIP-7702 auth refund not deducted from "
-            "block_state_gas_used; behavior pinned by "
-            "test_state_gas_snobal_quirks.py"
+            "AUTHORIZATION_EXISTING_AUTHORITY not yet adapted to the "
+            "two-dimensional block budget post EIP-8037 auth-refund fix"
         )
 
     intrinsic_cost_calc = fork.transaction_intrinsic_cost_calculator()
@@ -454,15 +459,16 @@ def test_varying_calldata_costs(
                 "since refund is zero when execution reverts"
             )
 
-    # Skipped on snøbal -- see test_state_gas_snobal_quirks.py.
     if refund_type == RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY:
         if calldata_test_type == (
             CallDataTestType.DATA_FLOOR_BETWEEN_TX_GAS_BEFORE_AND_AFTER
         ):
             pytest.skip(
-                "snøbal spec quirk: EIP-7702 auth refund routes to "
-                "state reservoir, collapsing pre/post-refund range "
-                "(see test_state_gas_snobal_quirks.py)"
+                "EIP-7702 auth refund routes through state_gas_reservoir "
+                "and state_refund (deducted from tx_state_gas); it does "
+                "not feed refund_counter, so receipt gas_used_pre_refund "
+                "== gas_used_post_refund and no calldata floor can land "
+                "strictly between them"
             )
 
     match refund_type:

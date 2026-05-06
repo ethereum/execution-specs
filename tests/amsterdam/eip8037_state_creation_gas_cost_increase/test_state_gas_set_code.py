@@ -1047,31 +1047,37 @@ def test_auth_refund_bypasses_one_fifth_cap(
     ],
 )
 @pytest.mark.valid_from("EIP8037")
-def test_existing_account_auth_header_gas_used_uses_worst_case(
-    blockchain_test: BlockchainTestFiller,
+def test_existing_account_auth_header_gas_used_reflects_refund(
+    state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     num_auths: int,
 ) -> None:
     """
-    Verify the block header gas_used reflects the worst case intrinsic
-    state gas when all authorities are existing accounts.
+    Verify the block header gas_used reflects the existing-authority
+    auth refund (deducted from `tx_state_gas`) when every authority
+    is an existing account.
 
-    Intrinsic state gas is set at transaction validation and does not
-    change during execution. When an authorization targets an existing
-    account, the account creation component of state gas is refunded
-    to the reservoir only and is not subtracted from the intrinsic
-    state gas that feeds block accounting.
+    `set_delegation` credits `state_gas_reservoir` and accumulates
+    `state_refund`, which `process_transaction` subtracts from
+    `tx_state_gas` before adding it to `block_state_gas_used`. With
+    STOP execution there is no extra regular or state gas used, so
+    header gas_used equals
+    `max(intrinsic_regular, intrinsic_state - N * auth_refund)`.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    worst_case_state_gas = fork.transaction_intrinsic_state_gas(
+    intrinsic_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=num_auths,
     )
+    total_intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        authorization_list_or_count=num_auths,
+    )
+    intrinsic_regular = total_intrinsic - intrinsic_state_gas
+    auth_refund = fork.gas_costs().REFUND_AUTH_PER_EXISTING_ACCOUNT * num_auths
 
     contract = pre.deploy_contract(code=Op.STOP)
 
-    # All authorities exist in pre state.
     authorization_list = [
         AuthorizationTuple(address=contract, nonce=0, signer=pre.fund_eoa())
         for _ in range(num_auths)
@@ -1079,20 +1085,21 @@ def test_existing_account_auth_header_gas_used_uses_worst_case(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + worst_case_state_gas,
+        gas_limit=gas_limit_cap + intrinsic_state_gas,
         authorization_list=authorization_list,
         sender=pre.fund_eoa(),
     )
 
-    blockchain_test(
+    expected_gas_used = max(
+        intrinsic_regular,
+        intrinsic_state_gas - auth_refund,
+    )
+
+    state_test(
         pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                header_verify=Header(gas_used=worst_case_state_gas),
-            ),
-        ],
         post={},
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )
 
 
@@ -1104,27 +1111,35 @@ def test_existing_account_auth_header_gas_used_uses_worst_case(
     ],
 )
 @pytest.mark.valid_from("EIP8037")
-def test_mixed_auths_header_gas_used_uses_worst_case(
-    blockchain_test: BlockchainTestFiller,
+def test_mixed_auths_header_gas_used_reflects_existing_refunds(
+    state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     num_existing: int,
     num_new: int,
 ) -> None:
     """
-    Verify the block header gas_used reflects the worst case intrinsic
-    state gas across a mix of existing and new account authorizations.
+    Verify the block header gas_used deducts only the existing-authority
+    auth refunds across a mix of existing and new account
+    authorizations.
 
-    Refunds for the existing accounts go to the state gas reservoir,
-    and the intrinsic state gas carried into block accounting covers
-    the full authorization count as if every authority were a new
-    account.
+    Each existing authority contributes
+    `REFUND_AUTH_PER_EXISTING_ACCOUNT` to `state_refund`; new
+    authorities contribute none. Header gas_used is
+    `max(intrinsic_regular, intrinsic_state - num_existing * refund)`.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     num_auths = num_existing + num_new
-    worst_case_state_gas = fork.transaction_intrinsic_state_gas(
+    intrinsic_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=num_auths,
+    )
+    total_intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        authorization_list_or_count=num_auths,
+    )
+    intrinsic_regular = total_intrinsic - intrinsic_state_gas
+    auth_refund = (
+        fork.gas_costs().REFUND_AUTH_PER_EXISTING_ACCOUNT * num_existing
     )
 
     contract = pre.deploy_contract(code=Op.STOP)
@@ -1149,56 +1164,72 @@ def test_mixed_auths_header_gas_used_uses_worst_case(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + worst_case_state_gas,
+        gas_limit=gas_limit_cap + intrinsic_state_gas,
         authorization_list=authorization_list,
         sender=pre.fund_eoa(),
     )
 
-    blockchain_test(
+    expected_gas_used = max(
+        intrinsic_regular,
+        intrinsic_state_gas - auth_refund,
+    )
+
+    state_test(
         pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                header_verify=Header(gas_used=worst_case_state_gas),
-            ),
-        ],
         post={},
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )
 
 
 @pytest.mark.valid_from("EIP8037")
-def test_existing_auth_with_reverted_execution_preserves_intrinsic(
-    blockchain_test: BlockchainTestFiller,
+def test_existing_auth_refund_survives_top_level_revert(
+    state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
-    Verify the worst case intrinsic state gas survives both the
-    existing account authorization refund and the top level failure
-    refund.
+    Verify the existing-authority auth refund still flows through
+    `state_refund` when execution REVERTs at the top level.
 
-    Scenario: a tx with a single authorization to an existing
-    account executes an SSTORE then REVERTs. `set_delegation` adds
-    the account creation portion to `state_gas_reservoir` without
-    mutating the intrinsic state gas. The top level revert refund
-    zeroes execution state gas. Block accounting reflects the worst
-    case intrinsic state gas unchanged. Under a mutating
-    implementation the intrinsic would be reduced and the block
-    header would fall back to the regular gas component.
+    `set_delegation` runs before EVM execution and accumulates the
+    refund into `MessageCallOutput.state_refund`. A subsequent
+    top-level REVERT discards the SSTORE state changes (and resets
+    `state_gas_used` to 0), but it does not unwind the auth refund —
+    `process_transaction` still subtracts the refund from
+    `tx_state_gas`. The header gas_used therefore reflects:
+
+    `max(intrinsic_regular + execution_regular,
+         intrinsic_state - auth_refund)`
+
+    with `execution_state` netting to 0 because of the revert.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    worst_case_state_gas = fork.transaction_intrinsic_state_gas(
+    intrinsic_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )
-
-    contract = pre.deploy_contract(
-        code=Op.SSTORE(0, 1) + Op.REVERT(0, 0),
+    total_intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        authorization_list_or_count=1,
     )
+    intrinsic_regular = total_intrinsic - intrinsic_state_gas
+    auth_refund = fork.gas_costs().REFUND_AUTH_PER_EXISTING_ACCOUNT
 
-    # Existing signer: the set_delegation refund is routed to the
-    # reservoir. Under the correct spec the intrinsic state gas is
-    # not mutated.
+    sstore_op = Op.SSTORE(
+        key=0,
+        value=1,
+        key_warm=False,
+        original_value=0,
+        new_value=1,
+    )
+    code = sstore_op + Op.REVERT(0, 0)
+    contract = pre.deploy_contract(code=code)
+
+    # bytecode.gas_cost(fork) returns the combined (regular + state)
+    # cost; subtract the SSTORE state portion to isolate the regular
+    # gas burned before REVERT.
+    execution_regular = code.gas_cost(fork) - fork.sstore_state_gas()
+
     signer = pre.fund_eoa()
     authorization_list = [
         AuthorizationTuple(address=contract, nonce=0, signer=signer),
@@ -1206,18 +1237,19 @@ def test_existing_auth_with_reverted_execution_preserves_intrinsic(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + worst_case_state_gas,
+        gas_limit=gas_limit_cap + intrinsic_state_gas,
         authorization_list=authorization_list,
         sender=pre.fund_eoa(),
     )
 
-    blockchain_test(
+    expected_gas_used = max(
+        intrinsic_regular + execution_regular,
+        intrinsic_state_gas - auth_refund,
+    )
+
+    state_test(
         pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                header_verify=Header(gas_used=worst_case_state_gas),
-            ),
-        ],
         post={contract: Account(storage={})},
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )
