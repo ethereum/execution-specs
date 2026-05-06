@@ -44,8 +44,8 @@ class Spec:
     COST_PER_STATE_BYTE = 1174  # at 100M–120M gas limit
 
     # State bytes per operation
-    STATE_BYTES_PER_NEW_ACCOUNT = 112
-    STATE_BYTES_PER_STORAGE_SET = 32
+    STATE_BYTES_PER_NEW_ACCOUNT = 120
+    STATE_BYTES_PER_STORAGE_SET = 64
     STATE_BYTES_PER_AUTH_BASE = 23
 
     # Regular gas constants (EIP-8037 replaces old combined costs)

@@ -121,7 +121,7 @@ def test_delegatecall_child_spill_not_double_charged(
 
     tx = Transaction(
         to=caller,
-        gas_limit=500_000,
+        gas_limit=700_000,
         sender=pre.fund_eoa(),
     )
 
@@ -1611,8 +1611,8 @@ def test_child_failure_refunds_state_gas_to_reservoir_not_gas_left(
     # to regular gas (or otherwise leaks extra gas to the sender),
     # which the storage probe alone cannot discriminate.
     expected_cumulative = {
-        Op.CALL: 73_831,
-        Op.DELEGATECALL: 73_825,
+        Op.CALL: 111_399,
+        Op.DELEGATECALL: 111_393,
     }[call_opcode]
 
     tx = Transaction(

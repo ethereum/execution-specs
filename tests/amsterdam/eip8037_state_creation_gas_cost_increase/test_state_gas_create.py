@@ -183,7 +183,7 @@ def test_create2_child_spill_not_double_charged(
 
     tx = Transaction(
         to=factory,
-        gas_limit=500_000,
+        gas_limit=700_000,
         sender=pre.fund_eoa(),
     )
 
@@ -2467,7 +2467,7 @@ def test_create_collision_burned_gas_counted_in_block_regular(
     # header.gas_used equals the regular-gas total. A mutation that
     # drops the burned create_message_gas from regular accounting
     # would reduce this value.
-    baseline_gas_used = 117132
+    baseline_gas_used = 107887
 
     blockchain_test(
         pre=pre,
