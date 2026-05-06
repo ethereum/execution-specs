@@ -4,24 +4,28 @@ from pathlib import PurePath
 
 from docc.context import Context
 from docc.plugins import html
-from docc.plugins.listing import Listing, ListingNode, render_html
+from docc.plugins.listing import ListingNode, ListingSource, render_html
 from docc.source import Source
 
 from ethereum_spec_tools.docc import DiffSource, _diff_source_paths
 
 
 def _render_listing_label(source: DiffSource[Source]) -> str:
-    """Render a leaf listing for a single source and return its label text."""
-    listing = Listing()
-    listing.add_source(source)
+    """Render a leaf listing for a single source and return its leaf label."""
+    listing = ListingSource(
+        PurePath("diffs/frontier/homestead/vm"),
+        PurePath("diffs/frontier/homestead/vm/index"),
+        {source},
+    )
 
-    context = Context({Source: source, Listing: listing})
+    context = Context({Source: listing})
     root = html.HTMLRoot(context)
-    render_html(context, root, ListingNode(True))
+    render_html(context, root, ListingNode({source}))
 
     for child in root.children:
         if isinstance(child, html.HTMLTag):
-            return "".join(child._to_element().itertext()).strip()
+            text = "".join(child._to_element().itertext()).strip()
+            return PurePath(text).name
 
     raise AssertionError("listing render produced no HTML output")
 

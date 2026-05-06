@@ -332,6 +332,10 @@ S = TypeVar("S", bound=Source)
 class DiffSource(Generic[S], Source, Listable):
     """
     A source that represents the difference between two other sources.
+
+    This source is synthetic, so its `relative_path` is synthetic too. We keep
+    it separate from `output_path` because `docc` directory listings use
+    `relative_path` as the visible label.
     """
 
     before_name: str

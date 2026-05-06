@@ -927,10 +927,13 @@ mkdocs = [
     { name = "pyspelling" },
 ]
 test = [
+    { name = "docc" },
     { name = "ethereum-execution-testing" },
     { name = "filelock" },
+    { name = "fladrif" },
     { name = "gitpython" },
     { name = "libcst" },
+    { name = "mistletoe" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-xdist" },
@@ -1035,10 +1038,13 @@ mkdocs = [
     { name = "pyspelling", specifier = ">=2.8.2,<3" },
 ]
 test = [
+    { name = "docc", specifier = ">=0.6.0,<0.7.0" },
     { name = "ethereum-execution-testing", editable = "packages/testing" },
     { name = "filelock", specifier = ">=3.15.1,<4" },
+    { name = "fladrif", specifier = ">=0.2.0,<0.3.0" },
     { name = "gitpython", specifier = ">=3.1.0,<3.2" },
     { name = "libcst", specifier = ">=1.8,<2" },
+    { name = "mistletoe", specifier = ">=1.5.0,<2" },
     { name = "pytest", specifier = ">=8,<9" },
     { name = "pytest-cov", specifier = ">=4.1.0,<5" },
     { name = "pytest-xdist", specifier = ">=3.3.1,<4" },

@@ -211,6 +211,7 @@ test = [
     "requests-cache>=1.2.1,<2",
     "libcst>=1.8,<2",
     "ethereum-execution-testing",
+    { include-group = "doc" },
 ]
 lint = [
     "codespell==2.4.1",
@@ -253,7 +254,6 @@ dev = [
     { include-group = "test" },
     { include-group = "lint" },
     { include-group = "actionlint" },
-    { include-group = "doc" },
     { include-group = "mkdocs" },
     "ethereum-execution[optimized]",
     "psutil>=7.2.2",
