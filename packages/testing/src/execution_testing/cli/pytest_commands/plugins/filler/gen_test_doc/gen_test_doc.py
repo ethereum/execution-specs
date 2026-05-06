@@ -307,8 +307,7 @@ class TestDocsGenerator:
             key: page
             for key, page in self.page_props.items()
             if not (
-                len(page.path.parts) > 1
-                and page.path.parts[1] in future_dirs
+                len(page.path.parts) > 1 and page.path.parts[1] in future_dirs
             )
         }
 
@@ -721,7 +720,6 @@ class TestDocsGenerator:
         Add the generated 'Test Case Reference' entries to the mkdocs
         navigation menu.
         """
-
         fork_order = {
             _fork_dir_name(fork.name()): i
             for i, fork in enumerate(reversed(get_forks()))
