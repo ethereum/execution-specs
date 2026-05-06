@@ -48,7 +48,6 @@ def test_block_context_ops(
     )
 
 
-@pytest.mark.skip(reason="Temporarily disabled pending investigation")
 @pytest.mark.repricing
 @pytest.mark.parametrize(
     "index,chain_length",
