@@ -16,6 +16,7 @@ from ethereum.utils.hexadecimal import hex_to_bytes256
 from ethereum_optimized.state_db import State
 from ethereum_spec_tools.docc import *
 from ethereum_spec_tools.evm_tools.daemon import _EvmToolHandler
+from ethereum_spec_tools.evm_tools.loaders.fixture_loader import BaseLoad
 from ethereum_spec_tools.evm_tools.loaders.transaction_loader import (
     TransactionLoad,
 )
@@ -28,8 +29,12 @@ from ethereum_spec_tools.lint.lints.glacier_forks_hygiene import (
     GlacierForksHygiene,
 )
 from ethereum_spec_tools.lint.lints.import_hygiene import ImportHygiene
+from ethereum_spec_tools.lint.lints.patch_hygiene import PatchHygiene
 from ethereum_spec_tools.new_fork.codemod.comment import CommentReplaceCommand
 from ethereum_spec_tools.new_fork.codemod.constant import SetConstantCommand
+from ethereum_spec_tools.new_fork.codemod.remove_docstring import (
+    RemoveDocstringCommand,
+)
 from ethereum_spec_tools.new_fork.codemod.string_replace import (
     StringReplaceCommand,
 )
@@ -130,6 +135,13 @@ SetConstantCommand.add_args
 SetConstantCommand.visit_Assign_targets
 SetConstantCommand.leave_Assign_targets
 SetConstantCommand.leave_Assign
+# libcst visitor hooks resolved dynamically by name
+SetConstantCommand.visit_AnnAssign_target
+SetConstantCommand.leave_AnnAssign_target
+SetConstantCommand.leave_AnnAssign
+
+# src/ethereum_spec_tools/new_fork/codemod/remove_docstring.py
+RemoveDocstringCommand
 
 # src/ethereum_spec_tools/new_fork/codemod/string.py
 StringReplaceCommand
@@ -138,5 +150,17 @@ StringReplaceCommand.transform_module_impl
 # src/ethereum_spec_tools/new_fork/codemod/comment.py
 CommentReplaceCommand
 CommentReplaceCommand.transform_module_impl
+
+# src/ethereum_spec_tools/evm_tools/loaders/fixture_loader.py
+# Abstract methods overridden by per-fork concrete subclasses; the
+# `json_data` parameter is part of the abstract signature.
+BaseLoad.json_to_header
+BaseLoad.json_to_state
+BaseLoad.json_to_block
+json_data
+
+# src/ethereum_spec_tools/lint/lints/patch_hygiene.py
+# Discovered dynamically by `ethereum_spec_tools.lint`.
+PatchHygiene
 
 _children  # unused attribute (src/ethereum_spec_tools/docc.py:751)
