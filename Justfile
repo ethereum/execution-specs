@@ -11,7 +11,7 @@ root := justfile_directory()
 output_dir := root / ".just"
 xdist_workers := env("PYTEST_XDIST_AUTO_NUM_WORKERS", "6")
 evm_bin := env("EVM_BIN", "evm")
-latest_fork := "Amsterdam"
+latest_fork := "BPO2"
 
 # --- Static Analysis ---
 
