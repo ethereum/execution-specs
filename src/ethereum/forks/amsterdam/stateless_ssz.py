@@ -50,7 +50,7 @@ MAX_BYTES_PER_WITNESS_NODE = 2**20
 MAX_BYTES_PER_CODE = 2**24
 MAX_BYTES_PER_HEADER = 2**10
 MAX_PUBLIC_KEYS = 2**20
-MAX_BYTES_PER_PUBLIC_KEY = 65
+PUBLIC_KEY_BYTES = 65
 
 
 # --- SSZ Container types ---
@@ -157,7 +157,7 @@ class SszStatelessInput(Container):
     new_payload_request: SszNewPayloadRequest
     witness: SszExecutionWitness
     chain_config: SszChainConfig
-    public_keys: SszList[ByteList[MAX_BYTES_PER_PUBLIC_KEY], MAX_PUBLIC_KEYS]
+    public_keys: SszList[ByteVector[PUBLIC_KEY_BYTES], MAX_PUBLIC_KEYS]
 
 
 class SszStatelessValidationResult(Container):
@@ -425,16 +425,20 @@ def stateless_input_to_ssz(
     si: StatelessInput,
 ) -> SszStatelessInput:
     """Convert a StatelessInput to its SSZ form."""
+    for public_key in si.public_keys:
+        if len(public_key) != PUBLIC_KEY_BYTES:
+            raise ValueError(
+                f"Transaction public key must be {PUBLIC_KEY_BYTES} bytes"
+            )
+
     return SszStatelessInput(
         new_payload_request=_new_payload_request_to_ssz(
             si.new_payload_request
         ),
         witness=_witness_to_ssz(si.witness),
         chain_config=_chain_config_to_ssz(si.chain_config),
-        public_keys=SszList[
-            ByteList[MAX_BYTES_PER_PUBLIC_KEY], MAX_PUBLIC_KEYS
-        ](
-            ByteList[MAX_BYTES_PER_PUBLIC_KEY](bytes(pk))
+        public_keys=SszList[ByteVector[PUBLIC_KEY_BYTES], MAX_PUBLIC_KEYS](
+            ByteVector[PUBLIC_KEY_BYTES](bytes(pk))
             for pk in si.public_keys
         ),
     )

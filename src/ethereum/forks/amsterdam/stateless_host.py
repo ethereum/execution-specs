@@ -30,6 +30,7 @@ from .transactions import (
     BlobTransaction,
     LegacyTransaction,
     decode_transaction,
+    recover_transaction_public_key,
 )
 
 
@@ -65,12 +66,15 @@ def build_stateless_input(
     header = block.header
     block_hash = Hash32(keccak256(rlp.encode(header)))
 
-    # Encode transactions to bytes and collect versioned hashes.
+    # Encode transactions to bytes, recover public keys, and collect
+    # versioned hashes.
     tx_bytes_list: List[Bytes] = []
+    public_keys: List[Bytes] = []
     versioned_hashes: List[VersionedHash] = []
     for tx in block.transactions:
         if isinstance(tx, LegacyTransaction):
             tx_bytes_list.append(Bytes(rlp.encode(tx)))
+            tx_obj = tx
         else:
             tx_bytes_list.append(Bytes(tx))
             # A typed tx may be malformed (pre-execution-rejected by
@@ -80,8 +84,9 @@ def build_stateless_input(
                 tx_obj = decode_transaction(tx)
             except Exception:
                 continue
-            if isinstance(tx_obj, BlobTransaction):
-                versioned_hashes.extend(tx_obj.blob_versioned_hashes)
+        public_keys.append(recover_transaction_public_key(chain_id, tx_obj))
+        if isinstance(tx_obj, BlobTransaction):
+            versioned_hashes.extend(tx_obj.blob_versioned_hashes)
 
     # Block access list as RLP bytes.
     bal_bytes = Bytes(rlp.encode(block_access_list))
@@ -118,5 +123,5 @@ def build_stateless_input(
         new_payload_request=new_payload,
         witness=execution_witness,
         chain_config=ChainConfig(chain_id=chain_id),
-        public_keys=(),
+        public_keys=tuple(public_keys),
     )

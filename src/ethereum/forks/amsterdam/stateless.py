@@ -114,7 +114,7 @@ class StatelessInput:
 
     public_keys: Tuple[Bytes, ...]
     """
-    Recovered transaction public keys, in transaction order.
+    65-byte uncompressed transaction public keys, in payload order.
     """
 
 
@@ -203,6 +203,8 @@ def verify_stateless_new_payload(
     witness = stateless_input.witness
 
     try:
+        validate_transaction_public_keys(stateless_input)
+
         # Validate the headers are contiguous and compute their
         # blockhashes.
         decoded_headers, block_hashes = validate_headers(witness.headers)
@@ -224,6 +226,7 @@ def verify_stateless_new_payload(
             stateless_input.new_payload_request,
             pre_state,
             chain_context,
+            transaction_public_keys=stateless_input.public_keys,
         )
         successful_validation = True
     except Exception:
@@ -234,3 +237,18 @@ def verify_stateless_new_payload(
         successful_validation=successful_validation,
         chain_config=stateless_input.chain_config,
     )
+
+
+def validate_transaction_public_keys(
+    stateless_input: StatelessInput,
+) -> None:
+    """
+    Validate that the transaction public key witness matches the payload.
+    """
+    transaction_count = len(
+        stateless_input.new_payload_request.execution_payload.transactions
+    )
+    if len(stateless_input.public_keys) != transaction_count:
+        raise ValueError(
+            "Transaction public key count does not match payload transactions"
+        )
