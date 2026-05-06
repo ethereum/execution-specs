@@ -29,6 +29,7 @@ from .stateless_ssz import (
 from .transactions import (
     BlobTransaction,
     LegacyTransaction,
+    Transaction,
     decode_transaction,
     recover_transaction_public_key,
 )
@@ -72,6 +73,7 @@ def build_stateless_input(
     public_keys: List[Bytes] = []
     versioned_hashes: List[VersionedHash] = []
     for tx in block.transactions:
+        tx_obj: Transaction
         if isinstance(tx, LegacyTransaction):
             tx_bytes_list.append(Bytes(rlp.encode(tx)))
             tx_obj = tx

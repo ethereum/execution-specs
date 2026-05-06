@@ -438,8 +438,7 @@ def stateless_input_to_ssz(
         witness=_witness_to_ssz(si.witness),
         chain_config=_chain_config_to_ssz(si.chain_config),
         public_keys=SszList[ByteVector[PUBLIC_KEY_BYTES], MAX_PUBLIC_KEYS](
-            ByteVector[PUBLIC_KEY_BYTES](bytes(pk))
-            for pk in si.public_keys
+            ByteVector[PUBLIC_KEY_BYTES](bytes(pk)) for pk in si.public_keys
         ),
     )
 
