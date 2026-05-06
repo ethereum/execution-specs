@@ -311,6 +311,7 @@ class Result:
         """
         Update the result after processing the inputs.
         """
+        skip_stateless = getattr(t8n.options, "no_stateless", False)
         self.gas_used = block_output.block_gas_used
         self.tx_root = t8n.fork.root(block_output.transactions_trie)
         self.receipt_root = t8n.fork.root(block_output.receipts_trie)
@@ -336,7 +337,7 @@ class Result:
             # the witness reads pre-state tries that apply_changes mutates.
             # This is safe because compute_state_root_and_trie_changes
             # does not mutate state (it makes transient copies of MPTs).
-            if t8n.fork.has_execution_witness:
+            if t8n.fork.has_execution_witness and not skip_stateless:
                 self.execution_witness = t8n.fork.build_execution_witness(
                     block_env.state,
                     expected_post_state_root=state_root_value,
