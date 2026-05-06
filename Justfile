@@ -302,11 +302,6 @@ docs-serve *args:
 docs-serve-fast *args:
     FAST_DOCS=True uv run mkdocs serve "$@"
 
-# Validate docs/CHANGELOG.md entries
-[group('docs')]
-changelog:
-    uv run validate_changelog
-
 # Lint markdown files (markdownlint)
 [group('docs')]
 lint-md:

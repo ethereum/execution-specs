@@ -60,7 +60,6 @@ Homepage = "https://github.com/ethereum/execution-specs"
 Documentation = "https://eest.ethereum.org"
 Repository = "https://github.com/ethereum/execution-specs"
 Issues = "https://github.com/ethereum/execution-specs/issues"
-Changelog = "https://eest.ethereum.org/main/CHANGELOG/"
 
 [dependency-groups]
 test = [
@@ -99,7 +98,6 @@ groupstats = "execution_testing.cli.show_pre_alloc_group_stats:main"
 extract_config = "execution_testing.cli.extract_config:extract_config"
 compare_fixtures = "execution_testing.cli.compare_fixtures:main"
 modify_static_test_gas_limits = "execution_testing.cli.modify_static_test_gas_limits:main"
-validate_changelog = "execution_testing.cli.ci_helpers:validate_changelog"
 benchmark_parser = "execution_testing.cli.benchmark_parser:main"
 
 [tool.setuptools.packages.find]
