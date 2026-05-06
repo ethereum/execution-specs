@@ -79,7 +79,12 @@ def test_static_contract_creation_make_call_that_ask_more_gas_then_transaction_p
     contract_4 = Address(0x4000000000000000000000000000000000000001)
     contract_5 = Address(0x5000000000000000000000000000000000000001)
     contract_6 = Address(0x4000000000000000000000000000000000000004)
-    sender = pre.fund_eoa(amount=0x10C8E0)
+    sender_amount = 0x10C8E0
+    if fork.is_eip_enabled(8037):
+        sender_amount += (
+            fork.gas_costs().NEW_ACCOUNT + fork.sstore_state_gas()
+        ) * 10
+    sender = pre.fund_eoa(amount=sender_amount)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -250,6 +255,8 @@ def test_static_contract_creation_make_call_that_ask_more_gas_then_transaction_p
         ),
     ]
     tx_gas = [96000]
+    if fork.is_eip_enabled(8037):
+        tx_gas[0] += fork.gas_costs().NEW_ACCOUNT + fork.sstore_state_gas()
 
     tx = Transaction(
         sender=sender,
