@@ -752,6 +752,11 @@ class BlockchainTest(BaseTest):
     """
     Include transaction receipts in the fixture output.
     """
+    skip_stateless_validation: bool = False
+    """
+    Skip stateless witness generation, input serialization, and guest
+    validation for this test.
+    """
 
     supported_fixture_formats: ClassVar[
         Sequence[FixtureFormat | LabeledFixtureFormat]
@@ -774,6 +779,10 @@ class BlockchainTest(BaseTest):
             "Only generate a blockchain test engine fixture"
         ),
         "blockchain_test_only": "Only generate a blockchain test fixture",
+        "skip_stateless_validation": (
+            "Skip stateless witness generation, input serialization, and "
+            "guest validation."
+        ),
     }
 
     @classmethod
@@ -884,6 +893,7 @@ class BlockchainTest(BaseTest):
                 chain_id=self.chain_id,
                 reward=fork.get_reward(),
                 blob_schedule=fork.blob_schedule(),
+                skip_stateless_validation=self.skip_stateless_validation,
             ),
             slow_request=self.is_tx_gas_heavy_test,
         )
@@ -997,6 +1007,20 @@ class BlockchainTest(BaseTest):
         # If expected witness state/codes defined, verify against actual
         t8n_witness = transition_tool_output.result.execution_witness
         execution_witness = t8n_witness
+        has_witness_expectation = (
+            block.expected_execution_witness_state is not None
+            or block.expected_execution_witness_codes is not None
+            or block.expected_execution_witness_headers is not None
+        )
+        expected_success = block.expected_stateless_validation_success
+        if self.skip_stateless_validation and (
+            has_witness_expectation or expected_success is not None
+        ):
+            raise AssertionError(
+                "skip_stateless_validation cannot be combined with "
+                "execution witness expectations or "
+                "expected_stateless_validation_success"
+            )
         state_expectation = block.expected_execution_witness_state
         if state_expectation is not None and execution_witness is not None:
             state_expectation.verify_against(execution_witness)
@@ -1067,7 +1091,6 @@ class BlockchainTest(BaseTest):
             timestamp=int(env.timestamp),
             stateless_output_bytes=stateless_output_bytes,
         )
-        expected_success = block.expected_stateless_validation_success
         if has_witness_modifier and expected_success is None:
             raise AssertionError(
                 "Mutated execution witness tests must set "

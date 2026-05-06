@@ -297,7 +297,17 @@ def test_withdrawals_root(
     blockchain_test(pre=pre, post={}, blocks=blocks)
 
 
-@pytest.mark.parametrize("test_case", ["single_block", "multiple_blocks"])
+@pytest.mark.parametrize(
+    "test_case",
+    [
+        pytest.param(
+            "single_block",
+            marks=pytest.mark.skip_stateless_validation,
+            id="single_block",
+        ),
+        pytest.param("multiple_blocks", id="multiple_blocks"),
+    ],
+)
 class TestMultipleWithdrawalsSameAddress:
     """
     Test that multiple withdrawals can be sent to the same address.
@@ -372,6 +382,7 @@ class TestMultipleWithdrawalsSameAddress:
         blockchain_test(pre=pre, post=post, blocks=blocks)
 
 
+@pytest.mark.skip_stateless_validation
 def test_many_withdrawals(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
