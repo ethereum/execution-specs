@@ -80,6 +80,12 @@ logger = logging.getLogger("mkdocs")
 docstring_test_function_history: Dict[str, str] = {}
 
 
+def _fork_dir_name(fork_name: str) -> str:
+    """Convert a CamelCase fork name to its snake_case directory name."""
+    s1 = re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", fork_name)
+    return re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
+
+
 def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
     gen_docs = parser.getgroup(
         "gen_docs", "Arguments related to generating test case documentation"
@@ -285,6 +291,27 @@ class TestDocsGenerator:
         """Return the base fork name, resolving transition forks."""
         return self._transition_to_base.get(fork_name, fork_name)
 
+    def _drop_future_fork_pages(self) -> None:
+        """Remove pages whose top-level fork dir is newer than target_fork."""
+        target_idx = self._fork_newness.get(self.target_fork)
+        if target_idx is None:
+            return
+        future_dirs = {
+            _fork_dir_name(name)
+            for name, idx in self._fork_newness.items()
+            if idx > target_idx
+        }
+        if not future_dirs:
+            return
+        self.page_props = {
+            key: page
+            for key, page in self.page_props.items()
+            if not (
+                len(page.path.parts) > 1
+                and page.path.parts[1] in future_dirs
+            )
+        }
+
     @pytest.hookimpl(hookwrapper=True, trylast=True)
     def pytest_collection_modifyitems(
         self, config: pytest.Config, items: List[pytest.Item]
@@ -317,6 +344,11 @@ class TestDocsGenerator:
         # add other interesting pages
         self.add_spec_page_props()
         self.add_markdown_page_props()
+        # drop pages whose fork directory is newer than `target_fork` (e.g.
+        # `tests/amsterdam/` on a mainnet docs build targeting BPO2). Such
+        # pages can leak in via the EIP checklist plugin and surface as
+        # empty fork entries in the nav.
+        self._drop_future_fork_pages()
         # write pages and navigation menu
         self.write_pages()
         self.update_mkdocs_nav()
@@ -690,14 +722,8 @@ class TestDocsGenerator:
         navigation menu.
         """
 
-        # Fork directories on disk are snake_case (e.g. `tangerine_whistle`)
-        # but `fork.name()` is CamelCase (`TangerineWhistle`).
-        def _dir_name(fork_name: str) -> str:
-            s1 = re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", fork_name)
-            return re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
-
         fork_order = {
-            _dir_name(fork.name()): i
+            _fork_dir_name(fork.name()): i
             for i, fork in enumerate(reversed(get_forks()))
         }
         # Benchmark entries sort above all fork entries.
