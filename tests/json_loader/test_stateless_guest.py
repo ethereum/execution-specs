@@ -3,7 +3,6 @@
 import random
 from typing import Tuple
 
-import pytest
 from ethereum_types.bytes import Bytes, Bytes8, Bytes32, Bytes48, Bytes96
 from ethereum_types.numeric import U64, U256, Uint
 
@@ -22,7 +21,6 @@ from ethereum.forks.amsterdam.fork_types import Bloom
 from ethereum.forks.amsterdam.stateless import (
     BlobSchedule,
     ChainConfig,
-    ChainConfigValidationError,
     ExecutionWitness,
     ForkActivation,
     ForkConfig,
@@ -30,7 +28,6 @@ from ethereum.forks.amsterdam.stateless import (
     StatelessInput,
     StatelessValidationResult,
     compute_new_payload_request_root,
-    validate_chain_config,
 )
 from ethereum.forks.amsterdam.stateless_guest import (
     deserialize_stateless_input,
