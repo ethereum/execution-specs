@@ -66,6 +66,7 @@ class GasCosts:
 
     # Refunds
     REFUND_STORAGE_CLEAR = 4800
+    REFUND_AUTH_PER_EXISTING_ACCOUNT = 12500
 
     # Precompiles
     PRECOMPILE_ECRECOVER = Uint(3000)

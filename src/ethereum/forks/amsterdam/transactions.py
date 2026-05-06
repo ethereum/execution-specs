@@ -28,8 +28,6 @@ from .exceptions import (
 )
 from .fork_types import Authorization, VersionedHash
 
-TX_MAX_GAS_LIMIT = Uint(16_777_216)
-
 
 @slotted_freezable
 @dataclass
@@ -542,6 +540,7 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
     [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
     [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
     """
+    from .vm.gas import GasCosts
     from .vm.interpreter import MAX_INIT_CODE_SIZE
 
     intrinsic_gas, data_floor_gas_cost = calculate_intrinsic_cost(tx)
@@ -551,7 +550,7 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
         raise NonceOverflowError("Nonce too high")
     if tx.to == Bytes0(b"") and len(tx.data) > MAX_INIT_CODE_SIZE:
         raise InitCodeTooLargeError("Code size too large")
-    if tx.gas > TX_MAX_GAS_LIMIT:
+    if tx.gas > GasCosts.TX_MAX_GAS_LIMIT:
         raise TransactionGasLimitExceededError("Gas limit too high")
 
     return intrinsic_gas, data_floor_gas_cost
