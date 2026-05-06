@@ -1002,20 +1002,19 @@ class IteratingBytecode(Bytecode):
         gas_limit: int,
         compute_gas_limit: int | None = None,
         **intrinsic_cost_kwargs: Any,
-    ) -> Tuple[bool, int]:
+    ) -> bool:
         """
         Check whether iteration_count iterations fit within the gas limits.
 
-        Returns (fits, combined_gas) where combined_gas is the
-        total regular+state gas (i.e. tx.gas) given the iteration
-        count. fits is True when both:
-          - combined_gas <= gas_limit (block-budget constraint).
+        Returns True when both:
+          - The combined regular+state gas (i.e. tx.gas) is <=
+            gas_limit (block-budget constraint).
           - The regular gas, computed as
-            combined_gas - iteration_count * iterating_state_gas,
-            respects the compute_gas_limit
+            combined - iteration_count * iterating_state_gas,
+            respects the compute_gas_limit.
         """
         if iteration_count <= 0:
-            return True, 0
+            return True
         combined = self.tx_gas_limit_by_iteration_count(
             fork=fork,
             iteration_count=iteration_count,
@@ -1023,12 +1022,12 @@ class IteratingBytecode(Bytecode):
             **intrinsic_cost_kwargs,
         )
         if combined > gas_limit:
-            return False, combined
+            return False
         if compute_gas_limit is not None:
             compute = combined - iteration_count * self.iterating_state_gas
             if compute > compute_gas_limit:
-                return False, combined
-        return True, combined
+                return False
+        return True
 
     def _binary_search_iterations(
         self,
@@ -1050,35 +1049,30 @@ class IteratingBytecode(Bytecode):
             **intrinsic_cost_kwargs,
         }
 
-        ok, _ = self._iterations_fit_within_gas_limits(
+        if not self._iterations_fit_within_gas_limits(
             iteration_count=1, **fits_kwargs
-        )
-        if not ok:
+        ):
             raise ValueError(
-                "Single iteration gas cost is greater than gas limit."
+                "Single iteration gas cost exceeds gas_limit "
+                "or compute_gas_limit."
             )
 
         low = 1
         high = 2
 
         # Exponential search to find upper bound
-        ok, _ = self._iterations_fit_within_gas_limits(
+        while self._iterations_fit_within_gas_limits(
             iteration_count=high, **fits_kwargs
-        )
-        while ok:
+        ):
             low = high
             high *= 2
-            ok, _ = self._iterations_fit_within_gas_limits(
-                iteration_count=high, **fits_kwargs
-            )
 
         # Binary search for exact fit
         while low < high:
             mid = (low + high) // 2
-            ok, _ = self._iterations_fit_within_gas_limits(
+            if not self._iterations_fit_within_gas_limits(
                 iteration_count=mid, **fits_kwargs
-            )
-            if not ok:
+            ):
                 high = mid
             else:
                 low = mid + 1
@@ -1175,6 +1169,7 @@ class IteratingBytecode(Bytecode):
                 best_iterations, _ = self._binary_search_iterations(
                     fork=fork,
                     gas_limit=gas_limit_cap,
+                    compute_gas_limit=gas_limit_cap,
                     start_iteration=start_iteration,
                     **intrinsic_cost_kwargs,
                 )
