@@ -29,14 +29,19 @@ def precompile_addresses(fork: Fork) -> Iterator[Tuple[Address, bool]]:
 
     """
     supported_precompiles = fork.precompiles()
+    factory_address = fork.deterministic_factory_predeploy_address()
 
     for address in supported_precompiles:
         address_int = int.from_bytes(address, byteorder="big")
         yield (address, True)
         if address_int > 0 and (address_int - 1) not in supported_precompiles:
-            yield (Address(address_int - 1), False)
+            below = Address(address_int - 1)
+            if factory_address is None or below != factory_address:
+                yield (below, False)
         if (address_int + 1) not in supported_precompiles:
-            yield (Address(address_int + 1), False)
+            above = Address(address_int + 1)
+            if factory_address is None or above != factory_address:
+                yield (above, False)
 
 
 @pytest.mark.ported_from(

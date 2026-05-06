@@ -4240,9 +4240,35 @@ def test_precomps_eip2929_cancun(
                 target: Account(storage={0: 0, 1: 25000 + new_account_delta})
             },
         },
+        # CALLs to 0x12 at data indexes 38, 80, 122 split per-fork:
+        # before Amsterdam, 0x12 is empty so the CALL with value pays the
+        # 25,000-gas NEW_ACCOUNT charge (EIP-150) on top of the 2,500 base
+        # cold cost. On Amsterdam+, the EIP-7997 deterministic factory
+        # predeploy at 0x12 means the account exists, so NEW_ACCOUNT no
+        # longer applies and only the 2,500 base cost is observed.
         {
             "indexes": {
-                "data": [38, 39, 80, 81, 122, 123],
+                "data": [38, 80, 122],
+                "gas": -1,
+                "value": -1,
+            },
+            "network": [">=Cancun<Amsterdam"],
+            "result": {target: Account(storage={0: 0, 1: 27500})},
+        },
+        {
+            "indexes": {
+                "data": [38, 80, 122],
+                "gas": -1,
+                "value": -1,
+            },
+            "network": [">=Amsterdam"],
+            "result": {target: Account(storage={0: 0, 1: 2500})},
+        },
+        # CALLs to 0x100000 (data indexes 39, 81, 123): empty on every
+        # fork, gas math unchanged.
+        {
+            "indexes": {
+                "data": [39, 81, 123],
                 "gas": -1,
                 "value": -1,
             },
