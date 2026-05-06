@@ -2697,3 +2697,84 @@ def test_bal_gas_limit_boundary(
         post={},
         genesis_environment=Environment(gas_limit=gas_limit),
     )
+
+
+@pytest.mark.parametrize(
+    "pre_value",
+    [
+        pytest.param(0x00, id="slot_starts_empty"),
+        pytest.param(0x11, id="slot_starts_nonzero"),
+    ],
+)
+def test_bal_intra_tx_multiple_sstores_same_slot(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    pre_value: int,
+) -> None:
+    """
+    Test that the BAL aggregates multiple SSTOREs to the same slot within
+    a single transaction, resulting in exactly one storage change entry.
+
+    Setup:
+    - Deploy a contract that executes three consecutive SSTORE opcodes
+      on the same slot 0x01 within one transaction: 0xAA -> 0xBB -> 0xCC.
+    - Alice calls the contract once.
+
+    Expected BAL:
+    - Contract should have exactly ONE storage_change entry for slot 0x01:
+       * block_access_index=1, post_value=0xCC
+    - The intermediate values 0xAA and 0xBB MUST NOT appear as separate
+      entries. The BAL records the net state delta only.
+    """
+    alice = pre.fund_eoa(amount=10**18)
+
+    code = (
+        Op.SSTORE(0x01, 0xAA) + Op.SSTORE(0x01, 0xBB) + Op.SSTORE(0x01, 0xCC)
+    )
+    contract = pre.deploy_contract(code=code, storage={0x01: pre_value})
+
+    tx = Transaction(
+        sender=alice,
+        to=contract,
+        gas_limit=200_000,
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        alice: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                ),
+                            ],
+                        ),
+                        contract: BalAccountExpectation(
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=0x01,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=1,
+                                            post_value=0xCC,
+                                        ),
+                                    ],
+                                ),
+                            ],
+                            storage_reads=[],
+                            balance_changes=[],
+                            code_changes=[],
+                        ),
+                    }
+                ),
+            )
+        ],
+        post={
+            alice: Account(nonce=1),
+            contract: Account(storage={0x01: 0xCC}),
+        },
+    )
