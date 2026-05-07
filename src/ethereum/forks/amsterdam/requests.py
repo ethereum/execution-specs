@@ -148,6 +148,15 @@ Length of the monotonically-increasing deposit index assigned by the
 deposit contract when it emits the event.
 """
 
+MAX_DEPOSITS_PER_BLOCK = Uint(512)
+"""
+Maximum number of deposit requests permitted in a single block. The
+deposit contract enforces a 1 ether minimum on every deposit, so each
+emitted `DepositEvent` already represents a valid deposit; this cap
+therefore bounds the count of valid deposits the consensus layer must
+process per block.
+"""
+
 
 def extract_deposit_data(data: Bytes) -> Bytes:
     """
@@ -265,11 +274,17 @@ def parse_deposit_requests(block_output: BlockOutput) -> Bytes:
     prefixed with [`DEPOSIT_REQUEST_TYPE`][dt] before being appended to
     the block's request list.
 
+    Blocks containing more than [`MAX_DEPOSITS_PER_BLOCK`][cap] deposits
+    are rejected with [`InvalidBlock`].
+
     [addr]: ref:ethereum.forks.amsterdam.requests.DEPOSIT_CONTRACT_ADDRESS
     [sig]: ref:ethereum.forks.amsterdam.requests.DEPOSIT_EVENT_SIGNATURE_HASH
     [dt]: ref:ethereum.forks.amsterdam.requests.DEPOSIT_REQUEST_TYPE
+    [cap]: ref:ethereum.forks.amsterdam.requests.MAX_DEPOSITS_PER_BLOCK
+    [`InvalidBlock`]: ref:ethereum.exceptions.InvalidBlock
     """
     deposit_requests: Bytes = b""
+    deposit_count = Uint(0)
     for key in block_output.receipt_keys:
         receipt = trie_get(block_output.receipts_trie, key)
         assert receipt is not None
@@ -281,6 +296,11 @@ def parse_deposit_requests(block_output: BlockOutput) -> Bytes:
                     and log.topics[0] == DEPOSIT_EVENT_SIGNATURE_HASH
                 ):
                     request = extract_deposit_data(log.data)
+                    deposit_count += Uint(1)
+                    if deposit_count > MAX_DEPOSITS_PER_BLOCK:
+                        raise InvalidBlock(
+                            "Too many deposit requests in block"
+                        )
                     deposit_requests += request
 
     return deposit_requests
