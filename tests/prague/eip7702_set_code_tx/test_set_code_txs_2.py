@@ -1366,7 +1366,9 @@ class ReentryAction(IntEnum):
 
 
 @pytest.mark.valid_from("Prague")
-def test_pointer_reentry(state_test: StateTestFiller, pre: Alloc) -> None:
+def test_pointer_reentry(
+    state_test: StateTestFiller, pre: Alloc, fork: Fork
+) -> None:
     """
     Check operations when reenter the pointer again.
 
@@ -1478,9 +1480,20 @@ def test_pointer_reentry(state_test: StateTestFiller, pre: Alloc) -> None:
 
     storage_b[slot_reentry_address] = contract_b
 
+    # Many nested CALLs and SSTOREs across pointer-via-proxy reentry.
+    # Lift above the EIP-7825 cap so the EIP-8037 reservoir holds the
+    # SSTORE state work, otherwise it spills into each frame's regular
+    # share and the deep call chain runs out.
+    gas_cap = fork.transaction_gas_limit_cap()
+    sstore_count = 10  # rough envelope across all frames
+    tx_gas_limit = (
+        gas_cap + sstore_count * fork.sstore_state_gas()
+        if gas_cap is not None and fork.is_eip_enabled(8037)
+        else 2_000_000
+    )
     tx = Transaction(
         to=pointer_b,
-        gas_limit=2_000_000,
+        gas_limit=tx_gas_limit,
         data=Hash(contract_b, left_padding=True)
         + Hash(ReentryAction.CALL_PROXY, left_padding=True),
         value=0,
@@ -1928,14 +1941,21 @@ def test_pointer_resets_an_empty_code_account_with_storage(
     sender_storage = Storage()
     sender_storage.store_next(1, "slot1")
     sender_storage.store_next(2, "slot2")
-    contract_1 = pre.deploy_contract(
-        code=Op.SSTORE(pointer_storage.store_next(1, "slot1"), 1)
-        + Op.SSTORE(pointer_storage.store_next(2, "slot2"), 2)
-    )
+    contract_1_code = Op.SSTORE(
+        pointer_storage.store_next(1, "slot1"), 1
+    ) + Op.SSTORE(pointer_storage.store_next(2, "slot2"), 2)
+    contract_1 = pre.deploy_contract(code=contract_1_code)
 
-    gas_limit = 200_000
-    if fork.is_eip_enabled(8037):
-        gas_limit = 500_000
+    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
+    sstore_state_gas = fork.sstore_state_gas()
+    # The set-pointer-storage tx authorizes contract_1 then runs its two
+    # SSTOREs at the pointer; pad gas_limit with the auth + 2 SSTORE state
+    # work and EIP-1706 slack.
+    gas_limit = (
+        intrinsic_calc(authorization_list_or_count=1)
+        + contract_1_code.gas_cost(fork)
+        + sstore_state_gas
+    )
     tx_set_pointer_storage = Transaction(
         to=pointer,
         gas_limit=gas_limit,
@@ -2020,9 +2040,18 @@ def test_pointer_resets_an_empty_code_account_with_storage(
         address=contract_create, nonce=1
     )
 
+    # contract_create runs SSTORE(1, CREATE) then 3 CALLs into pointers
+    # whose deploy_code does an SSTORE + SELFDESTRUCT (1 NEW_ACCOUNT for
+    # CREATE, 1 SSTORE in contract_create, 3 SSTOREs across the pointer
+    # callees, plus 2 authorizations' state).
+    tx2_state = (
+        fork.gas_costs().NEW_ACCOUNT
+        + 4 * sstore_state_gas
+        + fork.transaction_intrinsic_state_gas(authorization_count=2)
+    )
     tx_create_suicide_from_pointer = Transaction(
         to=contract_create,
-        gas_limit=800_000,
+        gas_limit=800_000 + tx2_state + sstore_state_gas,
         data=Op.SSTORE(6, 6)
         + Op.MSTORE(0, deploy_code.hex())
         + Op.RETURN(32 - len(deploy_code), len(deploy_code)),

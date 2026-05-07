@@ -10,6 +10,7 @@ from execution_testing import (
     Address,
     Alloc,
     Bytecode,
+    Fork,
     Op,
     Transaction,
 )
@@ -75,7 +76,7 @@ class ConsolidationRequestInteractionBase:
     requests: List[ConsolidationRequest]
     """Consolidation requests to be included in the block."""
 
-    def transactions(self) -> List[Transaction]:
+    def transactions(self, fork: Fork | None = None) -> List[Transaction]:
         """Return a transaction for the consolidation request."""
         raise NotImplementedError
 
@@ -100,8 +101,9 @@ class ConsolidationRequestTransaction(ConsolidationRequestInteractionBase):
     owned account.
     """
 
-    def transactions(self) -> List[Transaction]:
+    def transactions(self, fork: Fork | None = None) -> List[Transaction]:
         """Return a transaction for the consolidation request."""
+        del fork
         assert self.sender_account is not None, (
             "Sender account not initialized"
         )
@@ -159,6 +161,13 @@ class ConsolidationRequestContract(ConsolidationRequestInteractionBase):
     """Frame depth of the pre-deploy contract when it executes the call."""
     extra_code: Bytecode = field(default_factory=Bytecode)
     """Extra code to be added to the contract code."""
+    fund_state_reservoir: bool = False
+    """
+    When True (and EIP-8037 is active), pad `tx_gas_limit` by exactly the
+    per-request state-set work so the excess funds the EIP-8037 reservoir.
+    Use only when `tx_gas_limit` is held at the cap (reservoir would
+    otherwise be empty) and state work must not drain the regular pool.
+    """
 
     @property
     def contract_code(self) -> Bytecode:
@@ -185,12 +194,26 @@ class ConsolidationRequestContract(ConsolidationRequestInteractionBase):
             current_offset += len(r.calldata)
         return code + self.extra_code
 
-    def transactions(self) -> List[Transaction]:
+    def transactions(self, fork: Fork | None = None) -> List[Transaction]:
         """Return a transaction for the consolidation request."""
         assert self.entry_address is not None, "Entry address not initialized"
+        gas_limit = self.tx_gas_limit
+        if (
+            self.fund_state_reservoir
+            and fork is not None
+            and fork.is_eip_enabled(8037)
+        ):
+            # Per request the system contract writes 4 entry slots
+            # (source, src_pubkey, tgt_pubkey, fee); it also bumps a queue
+            # tail/count slot once per call. Fund the reservoir for
+            # `4*N + 2` SSTOREs (one tail slot + one slack slot) so the
+            # entire state-set work stays off `gas_left` under EIP-8037.
+            gas_limit += (
+                (len(self.requests) * 4 + 2) * fork.sstore_state_gas()
+            )
         return [
             Transaction(
-                gas_limit=self.tx_gas_limit,
+                gas_limit=gas_limit,
                 gas_price=1_000_000_000,
                 to=self.entry_address,
                 value=0,

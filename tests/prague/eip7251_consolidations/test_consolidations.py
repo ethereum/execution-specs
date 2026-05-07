@@ -383,6 +383,13 @@ pytestmark = pytest.mark.valid_from("Prague")
                             )
                         ],
                         call_depth=100,
+                        tx_gas_limit=16_777_216,
+                        # tx_gas_limit is held at the cap to test the
+                        # 63/64 drain over the deep call chain. EIP-8037
+                        # state-set work is funded via the reservoir
+                        # rather than the regular pool, which would
+                        # corrupt the boundary the test pins.
+                        fund_state_reservoir=True,
                     ),
                 ],
             ],

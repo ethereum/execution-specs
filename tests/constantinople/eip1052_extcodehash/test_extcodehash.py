@@ -401,6 +401,7 @@ def test_extcodehash_empty_contract_creation(
 def test_extcodehash_codeless_with_storage(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     balance: int,
     nonce: int,
 ) -> None:
@@ -425,10 +426,15 @@ def test_extcodehash_codeless_with_storage(
 
     code_address = pre.deploy_contract(code, storage=storage.canary())
 
+    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=100_000,
+        # `code.gas_cost(fork)` covers both SSTOREs (regular + state under
+        # EIP-8037); EIP-1706 slack for the trailing SSTORE.
+        gas_limit=(
+            intrinsic_calc() + code.gas_cost(fork) + fork.sstore_state_gas()
+        ),
     )
 
     state_test(

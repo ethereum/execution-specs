@@ -69,12 +69,14 @@ def test_calldataload(
     ae4791077e8fcf716136e70fe8392f1a1f1495fb/src/
     GeneralStateTestsFiller/VMTests/vmTests/calldatacopyFiller.yml
     """
-    contract_address = pre.deploy_contract(
-        Op.SSTORE(0, Op.CALLDATALOAD(offset=calldata_offset)) + Op.STOP,
+    contract_code = (
+        Op.SSTORE(0, Op.CALLDATALOAD(offset=calldata_offset)) + Op.STOP
     )
+    contract_address = pre.deploy_contract(contract_code)
 
+    intrinsic = fork.transaction_intrinsic_cost_calculator()
     if calldata_source == "contract":
-        to = pre.deploy_contract(
+        outer_code = (
             Om.MSTORE(calldata, 0x0)
             + Op.CALL(
                 gas=Op.SUB(Op.GAS(), 0x100),
@@ -87,10 +89,16 @@ def test_calldataload(
             )
             + Op.STOP
         )
+        to = pre.deploy_contract(outer_code)
 
         tx = Transaction(
             data=calldata,
-            gas_limit=100_000,
+            gas_limit=(
+                intrinsic(calldata=calldata)
+                + outer_code.gas_cost(fork)
+                + contract_code.gas_cost(fork)
+                + fork.sstore_state_gas()
+            ),
             protected=fork.supports_protected_txs(),
             sender=pre.fund_eoa(),
             to=to,
@@ -99,7 +107,11 @@ def test_calldataload(
     else:
         tx = Transaction(
             data=calldata,
-            gas_limit=100_000,
+            gas_limit=(
+                intrinsic(calldata=calldata)
+                + contract_code.gas_cost(fork)
+                + fork.sstore_state_gas()
+            ),
             protected=fork.supports_protected_txs(),
             sender=pre.fund_eoa(),
             to=contract_address,

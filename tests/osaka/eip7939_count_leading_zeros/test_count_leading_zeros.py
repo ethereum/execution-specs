@@ -14,6 +14,7 @@ from execution_testing import (
     EIPChecklist,
     Environment,
     Fork,
+    Header,
     Op,
     StateTestFiller,
     Storage,
@@ -233,19 +234,42 @@ def test_clz_stack_not_overflow(
     code += Op.PUSH0 * (max_stack_items - 2)
 
     for i in range(256):
-        code += Op.PUSH1(i) + Op.CLZ(1 << i) + Op.SWAP1 + Op.SSTORE
+        # `i=255` writes 0 to slot 255 (CLZ(1<<255) == 0); pin metadata so
+        # `gas_cost(fork)` picks the no-op SSTORE branch instead of the
+        # default cold zero->non-zero assumption.
+        sstore = Op.SSTORE.with_metadata(
+            key_warm=False,
+            original_value=0,
+            current_value=0,
+            new_value=255 - i,
+        )
+        code += Op.PUSH1(i) + Op.CLZ(1 << i) + Op.SWAP1 + sstore
 
     code_address = pre.deploy_contract(code=code)
 
     post[code_address] = Account(storage={i: 255 - i for i in range(256)})
 
+    intrinsic = fork.transaction_intrinsic_cost_calculator()
+    code_state = code.state_cost(fork)
+    code_regular = code.gas_cost(fork) - code_state
+    # Trailing SSTORE is a no-op (~2100); EIP-1706 requires gas_left >=
+    # CALL_STIPEND+1 at entry, so reserve that as slack on top of exact.
+    eip_1706_slack = fork.gas_costs().CALL_STIPEND + 1
     tx = Transaction(
         to=code_address,
         sender=pre.fund_eoa(),
-        gas_limit=(20_000_000 if fork.is_eip_enabled(8037) else 6_000_000),
+        gas_limit=(
+            intrinsic() + code_regular + code_state + eip_1706_slack
+        ),
     )
 
-    state_test(pre=pre, post=post, tx=tx)
+    expected_gas_used = max(intrinsic() + code_regular, code_state)
+    state_test(
+        pre=pre,
+        post=post,
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
+    )
 
 
 @pytest.mark.valid_from("Osaka")
@@ -267,10 +291,15 @@ def test_clz_push_operation_same_value(
 
     code_address = pre.deploy_contract(code=code)
 
+    intrinsic = fork.transaction_intrinsic_cost_calculator()
+    code_state = code.state_cost(fork)
+    code_regular = code.gas_cost(fork) - code_state
     tx = Transaction(
         to=code_address,
         sender=pre.fund_eoa(),
-        gas_limit=(30_000_000 if fork.is_eip_enabled(8037) else 12_000_000),
+        gas_limit=(
+            intrinsic() + code_regular + code_state + fork.sstore_state_gas()
+        ),
     )
 
     post = {
@@ -279,7 +308,13 @@ def test_clz_push_operation_same_value(
         )
     }
 
-    state_test(pre=pre, post=post, tx=tx)
+    expected_gas_used = max(intrinsic() + code_regular, code_state)
+    state_test(
+        pre=pre,
+        post=post,
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
+    )
 
 
 @EIPChecklist.Opcode.Test.ForkTransition.Invalid()
@@ -376,6 +411,7 @@ def test_clz_fork_transition(
 def test_clz_jump_operation(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     opcode: Op,
     valid_jump: bool,
     jumpi_condition: bool,
@@ -392,19 +428,41 @@ def test_clz_jump_operation(
     if valid_jump:
         code += Op.JUMPDEST
 
-    code += Op.CLZ + Op.PUSH0 + Op.SSTORE + Op.RETURN(0, 0)
+    callee_code = code + Op.CLZ + Op.PUSH0 + Op.SSTORE + Op.RETURN(0, 0)
 
-    callee_address = pre.deploy_contract(code=code)
+    callee_address = pre.deploy_contract(code=callee_code)
 
+    caller_forwarded_gas = 0xFFFF
+    caller_code = Op.SSTORE(
+        0, Op.CALL(gas=caller_forwarded_gas, address=callee_address)
+    )
     caller_address = pre.deploy_contract(
-        code=Op.SSTORE(0, Op.CALL(gas=0xFFFF, address=callee_address)),
+        code=caller_code,
         storage={"0x00": "0xdeadbeef"},
     )
 
+    intrinsic = fork.transaction_intrinsic_cost_calculator()
+    # The inner CALL forwards a fixed 0xFFFF (65535) regular gas — too
+    # tight for callee's SSTORE state to spill into. Lift `gas_limit` past
+    # the EIP-7825 cap so the EIP-8037 reservoir holds the callee's state
+    # work and parent's SSTORE state, plus EIP-1706 slack.
+    gas_cap = fork.transaction_gas_limit_cap()
+    state_needed = (
+        caller_code.state_cost(fork) + callee_code.state_cost(fork)
+    )
+    if gas_cap is not None and state_needed > 0:
+        gas_limit = gas_cap + state_needed + fork.sstore_state_gas()
+    else:
+        gas_limit = (
+            intrinsic()
+            + caller_code.gas_cost(fork)
+            + caller_forwarded_gas
+            + fork.sstore_state_gas()
+        )
     tx = Transaction(
         to=caller_address,
         sender=pre.fund_eoa(),
-        gas_limit=200_000,
+        gas_limit=gas_limit,
     )
 
     expected_clz = 255 - bits

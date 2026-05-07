@@ -66,14 +66,15 @@ def test_dup(
 
     account = pre.deploy_contract(account_code)
 
-    gas_limit = 500_000
-    if fork.is_eip_enabled(8037):
-        gas_limit = 1_000_000
-
+    intrinsic = fork.transaction_intrinsic_cost_calculator()
     tx = Transaction(
         ty=0x0,
         to=account,
-        gas_limit=gas_limit,
+        gas_limit=(
+            intrinsic()
+            + account_code.gas_cost(fork)
+            + fork.sstore_state_gas()
+        ),
         gas_price=10,
         protected=fork.supports_protected_txs(),
         data="",

@@ -3158,10 +3158,19 @@ def test_set_code_to_system_contract(
     caller_code_address = pre.deploy_contract(caller_code)
     sender = pre.fund_eoa()
 
+    # The 7002/7251 system contracts enqueue multiple state entries per
+    # request (4 and 5 slots respectively); pad gas_limit by that many
+    # SSTORE state-set worths so the EIP-8037 reservoir absorbs the work
+    # rather than draining the tx's regular pool through DELEGATECALL.
+    sstore_state_gas = fork.sstore_state_gas()
+    extra_state_slots = {
+        Address(0x00000961EF480EB55E80D19AD83579A64C007002): 4,  # EIP-7002
+        Address(0x0000BBDDC7CE488642FB579F8B00F3A590007251): 5,  # EIP-7251
+    }.get(Address(system_contract), 0)
     txs = [
         Transaction(
             sender=sender,
-            gas_limit=500_000,
+            gas_limit=500_000 + extra_state_slots * sstore_state_gas,
             to=caller_code_address,
             value=call_value,
             data=caller_payload,

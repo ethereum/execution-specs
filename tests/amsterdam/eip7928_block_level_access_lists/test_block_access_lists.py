@@ -367,13 +367,15 @@ def test_bal_callcode_nested_value_transfer(
     "delegated_opcode",
     [
         pytest.param(
-            lambda target_addr: Op.DELEGATECALL(
-                50000, target_addr, 0, 0, 0, 0
+            lambda target_addr, inner_gas: Op.DELEGATECALL(
+                inner_gas, target_addr, 0, 0, 0, 0
             ),
             id="delegatecall",
         ),
         pytest.param(
-            lambda target_addr: Op.CALLCODE(50000, target_addr, 0, 0, 0, 0, 0),
+            lambda target_addr, inner_gas: Op.CALLCODE(
+                inner_gas, target_addr, 0, 0, 0, 0, 0
+            ),
             id="callcode",
         ),
     ],
@@ -381,7 +383,8 @@ def test_bal_callcode_nested_value_transfer(
 def test_bal_delegated_storage_writes(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    delegated_opcode: Callable[[Address], Op],
+    delegated_opcode: Callable[[Address, int], Op],
+    fork: Fork,
 ) -> None:
     """
     Ensure BAL captures delegated storage writes via
@@ -389,13 +392,26 @@ def test_bal_delegated_storage_writes(
     """
     alice = pre.fund_eoa()
 
-    # TargetContract that writes 0x42 to slot 0x01
-    target_code = Op.SSTORE(0x01, 0x42)
+    # TargetContract that writes 0x42 to slot 0x01.
+    # Metadata pins the 0->0x42 transition so the gas calculator
+    # accounts for SSTORE state gas under EIP-8037.
+    target_code = Op.SSTORE.with_metadata(
+        key_warm=False,
+        original_value=0,
+        current_value=0,
+        new_value=0x42,
+    )(0x01, 0x42)
     target_contract = pre.deploy_contract(code=target_code)
+
+    # Forward enough inner gas to cover both the regular and (under
+    # EIP-8037) the spilled state-gas portion of the SSTORE — the
+    # oracle frame inherits `state_gas_reservoir=0` since the outer
+    # tx_gas stays below TX_MAX_GAS_LIMIT.
+    inner_gas = target_code.gas_cost(fork) + 100  # small buffer
 
     # Oracle contract that uses delegated opcode to execute
     # TargetContract's code
-    oracle_code = delegated_opcode(target_contract)
+    oracle_code = delegated_opcode(target_contract, inner_gas)
     oracle_contract = pre.deploy_contract(code=oracle_code)
 
     tx = Transaction(
@@ -2133,6 +2149,7 @@ def test_bal_create_transaction_empty_code(
 def test_bal_cross_tx_storage_revert_to_zero(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    fork: Fork,
 ) -> None:
     """
     Ensure BAL captures storage changes when tx1 writes a non-zero value
@@ -2148,20 +2165,42 @@ def test_bal_cross_tx_storage_revert_to_zero(
     # Contract that writes to slot 0 based on calldata
     contract = pre.deploy_contract(code=Op.SSTORE(0, Op.CALLDATALOAD(0)))
 
+    # Size each tx_gas_limit precisely against its SSTORE transition
+    # under EIP-8037's 2D gas model (regular + state).
+    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
+    tx1_data = Hash(0xABCD)
+    tx2_data = Hash(0x0)
+    tx1_code = Op.SSTORE.with_metadata(
+        key_warm=False,
+        original_value=0,
+        current_value=0,
+        new_value=0xABCD,
+    )(0, Op.CALLDATALOAD(0))
+    tx2_code = Op.SSTORE.with_metadata(
+        key_warm=False,
+        original_value=0xABCD,
+        current_value=0xABCD,
+        new_value=0x0,
+    )(0, Op.CALLDATALOAD(0))
+
     # Tx1: Write slot 0 = 0xABCD
     tx1 = Transaction(
         sender=alice,
         to=contract,
-        data=Hash(0xABCD),
-        gas_limit=100_000,
+        data=tx1_data,
+        gas_limit=(
+            intrinsic_calc(calldata=tx1_data) + tx1_code.gas_cost(fork)
+        ),
     )
 
     # Tx2: Write slot 0 = 0x0 (revert to zero)
     tx2 = Transaction(
         sender=alice,
         to=contract,
-        data=Hash(0x0),
-        gas_limit=100_000,
+        data=tx2_data,
+        gas_limit=(
+            intrinsic_calc(calldata=tx2_data) + tx2_code.gas_cost(fork)
+        ),
     )
 
     account_expectations = {
