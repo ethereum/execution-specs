@@ -483,9 +483,9 @@ def gas_test(
     if cold_gas is None:
         cold_gas = subject_code.gas_cost(fork)
 
-    if cold_gas <= 0:
+    if cold_gas < 0:
         raise ValueError(
-            f"Target gas allocations (cold_gas) must be > 0, got {cold_gas}"
+            f"Target gas allocations (cold_gas) must be >= 0, got {cold_gas}"
         )
     if warm_gas is None:
         if subject_code_warm is not None:
@@ -503,18 +503,12 @@ def gas_test(
         balance=subject_balance,
         address=subject_address,
     )
-    # 2 times GAS, POP, CALL, 6 times PUSH1 - instructions charged for at every
-    # gas run
-    gas_costs = fork.gas_costs()
-    opcode_gas_cost = gas_costs.BASE
-    opcode_pop_cost = gas_costs.BASE
-    opcode_push_cost = gas_costs.VERY_LOW
+
+    # Auxiliary instructions charged for at every gas run
     gas_single_gas_run = (
-        2 * opcode_gas_cost
-        + opcode_pop_cost
-        + gas_costs.WARM_ACCESS
-        + 6 * opcode_push_cost
-    )
+        Op.GAS + Op.CALL(gas=Op.GAS, address_warm=True) + Op.POP
+    ).gas_cost(fork=fork)
+
     address_legacy_harness = pre.deploy_contract(
         code=(
             # warm subject and baseline without executing
@@ -624,8 +618,15 @@ def gas_test(
             LEGACY_CALL_SUCCESS
         )
 
+    gas_sstore = Op.SSTORE(1, 1).gas_cost(fork=fork)
     if tx_gas is None:
-        tx_gas = gas_single_gas_run + cold_gas + 500_000
+        tx_gas = (
+            5 * gas_single_gas_run
+            + cold_gas
+            + 4 * warm_gas
+            + 5 * gas_sstore
+            + 500_000
+        )
     tx = Transaction(
         to=address_legacy_harness, gas_limit=tx_gas, sender=sender
     )
