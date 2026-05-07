@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 from ethereum_rlp import rlp
-from ethereum_types.bytes import Bytes
+from ethereum_types.bytes import Bytes, Bytes0
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U64, U256, Uint, ulen
 
@@ -1076,6 +1076,12 @@ def process_transaction(
     if tx_output.error is not None:
         tx_output.state_gas_left += tx_output.state_gas_used
         tx_output.state_gas_used = Uint(0)
+        if tx.to == Bytes0(b""):
+            new_account_refund = (
+                STATE_BYTES_PER_NEW_ACCOUNT * COST_PER_STATE_BYTE
+            )
+            tx_output.state_gas_left += new_account_refund
+            tx_output.state_refund += new_account_refund
     else:
         # Refund state gas for accounts created and destroyed in the
         # same tx (EIP-6780). Covers account, storage, and code.
