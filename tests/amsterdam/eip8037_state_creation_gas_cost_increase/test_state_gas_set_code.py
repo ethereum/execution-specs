@@ -18,7 +18,6 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
-    Bytes,
     Environment,
     Fork,
     Header,
@@ -30,12 +29,12 @@ from execution_testing import (
     TransactionReceipt,
 )
 
+from tests.prague.eip7702_set_code_tx.spec import Spec as Spec7702
+
 from .spec import ref_spec_8037
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
-
-DELEGATION_DESIGNATION = Bytes("ef0100")
 
 
 @pytest.mark.parametrize(
@@ -1276,7 +1275,7 @@ def test_existing_auth_refund_survives_top_level_revert(
 )
 @pytest.mark.valid_from("EIP8037")
 def test_auth_state_gas_in_header_after_failure(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     failure_mode: str,
@@ -1346,19 +1345,15 @@ def test_auth_state_gas_in_header_after_failure(
 
     expected_gas_used = max(block_regular, auth_intrinsic_state - auth_refund)
 
-    blockchain_test(
+    state_test(
         pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                header_verify=Header(gas_used=expected_gas_used),
-            ),
-        ],
         post={
             signer: Account(
-                code=DELEGATION_DESIGNATION + bytes(delegate),
+                code=Spec7702.delegation_designation(delegate),
             ),
         },
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )
 
 
@@ -1393,6 +1388,7 @@ def test_auth_sender_billing_after_failure(
     )
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
     intrinsic_total = intrinsic_cost(authorization_list_or_count=1)
+    intrinsic_regular = intrinsic_total - auth_intrinsic_state
     new_account_refund = fork.gas_costs().REFUND_AUTH_PER_EXISTING_ACCOUNT
 
     delegate = pre.deploy_contract(code=Op.STOP)
@@ -1406,11 +1402,12 @@ def test_auth_sender_billing_after_failure(
     tx_gas = gas_limit_cap + auth_intrinsic_state
 
     revert_gas = (Op.REVERT(0, 0)).gas_cost(fork)
-    base_cumulative = intrinsic_total + revert_gas
-    if authority_exists:
-        expected_cumulative = base_cumulative - new_account_refund
-    else:
-        expected_cumulative = base_cumulative
+    auth_refund = new_account_refund if authority_exists else 0
+    expected_cumulative = intrinsic_total + revert_gas - auth_refund
+    expected_gas_used = max(
+        intrinsic_regular + revert_gas,
+        auth_intrinsic_state - auth_refund,
+    )
 
     tx = Transaction(
         ty=4,
@@ -1433,8 +1430,9 @@ def test_auth_sender_billing_after_failure(
         pre=pre,
         post={
             signer: Account(
-                code=DELEGATION_DESIGNATION + bytes(delegate),
+                code=Spec7702.delegation_designation(delegate),
             ),
         },
         tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )
