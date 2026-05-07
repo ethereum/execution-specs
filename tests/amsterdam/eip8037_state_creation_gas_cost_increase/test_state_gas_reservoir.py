@@ -1328,9 +1328,7 @@ def test_nested_failure_resets_to_tx_reservoir(
     - `cumulative_gas_used` (receipt) pins `tx.gas - gas_left -
       state_gas_left`, catching bugs in the leftover split.
     - `header.gas_used` pins `max(block_regular, block_state)` via
-      the block accumulators. They differ from the receipt by
-      exactly `non_top_burns` (inline refunds the user pays for but
-      the block doesn't track in either accumulator).
+      the block accumulators.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -1359,27 +1357,13 @@ def test_nested_failure_resets_to_tx_reservoir(
     else:
         top, frame_codes = _build_create_chain(pre, frame_bodies, terminator)
 
-    # Non-top inline state-gas refunds (body SSTORE x→0 plus CREATE
-    # pre-charge credits on child failure) accumulate in each frame's
-    # `state_gas_refund` and get subtracted at the parent's
-    # `incorporate_child_on_error` boundary so the inflation does not
-    # leak across the rolled-back state change. The top frame's
-    # refund is preserved by the tx-level error handler.
-    non_top_body_refund_burn = sum(
-        b.state_refund(fork) for b in frame_bodies[1:]
-    )
-    non_top_create_credit_burn = max(0, n_creates - 1) * new_account_state_gas
-    non_top_burns = non_top_body_refund_burn + non_top_create_credit_burn
-
     sum_regular = sum(code.regular_cost(fork) for code in frame_codes)
     spill = max(0, total_state_charges - reservoir)
     if failure_mode == "halt":
         # Policy A (updated EIP): all state-gas — body charges, spilled
         # portions, and CREATE pre-charges (returned via credit) — folds
         # into state_gas_left at tx end. gas_left is zeroed by halt.
-        # `non_top_burns` is the inline refund burn at incorporate
-        # boundaries that does not return to the user's reservoir.
-        state_gas_at_end = max(reservoir, total_state_charges) - non_top_burns
+        state_gas_at_end = max(reservoir, total_state_charges)
         expected_cumulative = tx_gas - state_gas_at_end
         # Header: block_regular = gas_limit_cap - spill (spilled
         # state-gas drained gas_left but is no longer reclassified to
@@ -1387,13 +1371,11 @@ def test_nested_failure_resets_to_tx_reservoir(
         expected_header_gas_used = gas_limit_cap - spill
     elif failure_mode == "revert":
         # Revert preserves gas_left; full state-gas refund.
-        # User pays only regular costs + intrinsic + non-top burns.
-        expected_cumulative = intrinsic_cost + sum_regular + non_top_burns
+        # User pays only regular costs + intrinsic.
+        expected_cumulative = intrinsic_cost + sum_regular
         # Header reflects the regular-vs-state attribution directly:
         # state_gas_used is zeroed by the tx error handler, so only
-        # regular gas usage shows up. The refund burn lives in the
-        # `state_gas_left` shortfall (visible in cumulative), not
-        # the regular accumulator.
+        # regular gas usage shows up.
         expected_header_gas_used = intrinsic_cost + sum_regular
     else:
         raise ValueError("Invariant, unreachable code.")
