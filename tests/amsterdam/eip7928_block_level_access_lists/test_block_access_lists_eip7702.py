@@ -1288,3 +1288,106 @@ def test_bal_7702_delegated_create(
             create_contract_address: Account(nonce=1, code=Op.STOP),
         },
     )
+
+
+def test_bal_call_7702_delegation_revert_insufficient_funds(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Ensure BAL handles CALL to a 7702-delegated EOA that fails due to
+    insufficient sender balance (not OOG).
+
+    Caller contract (balance=100) executes CALL(target, value=1000) where
+    target is a 7702-delegated EOA. CALL fails because 1000 > 100.
+
+    Both addresses are recorded in BAL. The static-check optimization
+    asserted by test_bal_call_7702_delegation_and_oog only fires for OOG
+    before/during delegation load; insufficient-balance failure happens
+    after load, so the delegation target stays in BAL.
+
+    Expected BAL:
+      - Caller: storage_reads [0x01], storage_changes slot 0x02 (CALL=0).
+      - Target (authority): empty changes.
+      - Delegation target: empty changes (accessed during resolution).
+    """
+    alice = pre.fund_eoa()
+
+    caller_balance = 100
+    transfer_amount = 1000  # > caller_balance, transfer must fail
+    target_balance = 1  # small balance avoids pruning
+
+    # Delegation target: STOP body, never executed since CALL fails.
+    delegation_target = pre.deploy_contract(code=Op.STOP)
+
+    # 7702-delegated EOA (the authority).
+    target = pre.fund_eoa(
+        amount=target_balance, delegation=delegation_target
+    )
+
+    #   1. SLOAD slot 0x01 (read recorded in BAL)
+    #   2. CALL(target, value=1000) -> fails, returns 0
+    #   3. SSTORE slot 0x02 with CALL result (0 = failure)
+    caller_code = (
+        Op.SLOAD(0x01)
+        + Op.POP
+        + Op.CALL(100_000, target, transfer_amount, 0, 0, 0, 0)
+        + Op.PUSH1(0x02)
+        + Op.SSTORE
+        + Op.STOP
+    )
+
+    caller = pre.deploy_contract(
+        code=caller_code,
+        balance=caller_balance,
+        storage={0x02: 0xDEAD},  # non-zero so SSTORE(0) is a change
+    )
+
+    tx = Transaction(
+        sender=alice,
+        to=caller,
+        gas_limit=1_000_000,
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                caller: BalAccountExpectation(
+                    storage_reads=[0x01],
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0x02,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=1, post_value=0
+                                )
+                            ],
+                        )
+                    ],
+                ),
+                # Both authority and delegation is
+                # accessed before balance check fails
+                target: BalAccountExpectation.empty(),
+                delegation_target: BalAccountExpectation.empty(),
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1),
+            caller: Account(
+                balance=caller_balance,  # unchanged - transfer failed
+                storage={0x02: 0},  # Failed CALL returned 0
+            ),
+            target: Account(balance=target_balance),  # unchanged
+        },
+    )
