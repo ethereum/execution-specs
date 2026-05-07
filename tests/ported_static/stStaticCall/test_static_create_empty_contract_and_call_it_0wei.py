@@ -13,9 +13,11 @@ from execution_testing import (
     Bytes,
     Environment,
     StateTestFiller,
+    Storage,
     Transaction,
     compute_create_address,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -33,6 +35,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_static_create_empty_contract_and_call_it_0wei(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_static_create_empty_contract_and_call_it_0wei."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
@@ -78,16 +81,25 @@ def test_static_create_empty_contract_and_call_it_0wei(
         gas_limit=600000,
     )
 
-    post = {
-        contract_0: Account(
-            storage={
+    if fork.is_eip_enabled(8037):
+        contract_0_storage = Storage.model_validate(
+            {1: compute_create_address(address=contract_0, nonce=0), 3: 1}
+        )
+        contract_0_storage.set_expect_any(0)
+        contract_0_storage.set_expect_any(2)
+        contract_0_storage.set_expect_any(100)
+    else:
+        contract_0_storage = Storage.model_validate(
+            {
                 0: 0x8D5B6,
                 1: compute_create_address(address=contract_0, nonce=0),
                 2: 0x7ABF8,
                 3: 1,
                 100: 0x6FE6E,
-            },
-        ),
+            }
+        )
+    post = {
+        contract_0: Account(storage=contract_0_storage),
         compute_create_address(address=contract_0, nonce=0): Account(nonce=1),
     }
 

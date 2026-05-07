@@ -1353,7 +1353,7 @@ def test_call_value_to_pre_existing_selfdestructed_account(
     ],
 )
 @pytest.mark.valid_from("EIP8037")
-def test_top_level_halt_preserves_restored_reservoir(
+def test_top_level_halt_refunds_total_state_gas(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -1361,15 +1361,22 @@ def test_top_level_halt_preserves_restored_reservoir(
     reservoir_delta: int,
 ) -> None:
     """
-    Verify a top-level halt resets `state_gas_left` to the frame's
-    entry reservoir regardless of child failure mode or in-frame
-    drain/spill. The parent calls a child that either reverts (which
-    refunds the full `state_gas_used` back to the parent's reservoir)
-    or halts (which leaves only the reservoir-portion behind), then
-    the parent INVALIDs. In both child-failure paths and across all
-    three reservoir sizes (one short / exact / one over the child's
-    SSTORE cost), the top-level halt collapses to a final reservoir
-    equal to the original tx-level R0 — billed as `gas_limit_cap`.
+    Verify a top-level halt refunds the total state-gas consumed
+    (reservoir-portion + spilled-portion) regardless of child failure
+    mode. The parent calls a child that either reverts or halts, then
+    INVALIDs at the top level.
+
+    Per the updated EIP, both child failure modes propagate the full
+    `state_gas_used` back through `incorporate_child_on_error`, and
+    the top-level halt no longer overrides it. The tx-level error
+    handler then folds the residual into the reservoir, so
+    `state_gas_left_end = max(reservoir, child_charge)` and
+    `tx_gas_used = tx.gas - state_gas_left_end`:
+
+    - `reservoir < child_charge` (one_short): spill is refunded too,
+      `tx_gas_used = gas_limit_cap - (child_charge - reservoir)`.
+    - `reservoir >= child_charge`: no spill, `tx_gas_used =
+      gas_limit_cap`.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -1386,20 +1393,20 @@ def test_top_level_halt_preserves_restored_reservoir(
         code=(Op.POP(Op.CALL(gas=500_000, address=child)) + Op.INVALID),
     )
 
+    reservoir = sstore_state_gas + reservoir_delta
+    tx_gas = gas_limit_cap + reservoir
+
     tx = Transaction(
         to=parent,
-        gas_limit=gas_limit_cap + sstore_state_gas + reservoir_delta,
+        gas_limit=tx_gas,
         sender=pre.fund_eoa(),
     )
 
-    # Halt rule: every halted frame's (gas_left, state_gas_left) is
-    # reset to (0, message.state_gas_reservoir). Whatever the child
-    # did inside the call — drain, spill, or revert refund — is
-    # wiped when the parent's INVALID hits. The user's final
-    # reservoir is exactly the top-level R0 = sstore + delta, and
-    # `tx_gas_used = tx.gas - 0 - R0 = gas_limit_cap` for all six
-    # combinations.
-    expected_gas_used = gas_limit_cap
+    # Policy A halt: state_gas counters preserved through the child
+    # halt/revert, parent halt, and tx-level fold.
+    # state_gas_left_end = max(reservoir, sstore_state_gas).
+    state_gas_left_end = max(reservoir, sstore_state_gas)
+    expected_gas_used = tx_gas - state_gas_left_end
 
     blockchain_test(
         pre=pre,

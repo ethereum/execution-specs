@@ -170,6 +170,8 @@ def test_static_call10(
         Hash(addr_3, left_padding=True),
     ]
     tx_gas = [200000]
+    if fork.is_eip_enabled(8037):
+        tx_gas[0] += 4 * fork.sstore_state_gas()
     tx_value = [10]
 
     tx = Transaction(
