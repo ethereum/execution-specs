@@ -18,6 +18,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
+    Bytes,
     Environment,
     Fork,
     Header,
@@ -26,12 +27,15 @@ from execution_testing import (
     Storage,
     Transaction,
     TransactionException,
+    TransactionReceipt,
 )
 
 from .spec import ref_spec_8037
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
+
+DELEGATION_DESIGNATION = Bytes("ef0100")
 
 
 @pytest.mark.parametrize(
@@ -1252,4 +1256,185 @@ def test_existing_auth_refund_survives_top_level_revert(
         post={contract: Account(storage={})},
         tx=tx,
         blockchain_test_header_verify=Header(gas_used=expected_gas_used),
+    )
+
+
+@pytest.mark.parametrize(
+    "failure_mode",
+    [
+        pytest.param("revert", id="revert"),
+        pytest.param("halt", id="halt"),
+        pytest.param("oog", id="oog"),
+    ],
+)
+@pytest.mark.parametrize(
+    "authority_exists",
+    [
+        pytest.param(False, id="new_account"),
+        pytest.param(True, id="existing_account"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_auth_state_gas_in_header_after_failure(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    failure_mode: str,
+    authority_exists: bool,
+) -> None:
+    """
+    Verify block header reflects intrinsic state gas from a 7702
+    authorization when the top-level tx fails.
+
+    Execution state gas is zeroed on failure but intrinsic state gas
+    is preserved. For existing-account auths the spec subtracts the
+    auth refund from `tx_state_gas`, reducing the state component.
+    The delegation indicator persists (set before the execution
+    snapshot). Parametrized across all failure modes (revert/halt/oog)
+    and authority states (new vs existing).
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+
+    auth_intrinsic_state = fork.transaction_intrinsic_state_gas(
+        authorization_count=1,
+    )
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
+    intrinsic_total = intrinsic_cost(authorization_list_or_count=1)
+    intrinsic_regular = intrinsic_total - auth_intrinsic_state
+    auth_refund = (
+        fork.gas_costs().REFUND_AUTH_PER_EXISTING_ACCOUNT
+        if authority_exists
+        else 0
+    )
+
+    delegate = pre.deploy_contract(code=Op.STOP)
+
+    if failure_mode == "revert":
+        revert_code = Op.REVERT(0, 0)
+        target = pre.deploy_contract(code=revert_code)
+    elif failure_mode == "halt":
+        target = pre.deploy_contract(code=Op.INVALID)
+    else:
+        target = pre.deploy_contract(code=Op.JUMPDEST + Op.JUMP(0x0))
+
+    if authority_exists:
+        signer = pre.fund_eoa()
+    else:
+        signer = pre.fund_eoa(0)
+
+    tx_gas = gas_limit_cap + auth_intrinsic_state
+
+    tx = Transaction(
+        ty=4,
+        to=target,
+        gas_limit=tx_gas,
+        sender=pre.fund_eoa(),
+        authorization_list=[
+            AuthorizationTuple(
+                address=delegate,
+                nonce=0,
+                signer=signer,
+            ),
+        ],
+    )
+
+    if failure_mode == "revert":
+        block_regular = intrinsic_regular + revert_code.gas_cost(fork)
+    else:
+        block_regular = tx_gas - auth_intrinsic_state
+
+    expected_gas_used = max(block_regular, auth_intrinsic_state - auth_refund)
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=expected_gas_used),
+            ),
+        ],
+        post={
+            signer: Account(
+                code=DELEGATION_DESIGNATION + bytes(delegate),
+            ),
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "authority_exists",
+    [
+        pytest.param(False, id="new_account"),
+        pytest.param(True, id="existing_account"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_auth_sender_billing_after_failure(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    authority_exists: bool,
+) -> None:
+    """
+    Verify sender billing distinguishes new vs existing account auth
+    on top-level failure.
+
+    For existing accounts, set_delegation refunds new-account state
+    gas to the reservoir. On REVERT, the restored reservoir reduces
+    the sender's bill via the billing formula. The sender pays less
+    than in the new-account case by exactly the refund amount.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+
+    auth_intrinsic_state = fork.transaction_intrinsic_state_gas(
+        authorization_count=1,
+    )
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
+    intrinsic_total = intrinsic_cost(authorization_list_or_count=1)
+    new_account_refund = fork.gas_costs().REFUND_AUTH_PER_EXISTING_ACCOUNT
+
+    delegate = pre.deploy_contract(code=Op.STOP)
+    target = pre.deploy_contract(code=Op.REVERT(0, 0))
+
+    if authority_exists:
+        signer = pre.fund_eoa()
+    else:
+        signer = pre.fund_eoa(0)
+
+    tx_gas = gas_limit_cap + auth_intrinsic_state
+
+    revert_gas = (Op.REVERT(0, 0)).gas_cost(fork)
+    base_cumulative = intrinsic_total + revert_gas
+    if authority_exists:
+        expected_cumulative = base_cumulative - new_account_refund
+    else:
+        expected_cumulative = base_cumulative
+
+    tx = Transaction(
+        ty=4,
+        to=target,
+        gas_limit=tx_gas,
+        sender=pre.fund_eoa(),
+        authorization_list=[
+            AuthorizationTuple(
+                address=delegate,
+                nonce=0,
+                signer=signer,
+            ),
+        ],
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_cumulative,
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        post={
+            signer: Account(
+                code=DELEGATION_DESIGNATION + bytes(delegate),
+            ),
+        },
+        tx=tx,
     )
