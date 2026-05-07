@@ -262,12 +262,10 @@ def rerun_amsterdam_stateless_guest_with_overrides(
     if execution_witness is not None:
         rebuilt_witness = AmsterdamExecutionWitness(
             state=tuple(
-                AmsterdamBytes(bytes(node))
-                for node in execution_witness.state
+                AmsterdamBytes(bytes(node)) for node in execution_witness.state
             ),
             codes=tuple(
-                AmsterdamBytes(bytes(code))
-                for code in execution_witness.codes
+                AmsterdamBytes(bytes(code)) for code in execution_witness.codes
             ),
             headers=tuple(
                 AmsterdamBytes(bytes(header))
