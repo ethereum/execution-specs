@@ -1180,7 +1180,7 @@ class BlockchainTest(BaseTest):
         should_verify_stateless_input_public_keys = (
             stateless_input_bytes is not None
             # The block could be invalid because of invalid txs, thus
-            # the public keys might not be properly constructed given they 
+            # the public keys might not be properly constructed given they
             # can't be decoded and thus provided in the execution witness.
             and block.exception is None
         )
