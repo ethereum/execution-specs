@@ -65,8 +65,6 @@ class TestGasConsumption:
             pytest.param(1, True, None, id="type_1"),
             pytest.param(2, True, None, id="type_2"),
             pytest.param(3, True, None, id="type_3"),
-            # TODO[EIP-8037]: State gas reservoir from authorization is not
-            # fully consumed by Op.INVALID, causing gas_used < gas_limit.
             pytest.param(
                 4,
                 True,
