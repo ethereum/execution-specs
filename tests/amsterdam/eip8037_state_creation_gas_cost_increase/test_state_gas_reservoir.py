@@ -32,6 +32,9 @@ from execution_testing import (
     TransactionException,
     TransactionReceipt,
 )
+from execution_testing import (
+    Macros as Om,
+)
 from execution_testing.checklists import EIPChecklist
 
 from .spec import ref_spec_8037
@@ -1113,26 +1116,6 @@ def test_top_level_failure_propagated_state_gas(
     state_test(pre=pre, post={child: Account(storage={})}, tx=tx)
 
 
-def _store_data_in_memory(data: bytes, dest_offset: int = 0) -> Bytecode:
-    """Place `data` in memory starting at `dest_offset` via 32-byte MSTOREs."""
-    code = Bytecode()
-    chunk_size = 32
-    n = len(data)
-
-    if n == 0:
-        return code
-
-    # Pad to a multiple of 32 with trailing zeros (CREATE size=
-    # bounds the read).
-    padded = data + b"\x00" * ((-n) % chunk_size)
-
-    for i in range(0, len(padded), chunk_size):
-        chunk = padded[i : i + chunk_size]
-        code += Op.MSTORE(dest_offset + i, Op.PUSH32(chunk))
-
-    return code
-
-
 def _build_call_chain(
     pre: Alloc,
     frame_bodies: list[Bytecode],
@@ -1158,26 +1141,6 @@ def _build_call_chain(
         inner_addr = pre.deploy_contract(code=code)
         frame_codes.insert(0, code)
     return inner_addr, frame_codes
-
-
-def _create_chain_extra_regular_gas(frame_codes: list[Bytecode]) -> int:
-    """
-    Extra regular gas not captured by `Bytecode.regular_cost(fork)` for a
-    CREATE chain: MSTORE memory expansion to hold the next-level
-    initcode + CREATE's `init_code_cost`. Both are dynamic costs that
-    depend on the inner initcode size, so the static opcode calculator
-    doesn't account for them.
-    """
-    initcode_word_cost = 2
-    extra = 0
-    for i in range(len(frame_codes) - 1):
-        inner_size = len(bytes(frame_codes[i + 1]))
-        words = (inner_size + 31) // 32
-        # CREATE's init_code_cost (EIP-3860).
-        extra += initcode_word_cost * words
-        # Memory expansion from MSTOREs storing the next initcode.
-        extra += 3 * words + (words * words) // 512
-    return extra
 
 
 def _build_create_chain(
@@ -1207,10 +1170,21 @@ def _build_create_chain(
     for i in range(n - 2, -1, -1):
         inner_bytes = bytes(inner_initcode)
         inner_size = len(inner_bytes)
+        # Pad to 32-byte alignment so Om.MSTORE uses the cheap
+        # PUSH32+MSTORE path on the trailing chunk; CREATE reads
+        # only `size` bytes so the trailing zeros are ignored.
+        padded = inner_bytes + b"\x00" * ((-inner_size) % 32)
         code = (
             frame_bodies[i]
-            + _store_data_in_memory(inner_bytes)
-            + Op.POP(Op.CREATE(value=0, offset=0, size=inner_size))
+            + Om.MSTORE(padded, 0)
+            + Op.POP(
+                Op.CREATE(
+                    value=0,
+                    offset=0,
+                    size=inner_size,
+                    init_code_size=inner_size,
+                )
+            )
             + terminator
         )
         frame_codes.insert(0, code)
@@ -1398,10 +1372,6 @@ def test_nested_failure_resets_to_tx_reservoir(
     non_top_burns = non_top_body_refund_burn + non_top_create_credit_burn
 
     sum_regular = sum(code.regular_cost(fork) for code in frame_codes)
-    if frame_op == "create":
-        # Static calculator misses CREATE's memory expansion +
-        # init_code_cost. Add them back to recover runtime regular gas.
-        sum_regular += _create_chain_extra_regular_gas(frame_codes)
     spill = max(0, total_state_charges - reservoir)
     if failure_mode == "halt":
         # Policy A (updated EIP): all state-gas — body charges, spilled
