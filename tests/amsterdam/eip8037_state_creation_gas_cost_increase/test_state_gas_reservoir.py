@@ -1328,9 +1328,7 @@ def test_nested_failure_resets_to_tx_reservoir(
     - `cumulative_gas_used` (receipt) pins `tx.gas - gas_left -
       state_gas_left`, catching bugs in the leftover split.
     - `header.gas_used` pins `max(block_regular, block_state)` via
-      the block accumulators. They differ from the receipt by
-      exactly `non_top_burns` (inline refunds the user pays for but
-      the block doesn't track in either accumulator).
+      the block accumulators.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -1359,27 +1357,13 @@ def test_nested_failure_resets_to_tx_reservoir(
     else:
         top, frame_codes = _build_create_chain(pre, frame_bodies, terminator)
 
-    # Non-top inline state-gas refunds (body SSTORE x→0 plus CREATE
-    # pre-charge credits on child failure) accumulate in each frame's
-    # `state_gas_refund` and get subtracted at the parent's
-    # `incorporate_child_on_error` boundary so the inflation does not
-    # leak across the rolled-back state change. The top frame's
-    # refund is preserved by the tx-level error handler.
-    non_top_body_refund_burn = sum(
-        b.state_refund(fork) for b in frame_bodies[1:]
-    )
-    non_top_create_credit_burn = max(0, n_creates - 1) * new_account_state_gas
-    non_top_burns = non_top_body_refund_burn + non_top_create_credit_burn
-
     sum_regular = sum(code.regular_cost(fork) for code in frame_codes)
     spill = max(0, total_state_charges - reservoir)
     if failure_mode == "halt":
         # Policy A (updated EIP): all state-gas — body charges, spilled
         # portions, and CREATE pre-charges (returned via credit) — folds
         # into state_gas_left at tx end. gas_left is zeroed by halt.
-        # `non_top_burns` is the inline refund burn at incorporate
-        # boundaries that does not return to the user's reservoir.
-        state_gas_at_end = max(reservoir, total_state_charges) - non_top_burns
+        state_gas_at_end = max(reservoir, total_state_charges)
         expected_cumulative = tx_gas - state_gas_at_end
         # Header: block_regular = gas_limit_cap - spill (spilled
         # state-gas drained gas_left but is no longer reclassified to
@@ -1387,13 +1371,11 @@ def test_nested_failure_resets_to_tx_reservoir(
         expected_header_gas_used = gas_limit_cap - spill
     elif failure_mode == "revert":
         # Revert preserves gas_left; full state-gas refund.
-        # User pays only regular costs + intrinsic + non-top burns.
-        expected_cumulative = intrinsic_cost + sum_regular + non_top_burns
+        # User pays only regular costs + intrinsic.
+        expected_cumulative = intrinsic_cost + sum_regular
         # Header reflects the regular-vs-state attribution directly:
         # state_gas_used is zeroed by the tx error handler, so only
-        # regular gas usage shows up. The refund burn lives in the
-        # `state_gas_left` shortfall (visible in cumulative), not
-        # the regular accumulator.
+        # regular gas usage shows up.
         expected_header_gas_used = intrinsic_cost + sum_regular
     else:
         raise ValueError("Invariant, unreachable code.")
@@ -1842,3 +1824,79 @@ def test_set_and_clear_pays_no_state_gas(
     # never touched because frame-end byte_delta was zero.
     post = {contract: Account(storage={0: 0})}
     state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "spill_mode",
+    [
+        pytest.param("no_spill", id="no_spill"),
+        pytest.param("spill", id="spill"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_subcall_set_clear_revert_pays_no_state_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    spill_mode: str,
+) -> None:
+    """
+    A child frame doing SSTORE 0 to x to 0 then REVERT must bill the
+    sender only intrinsic + regular costs.
+
+    Both SSTOREs roll back with the REVERT, so the matching
+    state-gas charge and refund cancel cleanly. The receipt's
+    `cumulative_gas_used` equals the regular baseline; a leftover
+    `sstore_state_gas` would surface a double-charge at the failure
+    boundary.
+
+    `spill_mode` toggles whether the set draws from the reservoir
+    directly (`no_spill`, reservoir sized to `sstore_state_gas`) or
+    spills into `gas_left` (`spill`, reservoir = 0).
+    """
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+    sstore_state_gas = fork.sstore_state_gas()
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+
+    set_op = Op.SSTORE.with_metadata(
+        key_warm=False,
+        original_value=0,
+        current_value=0,
+        new_value=1,
+    )(0, 1)
+    clear_op = Op.SSTORE.with_metadata(
+        key_warm=True,
+        original_value=0,
+        current_value=1,
+        new_value=0,
+    )(0, 0)
+    inner_code = set_op + clear_op + Op.REVERT(0, 0)
+    inner = pre.deploy_contract(code=inner_code)
+
+    top_code = Op.POP(Op.CALL(gas=Op.GAS, address=inner)) + Op.STOP
+    top = pre.deploy_contract(code=top_code)
+
+    reservoir = 0 if spill_mode == "spill" else sstore_state_gas
+    tx_gas = gas_limit_cap + reservoir
+
+    expected_cumulative = (
+        intrinsic_cost
+        + top_code.regular_cost(fork)
+        + inner_code.regular_cost(fork)
+    )
+
+    tx = Transaction(
+        to=top,
+        gas_limit=tx_gas,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_cumulative,
+        ),
+    )
+    state_test(
+        pre=pre,
+        post={top: Account(), inner: Account(storage={0: 0})},
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_cumulative),
+    )
