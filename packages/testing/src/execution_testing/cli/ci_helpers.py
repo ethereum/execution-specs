@@ -1,7 +1,7 @@
 """
 CLI helper commands for CI static checks.
 
-Contains wrappers to markdownlint-cli2 and changelog validation that fail
+Contains a wrapper to markdownlint-cli2 validation which fails
 silently if external tools are not available, to avoid disruption to
 external contributors.
 """
@@ -96,53 +96,3 @@ def markdownlint(args: tuple[str, ...]) -> None:
 
     command = ["node", markdownlint] + args_list
     sys.exit(subprocess.run(command).returncode)
-
-
-@click.command()
-def validate_changelog() -> None:
-    """
-    Validate changelog formatting to ensure bullet points end with proper
-    punctuation.
-
-    Check that all bullet points (including nested ones) end with either:
-    - A period (.) for regular entries
-    - A colon (:) for section headers that introduce lists
-    """
-    project_root = find_project_root()
-    changelog_path = Path(project_root / "docs/CHANGELOG.md")
-
-    if not changelog_path.exists():
-        click.echo(f"❌ Changelog file not found: {changelog_path}")
-        sys.exit(1)
-
-    try:
-        with open(changelog_path, "r", encoding="utf-8") as f:
-            content = f.read()
-    except Exception as e:
-        click.echo(f"❌ Error reading changelog: {e}.")
-        sys.exit(1)
-
-    # Find bullet points that don't end with period or colon
-    invalid_lines = []
-    for line_num, line in enumerate(content.splitlines(), 1):
-        if re.match(r"^\s*-\s+", line) and re.search(
-            r"[^\.:]$", line.rstrip()
-        ):
-            invalid_lines.append((line_num, line.strip()))
-
-    if invalid_lines:
-        click.echo(
-            f"❌ Found bullet points in {changelog_path} without proper "
-            "punctuation:"
-        )
-        click.echo()
-        for line_num, line in invalid_lines:
-            click.echo(f"Line {line_num}: {line}")
-        click.echo()
-        click.echo("💡 All bullet points should end with:")
-        click.echo("  - A period (.) for regular entries.")
-        click.echo("  - A colon (:) for paragraphs that introduce lists.")
-        sys.exit(1)
-    else:
-        click.echo("✅ All bullet points have proper punctuation!")
-        sys.exit(0)
