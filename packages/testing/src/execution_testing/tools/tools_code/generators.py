@@ -822,6 +822,10 @@ class IteratingBytecode(Bytecode):
     """EIP-8037 state-refund component of an integer `iterating_subcall`."""
     cleanup: Bytecode
     """Bytecode executed once at the end after all iterations complete."""
+    iterating_state_gas: int
+    """
+    State-gas portion (EIP-8037) charged per loop iteration.
+    """
 
     def __new__(
         cls,
@@ -833,6 +837,7 @@ class IteratingBytecode(Bytecode):
         iterating_subcall: Bytecode | int | None = None,
         iterating_subcall_state: int = 0,
         iterating_subcall_state_refund: int = 0,
+        iterating_state_gas: int = 0,
     ) -> Self:
         """
         Create a new iterating bytecode.
@@ -856,6 +861,8 @@ class IteratingBytecode(Bytecode):
                 `Bytecode`, where the split is derived from opcodes).
             iterating_subcall_state_refund: EIP-8037 state-refund
                 component of an integer `iterating_subcall`.
+            iterating_state_gas: EIP-8037 state-gas portion charged
+                per iteration, defaults to 0.
 
         Returns:
             A new IteratingBytecode instance.
@@ -887,6 +894,7 @@ class IteratingBytecode(Bytecode):
         if cleanup is None:
             cleanup = Bytecode()
         instance.cleanup = cleanup
+        instance.iterating_state_gas = iterating_state_gas
         return instance
 
     def iterating_subcall_gas_cost(
@@ -1179,60 +1187,85 @@ class IteratingBytecode(Bytecode):
             **intrinsic_cost_kwargs,
         )
 
+    def _iterations_fit_within_gas_limits(
+        self,
+        *,
+        fork: Fork,
+        iteration_count: int,
+        start_iteration: int,
+        gas_limit: int,
+        compute_gas_limit: int | None = None,
+        **intrinsic_cost_kwargs: Any,
+    ) -> bool:
+        """
+        Check whether iteration_count iterations fit within the gas limits.
+
+        Returns True when both:
+          - The combined regular+state gas (i.e. tx.gas) is <=
+            gas_limit (block-budget constraint).
+          - The regular gas, computed as
+            combined - iteration_count * iterating_state_gas,
+            respects the compute_gas_limit.
+        """
+        if iteration_count <= 0:
+            return True
+        combined = self.tx_gas_limit_by_iteration_count(
+            fork=fork,
+            iteration_count=iteration_count,
+            start_iteration=start_iteration,
+            **intrinsic_cost_kwargs,
+        )
+        if combined > gas_limit:
+            return False
+        if compute_gas_limit is not None:
+            compute = combined - iteration_count * self.iterating_state_gas
+            if compute > compute_gas_limit:
+                return False
+        return True
+
     def _binary_search_iterations(
         self,
         *,
         fork: Fork,
         gas_limit: int,
         start_iteration: int,
+        compute_gas_limit: int | None = None,
         **intrinsic_cost_kwargs: Any,
     ) -> Tuple[int, int]:
         """
         Binary search for the maximum iterations that fit within a gas limit.
         """
-        single_iteration_gas = self.tx_gas_limit_by_iteration_count(
-            fork=fork,
-            iteration_count=1,
-            start_iteration=start_iteration,
+        fits_kwargs: Dict[str, Any] = {
+            "fork": fork,
+            "start_iteration": start_iteration,
+            "gas_limit": gas_limit,
+            "compute_gas_limit": compute_gas_limit,
             **intrinsic_cost_kwargs,
-        )
-        if single_iteration_gas > gas_limit:
+        }
+
+        if not self._iterations_fit_within_gas_limits(
+            iteration_count=1, **fits_kwargs
+        ):
             raise ValueError(
-                "Single iteration gas cost is greater than gas limit."
+                "Single iteration gas cost exceeds gas_limit "
+                "or compute_gas_limit."
             )
+
         low = 1
         high = 2
 
         # Exponential search to find upper bound
-        high_gas_cost = self.tx_gas_limit_by_iteration_count(
-            fork=fork,
-            iteration_count=high,
-            start_iteration=start_iteration,
-            **intrinsic_cost_kwargs,
-        )
-        while high_gas_cost < gas_limit:
+        while self._iterations_fit_within_gas_limits(
+            iteration_count=high, **fits_kwargs
+        ):
             low = high
             high *= 2
-            high_gas_cost = self.tx_gas_limit_by_iteration_count(
-                fork=fork,
-                iteration_count=high,
-                start_iteration=start_iteration,
-                **intrinsic_cost_kwargs,
-            )
 
         # Binary search for exact fit
-        best_iterations = 0
         while low < high:
             mid = (low + high) // 2
-
-            if (
-                self.tx_gas_limit_by_iteration_count(
-                    fork=fork,
-                    iteration_count=mid,
-                    start_iteration=start_iteration,
-                    **intrinsic_cost_kwargs,
-                )
-                > gas_limit
+            if not self._iterations_fit_within_gas_limits(
+                iteration_count=mid, **fits_kwargs
             ):
                 high = mid
             else:
@@ -1276,17 +1309,11 @@ class IteratingBytecode(Bytecode):
             start_iteration=start_iteration,
             **intrinsic_cost_kwargs,
         ):
-            # Binary search for the maximum number of iterations that fits
-            # within remaining_gas
-            max_gas_limit = (
-                min(remaining_gas, gas_limit_cap)
-                if gas_limit_cap is not None
-                else remaining_gas
-            )
             best_iterations, best_iterations_gas = (
                 self._binary_search_iterations(
                     fork=fork,
-                    gas_limit=max_gas_limit,
+                    gas_limit=remaining_gas,
+                    compute_gas_limit=gas_limit_cap,
                     start_iteration=start_iteration,
                     **intrinsic_cost_kwargs,
                 )
@@ -1336,6 +1363,7 @@ class IteratingBytecode(Bytecode):
                 best_iterations, _ = self._binary_search_iterations(
                     fork=fork,
                     gas_limit=gas_limit_cap,
+                    compute_gas_limit=gas_limit_cap,
                     start_iteration=start_iteration,
                     **intrinsic_cost_kwargs,
                 )
