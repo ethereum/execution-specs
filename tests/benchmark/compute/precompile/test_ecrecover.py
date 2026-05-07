@@ -9,7 +9,9 @@ from execution_testing import (
     Op,
 )
 
-from ..helpers import Precompile, concatenate_parameters
+from tests.benchmark.compute.helpers import Precompile
+from tests.frontier.precompiles.spec import EcrecoverInput
+from tests.frontier.precompiles.spec import Spec as EcrecoverSpec
 
 
 @pytest.mark.repricing
@@ -17,16 +19,16 @@ from ..helpers import Precompile, concatenate_parameters
     "precompile_address,calldata",
     [
         pytest.param(
-            0x01,
-            concatenate_parameters(
-                [
-                    # Inputs below are a valid signature, thus ECRECOVER call
-                    # will perform full computation, not blocked by validation.
-                    "38D18ACB67D25C8BB9942764B62F18E17054F66A817BD4295423ADF9ED98873E",
-                    "000000000000000000000000000000000000000000000000000000000000001B",
-                    "38D18ACB67D25C8BB9942764B62F18E17054F66A817BD4295423ADF9ED98873E",
-                    "789D1DD423D25F0772D2748D60F7E4B81BB14D086EBA8E8E8EFB6DCFF8A4AE02",
-                ]
+            EcrecoverSpec.ECRECOVER,
+            # Inputs below are a valid signature, thus ECRECOVER call
+            # will perform full computation, not blocked by validation.
+            bytes(
+                EcrecoverInput(
+                    msg_hash=0x38D18ACB67D25C8BB9942764B62F18E17054F66A817BD4295423ADF9ED98873E,
+                    v=0x1B,
+                    r=0x38D18ACB67D25C8BB9942764B62F18E17054F66A817BD4295423ADF9ED98873E,
+                    s=0x789D1DD423D25F0772D2748D60F7E4B81BB14D086EBA8E8E8EFB6DCFF8A4AE02,
+                )
             ),
             id="ecrecover",
         )
