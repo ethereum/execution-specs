@@ -27,6 +27,7 @@ from execution_testing import (
     Storage,
     Transaction,
     TransactionException,
+    TransactionReceipt,
     compute_create2_address,
     compute_create_address,
 )
@@ -594,6 +595,196 @@ def test_code_deposit_oog_preserves_parent_reservoir(
 
     post = {factory: Account(storage=factory_storage)}
     state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    ("with_reservoir", "failure_op"),
+    [
+        pytest.param(True, Op.REVERT(0, 0), id="with_reservoir-revert"),
+        pytest.param(True, Op.INVALID, id="with_reservoir-halt"),
+        pytest.param(False, Op.REVERT(0, 0), id="no_reservoir-revert"),
+        pytest.param(False, Op.INVALID, id="no_reservoir-halt"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_parent_state_gas_after_child_failure(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    with_reservoir: bool,
+    failure_op: Bytecode,
+) -> None:
+    """
+    Test parent state-gas pools after CREATE child failure.
+
+    A factory invokes CREATE whose initcode performs an SSTORE
+    (charging state gas) then either REVERTs or hits INVALID. The
+    factory's own SSTORE after the failed CREATE acts as the
+    discriminator that the parent's state-gas accounting (reservoir
+    and gas_left) is in the expected state.
+
+    Four scenarios cover the gas-pool state space:
+
+    - `with_reservoir x revert`: child state gas (new account +
+      initcode SSTORE) is fully refunded to the parent reservoir on
+      REVERT.
+    - `with_reservoir x halt`: HALT resets the child frame to
+      `(0, R0_child)`; only the reservoir-portion entering the
+      initcode is returned, any spilled gas stays burned.
+    - `no_reservoir x revert`: child state gas refunded forms a
+      fresh reservoir even though `R0_parent` started at 0.
+    - `no_reservoir x halt`: no phantom reservoir may form; the
+      factory's post-CREATE SSTORE must spill from gas_left.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    gas_costs = fork.gas_costs()
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+    sstore_state_gas = fork.sstore_state_gas()
+    new_account_state_gas = gas_costs.NEW_ACCOUNT
+
+    initcode = Op.SSTORE(0, 1, original_value=0, new_value=1) + failure_op
+
+    factory_storage = Storage()
+    factory_code = (
+        Op.MSTORE(0, Op.PUSH32(bytes(initcode)))
+        + Op.SSTORE(
+            factory_storage.store_next(0, "create_fails"),
+            Op.CREATE(
+                value=0,
+                offset=32 - len(initcode),
+                size=len(initcode),
+            ),
+            original_value=0,
+            new_value=0,
+        )
+        + Op.SSTORE(
+            factory_storage.store_next(1, "post_create"),
+            1,
+            original_value=0,
+            new_value=1,
+        )
+    )
+    factory = pre.deploy_contract(code=factory_code)
+
+    gas_limit = (
+        gas_limit_cap + new_account_state_gas + sstore_state_gas * 2
+        if with_reservoir
+        else 5_000_000
+    )
+
+    # `bytecode.gas_cost(fork)` accounts for opcode base costs and
+    # state-gas charges, but does NOT track memory-expansion or CREATE
+    # init-code word costs. Add those back to recover runtime regular
+    # gas consumption.
+    init_code_word_count = (len(initcode) + 31) // 32
+    init_code_word_cost = gas_costs.CODE_INIT_PER_WORD * init_code_word_count
+    mstore_memory_expansion = gas_costs.MEMORY_PER_WORD  # 1 word
+    gas_cost_helper_extras = init_code_word_cost + mstore_memory_expansion
+
+    # Factory bytecode shape costs, derived from fork.gas_costs():
+    #   pre-CREATE: PUSH32 + PUSH1 + MSTORE (with 1-word expansion)
+    #               + 3 PUSHes for CREATE inputs
+    #   post-CREATE: PUSH key + SSTORE (no-op) + 2 PUSHes + SSTORE
+    #                (zero-to-nonzero regular)
+    factory_pre_create_regular = (
+        gas_costs.VERY_LOW * 2
+        + gas_costs.OPCODE_MSTORE_BASE
+        + mstore_memory_expansion
+        + gas_costs.VERY_LOW * 3
+    )
+    factory_post_create_regular = (
+        gas_costs.VERY_LOW
+        + gas_costs.COLD_STORAGE_ACCESS
+        + gas_costs.WARM_ACCESS
+        + gas_costs.VERY_LOW * 2
+        + gas_costs.COLD_STORAGE_WRITE
+    )
+
+    factory_regular = (
+        factory_code.gas_cost(fork)
+        - new_account_state_gas
+        - sstore_state_gas
+        + gas_cost_helper_extras
+    )
+    initcode_regular_revert = initcode.gas_cost(fork) - sstore_state_gas
+
+    if failure_op == Op.INVALID:
+        # Simulate runtime gas accounting for HALT using fork helpers:
+        #  1. Initial regular pool capped by transaction_gas_limit_cap;
+        #     remainder forms the state reservoir.
+        #  2. CREATE op charges new_account state gas (from reservoir
+        #     first, spilled to gas_left otherwise).
+        #  3. 63/64 retention rule: parent retains gas_left // 64.
+        #  4. INVALID burns all forwarded regular gas in the child.
+        #     Per the updated EIP, child halt preserves its state-gas
+        #     counters and `incorporate_child_on_error` refunds the
+        #     full child charge — including any spilled portion — to
+        #     the parent's reservoir.
+        #  5. CREATE failure refunds new_account state gas to the
+        #     parent's state pool (account creation rolled back).
+        #  6. Factory's post-CREATE SSTORE charges sstore_state_gas
+        #     (state pool first, spilled to gas_left otherwise).
+        execution_gas = gas_limit - intrinsic_cost
+        regular_budget = gas_limit_cap - intrinsic_cost
+        sim_gas_left = min(regular_budget, execution_gas)
+        sim_state_gas_left = execution_gas - sim_gas_left
+
+        sim_gas_left -= factory_pre_create_regular
+        sim_gas_left -= gas_costs.OPCODE_CREATE_BASE + init_code_word_cost
+
+        if sim_state_gas_left >= new_account_state_gas:
+            sim_state_gas_left -= new_account_state_gas
+        else:
+            sim_gas_left -= new_account_state_gas - sim_state_gas_left
+            sim_state_gas_left = 0
+
+        # `child_reservoir` is what the parent forwards to the child.
+        # Under Policy A halt, incorporate refunds child.state_gas_used
+        # + child.state_gas_left = max(sstore, child_reservoir) back to
+        # the parent. The simulator already implicitly retains
+        # `child_reservoir` in `sim_state_gas_left`, so the additional
+        # Policy A refund versus the Policy B "burn the spill" rule is
+        # `max(0, sstore_state_gas - child_reservoir)`.
+        child_reservoir = sim_state_gas_left
+        sim_gas_left = sim_gas_left // 64
+        sim_state_gas_left += max(0, sstore_state_gas - child_reservoir)
+        sim_state_gas_left += new_account_state_gas
+
+        sim_gas_left -= factory_post_create_regular
+
+        if sim_state_gas_left >= sstore_state_gas:
+            sim_state_gas_left -= sstore_state_gas
+        else:
+            sim_gas_left -= sstore_state_gas - sim_state_gas_left
+            sim_state_gas_left = 0
+
+        expected_cumulative = gas_limit - sim_gas_left - sim_state_gas_left
+    else:
+        # REVERT preserves gas_left and refunds the child frame's
+        # state gas (initcode SSTORE + new account). Only the
+        # factory's own post-CREATE SSTORE consumes net state gas.
+        expected_cumulative = (
+            intrinsic_cost
+            + factory_regular
+            + initcode_regular_revert
+            + sstore_state_gas
+        )
+
+    tx = Transaction(
+        to=factory,
+        gas_limit=gas_limit,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_cumulative,
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        post={factory: Account(storage=factory_storage)},
+        tx=tx,
+    )
 
 
 @pytest.mark.valid_from("EIP8037")

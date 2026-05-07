@@ -243,6 +243,8 @@ def test_static_callcodecallcallcode_101_oogm_after_3(
         Hash(addr_5, left_padding=True),
     ]
     tx_gas = [172000]
+    if fork.is_eip_enabled(8037):
+        tx_gas[0] += 7 * fork.sstore_state_gas()
 
     tx = Transaction(
         sender=sender,

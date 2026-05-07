@@ -128,8 +128,12 @@ def tx(  # noqa: D103
     initial_memory: bytes,
     tx_gas_limit: int,
     tx_access_list: List[AccessList],
+    successful: bool,
+    fork: Fork,
 ) -> Transaction:
     expected_gas = tx_gas_limit
+    if not successful and fork.is_eip_enabled(8037):
+        expected_gas -= fork.sstore_state_gas()
     return Transaction(
         sender=sender,
         to=caller_address,

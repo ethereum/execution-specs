@@ -14,8 +14,10 @@ from execution_testing import (
     Bytes,
     Environment,
     StateTestFiller,
+    Storage,
     Transaction,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -31,6 +33,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_contract_creation_spam(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_contract_creation_spam."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
@@ -628,15 +631,22 @@ def test_contract_creation_spam(
         address=Address(0x6A0A0FC761C612C340A0E98D33B37A75E5268472),  # noqa: E501
     )
 
+    gas_limit = 10000000
+    if fork.is_eip_enabled(8037):
+        gas_limit += 100 * fork.gas_costs().NEW_ACCOUNT
     tx = Transaction(
         sender=sender,
         to=contract_0,
         data=Bytes(""),
-        gas_limit=10000000,
+        gas_limit=gas_limit,
     )
 
+    contract_0_storage = Storage.model_validate({0: 0x10C20})
+    if fork.is_eip_enabled(8037):
+        contract_0_storage = Storage.model_validate({})
+        contract_0_storage.set_expect_any(0)
     post = {
-        contract_0: Account(storage={0: 0x10C20}, nonce=1),
+        contract_0: Account(storage=contract_0_storage, nonce=1),
         sender: Account(storage={}, nonce=1),
         Address(
             0x0000000000000000000000000000000000000001
