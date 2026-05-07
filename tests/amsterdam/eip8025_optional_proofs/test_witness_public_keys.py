@@ -45,8 +45,8 @@ def test_stateless_input_public_keys_are_constructed(
         blocks=[
             Block(
                 txs=[tx_a, tx_b],
-                # The filler automatically verifies stateless input public
-                # keys against the recovered payload transaction keys.
+                # For accepted blocks, the filler verifies stateless input
+                # public keys against the recovered payload transaction keys.
                 expected_stateless_validation_success=True,
             )
         ],

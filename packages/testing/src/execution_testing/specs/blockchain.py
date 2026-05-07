@@ -1177,7 +1177,17 @@ class BlockchainTest(BaseTest):
                 "expected_stateless_validation_success explicitly"
             )
         public_keys: Tuple[Bytes, ...] | None = None
-        if stateless_input_bytes is not None:
+        should_verify_stateless_input_public_keys = (
+            stateless_input_bytes is not None
+            # The block could be invalid because of invalid txs, thus
+            # the public keys might not be properly constructed given they 
+            # can't be decoded and thus provided in the execution witness.
+            and block.exception is None
+        )
+        if stateless_input_bytes is not None and (
+            should_verify_stateless_input_public_keys
+            or has_public_keys_modifier
+        ):
             payload_transactions: Tuple[Bytes, ...]
             (
                 public_keys,
@@ -1188,11 +1198,12 @@ class BlockchainTest(BaseTest):
                 timestamp=int(env.timestamp),
                 stateless_input_bytes=stateless_input_bytes,
             )
-            verify_stateless_input_public_keys(
-                public_keys,
-                payload_transactions,
-                self.chain_id,
-            )
+            if should_verify_stateless_input_public_keys:
+                verify_stateless_input_public_keys(
+                    public_keys,
+                    payload_transactions,
+                    self.chain_id,
+                )
         elif has_public_keys_modifier:
             raise Exception(
                 "Stateless input public-key mutation requires stateless "
