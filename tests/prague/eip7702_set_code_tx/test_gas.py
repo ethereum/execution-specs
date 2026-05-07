@@ -841,6 +841,10 @@ def gas_test_parameter_args(
     )
 )
 @pytest.mark.slow()
+# TODO[EIP-8037]: discount accounting here uses Prague refund_counter
+# mechanics (with the EIP-3529 1/5 cap). On Amsterdam the existing-authority
+# refund flows through state_gas_reservoir / state_refund and is not capped
+# the same way. Needs a fork-aware rewrite before this can run on Amsterdam.
 @pytest.mark.valid_before("EIP8037")
 def test_gas_cost(
     state_test: StateTestFiller,
@@ -1117,10 +1121,6 @@ def test_account_warming(
     "valid",
     [True, pytest.param(False, marks=pytest.mark.exception_test)],
 )
-# TODO[EIP-8037]: EELS uses PER_EMPTY_ACCOUNT_COST=25,000
-# per auth for intrinsic gas check, but Amsterdam
-# G_AUTHORIZATION=165,990 includes state gas. EELS bug?
-@pytest.mark.valid_before("EIP8037")
 def test_intrinsic_gas_cost(
     state_test: StateTestFiller,
     pre: Alloc,

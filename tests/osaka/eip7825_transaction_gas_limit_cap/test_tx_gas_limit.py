@@ -648,6 +648,12 @@ def test_tx_gas_limit_cap_access_list_with_diff_addr(
     ],
 )
 @pytest.mark.valid_from("Osaka")
+# TODO[EIP-8037]: cap math here uses the combined intrinsic (regular + state)
+# vs. tx_gas_limit_cap, but Amsterdam only caps max(intrinsic.regular,
+# calldata_floor). Auth state-gas no longer counts toward the cap, so
+# auth_list_length comes out wrong and the GAS_LIMIT_EXCEEDS_MAXIMUM cases
+# stop tripping. Needs a fork-aware rewrite that splits intrinsic.regular
+# from intrinsic.state.
 @pytest.mark.valid_before("EIP8037")
 def test_tx_gas_limit_cap_authorized_tx(
     state_test: StateTestFiller,
