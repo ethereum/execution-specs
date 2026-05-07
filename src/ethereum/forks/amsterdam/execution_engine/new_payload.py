@@ -105,13 +105,6 @@ def execute_new_payload_request(
     parent_beacon_block_root = new_payload_request.parent_beacon_block_root
     execution_requests = new_payload_request.execution_requests
 
-    if transaction_public_keys is not None and len(
-        transaction_public_keys
-    ) != len(payload.transactions):
-        raise InvalidBlock(
-            "Transaction public key count does not match payload transactions"
-        )
-
     if b"" in payload.transactions:
         raise InvalidBlock("Empty transaction in payload")
 

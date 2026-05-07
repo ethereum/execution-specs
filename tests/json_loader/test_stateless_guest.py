@@ -23,7 +23,6 @@ from ethereum.forks.amsterdam.stateless import (
     StatelessInput,
     StatelessValidationResult,
     compute_new_payload_request_root,
-    validate_transaction_public_keys,
     verify_stateless_new_payload,
 )
 from ethereum.forks.amsterdam.stateless_guest import (
@@ -229,25 +228,6 @@ class TestComputeNewPayloadRequestRoot:
 
 class TestTransactionPublicKeys:
     """Test stateless transaction public-key validation."""
-
-    def test_count_must_match_payload_transactions(self) -> None:
-        """Count validation should require exactly one key per transaction."""
-        original = _make_stateless_input()
-        invalid = StatelessInput(
-            new_payload_request=original.new_payload_request,
-            witness=original.witness,
-            chain_config=original.chain_config,
-            public_keys=(original.public_keys[0],),
-        )
-
-        with pytest.raises(
-            ValueError,
-            match=(
-                "Transaction public key count does not match payload "
-                "transactions"
-            ),
-        ):
-            validate_transaction_public_keys(invalid)
 
     def test_too_few_public_keys_fail_validation(self) -> None:
         """Stateless validation should fail with too few public keys."""
