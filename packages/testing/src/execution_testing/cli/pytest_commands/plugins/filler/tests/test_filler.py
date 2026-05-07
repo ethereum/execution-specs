@@ -1070,10 +1070,11 @@ def test_execution_witness_in_blockchain_fixture(
     assert len(witness["codes"]) > 0, "executionWitness.codes is empty"
     assert len(witness["headers"]) > 0, "executionWitness.headers is empty"
 
-    # statelessInputBytes and statelessOutputBytes are non-empty hex strings
+    # statelessInputBytes is a schema-prefixed guest input hex string.
     assert "statelessInputBytes" in block
     sib = block["statelessInputBytes"]
     assert isinstance(sib, str) and sib.startswith("0x") and len(sib) > 2
+    assert sib.startswith("0x01")
 
     assert "statelessOutputBytes" in block
     sob = block["statelessOutputBytes"]

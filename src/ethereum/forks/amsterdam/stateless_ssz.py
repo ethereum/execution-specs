@@ -52,6 +52,9 @@ MAX_BYTES_PER_HEADER = 2**10
 MAX_PUBLIC_KEYS = 2**20
 MAX_BYTES_PER_PUBLIC_KEY = 65
 
+# Amsterdam SSZ stateless input schema identifier.
+STATELESS_INPUT_SCHEMA_ID = 0x01
+
 
 # --- SSZ Container types ---
 
