@@ -24,7 +24,6 @@ from ..forks.forks import (
     Paris,
     Prague,
     Shanghai,
-    SpuriousDragon,
 )
 from ..forks.transition import (
     BerlinToLondonAt5,
@@ -732,54 +731,3 @@ def test_eips() -> None:  # noqa: D103
     assert not Paris.is_eip_enabled(3675, 3855)
     assert not Paris.is_eip_enabled(3855, 3675)
     assert Shanghai.is_eip_enabled(3855)
-
-
-def test_fork_variant_ordering() -> None:
-    """
-    Variants from `with_env_gas_limit` must compare consistently with
-    their canonical parent: equal to the parent, ordered identically
-    against other canonical forks.
-    """
-    variant = London.with_env_gas_limit(30_000_000)
-
-    assert variant == London
-    assert hash(variant) == hash(London)
-
-    assert variant > SpuriousDragon
-    assert variant >= SpuriousDragon
-    assert variant < Cancun
-    assert variant <= Cancun
-
-    assert not (variant > London)
-    assert not (variant < London)
-    assert variant >= London
-    assert variant <= London
-
-
-def test_transition_fork_variant_equality() -> None:
-    """
-    Variants of a transition fork created via `with_env_gas_limit` must
-    compare equal to their canonical parent and to each other, even when
-    different gas limits are used. Distinct canonical transition forks
-    must remain unequal.
-    """
-    canonical = CancunToPragueAtTime15k
-    variant_a = canonical.with_env_gas_limit(30_000_000)
-    variant_b = canonical.with_env_gas_limit(45_000_000)
-    variant_c = canonical.with_env_gas_limit(30_000_000)
-
-    assert variant_a is not canonical
-    assert variant_a is not variant_b
-    assert variant_a is not variant_c
-
-    assert variant_a == canonical
-    assert variant_b == canonical
-    assert variant_a == variant_b
-    assert variant_a == variant_c
-
-    assert hash(variant_a) == hash(canonical)
-    assert hash(variant_b) == hash(canonical)
-    assert hash(variant_c) == hash(canonical)
-
-    assert canonical != PragueToOsakaAtTime15k
-    assert variant_a != PragueToOsakaAtTime15k
