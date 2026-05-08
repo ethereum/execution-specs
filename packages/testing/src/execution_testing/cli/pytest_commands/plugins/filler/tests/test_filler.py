@@ -1079,7 +1079,11 @@ def test_execution_witness_in_blockchain_fixture(
     # statelessInputBytes is schema-prefixed guest input bytes.
     sib = block.stateless_input_bytes
     assert sib is not None and len(sib) > 0
-    assert bytes(sib).startswith(b"\x01")
+    from ethereum.forks.amsterdam.stateless_ssz import (
+        STATELESS_INPUT_SCHEMA_ID_BYTES,
+    )
+
+    assert bytes(sib).startswith(STATELESS_INPUT_SCHEMA_ID_BYTES)
 
     sob = block.stateless_output_bytes
     assert sob is not None and len(sob) > 0
