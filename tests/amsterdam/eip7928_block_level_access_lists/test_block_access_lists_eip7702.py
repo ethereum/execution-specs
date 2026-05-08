@@ -2,6 +2,7 @@
 
 import pytest
 from execution_testing import (
+    AccessList,
     Account,
     Alloc,
     AuthorizationTuple,
@@ -1290,9 +1291,19 @@ def test_bal_7702_delegated_create(
     )
 
 
+@pytest.mark.parametrize(
+    "target_is_warm", [False, True], ids=["cold_target", "warm_target"]
+)
+@pytest.mark.parametrize(
+    "delegation_is_warm",
+    [False, True],
+    ids=["cold_delegation", "warm_delegation"],
+)
 def test_bal_call_7702_delegation_revert_insufficient_funds(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    target_is_warm: bool,
+    delegation_is_warm: bool,
 ) -> None:
     """
     Ensure BAL handles CALL to a 7702-delegated EOA that fails due to
@@ -1301,27 +1312,24 @@ def test_bal_call_7702_delegation_revert_insufficient_funds(
     Caller contract (balance=100) executes CALL(target, value=1000) where
     target is a 7702-delegated EOA. CALL fails because 1000 > 100.
 
-    Both addresses are recorded in BAL. The static-check optimization
-    asserted by test_bal_call_7702_delegation_and_oog only fires for OOG
-    before/during delegation load; insufficient-balance failure happens
-    after load, so the delegation target stays in BAL.
-
-    Expected BAL:
-      - Caller: storage_reads [0x01], storage_changes slot 0x02 (CALL=0).
-      - Target (authority): empty changes.
-      - Delegation target: empty changes (accessed during resolution).
+    Both target and delegation target are recorded in BAL regardless of
+    warm/cold state. The static-check optimization asserted by
+    test_bal_call_7702_delegation_and_oog only fires for OOG before/during
+    delegation load; insufficient-balance failure happens after load, so
+    the delegation target stays in BAL. Access-list warming does NOT add
+    to BAL on its own so the BAL is identical across warm/cold parametrization.
     """
     alice = pre.fund_eoa()
 
     caller_balance = 100
     transfer_amount = 1000  # > caller_balance, transfer must fail
-    target_balance = 1  # small balance avoids pruning
 
     # Delegation target: STOP body, never executed since CALL fails.
     delegation_target = pre.deploy_contract(code=Op.STOP)
 
-    # 7702-delegated EOA (the authority).
-    target = pre.fund_eoa(amount=target_balance, delegation=delegation_target)
+    # 7702-delegated EOA. Non-empty code from the delegation designation
+    # prevents pruning regardless of balance.
+    target = pre.fund_eoa(amount=0, delegation=delegation_target)
 
     #   1. SLOAD slot 0x01 (read recorded in BAL)
     #   2. CALL(target, value=1000) -> fails, returns 0
@@ -1341,10 +1349,19 @@ def test_bal_call_7702_delegation_revert_insufficient_funds(
         storage={0x02: 0xDEAD},  # non-zero so SSTORE(0) is a change
     )
 
+    access_list: list[AccessList] = []
+    if target_is_warm:
+        access_list.append(AccessList(address=target, storage_keys=[]))
+    if delegation_is_warm:
+        access_list.append(
+            AccessList(address=delegation_target, storage_keys=[])
+        )
+
     tx = Transaction(
         sender=alice,
         to=caller,
         gas_limit=1_000_000,
+        access_list=access_list,
     )
 
     block = Block(
@@ -1369,8 +1386,8 @@ def test_bal_call_7702_delegation_revert_insufficient_funds(
                         )
                     ],
                 ),
-                # Both authority and delegation is
-                # accessed before balance check fails
+                # Both target and delegation target are accessed before
+                # the balance check fails.
                 target: BalAccountExpectation.empty(),
                 delegation_target: BalAccountExpectation.empty(),
             }
@@ -1386,6 +1403,6 @@ def test_bal_call_7702_delegation_revert_insufficient_funds(
                 balance=caller_balance,  # unchanged - transfer failed
                 storage={0x02: 0},  # Failed CALL returned 0
             ),
-            target: Account(balance=target_balance),  # unchanged
+            target: Account(balance=0),  # no value transferred
         },
     )
