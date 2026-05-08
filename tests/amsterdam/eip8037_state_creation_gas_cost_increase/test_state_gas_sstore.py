@@ -872,11 +872,15 @@ def test_sstore_restoration_sub_frame_revert(
     state_test(pre=pre, tx=tx, post=post)
 
 
+@pytest.mark.with_all_call_opcodes(
+    selector=lambda call_opcode: call_opcode != Op.STATICCALL
+)
 @pytest.mark.valid_from("EIP8037")
 def test_sstore_restoration_ancestor_revert(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    call_opcode: Op,
 ) -> None:
     """
     Verify the SSTORE 0 to x to 0 refund returns to the caller when an
@@ -890,6 +894,7 @@ def test_sstore_restoration_ancestor_revert(
     replenished by `sstore_state_gas`.
     """
     gas_costs = fork.gas_costs()
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
     # Probe SSTORE(0, 1): 2 pushes + cold storage write + state gas - 1,
     # so it OOGs by 1 when the reservoir is 0 and succeeds otherwise.
     probe_gas = (
@@ -899,24 +904,46 @@ def test_sstore_restoration_ancestor_revert(
         - 1
     )
 
-    inner = pre.deploy_contract(
-        code=Op.SSTORE(0, 1) + Op.SSTORE(0, 0) + Op.STOP,
-    )
-    middle = pre.deploy_contract(
-        code=Op.POP(Op.CALL(gas=Op.GAS, address=inner)) + Op.REVERT(0, 0),
-    )
-    probe = pre.deploy_contract(code=Op.SSTORE(0, 1))
+    set_op = Op.SSTORE.with_metadata(
+        key_warm=False,
+        original_value=0,
+        current_value=0,
+        new_value=1,
+    )(0, 1)
+    clear_op = Op.SSTORE.with_metadata(
+        key_warm=True,
+        original_value=0,
+        current_value=1,
+        new_value=0,
+    )(0, 0)
+    inner_code = set_op + clear_op + Op.STOP
+    inner = pre.deploy_contract(code=inner_code)
+
+    middle_code = Op.POP(Op.CALL(gas=Op.GAS, address=inner)) + Op.REVERT(0, 0)
+    middle = pre.deploy_contract(code=middle_code)
+
+    probe_code = Op.SSTORE(0, 1)
+    probe = pre.deploy_contract(code=probe_code)
 
     caller_storage = Storage()
-    caller = pre.deploy_contract(
-        code=(
-            Op.POP(Op.CALL(gas=Op.GAS, address=middle))
-            + Op.SSTORE(
-                caller_storage.store_next(1, "probe_must_succeed"),
-                Op.CALL(gas=probe_gas, address=probe),
-            )
-        ),
+    caller_code = Op.POP(call_opcode(gas=Op.GAS, address=middle)) + Op.SSTORE(
+        caller_storage.store_next(1, "probe_must_succeed"),
+        Op.CALL(gas=probe_gas, address=probe),
     )
+    caller = pre.deploy_contract(code=caller_code)
+
+    # Block state gas commits: probe's SSTORE-set and caller's outer
+    # SSTORE-set; inner's set+clear cancel before middle reverts and
+    # don't propagate.  Header gas_used is max(regular, state).
+    expected_regular = (
+        intrinsic_cost
+        + caller_code.regular_cost(fork)
+        + middle_code.regular_cost(fork)
+        + inner_code.regular_cost(fork)
+        + probe_code.regular_cost(fork)
+    )
+    expected_state = 2 * fork.sstore_state_gas()
+    expected_gas_used = max(expected_regular, expected_state)
 
     # gas_limit at the cap means the caller's reservoir starts at 0.
     tx = Transaction(
@@ -925,8 +952,112 @@ def test_sstore_restoration_ancestor_revert(
         gas_limit=fork.transaction_gas_limit_cap(),
     )
 
-    post = {caller: Account(storage=caller_storage)}
-    state_test(pre=pre, tx=tx, post=post)
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={caller: Account(storage=caller_storage)},
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
+    )
+
+
+@pytest.mark.with_all_call_opcodes(
+    selector=lambda call_opcode: call_opcode in (Op.DELEGATECALL, Op.CALLCODE)
+)
+@pytest.mark.valid_from("EIP8037")
+def test_sstore_restoration_charge_in_ancestor_intermediate_revert(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    call_opcode: Op,
+) -> None:
+    """
+    Verify a deferred refund applied in an intermediate frame still
+    flows back to the caller when that frame REVERTs.
+
+    Caller's SSTORE charges; the matching clear in inner is deferred
+    through the chain and lands on middle's own SSTORE-set during
+    `incorporate_child_on_success`.  Middle REVERTs; the applied
+    amount must reach the caller via `incorporate_child_on_error`.
+    A probe SSTORE sized to OOG by 1 detects loss.
+    """
+    gas_costs = fork.gas_costs()
+    sstore_state_gas = fork.sstore_state_gas()
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+    # Probe SSTORE(0, 1): 2 pushes + cold storage write + state gas - 1,
+    # so it OOGs by 1 when the reservoir is 0 and succeeds otherwise.
+    probe_gas = (
+        2 * gas_costs.VERY_LOW
+        + gas_costs.COLD_STORAGE_WRITE
+        + sstore_state_gas
+        - 1
+    )
+
+    inner_code = (
+        Op.SSTORE.with_metadata(
+            key_warm=True,
+            original_value=0,
+            current_value=1,
+            new_value=0,
+        )(0, 0)
+        + Op.STOP
+    )
+    inner = pre.deploy_contract(code=inner_code)
+
+    # Middle's own SSTORE on slot 1 supplies the `state_gas_used`
+    # that inner's deferred credit lands on, then middle REVERTs.
+    middle_code = (
+        Op.SSTORE(1, 1)
+        + Op.POP(call_opcode(gas=Op.GAS, address=inner))
+        + Op.REVERT(0, 0)
+    )
+    middle = pre.deploy_contract(code=middle_code)
+
+    probe_code = Op.SSTORE(0, 1)
+    probe = pre.deploy_contract(code=probe_code)
+
+    caller_storage = Storage()
+    caller_code = (
+        Op.SSTORE(caller_storage.store_next(1, "caller_set_persists"), 1)
+        + Op.POP(call_opcode(gas=Op.GAS, address=middle))
+        + Op.SSTORE(
+            caller_storage.store_next(1, "probe_must_succeed"),
+            Op.CALL(gas=probe_gas, address=probe),
+        )
+    )
+    caller = pre.deploy_contract(code=caller_code)
+
+    # Block state gas commits: caller's slot-0 set + probe's
+    # SSTORE-set + caller's outer SSTORE-set on slot 1.  Middle's
+    # own slot-1 set is washed by inner's deferred credit before
+    # middle reverts, so it does not propagate.  Header gas_used
+    # is max(regular, state).
+    expected_regular = (
+        intrinsic_cost
+        + caller_code.regular_cost(fork)
+        + middle_code.regular_cost(fork)
+        + inner_code.regular_cost(fork)
+        + probe_code.regular_cost(fork)
+    )
+    expected_state = 3 * sstore_state_gas
+    expected_gas_used = max(expected_regular, expected_state)
+
+    # Reservoir = 2 * sstore_state_gas covers caller's and middle's
+    # sets; the deferred credit refills middle by sstore_state_gas,
+    # which flows to the caller on revert.
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=caller,
+        gas_limit=gas_limit_cap + 2 * sstore_state_gas,
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={caller: Account(storage=caller_storage)},
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
+    )
 
 
 @pytest.mark.with_all_create_opcodes

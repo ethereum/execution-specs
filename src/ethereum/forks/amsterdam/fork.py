@@ -1076,7 +1076,7 @@ def process_transaction(
     if tx_output.error is not None:
         tx_output.state_gas_left += tx_output.state_gas_used
         tx_output.state_gas_used = Uint(0)
-        if tx.to == Bytes0(b""):
+        if isinstance(tx.to, Bytes0):
             new_account_refund = (
                 STATE_BYTES_PER_NEW_ACCOUNT * COST_PER_STATE_BYTE
             )
