@@ -1321,9 +1321,7 @@ def test_bal_call_7702_delegation_revert_insufficient_funds(
     delegation_target = pre.deploy_contract(code=Op.STOP)
 
     # 7702-delegated EOA (the authority).
-    target = pre.fund_eoa(
-        amount=target_balance, delegation=delegation_target
-    )
+    target = pre.fund_eoa(amount=target_balance, delegation=delegation_target)
 
     #   1. SLOAD slot 0x01 (read recorded in BAL)
     #   2. CALL(target, value=1000) -> fails, returns 0
