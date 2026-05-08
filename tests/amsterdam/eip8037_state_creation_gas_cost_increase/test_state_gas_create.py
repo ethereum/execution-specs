@@ -1845,15 +1845,16 @@ def test_create_code_deposit_oog_refunds_state_gas(
 )
 @pytest.mark.valid_from("EIP8037")
 def test_failed_create_tx_refunds_intrinsic_new_account(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     init_code: Bytecode,
 ) -> None:
     """
     Verify the NEW_ACCOUNT × CPSB portion of intrinsic_state_gas is
-    refunded on creation-tx revert/halt, so block state-gas excludes
-    it and header gas_used reflects only the regular component.
+    refunded on creation-tx revert/halt. Block state-gas excludes it
+    so header gas_used reflects only the regular component, and the
+    sender's receipt reflects the same refund via cumulative_gas_used.
     """
     intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
     create_state_gas = fork.create_state_gas(code_size=0)
@@ -1870,23 +1871,23 @@ def test_failed_create_tx_refunds_intrinsic_new_account(
         regular_consumed = init_code.regular_cost(fork)
 
     expected_gas_used = intrinsic_regular + regular_consumed
+    expected_cumulative = intrinsic_total + regular_consumed - create_state_gas
 
     tx = Transaction(
         to=None,
         data=init_code,
         gas_limit=gas_limit,
         sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_cumulative,
+        ),
     )
 
-    blockchain_test(
+    state_test(
         pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                header_verify=Header(gas_used=expected_gas_used),
-            ),
-        ],
         post={},
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )
 
 
@@ -1935,57 +1936,6 @@ def test_create_tx_collision_refunds_intrinsic_new_account(
         ],
         post={},
     )
-
-
-@pytest.mark.parametrize(
-    "failure_mode",
-    [
-        pytest.param("revert", id="revert"),
-        pytest.param("halt", id="halt"),
-    ],
-)
-@pytest.mark.valid_from("EIP8037")
-def test_failed_create_tx_sender_billing(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-    failure_mode: str,
-) -> None:
-    """
-    Verify sender billing for a failed creation tx with tight gas.
-
-    Complements ``test_failed_create_tx_state_gas_dominates`` which
-    checks the header. This pins ``cumulative_gas_used`` to verify
-    the execution state gas refund reaches the sender.
-    """
-    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
-
-    if failure_mode == "revert":
-        init_code = Op.REVERT(0, 0)
-    else:
-        init_code = Op.INVALID
-
-    intrinsic_total = intrinsic_calc(
-        calldata=bytes(init_code), contract_creation=True
-    )
-    gas_limit = intrinsic_total + 1000
-
-    if failure_mode == "revert":
-        expected_cumulative = intrinsic_total + init_code.gas_cost(fork)
-    else:
-        expected_cumulative = gas_limit
-
-    tx = Transaction(
-        to=None,
-        data=init_code,
-        gas_limit=gas_limit,
-        sender=pre.fund_eoa(),
-        expected_receipt=TransactionReceipt(
-            cumulative_gas_used=expected_cumulative,
-        ),
-    )
-
-    state_test(pre=pre, post={}, tx=tx)
 
 
 @pytest.mark.parametrize(
