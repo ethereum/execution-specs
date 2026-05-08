@@ -10,6 +10,7 @@ is shorter than 32 bytes.
 
 import pytest
 from execution_testing import (
+    AccessList,
     Account,
     Alloc,
     Hash,
@@ -26,7 +27,7 @@ from .spec import Spec, ref_spec_7997
 REFERENCE_SPEC_GIT_PATH = ref_spec_7997.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7997.version
 
-pytestmark = pytest.mark.valid_from("Amsterdam")
+pytestmark = pytest.mark.valid_from("EIP7997")
 
 FACTORY = Spec.FACTORY_ADDRESS
 
@@ -522,34 +523,46 @@ def test_factory_staticcall_reverts(
     )
 
 
-def test_factory_delegatecall_uses_caller_address(
+@pytest.mark.parametrize("call_opcode", [Op.DELEGATECALL, Op.CALLCODE])
+def test_factory_in_caller_context(
     state_test: StateTestFiller,
     pre: Alloc,
+    call_opcode: Op,
 ) -> None:
     """
-    Under `DELEGATECALL`, the factory's code runs in the caller's context,
-    so `CREATE2`'s deployer is the caller — not the factory. The contract
-    is deployed at the address derived from the caller, and the
-    factory-derived address is empty.
+    Under `DELEGATECALL` or `CALLCODE`, the factory's bytecode runs in the
+    caller's context, so `CREATE2`'s deployer is the caller — not the
+    factory. The contract is deployed at the address derived from the
+    caller, and the factory-derived address is empty.
     """
     salt = 0x44
     runtime_code = Op.STOP
     initcode = Initcode(deploy_code=runtime_code)
     factory_derived = compute_create2_address(FACTORY, salt, initcode)
 
+    if call_opcode is Op.CALLCODE:
+        call_op = Op.CALLCODE(
+            gas=Op.GAS,
+            address=FACTORY,
+            value=0,
+            args_offset=0,
+            args_size=Op.CALLDATASIZE,
+            ret_offset=0x100,
+            ret_size=32,
+        )
+    else:
+        call_op = Op.DELEGATECALL(
+            gas=Op.GAS,
+            address=FACTORY,
+            args_offset=0,
+            args_size=Op.CALLDATASIZE,
+            ret_offset=0x100,
+            ret_size=32,
+        )
+
     caller = pre.deploy_contract(
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-        + Op.SSTORE(
-            0,
-            Op.DELEGATECALL(
-                gas=Op.GAS,
-                address=FACTORY,
-                args_offset=0,
-                args_size=Op.CALLDATASIZE,
-                ret_offset=0x100,
-                ret_size=32,
-            ),
-        )
+        + Op.SSTORE(0, call_op)
         + Op.SSTORE(1, Op.MLOAD(0x100))
         + Op.STOP,
     )
@@ -681,6 +694,154 @@ def test_factory_deploys_to_pre_funded_address(
             expected_address: Account(
                 nonce=1,
                 balance=pre_balance,
+                code=bytes(runtime_code),
+            ),
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "use_access_list,expected_delta",
+    [
+        pytest.param(False, 2500, id="without_access_list"),
+        pytest.param(True, 0, id="with_access_list"),
+    ],
+)
+def test_factory_access_list_prewarming(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    use_access_list: bool,
+    expected_delta: int,
+) -> None:
+    """
+    Measure the gas-cost difference between a first and second `CALL` to
+    the factory in the same transaction. Both calls send empty calldata
+    so the factory reverts immediately, eliminating variability from the
+    inner `CREATE2`.
+
+    - Without access list: difference is 2,500.
+    - With access list including the factory: difference is 0.
+    """
+    # Identical measurement block around each call: GAS, CALL, POP, GAS,
+    # SWAP1, SUB. Leaves the call's gas cost on top of the stack. Doing
+    # the same operations on both sides means any opcode overhead cancels
+    # out exactly in the difference.
+    measure = (
+        Op.GAS
+        + Op.POP(
+            Op.CALL(
+                gas=Op.GAS,
+                address=FACTORY,
+                value=0,
+                args_offset=0,
+                args_size=0,
+                ret_offset=0x100,
+                ret_size=0,
+            )
+        )
+        + Op.GAS
+        + Op.SWAP1
+        + Op.SUB
+    )
+
+    storage = Storage()
+    caller = pre.deploy_contract(
+        # First measurement: stack ends as [cost1].
+        measure
+        # Second measurement: stack ends as [cost2, cost1].
+        + measure
+        # delta = cost1 - cost2.
+        + Op.SWAP1
+        + Op.SUB
+        # Stack: [delta]. SSTORE pops [key, value], so push the key.
+        + Op.PUSH1(storage.store_next(expected_delta, "first_minus_second"))
+        + Op.SSTORE
+        + Op.STOP,
+    )
+
+    access_list = (
+        [AccessList(address=FACTORY, storage_keys=[])]
+        if use_access_list
+        else None
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(
+            sender=pre.fund_eoa(),
+            to=caller,
+            gas_limit=500_000,
+            access_list=access_list,
+        ),
+        post={caller: Account(storage=storage)},
+    )
+
+
+@pytest.mark.pre_alloc_mutable
+def test_factory_receives_balance_via_selfdestruct(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    `SELFDESTRUCT` to the factory transfers the originator's balance to
+    `0x12`. The factory's other state is untouched: same nonce, same code.
+    Calling the factory after the transfer still works.
+
+    Tests that the factory address has no special handling under
+    `SELFDESTRUCT` — it behaves like any other contract beneficiary.
+    """
+    forwarded_value = 0xBA1
+
+    sd_actor = pre.deploy_contract(
+        Op.SELFDESTRUCT(FACTORY),
+        balance=forwarded_value,
+    )
+
+    salt = 0x88
+    runtime_code = Op.STOP
+    initcode = Initcode(deploy_code=runtime_code)
+    expected_address = compute_create2_address(FACTORY, salt, initcode)
+
+    storage = Storage()
+    caller = pre.deploy_contract(
+        Op.POP(Op.CALL(gas=Op.GAS, address=sd_actor))
+        + Op.SSTORE(
+            storage.store_next(forwarded_value, "factory_balance_after_sd"),
+            Op.BALANCE(FACTORY),
+        )
+        + Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.SSTORE(
+            storage.store_next(1, "factory_call_success"),
+            Op.CALL(
+                gas=Op.GAS,
+                address=FACTORY,
+                value=0,
+                args_offset=0,
+                args_size=Op.CALLDATASIZE,
+                ret_offset=0x100,
+                ret_size=32,
+            ),
+        )
+        + Op.STOP,
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(
+            sender=pre.fund_eoa(),
+            to=caller,
+            data=Hash(salt) + bytes(initcode),
+            gas_limit=1_000_000,
+        ),
+        post={
+            caller: Account(storage=storage),
+            FACTORY: Account(
+                nonce=2,
+                balance=forwarded_value,
+                code=Spec.FACTORY_BYTECODE,
+            ),
+            expected_address: Account(
+                nonce=1,
                 code=bytes(runtime_code),
             ),
         },
