@@ -16,6 +16,7 @@ from typing import List
 from execution_testing.base_types import Bytes
 from execution_testing.fixtures import BlockchainEngineFixture
 from execution_testing.fixtures.blockchain import (
+    FixtureEngineNewPayload,
     FixtureExecutionPayload,
     FixtureHeader,
 )
@@ -151,23 +152,14 @@ def _validate_built_block(
     logger.info(f"Block validated for block {expected.number}.")
 
 
-def test_blockchain_via_build(
-    timing_data: TimingData,
-    eth_rpc: EthRPC,
+def _bootstrap_engine_at_genesis(
     engine_rpc: EngineRPC,
-    testing_rpc: TestingRPC,
+    eth_rpc: EthRPC,
     fixture: BlockchainEngineFixture,
     genesis_header: FixtureHeader,
+    timing_data: TimingData,
 ) -> None:
-    """
-    Test block building correctness against a client.
-
-    For each valid payload in the fixture:
-    1. Build a block via ``testing_buildBlockV1``
-    2. Validate execution-dependent fields + gas limit range
-    3. Import the fixture block via ``engine_newPayloadVX``
-    4. Advance the chain via ``engine_forkchoiceUpdatedVX``
-    """
+    """Send initial FCU to genesis and verify the client's genesis hash."""
     with timing_data.time("Initial forkchoice update"):
         logger.info("Sending initial forkchoice update to genesis block...")
         try:
@@ -178,8 +170,6 @@ def test_blockchain_via_build(
                 forkchoice_version=fixture.payloads[
                     0
                 ].forkchoice_updated_version,
-                max_attempts=30,
-                wait_fixed=1.0,
             )
             if response.payload_status.status != PayloadStatusEnum.VALID:
                 raise LoggedError(
@@ -196,16 +186,130 @@ def test_blockchain_via_build(
         genesis_block = eth_rpc.get_block_by_number(0)
         assert genesis_block is not None, "genesis_block is None"
         if genesis_block["hash"] != str(genesis_header.block_hash):
-            expected = genesis_header.block_hash
-            got = genesis_block["hash"]
-            logger.fail(
-                f"Genesis block hash mismatch. "
-                f"Expected: {expected}, Got: {got}"
-            )
             raise GenesisBlockMismatchExceptionError(
                 expected_header=genesis_header,
                 got_genesis_block=genesis_block,
             )
+
+
+def _build_validate_and_advance(
+    testing_rpc: TestingRPC,
+    engine_rpc: EngineRPC,
+    payload: FixtureEngineNewPayload,
+    parent_gas_limit: int,
+    block_index: int,
+    total_blocks: int,
+    total_build_timing: TimingData,
+) -> int:
+    """
+    Build, validate, import, and advance the chain for one payload.
+
+    Returns the new ``parent_gas_limit`` to use for the next block (taken
+    from the fixture's expected payload, not the client-built one, since
+    we import the fixture block to advance the chain).
+    """
+    expected_payload = payload.params[0]
+    logger.info(
+        f"Building block {block_index + 1}/{total_blocks} "
+        f"(number {expected_payload.number})..."
+    )
+    with total_build_timing.time(f"Block {block_index + 1}") as block_timing:
+        # 1. Build the block
+        with block_timing.time("testing_buildBlockV1"):
+            build_response = testing_rpc.build_block(
+                parent_block_hash=expected_payload.parent_hash,
+                payload_attributes=payload.get_payload_attributes(),
+                transactions=expected_payload.transactions,
+                extra_data=expected_payload.extra_data,
+            )
+
+        # 2. Validate fields + gas limit range
+        _validate_built_block(
+            built=build_response.execution_payload,
+            expected=expected_payload,
+            parent_gas_limit=parent_gas_limit,
+        )
+
+        # 3. Validate execution_requests (V4+)
+        if payload.new_payload_version >= 4:
+            expected_requests = (
+                payload.params[3] if len(payload.params) >= 4 else None
+            )
+            if build_response.execution_requests != expected_requests:
+                raise LoggedError(
+                    f"execution_requests mismatch for block "
+                    f"{expected_payload.number}: expected "
+                    f"{expected_requests}, got "
+                    f"{build_response.execution_requests}"
+                )
+
+        # 4. Import the fixture block (not the built block) so the chain
+        #    advances with the expected gas limit and block hash.
+        with block_timing.time(
+            f"engine_newPayloadV{payload.new_payload_version}"
+        ):
+            logger.info(
+                "Importing block via "
+                f"engine_newPayloadV{payload.new_payload_version}..."
+            )
+            import_response = engine_rpc.new_payload(
+                *payload.params,
+                version=payload.new_payload_version,
+            )
+            if import_response.status != PayloadStatusEnum.VALID:
+                raise LoggedError(
+                    "Unexpected status importing "
+                    f"block: {import_response.status}"
+                )
+
+        # 5. Advance the chain via forkchoice update
+        v = payload.forkchoice_updated_version
+        with block_timing.time(f"engine_forkchoiceUpdatedV{v}"):
+            logger.info(f"Sending engine_forkchoiceUpdatedV{v}...")
+            fcu_response = engine_rpc.forkchoice_updated(
+                forkchoice_state=ForkchoiceState(
+                    head_block_hash=expected_payload.block_hash,
+                ),
+                payload_attributes=None,
+                version=v,
+            )
+            fcu_status = fcu_response.payload_status.status
+            if fcu_status != PayloadStatusEnum.VALID:
+                raise LoggedError(
+                    "Unexpected status on forkchoice update: "
+                    f"want {PayloadStatusEnum.VALID}, got {fcu_status}"
+                )
+
+    # Use the fixture's gas limit since we import the fixture block,
+    # not the built one.
+    return int(expected_payload.gas_limit)
+
+
+def test_blockchain_via_build(
+    timing_data: TimingData,
+    eth_rpc: EthRPC,
+    engine_rpc: EngineRPC,
+    testing_rpc: TestingRPC,
+    fixture: BlockchainEngineFixture,
+    genesis_header: FixtureHeader,
+) -> None:
+    """
+    Test block building correctness against a client.
+
+    For each valid payload in the fixture:
+    1. Build a block via ``testing_buildBlockV1``
+    2. Validate execution-dependent fields + gas limit range
+    3. Validate execution_requests for fork >= Prague (V4+)
+    4. Import the fixture block via ``engine_newPayloadVX``
+    5. Advance the chain via ``engine_forkchoiceUpdatedVX``
+    """
+    _bootstrap_engine_at_genesis(
+        engine_rpc=engine_rpc,
+        eth_rpc=eth_rpc,
+        fixture=fixture,
+        genesis_header=genesis_header,
+        timing_data=timing_data,
+    )
 
     with timing_data.time("Block building") as total_build_timing:
         valid_payloads = [p for p in fixture.payloads if p.valid()]
@@ -216,74 +320,14 @@ def test_blockchain_via_build(
         )
         parent_gas_limit = int(genesis_header.gas_limit)
         for i, payload in enumerate(valid_payloads):
-            expected_payload = payload.params[0]
-            logger.info(
-                f"Building block {i + 1}/{len(valid_payloads)} "
-                f"(number {expected_payload.number})..."
+            parent_gas_limit = _build_validate_and_advance(
+                testing_rpc=testing_rpc,
+                engine_rpc=engine_rpc,
+                payload=payload,
+                parent_gas_limit=parent_gas_limit,
+                block_index=i,
+                total_blocks=len(valid_payloads),
+                total_build_timing=total_build_timing,
             )
-            with total_build_timing.time(f"Block {i + 1}") as block_timing:
-                # 1. Build the block
-                with block_timing.time("testing_buildBlockV1"):
-                    build_response = testing_rpc.build_block(
-                        parent_block_hash=(expected_payload.parent_hash),
-                        payload_attributes=payload.get_payload_attributes(),
-                        transactions=(expected_payload.transactions),
-                        extra_data=expected_payload.extra_data,
-                    )
-
-                # 2. Validate fields + gas limit range
-                _validate_built_block(
-                    built=build_response.execution_payload,
-                    expected=expected_payload,
-                    parent_gas_limit=parent_gas_limit,
-                )
-
-                # 3. Import the fixture block (not the built block)
-                #    so the chain advances with the expected gas limit
-                #    and block hash.
-                with block_timing.time(
-                    f"engine_newPayloadV{payload.new_payload_version}"
-                ):
-                    logger.info(
-                        "Importing block via "
-                        "engine_newPayloadV"
-                        f"{payload.new_payload_version}..."
-                    )
-                    import_response = engine_rpc.new_payload(
-                        *payload.params,
-                        version=payload.new_payload_version,
-                    )
-                    if import_response.status != PayloadStatusEnum.VALID:
-                        raise LoggedError(
-                            "Unexpected status importing "
-                            f"block: {import_response.status}"
-                        )
-
-                # 4. Advance the chain via forkchoice update
-                with block_timing.time(
-                    "engine_forkchoiceUpdatedV"
-                    f"{payload.forkchoice_updated_version}"
-                ):
-                    v = payload.forkchoice_updated_version
-                    logger.info(f"Sending engine_forkchoiceUpdatedV{v}...")
-                    fcu_response = engine_rpc.forkchoice_updated(
-                        forkchoice_state=ForkchoiceState(
-                            head_block_hash=(expected_payload.block_hash),
-                        ),
-                        payload_attributes=None,
-                        version=v,
-                    )
-                    fcu_status = fcu_response.payload_status.status
-                    if fcu_status != PayloadStatusEnum.VALID:
-                        raise LoggedError(
-                            "Unexpected status on forkchoice "
-                            f"update: want "
-                            f"{PayloadStatusEnum.VALID}, "
-                            f"got {fcu_status}"
-                        )
-
-            # Use the fixture's gas limit since we import the
-            # fixture block, not the built one.
-            parent_gas_limit = int(expected_payload.gas_limit)
 
         logger.info("All blocks built and verified successfully.")

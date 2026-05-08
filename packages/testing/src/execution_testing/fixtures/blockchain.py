@@ -481,8 +481,12 @@ class FixtureEngineNewPayload(CamelModel):
         from execution_testing.rpc.rpc_types import PayloadAttributes
 
         execution_payload = self.params[0]
+        # parent_beacon_block_root exists from V3 onwards. The length check
+        # is for mypy narrowing; the version check captures the actual rule.
         parent_beacon_block_root = (
-            self.params[2] if len(self.params) >= 3 else None
+            self.params[2]
+            if self.forkchoice_updated_version >= 3 and len(self.params) >= 3
+            else None
         )
         return PayloadAttributes(
             timestamp=execution_payload.timestamp,
