@@ -22,6 +22,7 @@ from execution_testing import (
     Initcode,
     Op,
     StateTestFiller,
+    Storage,
     Transaction,
     TransactionLog,
     TransactionReceipt,
@@ -929,16 +930,32 @@ def test_inner_create_succeeds_outer_reverts_no_log(
 
     factory_code = (
         Op.MSTORE(0, Op.PUSH32(bytes(initcode).rjust(32, b"\x00")))
-        + Op.POP(
+        + Op.MSTORE(
+            32,
             create_opcode(
                 value=create_value,
                 offset=32 - initcode_len,
                 size=initcode_len,
-            )
+            ),
         )
-        + Op.REVERT(0, 0)
+        + Op.REVERT(32, 32)
     )
     factory = pre.deploy_contract(factory_code, balance=create_value)
+
+    entry_storage = Storage()
+    expected_create_address = compute_create_address(
+        address=factory,
+        nonce=1,
+        salt=0,
+        initcode=initcode,
+        opcode=create_opcode,
+    )
+    entry_code = Op.CALL(
+        address=factory, ret_offset=0, ret_size=32
+    ) + Op.SSTORE(
+        entry_storage.store_next(expected_create_address), Op.MLOAD(0)
+    )
+    entry = pre.deploy_contract(entry_code)
 
     gas_limit = 200_000
     if fork.is_eip_enabled(8037):
@@ -946,13 +963,18 @@ def test_inner_create_succeeds_outer_reverts_no_log(
 
     tx = Transaction(
         sender=sender,
-        to=factory,
+        to=entry,
         value=0,
         gas_limit=gas_limit,
         expected_receipt=TransactionReceipt(logs=[]),
     )
 
-    state_test(env=env, pre=pre, post={}, tx=tx)
+    state_test(
+        env=env,
+        pre=pre,
+        post={entry: Account(storage=entry_storage)},
+        tx=tx,
+    )
 
 
 @pytest.mark.parametrize(
