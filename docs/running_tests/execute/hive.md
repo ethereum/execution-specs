@@ -51,3 +51,27 @@ The genesis file is passed to the client with the appropriate configuration for 
 All tests will be executed in the same network, in the same client, and serially, but when the `-n auto` parameter is passed to the command, the tests can also be executed in parallel.
 
 One important feature of the `execute hive` command is that, since there is no consensus client running in the network, the command drives the chain by the use of the Engine API to prompt the execution client to generate new blocks and include the transactions in them.
+
+## Using `testing_buildBlockV1`
+
+Clients that implement the `testing_buildBlockV1` endpoint can use it as an alternative to the standard Engine API block building flow. Instead of sending transactions to the mempool and building blocks through `engine_forkchoiceUpdatedVX` / `engine_getPayloadVX`, the plugin sends transactions directly inside the `testing_buildBlockV1` call, which builds a block containing exactly those transactions.
+
+To enable this route, pass the `--use-testing-build-block` flag:
+
+```bash
+uv run execute hive --fork=Prague --use-testing-build-block
+```
+
+Or in dev mode:
+
+```bash
+./hive --dev --client go-ethereum
+uv run execute hive --fork=Prague --use-testing-build-block
+```
+
+This is useful when:
+
+- The client supports the endpoint and you want faster block building (the `--get-payload-wait-time` delay is skipped).
+- You want deterministic transaction ordering in each block (transactions are included in the exact order provided).
+
+See [Block Building with `testing_buildBlockV1`](./index.md#block-building-with-testing_buildblockv1) for architectural details.

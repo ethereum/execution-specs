@@ -66,7 +66,7 @@ Each integer in the `tx_per_block` array is the number of transactions in a bloc
 tx_per_block = [2, 0, 4, 8, 0, 0, 20, 1, 50]
 ```
 
-The code section that creates the blocks is a bit complex in this test. For some simpler definitions of Block creation you can browse tests within [`test_withdrawals.py`](https://github.com/ethereum/execution-spec-tests/blob/main/tests/shanghai/eip4895_withdrawals/test_withdrawals.py).
+The code section that creates the blocks is a bit complex in this test. For some simpler definitions of Block creation you can browse tests within [`test_withdrawals.py`](https://github.com/ethereum/execution-specs/blob/a830dab6f130151ab9023a473b7543120aa21961/tests/shanghai/eip4895_withdrawals/test_withdrawals.py).
 
 ```python
 blocks = map(

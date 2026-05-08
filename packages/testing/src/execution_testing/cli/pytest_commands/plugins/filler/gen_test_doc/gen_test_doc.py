@@ -42,6 +42,7 @@ uv run mkdocs serve
 import glob
 import logging
 import os
+import re
 import sys
 import textwrap
 from collections import defaultdict
@@ -53,7 +54,7 @@ import pytest
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from pytest import Item
 
-from execution_testing.forks import get_forks
+from execution_testing.forks import ALL_TRANSITION_FORKS, get_forks
 from execution_testing.specs import BaseTest
 from execution_testing.tools.utility.versioning import (
     generate_github_url,
@@ -77,6 +78,12 @@ from .page_props import (
 logger = logging.getLogger("mkdocs")
 
 docstring_test_function_history: Dict[str, str] = {}
+
+
+def _fork_dir_name(fork_name: str) -> str:
+    """Convert a CamelCase fork name to its snake_case directory name."""
+    s1 = re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", fork_name)
+    return re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
@@ -251,6 +258,20 @@ class TestDocsGenerator:
         self.deployed_forks = [
             fork.name() for fork in get_forks() if fork.is_deployed()
         ]
+        # Map each transition fork's name to the base fork it ends at so that
+        # cases parametrized as a transition fork (e.g.
+        # `OsakaToBPO1AtTime15k`) count toward the fork they transition
+        # into (`BPO1`).
+        # `ALL_TRANSITION_FORKS` is typed as `Type[BaseFork]` here; every
+        # entry is in fact a `TransitionBaseClass` subclass with
+        # `transitions_to`.
+        self._transition_to_base: Dict[str, str] = {
+            fork.name(): fork.transitions_to().name()  # type: ignore[attr-defined]
+            for fork in ALL_TRANSITION_FORKS
+        }
+        self._fork_newness: Dict[str, int] = {
+            fork.name(): i for i, fork in enumerate(get_forks())
+        }
         self._setup_logger()
         self.jinja2_env = Environment(
             loader=FileSystemLoader("docs/templates"),
@@ -265,6 +286,30 @@ class TestDocsGenerator:
         self.module_page_props: ModulePagePropsLookup = {}
         # the complete set of pages and their properties
         self.page_props: PagePropsLookup = {}
+
+    def _base_fork(self, fork_name: str) -> str:
+        """Return the base fork name, resolving transition forks."""
+        return self._transition_to_base.get(fork_name, fork_name)
+
+    def _drop_future_fork_pages(self) -> None:
+        """Remove pages whose top-level fork dir is newer than target_fork."""
+        target_idx = self._fork_newness.get(self.target_fork)
+        if target_idx is None:
+            return
+        future_dirs = {
+            _fork_dir_name(name)
+            for name, idx in self._fork_newness.items()
+            if idx > target_idx
+        }
+        if not future_dirs:
+            return
+        self.page_props = {
+            key: page
+            for key, page in self.page_props.items()
+            if not (
+                len(page.path.parts) > 1 and page.path.parts[1] in future_dirs
+            )
+        }
 
     @pytest.hookimpl(hookwrapper=True, trylast=True)
     def pytest_collection_modifyitems(
@@ -298,6 +343,11 @@ class TestDocsGenerator:
         # add other interesting pages
         self.add_spec_page_props()
         self.add_markdown_page_props()
+        # drop pages whose fork directory is newer than `target_fork` (e.g.
+        # `tests/amsterdam/` on a mainnet docs build targeting BPO2). Such
+        # pages can leak in via the EIP checklist plugin and surface as
+        # empty fork entries in the nav.
+        self._drop_future_fork_pages()
         # write pages and navigation menu
         self.write_pages()
         self.update_mkdocs_nav()
@@ -461,21 +511,32 @@ class TestDocsGenerator:
                 # valid_from marker, separated by a comma. Take the last.
                 valid_from_fork = valid_from_marker.args[0].split(",")[-1]
 
-            target_or_valid_fork = (
-                self.target_fork
-                if valid_from_fork in self.deployed_forks
-                else valid_from_fork
-            )
             test_type = get_test_function_test_type(items[0])
 
-            test_case_count = len(
-                [
-                    case
-                    for case in test_cases
-                    if case.fork == target_or_valid_fork
-                    and case.fixture_type == test_type
-                ]
-            )
+            # Pick the displayed fork from the collected cases: the latest
+            # base fork any case is parametrized for, with transition forks
+            # resolved to the fork they transition into. Fall back to
+            # `valid_from_fork` when nothing was collected.
+            base_forks = {self._base_fork(case.fork) for case in test_cases}
+            if base_forks:
+                target_or_valid_fork = max(
+                    base_forks,
+                    key=lambda f: self._fork_newness.get(f, -1),
+                )
+            else:
+                target_or_valid_fork = valid_from_fork
+
+            # Count unique parametrizations at the displayed fork.
+            # `case.params` already excludes `fork` and the fixture-type key
+            # (see `skip_params` above), so a parametrization that produces
+            # several fixture formats (e.g. benchmark -> `blockchain_test`
+            # and `blockchain_test_engine`) collapses to a single case.
+            unique_params = {
+                tuple(sorted(case.params.items()))
+                for case in test_cases
+                if self._base_fork(case.fork) == target_or_valid_fork
+            }
+            test_case_count = len(unique_params)
 
             is_benchmark = items[0].get_closest_marker("benchmark") is not None
             is_stateful = items[0].get_closest_marker("stateful") is not None
@@ -556,7 +617,12 @@ class TestDocsGenerator:
                 Path(*module_path_parts[: i + 1])
                 for i in range(len(module_path_parts))
             )
+        benchmark_root = self.source_dir / "benchmark"
         for directory in sub_paths:
+            is_benchmark = (
+                directory == benchmark_root
+                or benchmark_root in directory.parents
+            )
             directory_fork_name = (
                 directory.relative_to(self.source_dir).parts[0].capitalize()
                 if directory != self.source_dir
@@ -567,12 +633,6 @@ class TestDocsGenerator:
             else:
                 fork = directory_fork_name
 
-            is_benchmark = any(
-                module_page.is_benchmark
-                for module_page in self.module_page_props.values()
-                if directory in module_page.path.parents
-                or module_page.path.parent == directory
-            )
             is_stateful = any(
                 module_page.is_stateful
                 for module_page in self.module_page_props.values()
@@ -661,9 +721,11 @@ class TestDocsGenerator:
         navigation menu.
         """
         fork_order = {
-            fork.name().lower(): i
+            _fork_dir_name(fork.name()): i
             for i, fork in enumerate(reversed(get_forks()))
         }
+        # Benchmark entries sort above all fork entries.
+        fork_order["benchmark"] = -1
 
         def sort_by_fork_deployment_and_path(x: PageProps) -> Tuple[Any, ...]:
             """

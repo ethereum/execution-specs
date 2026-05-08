@@ -4,7 +4,7 @@ Ethereum Execution Layer Specification written in Python. This is a **specificat
 
 ## Tooling
 
-- **uv** is the package manager. **tox** orchestrates test environments (`uvx tox -al`).
+- **uv** is the package manager. **just** is the command runner (`just --list`).
 - The `execution_testing` package under `packages/testing/` is a UV workspace member.
 
 ## Linting
@@ -29,6 +29,7 @@ When done with changes, ask the user if they'd like to run `/lint` before commit
 - **There is no `main` branch.** Default branch = most active fork (currently `forks/amsterdam`). Run `git remote show origin | grep HEAD` to check.
 - `mainnet` = stable specs for forks live on mainnet
 - PRs target the default branch
+- PRs strictly follow the template in `.github/PULL_REQUEST_TEMPLATE.md`. In the Checklist section, include unchecked items that don't apply — only remove them if they are truly irrelevant to the PR type.
 
 ## PR Reviews
 
@@ -41,17 +42,20 @@ When reviewing PRs that implement or test EIPs:
 ## When to Use Skills
 
 - Writing or modifying tests → run `/write-test` first
+- Writing or modifying pytester-based plugin tests → run `/pytester` first
 - Filling test fixtures → run `/fill-tests` first
 - Implementing an EIP or modifying fork code in `src/` → run `/implement-eip` first
 - Modifying GitHub Actions workflows → run `/edit-workflow` first
 - Assessing EIP complexity or scope → run `/assess-eip`
 - Working on EIP test coverage or checklists → run `/eip-checklist` first
 - Checking if config/skills are stale → run `/audit-config`
+- Writing or modifying docstrings in `src/ethereum/` → run `/write-docstring` first
 - Done with changes and ready to lint → run `/lint`
 
 ## Available Skills
 
 - `/write-test` — test writing patterns, fixtures, markers, bytecode helpers
+- `/pytester` — pytester execution modes, isolation, output handling for plugin tests
 - `/fill-tests` — `fill` CLI reference, flags, debugging, benchmark tests
 - `/implement-eip` — fork structure, import rules, adding opcodes/precompiles/tx types
 - `/edit-workflow` — GitHub Actions conventions and version pinning
@@ -59,4 +63,5 @@ When reviewing PRs that implement or test EIPs:
 - `/eip-checklist` — EIP testing checklist system for tracking coverage
 - `/lint` — full static analysis suite with auto-fix workflow
 - `/audit-config` — verify CLAUDE.md and skills are still accurate
+- `/write-docstring` — narrative Markdown docstring conventions for the spec
 - `/grammar-check` — audit grammar in documentation and code comments

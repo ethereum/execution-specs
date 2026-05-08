@@ -1,4 +1,4 @@
-# Copyright (C) 2022-2023 Ethereum Foundation
+# Copyright (C) 2022-2023,2026 Ethereum Foundation
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,7 +19,9 @@ Plugins for docc specific to the Ethereum execution specification.
 
 import dataclasses
 import logging
+import os
 from collections import defaultdict
+from functools import total_ordering
 from itertools import tee, zip_longest
 from pathlib import PurePath
 from typing import (
@@ -44,8 +46,14 @@ from docc.context import Context
 from docc.discover import Discover, T
 from docc.document import BlankNode, Document, ListNode, Node, Visit, Visitor
 from docc.plugins import html, mistletoe, python, verbatim
-from docc.plugins.listing import Listable
-from docc.plugins.python import PythonBuilder
+from docc.plugins.listing import (
+    Listable,
+    ListingDiscover,
+    ListingNode,
+    ListingSource,
+)
+from docc.plugins.python import PythonBuilder, PythonDiscover
+from docc.plugins.python.cst import PythonSource
 from docc.plugins.references import Definition, Reference
 from docc.settings import PluginSettings
 from docc.source import Source
@@ -70,6 +78,159 @@ def pairwise(iterable: Iterable[G]) -> Iterable[Tuple[G, G]]:
     return zip(a, b, strict=False)
 
 
+@total_ordering
+@dataclasses.dataclass(frozen=True)
+class _EthereumSortKey:
+    sort: int
+    path: PurePath
+
+    def __lt__(self, other: object) -> bool:
+        if isinstance(other, _EthereumSortKey):
+            return (self.sort, self.path) < (other.sort, other.path)
+        elif isinstance(other, PurePath):
+            return self.path < other
+        return NotImplemented
+
+
+class _EthereumPythonSource(PythonSource):
+    _sort: Final[int]
+
+    def __init__(
+        self,
+        root_path: PurePath,
+        relative_path: PurePath,
+        absolute_path: PurePath,
+        sort: int,
+    ) -> None:
+        super().__init__(root_path, relative_path, absolute_path)
+        self._sort = sort
+
+    @override
+    def listing_order_key(
+        self,
+    ) -> Tuple[bool, _EthereumSortKey, None]:
+        return (
+            self.index_dir is None,
+            _EthereumSortKey(self._sort, self.output_path),
+            None,
+        )
+
+
+class _EthereumListingSource(ListingSource):
+    _sort: Final[int]
+
+    def __init__(
+        self,
+        relative_path: PurePath,
+        output_path: PurePath,
+        sort: int,
+    ) -> None:
+        super().__init__(relative_path, output_path)
+        self._sort = sort
+
+    @override
+    def listing_order_key(
+        self,
+    ) -> Tuple[bool, _EthereumSortKey, None]:
+        return (
+            self.index_dir is None,
+            _EthereumSortKey(self._sort, self.output_path),
+            None,
+        )
+
+
+def _find_forks(config: PluginSettings) -> List[Hardfork]:
+    forks = config.resolve_path(PurePath("src") / "ethereum" / "forks")
+    return Hardfork.discover([str(forks)])
+
+
+def _diff_path(before: Hardfork, after: Hardfork) -> PurePath:
+    return PurePath("diffs") / before.short_name / after.short_name
+
+
+class _ForkOrder:
+    forks: List[PurePath]
+    diffs: List[PurePath]
+
+    def __init__(self, config: PluginSettings) -> None:
+        forks = _find_forks(config)
+        self.forks = [
+            config.unresolve_path(PurePath(f.path))
+            for f in forks
+            if f.path is not None
+        ]
+        self.diffs = [_diff_path(b, a).parent for b, a in pairwise(forks)]
+
+    def index(self, parent: PurePath) -> Optional[int]:
+        for idx, fork in enumerate(self.forks):
+            if parent.is_relative_to(fork):
+                return idx
+
+        for idx, diff in enumerate(self.diffs):
+            if parent.is_relative_to(diff):
+                return idx
+
+        return None
+
+
+class EthereumListingDiscover(ListingDiscover):
+    """
+    Changes the sort order of directory listings so they render in hard fork
+    chronological order.
+    """
+
+    _fork_order: _ForkOrder
+
+    def __init__(self, config: PluginSettings) -> None:
+        super().__init__(config)
+        self._fork_order = _ForkOrder(config)
+
+    @override
+    def _listing_source(
+        self, source: Source, parent: PurePath
+    ) -> ListingSource:
+        index = self._fork_order.index(parent)
+        if index is None:
+            return super()._listing_source(source, parent)
+        return _EthereumListingSource(
+            parent,
+            parent / "index",
+            -index,  # Reverse chronological order
+        )
+
+
+class EthereumPythonDiscover(PythonDiscover):
+    """
+    Changes the sort order of python files so they render in hard fork
+    chronological order.
+    """
+
+    _fork_order: _ForkOrder
+
+    def __init__(self, config: PluginSettings) -> None:
+        super().__init__(config)
+        self._fork_order = _ForkOrder(config)
+
+    @override
+    def _python_source(
+        self,
+        root_path: PurePath,
+        relative_path: PurePath,
+        absolute_path: PurePath,
+    ) -> PythonSource:
+        index = self._fork_order.index(relative_path)
+        if index is None:
+            return super()._python_source(
+                root_path, relative_path, absolute_path
+            )
+        return _EthereumPythonSource(
+            root_path,
+            relative_path,
+            absolute_path,
+            -index,  # Reverse chronological order
+        )
+
+
 class EthereumDiscover(Discover):
     """
     Creates sources that represent the diff between two other sources, one per
@@ -81,14 +242,16 @@ class EthereumDiscover(Discover):
 
     def __init__(self, config: PluginSettings) -> None:
         self.settings = config
-        base = config.resolve_path(PurePath("src") / "ethereum")
-        forks = base / "forks"
-        self.forks = Hardfork.discover([str(forks)])
+        self.forks = _find_forks(config)
 
     def discover(self, known: FrozenSet[T]) -> Iterator[Source]:
         """
         Find sources.
         """
+        if os.environ.get("DOCC_SKIP_DIFFS"):
+            logging.info("Skipping diff discovery (DOCC_SKIP_DIFFS)")
+            return
+
         forks = {f.path: f for f in self.forks if f.path is not None}
 
         by_fork: Dict[Hardfork, Dict[PurePath, Source]] = defaultdict(dict)
@@ -132,12 +295,10 @@ class EthereumDiscover(Discover):
 
                 assert before_source or after_source
 
-                output_path = (
-                    PurePath("diffs")
-                    / before.short_name
-                    / after.short_name
-                    / path
-                )
+                if path.name == "__init__.py":
+                    path = path.with_name("index")
+
+                output_path = _diff_path(before, after) / path
 
                 yield DiffSource(
                     before.name,
@@ -204,6 +365,19 @@ class DiffSource(Generic[S], Source, Listable):
         Where to write the output from this Source relative to the output path.
         """
         return self._output_path
+
+    @property
+    def index_dir(self) -> Optional[PurePath]:
+        """
+        For index sources, the directory the source indexes. For other sources,
+        `None`.
+
+        For example, for an output path of `./foo/index`, this should return
+        `./foo`.
+        """
+        if self.output_path.name == "index":
+            return self.output_path.parent
+        return None
 
 
 class AfterNode(Node):
@@ -662,6 +836,10 @@ class _DoccAdapter(Adapter[Node]):
             assert isinstance(rhs, ListNode)
             return True
 
+        elif isinstance(lhs, ListingNode):
+            assert isinstance(rhs, ListingNode)
+            return True
+
         elif isinstance(lhs, verbatim.Transcribed):
             assert isinstance(rhs, verbatim.Transcribed)
             return True
@@ -744,6 +922,9 @@ class _DoccAdapter(Adapter[Node]):
 
         elif isinstance(node, ListNode):
             return hash(type(ListNode))
+
+        elif isinstance(node, ListingNode):
+            return hash(type(ListingNode))
 
         elif isinstance(node, verbatim.Transcribed):
             return hash(type(verbatim.Transcribed))

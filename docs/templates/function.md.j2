@@ -19,6 +19,9 @@ search:
 
 ## Parametrized Test Cases
 
+This test generates {{ test_case_count }} parametrized test case{{ "s" if test_case_count > 1 else "" }} across {{ cases | map(attribute='fork') | unique | list | length }} fork{{ "s" if cases | map(attribute='fork') | unique | list | length > 1 else "" }}.
+
+{# Parameter tables temporarily disabled - re-enable when standalone pages support dark mode
 {% if test_case_count > 1 %}
 The interactive table below is also available as a [standalone page]({{ html_static_page_target }}).
 {% elif fixture_formats | length > 1 %}
@@ -28,4 +31,5 @@ This test case is only parametrized by fork.
 {% endif %}
 
 {% include 'function_parameter_datatable.html.j2' %}
+#}
 {% endblock %}
