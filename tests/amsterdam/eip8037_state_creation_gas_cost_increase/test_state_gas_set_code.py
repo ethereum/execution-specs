@@ -1002,10 +1002,10 @@ def test_auth_refund_bypasses_one_fifth_cap(
     # Auth refund for existing account = new-account state gas
     # (documents the expected value for reasoning about gas budgets).
 
-    # Use 3 SSTOREs: 3 * 32 * cpsb = 96 * cpsb state gas needed.
+    # Use 3 SSTOREs: 3 * 64 * cpsb = 192 * cpsb state gas needed.
     # Auth refund gives new-account state gas to reservoir for all 3.
     # If it were 1/5 capped: refund would be at most
-    # (135 * cpsb) / 5 = 27 * cpsb, which can only fund 0 SSTOREs.
+    # (143 * cpsb) / 5 ≈ 28 * cpsb, which can only fund 0 SSTOREs.
     num_sstores = 3
 
     storage = Storage()

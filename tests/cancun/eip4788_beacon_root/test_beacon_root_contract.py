@@ -451,6 +451,7 @@ def test_multi_block_beacon_root_timestamp_calls(
     all_timestamps: List[int] = []
 
     sender = pre.fund_eoa()
+    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
 
     for timestamp, beacon_root, _i in zip(
         timestamps,
@@ -509,7 +510,6 @@ def test_multi_block_beacon_root_timestamp_calls(
         post[current_call_account_address] = Account(
             storage=current_call_account_expected_storage,
         )
-        intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
         # Bytecode's regular+state cost + N forwarded call_gas envelopes
         # (one per `t` in all_timestamps) + EIP-1706 stipend slack.
         block_gas_limit = (

@@ -19,6 +19,15 @@ from execution_testing.vm import (
 from ....base_fork import BaseFork
 from ....gas_costs import GasCosts
 
+# EIP-8037 state byte sizes (mirrors EELS amsterdam/vm/gas.py).
+STATE_BYTES_PER_NEW_ACCOUNT = 120
+STATE_BYTES_PER_STORAGE_SET = 64
+STATE_BYTES_PER_AUTH_BASE = 23
+
+# EIP-8037 regular gas base costs.
+PER_AUTH_BASE_COST = 7_500
+REGULAR_GAS_CREATE = 9_000
+
 
 class EIP8037(BaseFork):
     """EIP-8037 class."""
@@ -33,7 +42,6 @@ class EIP8037(BaseFork):
     @classmethod
     def sstore_state_gas(cls) -> int:
         """Return state gas for a zero-to-nonzero SSTORE (EIP-8037)."""
-        STATE_BYTES_PER_STORAGE_SET = 64  # noqa: N806
         return STATE_BYTES_PER_STORAGE_SET * cls.cost_per_state_byte()
 
     @classmethod
@@ -57,13 +65,6 @@ class EIP8037(BaseFork):
         """
         cpsb = cls.cost_per_state_byte()
         parent = super(EIP8037, cls).gas_costs()
-        # EIP-8037 state byte sizes (EELS amsterdam/vm/gas.py)
-        STATE_BYTES_PER_STORAGE_SET = 64  # noqa: N806
-        STATE_BYTES_PER_NEW_ACCOUNT = 120  # noqa: N806
-        STATE_BYTES_PER_AUTH_BASE = 23  # noqa: N806
-        # EIP-8037 regular gas base costs
-        PER_AUTH_BASE_COST = 7_500  # noqa: N806
-        REGULAR_GAS_CREATE = 9_000  # noqa: N806
         new_acct = STATE_BYTES_PER_NEW_ACCOUNT * cpsb
         return replace(
             parent,
@@ -258,8 +259,6 @@ class EIP8037(BaseFork):
         - Auth: (NEW_ACCOUNT + AUTH_BASE) * cpsb
         """
         cpsb = cls.cost_per_state_byte()
-        STATE_BYTES_PER_NEW_ACCOUNT = 120  # noqa: N806
-        STATE_BYTES_PER_AUTH_BASE = 23  # noqa: N806
         state_gas = 0
         if contract_creation:
             state_gas += STATE_BYTES_PER_NEW_ACCOUNT * cpsb
@@ -324,7 +323,7 @@ class EIP8037(BaseFork):
             and current_value != new_value
             and original_value == 0
         ):
-            return 64 * cpsb
+            return STATE_BYTES_PER_STORAGE_SET * cpsb
         return 0
 
     @classmethod
@@ -384,7 +383,7 @@ class EIP8037(BaseFork):
         if current_value != new_value:
             if original_value == new_value:
                 if original_value == 0:
-                    return 64 * cpsb
+                    return STATE_BYTES_PER_STORAGE_SET * cpsb
         return 0
 
     @classmethod
@@ -412,9 +411,11 @@ class EIP8037(BaseFork):
         ]
         state_refund = 0
         if self_destructed_account:
-            state_refund = 120 * cpsb
+            state_refund = STATE_BYTES_PER_NEW_ACCOUNT * cpsb
             state_refund += (
-                64 * cpsb * self_destructed_account_storage_slot_count
+                STATE_BYTES_PER_STORAGE_SET
+                * cpsb
+                * self_destructed_account_storage_slot_count
             )
             state_refund += cpsb * self_destructed_account_code_deposit
         return state_refund

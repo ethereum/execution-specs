@@ -313,11 +313,10 @@ def test_blobhash_opcode_contexts(
         case _:
             raise Exception(f"Unknown test case {test_case}")
 
-    # The 500k figure pre-dates EIP-8037 and was empirically chosen to cover
-    # all branches of this test (simple SSTOREs through to CREATE/CREATE2
-    # initcode + deploy). Under EIP-8037 each branch's per-blob SSTOREs add a
-    # `sstore_state_gas()` of state work; bump by that per blob so the budget
-    # remains a precise envelope rather than a rough magic number.
+    # Budget covers all branches (simple SSTOREs, CREATE / CREATE2
+    # initcode + deploy) plus per-blob SSTOREs whose state cost
+    # scales with cpsb under EIP-8037 (`sstore_state_gas()` is 0
+    # otherwise).
     gas_limit = 500_000 + max_blobs_per_tx * fork.sstore_state_gas()
     state_test(
         pre=pre,

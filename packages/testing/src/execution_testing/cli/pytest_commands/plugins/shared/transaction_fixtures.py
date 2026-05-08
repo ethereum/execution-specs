@@ -91,9 +91,7 @@ def type_3_default_transaction(sender: EOA) -> Transaction:
 
 
 @pytest.fixture
-def type_4_default_transaction(
-    sender: EOA, pre: Alloc, fork: Fork
-) -> Transaction:
+def type_4_default_transaction(sender: EOA, pre: Alloc) -> Transaction:
     """Type 4 (set code) default transaction introduced in Prague fork."""
     # Create authorized accounts with funds
     auth_signer1 = pre.fund_eoa(amount=10**18)
@@ -103,14 +101,12 @@ def type_4_default_transaction(
     target1 = pre.deploy_contract(Op.SSTORE(0, 1))
     target2 = pre.deploy_contract(Op.SSTORE(0, 1))
 
-    # Recipient may be a nonexistent account (e.g., EIP-7708 transfer
-    # log tests), so cover one NEW_ACCOUNT state charge.
     return Transaction(
         ty=4,
         sender=sender,
         max_fee_per_gas=10**10,
         max_priority_fee_per_gas=10**9,
-        gas_limit=500_000 + fork.gas_costs().NEW_ACCOUNT,
+        gas_limit=500_000,
         data=b"\x00" * 200,
         access_list=[
             AccessList(address=0x4567, storage_keys=[1000, 2000, 3000]),

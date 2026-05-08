@@ -17,7 +17,7 @@ from execution_testing import (
     Transaction,
     compute_create_address,
 )
-from execution_testing.forks import London, Osaka
+from execution_testing.forks import London
 
 
 @pytest.mark.ported_from(
@@ -101,14 +101,16 @@ def test_create_one_byte(
             expect_post[opcode] = created_accounts[opcode]
     expect_post[256] = 1
 
-    # Osaka (EIP-7825) caps transaction gas limit at 16,777,216.
-    # Amsterdam (EIP-8037) adds state gas via the reservoir on top of
-    # the cap. NEW_ACCOUNT and sstore_state_gas are 0 pre-EIP-8037 and
-    # scale with cpsb on Amsterdam, keeping this CPSB-agnostic.
+    # Osaka (EIP-7825) caps transaction gas at
+    # `fork.transaction_gas_limit_cap()`. Amsterdam (EIP-8037) adds
+    # state gas via the reservoir on top of the cap (256 CREATEs and
+    # 257 first-time SSTOREs in this test). Pre-Osaka there's no cap.
+    gas_cap = fork.transaction_gas_limit_cap()
     if fork.is_eip_enabled(8037):
-        gas_limit = 16_000_000 + 256 * new_account + 257 * sstore_state
-    elif fork >= Osaka:
-        gas_limit = 16_000_000
+        assert gas_cap is not None
+        gas_limit = gas_cap + 256 * new_account + 257 * sstore_state
+    elif gas_cap is not None:
+        gas_limit = gas_cap
     else:
         gas_limit = 50_000_000
 

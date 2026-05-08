@@ -119,11 +119,14 @@ def test_burn_log_at_fork_transition(
             beneficiary: Account(balance=contract_balance * 3),
         }
 
-    # Same-tx CREATE+SELFDESTRUCT charges NEW_ACCOUNT state gas; the
-    # pre-transition block has plenty of headroom. `fork` is a
-    # TransitionFork here, so resolve to the post-transition fork
-    # (timestamp 15_001) where the larger NEW_ACCOUNT applies.
-    post_fork = fork.fork_at(timestamp=15_001)
+    # `fork` is a TransitionFork here; resolve to the post-transition
+    # fork (where the larger NEW_ACCOUNT applies) so the gas budget
+    # covers the same-tx CREATE+SELFDESTRUCT on the post-transition
+    # block. The pre-transition block has plenty of headroom.
+    pre_transition_timestamp = 14_999
+    transition_timestamp = 15_000
+    post_transition_timestamp = 15_001
+    post_fork = fork.fork_at(timestamp=post_transition_timestamp)
     gas_limit = 200_000 + post_fork.gas_costs().NEW_ACCOUNT
     blocks = [
         Block(
@@ -137,7 +140,13 @@ def test_burn_log_at_fork_transition(
                 )
             ],
         )
-        for i, ts in enumerate([14_999, 15_000, 15_001])
+        for i, ts in enumerate(
+            [
+                pre_transition_timestamp,
+                transition_timestamp,
+                post_transition_timestamp,
+            ]
+        )
     ]
 
     blockchain_test(pre=pre, blocks=blocks, post=post)

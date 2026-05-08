@@ -204,11 +204,16 @@ class ConsolidationRequestContract(ConsolidationRequestInteractionBase):
             and fork.is_eip_enabled(8037)
         ):
             # Per request the system contract writes 4 entry slots
-            # (source, src_pubkey, tgt_pubkey, fee); it also bumps a queue
-            # tail/count slot once per call. Fund the reservoir for
-            # `4*N + 2` SSTOREs (one tail slot + one slack slot) so the
-            # entire state-set work stays off `gas_left` under EIP-8037.
-            gas_limit += (len(self.requests) * 4 + 2) * fork.sstore_state_gas()
+            # (source, src_pubkey, tgt_pubkey, fee); plus a queue-tail
+            # bump and one slot of headroom per tx. Fund the reservoir
+            # for the full state-set work so it stays off `gas_left`.
+            sstores_per_request = 4
+            queue_tail_and_slack_sstores = 2
+            sstores = (
+                len(self.requests) * sstores_per_request
+                + queue_tail_and_slack_sstores
+            )
+            gas_limit += sstores * fork.sstore_state_gas()
         return [
             Transaction(
                 gas_limit=gas_limit,

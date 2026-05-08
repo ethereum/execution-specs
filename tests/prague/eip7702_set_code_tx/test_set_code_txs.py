@@ -46,7 +46,9 @@ from execution_testing.base_types import HexNumber
 from ...cancun.eip4844_blobs.spec import Spec as Spec4844
 from ..eip6110_deposits.helpers import DepositRequest
 from ..eip7002_el_triggerable_withdrawals.helpers import WithdrawalRequest
+from ..eip7002_el_triggerable_withdrawals.spec import Spec as Spec7002
 from ..eip7251_consolidations.helpers import ConsolidationRequest
+from ..eip7251_consolidations.spec import Spec as Spec7251
 from .helpers import AddressType
 from .spec import Spec, ref_spec_7702
 
@@ -3101,7 +3103,7 @@ def test_set_code_to_system_contract(
             )
             caller_payload = deposit_request.calldata
             call_value = deposit_request.value
-        case Address(0x00000961EF480EB55E80D19AD83579A64C007002):  # EIP-7002
+        case Address(Spec7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS):
             # Fabricate a valid withdrawal request to the set-code account
             withdrawal_request = WithdrawalRequest(
                 source_address=0x01,
@@ -3111,7 +3113,7 @@ def test_set_code_to_system_contract(
             )
             caller_payload = withdrawal_request.calldata
             call_value = withdrawal_request.value
-        case Address(0x0000BBDDC7CE488642FB579F8B00F3A590007251):  # EIP-7251
+        case Address(Spec7251.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS):
             # Fabricate a valid consolidation request to the set-code account
             consolidation_request = ConsolidationRequest(
                 source_address=0x01,
@@ -3172,8 +3174,8 @@ def test_set_code_to_system_contract(
     # rather than draining the tx's regular pool through DELEGATECALL.
     sstore_state_gas = fork.sstore_state_gas()
     extra_state_slots = {
-        Address(0x00000961EF480EB55E80D19AD83579A64C007002): 4,  # EIP-7002
-        Address(0x0000BBDDC7CE488642FB579F8B00F3A590007251): 5,  # EIP-7251
+        Address(Spec7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS): 4,
+        Address(Spec7251.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS): 5,
     }.get(Address(system_contract), 0)
     txs = [
         Transaction(

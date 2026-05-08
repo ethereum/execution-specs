@@ -22,6 +22,7 @@ from execution_testing import (
     BlockchainTestFiller,
     Bytecode,
     Fork,
+    Header,
     Op,
     Transaction,
 )
@@ -275,9 +276,17 @@ def test_bal_noop_write_filtering(
         }
     )
 
+    # Header `gas_used = max(regular, state)` for the single tx; the
+    # SSTORE metadata pins each transition so `regular_cost`/`state_cost`
+    # return the actual fork-priced amount.
+    expected_regular = intrinsic_cost + test_code.regular_cost(fork)
+    expected_state = test_code.state_cost(fork)
     block = Block(
         txs=[tx],
         expected_block_access_list=expected_block_access_list,
+        header_verify=Header(
+            gas_used=max(expected_regular, expected_state),
+        ),
     )
 
     blockchain_test(

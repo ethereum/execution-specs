@@ -3,6 +3,14 @@ Account already has storage X. create -> in init code change that...
 
 Ported from:
 state_tests/stSStoreTest/sstore_changeFromExternalCallInInitCodeFiller.json
+
+@manually-enhanced: Do not overwrite. Gas budget refactored to be
+fork-aware (`tx_gas = [intrinsic + tx_data[d].gas_cost(fork)]`), and
+each `Op.CALL` annotated with `inner_call_cost=<gas>` metadata so
+`Bytecode.gas_cost(fork)` covers the forwarded inner-frame gas.
+Required for the test to fill correctly under EIP-8037's two-
+dimensional gas model. Hex `gas=` literals also converted to
+human-readable decimals.
 """
 
 import pytest

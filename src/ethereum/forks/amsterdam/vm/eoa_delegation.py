@@ -205,12 +205,9 @@ def set_delegation(message: Message) -> Uint:
         if authority_nonce != auth.nonce:
             continue
 
-        # For existing accounts no account creation happens, so the
-        # NEW_ACCOUNT portion of the auth's intrinsic state cost is
-        # refunded. The reservoir credit lowers `tx_gas_used` for the
-        # sender; debiting `intrinsic_state_gas` lowers
-        # `block_state_gas_used` so the block accounting matches the
-        # state work that actually occurred.
+        # For existing accounts, no account creation needed.
+        # Refund the account creation state gas to the reservoir.
+        # intrinsic_state_gas is immutable after validation.
         if account_exists(tx_state, authority):
             refund = STATE_BYTES_PER_NEW_ACCOUNT * COST_PER_STATE_BYTE
             message.state_gas_reservoir += refund
