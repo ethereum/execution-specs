@@ -104,9 +104,7 @@ def type_4_default_transaction(
     target2 = pre.deploy_contract(Op.SSTORE(0, 1))
 
     # Recipient may be a nonexistent account (e.g., EIP-7708 transfer
-    # log tests), so cover one NEW_ACCOUNT state charge. NEW_ACCOUNT
-    # is the legacy 25_000 pre-EIP-8037 and scales with cpsb on
-    # Amsterdam, keeping this budget CPSB-agnostic.
+    # log tests), so cover one NEW_ACCOUNT state charge.
     return Transaction(
         ty=4,
         sender=sender,

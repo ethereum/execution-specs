@@ -48,9 +48,11 @@ def test_create_one_byte(
     sender = pre.fund_eoa()
     expect_post = Storage()
 
-    call_gas = 50_000
-    if fork.is_eip_enabled(8037):
-        call_gas = 200_000
+    new_account = fork.gas_costs().NEW_ACCOUNT
+    sstore_state = fork.sstore_state_gas()
+    # Each call forwards gas to the create_contract that does CREATE;
+    # forward base + NEW_ACCOUNT (cpsb-agnostic).
+    call_gas = 50_000 + new_account
 
     # make a subcontract that deploys code, because deploy 0xef eats ALL gas
     create_contract = pre.deploy_contract(
@@ -100,9 +102,11 @@ def test_create_one_byte(
     expect_post[256] = 1
 
     # Osaka (EIP-7825) caps transaction gas limit at 16,777,216.
-    # Amsterdam (EIP-8037) adds state gas for CREATEs and SSTOREs.
+    # Amsterdam (EIP-8037) adds state gas via the reservoir on top of
+    # the cap. NEW_ACCOUNT and sstore_state_gas are 0 pre-EIP-8037 and
+    # scale with cpsb on Amsterdam, keeping this CPSB-agnostic.
     if fork.is_eip_enabled(8037):
-        gas_limit = 60_000_000
+        gas_limit = 16_000_000 + 256 * new_account + 257 * sstore_state
     elif fork >= Osaka:
         gas_limit = 16_000_000
     else:

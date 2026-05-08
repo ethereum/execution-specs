@@ -207,16 +207,13 @@ class WithdrawalRequestContract(WithdrawalRequestInteractionBase):
         """Return a transaction for the withdrawal request."""
         assert self.entry_address is not None, "Entry address not initialized"
         gas_limit = self.tx_gas_limit
-        if (
-            self.fund_state_reservoir
-            and fork is not None
-            and fork.is_eip_enabled(8037)
-        ):
+        if fork is not None and fork.is_eip_enabled(8037):
             # Per request the system contract writes 3 entry slots
             # (source, pubkey, amount); it also bumps a queue tail/count
-            # slot once per call. Fund the reservoir for `3*N + 2` SSTOREs
-            # (one tail slot + one slack slot) so the entire state-set
-            # work stays off `gas_left` under EIP-8037.
+            # slot once per call. Cover `3*N + 2` SSTOREs (one tail
+            # slot + one slack slot) of state-set work; the term is 0
+            # pre-EIP-8037 and scales with cpsb on Amsterdam, keeping
+            # this CPSB-agnostic.
             gas_limit += (len(self.requests) * 3 + 2) * fork.sstore_state_gas()
         return [
             Transaction(

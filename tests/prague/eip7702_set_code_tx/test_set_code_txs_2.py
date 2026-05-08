@@ -284,7 +284,7 @@ def test_pointer_normal(
 
 @pytest.mark.valid_from("Prague")
 def test_pointer_measurements(
-    blockchain_test: BlockchainTestFiller, pre: Alloc
+    blockchain_test: BlockchainTestFiller, pre: Alloc, fork: Fork
 ) -> None:
     """
     Check extcode* operations on pointer before and after pointer is set.
@@ -396,9 +396,13 @@ def test_pointer_measurements(
         + Op.STOP,
     )
 
+    # The pointer-code measurement contract performs ~10 first-time
+    # SSTOREs; each adds `sstore_state_gas` under EIP-8037 (0
+    # otherwise). The non-pointer txs reuse the same headroom.
+    pointer_state = 10 * fork.sstore_state_gas()
     tx = Transaction(
         to=contract_measurements,
-        gas_limit=1_000_000,
+        gas_limit=1_000_000 + pointer_state,
         data=b"",
         value=0,
         sender=sender,
@@ -406,7 +410,7 @@ def test_pointer_measurements(
 
     tx_pointer = Transaction(
         to=contract_measurements_pointer,
-        gas_limit=1_000_000,
+        gas_limit=1_000_000 + pointer_state,
         data=b"",
         value=0,
         sender=sender,
@@ -421,7 +425,7 @@ def test_pointer_measurements(
 
     tx_pointer_call = Transaction(
         to=pointer,
-        gas_limit=1_000_000,
+        gas_limit=1_000_000 + pointer_state,
         data=bytes.fromhex("11223344"),
         value=3,
         sender=sender,

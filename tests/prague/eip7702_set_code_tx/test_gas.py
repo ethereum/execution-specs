@@ -794,13 +794,23 @@ def gas_test_parameter_args(
         ]
 
     if include_many:
-        # Fit as many authorizations as possible within the transaction gas
-        # limit.
+        # Fit as many authorizations as possible within the
+        # transaction gas limit cap (16,777,216 from EIP-7825). Under
+        # EIP-8037 the per-auth intrinsic is
+        # `PER_AUTH_BASE_COST + (STATE_BYTES_PER_NEW_ACCOUNT
+        # + STATE_BYTES_PER_AUTH_BASE) * cpsb` (~226_290 at
+        # cpsb=1530); on older forks it is `Spec.AUTH_PER_EMPTY_ACCOUNT`
+        # (25_000). Divide by the larger so the count fits at any
+        # fork — older forks simply exercise fewer authorizations
+        # than the cap allows, which is fine for behavioral coverage.
+        eip_8037_auth_cost = 226_290  # cpsb=1530 worst-case per-auth
         max_gas = 16_777_216 - 21_000
         if execution_gas_allowance:
             # Leave some gas for the execution of the test code.
             max_gas -= 1_000_000
-        many_authorizations_count = max_gas // Spec.AUTH_PER_EMPTY_ACCOUNT
+        many_authorizations_count = max_gas // max(
+            Spec.AUTH_PER_EMPTY_ACCOUNT, eip_8037_auth_cost
+        )
         cases += [
             pytest.param(
                 {

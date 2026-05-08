@@ -157,6 +157,7 @@ def test_self_sponsored_set_code(
 def test_set_code_to_sstore(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     suffix: Bytecode,
     succeeds: bool,
     tx_value: int,
@@ -182,8 +183,15 @@ def test_set_code_to_sstore(
         set_code,
     )
 
+    # 3 first-time SSTOREs plus auth+delegation; each SSTORE adds
+    # `sstore_state_gas` under EIP-8037, and an empty-account
+    # authority adds NEW_ACCOUNT (both 0 otherwise).
     tx = Transaction(
-        gas_limit=500_000,
+        gas_limit=(
+            500_000
+            + fork.gas_costs().NEW_ACCOUNT
+            + 3 * fork.sstore_state_gas()
+        ),
         to=auth_signer,
         value=tx_value,
         authorization_list=[
@@ -3604,6 +3612,7 @@ def test_delegation_clearing(
 def test_delegation_clearing_tx_to(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     pre_set_delegation_code: Bytecode | None,
     self_sponsored: bool,
 ) -> None:
@@ -3629,8 +3638,11 @@ def test_delegation_clearing_tx_to(
 
     sender = pre.fund_eoa() if not self_sponsored else auth_signer
 
+    # When `auth_signer` is an empty account (non-self-sponsored
+    # variant) the auth charges NEW_ACCOUNT state gas under EIP-8037
+    # (0 otherwise).
     tx = Transaction(
-        gas_limit=200_000,
+        gas_limit=200_000 + fork.gas_costs().NEW_ACCOUNT,
         to=auth_signer,
         value=0,
         authorization_list=[

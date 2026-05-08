@@ -499,8 +499,10 @@ def test_clz_from_set_code(
 
     set_code_to_address = pre.deploy_contract(set_code)
 
+    # 4 first-time SSTOREs in the delegated code each add
+    # `sstore_state_gas` under EIP-8037 (0 otherwise).
     tx = Transaction(
-        gas_limit=(500_000 if fork.is_eip_enabled(8037) else 200_000),
+        gas_limit=200_000 + 4 * fork.sstore_state_gas(),
         to=auth_signer,
         value=0,
         authorization_list=[
@@ -708,9 +710,16 @@ def test_clz_initcode_create(
         opcode=opcode,
     )
 
+    # CREATE charges NEW_ACCOUNT plus 5 first-time SSTOREs in the
+    # deployed contract; both terms add state gas under EIP-8037
+    # (0 otherwise).
     tx = Transaction(
         to=factory_contract_address,
-        gas_limit=(500_000 if fork.is_eip_enabled(8037) else 200_000),
+        gas_limit=(
+            200_000
+            + fork.gas_costs().NEW_ACCOUNT
+            + 5 * fork.sstore_state_gas()
+        ),
         data=ext_code,
         sender=sender_address,
     )
@@ -784,9 +793,11 @@ def test_clz_call_operation(
 
     callee_address = pre.deploy_contract(code=callee_code)
 
-    # EIP-8037 adds state gas to SSTOREs in the callee;
-    # 3 cold zero-to-nonzero SSTOREs need ~180K (59,668 each at cpsb=1174).
-    subcall_gas = 200_000 if fork.is_eip_enabled(8037) else 0xFFFF
+    # 3 first-time SSTOREs in the callee (when context != no_context)
+    # and 3 more in the caller (when context == callee_context); each
+    # adds `sstore_state_gas` under EIP-8037 (0 otherwise).
+    sstore_state = fork.sstore_state_gas()
+    subcall_gas = 0xFFFF + 3 * sstore_state
     caller_code = opcode(
         gas=subcall_gas,
         address=callee_address,
@@ -804,7 +815,7 @@ def test_clz_call_operation(
     tx = Transaction(
         to=caller_address,
         sender=pre.fund_eoa(),
-        gas_limit=(500_000 if fork.is_eip_enabled(8037) else 200_000),
+        gas_limit=200_000 + 6 * sstore_state,
     )
 
     post = {}

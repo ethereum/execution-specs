@@ -119,11 +119,10 @@ def test_burn_log_at_fork_transition(
             beneficiary: Account(balance=contract_balance * 3),
         }
 
-    # Same-tx CREATE+SELFDESTRUCT requires NEW_ACCOUNT state gas, which
-    # scales with cpsb on Amsterdam. NEW_ACCOUNT is the legacy 25_000
-    # pre-EIP-8037, so the bump is harmless on the pre-transition block.
-    # `fork` is a TransitionFork here; resolve to the post-transition
-    # fork (timestamp 15_001) where the larger NEW_ACCOUNT applies.
+    # Same-tx CREATE+SELFDESTRUCT charges NEW_ACCOUNT state gas; the
+    # pre-transition block has plenty of headroom. `fork` is a
+    # TransitionFork here, so resolve to the post-transition fork
+    # (timestamp 15_001) where the larger NEW_ACCOUNT applies.
     post_fork = fork.fork_at(timestamp=15_001)
     gas_limit = 200_000 + post_fork.gas_costs().NEW_ACCOUNT
     blocks = [

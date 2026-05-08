@@ -1632,6 +1632,7 @@ def test_create_multiple_contracts_destroy_one_then_destroy_other_next_tx(
     blockchain_test: BlockchainTestFiller,
     eip_enabled: bool,
     pre: Alloc,
+    fork: Fork,
     sender: EOA,
     selfdestruct_contract_initial_balance: int,
 ) -> None:
@@ -1734,16 +1735,21 @@ def test_create_multiple_contracts_destroy_one_then_destroy_other_next_tx(
         + Op.STOP
     )
 
+    # tx1 does 2 CREATE2 (NEW_ACCOUNT each) plus several first-time
+    # SSTOREs across entry/init code; tx2 does one SSTORE call.
+    # Bump scales with cpsb on Amsterdam.
+    new_account = fork.gas_costs().NEW_ACCOUNT
+    sstore_state = fork.sstore_state_gas()
     txs = [
         Transaction(
             sender=sender,
             to=entry_code_address,
-            gas_limit=1_000_000,
+            gas_limit=1_000_000 + 2 * new_account + 6 * sstore_state,
         ),
         Transaction(
             sender=sender,
             to=tx2_caller,
-            gas_limit=500_000,
+            gas_limit=500_000 + sstore_state,
         ),
     ]
 
