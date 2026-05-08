@@ -19,7 +19,10 @@ from execution_testing.client_clis import (
     ExecutionSpecsTransitionTool,
     TransitionTool,
 )
-from execution_testing.fixtures import BlockchainEngineFixture, BlockchainFixture
+from execution_testing.fixtures import (
+    BlockchainEngineFixture,
+    BlockchainFixture,
+)
 from execution_testing.fixtures.file import Fixtures
 from execution_testing.test_types import Environment
 
@@ -1086,9 +1089,7 @@ def test_execution_witness_in_blockchain_fixture(
     )
     from ethereum_types.bytes import Bytes as EthereumBytes
 
-    stateless_output = deserialize_stateless_output(
-        EthereumBytes(bytes(sob))
-    )
+    stateless_output = deserialize_stateless_output(EthereumBytes(bytes(sob)))
     assert stateless_output.successful_validation is True
 
     engine_fixture_path = Path(
@@ -1099,7 +1100,9 @@ def test_execution_witness_in_blockchain_fixture(
         f"{engine_fixture_path} does not exist"
     )
 
-    engine_fixture_data = Fixtures.model_validate_json(engine_fixture_path.read_text())
+    engine_fixture_data = Fixtures.model_validate_json(
+        engine_fixture_path.read_text()
+    )
 
     assert len(engine_fixture_data) == 1, "Expected exactly one engine fixture"
     engine_fixture = next(iter(engine_fixture_data.values()))
