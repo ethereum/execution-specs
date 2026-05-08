@@ -483,14 +483,28 @@ def test_multi_block_dimension_flip(
     )
 
 
-@pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "delta",
+    [
+        pytest.param(0, id="exactly_fits"),
+        pytest.param(1, id="exceeds", marks=pytest.mark.exception_test),
+    ],
+)
 @pytest.mark.valid_from("EIP8037")
-def test_tx_rejected_when_regular_gas_exceeds_block_limit_small(
+def test_tx_inclusion_at_regular_gas_block_limit_small(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
+    delta: int,
 ) -> None:
-    """Reject a small-gas tx whose regular gas overflows the block."""
+    """
+    Probe the regular-gas inclusion boundary with a small-gas tx.
+
+    The second tx's ``gas_limit`` is the remaining regular budget
+    plus ``delta``. The inclusion check uses strict ``>``, so
+    ``delta=0`` must pass and ``delta=1`` must reject with
+    ``GAS_ALLOWANCE_EXCEEDED``. Catches an off-by-one ``>=`` bug.
+    """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
@@ -504,14 +518,15 @@ def test_tx_rejected_when_regular_gas_exceeds_block_limit_small(
         sender=pre.fund_eoa(),
     )
 
-    rejected_gas_limit = intrinsic_gas + 1
-    assert rejected_gas_limit < gas_limit_cap
-    rejected = pre.deploy_contract(code=Op.STOP)
-    rejected_tx = Transaction(
-        to=rejected,
-        gas_limit=rejected_gas_limit,
+    second_gas_limit = intrinsic_gas + delta
+    assert second_gas_limit < gas_limit_cap
+    error = TransactionException.GAS_ALLOWANCE_EXCEEDED if delta else None
+    second = pre.deploy_contract(code=Op.STOP)
+    second_tx = Transaction(
+        to=second,
+        gas_limit=second_gas_limit,
         sender=pre.fund_eoa(),
-        error=TransactionException.GAS_ALLOWANCE_EXCEEDED,
+        error=error,
     )
 
     blockchain_test(
@@ -519,55 +534,9 @@ def test_tx_rejected_when_regular_gas_exceeds_block_limit_small(
         pre=pre,
         blocks=[
             Block(
-                txs=[filler_tx, rejected_tx],
+                txs=[filler_tx, second_tx],
                 gas_limit=block_gas_limit,
-                exception=TransactionException.GAS_ALLOWANCE_EXCEEDED,
-            )
-        ],
-        post={},
-    )
-
-
-@pytest.mark.valid_from("EIP8037")
-def test_tx_accepted_when_regular_gas_exactly_fits_block_limit_small(
-    blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
-    fork: Fork,
-) -> None:
-    """
-    Accept a small-gas tx whose regular gas exactly fits the block.
-
-    Boundary counterpart to
-    ``test_tx_rejected_when_regular_gas_exceeds_block_limit_small``.
-    The second tx's gas_limit equals the remaining regular budget
-    exactly. The inclusion check uses strict ``>``, so equal must
-    pass. Catches an off-by-one ``>=`` bug.
-    """
-    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
-
-    block_gas_limit = intrinsic_gas * 2
-
-    filler = pre.deploy_contract(code=Op.STOP)
-    filler_tx = Transaction(
-        to=filler,
-        gas_limit=intrinsic_gas,
-        sender=pre.fund_eoa(),
-    )
-
-    accepted = pre.deploy_contract(code=Op.STOP)
-    accepted_tx = Transaction(
-        to=accepted,
-        gas_limit=intrinsic_gas,
-        sender=pre.fund_eoa(),
-    )
-
-    blockchain_test(
-        genesis_environment=Environment(gas_limit=block_gas_limit),
-        pre=pre,
-        blocks=[
-            Block(
-                txs=[filler_tx, accepted_tx],
-                gas_limit=block_gas_limit,
+                exception=error,
             )
         ],
         post={},
