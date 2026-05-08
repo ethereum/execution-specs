@@ -116,9 +116,7 @@ def merge_partial_setup_group_files(folder: Path) -> None:
     for group_hash, merged in by_hash.items():
         target = folder / f"{group_hash}.json"
         target.write_text(
-            merged.model_dump_json(
-                by_alias=True, exclude_none=True, indent=2
-            )
+            merged.model_dump_json(by_alias=True, exclude_none=True, indent=2)
         )
 
 

@@ -1358,6 +1358,8 @@ class BlockchainTest(BaseTest):
         setup_payloads: List[FixtureEngineNewPayload] = []
         execution_payloads: List[FixtureEngineNewPayload] = []
         head_hash = start_block_hash
+        benchmark_gas_used: int | None = None
+        benchmark_opcode_count: OpcodeCount | None = None
         # Alloc is not authoritative in stateful mode; pass self.pre as a
         # placeholder — ClientBackend ignores it.
         alloc: Alloc | LazyAlloc = self.pre
@@ -1399,6 +1401,9 @@ class BlockchainTest(BaseTest):
                 setup_payloads.append(payload)
             else:
                 execution_payloads.append(payload)
+                if self.operation_mode == OpMode.BENCHMARKING:
+                    benchmark_gas_used = int(built_block.result.gas_used)
+                    benchmark_opcode_count = built_block.result.opcode_count
             env = apply_new_parent(built_block.env, built_block.header)
             head_hash = built_block.header.block_hash
             if client_eth_rpc is not None:
@@ -1425,10 +1430,11 @@ class BlockchainTest(BaseTest):
         inlined_setup_payloads = setup_payloads
         if setup_group_hash is not None and setup_groups_dir is not None:
             session_fork = self.fork.fork_at(block_number=0, timestamp=0)
+            node_id = getattr(self.pre, "_node_id", "") or ""
             group = StatefulSetupGroup(
                 network=str(session_fork),
                 setup_group_hash=setup_group_hash,
-                test_ids=[],
+                test_ids=[node_id] if node_id else [],
                 payloads=setup_payloads,
             )
             write_partial_setup_group(
@@ -1453,8 +1459,8 @@ class BlockchainTest(BaseTest):
         return FillResult(
             fixture=fixture,
             gas_optimization=None,
-            benchmark_gas_used=None,
-            benchmark_opcode_count=None,
+            benchmark_gas_used=benchmark_gas_used,
+            benchmark_opcode_count=benchmark_opcode_count,
             post_verifications=PostVerifications.from_alloc(self.post),
         )
 

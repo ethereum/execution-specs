@@ -41,19 +41,13 @@ def test_merge_single_hash_multiple_partials(tmp_path: Path) -> None:
         test_ids=["test_a"],
         payloads=[],
     )
-    write_partial_setup_group(
-        folder=tmp_path, group=group, test_suffix="a"
-    )
+    write_partial_setup_group(folder=tmp_path, group=group, test_suffix="a")
 
     group_b = group.model_copy(update={"test_ids": ["test_b"]})
-    write_partial_setup_group(
-        folder=tmp_path, group=group_b, test_suffix="b"
-    )
+    write_partial_setup_group(folder=tmp_path, group=group_b, test_suffix="b")
 
     # Duplicate — merge should de-duplicate on test_id.
-    write_partial_setup_group(
-        folder=tmp_path, group=group_b, test_suffix="b2"
-    )
+    write_partial_setup_group(folder=tmp_path, group=group_b, test_suffix="b2")
 
     merge_partial_setup_group_files(tmp_path)
 
@@ -83,12 +77,8 @@ def test_merge_multiple_hashes(tmp_path: Path) -> None:
         test_ids=["b"],
         payloads=[],
     )
-    write_partial_setup_group(
-        folder=tmp_path, group=group_a, test_suffix="x"
-    )
-    write_partial_setup_group(
-        folder=tmp_path, group=group_b, test_suffix="y"
-    )
+    write_partial_setup_group(folder=tmp_path, group=group_a, test_suffix="x")
+    write_partial_setup_group(folder=tmp_path, group=group_b, test_suffix="y")
 
     merge_partial_setup_group_files(tmp_path)
 

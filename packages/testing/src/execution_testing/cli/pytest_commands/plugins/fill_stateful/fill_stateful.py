@@ -16,8 +16,9 @@ setup-phase block prepended to ``self.blocks``.
 import os
 import secrets
 from dataclasses import dataclass
+from itertools import count
 from pathlib import Path
-from typing import Any, Generator, List, Sequence
+from typing import Any, Generator, Iterator, List, Sequence
 from urllib.parse import urlparse, urlunparse
 
 import pytest
@@ -286,6 +287,23 @@ def worker_key(eth_rpc: EthRPC, session_worker_key: EOA) -> EOA:
     return session_worker_key
 
 
+@pytest.fixture(scope="function")
+def eoa_iterator(request: pytest.FixtureRequest) -> Iterator[EOA]:
+    """
+    Override ``execute.pre_alloc.eoa_iterator`` at function scope.
+
+    ``_reset_chain_between_tests`` rewinds the chain back to ``start_block``
+    between tests, and ``worker_key`` re-reads the sender nonce per test;
+    resetting the EOA iterator closes the loop so parametrized tests with
+    equivalent setup bodies produce byte-identical signed setup txs. Their
+    ``derive_setup_group_hash`` collapses onto the same value, the partial
+    setup-group files merge into one shared ``setup_groups/<hash>.json``,
+    and benchmarkoor applies that shared setup once per group.
+    """
+    eoa_start = request.config.getoption("eoa_iterator_start")
+    return iter(EOA(key=i, nonce=0) for i in count(start=eoa_start))
+
+
 @pytest.fixture(scope="session")
 def sender_funding_transactions_gas_price(eth_rpc: EthRPC) -> int:
     """Pinned gas price for session-level funding transactions."""
@@ -386,9 +404,7 @@ def _setup_groups_dir(config: pytest.Config) -> Path:
     return output_dir / "blockchain_tests_stateful_engine" / "setup_groups"
 
 
-def pytest_sessionfinish(
-    session: pytest.Session, exitstatus: int
-) -> None:
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     """Merge per-test setup-group partials into final ``<hash>.json`` files."""
     del exitstatus
     if is_help_or_collectonly_mode(session.config):
