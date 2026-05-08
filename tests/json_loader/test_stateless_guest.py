@@ -33,7 +33,7 @@ from ethereum.forks.amsterdam.stateless_host import (
     serialize_stateless_input,
 )
 from ethereum.forks.amsterdam.stateless_ssz import (
-    STATELESS_INPUT_SCHEMA_ID,
+    STATELESS_INPUT_SCHEMA_ID_BYTES,
     stateless_input_to_ssz,
 )
 from ethereum.state import Address, Root
@@ -120,7 +120,7 @@ class TestSerializeStatelessInput:
         """Encoding then decoding recovers the original StatelessInput."""
         original = _make_stateless_input()
         encoded = serialize_stateless_input(original)
-        assert encoded[0] == STATELESS_INPUT_SCHEMA_ID
+        assert encoded[:2] == STATELESS_INPUT_SCHEMA_ID_BYTES
         recovered = deserialize_stateless_input(encoded)
         assert recovered == original
 
@@ -142,7 +142,7 @@ class TestSerializeStatelessInput:
             public_keys=(),
         )
         encoded = serialize_stateless_input(original)
-        assert encoded[0] == STATELESS_INPUT_SCHEMA_ID
+        assert encoded[:2] == STATELESS_INPUT_SCHEMA_ID_BYTES
         recovered = deserialize_stateless_input(encoded)
         assert recovered == original
 
@@ -183,17 +183,22 @@ class TestDeserializeStatelessInput:
         with pytest.raises(ValueError, match="missing schema id"):
             deserialize_stateless_input(Bytes(b""))
 
+    def test_one_byte_input_rejected(self) -> None:
+        """Reject input that does not contain a full schema id."""
+        with pytest.raises(ValueError, match="missing schema id"):
+            deserialize_stateless_input(Bytes(b"\x01"))
+
     def test_unknown_schema_id_rejected(self) -> None:
         """Reject input with a schema id other than Amsterdam's."""
         encoded = serialize_stateless_input(_make_stateless_input())
         with pytest.raises(ValueError, match="Unsupported stateless input"):
-            deserialize_stateless_input(Bytes(b"\x02" + encoded[1:]))
+            deserialize_stateless_input(Bytes(b"\x00\x02" + encoded[2:]))
 
     def test_legacy_raw_ssz_input_rejected(self) -> None:
         """Reject unprefixed SSZ input bytes."""
         original = _make_stateless_input()
         raw_ssz = Bytes(stateless_input_to_ssz(original).encode_bytes())
-        assert raw_ssz[0] != STATELESS_INPUT_SCHEMA_ID
+        assert raw_ssz[:2] != STATELESS_INPUT_SCHEMA_ID_BYTES
         with pytest.raises(ValueError, match="Unsupported stateless input"):
             deserialize_stateless_input(raw_ssz)
 
