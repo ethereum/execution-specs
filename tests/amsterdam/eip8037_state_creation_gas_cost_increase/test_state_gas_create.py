@@ -1844,15 +1844,16 @@ def test_create_code_deposit_oog_refunds_state_gas(
     ],
 )
 @pytest.mark.valid_from("EIP8037")
-def test_failed_create_tx_state_gas_dominates(
+def test_failed_create_tx_refunds_intrinsic_new_account(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
     init_code: Bytecode,
 ) -> None:
     """
-    Verify the header gas is set by intrinsic state gas when a
-    creation tx fails with a tight regular budget.
+    Verify the NEW_ACCOUNT × CPSB portion of intrinsic_state_gas is
+    refunded on creation-tx revert/halt, so block state-gas excludes
+    it and header gas_used reflects only the regular component.
     """
     intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
     create_state_gas = fork.create_state_gas(code_size=0)
@@ -1863,9 +1864,12 @@ def test_failed_create_tx_state_gas_dominates(
     intrinsic_regular = intrinsic_total - create_state_gas
     gas_limit = intrinsic_total + 1000
 
-    assert intrinsic_regular + 1000 < create_state_gas, (
-        "tight gas budget must keep block_regular below create_state_gas"
-    )
+    if init_code == Op.INVALID:
+        regular_consumed = gas_limit - intrinsic_total
+    else:
+        regular_consumed = init_code.regular_cost(fork)
+
+    expected_gas_used = intrinsic_regular + regular_consumed
 
     tx = Transaction(
         to=None,
@@ -1879,7 +1883,54 @@ def test_failed_create_tx_state_gas_dominates(
         blocks=[
             Block(
                 txs=[tx],
-                header_verify=Header(gas_used=create_state_gas),
+                header_verify=Header(gas_used=expected_gas_used),
+            ),
+        ],
+        post={},
+    )
+
+
+@pytest.mark.pre_alloc_mutable()
+@pytest.mark.valid_from("EIP8037")
+def test_create_tx_collision_refunds_intrinsic_new_account(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify the NEW_ACCOUNT × CPSB portion of intrinsic_state_gas is
+    refunded on creation-tx address collision, so block state-gas
+    excludes it and header gas_used reflects only the regular
+    consumption (full forwarded gas, no initcode runs).
+    """
+    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
+    create_state_gas = fork.create_state_gas(code_size=0)
+
+    init_code = Op.STOP
+    intrinsic_total = intrinsic_calc(
+        calldata=bytes(init_code), contract_creation=True
+    )
+    gas_limit = intrinsic_total + 1000
+
+    sender = pre.fund_eoa()
+    collision_target = compute_create_address(address=sender, nonce=0)
+    pre[collision_target] = Account(nonce=1)
+
+    expected_gas_used = gas_limit - create_state_gas
+
+    tx = Transaction(
+        to=None,
+        data=init_code,
+        gas_limit=gas_limit,
+        sender=sender,
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=expected_gas_used),
             ),
         ],
         post={},
@@ -2131,11 +2182,6 @@ def test_inner_create_succeeds_code_deposit_state_gas(
         initcode_gas = initcode.gas_cost(fork)
     gas_limit = intrinsic_total + initcode_gas + inner_code_deposit + 1000
 
-    if outer_outcome == "succeeds":
-        expected_state = outer_state_gas + inner_state_gas
-    else:
-        expected_state = outer_state_gas
-
     create_address = compute_create_address(address=sender, nonce=0)
 
     tx = Transaction(
@@ -2147,19 +2193,15 @@ def test_inner_create_succeeds_code_deposit_state_gas(
 
     if outer_outcome == "succeeds":
         post: dict = {create_address: Account(code=b"")}
+        block = Block(
+            txs=[tx],
+            header_verify=Header(gas_used=outer_state_gas + inner_state_gas),
+        )
     else:
         post = {create_address: Account.NONEXISTENT}
+        block = Block(txs=[tx])
 
-    blockchain_test(
-        pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                header_verify=Header(gas_used=expected_state),
-            ),
-        ],
-        post=post,
-    )
+    blockchain_test(pre=pre, blocks=[block], post=post)
 
 
 @pytest.mark.parametrize(
@@ -2355,8 +2397,6 @@ def test_inner_create_fail_refunds_in_creation_tx(
         + num_inner_ops * (gas_costs.NEW_ACCOUNT + per_inner_slack)
     )
 
-    expected_state = outer_state_gas
-
     create_address = compute_create_address(address=sender, nonce=0)
 
     tx = Transaction(
@@ -2368,19 +2408,15 @@ def test_inner_create_fail_refunds_in_creation_tx(
 
     if outer_outcome == "succeeds":
         post: dict = {create_address: Account(code=b"")}
+        block = Block(
+            txs=[tx],
+            header_verify=Header(gas_used=outer_state_gas),
+        )
     else:
         post = {create_address: Account.NONEXISTENT}
+        block = Block(txs=[tx])
 
-    blockchain_test(
-        pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                header_verify=Header(gas_used=expected_state),
-            ),
-        ],
-        post=post,
-    )
+    blockchain_test(pre=pre, blocks=[block], post=post)
 
 
 @pytest.mark.pre_alloc_mutable
