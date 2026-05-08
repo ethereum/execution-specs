@@ -11,6 +11,7 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    Fork,
     Op,
     Transaction,
     TransactionReceipt,
@@ -35,6 +36,7 @@ REFERENCE_SPEC_VERSION = ref_spec_7708.version
 def test_burn_log_at_fork_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
     same_tx: bool,
     to_self: bool,
 ) -> None:
@@ -117,6 +119,13 @@ def test_burn_log_at_fork_transition(
             beneficiary: Account(balance=contract_balance * 3),
         }
 
+    # Same-tx CREATE+SELFDESTRUCT requires NEW_ACCOUNT state gas, which
+    # scales with cpsb on Amsterdam. NEW_ACCOUNT is the legacy 25_000
+    # pre-EIP-8037, so the bump is harmless on the pre-transition block.
+    # `fork` is a TransitionFork here; resolve to the post-transition
+    # fork (timestamp 15_001) where the larger NEW_ACCOUNT applies.
+    post_fork = fork.fork_at(timestamp=15_001)
+    gas_limit = 200_000 + post_fork.gas_costs().NEW_ACCOUNT
     blocks = [
         Block(
             timestamp=ts,
@@ -124,7 +133,7 @@ def test_burn_log_at_fork_transition(
                 Transaction(
                     to=targets[i],
                     sender=sender,
-                    gas_limit=200_000,
+                    gas_limit=gas_limit,
                     expected_receipt=TransactionReceipt(logs=expected_logs[i]),
                 )
             ],

@@ -28,7 +28,7 @@ class EIP8037(BaseFork):
         """
         Return the fixed cost per state byte for EIP-8037.
         """
-        return 1174
+        return 1530
 
     @classmethod
     def sstore_state_gas(cls) -> int:

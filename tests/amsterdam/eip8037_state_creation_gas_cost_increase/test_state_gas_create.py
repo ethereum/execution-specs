@@ -183,7 +183,7 @@ def test_create2_child_spill_not_double_charged(
 
     tx = Transaction(
         to=factory,
-        gas_limit=700_000,
+        gas_limit=1_000_000,
         sender=pre.fund_eoa(),
     )
 
@@ -2426,6 +2426,7 @@ def test_inner_create_fail_refunds_in_creation_tx(
 def test_create_collision_burned_gas_counted_in_block_regular(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
     create_opcode: Op,
 ) -> None:
     """
@@ -2454,7 +2455,7 @@ def test_create_collision_burned_gas_counted_in_block_regular(
     pre.deploy_contract(code=Op.STOP, address=collision_target)
 
     # Fixed-size budget so the forwarded create_message_gas is
-    # deterministic and the empirical baseline below is reproducible.
+    # deterministic and the baseline below is reproducible.
     gas_limit = 250_000
 
     tx = Transaction(
@@ -2463,11 +2464,14 @@ def test_create_collision_burned_gas_counted_in_block_regular(
         sender=pre.fund_eoa(),
     )
 
-    # Empirical baseline: block_state_gas is zero for this tx, so
-    # header.gas_used equals the regular-gas total. A mutation that
-    # drops the burned create_message_gas from regular accounting
-    # would reduce this value.
-    baseline_gas_used = 107887
+    # CPSB-agnostic baseline: block_state_gas is zero for this tx, so
+    # header.gas_used equals the regular-gas total. The forwarded
+    # create_message_gas is `(gas_limit - NEW_ACCOUNT) * 63 // 64`,
+    # plus a CPSB-independent constant covering intrinsic + factory
+    # opcodes. A mutation that drops the burned create_message_gas
+    # from regular accounting would reduce this value.
+    new_account = fork.gas_costs().NEW_ACCOUNT
+    baseline_gas_used = (gas_limit - new_account) * 63 // 64 + 472
 
     blockchain_test(
         pre=pre,

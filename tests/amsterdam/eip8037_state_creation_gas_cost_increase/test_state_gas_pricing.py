@@ -62,15 +62,13 @@ def test_pricing_at_various_gas_limits(
     """
     Test SSTORE succeeds at various block gas limits.
 
-    The state gas cost per byte varies with the block gas limit.
-    At each gas limit, an SSTORE zero-to-nonzero should succeed
-    when given sufficient total gas, confirming the pricing function
-    produces a valid (nonzero) cost.
+    EIP-8037 prices state gas at a constant `cost_per_state_byte`,
+    independent of block gas limit. At each block size, an SSTORE
+    zero-to-nonzero should succeed when given sufficient total gas.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment(gas_limit=block_gas_limit)
-    fork._env_gas_limit = block_gas_limit
     sstore_state_gas = fork.sstore_state_gas()
     tx_gas = min(gas_limit_cap + sstore_state_gas, block_gas_limit)
 
@@ -482,7 +480,6 @@ def test_create_state_gas_scales_with_cpsb(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment(gas_limit=block_gas_limit)
-    fork._env_gas_limit = block_gas_limit
     create_state_gas = fork.create_state_gas(code_size=1)
 
     storage = Storage()
@@ -523,7 +520,6 @@ def test_call_new_account_state_gas_scales_with_cpsb(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment(gas_limit=block_gas_limit)
-    fork._env_gas_limit = block_gas_limit
     gas_costs = fork.gas_costs()
     new_account_state_gas = gas_costs.NEW_ACCOUNT
 
@@ -567,7 +563,6 @@ def test_selfdestruct_new_beneficiary_scales_with_cpsb(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment(gas_limit=block_gas_limit)
-    fork._env_gas_limit = block_gas_limit
     gas_costs = fork.gas_costs()
     new_account_state_gas = gas_costs.NEW_ACCOUNT
 
@@ -612,7 +607,6 @@ def test_sstore_refund_scales_with_cpsb(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment(gas_limit=block_gas_limit)
-    fork._env_gas_limit = block_gas_limit
     sstore_state_gas = fork.sstore_state_gas()
 
     contract = pre.deploy_contract(
@@ -647,7 +641,6 @@ def test_auth_state_gas_scales_with_cpsb(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment(gas_limit=block_gas_limit)
-    fork._env_gas_limit = block_gas_limit
     auth_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )

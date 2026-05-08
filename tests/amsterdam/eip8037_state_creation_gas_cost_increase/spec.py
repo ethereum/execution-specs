@@ -41,7 +41,7 @@ class Spec:
 
     # TODO: replace with dynamic cost_per_state_byte(gas_limit) once
     # non-default block gas limits are supported in the test framework.
-    COST_PER_STATE_BYTE = 1174  # at 100M–120M gas limit
+    COST_PER_STATE_BYTE = 1530  # at 150M reference block gas limit
 
     # State bytes per operation
     STATE_BYTES_PER_NEW_ACCOUNT = 120

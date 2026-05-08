@@ -1989,10 +1989,14 @@ def test_bal_create_oog_code_deposit(
         access_list=[],
     )
 
+    # CREATE charges NEW_ACCOUNT (scales with cpsb under EIP-8037) plus
+    # base; the 500_000 buffer is enough for init code + a single SSTORE
+    # but well short of the 10_000-byte deposit. Including NEW_ACCOUNT
+    # keeps the budget CPSB-agnostic.
     tx = Transaction(
         sender=alice,
         to=factory,
-        gas_limit=intrinsic_gas + 500_000,  # insufficient for deposit
+        gas_limit=(intrinsic_gas + 500_000 + fork.gas_costs().NEW_ACCOUNT),
     )
 
     # BAL expectations:
@@ -2571,6 +2575,7 @@ def test_bal_call_revert_insufficient_funds(
 def test_bal_create_selfdestruct_to_self_with_call(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    fork: Fork,
 ) -> None:
     """
     Test BAL with init code that CALLs Oracle, writes storage, then
@@ -2598,9 +2603,12 @@ def test_bal_create_selfdestruct_to_self_with_call(
     # 1. Calls Oracle (which writes to its slot 0x01)
     # 2. Writes 0x42 to own slot 0x01
     # 3. Selfdestructs to self
+    #
+    # Forward enough gas for Oracle's first-time SSTORE
+    # (regular base + state gas, CPSB-agnostic).
+    oracle_call_gas = 100_000 + fork.sstore_state_gas()
     initcode_runtime = (
-        # CALL(gas, Oracle, value=0, ...)
-        Op.CALL(100_000, oracle, 0, 0, 0, 0, 0)
+        Op.CALL(oracle_call_gas, oracle, 0, 0, 0, 0, 0)
         + Op.POP
         # Write to own storage slot 0x01
         + Op.SSTORE(0x01, 0x42)
@@ -2661,10 +2669,18 @@ def test_bal_create_selfdestruct_to_self_with_call(
         opcode=Op.CREATE2,
     )
 
+    # CREATE2 + 3 first-time SSTOREs (factory slot 0, oracle slot 1,
+    # ephemeral slot 1 in the created contract). NEW_ACCOUNT and
+    # `sstore_state_gas()` are 0 pre-EIP-8037 and scale with cpsb on
+    # Amsterdam, keeping this budget CPSB-agnostic.
+    gas_limit = (
+        1_000_000 + fork.gas_costs().NEW_ACCOUNT + 3 * fork.sstore_state_gas()
+    )
+
     tx = Transaction(
         sender=alice,
         to=factory,
-        gas_limit=1_000_000,
+        gas_limit=gas_limit,
     )
 
     block = Block(
