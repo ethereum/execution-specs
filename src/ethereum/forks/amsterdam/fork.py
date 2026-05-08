@@ -1085,14 +1085,12 @@ def process_transaction(
     else:
         # Refund state gas for accounts created and destroyed in the
         # same tx (EIP-6780). Covers account, storage, and code.
+        new_account_refund = STATE_BYTES_PER_NEW_ACCOUNT * COST_PER_STATE_BYTE
         for address in tx_output.accounts_to_delete:
             if address in tx_state.created_accounts:
-                selfdestruct_refund = (
-                    STATE_BYTES_PER_NEW_ACCOUNT * COST_PER_STATE_BYTE
-                )
                 storage = tx_state.storage_writes.get(address, {})
                 created_slots = sum(1 for v in storage.values() if v != 0)
-                selfdestruct_refund += (
+                non_account_refund = (
                     Uint(created_slots)
                     * STATE_BYTES_PER_STORAGE_SET
                     * COST_PER_STATE_BYTE
@@ -1103,7 +1101,27 @@ def process_transaction(
                 # pre-deletion.
                 account = get_account(tx_state, address)
                 code = get_code(tx_state, account.code_hash)
-                selfdestruct_refund += ulen(code) * COST_PER_STATE_BYTE
+                non_account_refund += ulen(code) * COST_PER_STATE_BYTE
+
+                tx_created_target = (
+                    tx.to == Bytes0(b"")
+                    and address == message.current_target
+                )
+                if tx_created_target:
+                    # NEW_ACCOUNT was paid via intrinsic, not via
+                    # state_gas_used. Refund through state_refund so
+                    # tx-level accounting subtracts it from
+                    # tx_state_gas at block aggregation.
+                    tx_output.state_refund += new_account_refund
+                    selfdestruct_refund = non_account_refund
+                else:
+                    # Inner CREATE: NEW_ACCOUNT was charged via the
+                    # parent's execution state_gas_used, so refund
+                    # through the same channel (clamped below).
+                    selfdestruct_refund = (
+                        new_account_refund + non_account_refund
+                    )
+
                 selfdestruct_refund = min(
                     selfdestruct_refund, tx_output.state_gas_used
                 )
