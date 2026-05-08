@@ -1890,6 +1890,53 @@ def test_failed_create_tx_refunds_intrinsic_new_account(
     )
 
 
+@pytest.mark.pre_alloc_mutable()
+@pytest.mark.valid_from("EIP8037")
+def test_create_tx_collision_refunds_intrinsic_new_account(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify the NEW_ACCOUNT × CPSB portion of intrinsic_state_gas is
+    refunded on creation-tx address collision, so block state-gas
+    excludes it and header gas_used reflects only the regular
+    consumption (full forwarded gas, no initcode runs).
+    """
+    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
+    create_state_gas = fork.create_state_gas(code_size=0)
+
+    init_code = Op.STOP
+    intrinsic_total = intrinsic_calc(
+        calldata=bytes(init_code), contract_creation=True
+    )
+    gas_limit = intrinsic_total + 1000
+
+    sender = pre.fund_eoa()
+    collision_target = compute_create_address(address=sender, nonce=0)
+    pre[collision_target] = Account(nonce=1)
+
+    expected_gas_used = gas_limit - create_state_gas
+
+    tx = Transaction(
+        to=None,
+        data=init_code,
+        gas_limit=gas_limit,
+        sender=sender,
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=expected_gas_used),
+            ),
+        ],
+        post={},
+    )
+
+
 @pytest.mark.parametrize(
     "initcode_size_delta",
     [
