@@ -257,13 +257,14 @@ def test_sstore_change_from_external_call_in_init_code(
 
     tx_data = [
         Op.CALL(
-            gas=0x186A0,
+            gas=100_000,
             address=contract_0,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
             ret_offset=0x0,
             ret_size=0x0,
+            inner_call_cost=100_000,
         )
         + Op.STOP,
         Op.PUSH1[0x0]
@@ -274,13 +275,14 @@ def test_sstore_change_from_external_call_in_init_code(
         + Op.STOP * 2
         + Op.INVALID
         + Op.CALL(
-            gas=0x186A0,
+            gas=100_000,
             address=contract_0,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
             ret_offset=0x0,
             ret_size=0x0,
+            inner_call_cost=100_000,
         )
         + Op.STOP,
         Op.PUSH1[0x0]
@@ -292,13 +294,14 @@ def test_sstore_change_from_external_call_in_init_code(
         + Op.STOP * 2
         + Op.INVALID
         + Op.CALL(
-            gas=0x186A0,
+            gas=100_000,
             address=contract_0,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
             ret_offset=0x0,
             ret_size=0x0,
+            inner_call_cost=100_000,
         )
         + Op.STOP,
         Op.PUSH1[0x0]
@@ -308,35 +311,38 @@ def test_sstore_change_from_external_call_in_init_code(
         + Op.POP(Op.CREATE2)
         + Op.POP(
             Op.CALL(
-                gas=0x30D40,
+                gas=200_000,
                 address=contract_1,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
                 ret_size=0x0,
+                inner_call_cost=200_000,
             )
         )
         + Op.STOP * 2
         + Op.INVALID
         + Op.CALL(
-            gas=0x186A0,
+            gas=100_000,
             address=contract_0,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
             ret_offset=0x0,
             ret_size=0x0,
+            inner_call_cost=100_000,
         )
         + Op.STOP,
         Op.CALLCODE(
-            gas=0x186A0,
+            gas=100_000,
             address=contract_0,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
             ret_offset=0x0,
             ret_size=0x0,
+            inner_call_cost=100_000,
         )
         + Op.STOP,
         Op.PUSH1[0x0]
@@ -347,13 +353,14 @@ def test_sstore_change_from_external_call_in_init_code(
         + Op.STOP * 2
         + Op.INVALID
         + Op.CALLCODE(
-            gas=0x186A0,
+            gas=100_000,
             address=contract_0,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
             ret_offset=0x0,
             ret_size=0x0,
+            inner_call_cost=100_000,
         )
         + Op.STOP,
         Op.PUSH1[0x0]
@@ -365,13 +372,14 @@ def test_sstore_change_from_external_call_in_init_code(
         + Op.STOP * 2
         + Op.INVALID
         + Op.CALLCODE(
-            gas=0x186A0,
+            gas=100_000,
             address=contract_0,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
             ret_offset=0x0,
             ret_size=0x0,
+            inner_call_cost=100_000,
         )
         + Op.STOP,
         Op.PUSH1[0x0]
@@ -381,29 +389,31 @@ def test_sstore_change_from_external_call_in_init_code(
         + Op.POP(Op.CREATE2)
         + Op.POP(
             Op.CALL(
-                gas=0x30D40,
+                gas=200_000,
                 address=contract_1,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
                 ret_size=0x0,
+                inner_call_cost=200_000,
             )
         )
         + Op.STOP * 2
         + Op.INVALID
         + Op.CALLCODE(
-            gas=0x186A0,
+            gas=100_000,
             address=contract_0,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
             ret_offset=0x0,
             ret_size=0x0,
+            inner_call_cost=100_000,
         )
         + Op.STOP,
         Op.DELEGATECALL(
-            gas=0x186A0,
+            gas=100_000,
             address=contract_0,
             args_offset=0x0,
             args_size=0x0,
@@ -419,7 +429,7 @@ def test_sstore_change_from_external_call_in_init_code(
         + Op.STOP * 2
         + Op.INVALID
         + Op.DELEGATECALL(
-            gas=0x186A0,
+            gas=100_000,
             address=contract_0,
             args_offset=0x0,
             args_size=0x0,
@@ -436,7 +446,7 @@ def test_sstore_change_from_external_call_in_init_code(
         + Op.STOP * 2
         + Op.INVALID
         + Op.DELEGATECALL(
-            gas=0x186A0,
+            gas=100_000,
             address=contract_0,
             args_offset=0x0,
             args_size=0x0,
@@ -451,19 +461,20 @@ def test_sstore_change_from_external_call_in_init_code(
         + Op.POP(Op.CREATE2)
         + Op.POP(
             Op.CALL(
-                gas=0x30D40,
+                gas=200_000,
                 address=contract_1,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
                 ret_size=0x0,
+                inner_call_cost=200_000,
             )
         )
         + Op.STOP * 2
         + Op.INVALID
         + Op.DELEGATECALL(
-            gas=0x186A0,
+            gas=100_000,
             address=contract_0,
             args_offset=0x0,
             args_size=0x0,
@@ -472,7 +483,7 @@ def test_sstore_change_from_external_call_in_init_code(
         )
         + Op.STOP,
         Op.STATICCALL(
-            gas=0x186A0,
+            gas=100_000,
             address=contract_0,
             args_offset=0x0,
             args_size=0x0,
@@ -488,7 +499,7 @@ def test_sstore_change_from_external_call_in_init_code(
         + Op.STOP * 2
         + Op.INVALID
         + Op.STATICCALL(
-            gas=0x186A0,
+            gas=100_000,
             address=contract_0,
             args_offset=0x0,
             args_size=0x0,
@@ -505,7 +516,7 @@ def test_sstore_change_from_external_call_in_init_code(
         + Op.STOP * 2
         + Op.INVALID
         + Op.STATICCALL(
-            gas=0x186A0,
+            gas=100_000,
             address=contract_0,
             args_offset=0x0,
             args_size=0x0,
@@ -520,19 +531,20 @@ def test_sstore_change_from_external_call_in_init_code(
         + Op.POP(Op.CREATE2)
         + Op.POP(
             Op.CALL(
-                gas=0x30D40,
+                gas=200_000,
                 address=contract_1,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
                 ret_size=0x0,
+                inner_call_cost=200_000,
             )
         )
         + Op.STOP * 2
         + Op.INVALID
         + Op.STATICCALL(
-            gas=0x186A0,
+            gas=100_000,
             address=contract_0,
             args_offset=0x0,
             args_size=0x0,
@@ -541,7 +553,15 @@ def test_sstore_change_from_external_call_in_init_code(
         )
         + Op.STOP,
     ]
-    tx_gas = [200000]
+    # Fork-aware gas budget: contract-creation intrinsic from the
+    # fork's calculator, plus the bytecode's own gas cost (which
+    # already includes the gas forwarded to inner CALLs via opcode
+    # metadata).
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        calldata=tx_data[d],
+        contract_creation=True,
+    )
+    tx_gas = [intrinsic + tx_data[d].gas_cost(fork)]
 
     tx = Transaction(
         sender=sender,
