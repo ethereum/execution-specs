@@ -258,9 +258,7 @@ def test_clz_stack_not_overflow(
     tx = Transaction(
         to=code_address,
         sender=pre.fund_eoa(),
-        gas_limit=(
-            intrinsic() + code_regular + code_state + eip_1706_slack
-        ),
+        gas_limit=(intrinsic() + code_regular + code_state + eip_1706_slack),
     )
 
     expected_gas_used = max(intrinsic() + code_regular, code_state)
@@ -447,9 +445,7 @@ def test_clz_jump_operation(
     # the EIP-7825 cap so the EIP-8037 reservoir holds the callee's state
     # work and parent's SSTORE state, plus EIP-1706 slack.
     gas_cap = fork.transaction_gas_limit_cap()
-    state_needed = (
-        caller_code.state_cost(fork) + callee_code.state_cost(fork)
-    )
+    state_needed = caller_code.state_cost(fork) + callee_code.state_cost(fork)
     if gas_cap is not None and state_needed > 0:
         gas_limit = gas_cap + state_needed + fork.sstore_state_gas()
     else:

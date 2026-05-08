@@ -53,9 +53,7 @@ def test_genesis_hash_available(
     sender = pre.fund_eoa()
 
     intrinsic = fork.transaction_intrinsic_cost_calculator()
-    tx_gas_limit = (
-        intrinsic() + code.gas_cost(fork) + fork.sstore_state_gas()
-    )
+    tx_gas_limit = intrinsic() + code.gas_cost(fork) + fork.sstore_state_gas()
     blocks = (
         [
             Block(

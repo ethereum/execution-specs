@@ -217,9 +217,7 @@ class WithdrawalRequestContract(WithdrawalRequestInteractionBase):
             # slot once per call. Fund the reservoir for `3*N + 2` SSTOREs
             # (one tail slot + one slack slot) so the entire state-set
             # work stays off `gas_left` under EIP-8037.
-            gas_limit += (
-                (len(self.requests) * 3 + 2) * fork.sstore_state_gas()
-            )
+            gas_limit += (len(self.requests) * 3 + 2) * fork.sstore_state_gas()
         return [
             Transaction(
                 gas_limit=gas_limit,

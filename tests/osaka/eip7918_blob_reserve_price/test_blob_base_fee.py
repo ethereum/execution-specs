@@ -59,9 +59,7 @@ def tx_gas(fork: Fork, destination_code: Bytecode) -> int:
     """
     intrinsic = fork.transaction_intrinsic_cost_calculator()
     return (
-        intrinsic()
-        + destination_code.gas_cost(fork)
-        + fork.sstore_state_gas()
+        intrinsic() + destination_code.gas_cost(fork) + fork.sstore_state_gas()
     )
 
 
