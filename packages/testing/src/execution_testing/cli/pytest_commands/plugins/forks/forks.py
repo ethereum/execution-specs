@@ -1494,7 +1494,9 @@ def blob_params_changed_at_transition(fork: Fork | TransitionFork) -> bool:
     return False
 
 
-def get_valid_from_eip_marker_names(markers: Iterator[pytest.Mark]) -> Set[str]:
+def get_valid_from_eip_marker_names(
+    markers: Iterator[pytest.Mark],
+) -> Set[str]:
     """
     Return explicit EIP names from ``valid_from`` markers.
 
@@ -1577,13 +1579,7 @@ def pytest_collection_modifyitems(
     filter_stats: Dict[str, Tuple[str, int, int]] = {}
 
     for i, item in enumerate(items):
-        try:
-            add_explicit_eip_markers(item)
-        except Exception as e:
-            pytest.exit(
-                f"Error in test '{item.name}': {e}",
-                returncode=pytest.ExitCode.USAGE_ERROR,
-            )
+        add_explicit_eip_markers(item)
 
         params = _get_item_params(item)
         if not params:

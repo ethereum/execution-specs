@@ -523,61 +523,22 @@ def test_param_level_validity_markers(
     result.assert_outcomes(**outcomes)
 
 
-def generate_function_level_eip_marker_test() -> str:
-    """Generate a test with a function-level EIP validity marker."""
-    return """
-import pytest
-
-@pytest.mark.valid_from("EIP3675")
-@pytest.mark.state_test_only
-def test_function_level_eip_marker(state_test):
-    pass
-"""
-
-
-def generate_param_level_eip_marker_test() -> str:
-    """Generate a test with mixed param-level EIP and fork markers."""
-    return """
-import pytest
-
-@pytest.mark.parametrize(
-    "value",
-    [
-        pytest.param(
-            True,
-            id="post_eip",
-            marks=pytest.mark.valid_from("EIP7928"),
-        ),
-        pytest.param(
-            False,
-            id="post_paris",
-            marks=pytest.mark.valid_from("Paris"),
-        ),
-    ],
-)
-@pytest.mark.state_test_only
-def test_param_level_eip_marker(state_test, value):
-    pass
-"""
-
-
-def generate_negative_eip_marker_test() -> str:
-    """Generate a test that mentions an EIP only in a negative selector."""
-    return """
-import pytest
-
-@pytest.mark.valid_before("EIP7928")
-@pytest.mark.state_test_only
-def test_negative_eip_marker(state_test):
-    pass
-"""
-
-
 def test_function_level_valid_from_eip_is_selectable_by_mark(
     pytester: pytest.Pytester,
 ) -> None:
-    """``-m EIP####`` should select tests enabled via function-level valid_from."""
-    pytester.makepyfile(generate_function_level_eip_marker_test())
+    """
+    ``-m EIP####`` should select tests enabled via function-level valid_from.
+    """
+    pytester.makepyfile(
+        """
+        import pytest
+
+        @pytest.mark.valid_from("EIP3675")
+        @pytest.mark.state_test_only
+        def test_function_level_eip_marker(state_test):
+            pass
+        """
+    )
     pytester.copy_example(
         name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
     )
@@ -593,9 +554,7 @@ def test_function_level_valid_from_eip_is_selectable_by_mark(
     assert result.ret == pytest.ExitCode.OK
     stdout = "\n".join(result.stdout.lines)
     assert "test_function_level_eip_marker[fork_Paris-state_test]" in stdout
-    assert (
-        "test_function_level_eip_marker[fork_Shanghai-state_test]" in stdout
-    )
+    assert "test_function_level_eip_marker[fork_Shanghai-state_test]" in stdout
     assert "test_function_level_eip_marker[fork_Cancun-state_test]" in stdout
     assert "test_function_level_eip_marker[fork_Prague-state_test]" in stdout
 
@@ -604,7 +563,30 @@ def test_param_level_valid_from_eip_is_selectable_by_mark(
     pytester: pytest.Pytester,
 ) -> None:
     """``-m EIP####`` should select only matching param-level variants."""
-    pytester.makepyfile(generate_param_level_eip_marker_test())
+    pytester.makepyfile(
+        """
+        import pytest
+
+        @pytest.mark.parametrize(
+            "value",
+            [
+                pytest.param(
+                    True,
+                    id="post_eip",
+                    marks=pytest.mark.valid_from("EIP7928"),
+                ),
+                pytest.param(
+                    False,
+                    id="post_paris",
+                    marks=pytest.mark.valid_from("Paris"),
+                ),
+            ],
+        )
+        @pytest.mark.state_test_only
+        def test_param_level_eip_marker(state_test, value):
+            pass
+        """
+    )
     pytester.copy_example(
         name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
     )
@@ -619,7 +601,10 @@ def test_param_level_valid_from_eip_is_selectable_by_mark(
     )
     assert result.ret == pytest.ExitCode.OK
     stdout = "\n".join(result.stdout.lines)
-    assert "test_param_level_eip_marker[fork_Amsterdam-state_test-post_eip]" in stdout
+    assert (
+        "test_param_level_eip_marker[fork_Amsterdam-state_test-post_eip]"
+        in stdout
+    )
     assert (
         "test_param_level_eip_marker[fork_Amsterdam-state_test-post_paris]"
         not in stdout
@@ -629,8 +614,19 @@ def test_param_level_valid_from_eip_is_selectable_by_mark(
 def test_negative_eip_selectors_do_not_add_eip_markers(
     pytester: pytest.Pytester,
 ) -> None:
-    """``valid_before(EIP####)`` should not make a test selectable by that EIP."""
-    pytester.makepyfile(generate_negative_eip_marker_test())
+    """
+    ``valid_before(EIP####)`` should not make a test selectable by that EIP.
+    """
+    pytester.makepyfile(
+        """
+        import pytest
+
+        @pytest.mark.valid_before("EIP7928")
+        @pytest.mark.state_test_only
+        def test_negative_eip_marker(state_test):
+            pass
+        """
+    )
     pytester.copy_example(
         name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
     )
