@@ -26,6 +26,7 @@ from .stateless import (
     StatelessValidationResult,
 )
 from .stateless_ssz import (
+    STATELESS_INPUT_SCHEMA_ID_BYTES,
     SszStatelessValidationResult,
     ssz_to_validation_result,
     stateless_input_to_ssz,
@@ -45,9 +46,11 @@ from .vm.gas import (
 def serialize_stateless_input(
     stateless_input: StatelessInput,
 ) -> Bytes:
-    """Serialize a StatelessInput to SSZ-encoded bytes."""
+    """Serialize a StatelessInput to schema-prefixed SSZ bytes."""
     ssz_obj = stateless_input_to_ssz(stateless_input)
-    return Bytes(ssz_obj.encode_bytes())
+    return Bytes(
+        STATELESS_INPUT_SCHEMA_ID_BYTES + bytes(ssz_obj.encode_bytes())
+    )
 
 
 def deserialize_stateless_output(data: Bytes) -> StatelessValidationResult:

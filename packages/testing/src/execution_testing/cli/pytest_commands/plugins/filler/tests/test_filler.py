@@ -15,11 +15,17 @@ from typing import Any
 
 import pytest
 
-from execution_testing.test_types import Environment
 from execution_testing.client_clis import (
     ExecutionSpecsTransitionTool,
     TransitionTool,
 )
+from execution_testing.fixtures import (
+    BlockchainEngineFixture,
+    BlockchainFixture,
+)
+from execution_testing.fixtures.file import Fixtures
+from execution_testing.test_types import Environment
+
 from ..filler import default_output_directory
 
 # Path to the real benchmark conftest.py that we copy into testdirs.
@@ -1056,28 +1062,31 @@ def test_execution_witness_in_blockchain_fixture(
     )
     assert fixture_path.exists(), f"{fixture_path} does not exist"
 
-    with open(fixture_path, "r") as f:
-        fixture_data = json.load(f)
+    fixture_data = Fixtures.model_validate_json(fixture_path.read_text())
 
     assert len(fixture_data) == 1, "Expected exactly one fixture"
     fixture = next(iter(fixture_data.values()))
-    block = fixture["blocks"][0]
+    assert isinstance(fixture, BlockchainFixture)
+    block = fixture.blocks[0]
 
     # executionWitness exists with non-empty state, codes, and headers
-    assert "executionWitness" in block
-    witness = block["executionWitness"]
-    assert len(witness["state"]) > 0, "executionWitness.state is empty"
-    assert len(witness["codes"]) > 0, "executionWitness.codes is empty"
-    assert len(witness["headers"]) > 0, "executionWitness.headers is empty"
+    witness = block.execution_witness
+    assert witness is not None
+    assert len(witness.state) > 0, "executionWitness.state is empty"
+    assert len(witness.codes) > 0, "executionWitness.codes is empty"
+    assert len(witness.headers) > 0, "executionWitness.headers is empty"
 
-    # statelessInputBytes and statelessOutputBytes are non-empty hex strings
-    assert "statelessInputBytes" in block
-    sib = block["statelessInputBytes"]
-    assert isinstance(sib, str) and sib.startswith("0x") and len(sib) > 2
+    # statelessInputBytes is schema-prefixed guest input bytes.
+    sib = block.stateless_input_bytes
+    assert sib is not None and len(sib) > 0
+    from ethereum.forks.amsterdam.stateless_ssz import (
+        STATELESS_INPUT_SCHEMA_ID_BYTES,
+    )
 
-    assert "statelessOutputBytes" in block
-    sob = block["statelessOutputBytes"]
-    assert isinstance(sob, str) and sob.startswith("0x") and len(sob) > 2
+    assert bytes(sib).startswith(STATELESS_INPUT_SCHEMA_ID_BYTES)
+
+    sob = block.stateless_output_bytes
+    assert sob is not None and len(sob) > 0
 
     from ethereum.forks.amsterdam.stateless_host import (
         build_chain_config,
@@ -1086,9 +1095,7 @@ def test_execution_witness_in_blockchain_fixture(
     from ethereum_types.bytes import Bytes as EthereumBytes
     from ethereum_types.numeric import U64
 
-    stateless_output = deserialize_stateless_output(
-        EthereumBytes(bytes.fromhex(sob[2:]))
-    )
+    stateless_output = deserialize_stateless_output(EthereumBytes(bytes(sob)))
     assert stateless_output.successful_validation is True
     assert stateless_output.chain_config == build_chain_config(U64(1))
 
@@ -1100,22 +1107,24 @@ def test_execution_witness_in_blockchain_fixture(
         f"{engine_fixture_path} does not exist"
     )
 
-    with open(engine_fixture_path, "r") as f:
-        engine_fixture_data = json.load(f)
+    engine_fixture_data = Fixtures.model_validate_json(
+        engine_fixture_path.read_text()
+    )
 
     assert len(engine_fixture_data) == 1, "Expected exactly one engine fixture"
     engine_fixture = next(iter(engine_fixture_data.values()))
-    engine_payload = engine_fixture["engineNewPayloads"][0]
+    assert isinstance(engine_fixture, BlockchainEngineFixture)
+    engine_payload = engine_fixture.payloads[0]
 
-    assert "executionWitness" in engine_payload
-    engine_witness = engine_payload["executionWitness"]
-    assert len(engine_witness["state"]) > 0, (
+    engine_witness = engine_payload.execution_witness
+    assert engine_witness is not None
+    assert len(engine_witness.state) > 0, (
         "engine executionWitness.state is empty"
     )
-    assert len(engine_witness["codes"]) > 0, (
+    assert len(engine_witness.codes) > 0, (
         "engine executionWitness.codes is empty"
     )
-    assert len(engine_witness["headers"]) > 0, (
+    assert len(engine_witness.headers) > 0, (
         "engine executionWitness.headers is empty"
     )
     assert engine_witness == witness
