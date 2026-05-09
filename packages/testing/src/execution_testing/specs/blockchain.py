@@ -283,34 +283,55 @@ def rerun_amsterdam_stateless_guest_with_witness(
     )
 
 
-def deserialize_amsterdam_stateless_output_success(
+def decode_amsterdam_stateless_output(
     *,
     fork: Fork,
     block_number: int,
     timestamp: int,
-    stateless_output_bytes: Bytes,
-) -> bool:
+    stateless_output_bytes: Bytes | None,
+) -> Any | None:
     """
-    Decode the canonical t8n stateless output and return success status.
+    Decode Amsterdam stateless output, if available for the active fork.
 
     Amsterdam is currently the only fork with stateless guest support in this
     repository, so the decode path is kept Amsterdam-specific.
     """
     active_fork = fork.fork_at(block_number=block_number, timestamp=timestamp)
-    if active_fork.name() != "Amsterdam":
-        raise Exception(
-            "Stateless output decoding is only supported for Amsterdam"
-        )
+    if active_fork.name() != "Amsterdam" or stateless_output_bytes is None:
+        return None
 
     from ethereum.forks.amsterdam.stateless_host import (
         deserialize_stateless_output,
     )
     from ethereum_types.bytes import Bytes as AmsterdamBytes
 
-    stateless_output = deserialize_stateless_output(
+    return deserialize_stateless_output(
         AmsterdamBytes(bytes(stateless_output_bytes))
     )
-    return stateless_output.successful_validation
+
+
+def assert_amsterdam_stateless_output_chain_config(
+    *,
+    block_number: int,
+    chain_id: int,
+    stateless_output: Any | None,
+) -> None:
+    """
+    Assert the stateless output reports the fixed Amsterdam chain config.
+    """
+    if stateless_output is None:
+        return
+
+    from ethereum.forks.amsterdam.stateless_host import build_chain_config
+    from ethereum_types.numeric import U64
+
+    expected_chain_config = build_chain_config(U64(chain_id))
+    if stateless_output.chain_config != expected_chain_config:
+        raise AssertionError(
+            "Stateless output chain_config mismatch for block "
+            f"{block_number}: got {stateless_output.chain_config}, "
+            f"want {expected_chain_config}"
+        )
 
 
 class Header(CamelModel):
@@ -1064,6 +1085,12 @@ class BlockchainTest(BaseTest):
         stateless_output_bytes = (
             transition_tool_output.result.stateless_output_bytes
         )
+        stateless_output = decode_amsterdam_stateless_output(
+            fork=fork,
+            block_number=int(env.number),
+            timestamp=int(env.timestamp),
+            stateless_output_bytes=stateless_output_bytes,
+        )
         if has_witness_modifier and expected_success is None:
             raise AssertionError(
                 "Mutated execution witness tests must set "
@@ -1076,13 +1103,12 @@ class BlockchainTest(BaseTest):
                     "Stateless guest verification requires stateless output "
                     "bytes"
                 )
-            canonical_successful_validation = (
-                deserialize_amsterdam_stateless_output_success(
-                    fork=fork,
-                    block_number=int(env.number),
-                    timestamp=int(env.timestamp),
-                    stateless_output_bytes=stateless_output_bytes,
+            if stateless_output is None:
+                raise Exception(
+                    "Stateless output decoding is only supported for Amsterdam"
                 )
+            canonical_successful_validation = (
+                stateless_output.successful_validation
             )
 
         should_rerun_stateless_guest = has_witness_modifier
@@ -1103,6 +1129,12 @@ class BlockchainTest(BaseTest):
                 original_stateless_input_bytes=stateless_input_bytes,
                 execution_witness=execution_witness,
             )
+            stateless_output = decode_amsterdam_stateless_output(
+                fork=fork,
+                block_number=int(env.number),
+                timestamp=int(env.timestamp),
+                stateless_output_bytes=stateless_output_bytes,
+            )
             if (
                 expected_success is not None
                 and successful_validation != expected_success
@@ -1121,6 +1153,12 @@ class BlockchainTest(BaseTest):
                 f"got {canonical_successful_validation}, "
                 f"want {expected_success}"
             )
+
+        assert_amsterdam_stateless_output_chain_config(
+            block_number=int(env.number),
+            chain_id=self.chain_id,
+            stateless_output=stateless_output,
+        )
 
         built_block = BuiltBlock(
             header=header,

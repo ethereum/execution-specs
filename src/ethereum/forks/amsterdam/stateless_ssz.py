@@ -6,6 +6,8 @@ types in ``stateless`` and ``execution_engine.types``, plus conversion
 functions between the two representations.
 """
 
+from typing import TypeAlias
+
 from ethereum_types.bytes import Bytes, Bytes48, Bytes96
 from ethereum_types.numeric import U64, U256, Uint
 from remerkleable.basic import boolean, uint64, uint256
@@ -26,8 +28,12 @@ from .execution_engine.requests import (
 from .execution_engine.types import ExecutionPayload, NewPayloadRequest
 from .fork_types import Bloom, VersionedHash
 from .stateless import (
+    BlobSchedule,
     ChainConfig,
     ExecutionWitness,
+    ForkActivation,
+    ForkConfig,
+    ProtocolFork,
     StatelessInput,
     StatelessValidationResult,
 )
@@ -49,6 +55,8 @@ MAX_WITNESS_HEADERS = 256
 MAX_BYTES_PER_WITNESS_NODE = 2**20
 MAX_BYTES_PER_CODE = 2**24
 MAX_BYTES_PER_HEADER = 2**10
+MAX_OPTIONAL_FORK_ACTIVATION_VALUES = 1
+MAX_BLOB_SCHEDULES_PER_FORK = 1
 MAX_PUBLIC_KEYS = 2**20
 MAX_BYTES_PER_PUBLIC_KEY = 65
 
@@ -62,6 +70,11 @@ STATELESS_INPUT_SCHEMA_ID_BYTES = STATELESS_INPUT_SCHEMA_ID.to_bytes(
 
 
 # --- SSZ Container types ---
+
+
+SszOptionalForkActivationValue: TypeAlias = SszList[
+    uint64, MAX_OPTIONAL_FORK_ACTIVATION_VALUES
+]
 
 
 class SszWithdrawal(Container):
@@ -153,10 +166,39 @@ class SszExecutionWitness(Container):
     headers: SszList[ByteList[MAX_BYTES_PER_HEADER], MAX_WITNESS_HEADERS]
 
 
+class SszForkActivation(Container):
+    """SSZ container mirroring ``ForkActivation``."""
+
+    block_number: SszOptionalForkActivationValue
+    timestamp: SszOptionalForkActivationValue
+
+
+class SszBlobSchedule(Container):
+    """SSZ container mirroring ``BlobSchedule``."""
+
+    target: uint64
+    max: uint64
+    base_fee_update_fraction: uint64
+
+
+SszOptionalBlobSchedule: TypeAlias = SszList[
+    SszBlobSchedule, MAX_BLOB_SCHEDULES_PER_FORK
+]
+
+
+class SszForkConfig(Container):
+    """SSZ container mirroring ``ForkConfig``."""
+
+    fork: uint64
+    activation: SszForkActivation
+    blob_schedule: SszOptionalBlobSchedule
+
+
 class SszChainConfig(Container):
     """SSZ container mirroring ``ChainConfig``."""
 
     chain_id: uint64
+    active_fork: SszForkConfig
 
 
 class SszStatelessInput(Container):
@@ -177,6 +219,23 @@ class SszStatelessValidationResult(Container):
 
 
 # --- Conversion helpers ---
+
+
+PROTOCOL_FORKS = tuple(ProtocolFork)
+
+
+def _protocol_fork_to_ssz(fork: ProtocolFork) -> uint64:
+    """Convert a ProtocolFork to its SSZ enum value."""
+    protocol_fork = ProtocolFork(fork)
+    return uint64(PROTOCOL_FORKS.index(protocol_fork))
+
+
+def _ssz_to_protocol_fork(ssz_fork: uint64) -> ProtocolFork:
+    """Convert an SSZ enum value back to a ProtocolFork."""
+    try:
+        return PROTOCOL_FORKS[int(ssz_fork)]
+    except IndexError as error:
+        raise ValueError(f"Unknown protocol fork value: {ssz_fork}") from error
 
 
 def _withdrawal_to_ssz(w: Withdrawal) -> SszWithdrawal:
@@ -415,18 +474,132 @@ def _ssz_to_witness(
     )
 
 
+def _optional_u64_to_ssz(
+    value: U64 | None,
+) -> SszOptionalForkActivationValue:
+    """Convert an optional U64 to a zero-or-one SSZ list."""
+    if value is None:
+        return SszOptionalForkActivationValue()
+    return SszOptionalForkActivationValue(uint64(int(value)))
+
+
+def _ssz_to_optional_u64(
+    ssz_value: SszOptionalForkActivationValue,
+) -> U64 | None:
+    """Convert a zero-or-one SSZ list back to an optional U64."""
+    if ssz_value.length() == 0:
+        return None
+    return U64(ssz_value.get(0))
+
+
+def _fork_activation_to_ssz(
+    activation: ForkActivation,
+) -> SszForkActivation:
+    """Convert a ForkActivation to its SSZ form."""
+    return SszForkActivation(
+        block_number=_optional_u64_to_ssz(activation.block_number),
+        timestamp=_optional_u64_to_ssz(activation.timestamp),
+    )
+
+
+def _ssz_to_fork_activation(
+    ssz_activation: SszForkActivation,
+) -> ForkActivation:
+    """Convert an SSZ fork activation back."""
+    return ForkActivation(
+        block_number=_ssz_to_optional_u64(ssz_activation.block_number),
+        timestamp=_ssz_to_optional_u64(ssz_activation.timestamp),
+    )
+
+
+def _blob_schedule_to_ssz(
+    blob_schedule: BlobSchedule,
+) -> SszBlobSchedule:
+    """Convert a BlobSchedule to its SSZ form."""
+    return SszBlobSchedule(
+        target=uint64(int(blob_schedule.target)),
+        max=uint64(int(blob_schedule.max)),
+        base_fee_update_fraction=uint64(
+            int(blob_schedule.base_fee_update_fraction)
+        ),
+    )
+
+
+def _ssz_to_blob_schedule(
+    ssz_blob_schedule: SszBlobSchedule,
+) -> BlobSchedule:
+    """Convert an SSZ blob schedule back."""
+    return BlobSchedule(
+        target=U64(ssz_blob_schedule.target),
+        max=U64(ssz_blob_schedule.max),
+        base_fee_update_fraction=U64(
+            ssz_blob_schedule.base_fee_update_fraction
+        ),
+    )
+
+
+def _optional_blob_schedule_to_ssz(
+    blob_schedule: BlobSchedule | None,
+) -> SszOptionalBlobSchedule:
+    """Convert an optional BlobSchedule to a zero-or-one SSZ list."""
+    if blob_schedule is None:
+        return SszOptionalBlobSchedule()
+    return SszOptionalBlobSchedule(_blob_schedule_to_ssz(blob_schedule))
+
+
+def _ssz_to_optional_blob_schedule(
+    ssz_blob_schedule: SszOptionalBlobSchedule,
+) -> BlobSchedule | None:
+    """Convert a zero-or-one SSZ blob schedule list back."""
+    if ssz_blob_schedule.length() == 0:
+        return None
+    return _ssz_to_blob_schedule(ssz_blob_schedule.get(0))
+
+
+def _fork_config_to_ssz(
+    fork_config: ForkConfig,
+) -> SszForkConfig:
+    """Convert a ForkConfig to its SSZ form."""
+    return SszForkConfig(
+        fork=_protocol_fork_to_ssz(fork_config.fork),
+        activation=_fork_activation_to_ssz(fork_config.activation),
+        blob_schedule=_optional_blob_schedule_to_ssz(
+            fork_config.blob_schedule
+        ),
+    )
+
+
+def _ssz_to_fork_config(
+    ssz_fork_config: SszForkConfig,
+) -> ForkConfig:
+    """Convert an SSZ fork config back."""
+    return ForkConfig(
+        fork=_ssz_to_protocol_fork(ssz_fork_config.fork),
+        activation=_ssz_to_fork_activation(ssz_fork_config.activation),
+        blob_schedule=_ssz_to_optional_blob_schedule(
+            ssz_fork_config.blob_schedule
+        ),
+    )
+
+
 def _chain_config_to_ssz(
     cc: ChainConfig,
 ) -> SszChainConfig:
     """Convert a ChainConfig to its SSZ form."""
-    return SszChainConfig(chain_id=uint64(int(cc.chain_id)))
+    return SszChainConfig(
+        chain_id=uint64(int(cc.chain_id)),
+        active_fork=_fork_config_to_ssz(cc.active_fork),
+    )
 
 
 def _ssz_to_chain_config(
     scc: SszChainConfig,
 ) -> ChainConfig:
     """Convert an SSZ chain config back."""
-    return ChainConfig(chain_id=U64(scc.chain_id))
+    return ChainConfig(
+        chain_id=U64(scc.chain_id),
+        active_fork=_ssz_to_fork_config(scc.active_fork),
+    )
 
 
 def stateless_input_to_ssz(

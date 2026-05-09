@@ -4,10 +4,12 @@ import random
 from typing import Tuple
 
 import pytest
-from ethereum_types.bytes import Bytes, Bytes32, Bytes48, Bytes96
+from ethereum_types.bytes import Bytes, Bytes8, Bytes32, Bytes48, Bytes96
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32
+from ethereum.forks.amsterdam.block_access_lists import BlockAccessList
+from ethereum.forks.amsterdam.blocks import Block, Header
 from ethereum.forks.amsterdam.execution_engine.requests import (
     DepositRequest,
     ExecutionRequests,
@@ -18,8 +20,12 @@ from ethereum.forks.amsterdam.execution_engine.types import (
 )
 from ethereum.forks.amsterdam.fork_types import Bloom
 from ethereum.forks.amsterdam.stateless import (
+    BlobSchedule,
     ChainConfig,
     ExecutionWitness,
+    ForkActivation,
+    ForkConfig,
+    ProtocolFork,
     StatelessInput,
     StatelessValidationResult,
     compute_new_payload_request_root,
@@ -29,12 +35,19 @@ from ethereum.forks.amsterdam.stateless_guest import (
     serialize_stateless_output,
 )
 from ethereum.forks.amsterdam.stateless_host import (
+    build_chain_config,
+    build_stateless_input,
     deserialize_stateless_output,
     serialize_stateless_input,
 )
 from ethereum.forks.amsterdam.stateless_ssz import (
     STATELESS_INPUT_SCHEMA_ID_BYTES,
     stateless_input_to_ssz,
+)
+from ethereum.forks.amsterdam.vm.gas import (
+    BLOB_BASE_FEE_UPDATE_FRACTION,
+    BLOB_SCHEDULE_MAX,
+    BLOB_SCHEDULE_TARGET,
 )
 from ethereum.state import Address, Root
 
@@ -69,6 +82,60 @@ def _make_payload() -> ExecutionPayload:
     )
 
 
+def _make_header() -> Header:
+    return Header(
+        parent_hash=Hash32(_rb(32)),
+        ommers_hash=Hash32(_rb(32)),
+        coinbase=Address(_rb(20)),
+        state_root=Root(_rb(32)),
+        transactions_root=Root(_rb(32)),
+        receipt_root=Root(_rb(32)),
+        bloom=Bloom(_rb(256)),
+        difficulty=Uint(0),
+        number=Uint(_RNG.randint(1, 2**32)),
+        gas_limit=Uint(30_000_000),
+        gas_used=Uint(_RNG.randint(0, 20_000_000)),
+        timestamp=U256(_RNG.randint(1, 2**32)),
+        extra_data=Bytes(_rb(32)),
+        prev_randao=Bytes32(_rb(32)),
+        nonce=Bytes8(_rb(8)),
+        base_fee_per_gas=Uint(_RNG.randint(1, 10**9)),
+        withdrawals_root=Root(_rb(32)),
+        blob_gas_used=U64(_RNG.randint(0, 2**17)),
+        excess_blob_gas=U64(_RNG.randint(0, 2**17)),
+        parent_beacon_block_root=Root(_rb(32)),
+        requests_hash=Hash32(_rb(32)),
+        block_access_list_hash=Hash32(_rb(32)),
+    )
+
+
+def _make_block() -> Block:
+    return Block(
+        header=_make_header(),
+        transactions=(),
+        ommers=(),
+        withdrawals=(),
+    )
+
+
+def _expected_amsterdam_chain_config(chain_id: U64) -> ChainConfig:
+    return ChainConfig(
+        chain_id=chain_id,
+        active_fork=ForkConfig(
+            fork=ProtocolFork.Amsterdam,
+            activation=ForkActivation(
+                block_number=None,
+                timestamp=U64(0),
+            ),
+            blob_schedule=BlobSchedule(
+                target=BLOB_SCHEDULE_TARGET,
+                max=BLOB_SCHEDULE_MAX,
+                base_fee_update_fraction=U64(BLOB_BASE_FEE_UPDATE_FRACTION),
+            ),
+        ),
+    )
+
+
 def _make_deposit_request() -> DepositRequest:
     return DepositRequest(
         pubkey=Bytes48(_rb(48)),
@@ -100,7 +167,7 @@ def _make_stateless_input() -> StatelessInput:
             codes=(Bytes(_rb(48)), Bytes(_rb(96))),
             headers=(Bytes(_rb(512)), Bytes(_rb(512))),
         ),
-        chain_config=ChainConfig(chain_id=U64(1)),
+        chain_config=build_chain_config(U64(1)),
         public_keys=(Bytes(_rb(33)), Bytes(_rb(33))),
     )
 
@@ -109,8 +176,42 @@ def _make_stateless_output() -> StatelessValidationResult:
     return StatelessValidationResult(
         new_payload_request_root=Hash32(_rb(32)),
         successful_validation=True,
-        chain_config=ChainConfig(chain_id=U64(1)),
+        chain_config=build_chain_config(U64(1)),
     )
+
+
+class TestBuildChainConfig:
+    """Test host-side ChainConfig construction."""
+
+    def test_amsterdam_only(self) -> None:
+        """Builds a single Amsterdam fork entry."""
+        chain_config = build_chain_config(U64(123))
+        assert chain_config == _expected_amsterdam_chain_config(U64(123))
+
+
+class TestBuildStatelessInput:
+    """Test host-side StatelessInput construction."""
+
+    def test_includes_amsterdam_chain_config(self) -> None:
+        """Includes the Amsterdam-only chain config."""
+        chain_config = build_chain_config(U64(123))
+        block_access_list: BlockAccessList = []
+        stateless_input = build_stateless_input(
+            _make_block(),
+            execution_witness=ExecutionWitness(
+                state=(),
+                codes=(),
+                headers=(),
+            ),
+            execution_requests=ExecutionRequests(
+                deposits=(),
+                withdrawals=(),
+                consolidations=(),
+            ),
+            block_access_list=block_access_list,
+            chain_id=U64(123),
+        )
+        assert stateless_input.chain_config == chain_config
 
 
 class TestSerializeStatelessInput:
@@ -138,7 +239,7 @@ class TestSerializeStatelessInput:
                 ),
             ),
             witness=ExecutionWitness(state=(), codes=(), headers=()),
-            chain_config=ChainConfig(chain_id=U64(1)),
+            chain_config=build_chain_config(U64(1)),
             public_keys=(),
         )
         encoded = serialize_stateless_input(original)
@@ -171,7 +272,7 @@ class TestDeserializeStatelessInput:
                 ),
             ),
             witness=ExecutionWitness(state=(), codes=(), headers=()),
-            chain_config=ChainConfig(chain_id=U64(1)),
+            chain_config=build_chain_config(U64(1)),
             public_keys=(),
         )
         encoded = serialize_stateless_input(original)
@@ -218,7 +319,7 @@ class TestSerializeStatelessOutput:
         original = StatelessValidationResult(
             new_payload_request_root=Hash32(_rb(32)),
             successful_validation=False,
-            chain_config=ChainConfig(chain_id=U64(1)),
+            chain_config=build_chain_config(U64(1)),
         )
         encoded = serialize_stateless_output(original)
         recovered = deserialize_stateless_output(encoded)

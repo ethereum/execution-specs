@@ -3,6 +3,7 @@ Stateless validation interfaces.
 """
 
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import List, Sequence, Tuple
 
 from ethereum_rlp import rlp
@@ -17,9 +18,14 @@ from ethereum.state import Root
 from .blocks import Block, Header
 from .execution_engine.new_payload import execute_new_payload_request
 from .execution_engine.requests import ExecutionRequests
-from .execution_engine.types import NewPayloadRequest
+from .execution_engine.types import ExecutionPayload, NewPayloadRequest
 from .fork import ChainContext
 from .fork_types import VersionedHash
+from .vm.gas import (
+    BLOB_BASE_FEE_UPDATE_FRACTION,
+    BLOB_SCHEDULE_MAX,
+    BLOB_SCHEDULE_TARGET,
+)
 from .witness_state import WitnessState, build_code_db, build_node_db
 
 
@@ -74,17 +80,106 @@ class NewPayloadRequestHeader:
     execution_requests: ExecutionRequests
 
 
+class ProtocolFork(StrEnum):
+    """
+    Semantic execution-layer fork names understood by stateless inputs.
+    """
+
+    Frontier = "Frontier"
+    Homestead = "Homestead"
+    DAOFork = "DAOFork"
+    TangerineWhistle = "TangerineWhistle"
+    SpuriousDragon = "SpuriousDragon"
+    Byzantium = "Byzantium"
+    Constantinople = "Constantinople"
+    ConstantinopleFix = "ConstantinopleFix"
+    Istanbul = "Istanbul"
+    MuirGlacier = "MuirGlacier"
+    Berlin = "Berlin"
+    London = "London"
+    ArrowGlacier = "ArrowGlacier"
+    GrayGlacier = "GrayGlacier"
+    Paris = "Paris"
+    Shanghai = "Shanghai"
+    Cancun = "Cancun"
+    Prague = "Prague"
+    Osaka = "Osaka"
+    BPO1 = "BPO1"
+    BPO2 = "BPO2"
+    BPO3 = "BPO3"
+    BPO4 = "BPO4"
+    BPO5 = "BPO5"
+    Amsterdam = "Amsterdam"
+
+
+class ChainConfigValidationError(Exception):
+    """
+    Raised when a chain config cannot be used by this stateless guest.
+    """
+
+
+class InactiveForkConfigError(ChainConfigValidationError):
+    """
+    Raised when the configured active fork is not active for the payload.
+    """
+
+
+class InvalidForkActivationError(ChainConfigValidationError):
+    """
+    Raised when a fork entry has a malformed activation point.
+    """
+
+
+class UnsupportedForkConfigError(ChainConfigValidationError):
+    """
+    Raised when this guest cannot execute the configured active fork.
+    """
+
+
+@slotted_freezable
+@dataclass
+class ForkActivation:
+    """
+    Activation point for a protocol fork.
+    """
+
+    block_number: U64 | None
+    timestamp: U64 | None
+
+
+@slotted_freezable
+@dataclass
+class BlobSchedule:
+    """
+    Effective blob parameters for a protocol fork.
+    """
+
+    target: U64
+    max: U64
+    base_fee_update_fraction: U64
+
+
+@slotted_freezable
+@dataclass
+class ForkConfig:
+    """
+    Per-fork configuration needed to interpret stateless inputs.
+    """
+
+    fork: ProtocolFork
+    activation: ForkActivation
+    blob_schedule: BlobSchedule | None
+
+
 @slotted_freezable
 @dataclass
 class ChainConfig:
     """
     Chain configuration needed for stateless validation.
-
-    TODO: Since we do not want the client to hold all possible chains,
-    we may want to add more to the chain config, like a genesis file.
     """
 
     chain_id: U64
+    active_fork: ForkConfig
 
 
 @slotted_freezable
@@ -191,6 +286,70 @@ def validate_headers(
     return headers, block_hashes
 
 
+def _is_activation_active(
+    activation: ForkActivation,
+    execution_payload: ExecutionPayload,
+) -> bool:
+    """
+    Return whether an activation point is active for the payload.
+    """
+    if activation.block_number is None and activation.timestamp is None:
+        raise InvalidForkActivationError(
+            "Fork activation must set block_number or timestamp"
+        )
+
+    if activation.block_number is not None and int(
+        execution_payload.block_number
+    ) < int(activation.block_number):
+        return False
+
+    if activation.timestamp is not None and int(
+        execution_payload.timestamp
+    ) < int(activation.timestamp):
+        return False
+
+    return True
+
+
+def _expected_amsterdam_blob_schedule() -> BlobSchedule:
+    """
+    Return the blob schedule currently compiled into the Amsterdam guest.
+    """
+    return BlobSchedule(
+        target=BLOB_SCHEDULE_TARGET,
+        max=BLOB_SCHEDULE_MAX,
+        base_fee_update_fraction=U64(BLOB_BASE_FEE_UPDATE_FRACTION),
+    )
+
+
+def validate_chain_config(
+    chain_config: ChainConfig,
+    new_payload_request: NewPayloadRequest,
+) -> ForkConfig:
+    """
+    Validate and return the target payload's active fork config.
+    """
+    active_fork = chain_config.active_fork
+    execution_payload = new_payload_request.execution_payload
+
+    if not _is_activation_active(active_fork.activation, execution_payload):
+        raise InactiveForkConfigError(
+            "ChainConfig active_fork is not active for the target payload"
+        )
+
+    if active_fork.fork != ProtocolFork.Amsterdam:
+        raise UnsupportedForkConfigError(
+            f"Amsterdam stateless guest cannot execute {active_fork.fork}"
+        )
+
+    if active_fork.blob_schedule != _expected_amsterdam_blob_schedule():
+        raise UnsupportedForkConfigError(
+            "ChainConfig active_fork blob_schedule does not match Amsterdam"
+        )
+
+    return active_fork
+
+
 def verify_stateless_new_payload(
     stateless_input: StatelessInput,
 ) -> StatelessValidationResult:
@@ -203,6 +362,11 @@ def verify_stateless_new_payload(
     witness = stateless_input.witness
 
     try:
+        validate_chain_config(
+            stateless_input.chain_config,
+            stateless_input.new_payload_request,
+        )
+
         # Validate the headers are contiguous and compute their
         # blockhashes.
         decoded_headers, block_hashes = validate_headers(witness.headers)
