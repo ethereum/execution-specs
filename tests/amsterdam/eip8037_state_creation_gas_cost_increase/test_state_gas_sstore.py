@@ -1,11 +1,12 @@
 """
 Test SSTORE state gas charging under EIP-8037.
 
-Zero-to-nonzero storage writes charge `32 * cost_per_state_byte` of state
-gas. Nonzero-to-nonzero writes charge no state gas. 0 to x to 0
-restoration in the same tx refunds state gas directly to
-`state_gas_reservoir` (inline at x to 0) and the regular write-cost
-portion to `refund_counter`.
+Zero-to-nonzero storage writes charge
+`STATE_BYTES_PER_STORAGE_SET * cost_per_state_byte` of state gas.
+Nonzero-to-nonzero writes charge no state gas. 0 to x to 0 restoration
+in the same tx refunds state gas directly to `state_gas_reservoir`
+(inline at x to 0) and the regular write-cost portion to
+`refund_counter`.
 
 Tests for [EIP-8037: State Creation Gas Cost Increase]
 (https://eips.ethereum.org/EIPS/eip-8037).
@@ -45,7 +46,8 @@ def test_sstore_zero_to_nonzero(
     Test SSTORE zero-to-nonzero charges state gas.
 
     Writing a nonzero value to a previously-zero slot charges
-    32 * cost_per_state_byte of state gas in addition to regular gas.
+    STATE_BYTES_PER_STORAGE_SET * cost_per_state_byte of state gas
+    in addition to regular gas.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -165,8 +167,8 @@ def test_sstore_restoration_refund(
 
     When a slot is written from zero to nonzero and then restored to
     zero in the same transaction, the state gas charge
-    (32 * cost_per_state_byte) is refunded via refund_counter along
-    with the regular gas write cost.
+    (STATE_BYTES_PER_STORAGE_SET * cost_per_state_byte) is refunded
+    via refund_counter along with the regular gas write cost.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -264,7 +266,7 @@ def test_sstore_multiple_slots(
     Test multiple zero-to-nonzero SSTOREs each charge state gas.
 
     Each slot written from zero to nonzero independently charges
-    32 * cost_per_state_byte of state gas.
+    STATE_BYTES_PER_STORAGE_SET * cost_per_state_byte of state gas.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None

@@ -528,7 +528,8 @@ def test_auth_state_gas_scales_with_cpsb(
     """
     Test SetCode authorization state gas scales with block gas limit.
 
-    A type-4 tx with one authorization charges (112 + 23) * cpsb
+    A type-4 tx with one authorization charges
+    (STATE_BYTES_PER_NEW_ACCOUNT + STATE_BYTES_PER_AUTH_BASE) * cpsb
     of intrinsic state gas for the new account delegation.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()

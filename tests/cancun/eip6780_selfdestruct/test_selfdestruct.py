@@ -1877,9 +1877,10 @@ def test_parent_creates_child_selfdestruct_one(
     #   2. parent_code (called by entry)
     #   3. child_code (created by parent and, when !destroy_parent, called
     #      by parent)
-    # Each CREATE incurs NEW_ACCOUNT state once. SSTORE costs are picked up
-    # by each bytecode's `gas_cost(fork)`. EIP-1706 slack for trailing
-    # SSTOREs.
+    # Each CREATE incurs NEW_ACCOUNT state once. SSTORE regular costs
+    # are picked up by each bytecode's `gas_cost(fork)`; the trailing
+    # `sstore_state_gas()` covers the EIP-8037 state-gas charge for the
+    # 0->nonzero SSTORE that `gas_cost(fork)` cannot infer statically.
     tx = Transaction(
         value=0,
         data=entry_code,
