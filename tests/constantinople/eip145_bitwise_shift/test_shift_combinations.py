@@ -85,9 +85,9 @@ def test_combinations(
         + Op.STOP,
     )
 
-    # Osaka (EIP-7825) caps tx gas at 16,777,216. Amsterdam (EIP-8037)
-    # lifts the cap and increases SSTORE state gas, needing 25M for
-    # 401 cold zero-to-nonzero SSTOREs (~17.1M at cpsb=1174).
+    # Osaka (EIP-7825) caps tx gas at 16,777,216; Amsterdam
+    # (EIP-8037) lifts that cap and lets state gas fund the test's
+    # ~400 SSTOREs from the reservoir.
     # TODO: auto gas limit will remove this
     gas_limit = 16_000_000
     if fork.is_eip_enabled(8037):

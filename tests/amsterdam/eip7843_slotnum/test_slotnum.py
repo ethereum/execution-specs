@@ -6,6 +6,7 @@ from execution_testing import (
     Alloc,
     Environment,
     Fork,
+    Header,
     Op,
     StateTestFiller,
     Transaction,
@@ -32,6 +33,7 @@ pytestmark = pytest.mark.valid_from("EIP7843")
 def test_slotnum_value(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     slot_number: int,
 ) -> None:
     """
@@ -40,27 +42,37 @@ def test_slotnum_value(
     The slot number is provided by the consensus layer and should be
     accessible via the SLOTNUM opcode (0x4B).
     """
-    # Store SLOTNUM result at storage key 0
-    code = Op.SSTORE(0, Op.SLOTNUM)
+    # Store SLOTNUM result at storage key 0. Metadata pins the
+    # storage transition (0->slot_number) so `code.gas_cost(fork)`
+    # picks the right SSTORE branch under EIP-8037's 2D gas model.
+    code = Op.SSTORE(
+        key=0,
+        value=Op.SLOTNUM,
+        key_warm=False,
+        original_value=0,
+        new_value=slot_number,
+    )
     code_address = pre.deploy_contract(code)
+
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+    code_state = code.state_cost(fork)
+    code_regular = code.gas_cost(fork) - code_state
 
     tx = Transaction(
         sender=pre.fund_eoa(),
-        gas_limit=100_000,
+        gas_limit=intrinsic_cost + code_regular + code_state,
         to=code_address,
     )
 
-    post = {
-        code_address: Account(
-            storage={0: slot_number},
-        ),
-    }
+    # block.gas_used = max(regular_dimension, state_dimension).
+    expected_gas_used = max(intrinsic_cost + code_regular, code_state)
 
     state_test(
         env=Environment(slot_number=slot_number),
         pre=pre,
         tx=tx,
-        post=post,
+        post={code_address: Account(storage={0: slot_number})},
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )
 
 
@@ -88,25 +100,42 @@ def test_slotnum_gas_cost(
     callee_code = Op.SLOTNUM + Op.STOP
     callee_address = pre.deterministic_deploy_contract(deploy_code=callee_code)
 
-    # Caller calls the callee with limited gas and stores result
-    caller_code = Op.SSTORE(0, Op.CALL(gas=call_gas, address=callee_address))
+    # Caller calls the callee with `call_gas`; SSTOREs the call's
+    # success bit (1 if SLOTNUM had enough gas, 0 if it OOG'd).
+    sstore_value = 1 if call_succeeds else 0
+    caller_code = Op.SSTORE(
+        key=0,
+        value=Op.CALL(
+            gas=call_gas,
+            address=callee_address,
+            address_warm=False,
+        ),
+        key_warm=False,
+        original_value=0,
+        new_value=sstore_value,
+    )
     caller_address = pre.deploy_contract(caller_code)
+
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+    code_state = caller_code.state_cost(fork)
+    # Static opcode-metadata calc misses the gas burned in the inner
+    # CALL frame; add it back. `call_gas` is the full forwarded amount
+    # — for `enough_gas` SLOTNUM consumes it all; for `out_of_gas`
+    # the OOG burns the entire forwarded budget.
+    code_regular = caller_code.gas_cost(fork) - code_state + call_gas
 
     tx = Transaction(
         sender=pre.fund_eoa(),
-        gas_limit=100_000,
+        gas_limit=intrinsic_cost + code_regular + code_state,
         to=caller_address,
     )
 
-    post = {
-        caller_address: Account(
-            storage={0: 1 if call_succeeds else 0},
-        ),
-    }
+    expected_gas_used = max(intrinsic_cost + code_regular, code_state)
 
     state_test(
         env=Environment(slot_number=12345),
         pre=pre,
         tx=tx,
-        post=post,
+        post={caller_address: Account(storage={0: sstore_value})},
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )

@@ -26,10 +26,10 @@ from . import Evm
 from .exceptions import OutOfGasError
 
 # EIP-8037 state gas accounting constants
-COST_PER_STATE_BYTE = Uint(1174)
+COST_PER_STATE_BYTE = Uint(1530)
 
-STATE_BYTES_PER_NEW_ACCOUNT = Uint(112)
-STATE_BYTES_PER_STORAGE_SET = Uint(32)
+STATE_BYTES_PER_NEW_ACCOUNT = Uint(120)
+STATE_BYTES_PER_STORAGE_SET = Uint(64)
 STATE_BYTES_PER_AUTH_BASE = Uint(23)
 
 PER_AUTH_BASE_COST = Uint(7500)

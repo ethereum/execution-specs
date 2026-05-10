@@ -121,7 +121,7 @@ def test_delegatecall_child_spill_not_double_charged(
 
     tx = Transaction(
         to=caller,
-        gas_limit=500_000,
+        gas_limit=700_000,
         sender=pre.fund_eoa(),
     )
 
@@ -1606,14 +1606,17 @@ def test_child_failure_refunds_state_gas_to_reservoir_not_gas_left(
         ),
     )
 
-    # Empirical per-tx cumulative. Pinning this catches a mutation
-    # that correctly restores the reservoir but also double-refunds
-    # to regular gas (or otherwise leaks extra gas to the sender),
-    # which the storage probe alone cannot discriminate.
-    expected_cumulative = {
-        Op.CALL: 73_831,
-        Op.DELEGATECALL: 73_825,
+    # Empirical per-tx cumulative, decomposed into a CPSB-independent
+    # regular base plus the grandchild's surviving SSTORE state gas.
+    # Pinning this catches a mutation that correctly restores the
+    # reservoir but also double-refunds to regular gas (or otherwise
+    # leaks extra gas to the sender), which the storage probe alone
+    # cannot discriminate.
+    regular_base = {
+        Op.CALL: 36_263,
+        Op.DELEGATECALL: 36_257,
     }[call_opcode]
+    expected_cumulative = regular_base + sstore_state_gas
 
     tx = Transaction(
         to=parent,

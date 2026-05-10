@@ -14,6 +14,7 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    Bytecode,
     Environment,
     Fork,
     Hash,
@@ -38,16 +39,28 @@ def sender(pre: Alloc) -> Address:
 
 
 @pytest.fixture
-def destination_account(pre: Alloc) -> Address:
-    """Contract that stores the blob base fee for verification."""
-    code = Op.SSTORE(0, Op.BLOBBASEFEE)
-    return pre.deploy_contract(code)
+def destination_code() -> Bytecode:
+    """Bytecode that stores the blob base fee at slot 0."""
+    return Op.SSTORE(0, Op.BLOBBASEFEE)
 
 
 @pytest.fixture
-def tx_gas() -> int:
-    """Gas limit for transactions sent during test."""
-    return 100_000
+def destination_account(pre: Alloc, destination_code: Bytecode) -> Address:
+    """Contract that stores the blob base fee for verification."""
+    return pre.deploy_contract(destination_code)
+
+
+@pytest.fixture
+def tx_gas(fork: Fork, destination_code: Bytecode) -> int:
+    """
+    Gas limit sized exactly for the destination's single SSTORE 0->non-zero
+    plus the EIP-1706 stipend slack and (under EIP-8037) one
+    `sstore_state_gas` of reservoir headroom.
+    """
+    intrinsic = fork.transaction_intrinsic_cost_calculator()
+    return (
+        intrinsic() + destination_code.gas_cost(fork) + fork.sstore_state_gas()
+    )
 
 
 @pytest.fixture
@@ -94,6 +107,7 @@ def tx(
 def block(
     tx: Transaction,
     fork: Fork,
+    destination_code: Bytecode,
     parent_excess_blobs: int,
     parent_blobs: int,
     block_base_fee_per_gas: int,
@@ -109,9 +123,14 @@ def block(
         parent_blob_count=parent_blobs,
         parent_base_fee_per_gas=block_base_fee_per_gas,
     )
+    intrinsic = fork.transaction_intrinsic_cost_calculator()
+    code_state = destination_code.state_cost(fork)
+    code_regular = destination_code.gas_cost(fork) - code_state
+    expected_gas_used = max(intrinsic() + code_regular, code_state)
     return Block(
         txs=[tx],
         header_verify=Header(
+            gas_used=expected_gas_used,
             excess_blob_gas=expected_excess_blob_gas,
             blob_gas_used=blob_count * blob_gas_per_blob,
         ),

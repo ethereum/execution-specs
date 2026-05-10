@@ -207,14 +207,17 @@ class WithdrawalRequestContract(WithdrawalRequestInteractionBase):
         """Return a transaction for the withdrawal request."""
         assert self.entry_address is not None, "Entry address not initialized"
         gas_limit = self.tx_gas_limit
-        if (
-            self.fund_state_reservoir
-            and fork is not None
-            and fork.is_eip_enabled(8037)
-        ):
-            # Each withdrawal request writes 3 new storage slots
-            # in the system contract queue (source, pubkey, amount).
-            gas_limit += len(self.requests) * 3 * fork.sstore_state_gas()
+        if fork is not None and fork.is_eip_enabled(8037):
+            # Per request the system contract writes 3 entry slots
+            # (source, pubkey, amount); plus a queue-tail bump and
+            # one slot of headroom per tx.
+            sstores_per_request = 3
+            queue_tail_and_slack_sstores = 2
+            sstores = (
+                len(self.requests) * sstores_per_request
+                + queue_tail_and_slack_sstores
+            )
+            gas_limit += sstores * fork.sstore_state_gas()
         return [
             Transaction(
                 gas_limit=gas_limit,

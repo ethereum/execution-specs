@@ -281,12 +281,7 @@ def test_block_state_gas_limit_boundary(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
 
-    # TODO(EIP-8037): pin block_gas_limit (and therefore cpsb)
-    # up-front; see test_creation_tx_state_check_exceeded for
-    # rationale. Revisit if the framework exposes a cpsb query
-    # that doesn't require mutating the fork.
     block_gas_limit = 100_000_000
-    fork._env_gas_limit = block_gas_limit
 
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
     sstore_state_gas = fork.sstore_state_gas()
@@ -382,12 +377,6 @@ def test_creation_tx_regular_check_subtracts_intrinsic_state(
     # - intrinsic.state)` accepts (equals intrinsic_regular).
     block_gas_limit = gas_limit_cap + intrinsic_regular + 1
 
-    # TODO(EIP-8037): pin `_env_gas_limit` to the actual block limit
-    # and re-read every cpsb-dependent value. The intrinsic calculator
-    # captures `gas_costs()` at creation time, so it must be
-    # re-obtained. Revisit if the framework exposes a cpsb query
-    # that doesn't require mutating the fork.
-    fork._env_gas_limit = block_gas_limit
     intrinsic_state = fork.transaction_intrinsic_state_gas(
         contract_creation=True,
     )
@@ -497,14 +486,7 @@ def test_creation_tx_state_check_exceeded(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
 
-    # TODO(EIP-8037): pin block_gas_limit (and therefore cpsb)
-    # up-front so every cpsb-dependent read below is consistent with
-    # what the block uses at execution time. 100_000_000 is the
-    # canonical value the spec uses (cost_per_state_byte = 1174 at
-    # this limit). Revisit if the framework exposes a cpsb query
-    # that doesn't require mutating the fork.
     block_gas_limit = 100_000_000
-    fork._env_gas_limit = block_gas_limit
 
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
     sstore_state_gas = fork.sstore_state_gas()
@@ -637,14 +619,7 @@ def test_block_2d_gas_valid_when_cumulative_exceeds_limit(
     can legitimately exceed gas_limit. Clients must not use the 1D
     cumulative check for block validation.
     """
-    # TODO(EIP-8037): pin block_gas_limit (and therefore cpsb)
-    # up-front. Choosing a value where cpsb is its canonical 1174
-    # keeps `tx_state` comparable to `tx_regular` so the 2D-max vs
-    # 1D-sum discrimination the test exercises is meaningful.
-    # Revisit if the framework exposes a cpsb query that doesn't
-    # require mutating the fork.
     block_gas_limit = 100_000_000
-    fork._env_gas_limit = block_gas_limit
 
     gas_costs = fork.gas_costs()
     sstore_state_gas = fork.sstore_state_gas()

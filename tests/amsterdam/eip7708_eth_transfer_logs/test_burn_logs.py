@@ -83,6 +83,7 @@ def test_selfdestruct_to_self_same_tx(
     state_test: StateTestFiller,
     env: Environment,
     pre: Alloc,
+    fork: Fork,
     sender: EOA,
     contract_balance: int,
     create_opcode: Op,
@@ -125,7 +126,9 @@ def test_selfdestruct_to_self_same_tx(
         sender=sender,
         to=factory,
         value=contract_balance,
-        gas_limit=200_000,
+        # Same-tx CREATE+SELFDESTRUCT charges NEW_ACCOUNT state gas
+        # under EIP-8037 (0 otherwise).
+        gas_limit=200_000 + fork.gas_costs().NEW_ACCOUNT,
         expected_receipt=TransactionReceipt(logs=expected_logs),
     )
 
@@ -144,6 +147,7 @@ def test_selfdestruct_to_different_address_same_tx(
     state_test: StateTestFiller,
     env: Environment,
     pre: Alloc,
+    fork: Fork,
     sender: EOA,
     contract_balance: int,
     create_opcode: Op,
@@ -189,7 +193,9 @@ def test_selfdestruct_to_different_address_same_tx(
         sender=sender,
         to=factory,
         value=contract_balance,
-        gas_limit=200_000,
+        # Same-tx CREATE+SELFDESTRUCT charges NEW_ACCOUNT state gas
+        # under EIP-8037 (0 otherwise).
+        gas_limit=200_000 + fork.gas_costs().NEW_ACCOUNT,
         expected_receipt=TransactionReceipt(logs=expected_logs),
     )
 
@@ -222,6 +228,7 @@ def test_selfdestruct_same_tx_via_call(
     state_test: StateTestFiller,
     env: Environment,
     pre: Alloc,
+    fork: Fork,
     sender: EOA,
     to_self: bool,
     call_twice: bool,
@@ -303,7 +310,9 @@ def test_selfdestruct_same_tx_via_call(
         sender=sender,
         to=factory,
         value=0,
-        gas_limit=300_000,
+        # CREATE-then-CALL with same-tx SELFDESTRUCT charges
+        # NEW_ACCOUNT state gas under EIP-8037 (0 otherwise).
+        gas_limit=200_000 + fork.gas_costs().NEW_ACCOUNT,
         expected_receipt=TransactionReceipt(logs=expected_logs),
     )
 
@@ -507,7 +516,7 @@ def test_finalization_burn_logs(
         to=None,
         value=0,
         data=factory_code,
-        gas_limit=1_000_000,
+        gas_limit=2_000_000,
         expected_receipt=TransactionReceipt(
             logs=execution_logs + finalization_logs
         ),
