@@ -745,3 +745,93 @@ def test_selfdestruct_new_beneficiary_no_regular_account_creation_cost(
     )
 
     state_test(pre=pre, post={beneficiary: Account(balance=1)}, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "tx_value,beneficiary_kind",
+    [
+        pytest.param(0, "self", id="value0_to_self"),
+        pytest.param(0, "existing", id="value0_to_existing"),
+        pytest.param(0, "empty", id="value0_to_empty"),
+        pytest.param(1, "self", id="value1_to_self"),
+        pytest.param(1, "existing", id="value1_to_existing"),
+        pytest.param(1, "empty", id="value1_to_empty"),
+    ],
+)
+@pytest.mark.pre_alloc_mutable()
+@pytest.mark.valid_from("EIP8037")
+def test_create_tx_selfdestruct_initcode_refunds_intrinsic(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    tx_value: int,
+    beneficiary_kind: str,
+) -> None:
+    """
+    Verify a creation tx whose initcode SELFDESTRUCTs the new
+    contract refunds the intrinsic NEW_ACCOUNT × CPSB so the user
+    only pays state-gas for any genuinely new account that persists.
+
+    Cases:
+    - value=0 (any beneficiary): contract is destroyed, no
+      beneficiary creation. Net new state = 0; expected state-gas
+      bill = 0.
+    - value>0 to self/existing: balance burned or transferred to a
+      live account; contract destroyed. Net new state = 0; expected
+      state-gas bill = 0.
+    - value>0 to empty beneficiary: SELFDESTRUCT charges a NEW_ACCOUNT
+      for the new beneficiary which persists; contract is destroyed.
+      Net new state = 1; expected state-gas bill = NEW_ACCOUNT × CPSB.
+    """
+    new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
+    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
+
+    sender = pre.fund_eoa(amount=10**18)
+    contract_addr = compute_create_address(address=sender, nonce=0)
+
+    if beneficiary_kind == "self":
+        beneficiary = contract_addr
+    elif beneficiary_kind == "existing":
+        beneficiary = pre.deploy_contract(code=Op.STOP)
+    else:
+        beneficiary = pre.fund_eoa(amount=0)
+
+    # `current_target` is added to `accessed_addresses` at message
+    # entry, so SELFDESTRUCT to self skips the cold-access surcharge.
+    if beneficiary_kind == "self":
+        init_code = Op.SELFDESTRUCT.with_metadata(address_warm=True)(
+            beneficiary
+        )
+    else:
+        init_code = Op.SELFDESTRUCT(beneficiary)
+    intrinsic_total = intrinsic_calc(
+        calldata=bytes(init_code), contract_creation=True
+    )
+    intrinsic_regular = intrinsic_total - new_account_state_gas
+
+    creates_new_beneficiary = beneficiary_kind == "empty" and tx_value > 0
+    expected_state = new_account_state_gas if creates_new_beneficiary else 0
+    expected_regular = intrinsic_regular + init_code.regular_cost(fork)
+    expected_gas_used = max(expected_regular, expected_state)
+
+    # Reservoir is empty for sub-cap txs, so SELFDESTRUCT's state-gas
+    # charge for a new beneficiary spills into gas_left. The buffer
+    # has to cover that spillover plus the regular execution costs.
+    tx = Transaction(
+        to=None,
+        data=init_code,
+        gas_limit=intrinsic_total + 100_000 + expected_state,
+        sender=sender,
+        value=tx_value,
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=expected_gas_used),
+            ),
+        ],
+        post={},
+    )
