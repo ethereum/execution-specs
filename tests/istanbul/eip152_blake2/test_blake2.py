@@ -564,15 +564,16 @@ def max_tx_gas_limit(fork: Fork) -> int:
 
 def tx_gas_limits(fork: Fork) -> List[int]:
     """List of tx gas limits."""
-    limits = [max_tx_gas_limit(fork), 90_000, 110_000, 200_000]
-    if fork.is_eip_enabled(8037):
-        limits = [
-            max_tx_gas_limit(fork),
-            200_000,
-            300_000,
-            500_000,
-        ]
-    return limits
+    # Three coverage levels for BLAKE2 + SSTORE base costs. The
+    # contract writes two first-time SSTOREs (data_1, data_2), each
+    # adding `sstore_state_gas` under EIP-8037 (0 otherwise).
+    sstore_state = fork.sstore_state_gas()
+    return [
+        max_tx_gas_limit(fork),
+        90_000 + 2 * sstore_state,
+        110_000 + 2 * sstore_state,
+        200_000 + 2 * sstore_state,
+    ]
 
 
 @pytest.mark.valid_from("Istanbul")

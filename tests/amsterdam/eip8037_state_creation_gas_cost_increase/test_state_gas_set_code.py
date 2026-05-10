@@ -54,9 +54,10 @@ def test_authorization_state_gas_scaling(
     """
     Test authorization intrinsic state gas scales with count.
 
-    Each authorization adds (112 + 23) * cost_per_state_byte of
-    intrinsic state gas. The transaction should succeed with enough
-    total gas.
+    Each authorization adds
+    (STATE_BYTES_PER_NEW_ACCOUNT + STATE_BYTES_PER_AUTH_BASE) *
+    cost_per_state_byte of intrinsic state gas. The transaction
+    should succeed with enough total gas.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -120,8 +121,9 @@ def test_existing_account_refund(
         ),
     ]
 
-    # Only need enough state gas for the auth base (23 bytes),
-    # not the full 135 bytes, because existing account refunds 112
+    # Only need enough state gas for STATE_BYTES_PER_AUTH_BASE, not
+    # the full (STATE_BYTES_PER_NEW_ACCOUNT + STATE_BYTES_PER_AUTH_BASE),
+    # because existing account refunds STATE_BYTES_PER_NEW_ACCOUNT
     sender = pre.fund_eoa()
     tx = Transaction(
         to=contract,
@@ -820,9 +822,11 @@ def test_authorization_exact_state_gas_boundary(
     Test exact intrinsic gas boundary including auth state gas.
 
     The intrinsic cost includes regular gas (G_TRANSACTION + G_AUTHORIZATION
-    per auth) and state gas ((112 + 23) * cpsb per auth). With gas_delta=0
-    the tx has exactly enough and succeeds. With gas_delta=-1 the tx is
-    1 gas short and is rejected as intrinsic-gas-too-low.
+    per auth) and state gas
+    ((STATE_BYTES_PER_NEW_ACCOUNT + STATE_BYTES_PER_AUTH_BASE) * cpsb
+    per auth). With gas_delta=0 the tx has exactly enough and succeeds.
+    With gas_delta=-1 the tx is 1 gas short and is rejected as
+    intrinsic-gas-too-low.
     """
     contract = pre.deploy_contract(code=Op.STOP)
 
@@ -922,7 +926,8 @@ def test_multi_tx_block_auth_refund_and_sstore(
     Two transactions in one block:
     1. A SetCode tx authorizing an existing account (gets new-account state gas
        refund to reservoir). The refund reduces intrinsic_state_gas.
-    2. A regular tx performing an SSTORE (charges 32*cpsb state gas).
+    2. A regular tx performing an SSTORE (charges
+       STATE_BYTES_PER_STORAGE_SET * cpsb state gas).
 
     Verifies block-level state gas accounting correctly handles both
     the auth refund from tx1 and the SSTORE charge from tx2.
@@ -1002,10 +1007,10 @@ def test_auth_refund_bypasses_one_fifth_cap(
     # Auth refund for existing account = new-account state gas
     # (documents the expected value for reasoning about gas budgets).
 
-    # Use 3 SSTOREs: 3 * 32 * cpsb = 96 * cpsb state gas needed.
+    # Use 3 SSTOREs: 3 * 64 * cpsb = 192 * cpsb state gas needed.
     # Auth refund gives new-account state gas to reservoir for all 3.
     # If it were 1/5 capped: refund would be at most
-    # (135 * cpsb) / 5 = 27 * cpsb, which can only fund 0 SSTOREs.
+    # (143 * cpsb) / 5 ≈ 28 * cpsb, which can only fund 0 SSTOREs.
     num_sstores = 3
 
     storage = Storage()

@@ -1961,6 +1961,7 @@ def test_create_multiple_contracts_destroy_one_then_destroy_other_next_tx(
     blockchain_test: BlockchainTestFiller,
     eip_enabled: bool,
     pre: Alloc,
+    fork: Fork,
     sender: EOA,
     fork: Fork,
     selfdestruct_contract_initial_balance: int,
@@ -2094,17 +2095,22 @@ def test_create_multiple_contracts_destroy_one_then_destroy_other_next_tx(
             )
         tx2_receipt = TransactionReceipt(logs=tx2_logs)
 
+    # tx1 does 2 CREATE2 (NEW_ACCOUNT each) plus several first-time
+    # SSTOREs across entry/init code; tx2 does one SSTORE call.
+    # Bump scales with cpsb on Amsterdam.
+    new_account = fork.gas_costs().NEW_ACCOUNT
+    sstore_state = fork.sstore_state_gas()
     txs = [
         Transaction(
             sender=sender,
             to=entry_code_address,
-            gas_limit=1_000_000,
+            gas_limit=1_000_000 + 2 * new_account + 6 * sstore_state,
             expected_receipt=tx1_receipt,
         ),
         Transaction(
             sender=sender,
             to=tx2_caller,
-            gas_limit=500_000,
+            gas_limit=500_000 + sstore_state,
             expected_receipt=tx2_receipt,
         ),
     ]
@@ -2143,6 +2149,7 @@ def test_create_multiple_contracts_destroy_one_then_destroy_other_next_tx(
 def test_parent_creates_child_selfdestruct_one(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     sender: EOA,
     fork: Fork,
     destroy_parent: bool,
@@ -2227,12 +2234,29 @@ def test_parent_creates_child_selfdestruct_one(
 
     entry_code += Op.RETURN(32, 1)
 
+    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
+    # Three frames execute under this tx:
+    #   1. entry_code (the contract-creation initcode of the tx)
+    #   2. parent_code (called by entry)
+    #   3. child_code (created by parent and, when !destroy_parent, called
+    #      by parent)
+    # Each CREATE incurs NEW_ACCOUNT state once. SSTORE regular costs
+    # are picked up by each bytecode's `gas_cost(fork)`; the trailing
+    # `sstore_state_gas()` covers the EIP-8037 state-gas charge for the
+    # 0->nonzero SSTORE that `gas_cost(fork)` cannot infer statically.
     tx = Transaction(
         value=0,
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=1_000_000,
+        gas_limit=(
+            intrinsic_calc(calldata=entry_code, contract_creation=True)
+            + entry_code.gas_cost(fork)
+            + parent_code.gas_cost(fork)
+            + child_code.gas_cost(fork)
+            + 2 * fork.gas_costs().NEW_ACCOUNT
+            + fork.sstore_state_gas()
+        ),
     )
 
     post: Dict[Address, Account] = {

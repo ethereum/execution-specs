@@ -90,6 +90,7 @@ class BlobhashContext(Enum):
           indexes: The indexes to request using the BLOBHASH opcode
 
         """
+        indexes = list(indexes)
         match self:
             case (
                 BlobhashContext.BLOBHASH_SSTORE
@@ -312,12 +313,17 @@ def test_blobhash_opcode_contexts(
         case _:
             raise Exception(f"Unknown test case {test_case}")
 
+    # Budget covers all branches (simple SSTOREs, CREATE / CREATE2
+    # initcode + deploy) plus per-blob SSTOREs whose state cost
+    # scales with cpsb under EIP-8037 (`sstore_state_gas()` is 0
+    # otherwise).
+    gas_limit = 500_000 + max_blobs_per_tx * fork.sstore_state_gas()
     state_test(
         pre=pre,
         tx=Transaction(
             ty=Spec.BLOB_TX_TYPE,
             to=tx_to,
-            gas_limit=500_000,
+            gas_limit=gas_limit,
             max_fee_per_blob_gas=fork.min_base_fee_per_blob_gas() * 10,
             blob_versioned_hashes=simple_blob_hashes,
             sender=pre.fund_eoa(),

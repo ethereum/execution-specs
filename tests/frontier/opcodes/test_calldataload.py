@@ -69,15 +69,24 @@ def test_calldataload(
     ae4791077e8fcf716136e70fe8392f1a1f1495fb/src/
     GeneralStateTestsFiller/VMTests/vmTests/calldatacopyFiller.yml
     """
-    contract_address = pre.deploy_contract(
-        Op.SSTORE(0, Op.CALLDATALOAD(offset=calldata_offset)) + Op.STOP,
+    contract_code = (
+        Op.SSTORE(0, Op.CALLDATALOAD(offset=calldata_offset)) + Op.STOP
     )
+    contract_address = pre.deploy_contract(contract_code)
 
+    intrinsic = fork.transaction_intrinsic_cost_calculator()
+    # EIP-1706 sentry: SSTORE fails if gas_left <= CALL_STIPEND (2300)
+    # before its base cost is deducted, so the inner frame needs that
+    # much headroom on top of the SSTORE cost.
+    sstore_sentry_slack = fork.gas_costs().CALL_STIPEND + 1
+    # Outer's CALL reserves this many gas units (`Op.SUB(Op.GAS(), N)`)
+    # before forwarding the rest to the inner frame.
+    outer_call_reserve = 256
     if calldata_source == "contract":
-        to = pre.deploy_contract(
+        outer_code = (
             Om.MSTORE(calldata, 0x0)
             + Op.CALL(
-                gas=Op.SUB(Op.GAS(), 0x100),
+                gas=Op.SUB(Op.GAS(), outer_call_reserve),
                 address=contract_address,
                 value=0x0,
                 args_offset=0x0,
@@ -87,10 +96,18 @@ def test_calldataload(
             )
             + Op.STOP
         )
+        to = pre.deploy_contract(outer_code)
 
         tx = Transaction(
             data=calldata,
-            gas_limit=100_000,
+            gas_limit=(
+                intrinsic(calldata=calldata)
+                + outer_code.gas_cost(fork)
+                + outer_call_reserve
+                + contract_code.gas_cost(fork)
+                + sstore_sentry_slack
+                + fork.sstore_state_gas()
+            ),
             protected=fork.supports_protected_txs(),
             sender=pre.fund_eoa(),
             to=to,
@@ -99,7 +116,12 @@ def test_calldataload(
     else:
         tx = Transaction(
             data=calldata,
-            gas_limit=100_000,
+            gas_limit=(
+                intrinsic(calldata=calldata)
+                + contract_code.gas_cost(fork)
+                + sstore_sentry_slack
+                + fork.sstore_state_gas()
+            ),
             protected=fork.supports_protected_txs(),
             sender=pre.fund_eoa(),
             to=contract_address,

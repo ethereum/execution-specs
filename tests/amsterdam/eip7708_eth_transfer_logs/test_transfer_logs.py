@@ -1258,6 +1258,7 @@ def test_transfer_with_all_tx_types(
     state_test: StateTestFiller,
     env: Environment,
     pre: Alloc,
+    fork: Fork,
     sender: EOA,
     typed_transaction: Transaction,
 ) -> None:
@@ -1265,9 +1266,12 @@ def test_transfer_with_all_tx_types(
     recipient = pre.nonexistent_account()
     transfer_amount = 1000
 
+    # Sending value to a nonexistent recipient charges NEW_ACCOUNT
+    # state gas under EIP-8037 (0 otherwise).
     tx = typed_transaction.copy(
         to=recipient,
         value=transfer_amount,
+        gas_limit=typed_transaction.gas_limit + fork.gas_costs().NEW_ACCOUNT,
         expected_receipt=TransactionReceipt(
             logs=[transfer_log(sender, recipient, transfer_amount)]
         ),

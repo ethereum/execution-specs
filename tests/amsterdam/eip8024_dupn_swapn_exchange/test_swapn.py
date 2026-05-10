@@ -10,6 +10,8 @@ from execution_testing import (
     Account,
     Alloc,
     Bytecode,
+    Fork,
+    Header,
     Op,
     StateTestFiller,
     Transaction,
@@ -142,6 +144,7 @@ def test_swapn_valid_immediates(
 def test_swapn_preserves_other_stack_items(
     pre: Alloc,
     state_test: StateTestFiller,
+    fork: Fork,
 ) -> None:
     """Test SWAPN only swaps the specified items, leaving others unchanged."""
     sender = pre.fund_eoa()
@@ -150,6 +153,16 @@ def test_swapn_preserves_other_stack_items(
     # SWAPN with n=17 swaps position 1 with position 18, so need 18 items
     stack_index = 17
     stack_height = stack_index + 1  # Need 18 items
+
+    # Compute expected storage values (post-swap stack reads).
+    expected_storage: dict = {}
+    for i in range(stack_height):
+        if i == 0:
+            expected_storage[i] = 0x1000  # Was at bottom, now at top
+        elif i == stack_height - 1:
+            expected_storage[i] = 0x1011  # Was at top, now at bottom
+        else:
+            expected_storage[i] = 0x1000 + (stack_height - 1 - i)
 
     # Create a stack with 18 distinct values
     code = Bytecode()
@@ -160,31 +173,39 @@ def test_swapn_preserves_other_stack_items(
     # Pass stack index directly - encoder will handle encoding
     code += Op.SWAPN[stack_index]
 
-    # Store all values to verify only the swapped ones changed
+    # Store all values; metadata pins each slot's 0->non-zero
+    # transition so `code.gas_cost(fork)` accounts for SSTORE state
+    # gas under EIP-8037.
     for i in range(stack_height):
-        code += Op.PUSH1(i) + Op.SSTORE
+        code += Op.PUSH1(i) + Op.SSTORE.with_metadata(
+            key_warm=False,
+            original_value=0,
+            current_value=0,
+            new_value=expected_storage[i],
+        )
 
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
 
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+    code_state = code.state_cost(fork)
+    code_regular = code.gas_cost(fork) - code_state
 
-    # After swap: position 1 and position 18 are swapped
-    # Original stack (top to bottom): 0x1011, 0x1010, ..., 0x1001, 0x1000
-    # After SWAPN[0]: 0x1000, 0x1010, ..., 0x1001, 0x1011
-    expected_storage = {}
-    for i in range(stack_height):
-        if i == 0:
-            expected_storage[i] = 0x1000  # Was at bottom, now at top
-        elif i == stack_height - 1:
-            expected_storage[i] = 0x1011  # Was at top, now at bottom
-        else:
-            expected_storage[i] = 0x1000 + (stack_height - 1 - i)
+    tx = Transaction(
+        to=contract_address,
+        sender=sender,
+        gas_limit=intrinsic_cost + code_regular + code_state,
+    )
 
-    post = {contract_address: Account(storage=expected_storage)}
+    expected_gas_used = max(intrinsic_cost + code_regular, code_state)
 
-    state_test(pre=pre, post=post, tx=tx)
+    state_test(
+        pre=pre,
+        post={contract_address: Account(storage=expected_storage)},
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
+    )
 
 
 def test_swapn_stack_underflow(

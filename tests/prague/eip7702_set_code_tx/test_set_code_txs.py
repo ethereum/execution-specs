@@ -52,7 +52,9 @@ from execution_testing.base_types import HexNumber
 from ...cancun.eip4844_blobs.spec import Spec as Spec4844
 from ..eip6110_deposits.helpers import DepositRequest
 from ..eip7002_el_triggerable_withdrawals.helpers import WithdrawalRequest
+from ..eip7002_el_triggerable_withdrawals.spec import Spec as Spec7002
 from ..eip7251_consolidations.helpers import ConsolidationRequest
+from ..eip7251_consolidations.spec import Spec as Spec7251
 from .helpers import AddressType
 from .spec import Spec, ref_spec_7702
 
@@ -163,6 +165,7 @@ def test_self_sponsored_set_code(
 def test_set_code_to_sstore(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     suffix: Bytecode,
     succeeds: bool,
     tx_value: int,
@@ -188,8 +191,15 @@ def test_set_code_to_sstore(
         set_code,
     )
 
+    # 3 first-time SSTOREs plus auth+delegation; each SSTORE adds
+    # `sstore_state_gas` under EIP-8037, and an empty-account
+    # authority adds NEW_ACCOUNT (both 0 otherwise).
     tx = Transaction(
-        gas_limit=500_000,
+        gas_limit=(
+            500_000
+            + fork.gas_costs().NEW_ACCOUNT
+            + 3 * fork.sstore_state_gas()
+        ),
         to=auth_signer,
         value=tx_value,
         authorization_list=[
@@ -3307,7 +3317,7 @@ def test_set_code_to_system_contract(
             )
             caller_payload = deposit_request.calldata
             call_value = deposit_request.value
-        case Address(0x00000961EF480EB55E80D19AD83579A64C007002):  # EIP-7002
+        case Address(Spec7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS):
             # Fabricate a valid withdrawal request to the set-code account
             withdrawal_request = WithdrawalRequest(
                 source_address=0x01,
@@ -3317,7 +3327,7 @@ def test_set_code_to_system_contract(
             )
             caller_payload = withdrawal_request.calldata
             call_value = withdrawal_request.value
-        case Address(0x0000BBDDC7CE488642FB579F8B00F3A590007251):  # EIP-7251
+        case Address(Spec7251.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS):
             # Fabricate a valid consolidation request to the set-code account
             consolidation_request = ConsolidationRequest(
                 source_address=0x01,
@@ -3372,10 +3382,19 @@ def test_set_code_to_system_contract(
     caller_code_address = pre.deploy_contract(caller_code)
     sender = pre.fund_eoa()
 
+    # The 7002/7251 system contracts enqueue multiple state entries per
+    # request (4 and 5 slots respectively); pad gas_limit by that many
+    # SSTORE state-set worths so the EIP-8037 reservoir absorbs the work
+    # rather than draining the tx's regular pool through DELEGATECALL.
+    sstore_state_gas = fork.sstore_state_gas()
+    extra_state_slots = {
+        Address(Spec7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS): 4,
+        Address(Spec7251.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS): 5,
+    }.get(Address(system_contract), 0)
     txs = [
         Transaction(
             sender=sender,
-            gas_limit=500_000,
+            gas_limit=500_000 + extra_state_slots * sstore_state_gas,
             to=caller_code_address,
             value=call_value,
             data=caller_payload,
@@ -3809,6 +3828,7 @@ def test_delegation_clearing(
 def test_delegation_clearing_tx_to(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     pre_set_delegation_code: Bytecode | None,
     self_sponsored: bool,
 ) -> None:
@@ -3834,8 +3854,11 @@ def test_delegation_clearing_tx_to(
 
     sender = pre.fund_eoa() if not self_sponsored else auth_signer
 
+    # When `auth_signer` is an empty account (non-self-sponsored
+    # variant) the auth charges NEW_ACCOUNT state gas under EIP-8037
+    # (0 otherwise).
     tx = Transaction(
-        gas_limit=200_000,
+        gas_limit=200_000 + fork.gas_costs().NEW_ACCOUNT,
         to=auth_signer,
         value=0,
         authorization_list=[
