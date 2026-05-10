@@ -726,6 +726,14 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         return 0
 
     @classmethod
+    def system_call_gas_limit(cls) -> int:
+        """
+        Return the total gas budget the system transaction grants the
+        target contract.
+        """
+        return 0
+
+    @classmethod
     @abstractmethod
     def blob_gas_price_calculator(cls) -> BlobGasPriceCalculator:
         """

@@ -119,6 +119,7 @@ BEACON_ROOTS_ADDRESS = hex_to_address(
     "0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02"
 )
 SYSTEM_TRANSACTION_GAS = Uint(30000000)
+SYSTEM_MAX_SSTORES_PER_CALL = Uint(16)
 MAX_BLOB_GAS_PER_BLOCK = GasCosts.BLOB_SCHEDULE_MAX * GasCosts.PER_BLOB
 VERSIONED_HASH_VERSION_KZG = b"\x01"
 GWEI_TO_WEI = U256(10**9)
@@ -796,7 +797,11 @@ def process_unchecked_system_transaction(
         origin=SYSTEM_ADDRESS,
         gas_price=block_env.base_fee_per_gas,
         gas=SYSTEM_TRANSACTION_GAS,
-        state_gas_reservoir=Uint(0),
+        state_gas_reservoir=(
+            STATE_BYTES_PER_STORAGE_SET
+            * COST_PER_STATE_BYTE
+            * SYSTEM_MAX_SSTORES_PER_CALL
+        ),
         access_list_addresses=set(),
         access_list_storage_keys=set(),
         state=system_tx_state,
@@ -814,7 +819,11 @@ def process_unchecked_system_transaction(
         caller=SYSTEM_ADDRESS,
         target=target_address,
         gas=SYSTEM_TRANSACTION_GAS,
-        state_gas_reservoir=Uint(0),
+        state_gas_reservoir=(
+            STATE_BYTES_PER_STORAGE_SET
+            * COST_PER_STATE_BYTE
+            * SYSTEM_MAX_SSTORES_PER_CALL
+        ),
         value=U256(0),
         data=data,
         code=system_contract_code,
@@ -1104,8 +1113,7 @@ def process_transaction(
                 non_account_refund += ulen(code) * COST_PER_STATE_BYTE
 
                 tx_created_target = (
-                    tx.to == Bytes0(b"")
-                    and address == message.current_target
+                    tx.to == Bytes0(b"") and address == message.current_target
                 )
                 if tx_created_target:
                     # NEW_ACCOUNT was paid via intrinsic, not via
