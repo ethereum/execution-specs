@@ -24,6 +24,11 @@ class EIP4788(BaseFork):
         return True
 
     @classmethod
+    def system_call_gas_limit(cls) -> int:
+        """Gas budget for the system-call mechanism (30M)."""
+        return 30_000_000
+
+    @classmethod
     def system_contracts(cls) -> List[Address]:
         """Add the beacon roots system contract."""
         return [Address(BEACON_ROOTS_ADDRESS, label="BEACON_ROOTS_ADDRESS")]
