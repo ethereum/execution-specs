@@ -669,7 +669,9 @@ def test_storage_costs(
     # regular drop). Apply that delta to the 10 measurements that
     # trigger a fresh-set spill; the SLOAD-only and no-op SSTORE
     # entries below are unchanged.
-    sstore_set_delta = (fork.sstore_state_gas() - 17100) if fork.is_eip_enabled(8037) else 0
+    sstore_set_delta = (
+        (fork.sstore_state_gas() - 17100) if fork.is_eip_enabled(8037) else 0
+    )
 
     expect_entries_: list[dict] = [
         {

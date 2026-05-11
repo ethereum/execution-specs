@@ -1346,37 +1346,62 @@ def test_varied_context(
     #                        with value to a non-alive account, and
     #                        per SELFDESTRUCT to non-alive beneficiary
     #   suicide-write spill: +126 956 = both deltas combined
-    sstore_set_delta = (fork.sstore_state_gas() - 17100) if fork.is_eip_enabled(8037) else 0
-    new_account_delta = (fork.create_state_gas() - 25000) if fork.is_eip_enabled(8037) else 0
+    sstore_set_delta = (
+        (fork.sstore_state_gas() - 17100) if fork.is_eip_enabled(8037) else 0
+    )
+    new_account_delta = (
+        (fork.create_state_gas() - 25000) if fork.is_eip_enabled(8037) else 0
+    )
     suicide_write_delta = sstore_set_delta + new_account_delta
 
     expect_entries_: list[dict] = [
         {
             "indexes": {"data": [0], "gas": -1, "value": -1},
             "network": [">=Cancun"],
-            "result": {contract_0: Account(storage={0: 2, 1: (20003 + sstore_set_delta), 2: 107})},
+            "result": {
+                contract_0: Account(
+                    storage={0: 2, 1: (20003 + sstore_set_delta), 2: 107}
+                )
+            },
         },
         {
             "indexes": {"data": [1], "gas": -1, "value": -1},
             "network": [">=Cancun"],
-            "result": {contract_0: Account(storage={0: 2, 1: (22103 + sstore_set_delta), 2: 2107})},
+            "result": {
+                contract_0: Account(
+                    storage={0: 2, 1: (22103 + sstore_set_delta), 2: 2107}
+                )
+            },
         },
         {
             "indexes": {"data": [2], "gas": -1, "value": -1},
             "network": [">=Cancun"],
-            "result": {contract_2: Account(storage={0: 2, 1: (20003 + sstore_set_delta), 2: 107})},
+            "result": {
+                contract_2: Account(
+                    storage={0: 2, 1: (20003 + sstore_set_delta), 2: 107}
+                )
+            },
         },
         {
             "indexes": {"data": [3], "gas": -1, "value": -1},
             "network": [">=Cancun"],
-            "result": {contract_2: Account(storage={0: 2, 1: (22103 + sstore_set_delta), 2: 2107})},
+            "result": {
+                contract_2: Account(
+                    storage={0: 2, 1: (22103 + sstore_set_delta), 2: 2107}
+                )
+            },
         },
         {
             "indexes": {"data": [4], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
                 contract_3: Account(
-                    storage={0: 2, 1: (22103 + sstore_set_delta), 2: 2107, 24743: 57005}
+                    storage={
+                        0: 2,
+                        1: (22103 + sstore_set_delta),
+                        2: 2107,
+                        24743: 57005,
+                    }
                 )
             },
         },
@@ -1385,7 +1410,12 @@ def test_varied_context(
             "network": [">=Cancun"],
             "result": {
                 contract_3: Account(
-                    storage={0: 2, 1: (20003 + sstore_set_delta), 2: 107, 24743: 57005}
+                    storage={
+                        0: 2,
+                        1: (20003 + sstore_set_delta),
+                        2: 107,
+                        24743: 57005,
+                    }
                 )
             },
         },
@@ -1402,32 +1432,48 @@ def test_varied_context(
         {
             "indexes": {"data": [8], "gas": -1, "value": -1},
             "network": [">=Cancun"],
-            "result": {contract_26: Account(storage={0: (20003 + sstore_set_delta), 1: 100})},
+            "result": {
+                contract_26: Account(
+                    storage={0: (20003 + sstore_set_delta), 1: 100}
+                )
+            },
         },
         {
             "indexes": {"data": [9], "gas": -1, "value": -1},
             "network": [">=Cancun"],
-            "result": {contract_26: Account(storage={0: (22103 + sstore_set_delta), 1: 2100})},
+            "result": {
+                contract_26: Account(
+                    storage={0: (22103 + sstore_set_delta), 1: 2100}
+                )
+            },
         },
         {
             "indexes": {"data": [10], "gas": -1, "value": -1},
             "network": [">=Cancun"],
-            "result": {contract_7: Account(storage={0: (20001 + suicide_write_delta)})},
+            "result": {
+                contract_7: Account(storage={0: (20001 + suicide_write_delta)})
+            },
         },
         {
             "indexes": {"data": [11], "gas": -1, "value": -1},
             "network": [">=Cancun"],
-            "result": {contract_7: Account(storage={0: (24601 + suicide_write_delta)})},
+            "result": {
+                contract_7: Account(storage={0: (24601 + suicide_write_delta)})
+            },
         },
         {
             "indexes": {"data": [12], "gas": -1, "value": -1},
             "network": [">=Cancun"],
-            "result": {contract_9: Account(storage={0: 100 + new_account_delta})},
+            "result": {
+                contract_9: Account(storage={0: 100 + new_account_delta})
+            },
         },
         {
             "indexes": {"data": [13], "gas": -1, "value": -1},
             "network": [">=Cancun"],
-            "result": {contract_9: Account(storage={0: 4600 + new_account_delta})},
+            "result": {
+                contract_9: Account(storage={0: 4600 + new_account_delta})
+            },
         },
         {
             "indexes": {"data": [14, 15], "gas": -1, "value": -1},
@@ -1752,14 +1798,18 @@ def test_varied_context(
             "indexes": {"data": [34], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                contract_25: Account(storage={0: 24743, 1: (20017 + sstore_set_delta), 2: 117})
+                contract_25: Account(
+                    storage={0: 24743, 1: (20017 + sstore_set_delta), 2: 117}
+                )
             },
         },
         {
             "indexes": {"data": [35], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                contract_25: Account(storage={0: 24743, 1: (22117 + sstore_set_delta), 2: 117})
+                contract_25: Account(
+                    storage={0: 24743, 1: (22117 + sstore_set_delta), 2: 117}
+                )
             },
         },
     ]

@@ -11,7 +11,7 @@ base into a smaller regular portion plus 37 568 state-gas; with an
 empty reservoir the full state-gas spills into regular gas and
 `Op.GAS` reads +20 468 = 37 568 - 17 100 compared to Cancun. Bake
 that delta into both `[">=Cancun"]` expect entries fork-conditionally
-via `sstore_set_delta = (fork.sstore_state_gas() - 17100) if fork.is_eip_enabled(8037) else 0`.
+via `fork.sstore_state_gas() - 17100`.
 """
 
 import pytest
@@ -92,7 +92,9 @@ def test_manual_create(
 
     # EIP-8037 SSTORE-set spillover: +20 468 regular gas per fresh set
     # when the reservoir is empty.
-    sstore_set_delta = (fork.sstore_state_gas() - 17100) if fork.is_eip_enabled(8037) else 0
+    sstore_set_delta = (
+        (fork.sstore_state_gas() - 17100) if fork.is_eip_enabled(8037) else 0
+    )
 
     expect_entries_: list[dict] = [
         {

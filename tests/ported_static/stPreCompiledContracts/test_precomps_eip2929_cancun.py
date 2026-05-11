@@ -3594,7 +3594,9 @@ def test_precomps_eip2929_cancun(
     # EIP-8037 replaces the 25 000 CALL_NEW_ACCOUNT base cost with a
     # 131 488 state-gas charge. With an empty reservoir the full
     # state-gas spills into regular gas, so Op.GAS reads +106 488.
-    new_account_delta = (fork.create_state_gas() - 25000) if fork.is_eip_enabled(8037) else 0
+    new_account_delta = (
+        (fork.create_state_gas() - 25000) if fork.is_eip_enabled(8037) else 0
+    )
 
     expect_entries_: list[dict] = [
         {
