@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field, replace
 from functools import cached_property
 from itertools import count
-from typing import Callable, ClassVar, List
+from typing import Callable, ClassVar, List, Self
 
 from execution_testing import (
     EOA,
@@ -62,7 +62,7 @@ class ConsolidationRequest(ConsolidationRequestBase):
         return self.copy(source_address=source_address)
 
 
-@dataclass(kw_only=True)
+@dataclass(kw_only=True, frozen=True)
 class ConsolidationRequestInteractionBase:
     """
     Base class for all types of consolidation transactions we want to test.
@@ -79,7 +79,7 @@ class ConsolidationRequestInteractionBase:
         """Return a transaction for the consolidation request."""
         raise NotImplementedError
 
-    def update_pre(self, pre: Alloc) -> "ConsolidationRequestInteractionBase":
+    def update_pre(self, pre: Alloc) -> Self:
         """
         Allocate accounts/contracts in `pre` and return a new instance with
         the allocated state populated. Does not mutate `self`, so the
@@ -97,7 +97,7 @@ class ConsolidationRequestInteractionBase:
         raise NotImplementedError
 
 
-@dataclass(kw_only=True)
+@dataclass(kw_only=True, frozen=True)
 class ConsolidationRequestTransaction(ConsolidationRequestInteractionBase):
     """
     Class to describe a consolidation request originated from an externally
@@ -121,7 +121,7 @@ class ConsolidationRequestTransaction(ConsolidationRequestInteractionBase):
             for request in self.requests
         ]
 
-    def update_pre(self, pre: Alloc) -> "ConsolidationRequestTransaction":
+    def update_pre(self, pre: Alloc) -> Self:
         """Return a copy of self with `sender_account` populated."""
         return replace(self, sender_account=pre.fund_eoa(self.sender_balance))
 
@@ -139,7 +139,7 @@ class ConsolidationRequestTransaction(ConsolidationRequestInteractionBase):
         ]
 
 
-@dataclass(kw_only=True)
+@dataclass(kw_only=True, frozen=True)
 class ConsolidationRequestContract(ConsolidationRequestInteractionBase):
     """Class used to describe a consolidation originated from a contract."""
 
@@ -203,7 +203,7 @@ class ConsolidationRequestContract(ConsolidationRequestInteractionBase):
             )
         ]
 
-    def update_pre(self, pre: Alloc) -> "ConsolidationRequestContract":
+    def update_pre(self, pre: Alloc) -> Self:
         """
         Return a copy of self with the allocated sender/contract/entry
         addresses populated.

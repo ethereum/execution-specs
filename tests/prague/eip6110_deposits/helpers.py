@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field, replace
 from functools import cached_property
 from hashlib import sha256 as sha256_hashlib
-from typing import Callable, ClassVar, List
+from typing import Callable, ClassVar, List, Self
 
 from execution_testing import (
     EOA,
@@ -214,7 +214,7 @@ class DepositRequest(DepositRequestBase):
         return self.copy()
 
 
-@dataclass(kw_only=True)
+@dataclass(kw_only=True, frozen=True)
 class DepositInteractionBase:
     """Base class for all types of deposit transactions we want to test."""
 
@@ -229,7 +229,7 @@ class DepositInteractionBase:
         """Return a transaction for the deposit request."""
         raise NotImplementedError
 
-    def update_pre(self, pre: Alloc) -> "DepositInteractionBase":
+    def update_pre(self, pre: Alloc) -> Self:
         """
         Allocate accounts/contracts in `pre` and return a new instance with
         the allocated state populated. Does not mutate `self`, so the
@@ -245,7 +245,7 @@ class DepositInteractionBase:
         raise NotImplementedError
 
 
-@dataclass(kw_only=True)
+@dataclass(kw_only=True, frozen=True)
 class DepositTransaction(DepositInteractionBase):
     """
     Class used to describe a deposit originated from an externally owned
@@ -269,7 +269,7 @@ class DepositTransaction(DepositInteractionBase):
             for request in self.requests
         ]
 
-    def update_pre(self, pre: Alloc) -> "DepositTransaction":
+    def update_pre(self, pre: Alloc) -> Self:
         """Return a copy of self with `sender_account` populated."""
         return replace(self, sender_account=pre.fund_eoa(self.sender_balance))
 
@@ -285,7 +285,7 @@ class DepositTransaction(DepositInteractionBase):
         ]
 
 
-@dataclass(kw_only=True)
+@dataclass(kw_only=True, frozen=True)
 class DepositContract(DepositInteractionBase):
     """Class used to describe a deposit originated from a contract."""
 
@@ -351,7 +351,7 @@ class DepositContract(DepositInteractionBase):
             )
         ]
 
-    def update_pre(self, pre: Alloc) -> "DepositContract":
+    def update_pre(self, pre: Alloc) -> Self:
         """
         Return a copy of self with the allocated sender/contract/entry
         addresses populated.

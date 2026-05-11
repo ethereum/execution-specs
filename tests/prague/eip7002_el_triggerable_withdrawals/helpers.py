@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field, replace
 from functools import cached_property
 from itertools import count
-from typing import Callable, ClassVar, List
+from typing import Callable, ClassVar, List, Self
 
 from execution_testing import (
     EOA,
@@ -69,7 +69,7 @@ class WithdrawalRequest(WithdrawalRequestBase):
         return self.copy(source_address=source_address)
 
 
-@dataclass(kw_only=True)
+@dataclass(kw_only=True, frozen=True)
 class WithdrawalRequestInteractionBase:
     """Base class for all types of withdrawal transactions we want to test."""
 
@@ -84,7 +84,7 @@ class WithdrawalRequestInteractionBase:
         """Return a transaction for the withdrawal request."""
         raise NotImplementedError
 
-    def update_pre(self, pre: Alloc) -> "WithdrawalRequestInteractionBase":
+    def update_pre(self, pre: Alloc) -> Self:
         """
         Allocate accounts/contracts in `pre` and return a new instance with
         the allocated state populated. Does not mutate `self`, so the
@@ -102,7 +102,7 @@ class WithdrawalRequestInteractionBase:
         raise NotImplementedError
 
 
-@dataclass(kw_only=True)
+@dataclass(kw_only=True, frozen=True)
 class WithdrawalRequestTransaction(WithdrawalRequestInteractionBase):
     """
     Class used to describe a withdrawal request originated from an externally
@@ -126,7 +126,7 @@ class WithdrawalRequestTransaction(WithdrawalRequestInteractionBase):
             for request in self.requests
         ]
 
-    def update_pre(self, pre: Alloc) -> "WithdrawalRequestTransaction":
+    def update_pre(self, pre: Alloc) -> Self:
         """Return a copy of self with `sender_account` populated."""
         return replace(self, sender_account=pre.fund_eoa(self.sender_balance))
 
@@ -144,7 +144,7 @@ class WithdrawalRequestTransaction(WithdrawalRequestInteractionBase):
         ]
 
 
-@dataclass(kw_only=True)
+@dataclass(kw_only=True, frozen=True)
 class WithdrawalRequestContract(WithdrawalRequestInteractionBase):
     """Class used to describe a withdrawal originated from a contract."""
 
@@ -208,7 +208,7 @@ class WithdrawalRequestContract(WithdrawalRequestInteractionBase):
             )
         ]
 
-    def update_pre(self, pre: Alloc) -> "WithdrawalRequestContract":
+    def update_pre(self, pre: Alloc) -> Self:
         """
         Return a copy of self with the allocated sender/contract/entry
         addresses populated.
