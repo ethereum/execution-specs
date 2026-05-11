@@ -3031,6 +3031,7 @@ def test_set_code_to_precompile(
     pre: Alloc,
     precompile: int,
     call_opcode: Op,
+    fork: Fork,
 ) -> None:
     """
     Test setting the code of an account to a pre-compile address and executing
@@ -3070,6 +3071,31 @@ def test_set_code_to_precompile(
         ],
     )
 
+    expected_block_access_list = None
+    if fork.is_eip_enabled(7928):
+        # Precompile is loaded as execution target via delegation dispatch
+        # for all 4 call opcodes. For DELEGATECALL/CALLCODE the precompile
+        # provides the code but is not the call target, so its access has
+        # to be recorded explicitly.
+        expected_block_access_list = BlockAccessListExpectation(
+            account_expectations={
+                auth_signer: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                    code_changes=[
+                        BalCodeChange(
+                            block_access_index=1,
+                            new_code=Spec.delegation_designation(
+                                Address(precompile)
+                            ),
+                        )
+                    ],
+                ),
+                Address(precompile): BalAccountExpectation.empty(),
+            }
+        )
+
     state_test(
         env=Environment(),
         pre=pre,
@@ -3083,6 +3109,7 @@ def test_set_code_to_precompile(
                 storage=caller_code_storage,
             ),
         },
+        expected_block_access_list=expected_block_access_list,
     )
 
 
