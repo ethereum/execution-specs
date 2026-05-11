@@ -7,7 +7,6 @@ state_tests/stQuadraticComplexityTest/QuadraticComplexitySolidity_CallDataCopyFi
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -62,9 +61,7 @@ def test_quadratic_complexity_solidity_call_data_copy(
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_1 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x6A7EEAC5F12B409D42028F66B0B2132535EE158CFDA439E3BFDD4558E8F4BF6C
-    )
+    sender = pre.fund_eoa(amount=0x11C37937E08000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -75,6 +72,14 @@ def test_quadratic_complexity_solidity_call_data_copy(
         gas_limit=350000000,
     )
 
+    # Source: lll
+    # { (CALLDATACOPY 0 0 50000) }
+    contract_1 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALLDATACOPY(dest_offset=0x0, offset=0x0, size=0xC350)
+        + Op.STOP,
+        balance=0x4C4B40,
+        nonce=0,
+    )
     # Source: raw
     # 0x60003560e060020a9004806361a4770614601557005b601e6004356024565b60006000f35b60008160008190555073b94f5374fce5edbc8e2a8697c15331677e6ebf0b90505b600082131560bf5780600160a060020a03166000600060007f6a7573740000000000000000000000000000000000000000000000000000000081526004017f63616c6c000000000000000000000000000000000000000000000000000000008152602001600060008560155a03f150506001820391506045565b505056  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -131,18 +136,7 @@ def test_quadratic_complexity_solidity_call_data_copy(
         + Op.JUMP,
         balance=0x11C37937E08000,
         nonce=0,
-        address=Address(0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
-    # Source: lll
-    # { (CALLDATACOPY 0 0 50000) }
-    contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.CALLDATACOPY(dest_offset=0x0, offset=0x0, size=0xC350)
-        + Op.STOP,
-        balance=0x4C4B40,
-        nonce=0,
-        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0x11C37937E08000)
 
     tx_data = [
         Bytes("61a47706") + Hash(0xC350),

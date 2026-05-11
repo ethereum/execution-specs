@@ -457,17 +457,8 @@ class BesuExceptionMapper(ExceptionMapper):
             r"Blob transaction has too many blobs: \d+|"
             r"Invalid Blob Count: \d+"
         ),
-        # BAL Exceptions: TODO - review once all clients completed.
-        BlockException.INVALID_BAL_EXTRA_ACCOUNT: (
-            r"Block access list hash mismatch, "
-            r"calculated:\s*(0x[a-f0-9]+)\s+header:\s*(0x[a-f0-9]+)|"
-            r"Block access list validation failed for block 0x[a-f0-9]+"
-        ),
+        # BAL Exceptions
         BlockException.INVALID_BAL_HASH: (
-            r"Block access list hash mismatch, "
-            r"calculated:\s*(0x[a-f0-9]+)\s+header:\s*(0x[a-f0-9]+)"
-        ),
-        BlockException.INVALID_BAL_MISSING_ACCOUNT: (
             r"Block access list hash mismatch, "
             r"calculated:\s*(0x[a-f0-9]+)\s+header:\s*(0x[a-f0-9]+)"
         ),

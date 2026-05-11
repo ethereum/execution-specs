@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_contractCreationMakeCallThatAskMoreGasThenTransa
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -80,9 +79,7 @@ def test_static_contract_creation_make_call_that_ask_more_gas_then_transaction_p
     contract_4 = Address(0x4000000000000000000000000000000000000001)
     contract_5 = Address(0x5000000000000000000000000000000000000001)
     contract_6 = Address(0x4000000000000000000000000000000000000004)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0x10C8E0)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -93,30 +90,12 @@ def test_static_contract_creation_make_call_that_ask_more_gas_then_transaction_p
         gas_limit=100000000,
     )
 
-    pre[sender] = Account(balance=0x10C8E0)
-    # Source: lll
-    # {(STATICCALL 50000 0x1000000000000000000000000000000000000001 0 64 0 64)}
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.STATICCALL(
-            gas=0xC350,
-            address=0x1000000000000000000000000000000000000001,
-            args_offset=0x0,
-            args_size=0x40,
-            ret_offset=0x0,
-            ret_size=0x40,
-        )
-        + Op.STOP,
-        balance=0x186A0,
-        nonce=0,
-        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
-    )
     # Source: lll
     # {(SSTORE 1 1)}
     contract_1 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x1, value=0x1) + Op.STOP,
         balance=0x186A0,
         nonce=0,
-        address=Address(0x1000000000000000000000000000000000000001),  # noqa: E501
     )
     # Source: lll
     # {(MSTORE 1 1)}
@@ -124,7 +103,6 @@ def test_static_contract_creation_make_call_that_ask_more_gas_then_transaction_p
         code=Op.MSTORE(offset=0x1, value=0x1) + Op.STOP,
         balance=0x186A0,
         nonce=0,
-        address=Address(0x2000000000000000000000000000000000000001),  # noqa: E501
     )
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (EXTCODESIZE 1)) }
@@ -140,41 +118,6 @@ def test_static_contract_creation_make_call_that_ask_more_gas_then_transaction_p
         + Op.STOP,
         balance=0x186A0,
         nonce=0,
-        address=Address(0x3000000000000000000000000000000000000001),  # noqa: E501
-    )
-    # Source: lll
-    # { (CALLCODE 1000 0x4000000000000000000000000000000000000004 0 0 0 0 0) }
-    contract_4 = pre.deploy_contract(  # noqa: F841
-        code=Op.CALLCODE(
-            gas=0x3E8,
-            address=0x4000000000000000000000000000000000000004,
-            value=0x0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.STOP,
-        balance=0x186A0,
-        nonce=0,
-        address=Address(0x4000000000000000000000000000000000000001),  # noqa: E501
-    )
-    # Source: lll
-    # { (CALLCODE 1000000 0x4000000000000000000000000000000000000004 0 0 0 0 0) }  # noqa: E501
-    contract_5 = pre.deploy_contract(  # noqa: F841
-        code=Op.CALLCODE(
-            gas=0xF4240,
-            address=0x4000000000000000000000000000000000000004,
-            value=0x0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.STOP,
-        balance=0x186A0,
-        nonce=0,
-        address=Address(0x5000000000000000000000000000000000000001),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 1 1) }
@@ -182,7 +125,53 @@ def test_static_contract_creation_make_call_that_ask_more_gas_then_transaction_p
         code=Op.MSTORE(offset=0x1, value=0x1) + Op.STOP,
         balance=0x186A0,
         nonce=0,
-        address=Address(0x4000000000000000000000000000000000000004),  # noqa: E501
+    )
+    # Source: lll
+    # {(STATICCALL 50000 0x1000000000000000000000000000000000000001 0 64 0 64)}
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.STATICCALL(
+            gas=0xC350,
+            address=contract_1,
+            args_offset=0x0,
+            args_size=0x40,
+            ret_offset=0x0,
+            ret_size=0x40,
+        )
+        + Op.STOP,
+        balance=0x186A0,
+        nonce=0,
+    )
+    # Source: lll
+    # { (CALLCODE 1000000 0x4000000000000000000000000000000000000004 0 0 0 0 0) }  # noqa: E501
+    contract_5 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALLCODE(
+            gas=0xF4240,
+            address=contract_6,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        balance=0x186A0,
+        nonce=0,
+    )
+    # Source: lll
+    # { (CALLCODE 1000 0x4000000000000000000000000000000000000004 0 0 0 0 0) }
+    contract_4 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALLCODE(
+            gas=0x3E8,
+            address=contract_6,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        balance=0x186A0,
+        nonce=0,
     )
 
     expect_entries_: list[dict] = [

@@ -81,8 +81,7 @@ from .utils.message import prepare_message
 from .vm import Message
 from .vm.eoa_delegation import is_valid_delegation
 from .vm.gas import (
-    BLOB_SCHEDULE_MAX,
-    GAS_PER_BLOB,
+    GasCosts,
     calculate_blob_gas_price,
     calculate_data_fee,
     calculate_excess_blob_gas,
@@ -92,15 +91,13 @@ from .vm.interpreter import MessageCallOutput, process_message_call
 
 BASE_FEE_MAX_CHANGE_DENOMINATOR = Uint(8)
 ELASTICITY_MULTIPLIER = Uint(2)
-GAS_LIMIT_ADJUSTMENT_FACTOR = Uint(1024)
-GAS_LIMIT_MINIMUM = Uint(5000)
 EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
 SYSTEM_ADDRESS = hex_to_address("0xfffffffffffffffffffffffffffffffffffffffe")
 BEACON_ROOTS_ADDRESS = hex_to_address(
     "0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02"
 )
 SYSTEM_TRANSACTION_GAS = Uint(30000000)
-MAX_BLOB_GAS_PER_BLOCK = BLOB_SCHEDULE_MAX * GAS_PER_BLOB
+MAX_BLOB_GAS_PER_BLOCK = GasCosts.BLOB_SCHEDULE_MAX * GasCosts.PER_BLOB
 VERSIONED_HASH_VERSION_KZG = b"\x01"
 
 WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS = hex_to_address(
@@ -1030,14 +1027,14 @@ def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
 
     The bounds of the gas limit, ``max_adjustment_delta``, is set as the
     quotient of the parent block's gas limit and the
-    ``GAS_LIMIT_ADJUSTMENT_FACTOR``. Therefore, if the gas limit that is
-    passed through as a parameter is greater than or equal to the *sum* of
-    the parent's gas and the adjustment delta then the limit for gas is too
-    high and fails this function's check. Similarly, if the limit is less
-    than or equal to the *difference* of the parent's gas and the adjustment
-    delta *or* the predefined ``GAS_LIMIT_MINIMUM`` then this function's
-    check fails because the gas limit doesn't allow for a sufficient or
-    reasonable amount of gas to be used on a block.
+    ``LIMIT_ADJUSTMENT_FACTOR``. Therefore, if the gas limit that is passed
+    through as a parameter is greater than or equal to the *sum* of the
+    parent's gas and the adjustment delta then the limit for gas is too high
+    and fails this function's check. Similarly, if the limit is less than or
+    equal to the *difference* of the parent's gas and the adjustment delta *or*
+    the predefined ``LIMIT_MINIMUM`` then this function's check fails because
+    the gas limit doesn't allow for a sufficient or reasonable amount of gas to
+    be used on a block.
 
     Parameters
     ----------
@@ -1053,12 +1050,12 @@ def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
         True if gas limit constraints are satisfied, False otherwise.
 
     """
-    max_adjustment_delta = parent_gas_limit // GAS_LIMIT_ADJUSTMENT_FACTOR
+    max_adjustment_delta = parent_gas_limit // GasCosts.LIMIT_ADJUSTMENT_FACTOR
     if gas_limit >= parent_gas_limit + max_adjustment_delta:
         return False
     if gas_limit <= parent_gas_limit - max_adjustment_delta:
         return False
-    if gas_limit < GAS_LIMIT_MINIMUM:
+    if gas_limit < GasCosts.LIMIT_MINIMUM:
         return False
 
     return True

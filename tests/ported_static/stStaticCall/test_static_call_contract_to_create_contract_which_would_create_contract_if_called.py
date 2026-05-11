@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_CallContractToCreateContractWhichWouldCreateCont
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -38,9 +37,7 @@ def test_static_call_contract_to_create_contract_which_would_create_contract_if_
     """Test_static_call_contract_to_create_contract_which_would_create_con..."""  # noqa: E501
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0x2540BE400)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -74,7 +71,6 @@ def test_static_call_contract_to_create_contract_which_would_create_contract_if_
         nonce=0,
         address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x2540BE400)
 
     tx = Transaction(
         sender=sender,
@@ -86,13 +82,14 @@ def test_static_call_contract_to_create_contract_which_would_create_contract_if_
     post = {
         contract_0: Account(
             storage={
-                0: 0xD2571607E241ECF590ED94B12D87C94BABE36DB6,
+                0: compute_create_address(address=contract_0, nonce=0),
                 1: 0,
             },
             nonce=1,
         ),
-        Address(
-            0x62C01474F089B07DAE603491675DC5B5748F7049
+        compute_create_address(
+            address=compute_create_address(address=contract_0, nonce=0),
+            nonce=0,
         ): Account.NONEXISTENT,
         sender: Account(nonce=1),
         compute_create_address(address=contract_0, nonce=0): Account(

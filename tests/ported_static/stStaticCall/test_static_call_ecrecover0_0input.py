@@ -114,6 +114,7 @@ def test_static_call_ecrecover0_0input(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { [[ 2 ]] (STATICCALL 300000 (CALLDATALOAD 0) 0 128 128 32) [[ 0 ]] (MOD (MLOAD 128) (EXP 2 160)) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -136,7 +137,6 @@ def test_static_call_ecrecover0_0input(
         nonce=0,
         address=Address(0x1FD04A51AC69C94C58521D30E2DEFC4856A581B0),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     expect_entries_: list[dict] = [
         {

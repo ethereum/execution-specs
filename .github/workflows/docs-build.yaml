@@ -1,0 +1,356 @@
+# Build Docs
+#
+# Dual-purpose workflow:
+#   - On PRs: Tests that MkDocs and spec docs build successfully
+#   - On push to allowlisted branches: Builds, uploads artifacts, and triggers
+#     the aggregator workflow in steel-website for deployment
+#
+# Site structure at steel.ethereum.foundation/docs/execution-specs/:
+#   /docs/execution-specs/                         - Default branch docs (mirrored)
+#   /docs/execution-specs/specs/reference/         - Default branch spec reference (mirrored)
+#   /docs/execution-specs/<branch>/                - Branch-specific docs
+#   /docs/execution-specs/<branch>/specs/reference - Branch-specific spec reference (docc output)
+
+name: Build Docs
+
+on:
+  push:
+    # Branches that auto-publish on push. Other allowlisted branches in
+    # .github/configs/docs-branches.yaml publish only via workflow_dispatch
+    # (use the `ref:` input to publish a tag/SHA).
+    branches:
+      - mainnet
+      - forks/amsterdam
+    paths: &docs_paths
+      - "src/ethereum/**"
+      - "src/ethereum_spec_tools/docc.py"
+      - "src/ethereum_spec_tools/forks.py"
+      - "static/**"
+      - "docs/**"
+      - "packages/testing/**"
+      - "*.md"
+      - "mkdocs.yml"
+      - "uv.lock"
+      - "pyproject.toml"
+      - ".github/workflows/docs-build.yaml"
+      - ".github/configs/docs-branches.yaml"
+
+  pull_request:
+    paths: *docs_paths
+
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to publish under. Must be in the allowlist (see .github/configs/docs-branches.yaml)."
+        required: true
+        type: string
+        default: forks/amsterdam
+      ref:
+        description: "Ref to build: branch name, tag (e.g. v1.2.3), or commit SHA. Empty = tip of the branch above."
+        required: false
+        type: string
+        default: ""
+
+concurrency:
+  group: docs-build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint-md:
+    name: "Lint Markdown"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      # TODO: Still on node20 — update when upstream releases a node22+ version
+      - uses: DavidAnson/markdownlint-cli2-action@07035fd053f7be764496c0f8d8f9f41f98305101 # v22.0.0
+        with:
+          globs: |
+            docs/**/*.md
+            *.md
+
+  changelog:
+    name: "Validate Changelog Entries"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/setup-uv
+      - name: Run changelog validation
+        run: just changelog
+
+  check-should-publish:
+    name: "Check Should Publish"
+    runs-on: ubuntu-latest
+    needs: [lint-md, changelog]
+    outputs:
+      should_publish: ${{ steps.check.outputs.should_publish }}
+      branch: ${{ steps.check.outputs.branch }}
+      branch_artifact_name: ${{ steps.check.outputs.branch_artifact_name }}
+      commit_sha: ${{ steps.check.outputs.commit_sha }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          sparse-checkout: .github/configs/docs-branches.yaml
+          sparse-checkout-cone-mode: false
+
+      - name: Resolve publish configuration
+        id: check
+        env:
+          BRANCH_INPUT: ${{ github.event.inputs.branch || github.ref_name }}
+          REF_INPUT: ${{ github.event.inputs.ref }}
+          EVENT_NAME: ${{ github.event_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "branch=$BRANCH_INPUT" >> "$GITHUB_OUTPUT"
+
+          # Create artifact-safe name (replace / with -)
+          BRANCH_ARTIFACT_NAME="${BRANCH_INPUT//\//-}"
+          echo "branch_artifact_name=$BRANCH_ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
+
+          # Extract branch paths from allowlist config
+          ALLOWLISTED_BRANCHES=$(yq '.branches[].path' .github/configs/docs-branches.yaml 2>/dev/null || echo "")
+
+          if [ -z "$ALLOWLISTED_BRANCHES" ]; then
+            echo "ERROR: Could not read allowlist from .github/configs/docs-branches.yaml"
+            exit 1
+          fi
+
+          # Check if branch is in allowlist
+          if echo "$ALLOWLISTED_BRANCHES" | grep -qxF "$BRANCH_INPUT"; then
+            SHOULD_PUBLISH="true"
+          else
+            SHOULD_PUBLISH="false"
+          fi
+          echo "should_publish=$SHOULD_PUBLISH" >> "$GITHUB_OUTPUT"
+
+          # Resolve the concrete SHA we will build, so metadata.json and the
+          # aggregator dispatch payload match what the build jobs check out.
+          #
+          # On push, GITHUB_SHA is the pushed commit; using it avoids a race
+          # where another push lands between the event and a `gh api` lookup.
+          # On workflow_dispatch, the user may specify any branch/tag/SHA via
+          # the `ref` input (empty falls back to the branch tip), and
+          # github.sha points at whatever ref the dispatch was launched from
+          # (often the default branch), so we resolve via the API.
+          if [ "$EVENT_NAME" != "pull_request" ] && [ "$SHOULD_PUBLISH" = "true" ]; then
+            if [ "$EVENT_NAME" = "push" ]; then
+              COMMIT_SHA="$GITHUB_SHA"
+            else
+              RESOLVE_REF="${REF_INPUT:-$BRANCH_INPUT}"
+              COMMIT_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${RESOLVE_REF}" --jq .sha 2>/dev/null || true)
+              if [ -z "$COMMIT_SHA" ]; then
+                echo "ERROR: could not resolve commit SHA for ref '${RESOLVE_REF}'"
+                exit 1
+              fi
+            fi
+            echo "commit_sha=$COMMIT_SHA" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Write job summary
+          {
+            echo "## Check Should Publish"
+            echo ""
+            echo "| Setting | Value |"
+            echo "|---------|-------|"
+            echo "| **Branch** | \`$BRANCH_INPUT\` |"
+            if [ -n "$REF_INPUT" ]; then
+              echo "| **Ref** | \`$REF_INPUT\` |"
+            fi
+            if [ -n "${COMMIT_SHA:-}" ]; then
+              echo "| **Resolved SHA** | \`${COMMIT_SHA:0:7}\` |"
+            fi
+            echo "| **Event** | \`$EVENT_NAME\` |"
+            echo "| **Allowlisted** | $SHOULD_PUBLISH |"
+            echo ""
+
+            if [ "$EVENT_NAME" = "pull_request" ]; then
+              echo "-> **Build only** -- pull request; artifacts are not published."
+            elif [ "$SHOULD_PUBLISH" = "true" ]; then
+              echo "-> **Will publish** at <https://steel.ethereum.foundation/docs/execution-specs/${BRANCH_INPUT}/>"
+              echo ""
+              echo "_Note: the URL only resolves if \`${BRANCH_INPUT}\` is also configured in steel-website's \`BRANCH_CONFIG\` (\`deploy.yml\`). If not, the aggregator will receive the dispatch but drop the artifact._"
+            else
+              echo "-> **Skipping publish** -- branch is not in the allowlist (\`.github/configs/docs-branches.yaml\`)."
+              echo ""
+              echo "Allowlisted branches:"
+              echo "$ALLOWLISTED_BRANCHES" | while read -r b; do
+                echo "- \`$b\`"
+              done
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  html-docs:
+    name: "Build HTML Docs"
+    runs-on: ubuntu-latest
+    needs: check-should-publish
+    # Always build for PRs (testing); only build for push if allowlisted
+    if: github.event_name == 'pull_request' || needs.check-should-publish.outputs.should_publish == 'true'
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && needs.check-should-publish.outputs.commit_sha || '' }}
+          fetch-depth: 0
+          submodules: recursive
+
+      - uses: ./.github/actions/setup-uv
+
+      - name: Build MkDocs documentation
+        env:
+          BRANCH: ${{ needs.check-should-publish.outputs.branch }}
+          SHOULD_PUBLISH: ${{ needs.check-should-publish.outputs.should_publish }}
+        run: |
+          if [ "$SHOULD_PUBLISH" = "true" ]; then
+            export SITE_URL="https://steel.ethereum.foundation/docs/execution-specs/${BRANCH}/"
+          else
+            export SITE_URL="https://example.com/docs/${BRANCH}/"
+          fi
+
+          echo "Building MkDocs with SITE_URL=$SITE_URL"
+          just docs
+
+      - name: Upload HTML docs artifact
+        if: needs.check-should-publish.outputs.should_publish == 'true'
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: docs-html-${{ needs.check-should-publish.outputs.branch_artifact_name }}
+          path: .just/docs/site/
+          retention-days: 1
+          if-no-files-found: error
+
+  spec-docs:
+    name: "Build Spec Docs"
+    runs-on: ubuntu-latest
+    needs: check-should-publish
+    if: github.event_name == 'pull_request' || needs.check-should-publish.outputs.should_publish == 'true'
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && needs.check-should-publish.outputs.commit_sha || '' }}
+          fetch-depth: 0
+          submodules: recursive
+
+      - uses: ./.github/actions/setup-uv
+
+      - name: Build spec documentation
+        run: just docs-spec
+        env:
+          DOCC_SKIP_DIFFS: ${{ case(github.event_name == 'push' && github.ref_name == github.event.repository.default_branch, '', '1') }}
+
+      - name: Upload spec docs artifact
+        if: needs.check-should-publish.outputs.should_publish == 'true'
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: docs-spec-${{ needs.check-should-publish.outputs.branch_artifact_name }}
+          path: .just/docs-spec/
+          retention-days: 1
+          if-no-files-found: error
+
+  combine:
+    name: "Combine and Upload"
+    runs-on: ubuntu-latest
+    needs: [check-should-publish, html-docs, spec-docs]
+    if: needs.check-should-publish.outputs.should_publish == 'true'
+
+    steps:
+      - name: Download HTML docs artifact
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: docs-html-${{ needs.check-should-publish.outputs.branch_artifact_name }}
+          path: html-docs/
+
+      - name: Download spec docs artifact
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: docs-spec-${{ needs.check-should-publish.outputs.branch_artifact_name }}
+          path: spec-docs/
+
+      - name: Stage combined artifact
+        env:
+          BRANCH: ${{ needs.check-should-publish.outputs.branch }}
+          COMMIT_SHA: ${{ needs.check-should-publish.outputs.commit_sha }}
+        run: |
+          mkdir -p "stage/${BRANCH}/specs/reference"
+
+          # HTML docs at root of branch directory
+          rsync -a html-docs/ "stage/${BRANCH}/"
+
+          # Spec reference (docc output) nested under specs/ to mirror nav hierarchy
+          rsync -a spec-docs/ "stage/${BRANCH}/specs/reference/"
+
+          # Build metadata
+          cat > "stage/${BRANCH}/metadata.json" <<EOF
+          {
+            "branch": "${BRANCH}",
+            "commit_sha": "${COMMIT_SHA}",
+            "commit_sha_short": "${COMMIT_SHA:0:7}",
+            "build_timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "build_url": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          }
+          EOF
+
+          touch "stage/.nojekyll"
+
+      - name: Validate staged output
+        env:
+          BRANCH: ${{ needs.check-should-publish.outputs.branch }}
+        run: |
+          for f in "stage/${BRANCH}/index.html" "stage/${BRANCH}/specs/reference/index.html" "stage/${BRANCH}/metadata.json"; do
+            if [ ! -f "$f" ]; then
+              echo "ERROR: Missing $f"
+              exit 1
+            fi
+          done
+
+          echo "Validation passed"
+          echo ""
+          echo "=== Staged content summary ==="
+          du -sh "stage/${BRANCH}/"
+          du -sh "stage/${BRANCH}/specs/reference/"
+
+      - name: Upload combined docs artifact
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: docs-${{ needs.check-should-publish.outputs.branch_artifact_name }}
+          path: stage/
+          retention-days: 90
+          if-no-files-found: error
+
+  trigger-aggregator:
+    name: "Trigger Aggregator"
+    runs-on: ubuntu-latest
+    needs: [check-should-publish, combine]
+    if: needs.check-should-publish.outputs.should_publish == 'true'
+
+    steps:
+      - name: Trigger steel-website aggregator workflow
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        env:
+          BRANCH: ${{ needs.check-should-publish.outputs.branch }}
+          SHA: ${{ needs.check-should-publish.outputs.commit_sha }}
+          RUN_ID: ${{ github.run_id }}
+        with:
+          github-token: ${{ secrets.STEEL_WEBSITE_DISPATCH_TOKEN }}
+          script: |
+            await github.rest.repos.createDispatchEvent({
+              owner: 'ethereum',
+              repo: 'steel-website',
+              event_type: 'docs-artifact-ready',
+              client_payload: {
+                branch: process.env.BRANCH,
+                sha: process.env.SHA,
+                run_id: process.env.RUN_ID
+              }
+            });
+
+      - name: Log trigger
+        env:
+          BRANCH: ${{ needs.check-should-publish.outputs.branch }}
+        run: |
+          echo "Triggered aggregator workflow in ethereum/steel-website"
+          echo "  Branch: $BRANCH"
+          echo "  SHA: ${{ github.sha }}"
+          echo "  Run ID: ${{ github.run_id }}"

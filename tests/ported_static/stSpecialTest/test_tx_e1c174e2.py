@@ -7,7 +7,6 @@ state_tests/stSpecialTest/tx_e1c174e2Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -34,9 +33,7 @@ def test_tx_e1c174e2(
 ) -> None:
     """Test_tx_e1c174e2."""
     coinbase = Address(0x68795C4AA09D6F4ED3E5DEDDF8C2AD3049A601DA)
-    sender = EOA(
-        key=0x98D5E7375843784F7EB2606A693BAB39EBAC533561559E372DC3017F30519535
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000, nonce=24)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -3294,7 +3291,6 @@ def test_tx_e1c174e2(
         nonce=0,
         address=Address(0xF47BACB0D8F13FA44D31623C3D5AE72907D241C1),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=24)
 
     tx = Transaction(
         sender=sender,

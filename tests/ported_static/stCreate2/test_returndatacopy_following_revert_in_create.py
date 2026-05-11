@@ -49,6 +49,7 @@ def test_returndatacopy_following_revert_in_create(
         gas_limit=47244640256,
     )
 
+    pre[sender] = Account(balance=0x6400000000)
     # Source: lll
     # { (seq (CREATE2 0 0 (lll (seq (MSTORE 0 0x0000111122223333444455556666777788889999aaaabbbbccccddddeeeeffff) (REVERT 0 32) (STOP) ) 0) 0) (RETURNDATACOPY 0 0 32) (SSTORE 0 (MLOAD 0)) (STOP) )}  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -71,7 +72,6 @@ def test_returndatacopy_following_revert_in_create(
         nonce=0,
         address=Address(0x0F572E5295C57F15886F9B263E2F6D2D6C7B5EC6),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x6400000000)
 
     tx = Transaction(
         sender=sender,

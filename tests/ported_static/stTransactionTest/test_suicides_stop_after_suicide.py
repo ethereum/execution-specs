@@ -7,7 +7,6 @@ state_tests/stTransactionTest/SuicidesStopAfterSuicideFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_suicides_stop_after_suicide(
     coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_0 = Address(0x0000000000000000000000000000000000000000)
     contract_1 = Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0x7459280)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -56,24 +53,22 @@ def test_suicides_stop_after_suicide(
         nonce=0,
         address=Address(0x0000000000000000000000000000000000000000),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x7459280)
     # Source: lll
     # {(SELFDESTRUCT 0) (CALL 30000 0x0000000000000000000000000000000000000000 0 0 0 0 0) }  # noqa: E501
     contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.SELFDESTRUCT(address=0x0)
+        code=Op.SELFDESTRUCT(address=contract_0)
         + Op.CALL(
             gas=0x7530,
-            address=0x0,
-            value=0x0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
+            address=contract_0,
+            value=contract_0,
+            args_offset=contract_0,
+            args_size=contract_0,
+            ret_offset=contract_0,
+            ret_size=contract_0,
         )
         + Op.STOP,
         balance=10000,
         nonce=0,
-        address=Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     tx = Transaction(

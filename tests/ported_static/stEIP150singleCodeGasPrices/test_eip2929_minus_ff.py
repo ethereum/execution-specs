@@ -7,7 +7,6 @@ state_tests/stEIP150singleCodeGasPrices/eip2929-ffFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -104,9 +103,7 @@ def test_eip2929_minus_ff(
     contract_0 = Address(0x000000000000000000000000000000000000DE57)
     contract_1 = Address(0x000000000000000000000000000000000000CA11)
     contract_2 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -169,7 +166,7 @@ def test_eip2929_minus_ff(
     contract_2 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x100, value=0xFF)
         + Op.MSTORE(offset=0x120, value=0xFF)
-        + Op.POP(Op.BALANCE(address=0xCA11))
+        + Op.POP(Op.BALANCE(address=contract_1))
         + Op.JUMPI(
             pc=Op.PUSH2[0x21],
             condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x31),
@@ -177,7 +174,7 @@ def test_eip2929_minus_ff(
         + Op.PUSH1[0x0]
         + Op.JUMP(pc=Op.PUSH2[0x26])
         + Op.JUMPDEST
-        + Op.BALANCE(address=0xDE57)
+        + Op.BALANCE(address=contract_0)
         + Op.JUMPDEST
         + Op.POP
         + Op.JUMPI(
@@ -187,7 +184,7 @@ def test_eip2929_minus_ff(
         + Op.PUSH1[0x0]
         + Op.JUMP(pc=Op.PUSH2[0x3D])
         + Op.JUMPDEST
-        + Op.EXTCODESIZE(address=0xDE57)
+        + Op.EXTCODESIZE(address=contract_0)
         + Op.JUMPDEST
         + Op.POP
         + Op.JUMPI(
@@ -197,7 +194,9 @@ def test_eip2929_minus_ff(
         + Op.POP(0x0)
         + Op.JUMP(pc=Op.PUSH2[0x5B])
         + Op.JUMPDEST
-        + Op.EXTCODECOPY(address=0xDE57, dest_offset=0x0, offset=0x0, size=0x1)
+        + Op.EXTCODECOPY(
+            address=contract_0, dest_offset=0x0, offset=0x0, size=0x1
+        )
         + Op.JUMPDEST
         + Op.JUMPI(
             pc=Op.PUSH2[0x6C],
@@ -206,7 +205,7 @@ def test_eip2929_minus_ff(
         + Op.PUSH1[0x0]
         + Op.JUMP(pc=Op.PUSH2[0x71])
         + Op.JUMPDEST
-        + Op.EXTCODEHASH(address=0xDE57)
+        + Op.EXTCODEHASH(address=contract_0)
         + Op.JUMPDEST
         + Op.POP
         + Op.JUMPI(
@@ -218,7 +217,7 @@ def test_eip2929_minus_ff(
         + Op.JUMPDEST
         + Op.CALL(
             gas=0x10000,
-            address=0xDE57,
+            address=contract_0,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -236,7 +235,7 @@ def test_eip2929_minus_ff(
         + Op.JUMPDEST
         + Op.CALLCODE(
             gas=0x10000,
-            address=0xDE57,
+            address=contract_0,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -254,7 +253,7 @@ def test_eip2929_minus_ff(
         + Op.JUMPDEST
         + Op.DELEGATECALL(
             gas=0x10000,
-            address=0xDE57,
+            address=contract_0,
             args_offset=0x0,
             args_size=0x0,
             ret_offset=0x0,
@@ -271,7 +270,7 @@ def test_eip2929_minus_ff(
         + Op.JUMPDEST
         + Op.STATICCALL(
             gas=0x10000,
-            address=0xDE57,
+            address=contract_0,
             args_offset=0x0,
             args_size=0x0,
             ret_offset=0x0,
@@ -283,7 +282,7 @@ def test_eip2929_minus_ff(
         + Op.POP(
             Op.CALL(
                 gas=0x1000000,
-                address=0xCA11,
+                address=contract_1,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -299,7 +298,7 @@ def test_eip2929_minus_ff(
             ),
         )
         + Op.MSTORE(offset=0x100, value=Op.GAS)
-        + Op.POP(Op.BALANCE(address=0xDE57))
+        + Op.POP(Op.BALANCE(address=contract_0))
         + Op.MSTORE(offset=0x120, value=Op.GAS)
         + Op.SSTORE(
             key=0x1,
@@ -310,9 +309,7 @@ def test_eip2929_minus_ff(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     expect_entries_: list[dict] = [
         {

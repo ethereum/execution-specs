@@ -7,7 +7,6 @@ state_tests/stReturnDataTest/returndatasize_after_oog_after_deeperFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,10 +34,7 @@ def test_returndatasize_after_oog_after_deeper(
 ) -> None:
     """Transaction calls A (CALL B(CALL C(RETURN) OOG) 'check buffers')."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    addr = Address(0xBDA572E15071B6AB42CFEC01423F1FBB1DE68703)
-    sender = EOA(
-        key=0x987C63506890B18862BD2304513F21B726A7E35961C9214954326694141FDB46
-    )
+    sender = pre.fund_eoa(amount=0x100000000000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -49,28 +45,14 @@ def test_returndatasize_after_oog_after_deeper(
         gas_limit=111669149696,
     )
 
-    pre[addr] = Account(balance=0x1000000000)
+    addr = pre.fund_eoa(amount=0x1000000000)  # noqa: F841
     # Source: lll
-    # { (seq (SSTORE 2 (CALL 100000 <contract:0x1000000000000000000000000000000000000002> 0 0 0 0 32)) (SSTORE 0 (RETURNDATASIZE))) (SSTORE 1 (MLOAD 0))}  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0x2,
-            value=Op.CALL(
-                gas=0x186A0,
-                address=0xCB33B9A773995316746A40201081D054635D02DA,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x20,
-            ),
-        )
-        + Op.SSTORE(key=0x0, value=Op.RETURNDATASIZE)
-        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0))
+    # { (seq (MSTORE 0 255) (RETURN 0 32) )}
+    addr_3 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=0xFF)
+        + Op.RETURN(offset=0x0, size=0x20)
         + Op.STOP,
-        storage={0: 0xFFFFFFFF, 1: 0xFFFFFFFF, 2: 0xFFFFFFFF},
         nonce=0,
-        address=Address(0x58EAA3041AD52C24E38E485222953F1CC19C7484),  # noqa: E501
     )
     # Source: lll
     # { (seq (CALL 100000 <contract:0xbb00000000000000000000000000000000000000> 0 0 0 0 0) (while 1 (SSTORE 0 1)) )}  # noqa: E501
@@ -78,7 +60,7 @@ def test_returndatasize_after_oog_after_deeper(
         code=Op.POP(
             Op.CALL(
                 gas=0x186A0,
-                address=0x8E0C75135225713D8C9ACBB889ABBA5A5F598920,
+                address=addr_3,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -94,17 +76,27 @@ def test_returndatasize_after_oog_after_deeper(
         + Op.STOP,
         balance=0x6400000000,
         nonce=0,
-        address=Address(0xCB33B9A773995316746A40201081D054635D02DA),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x100000000000)
     # Source: lll
-    # { (seq (MSTORE 0 255) (RETURN 0 32) )}
-    addr_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=0xFF)
-        + Op.RETURN(offset=0x0, size=0x20)
+    # { (seq (SSTORE 2 (CALL 100000 <contract:0x1000000000000000000000000000000000000002> 0 0 0 0 32)) (SSTORE 0 (RETURNDATASIZE))) (SSTORE 1 (MLOAD 0))}  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x2,
+            value=Op.CALL(
+                gas=0x186A0,
+                address=addr_2,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x20,
+            ),
+        )
+        + Op.SSTORE(key=0x0, value=Op.RETURNDATASIZE)
+        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0))
         + Op.STOP,
+        storage={0: 0xFFFFFFFF, 1: 0xFFFFFFFF, 2: 0xFFFFFFFF},
         nonce=0,
-        address=Address(0x8E0C75135225713D8C9ACBB889ABBA5A5F598920),  # noqa: E501
     )
 
     tx = Transaction(

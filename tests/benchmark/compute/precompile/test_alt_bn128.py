@@ -13,16 +13,18 @@ from execution_testing import (
     Fork,
     JumpLoopGenerator,
     Op,
+    OpcodeTarget,
     Transaction,
     While,
+    WhileGas,
 )
 from py_ecc.bn128 import G1, G2, multiply
 
-from ..helpers import concatenate_parameters
+from ..helpers import Precompile, concatenate_parameters
 
 
 @pytest.mark.parametrize(
-    "precompile_address,calldata",
+    "precompile_address,calldata,target",
     [
         pytest.param(
             0x06,
@@ -34,6 +36,7 @@ from ..helpers import concatenate_parameters
                     "06614E20C147E940F2D70DA3F74C9A17DF361706A4485C742BD6788478FA17D7",
                 ]
             ),
+            Precompile.BN128_ADD,
             id="bn128_add",
             marks=pytest.mark.repricing,
         ),
@@ -49,6 +52,7 @@ from ..helpers import concatenate_parameters
                     "0000000000000000000000000000000000000000000000000000000000000000",
                 ]
             ),
+            Precompile.BN128_ADD,
             id="bn128_add_infinities",
             marks=pytest.mark.repricing,
         ),
@@ -64,6 +68,7 @@ from ..helpers import concatenate_parameters
                     "0000000000000000000000000000000000000000000000000000000000000002",
                 ]
             ),
+            Precompile.BN128_ADD,
             id="bn128_add_1_2",
         ),
         pytest.param(
@@ -75,6 +80,7 @@ from ..helpers import concatenate_parameters
                     "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
                 ]
             ),
+            Precompile.BN128_MUL,
             id="bn128_mul",
         ),
         # Ported from
@@ -88,6 +94,7 @@ from ..helpers import concatenate_parameters
                     "0000000000000000000000000000000000000000000000000000000000000002",
                 ]
             ),
+            Precompile.BN128_MUL,
             id="bn128_mul_infinities_2_scalar",
         ),
         # Ported from
@@ -101,6 +108,7 @@ from ..helpers import concatenate_parameters
                     "25f8c89ea3437f44f8fc8b6bfbb6312074dc6f983809a5e809ff4e1d076dd585",
                 ]
             ),
+            Precompile.BN128_MUL,
             id="bn128_mul_infinities_32_byte_scalar",
             marks=pytest.mark.repricing,
         ),
@@ -115,6 +123,7 @@ from ..helpers import concatenate_parameters
                     "0000000000000000000000000000000000000000000000000000000000000002",
                 ]
             ),
+            Precompile.BN128_MUL,
             id="bn128_mul_1_2_2_scalar",
         ),
         # Ported from
@@ -128,6 +137,7 @@ from ..helpers import concatenate_parameters
                     "25f8c89ea3437f44f8fc8b6bfbb6312074dc6f983809a5e809ff4e1d076dd585",
                 ]
             ),
+            Precompile.BN128_MUL,
             id="bn128_mul_1_2_32_byte_scalar",
         ),
         # Ported from
@@ -141,6 +151,7 @@ from ..helpers import concatenate_parameters
                     "0000000000000000000000000000000000000000000000000000000000000002",
                 ]
             ),
+            Precompile.BN128_MUL,
             id="bn128_mul_32_byte_coord_and_2_scalar",
             marks=pytest.mark.repricing,
         ),
@@ -155,6 +166,7 @@ from ..helpers import concatenate_parameters
                     "25f8c89ea3437f44f8fc8b6bfbb6312074dc6f983809a5e809ff4e1d076dd585",
                 ]
             ),
+            Precompile.BN128_MUL,
             id="bn128_mul_32_byte_coord_and_scalar",
             marks=pytest.mark.repricing,
         ),
@@ -178,6 +190,7 @@ from ..helpers import concatenate_parameters
                     "12C85EA5DB8C6DEB4AAB71808DCB408FE3D1E7690C43D37B4CE6CC0166FA7DAA",
                 ]
             ),
+            Precompile.BN128_PAIRING,
             id="bn128_two_pairings",
         ),
         pytest.param(
@@ -193,11 +206,17 @@ from ..helpers import concatenate_parameters
                     "120A2A4CF30C1BF9845F20C6FE39E07EA2CCE61F0C9BB048165FE5E4DE877550",
                 ]
             ),
+            Precompile.BN128_PAIRING,
             id="bn128_one_pairing",
         ),
         # Ported from
         # https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCase.cs#L353
-        pytest.param(0x08, [], id="ec_pairing_zero_input"),
+        pytest.param(
+            0x08,
+            [],
+            Precompile.BN128_PAIRING,
+            id="ec_pairing_zero_input",
+        ),
         pytest.param(
             0x08,
             concatenate_parameters(
@@ -218,11 +237,13 @@ from ..helpers import concatenate_parameters
                     "3a8eb0b0996252cb548a4487da97b02422ebc0e834613f954de6c7e0afdc1fc0",
                 ]
             ),
+            Precompile.BN128_PAIRING,
             id="ec_pairing_2_sets",
         ),
         pytest.param(
             0x08,
             concatenate_parameters([""]),
+            Precompile.BN128_PAIRING,
             id="ec_pairing_1_pair",
         ),
         pytest.param(
@@ -245,6 +266,7 @@ from ..helpers import concatenate_parameters
                     "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
                 ]
             ),
+            Precompile.BN128_PAIRING,
             id="ec_pairing_2_pair",
         ),
         pytest.param(
@@ -272,6 +294,7 @@ from ..helpers import concatenate_parameters
                     "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
                 ]
             ),
+            Precompile.BN128_PAIRING,
             id="ec_pairing_3_pair",
         ),
         pytest.param(
@@ -308,6 +331,7 @@ from ..helpers import concatenate_parameters
                     "2dc4cb08068b4aa5f14b7f1096ab35d5c13d78319ec7e66e9f67a1ff20cbbf03",
                 ]
             ),
+            Precompile.BN128_PAIRING,
             id="ec_pairing_4_pair",
         ),
         pytest.param(
@@ -351,6 +375,7 @@ from ..helpers import concatenate_parameters
                     "1ac5dac62d2332faa8069faca3b0d27fcdf95d8c8bafc9074ee72b5c1f33aa70",
                 ]
             ),
+            Precompile.BN128_PAIRING,
             id="ec_pairing_5_pair",
         ),
         pytest.param(
@@ -360,6 +385,7 @@ from ..helpers import concatenate_parameters
                     "0000000000000000000000000000000000000000000000000000000000000000",
                 ]
             ),
+            Precompile.BN128_PAIRING,
             id="ec_pairing_1_pair_empty",
         ),
     ],
@@ -368,6 +394,7 @@ def test_alt_bn128(
     benchmark_test: BenchmarkTestFiller,
     precompile_address: Address,
     calldata: bytes,
+    target: OpcodeTarget,
 ) -> None:
     """Benchmark ALT_BN128 precompile."""
     attack_block = Op.POP(
@@ -377,7 +404,7 @@ def test_alt_bn128(
     )
 
     benchmark_test(
-        target_opcode=Op.STATICCALL,
+        target_opcode=target,
         code_generator=JumpLoopGenerator(
             setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
             attack_block=attack_block,
@@ -431,8 +458,8 @@ def test_bn128_pairings_amortized(
     size_per_pairing = 192
 
     gsc = fork.gas_costs()
-    base_cost = gsc.GAS_PRECOMPILE_ECPAIRING_BASE
-    pairing_cost = gsc.GAS_PRECOMPILE_ECPAIRING_PER_POINT
+    base_cost = gsc.PRECOMPILE_ECPAIRING_BASE
+    pairing_cost = gsc.PRECOMPILE_ECPAIRING_PER_POINT
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     mem_exp_gas_calculator = fork.memory_expansion_gas_calculator()
     warm_account_access_cost = Op.STATICCALL(
@@ -493,7 +520,7 @@ def test_bn128_pairings_amortized(
     )
 
     benchmark_test(
-        target_opcode=Op.STATICCALL,
+        target_opcode=Precompile.BN128_PAIRING,
         code_generator=JumpLoopGenerator(
             setup=setup,
             attack_block=attack_block,
@@ -520,7 +547,7 @@ def test_alt_bn128_benchmark(
     )
 
     benchmark_test(
-        target_opcode=Op.STATICCALL,
+        target_opcode=Precompile.BN128_PAIRING,
         code_generator=JumpLoopGenerator(
             setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
             attack_block=attack_block,
@@ -545,8 +572,8 @@ def test_ec_pairing(
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     mem_exp = fork.memory_expansion_gas_calculator()
     precompile_cost = (
-        gsc.GAS_PRECOMPILE_ECPAIRING_BASE
-        + gsc.GAS_PRECOMPILE_ECPAIRING_PER_POINT * num_pairs
+        gsc.PRECOMPILE_ECPAIRING_BASE
+        + gsc.PRECOMPILE_ECPAIRING_PER_POINT * num_pairs
     )
 
     # Each iteration: STATICCALL ecpairing at advancing calldata offset,
@@ -558,7 +585,9 @@ def test_ec_pairing(
             address=0x08,
             args_offset=Op.MLOAD(Op.CALLDATASIZE),
             args_size=pair_size,
+            # gas accounting
             address_warm=True,
+            inner_call_cost=precompile_cost,
         ),
     ) + Op.MSTORE(
         Op.CALLDATASIZE,
@@ -573,7 +602,7 @@ def test_ec_pairing(
     code = setup + loop
     attack_contract_address = pre.deploy_contract(code=code)
 
-    iteration_cost = loop.gas_cost(fork) + precompile_cost
+    iteration_cost = loop.gas_cost(fork)
     setup_cost = setup.gas_cost(fork)
 
     # Conservative per-variant estimate for sizing the calldata:
@@ -583,7 +612,7 @@ def test_ec_pairing(
     per_variant_gas = (
         iteration_cost
         + pair_size * 16
-        + words_per_variant * (gsc.GAS_COPY + gsc.GAS_MEMORY)
+        + words_per_variant * (gsc.OPCODE_COPY_PER_WORD + gsc.MEMORY_PER_WORD)
     )
     empty_intrinsic = intrinsic_gas_calculator(
         calldata=[], return_cost_deducted_prior_execution=True
@@ -594,6 +623,7 @@ def test_ec_pairing(
     txs: list[Transaction] = []
     remaining_gas = gas_benchmark_value
 
+    expected_opcode_count = 0
     while remaining_gas > 0:
         per_tx_gas = min(tx_gas_limit, remaining_gas)
         per_tx_variants = max(
@@ -614,12 +644,13 @@ def test_ec_pairing(
             per_tx_gas
             - execution_intrinsic
             - setup_cost
-            - math.ceil(len(calldata) / 32) * gsc.GAS_COPY
+            - math.ceil(len(calldata) / 32) * gsc.OPCODE_COPY_PER_WORD
             - mem_exp(new_bytes=len(calldata) + 32)
         )
 
-        if gas_for_loop < iteration_cost:
+        if gas_for_loop < per_tx_variants * iteration_cost:
             break
+        expected_opcode_count += per_tx_variants
 
         txs.append(
             Transaction(
@@ -632,9 +663,13 @@ def test_ec_pairing(
         remaining_gas -= per_tx_gas
         seed_offset += per_tx_variants
 
+    assert len(txs) != 0, "No transactions were added to the test."
+
     benchmark_test(
-        target_opcode=Op.STATICCALL,
+        target_opcode=Precompile.BN128_PAIRING,
         skip_gas_used_validation=True,
+        expected_receipt_status=1,
+        expected_opcode_count=expected_opcode_count,
         blocks=[Block(txs=txs)],
     )
 
@@ -652,11 +687,21 @@ def _generate_g1_point(seed: int) -> Bytes:
 
 @pytest.mark.repricing
 @pytest.mark.parametrize(
-    "precompile_address,scalar",
+    "precompile_address,scalar,target",
     [
-        pytest.param(0x06, None, id="ec_add"),
-        pytest.param(0x07, 2, id="ec_mul_small_scalar"),
-        pytest.param(0x07, 2**256 - 1, id="ec_mul_max_scalar"),
+        pytest.param(0x06, None, Precompile.BN128_ADD, id="ec_add"),
+        pytest.param(
+            0x07,
+            2,
+            Precompile.BN128_MUL,
+            id="ec_mul_small_scalar",
+        ),
+        pytest.param(
+            0x07,
+            2**256 - 1,
+            Precompile.BN128_MUL,
+            id="ec_mul_max_scalar",
+        ),
     ],
 )
 def test_alt_bn128_uncachable(
@@ -667,6 +712,7 @@ def test_alt_bn128_uncachable(
     tx_gas_limit: int,
     precompile_address: Address,
     scalar: int | None,
+    target: OpcodeTarget,
 ) -> None:
     """
     Benchmark ecAdd/ecMul with unique input per call.
@@ -676,7 +722,12 @@ def test_alt_bn128_uncachable(
     input, avoiding precompile result caching in clients.
     """
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-
+    gsc = fork.gas_costs()
+    precompile_cost = (
+        gsc.PRECOMPILE_ECMUL
+        if precompile_address == 0x07
+        else gsc.PRECOMPILE_ECADD
+    )
     attack_block = Op.POP(
         Op.STATICCALL(
             gas=Op.GAS,
@@ -685,11 +736,14 @@ def test_alt_bn128_uncachable(
             # One G1 point (2 * 32 bytes), overwrites the input point
             # so each iteration has unique precompile input.
             ret_size=64,
+            # gas accounting
+            address_warm=True,
+            inner_call_cost=precompile_cost,
         ),
     )
 
     setup = Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-    loop = While(body=attack_block, condition=Op.GAS)
+    loop = WhileGas(body=attack_block, fork=fork)
     code = setup + loop
     attack_contract_address = pre.deploy_contract(code=code)
 
@@ -697,6 +751,7 @@ def test_alt_bn128_uncachable(
     remaining_gas = gas_benchmark_value
 
     seed = 0
+    expected_opcode_count = 0
     while remaining_gas > 0:
         gas_available = min(tx_gas_limit, remaining_gas)
 
@@ -706,10 +761,14 @@ def test_alt_bn128_uncachable(
             else _generate_g1_point(seed) + scalar.to_bytes(32, "big")
         )
 
-        intrinsic = intrinsic_gas_calculator(calldata=calldata)
-        if gas_available <= intrinsic:
+        intrinsic = intrinsic_gas_calculator(
+            calldata=calldata,
+            return_cost_deducted_prior_execution=True,
+        )
+        gas_for_loop = gas_available - intrinsic - setup.gas_cost(fork)
+        if gas_for_loop < loop.gas_cost(fork):
             break
-
+        expected_opcode_count += gas_for_loop // loop.gas_cost(fork)
         txs.append(
             Transaction(
                 to=attack_contract_address,
@@ -722,6 +781,9 @@ def test_alt_bn128_uncachable(
         seed += 1
 
     benchmark_test(
-        target_opcode=Op.STATICCALL,
+        target_opcode=target,
+        skip_gas_used_validation=True,
+        expected_receipt_status=1,
         blocks=[Block(txs=txs)],
+        expected_opcode_count=expected_opcode_count,
     )

@@ -414,7 +414,7 @@ def decode_g1_scalar_pair(
 
     """
     if len(data) != 160:
-        InvalidParameter("Input should be 160 bytes long")
+        raise InvalidParameter("Input should be 160 bytes long")
 
     point = bytes_to_g1(data[:128], subgroup_check=True)
 
@@ -614,7 +614,7 @@ def decode_g2_scalar_pair(
 
     """
     if len(data) != 288:
-        InvalidParameter("Input should be 288 bytes long")
+        raise InvalidParameter("Input should be 288 bytes long")
 
     point = bytes_to_g2(data[:256], subgroup_check=True)
     n = int.from_bytes(data[256 : 256 + 32], "big")

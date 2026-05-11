@@ -7,7 +7,6 @@ state_tests/stReturnDataTest/clearReturnBufferFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -1061,9 +1060,7 @@ def test_clear_return_buffer(
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x48DC5A9F099CAAAA557742CA3A990A94BE45B9969126A1BC74E5E8BE5A2B5B47
-    )
+    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE, nonce=1)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -1089,7 +1086,6 @@ def test_clear_return_buffer(
         + Op.RETURN,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address(0xBD0BB2600F59ACDEE19A917DB4F3F7B00C9C9759),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -1106,7 +1102,6 @@ def test_clear_return_buffer(
         + Op.REVERT,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address(0x4C24D17E84F86907F0A33776F83C754D52E46D13),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -1135,7 +1130,6 @@ def test_clear_return_buffer(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address(0x4940BB1DE279F6B55DC0BF40ED1FDEF517D8C2E9),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -1164,7 +1158,6 @@ def test_clear_return_buffer(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address(0x0FABE6F4DFA10093ECD1C05DF08EE0B199F2F36D),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -1182,7 +1175,6 @@ def test_clear_return_buffer(
         code=bytes.fromhex("602060008181808035833582525af1503078464500"),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address(0x421AB4BF2FF9BD61E45075062AEC737A6F1B726D),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -1460,9 +1452,7 @@ def test_clear_return_buffer(
         storage={0: 24743},
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address(0x48DB33B0A06DD1E98DF44D8BEF0DA3F1D948571D),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
 
     tx_data = [
         Bytes("048071d3") + Hash(0x11F0) + Hash(0xF3F3) + Hash(0x20),

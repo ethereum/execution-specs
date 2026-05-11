@@ -7,7 +7,6 @@ state_tests/stPreCompiledContracts/precompsEIP2929CancunFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -2808,7 +2807,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_precomps_eip2929_cancun(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -2819,9 +2817,7 @@ def test_precomps_eip2929_cancun(
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -2832,6 +2828,24 @@ def test_precomps_eip2929_cancun(
         gas_limit=71794957647893862,
     )
 
+    # Source: yul
+    # berlin
+    # {
+    #    mstore(0,add(1,2))
+    # }
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=0x3) + Op.STOP,
+        nonce=1,
+    )
+    # Source: yul
+    # berlin
+    # {
+    #    mstore(0,add(1,2))
+    # }
+    addr_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=0x3) + Op.STOP,
+        nonce=1,
+    )
     # Source: yul
     # berlin optimise
     # {
@@ -2876,7 +2890,7 @@ def test_precomps_eip2929_cancun(
         + Op.POP(
             Op.CALL(
                 gas=0x100000,
-                address=0x7BE86FFAB69B0AF1ED862AE6D8E1EFA3E8438B79,
+                address=addr_2,
                 value=0x1,
                 args_offset=Op.DUP1,
                 args_size=0x0,
@@ -3565,29 +3579,7 @@ def test_precomps_eip2929_cancun(
         + Op.POP * 9,
         storage={0: 24743, 1: 24743},
         nonce=1,
-        address=Address(0x858295015AFF9CFDB96C3C2EC19F7AC654871B6C),  # noqa: E501
     )
-    # Source: yul
-    # berlin
-    # {
-    #    mstore(0,add(1,2))
-    # }
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=0x3) + Op.STOP,
-        nonce=1,
-        address=Address(0x1338F76642A7A19CC50BDFF45172CB6C2A7D20C0),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #    mstore(0,add(1,2))
-    # }
-    addr_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=0x3) + Op.STOP,
-        nonce=1,
-        address=Address(0x7BE86FFAB69B0AF1ED862AE6D8E1EFA3E8438B79),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     expect_entries_: list[dict] = [
         {

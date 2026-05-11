@@ -8,7 +8,6 @@ state_tests/stTransactionTest/NoSrcAccountCreate1559Filler.yml
 import pytest
 from execution_testing import (
     AccessList,
-    Account,
     Address,
     Alloc,
     Environment,
@@ -162,7 +161,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_no_src_account_create1559(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -173,7 +171,6 @@ def test_no_src_account_create1559(
 ) -> None:
     """Test_no_src_account_create1559."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    addr = Address(0xC22941800A5A392672DC35D8E088BA1BC90891B1)
     sender = pre.fund_eoa(amount=0)
 
     env = Environment(
@@ -185,7 +182,7 @@ def test_no_src_account_create1559(
         gas_limit=89128960,
     )
 
-    pre[addr] = Account(balance=0, nonce=24743)
+    addr = pre.fund_eoa(amount=0)  # noqa: F841
 
     expect_entries_: list[dict] = [
         {

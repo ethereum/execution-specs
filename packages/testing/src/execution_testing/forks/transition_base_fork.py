@@ -75,6 +75,7 @@ class TransitionBaseClass(metaclass=TransitionBaseMetaClass):
     at_block: ClassVar[int] = 0
     at_timestamp: ClassVar[int] = 0
     _ignore: ClassVar[bool] = False
+    _env_gas_limit: ClassVar[int] = 0
 
     @classmethod
     def fork_at(
@@ -94,10 +95,8 @@ class TransitionBaseClass(metaclass=TransitionBaseMetaClass):
     @classmethod
     def is_deployed(cls) -> bool:
         """
-        Return whether the fork has been deployed to mainnet, or not.
-
-        Must be overridden and return False for forks that are still under
-        development.
+        Return whether the transitions-to fork has been deployed to mainnet,
+        or not.
         """
         return cls.transitions_to().is_deployed()
 
@@ -107,6 +106,18 @@ class TransitionBaseClass(metaclass=TransitionBaseMetaClass):
         Return the ruleset used for fork configuration.
         """
         raise Exception("Not implemented")
+
+    @classmethod
+    def with_env_gas_limit(
+        cls, env_gas_limit: int
+    ) -> Type["TransitionBaseClass"]:
+        """
+        Return a new transition fork class with the specified environment
+        gas limit.
+        """
+        new_cls = type(cls.__name__, (cls,), {})
+        new_cls._env_gas_limit = env_gas_limit  # type: ignore[attr-defined]
+        return new_cls
 
 
 def transition_fork(
@@ -137,22 +148,29 @@ def transition_fork(
             _ignore = ignore
 
             @classmethod
+            def _propagate_env(cls, fork: Type[BaseFork]) -> Type[BaseFork]:
+                if cls._env_gas_limit:
+                    return fork.with_env_gas_limit(cls._env_gas_limit)
+                return fork
+
+            @classmethod
             def transitions_to(cls) -> Type[BaseFork]:
-                return to_fork
+                return cls._propagate_env(to_fork)
 
             @classmethod
             def transitions_from(cls) -> Type[BaseFork]:
-                return from_fork
+                return cls._propagate_env(from_fork)
 
             @classmethod
             def fork_at(
                 cls, *, block_number: int = 0, timestamp: int = 0
             ) -> Type[BaseFork]:
-                return (
+                fork = (
                     to_fork
                     if block_number >= at_block and timestamp >= at_timestamp
                     else from_fork
                 )
+                return cls._propagate_env(fork)
 
             @classmethod
             def name(cls) -> str:

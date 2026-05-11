@@ -19,9 +19,7 @@ from ...blocks import Log
 from .. import Evm
 from ..exceptions import WriteInStaticContext
 from ..gas import (
-    GAS_LOG,
-    GAS_LOG_DATA_PER_BYTE,
-    GAS_LOG_TOPIC,
+    GasCosts,
     calculate_gas_extend_memory,
     charge_gas,
 )
@@ -59,9 +57,9 @@ def log_n(evm: Evm, num_topics: int) -> None:
     )
     charge_gas(
         evm,
-        GAS_LOG
-        + GAS_LOG_DATA_PER_BYTE * Uint(size)
-        + GAS_LOG_TOPIC * Uint(num_topics)
+        GasCosts.OPCODE_LOG_BASE
+        + GasCosts.OPCODE_LOG_DATA_PER_BYTE * Uint(size)
+        + GasCosts.OPCODE_LOG_TOPIC * Uint(num_topics)
         + extend_memory.cost,
     )
 

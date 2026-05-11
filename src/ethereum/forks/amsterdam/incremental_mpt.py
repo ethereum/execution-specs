@@ -31,9 +31,7 @@ from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import Uint
 
 from ethereum.crypto.hash import keccak256
-from ethereum.state import Account, Address, Root
-
-from .trie import (
+from ethereum.merkle_patricia_trie import (
     EMPTY_TRIE_ROOT,
     K,
     V,
@@ -43,6 +41,7 @@ from .trie import (
     encode_node,
     nibble_list_to_compact,
 )
+from ethereum.state import Account, Address, Root
 
 
 @dataclass

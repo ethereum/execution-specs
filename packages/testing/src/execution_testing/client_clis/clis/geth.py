@@ -111,12 +111,6 @@ class GethExceptionMapper(ExceptionMapper):
         BlockException.RLP_BLOCK_LIMIT_EXCEEDED: (
             "block RLP-encoded size exceeds maximum"
         ),
-        BlockException.INVALID_BAL_EXTRA_ACCOUNT: (
-            "BAL change not reported in computed"
-        ),
-        BlockException.INVALID_BAL_MISSING_ACCOUNT: (
-            "additional mutations compared to BAL"
-        ),
         BlockException.INVALID_BLOCK_ACCESS_LIST: "unequal",
         BlockException.INVALID_BASEFEE_PER_GAS: "invalid baseFee",
         BlockException.INVALID_BLOCK_TIMESTAMP_OLDER_THAN_PARENT: (
@@ -157,19 +151,17 @@ class GethExceptionMapper(ExceptionMapper):
         #
         # EELS definition for `is_valid_deposit_event_data`:
         # https://github.com/ethereum/execution-specs/blob/5ddb904fa7ba27daeff423e78466744c51e8cb6a/src/ethereum/forks/prague/requests.py#L51
-        # BAL Exceptions: TODO - review once all clients completed.
-        BlockException.INVALID_BAL_EXTRA_ACCOUNT: (
-            r"invalid block access list:"
-        ),
+        # BAL Exceptions
         BlockException.INVALID_BAL_HASH: (r"invalid block access list:"),
-        BlockException.INVALID_BAL_MISSING_ACCOUNT: (
-            r"computed state diff contained mutated accounts "
-            r"which weren't reported in BAL|"
-            r"invalid block access list:"
-        ),
         BlockException.INVALID_BLOCK_ACCESS_LIST: (
             r"difference between computed state diff and "
-            r"BAL entry for account|invalid block access list:"
+            r"BAL entry for account|"
+            r"invalid block access list:|"
+            r"computed state diff contained mutated accounts "
+            r"which weren't reported in BAL|"
+            r"BAL change not reported in computed|"
+            r"additional mutations compared to BAL|"
+            r"[bB][aA][lL] validation fail"
         ),
         BlockException.INCORRECT_BLOCK_FORMAT: (r"invalid block access list:"),
         BlockException.BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED: (

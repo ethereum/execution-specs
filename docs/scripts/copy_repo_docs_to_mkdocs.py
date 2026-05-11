@@ -46,6 +46,19 @@ def copy_markdown_file(source_path, destination_path, fix_links=True):
                             line,
                         )
 
+                        # Fix repo-relative docs/ links to work from
+                        # docs/getting_started/<file>.md
+                        line = re.sub(
+                            r"\]\(docs/getting_started/",
+                            r"](",
+                            line,
+                        )
+                        line = re.sub(
+                            r"\]\(docs/([^)]+)\)",
+                            r"](../\1)",
+                            line,
+                        )
+
                     destination.write(line)
     except Exception as e:
         raise Exception(

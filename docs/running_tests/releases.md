@@ -2,7 +2,7 @@
 
 ## Formats and Release Layout
 
-@ethereum/execution-spec-tests releases contain JSON test fixtures in various formats. Note that transaction type tests are executed directly from Python source using the [`execute`](./execute/index.md) command.
+@ethereum/execution-specs releases contain JSON test fixtures in various formats. Note that transaction type tests are executed directly from Python source using the [`execute`](./execute/index.md) command.
 
 | Format                                                               | Consumed by the client                                                                                                                                                                                                                                                                    | Location in `.tar.gz` release                                       |
 | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
@@ -91,7 +91,7 @@ Please see below for an explanation of the optional `<pre_release_name>` that is
 
 ### Standard Releases
 
-Releases are published on the @ethereum/execution-spec-tests [releases](https://github.com/ethereum/execution-spec-tests/releases) page. Standard releases are tagged using the format `vX.Y.Z` (they don't have a `<pre_release_name>`).
+Releases are published on the @ethereum/execution-specs [releases](https://github.com/ethereum/execution-specs/releases) page. Standard releases are tagged using the format `vX.Y.Z` (they don't have a `<pre_release_name>`).
 
 For standard releases, two tarballs are available:
 
@@ -102,20 +102,19 @@ For standard releases, two tarballs are available:
 
 I.e., `fixtures_develop` are a superset of `fixtures_stable`.
 
-!!! tip "Generating tarballs directly via `--output` includes all fixture formats"
-    When generating fixtures for release, specifying tarball output automatically enables all fixture formats:
+!!! tip "Release features opt into all fixture formats via `feature.yaml`"
+    Tarball output (`.tar.gz`) does not by itself include the pre-allocation group formats (`BlockchainEngineXFixture`, `BlockchainEngineStatefulFixture`). A release feature requests them by adding `--generate-all-formats` to its `fill-params` in `.github/configs/feature.yaml`:
     ```console
-    # Automatically enables --generate-all-formats due to .tar.gz output
-    uv run fill --output=fixtures_stable.tar.gz tests/
+    uv run fill --generate-all-formats --output=fixtures_stable.tar.gz tests/
     ```
-    This ensures that all fixture formats are included in the tarball release.
 
 ### Pre-Release and Devnet Releases
 
-Intermediate releases that target specific subsets of features or tests under active development are published at @ethereum/execution-spec-tests [releases](https://github.com/ethereum/execution-spec-tests/releases).
+Intermediate releases that target specific subsets of features or tests under active development are published at @ethereum/execution-specs [releases](https://github.com/ethereum/execution-specs/releases).
 
 These releases are tagged using the format `<pre_release_name>@vX.Y.Z`.
 
+<!-- TODO: These example tags live in the legacy @ethereum/execution-spec-tests repo; replace with current @ethereum/execution-specs examples once available. -->
 Examples:
 
 - [`fusaka-devnet-1@v1.0.0`](https://github.com/ethereum/execution-spec-tests/releases/tag/fusaka-devnet-1%40v1.0.0) - this fixture release contains tests adhering to the [Fusaka Devnet 1 spec](https://notes.ethereum.org/@ethpandaops/fusaka-devnet-1).

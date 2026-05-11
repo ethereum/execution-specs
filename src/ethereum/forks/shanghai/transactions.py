@@ -23,37 +23,6 @@ from ethereum.state import Address
 
 from .exceptions import InitCodeTooLargeError, TransactionTypeError
 
-GAS_TX_BASE = Uint(21000)
-"""
-Base cost of a transaction in gas units. This is the minimum amount of gas
-required to execute a transaction.
-"""
-
-GAS_TX_DATA_PER_NON_ZERO = Uint(16)
-"""
-Gas cost per non-zero byte in the transaction data.
-"""
-
-GAS_TX_DATA_PER_ZERO = Uint(4)
-"""
-Gas cost per zero byte in the transaction data.
-"""
-
-GAS_TX_CREATE = Uint(32000)
-"""
-Additional gas cost for creating a new contract.
-"""
-
-GAS_TX_ACCESS_LIST_ADDRESS = Uint(2400)
-"""
-Gas cost for including an address in the access list of a transaction.
-"""
-
-GAS_TX_ACCESS_LIST_STORAGE_KEY = Uint(1900)
-"""
-Gas cost for including a storage key in the access list of a transaction.
-"""
-
 
 @slotted_freezable
 @dataclass
@@ -380,7 +349,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     for all operations to be implemented.
 
     The intrinsic cost includes:
-    1. Base cost (`GAS_TX_BASE`)
+    1. Base cost (`TX_BASE`)
     2. Cost for data (zero and non-zero bytes)
     3. Cost for contract creation (if applicable)
     4. Cost for access list entries (if applicable)
@@ -388,29 +357,29 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     This function takes a transaction as a parameter and returns the intrinsic
     gas cost of the transaction.
     """
-    from .vm.gas import init_code_cost
+    from .vm.gas import GasCosts, init_code_cost
 
     num_zeros = Uint(tx.data.count(0))
     num_non_zeros = ulen(tx.data) - num_zeros
     data_cost = (
-        num_zeros * GAS_TX_DATA_PER_ZERO
-        + num_non_zeros * GAS_TX_DATA_PER_NON_ZERO
+        num_zeros * GasCosts.TX_DATA_PER_ZERO
+        + num_non_zeros * GasCosts.TX_DATA_PER_NON_ZERO
     )
 
     if tx.to == Bytes0(b""):
-        create_cost = GAS_TX_CREATE + init_code_cost(ulen(tx.data))
+        create_cost = GasCosts.TX_CREATE + init_code_cost(ulen(tx.data))
     else:
         create_cost = Uint(0)
 
     access_list_cost = Uint(0)
     if isinstance(tx, (AccessListTransaction, FeeMarketTransaction)):
         for access in tx.access_list:
-            access_list_cost += GAS_TX_ACCESS_LIST_ADDRESS
+            access_list_cost += GasCosts.TX_ACCESS_LIST_ADDRESS
             access_list_cost += (
-                ulen(access.slots) * GAS_TX_ACCESS_LIST_STORAGE_KEY
+                ulen(access.slots) * GasCosts.TX_ACCESS_LIST_STORAGE_KEY
             )
 
-    return GAS_TX_BASE + data_cost + create_cost + access_list_cost
+    return GasCosts.TX_BASE + data_cost + create_cost + access_list_cost
 
 
 def recover_sender(chain_id: U64, tx: Transaction) -> Address:

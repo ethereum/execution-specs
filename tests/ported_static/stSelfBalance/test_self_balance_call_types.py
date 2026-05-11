@@ -7,7 +7,6 @@ state_tests/stSelfBalance/selfBalanceCallTypesFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -64,9 +63,7 @@ def test_self_balance_call_types(
 ) -> None:
     """SELFBALANCE tests inside CALL, DELEGATECALL, and CALLCODE."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x897B12D02D588D8A4FE16FF831CBD4459C6F62F8C845B0CCDD31CAF068C84A26
-    )
+    sender = pre.fund_eoa(amount=0x3635C9ADC5DEA00000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -199,17 +196,11 @@ def test_self_balance_call_types(
         + Op.JUMP(pc=0x5)
         + Op.JUMPDEST
         + Op.STOP,
-        storage={
-            0: 0xA590BBF1B07B00FED987724E1DB1BF206C2BC37C,
-            1: 0x76BAC61EE2056F42F6CC29F5400ADAE3E5705237,
-            2: 0x8537CE29429EA557E3903C255EE6554DD8D21D26,
-            3: 0xE1CE93B3251FB38AE74D41AF9F865978C572CF63,
-        },
+        storage={0: addr, 1: addr_2, 2: addr_3, 3: addr_4},
         balance=8192,
         nonce=0,
         address=Address(0x84BF87FBEF135AFEA15330FDF5847EB504CFF901),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x3635C9ADC5DEA00000)
 
     expect_entries_: list[dict] = [
         {
@@ -228,10 +219,10 @@ def test_self_balance_call_types(
             "result": {
                 target: Account(
                     storage={
-                        0: 0xA590BBF1B07B00FED987724E1DB1BF206C2BC37C,
-                        1: 0x76BAC61EE2056F42F6CC29F5400ADAE3E5705237,
-                        2: 0x8537CE29429EA557E3903C255EE6554DD8D21D26,
-                        3: 0xE1CE93B3251FB38AE74D41AF9F865978C572CF63,
+                        0: addr,
+                        1: addr_2,
+                        2: addr_3,
+                        3: addr_4,
                         17: 1,
                         33: 8192,
                         49: 5,

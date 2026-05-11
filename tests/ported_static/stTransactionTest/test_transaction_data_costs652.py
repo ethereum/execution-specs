@@ -7,7 +7,6 @@ state_tests/stTransactionTest/TransactionDataCosts652Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -43,7 +42,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_transaction_data_costs652(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -54,9 +52,7 @@ def test_transaction_data_costs652(
 ) -> None:
     """Test_transaction_data_costs652."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xDC4EFA209AECDD4C2D5201A419EA27506151B4EC687F14A613229E310932491B
-    )
+    sender = pre.fund_eoa(amount=0x989680)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -66,8 +62,6 @@ def test_transaction_data_costs652(
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
-
-    pre[sender] = Account(balance=0x989680)
 
     tx_data = [
         Bytes("00000000000000000000112233445566778f32"),

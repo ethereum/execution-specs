@@ -14,7 +14,7 @@ Implementations of the EVM block instructions.
 from ethereum_types.numeric import U256, Uint
 
 from .. import Evm
-from ..gas import GAS_BASE, GAS_BLOCK_HASH, charge_gas
+from ..gas import GasCosts, charge_gas
 from ..stack import pop, push
 
 
@@ -33,7 +33,7 @@ def block_hash(evm: Evm) -> None:
     block_number = Uint(pop(evm.stack))
 
     # GAS
-    charge_gas(evm, GAS_BLOCK_HASH)
+    charge_gas(evm, GasCosts.OPCODE_BLOCKHASH)
 
     # OPERATION
     max_block_number = block_number + Uint(256)
@@ -75,7 +75,7 @@ def coinbase(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, GasCosts.OPCODE_COINBASE)
 
     # OPERATION
     push(evm.stack, U256.from_be_bytes(evm.message.block_env.coinbase))
@@ -102,7 +102,7 @@ def timestamp(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, GasCosts.OPCODE_TIMESTAMP)
 
     # OPERATION
     push(evm.stack, evm.message.block_env.time)
@@ -128,7 +128,7 @@ def number(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, GasCosts.OPCODE_NUMBER)
 
     # OPERATION
     push(evm.stack, U256(evm.message.block_env.number))
@@ -154,7 +154,7 @@ def difficulty(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, GasCosts.OPCODE_DIFFICULTY)
 
     # OPERATION
     push(evm.stack, U256(evm.message.block_env.difficulty))
@@ -180,7 +180,7 @@ def gas_limit(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, GasCosts.OPCODE_GASLIMIT)
 
     # OPERATION
     push(evm.stack, U256(evm.message.block_env.block_gas_limit))

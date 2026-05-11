@@ -1,4 +1,4 @@
-name: Create Fixture Feature Release
+name: Create Fixture Release
 
 on:
   push:
@@ -7,32 +7,35 @@ on:
   workflow_dispatch:
 
 jobs:
-  feature-names:
+  setup:
     runs-on: ubuntu-latest
     outputs:
-      names: ${{ steps.feature-name.outputs.names }}
+      build_matrix: ${{ steps.matrix.outputs.build_matrix }}
+      feature_name: ${{ steps.matrix.outputs.feature_name }}
+      combine_labels: ${{ steps.matrix.outputs.combine_labels }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           submodules: false
+      - uses: ./.github/actions/setup-uv
 
-      - name: Get feature names
-        id: feature-name
+      - name: Generate build matrix
+        id: matrix
         shell: bash
         run: |
           FEATURE_PREFIX="${GITHUB_REF_NAME//@*/}"
           FEATURE_NAME="${FEATURE_PREFIX#tests-}"
-          names=$(grep -Po "^${FEATURE_NAME}(?=:)" .github/configs/feature.yaml | jq  --raw-input .  | jq -c --slurp .)
-          echo "names=${names}"
-          echo "names=${names}" >> "$GITHUB_OUTPUT"
+          uv run -q .github/scripts/generate_build_matrix.py "$FEATURE_NAME" >> "$GITHUB_OUTPUT"
 
   build:
-    needs: feature-names
+    name: fill (${{ matrix.label || matrix.feature }})
+    needs: setup
     runs-on: [self-hosted-ghr, size-gigachungus-x64]
     timeout-minutes: 1440
     strategy:
+      fail-fast: true
       matrix:
-        feature: ${{ fromJSON(needs.feature-names.outputs.names) }}
+        include: ${{ fromJson(needs.setup.outputs.build_matrix) }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -61,11 +64,67 @@ jobs:
       - uses: ./.github/actions/build-fixtures
         with:
           release_name: ${{ matrix.feature }}
+          from_fork: ${{ matrix.from_fork }}
+          until_fork: ${{ matrix.until_fork }}
+          split_label: ${{ matrix.label }}
+
+  combine:
+    name: combine (${{ needs.setup.outputs.feature_name }})
+    needs: [setup, build]
+    if: needs.setup.outputs.combine_labels != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: false
+      - uses: ./.github/actions/setup-uv
+      - name: Install pigz
+        run: sudo apt-get install -y pigz
+      - name: Download and merge split artifacts
+        shell: bash
+        run: |
+          mkdir -p combined
+          for label in ${{ needs.setup.outputs.combine_labels }}; do
+            echo "Downloading: fixtures__${label}"
+            if gh run download ${{ github.run_id }} -n "fixtures__${label}" --dir "split_artifacts/fixtures__${label}"; then
+              cp -r "split_artifacts/fixtures__${label}"/* combined/
+            else
+              echo "No artifact for ${label} (no tests collected, skipping)"
+            fi
+          done
+          echo "Combined directory contents:"
+          find combined -maxdepth 3 -type d | head -30 || true
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Merge split index files
+        shell: bash
+        run: |
+          SPLIT_DIRS=()
+          for label in ${{ needs.setup.outputs.combine_labels }}; do
+            dir="split_artifacts/fixtures__${label}"
+            if [ -d "$dir" ]; then
+              SPLIT_DIRS+=("$dir")
+            fi
+          done
+          if [ ${#SPLIT_DIRS[@]} -gt 0 ]; then
+            uv run python .github/scripts/merge_index_files.py combined/.meta/index.json "${SPLIT_DIRS[@]}"
+          fi
+      - name: Free disk space
+        run: rm -rf split_artifacts/
+      - name: Create release tarball
+        shell: bash
+        run: |
+          uv run -q .github/scripts/create_release_tarball.py combined fixtures_${{ needs.setup.outputs.feature_name }}.tar.gz
+      - name: Upload combined fixture tarball
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: fixtures_${{ needs.setup.outputs.feature_name }}
+          path: fixtures_${{ needs.setup.outputs.feature_name }}.tar.gz
 
   release:
     runs-on: ubuntu-latest
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/tests-')
+    needs: [setup, build, combine]
+    if: always() && needs.build.result == 'success' && (needs.combine.result == 'success' || needs.combine.result == 'skipped') && startsWith(github.ref, 'refs/tags/tests-')
     permissions:
       contents: write
     steps:
@@ -74,15 +133,17 @@ jobs:
           submodules: false
           fetch-depth: 0
 
-      - name: Download all artifacts
+      - name: Download release artifacts
+        shell: bash
         run: |
-          gh run download ${{ github.run_id }} --dir ./artifacts
+          gh run download ${{ github.run_id }} -p "fixtures_*" --dir ./artifacts
+          rm -rf ./artifacts/fixtures__*/
+          gh run download ${{ github.run_id }} -p "benchmark_genesis_*" --dir ./artifacts || true
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - name: Draft pre-release on EELS (canonical)
+      - name: Draft release on EELS (canonical)
         run: |
-          # Find previous tag scoped to this feature (e.g., tests-bal@v*)
           FEATURE_PREFIX="${TAG_NAME%%@*}"
           PREV_TAG=$(
             git tag --list "${FEATURE_PREFIX}@v*" --sort=-v:refname \
@@ -90,24 +151,29 @@ jobs:
               | head -n 1 \
             || true
           )
-          NOTES_ARGS=()
-          if [ -n "$PREV_TAG" ]; then
-            NOTES_ARGS=(--notes-start-tag "$PREV_TAG")
+          RELEASE_ARGS=(--draft --generate-notes)
+          if [ "$FEATURE_NAME" != "mainnet" ]; then
+            RELEASE_ARGS+=(--prerelease)
           fi
-          gh release create "$TAG_NAME" --draft --prerelease --generate-notes "${NOTES_ARGS[@]}" ./artifacts/**/*
+          if [ -n "$PREV_TAG" ]; then
+            RELEASE_ARGS+=(--notes-start-tag "$PREV_TAG")
+          fi
+          gh release create "$TAG_NAME" "${RELEASE_ARGS[@]}" ./artifacts/**/*.tar.gz
         env:
           TAG_NAME: ${{ github.ref_name }}
+          FEATURE_NAME: ${{ needs.setup.outputs.feature_name }}
           GH_TOKEN: ${{ github.token }}
 
-      - name: Draft pre-release on EEST (mirror)
+      - name: Draft release on EEST (mirror)
         run: |
           EEST_TAG="${TAG_NAME#tests-}"
-          gh release create "$EEST_TAG" \
-            --repo ethereum/execution-spec-tests \
-            --draft \
-            --prerelease \
-            --notes "This release is mirrored from [ethereum/execution-specs ${TAG_NAME}](https://github.com/ethereum/execution-specs/releases/tag/${TAG_NAME})." \
-            ./artifacts/**/*
+          RELEASE_ARGS=(--repo ethereum/execution-spec-tests --draft)
+          if [ "$FEATURE_NAME" != "mainnet" ]; then
+            RELEASE_ARGS+=(--prerelease)
+          fi
+          RELEASE_ARGS+=(--notes "This release is mirrored from [ethereum/execution-specs ${TAG_NAME}](https://github.com/ethereum/execution-specs/releases/tag/${TAG_NAME}).")
+          gh release create "$EEST_TAG" "${RELEASE_ARGS[@]}" ./artifacts/**/*.tar.gz
         env:
           TAG_NAME: ${{ github.ref_name }}
+          FEATURE_NAME: ${{ needs.setup.outputs.feature_name }}
           GH_TOKEN: ${{ secrets.EEST_RELEASE_TOKEN }}

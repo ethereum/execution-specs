@@ -57,8 +57,8 @@ def test_create_insufficient_balance(
 
     A creator contract with zero balance attempts to create with value=1.
     The create aborts, and a subsequent BALANCE check on the would-be
-    contract address verifies it remains cold (costs G_COLD_ACCOUNT_ACCESS
-    instead of G_WARM_STORAGE_READ).
+    contract address verifies it remains cold (costs COLD_ACCOUNT_ACCESS
+    instead of WARM_STORAGE_READ).
     """
     initcode = Op.STOP
 

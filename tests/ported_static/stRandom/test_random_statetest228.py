@@ -7,7 +7,6 @@ state_tests/stRandom/randomStatetest228Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_random_statetest228(
 ) -> None:
     """Test_random_statetest228."""
     coinbase = Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79)
-    sender = EOA(
-        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -60,7 +57,6 @@ def test_random_statetest228(
         ),
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x5E86C1990271C79E1F71C1A16AE327A81EC9C863),  # noqa: E501
     )
     # Source: raw
     # 0x6000355415600957005b60203560003555
@@ -78,7 +74,6 @@ def test_random_statetest228(
         nonce=0,
         address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
@@ -89,10 +84,7 @@ def test_random_statetest228(
     )
 
     post = {
-        target: Account(
-            storage={0: 0x4F3F701464972E74606D6EA82D4D3080599A0E79},
-            nonce=0,
-        ),
+        target: Account(storage={0: coinbase}, nonce=0),
         coinbase: Account(storage={}, nonce=0),
         sender: Account(storage={}, code=b"", nonce=1),
     }

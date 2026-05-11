@@ -1,6 +1,6 @@
 # Fuzzer Bridge
 
-The fuzzer bridge provides a seamless integration between blocktest fuzzers and the Ethereum execution-spec-tests framework, enabling automatic generation of valid blockchain test fixtures from fuzzer output.
+The fuzzer bridge provides a seamless integration between blocktest fuzzers and the Ethereum execution-specs framework, enabling automatic generation of valid blockchain test fixtures from fuzzer output.
 
 ## Overview
 
@@ -12,7 +12,7 @@ Fuzzers are excellent at generating test inputs to discover edge cases and bugs 
 - System contract interactions
 - Genesis block derivation
 
-The fuzzer bridge handles all these complexities automatically by leveraging the execution-spec-tests framework.
+The fuzzer bridge handles all these complexities automatically by leveraging the execution-specs framework.
 
 ## Architecture
 
@@ -24,7 +24,7 @@ graph LR
 
 ## Installation
 
-The fuzzer bridge is included with the execution-spec-tests framework. Follow the [installation guide](../getting_started/installation.md) to set up EEST.
+The fuzzer bridge is included with the execution-specs framework. Follow the [installation guide](../getting_started/installation.md) to set up EELS.
 
 Once installed, the `fuzzer_bridge` command will be available through `uv run`.
 
@@ -255,8 +255,3 @@ builder.env_overrides = {
 3. **Use Parallel Processing**: For large batches, use `--parallel` flag for better performance
 4. **Version Control**: Track generated fixtures in version control for regression testing
 5. **Continuous Integration**: Integrate fuzzer bridge into CI pipelines for automated testing
-
-## Further Resources
-
-- [EEST Framework Documentation](../index.md)
-- [Ethereum Test Format Specifications](./reference_specification.md)

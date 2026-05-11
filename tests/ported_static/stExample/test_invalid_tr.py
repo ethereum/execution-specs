@@ -7,7 +7,6 @@ state_tests/stExample/invalidTrFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_invalid_tr(
 ) -> None:
     """A state test with invalid transaction example filler."""
     coinbase = Address(0x7704D8A022A1BA8F3539FC82C7D7FB065ABC0DF3)
-    sender = EOA(
-        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -55,9 +52,7 @@ def test_invalid_tr(
         code=Op.SSTORE(key=0x0, value=Op.ADD(0x1, 0x1)) + Op.STOP,
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x4567F627ABB612A28ED0A355E3FA9BF1E455677A),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

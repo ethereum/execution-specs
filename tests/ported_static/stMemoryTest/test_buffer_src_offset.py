@@ -7,7 +7,6 @@ state_tests/stMemoryTest/bufferSrcOffsetFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -769,9 +768,7 @@ def test_buffer_src_offset(
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x000000000000000000000000000000000000C0DE)
     contract_1 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -994,7 +991,7 @@ def test_buffer_src_offset(
         + Op.JUMP(pc=0x22A)
         + Op.JUMPDEST
         + Op.EXTCODECOPY(
-            address=0xC0DE,
+            address=contract_0,
             dest_offset=Op.MLOAD(offset=0x2040),
             offset=Op.MLOAD(offset=0x2020),
             size=Op.MLOAD(offset=0x2060),
@@ -1021,7 +1018,7 @@ def test_buffer_src_offset(
         + Op.POP(
             Op.CALL(
                 gas=0x1000,
-                address=0xC0DE,
+                address=contract_0,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -1050,9 +1047,7 @@ def test_buffer_src_offset(
         storage={256: 24743},
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     expect_entries_: list[dict] = [
         {

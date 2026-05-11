@@ -437,6 +437,12 @@ class Alloc(BaseAlloc):
             "deploy_contract is not implemented in the base class"
         )
 
+    def stub_eoa(self, label: str) -> EOA:
+        """Return the EOA for a key-bearing stub."""
+        raise NotImplementedError(
+            "stub_eoa is not implemented in the base class"
+        )
+
     def fund_eoa(
         self,
         amount: NumberConvertible | None = None,

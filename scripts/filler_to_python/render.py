@@ -42,7 +42,11 @@ def format_storage(d: dict) -> str:
         return "{}"
     items = []
     for k in sorted(d.keys()):
-        items.append(f"{format_int(k)}: {format_int(d[k])}")
+        v = d[k]
+        if isinstance(v, str):
+            items.append(f"{format_int(k)}: {v}")
+        else:
+            items.append(f"{format_int(k)}: {format_int(v)}")
     single = "{" + ", ".join(items) + "}"
     if len(single) <= 50:
         return single
@@ -271,6 +275,7 @@ def render_test(ir: IntermediateTestModel) -> str:
         "is_slow": ir.is_slow,
         "is_multi_case": ir.is_multi_case,
         "is_fork_dependent": ir.is_fork_dependent,
+        "needs_mutable_pre": ir.needs_mutable_pre,
         "has_exceptions": has_exceptions,
         "env": ir.environment,
         "accounts": ir.accounts,

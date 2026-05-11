@@ -8,11 +8,9 @@ from .benchmark_code_generator import (
     ExtCallGenerator,
     JumpLoopGenerator,
 )
-from .stub_config import StubConfig
 
 __all__ = (
     "BenchmarkCodeGenerator",
     "ExtCallGenerator",
     "JumpLoopGenerator",
-    "StubConfig",
 )

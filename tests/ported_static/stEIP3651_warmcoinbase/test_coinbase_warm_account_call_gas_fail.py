@@ -83,83 +83,8 @@ def test_coinbase_warm_account_call_gas_fail(
         gas_limit=100000000,
     )
 
-    # Source: yul
-    # berlin
-    # {
-    #    // Depending on the called contract here, the subcall will perform
-    #    // another call/delegatecall/staticcall/callcode that will only succeed  # noqa: E501
-    #    // if coinbase is considered warm by default (post-Shanghai).
-    #    let calladdr := calldataload(4)
-    #
-    #    let callgas := 100
-    #    switch calladdr
-    #    case <contract:0x0000000000000000000000000000000000001000> {
-    #      // Extra: COINBASE + 6xPUSH1 + DUP6 + 2xPOP
-    #      callgas := add(callgas, 27)
-    #    }
-    #    case <contract:0x0000000000000000000000000000000000002000> {
-    #      // Extra: COINBASE + 6xPUSH1 + DUP6 + 2xPOP
-    #      callgas := add(callgas, 27)
-    #    }
-    #    case <contract:0x0000000000000000000000000000000000003000> {
-    #      // Extra: COINBASE + 5xPUSH1 + DUP6 + 2xPOP
-    #      callgas := add(callgas, 24)
-    #    }
-    #    case <contract:0x0000000000000000000000000000000000004000> {
-    #      // Extra: COINBASE + 5xPUSH1 + DUP6 + 2xPOP
-    #      callgas := add(callgas, 24)
-    #    }
-    #    // Call and save result
-    #    sstore(0, call(callgas, calladdr, 0, 0, 0, 0, 0))
-    #
-    # }
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH1[0x0]
-        + Op.DUP1 * 4
-        + Op.CALLDATALOAD(offset=0x4)
-        + Op.PUSH1[0x64]
-        + Op.DUP2
-        + Op.JUMPI(
-            pc=0x88,
-            condition=Op.EQ(
-                0x8DDF5D9A5251C41EFD2949F53DB0A464116C7C6E, Op.DUP1
-            ),
-        )
-        + Op.JUMPI(
-            pc=0x88,
-            condition=Op.EQ(
-                0x498516B6B2F25CB6A8E011A7C37A617B77E7D500, Op.DUP1
-            ),
-        )
-        + Op.JUMPI(
-            pc=0x80,
-            condition=Op.EQ(
-                0x8873820BB96DAA39DB93AE64A9D6397E4C6A48D7, Op.DUP1
-            ),
-        )
-        + Op.PUSH20[0x303B6790D019874A107418EB549E4E7766A64728]
-        + Op.JUMPI(pc=0x79, condition=Op.EQ)
-        + Op.JUMPDEST
-        + Op.SSTORE(key=0x0, value=Op.CALL)
-        + Op.STOP
-        + Op.JUMPDEST
-        + Op.PUSH1[0x18]
-        + Op.ADD
-        + Op.JUMP(pc=0x73)
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.PUSH1[0x18]
-        + Op.ADD
-        + Op.JUMP(pc=0x73)
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.PUSH1[0x1B]
-        + Op.ADD
-        + Op.JUMP(pc=0x73),
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x0A92FC97BB4C47B3D5E9E96FBB1C3FC2F07DBA81),  # noqa: E501
-    )
+    pre[coinbase] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
     # Source: yul
     # berlin
     # {
@@ -242,8 +167,83 @@ def test_coinbase_warm_account_call_gas_fail(
         nonce=1,
         address=Address(0x303B6790D019874A107418EB549E4E7766A64728),  # noqa: E501
     )
-    pre[coinbase] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
+    # Source: yul
+    # berlin
+    # {
+    #    // Depending on the called contract here, the subcall will perform
+    #    // another call/delegatecall/staticcall/callcode that will only succeed  # noqa: E501
+    #    // if coinbase is considered warm by default (post-Shanghai).
+    #    let calladdr := calldataload(4)
+    #
+    #    let callgas := 100
+    #    switch calladdr
+    #    case <contract:0x0000000000000000000000000000000000001000> {
+    #      // Extra: COINBASE + 6xPUSH1 + DUP6 + 2xPOP
+    #      callgas := add(callgas, 27)
+    #    }
+    #    case <contract:0x0000000000000000000000000000000000002000> {
+    #      // Extra: COINBASE + 6xPUSH1 + DUP6 + 2xPOP
+    #      callgas := add(callgas, 27)
+    #    }
+    #    case <contract:0x0000000000000000000000000000000000003000> {
+    #      // Extra: COINBASE + 5xPUSH1 + DUP6 + 2xPOP
+    #      callgas := add(callgas, 24)
+    #    }
+    #    case <contract:0x0000000000000000000000000000000000004000> {
+    #      // Extra: COINBASE + 5xPUSH1 + DUP6 + 2xPOP
+    #      callgas := add(callgas, 24)
+    #    }
+    #    // Call and save result
+    #    sstore(0, call(callgas, calladdr, 0, 0, 0, 0, 0))
+    #
+    # }
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.PUSH1[0x0]
+        + Op.DUP1 * 4
+        + Op.CALLDATALOAD(offset=0x4)
+        + Op.PUSH1[0x64]
+        + Op.DUP2
+        + Op.JUMPI(
+            pc=0x88,
+            condition=Op.EQ(
+                0x8DDF5D9A5251C41EFD2949F53DB0A464116C7C6E, Op.DUP1
+            ),
+        )
+        + Op.JUMPI(
+            pc=0x88,
+            condition=Op.EQ(
+                0x498516B6B2F25CB6A8E011A7C37A617B77E7D500, Op.DUP1
+            ),
+        )
+        + Op.JUMPI(
+            pc=0x80,
+            condition=Op.EQ(
+                0x8873820BB96DAA39DB93AE64A9D6397E4C6A48D7, Op.DUP1
+            ),
+        )
+        + Op.PUSH20[0x303B6790D019874A107418EB549E4E7766A64728]
+        + Op.JUMPI(pc=0x79, condition=Op.EQ)
+        + Op.JUMPDEST
+        + Op.SSTORE(key=0x0, value=Op.CALL)
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.PUSH1[0x18]
+        + Op.ADD
+        + Op.JUMP(pc=0x73)
+        + Op.JUMPDEST
+        + Op.POP
+        + Op.PUSH1[0x18]
+        + Op.ADD
+        + Op.JUMP(pc=0x73)
+        + Op.JUMPDEST
+        + Op.POP
+        + Op.PUSH1[0x1B]
+        + Op.ADD
+        + Op.JUMP(pc=0x73),
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=1,
+        address=Address(0x0A92FC97BB4C47B3D5E9E96FBB1C3FC2F07DBA81),  # noqa: E501
+    )
 
     tx_data = [
         Bytes("693c6139") + Hash(addr, left_padding=True),

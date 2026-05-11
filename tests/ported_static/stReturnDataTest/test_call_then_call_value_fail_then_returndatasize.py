@@ -7,7 +7,6 @@ state_tests/stReturnDataTest/call_then_call_value_fail_then_returndatasizeFiller
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_call_then_call_value_fail_then_returndatasize(
 ) -> None:
     """Test_call_then_call_value_fail_then_returndatasize."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
-    )
+    sender = pre.fund_eoa(amount=0x6400000000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -58,7 +55,6 @@ def test_call_then_call_value_fail_then_returndatasize(
         + Op.RETURN(offset=0x0, size=0x20)
         + Op.STOP,
         nonce=0,
-        address=Address(0x9898DD5E5C526B55EC49B1047E298705C13279F1),  # noqa: E501
     )
     # Source: lll
     # { (seq (CALL 0x0900000000 <contract:0x0aabbccdd5c57f15886f9b263e2f6d2d6c7b5ec6> 0 0 0 0 0x20) (CALL 0x0900000000 <contract:0x0aabbccdd5c57f15886f9b263e2f6d2d6c7b5ec6> 0xffffffffffff 0 0 0 0x20) (SSTORE 0 (RETURNDATASIZE)) )}  # noqa: E501
@@ -66,7 +62,7 @@ def test_call_then_call_value_fail_then_returndatasize(
         code=Op.POP(
             Op.CALL(
                 gas=0x900000000,
-                address=0x9898DD5E5C526B55EC49B1047E298705C13279F1,
+                address=addr,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -77,7 +73,7 @@ def test_call_then_call_value_fail_then_returndatasize(
         + Op.POP(
             Op.CALL(
                 gas=0x900000000,
-                address=0x9898DD5E5C526B55EC49B1047E298705C13279F1,
+                address=addr,
                 value=0xFFFFFFFFFFFF,
                 args_offset=0x0,
                 args_size=0x0,
@@ -89,9 +85,7 @@ def test_call_then_call_value_fail_then_returndatasize(
         + Op.STOP,
         storage={0: 1},
         nonce=0,
-        address=Address(0x0E496B29AD2F0E55ADF292C08A6A9289CB163835),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x6400000000)
 
     tx = Transaction(
         sender=sender,

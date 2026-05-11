@@ -1,0 +1,21 @@
+# Shared fork ranges for splitting multi-fork releases across parallel runners.
+# Features using --until are automatically split using applicable ranges.
+# Features using --fork (single fork) are never split.
+- label: pre-cancun
+  from: Frontier
+  until: Shanghai
+- label: cancun
+  from: Cancun
+  until: Cancun
+- label: prague
+  from: Prague
+  until: Prague
+- label: osaka
+  from: Osaka
+  until: Osaka
+- label: bpo
+  from: BPO1
+  until: BPO2
+- label: amsterdam
+  from: Amsterdam
+  until: Amsterdam

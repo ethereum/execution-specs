@@ -19,11 +19,11 @@ from execution_testing.test_types.block_types import Environment
         pytest.param(0, marks=pytest.mark.exception_test),
         pytest.param(1, marks=pytest.mark.exception_test),
         pytest.param(4999, marks=pytest.mark.exception_test),
-        pytest.param(5000, marks=pytest.mark.valid_until("Osaka")),
+        pytest.param(5000, marks=pytest.mark.valid_before("EIP7928")),
         pytest.param(
             5000,
             marks=[
-                pytest.mark.valid_from("Amsterdam"),
+                pytest.mark.valid_from("EIP7928"),
                 pytest.mark.exception_test,
             ],
         ),

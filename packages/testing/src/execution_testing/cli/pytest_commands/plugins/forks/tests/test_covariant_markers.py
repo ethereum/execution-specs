@@ -129,6 +129,20 @@ import pytest
         pytest.param(
             """
             import pytest
+            @pytest.mark.with_all_tx_types()
+            @pytest.mark.valid_from("Paris")
+            @pytest.mark.valid_before("Shanghai")
+            @pytest.mark.state_test_only
+            def test_case(state_test, tx_type):
+                pass
+            """,
+            {"passed": 3, "failed": 0, "skipped": 0, "errors": 0},
+            None,
+            id="with_all_tx_types_valid_before",
+        ),
+        pytest.param(
+            """
+            import pytest
             @pytest.mark.with_all_contract_creating_tx_types()
             @pytest.mark.valid_from("Paris")
             @pytest.mark.valid_until("Paris")

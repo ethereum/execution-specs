@@ -68,25 +68,15 @@ def test_new_gas_price_for_codes(
     # { [999] (GAS) (SSTORE 1 (EXTCODESIZE <contract:0x1000000000000000000000000000000000000010>)) (EXTCODECOPY <contract:0x1000000000000000000000000000000000000010> 0 0 20) (SSTORE 2 (MLOAD 0)) (SSTORE 4 (SLOAD 0)) (SSTORE 5 (CALL 30000 <contract:0x1000000000000000000000000000000000000011> 1 0 0 0 0)) (SSTORE 6 (CALLCODE 30000 <contract:0x1000000000000000000000000000000000000011> 1 0 0 0 0)) (SSTORE 7 (DELEGATECALL 30000 <contract:0x1000000000000000000000000000000000000011> 0 0 0 0)) (SSTORE 8 (CALL 30000 0x1000000000000000000000000000000000000013 0 0 0 0 0)) (SSTORE 3 (BALANCE <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>)) (SSTORE 10 (SUB (MLOAD 999) (GAS))) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x3E7, value=Op.GAS)
-        + Op.SSTORE(
-            key=0x1,
-            value=Op.EXTCODESIZE(
-                address=0xC572A70AFAAB9D01D0A2AFB855BFBAFB47C8211B
-            ),
-        )
-        + Op.EXTCODECOPY(
-            address=0xC572A70AFAAB9D01D0A2AFB855BFBAFB47C8211B,
-            dest_offset=0x0,
-            offset=0x0,
-            size=0x14,
-        )
+        + Op.SSTORE(key=0x1, value=Op.EXTCODESIZE(address=addr))
+        + Op.EXTCODECOPY(address=addr, dest_offset=0x0, offset=0x0, size=0x14)
         + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=0x0))
         + Op.SSTORE(key=0x4, value=Op.SLOAD(key=0x0))
         + Op.SSTORE(
             key=0x5,
             value=Op.CALL(
                 gas=0x7530,
-                address=0xAD9D325B811CB0701839C07C6F139F3799476798,
+                address=addr_2,
                 value=0x1,
                 args_offset=0x0,
                 args_size=0x0,
@@ -98,7 +88,7 @@ def test_new_gas_price_for_codes(
             key=0x6,
             value=Op.CALLCODE(
                 gas=0x7530,
-                address=0xAD9D325B811CB0701839C07C6F139F3799476798,
+                address=addr_2,
                 value=0x1,
                 args_offset=0x0,
                 args_size=0x0,
@@ -110,7 +100,7 @@ def test_new_gas_price_for_codes(
             key=0x7,
             value=Op.DELEGATECALL(
                 gas=0x7530,
-                address=0xAD9D325B811CB0701839C07C6F139F3799476798,
+                address=addr_2,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -129,12 +119,7 @@ def test_new_gas_price_for_codes(
                 ret_size=0x0,
             ),
         )
-        + Op.SSTORE(
-            key=0x3,
-            value=Op.BALANCE(
-                address=0xFAA10B404AB607779993C016CD5DA73AE1F29D7E
-            ),
-        )
+        + Op.SSTORE(key=0x3, value=Op.BALANCE(address=sender))
         + Op.SSTORE(key=0xA, value=Op.SUB(Op.MLOAD(offset=0x3E7), Op.GAS))
         + Op.STOP,
         storage={0: 18},

@@ -48,6 +48,7 @@ def test_add11_yml(
     )
 
     pre[coinbase] = Account(balance=0, nonce=1)
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {
     #    ; Can also add lll style comments here
@@ -59,7 +60,6 @@ def test_add11_yml(
         nonce=0,
         address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

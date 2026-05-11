@@ -218,6 +218,7 @@ def test_create_results(
         gas_limit=4294967296,
     )
 
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
     # Source: lll
     # {
     #   ; Variables are 0x20 bytes (= 256 bits) apart, except for
@@ -571,13 +572,13 @@ def test_create_results(
         )
         + Op.STOP,
         storage={
-            16: 24743,
-            18: 24743,
-            19: 24743,
-            20: 24743,
-            21: 24743,
-            32: 24743,
-            33: 24743,
+            16: contract_1,
+            18: contract_1,
+            19: contract_1,
+            20: contract_1,
+            21: contract_1,
+            32: contract_1,
+            33: contract_1,
         },
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
@@ -593,7 +594,6 @@ def test_create_results(
         nonce=0,
         address=Address(0x00000000000000000000000000000000000060A7),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     expect_entries_: list[dict] = [
         {
@@ -601,7 +601,7 @@ def test_create_results(
             "network": [">=Cancun"],
             "result": {
                 contract_0: Account(storage={32: 295, 33: 551}),
-                contract_1: Account(storage={0: 24743}),
+                contract_1: Account(storage={0: contract_1}),
             },
         },
         {
@@ -621,8 +621,8 @@ def test_create_results(
                     storage={
                         18: 18,
                         19: 0x600060006000600060006160A761FFFFF1000000000000000000000000000000,  # noqa: E501
-                        20: 24743,
-                        21: 24743,
+                        20: contract_1,
+                        21: contract_1,
                         32: 295,
                         33: 551,
                     },
@@ -636,11 +636,11 @@ def test_create_results(
                 contract_0: Account(
                     storage={
                         16: 32,
-                        17: 24743,
+                        17: contract_1,
                         18: 18,
                         19: 0x600060006000600060006160A761FFFFF1000000000000000000000000000000,  # noqa: E501
-                        20: 24743,
-                        21: 24743,
+                        20: contract_1,
+                        21: contract_1,
                         32: 295,
                         33: 551,
                     },
@@ -657,14 +657,14 @@ def test_create_results(
             "result": {
                 contract_0: Account(
                     storage={
-                        16: 24743,
+                        16: contract_1,
                         17: 0,
-                        18: 24743,
-                        19: 24743,
-                        20: 24743,
-                        21: 24743,
-                        32: 24743,
-                        33: 24743,
+                        18: contract_1,
+                        19: contract_1,
+                        20: contract_1,
+                        21: contract_1,
+                        32: contract_1,
+                        33: contract_1,
                     },
                 ),
             },

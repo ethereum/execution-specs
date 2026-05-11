@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_RawCallGasAskFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -77,9 +76,7 @@ def test_static_raw_call_gas_ask(
     contract_3 = Address(0x2000000000000000000000000000000000000001)
     contract_4 = Address(0x3000000000000000000000000000000000000001)
     contract_5 = Address(0x4000000000000000000000000000000000000001)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -97,7 +94,6 @@ def test_static_raw_call_gas_ask(
         nonce=0,
         address=Address(0x094F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # { (CALL (GAS) (CALLDATALOAD 0) 0 0 0 0 0) }
     contract_1 = pre.deploy_contract(  # noqa: F841
@@ -114,24 +110,6 @@ def test_static_raw_call_gas_ask(
         balance=0xE8D4A51000,
         nonce=0,
         address=Address(0x1000000000000000000000000000000000000000),  # noqa: E501
-    )
-    # Source: lll
-    # {  (STATICCALL 3000000 0x094f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0) [[1]] (GAS) }  # noqa: E501
-    contract_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.POP(
-            Op.STATICCALL(
-                gas=0x2DC6C0,
-                address=0x94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            )
-        )
-        + Op.SSTORE(key=0x1, value=Op.GAS)
-        + Op.STOP,
-        nonce=0,
-        address=Address(0x1000000000000000000000000000000000000001),  # noqa: E501
     )
     # Source: lll
     # { (STATICCALL 130000 0x094f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0) [[1]] (GAS) }  # noqa: E501
@@ -152,6 +130,24 @@ def test_static_raw_call_gas_ask(
         address=Address(0x2000000000000000000000000000000000000001),  # noqa: E501
     )
     # Source: lll
+    # { (STATICCALL 130000 0x094f5374fce5edbc8e2a8697c15331677e6ebf0b 0 8000 0 8000) [[1]] (GAS) }  # noqa: E501
+    contract_5 = pre.deploy_contract(  # noqa: F841
+        code=Op.POP(
+            Op.STATICCALL(
+                gas=0x1FBD0,
+                address=0x94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                args_offset=0x0,
+                args_size=0x1F40,
+                ret_offset=0x0,
+                ret_size=0x1F40,
+            )
+        )
+        + Op.SSTORE(key=0x1, value=Op.GAS)
+        + Op.STOP,
+        nonce=0,
+        address=Address(0x4000000000000000000000000000000000000001),  # noqa: E501
+    )
+    # Source: lll
     # { (STATICCALL 3000000 0x094f5374fce5edbc8e2a8697c15331677e6ebf0b 0 8000 0 8000) [[1]] (GAS) }  # noqa: E501
     contract_4 = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
@@ -170,22 +166,22 @@ def test_static_raw_call_gas_ask(
         address=Address(0x3000000000000000000000000000000000000001),  # noqa: E501
     )
     # Source: lll
-    # { (STATICCALL 130000 0x094f5374fce5edbc8e2a8697c15331677e6ebf0b 0 8000 0 8000) [[1]] (GAS) }  # noqa: E501
-    contract_5 = pre.deploy_contract(  # noqa: F841
+    # {  (STATICCALL 3000000 0x094f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0) [[1]] (GAS) }  # noqa: E501
+    contract_2 = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
             Op.STATICCALL(
-                gas=0x1FBD0,
+                gas=0x2DC6C0,
                 address=0x94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
                 args_offset=0x0,
-                args_size=0x1F40,
+                args_size=0x0,
                 ret_offset=0x0,
-                ret_size=0x1F40,
+                ret_size=0x0,
             )
         )
         + Op.SSTORE(key=0x1, value=Op.GAS)
         + Op.STOP,
         nonce=0,
-        address=Address(0x4000000000000000000000000000000000000001),  # noqa: E501
+        address=Address(0x1000000000000000000000000000000000000001),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

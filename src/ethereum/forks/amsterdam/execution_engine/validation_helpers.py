@@ -9,12 +9,12 @@ from ethereum_types.bytes import Bytes, Bytes8
 from ethereum_types.numeric import Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
+from ethereum.merkle_patricia_trie import Trie, root, trie_set
 from ethereum.state import Root
 
 from ..blocks import Block, Header
 from ..fork import EMPTY_OMMER_HASH
 from ..requests import compute_requests_hash
-from ..trie import Trie, root, trie_set
 from .requests import ExecutionRequests, encode_execution_requests
 from .types import ExecutionPayload
 

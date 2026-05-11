@@ -112,8 +112,8 @@ class Header:
     Ethereum world state after applying the block's state changes.
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
-    [changes]: ref:ethereum.forks.amsterdam.state.State.compute_state_root_and_trie_changes
-    [Trie]: ref:ethereum.forks.amsterdam.trie.Trie
+    [changes]: ref:ethereum.state.State.compute_state_root_and_trie_changes
+    [Trie]: ref:ethereum.merkle_patricia_trie.Trie
     """  # noqa: E501
 
     transactions_root: Root
@@ -124,8 +124,8 @@ class Header:
     transactions as the parameter.
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
-    [`root()`]: ref:ethereum.forks.amsterdam.trie.root
-    [Trie]: ref:ethereum.forks.amsterdam.trie.Trie
+    [`root()`]: ref:ethereum.merkle_patricia_trie.root
+    [Trie]: ref:ethereum.merkle_patricia_trie.Trie
     """
 
     receipt_root: Root
@@ -135,8 +135,8 @@ class Header:
     function over the Merkle-Patricia [trie] constructed from the receipts.
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
-    [`root()`]: ref:ethereum.forks.amsterdam.trie.root
-    [Trie]: ref:ethereum.forks.amsterdam.trie.Trie
+    [`root()`]: ref:ethereum.merkle_patricia_trie.root
+    [Trie]: ref:ethereum.merkle_patricia_trie.Trie
     """
 
     bloom: Bloom

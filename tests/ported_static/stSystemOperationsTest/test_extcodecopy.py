@@ -46,6 +46,7 @@ def test_extcodecopy(
         gas_limit=1478962728,
     )
 
+    pre[sender] = Account(balance=0x4F6CA7B90CEB5FD4)
     # Source: raw
     # 0x7f15688566a82f5f946c68028bf626b349e495daa43e33529a76437ac416cd1b7d6e7dae7454bb193b1c28e64a6a935bc373cea0c5cc171fa61277e5604a3bc8aef4de3d38820658600b80797ada6e82e95f6520383f95f5c7dae56b4dc13b6f22ecabfce07c3cff51  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -138,7 +139,6 @@ def test_extcodecopy(
         nonce=221,
         address=Address(0x5B400827141A956CEB3E889AD3E1707AEE1A575C),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x4F6CA7B90CEB5FD4)
 
     tx = Transaction(
         sender=sender,

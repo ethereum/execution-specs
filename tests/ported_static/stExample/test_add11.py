@@ -47,6 +47,7 @@ def test_add11(
         gas_limit=71794957647893862,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: hex
     # 0x
     coinbase = pre.deploy_contract(  # noqa: F841
@@ -62,7 +63,6 @@ def test_add11(
         nonce=0,
         address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

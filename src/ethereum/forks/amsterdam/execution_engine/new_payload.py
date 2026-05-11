@@ -9,12 +9,16 @@ from ethereum_types.bytes import Bytes
 
 from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import InvalidBlock
-from ethereum.state import BlockDiff, PreState, Root
+from ethereum.state import (
+    BlockDiff,
+    PreState,
+    Root,
+    apply_changes_to_state,
+)
 
 from ..blocks import Block
 from ..fork import ChainContext, execute_block, get_last_256_block_hashes
 from ..fork_types import VersionedHash
-from ..state import apply_changes_to_state
 from ..transactions import BlobTransaction, decode_transaction
 from .requests import ExecutionRequests
 from .types import ExecutionEngine, ExecutionPayload, NewPayloadRequest

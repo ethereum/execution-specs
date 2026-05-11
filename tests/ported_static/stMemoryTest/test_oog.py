@@ -7,7 +7,6 @@ state_tests/stMemoryTest/oogFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -322,9 +321,7 @@ def test_oog(
     contract_20 = Address(0x00000000000000000000000000000000000100FA)
     contract_21 = Address(0x00000000000000000000000000000000000111F1)
     contract_22 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE, nonce=1)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -385,32 +382,6 @@ def test_oog(
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
         address=Address(0x000000000000000000000000000000000001003C),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #    // Make sure there is return data to be copied
-    #    pop(call(gas(), 0x1113e, 0, 0, 0x20, 0, 0x20))
-    #
-    #    returndatacopy(0x1000,0,0x10)
-    # }
-    contract_4 = pre.deploy_contract(  # noqa: F841
-        code=Op.POP(
-            Op.CALL(
-                gas=Op.GAS,
-                address=0x1113E,
-                value=Op.DUP1,
-                args_offset=Op.DUP2,
-                args_size=Op.DUP2,
-                ret_offset=0x0,
-                ret_size=0x20,
-            )
-        )
-        + Op.RETURNDATACOPY(dest_offset=0x1000, offset=0x0, size=0x10)
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x000000000000000000000000000000000001003E),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -565,84 +536,6 @@ def test_oog(
     # Source: yul
     # berlin
     # {
-    #    pop(call(gas(), 0x111f1, 0, 0x10000, 0, 0, 0))
-    # }
-    contract_17 = pre.deploy_contract(  # noqa: F841
-        code=Op.CALL(
-            gas=Op.GAS,
-            address=0x111F1,
-            value=Op.DUP2,
-            args_offset=0x10000,
-            args_size=Op.DUP1,
-            ret_offset=Op.DUP1,
-            ret_size=0x0,
-        )
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000000100F1),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #    pop(callcode(gas(), 0x111f1, 0, 0x10000, 0, 0, 0))
-    # }
-    contract_18 = pre.deploy_contract(  # noqa: F841
-        code=Op.CALLCODE(
-            gas=Op.GAS,
-            address=0x111F1,
-            value=Op.DUP2,
-            args_offset=0x10000,
-            args_size=Op.DUP1,
-            ret_offset=Op.DUP1,
-            ret_size=0x0,
-        )
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000000100F2),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #    pop(delegatecall(gas(), 0x111f1, 0x10000, 0, 0, 0))
-    # }
-    contract_19 = pre.deploy_contract(  # noqa: F841
-        code=Op.DELEGATECALL(
-            gas=Op.GAS,
-            address=0x111F1,
-            args_offset=0x10000,
-            args_size=Op.DUP1,
-            ret_offset=Op.DUP1,
-            ret_size=0x0,
-        )
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000000100F4),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #    pop(staticcall(gas(), 0x111f1, 0x10000, 0, 0, 0))
-    # }
-    contract_20 = pre.deploy_contract(  # noqa: F841
-        code=Op.STATICCALL(
-            gas=Op.GAS,
-            address=0x111F1,
-            args_offset=0x10000,
-            args_size=Op.DUP1,
-            ret_offset=Op.DUP1,
-            ret_size=0x0,
-        )
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000000100FA),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
     #    stop()
     # }
     contract_21 = pre.deploy_contract(  # noqa: F841
@@ -678,7 +571,110 @@ def test_oog(
         nonce=1,
         address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
+    # Source: yul
+    # berlin
+    # {
+    #    // Make sure there is return data to be copied
+    #    pop(call(gas(), 0x1113e, 0, 0, 0x20, 0, 0x20))
+    #
+    #    returndatacopy(0x1000,0,0x10)
+    # }
+    contract_4 = pre.deploy_contract(  # noqa: F841
+        code=Op.POP(
+            Op.CALL(
+                gas=Op.GAS,
+                address=0x1113E,
+                value=Op.DUP1,
+                args_offset=Op.DUP2,
+                args_size=Op.DUP2,
+                ret_offset=0x0,
+                ret_size=0x20,
+            )
+        )
+        + Op.RETURNDATACOPY(dest_offset=0x1000, offset=0x0, size=0x10)
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=1,
+        address=Address(0x000000000000000000000000000000000001003E),  # noqa: E501
+    )
+    # Source: yul
+    # berlin
+    # {
+    #    pop(call(gas(), 0x111f1, 0, 0x10000, 0, 0, 0))
+    # }
+    contract_17 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALL(
+            gas=Op.GAS,
+            address=0x111F1,
+            value=Op.DUP2,
+            args_offset=0x10000,
+            args_size=Op.DUP1,
+            ret_offset=Op.DUP1,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=1,
+        address=Address(0x00000000000000000000000000000000000100F1),  # noqa: E501
+    )
+    # Source: yul
+    # berlin
+    # {
+    #    pop(staticcall(gas(), 0x111f1, 0x10000, 0, 0, 0))
+    # }
+    contract_20 = pre.deploy_contract(  # noqa: F841
+        code=Op.STATICCALL(
+            gas=Op.GAS,
+            address=0x111F1,
+            args_offset=0x10000,
+            args_size=Op.DUP1,
+            ret_offset=Op.DUP1,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=1,
+        address=Address(0x00000000000000000000000000000000000100FA),  # noqa: E501
+    )
+    # Source: yul
+    # berlin
+    # {
+    #    pop(delegatecall(gas(), 0x111f1, 0x10000, 0, 0, 0))
+    # }
+    contract_19 = pre.deploy_contract(  # noqa: F841
+        code=Op.DELEGATECALL(
+            gas=Op.GAS,
+            address=0x111F1,
+            args_offset=0x10000,
+            args_size=Op.DUP1,
+            ret_offset=Op.DUP1,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=1,
+        address=Address(0x00000000000000000000000000000000000100F4),  # noqa: E501
+    )
+    # Source: yul
+    # berlin
+    # {
+    #    pop(callcode(gas(), 0x111f1, 0, 0x10000, 0, 0, 0))
+    # }
+    contract_18 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALLCODE(
+            gas=Op.GAS,
+            address=0x111F1,
+            value=Op.DUP2,
+            args_offset=0x10000,
+            args_size=Op.DUP1,
+            ret_offset=Op.DUP1,
+            ret_size=0x0,
+        )
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
+        nonce=1,
+        address=Address(0x00000000000000000000000000000000000100F2),  # noqa: E501
+    )
 
     expect_entries_: list[dict] = [
         {

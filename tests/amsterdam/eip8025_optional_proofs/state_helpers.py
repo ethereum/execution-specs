@@ -14,7 +14,7 @@ from ethereum.forks.amsterdam.incremental_mpt import (
     mpt_root,
     mpt_set,
 )
-from ethereum.forks.amsterdam.trie import EMPTY_TRIE_ROOT
+from ethereum.merkle_patricia_trie import EMPTY_TRIE_ROOT
 from ethereum.state import (
     EMPTY_CODE_HASH,
     Root,

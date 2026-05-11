@@ -7,7 +7,6 @@ state_tests/stSystemOperationsTest/multiSelfdestructFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -81,9 +80,7 @@ def test_multi_selfdestruct(
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x000000000000000000000000000000000000DEAD)
     contract_1 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000, nonce=1)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -179,7 +176,7 @@ def test_multi_selfdestruct(
             key=0x0,
             value=Op.CALL(
                 gas=Op.GAS,
-                address=0xDEAD,
+                address=contract_0,
                 value=Op.DUP1,
                 args_offset=Op.DUP2,
                 args_size=0x3,
@@ -188,7 +185,7 @@ def test_multi_selfdestruct(
             ),
         )
         + Op.SSTORE(key=0x1, value=Op.BALANCE(address=0x1000))
-        + Op.SSTORE(key=0x2, value=Op.BALANCE(address=0xDEAD))
+        + Op.SSTORE(key=0x2, value=Op.BALANCE(address=contract_0))
         + Op.SHR(0xF8, Op.CALLDATALOAD(offset=0x0))
         + Op.JUMPI(pc=0xCE, condition=Op.EQ(0x1, Op.DUP1))
         + Op.JUMPI(pc=0xBC, condition=Op.EQ(0x2, Op.DUP1))
@@ -202,7 +199,7 @@ def test_multi_selfdestruct(
         + Op.MSTORE8(offset=0x2, value=0x1)
         + Op.CALL(
             gas=Op.GAS,
-            address=0xDEAD,
+            address=contract_0,
             value=0x2,
             args_offset=Op.DUP2,
             args_size=0x3,
@@ -213,7 +210,7 @@ def test_multi_selfdestruct(
         + Op.PUSH1[0x10]
         + Op.SSTORE
         + Op.SSTORE(key=0x11, value=Op.BALANCE(address=0x1000))
-        + Op.SSTORE(key=0x12, value=Op.BALANCE(address=0xDEAD))
+        + Op.SSTORE(key=0x12, value=Op.BALANCE(address=contract_0))
         + Op.SSTORE(key=0x13, value=Op.BALANCE(address=0x1001))
         + Op.STOP
         + Op.JUMPDEST
@@ -222,7 +219,7 @@ def test_multi_selfdestruct(
         + Op.MSTORE8(offset=0x2, value=0x1)
         + Op.CALL(
             gas=Op.GAS,
-            address=0xDEAD,
+            address=contract_0,
             value=Op.DUP1,
             args_offset=Op.DUP2,
             args_size=0x3,
@@ -235,7 +232,7 @@ def test_multi_selfdestruct(
         + Op.MSTORE8(offset=0x2, value=0x1)
         + Op.CALL(
             gas=Op.GAS,
-            address=0xDEAD,
+            address=contract_0,
             value=0x2,
             args_offset=Op.DUP2,
             args_size=0x3,
@@ -247,7 +244,7 @@ def test_multi_selfdestruct(
         + Op.POP
         + Op.CALL(
             gas=Op.GAS,
-            address=0xDEAD,
+            address=contract_0,
             value=0x2,
             args_offset=Op.DUP2,
             args_size=0x3,
@@ -259,7 +256,7 @@ def test_multi_selfdestruct(
         + Op.POP
         + Op.CALL(
             gas=Op.GAS,
-            address=0xDEAD,
+            address=contract_0,
             value=0x2,
             args_offset=Op.DUP1,
             args_size=0x3,
@@ -277,9 +274,7 @@ def test_multi_selfdestruct(
         },
         balance=0x5F5E100,
         nonce=1,
-        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
 
     expect_entries_: list[dict] = [
         {

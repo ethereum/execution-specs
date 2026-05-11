@@ -7,7 +7,6 @@ state_tests/stRevertTest/RevertDepthCreateOOGFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -97,9 +96,7 @@ def test_revert_depth_create_oog(
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xA000000000000000000000000000000000000000)
     contract_1 = Address(0xB000000000000000000000000000000000000000)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -110,7 +107,15 @@ def test_revert_depth_create_oog(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
+    # Source: lll
+    # { [[2]] 8 (CREATE 0 0 0) [[3]] 12}
+    contract_1 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x2, value=0x8)
+        + Op.POP(Op.CREATE(value=0x0, offset=0x0, size=0x0))
+        + Op.SSTORE(key=0x3, value=0xC)
+        + Op.STOP,
+        nonce=0,
+    )
     # Source: lll
     # { [[0]] 1 [[1]] (CALL (CALLDATALOAD 0) 0xb000000000000000000000000000000000000000 0 0 0 0 0) [[4]] 12 }  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -119,7 +124,7 @@ def test_revert_depth_create_oog(
             key=0x1,
             value=Op.CALL(
                 gas=Op.CALLDATALOAD(offset=0x0),
-                address=0xB000000000000000000000000000000000000000,
+                address=contract_1,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -131,17 +136,6 @@ def test_revert_depth_create_oog(
         + Op.STOP,
         balance=5,
         nonce=54,
-        address=Address(0xA000000000000000000000000000000000000000),  # noqa: E501
-    )
-    # Source: lll
-    # { [[2]] 8 (CREATE 0 0 0) [[3]] 12}
-    contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x2, value=0x8)
-        + Op.POP(Op.CREATE(value=0x0, offset=0x0, size=0x0))
-        + Op.SSTORE(key=0x3, value=0xC)
-        + Op.STOP,
-        nonce=0,
-        address=Address(0xB000000000000000000000000000000000000000),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

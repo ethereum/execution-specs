@@ -7,7 +7,6 @@ state_tests/stWalletTest/multiOwnedConstructionNotEnoughGasPartialFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -49,7 +48,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_multi_owned_construction_not_enough_gas_partial(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -60,9 +58,7 @@ def test_multi_owned_construction_not_enough_gas_partial(
 ) -> None:
     """Test_multi_owned_construction_not_enough_gas_partial."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -72,8 +68,6 @@ def test_multi_owned_construction_not_enough_gas_partial(
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
-
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     expect_entries_: list[dict] = [
         {

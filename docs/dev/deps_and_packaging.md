@@ -1,8 +1,17 @@
-# EEST Dependency Management and Packaging
+# Dependency Management and Packaging
 
-EEST uses [`uv`](https://docs.astral.sh/uv/) to manage and pin its dependencies.
+EELS uses [`uv`](https://docs.astral.sh/uv/) to manage and pin its dependencies, and a minimum `uv>=0.7.0` is required.
 
-A minimum version of `uv>=0.7.0` is required to ensure `uv` writes `uv.lock` files with consistent fields and formatting (see [ethereum/execution-spec-tests#1597](https://github.com/ethereum/execution-spec-tests/pull/1597)).
+## Workspace Layout
+
+The repo is a `uv` workspace with two members, each defined by its own `pyproject.toml`:
+
+| Package                      | `pyproject.toml`                                                                                                            | Contents                                                 |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `ethereum-execution`         | [`pyproject.toml`](https://github.com/ethereum/execution-specs/blob/a830dab6f130151ab9023a473b7543120aa21961/pyproject.toml)                                  | The Python specs (`src/ethereum/`) and associated tools. |
+| `ethereum-execution-testing` | [`packages/testing/pyproject.toml`](https://github.com/ethereum/execution-specs/blob/a830dab6f130151ab9023a473b7543120aa21961/packages/testing/pyproject.toml) | The EEST test framework under `packages/testing/`.       |
+
+A single [`uv.lock`](https://github.com/ethereum/execution-specs/blob/a830dab6f130151ab9023a473b7543120aa21961/uv.lock) at the repo root pins dependencies for both packages.
 
 ## Managing Dependencies
 
@@ -10,120 +19,101 @@ We aim to provide specific [version specifiers](https://peps.python.org/pep-0440
 
 !!! note "Packages should be managed via `uv`"
 
-    Dependencies should be managed using `uv` on the command-line to ensure that version compatibility is ensured across all dependencies and that `uv.lock` is updated as required.
+    Dependencies should be managed using `uv` on the command-line to ensure that version compatibility is maintained across all dependencies and that `uv.lock` is updated as required.
 
     The docs below cover common operations, see the `uv` [documentation on managing dependencies](https://docs.astral.sh/uv/concepts/projects/dependencies/#multiple-sources) for more information.
 
+!!! info "Target the right workspace member"
+
+    Run `uv` commands from the repo root. By default they target `ethereum-execution` (the specs package). To target the test framework, pass `--package ethereum-execution-testing` (or equivalently, `cd packages/testing/` first and run `uv` from there).
+
+    Either way, the single `uv.lock` at the repo root is updated and should be committed alongside the `pyproject.toml` change.
+
 !!! info "Separate PRs are preferred when managing dependencies"
 
-    An upgrade of all pinned dependencies in `uv.lock` must be performed in a dedicated PR!
-    
-    For other dependency changes, they can be included in the PR that removed use of the library, for example. But if a version bump is made, without related source code changes, it should be done in a dedicated PR. This makes the change:
+    An upgrade of all pinned dependencies in `uv.lock` must be performed in a dedicated PR.
+
+    For other dependency changes, they can be included in the PR that adds or removes use of the library. But if a version bump is made without related source code changes, it should be done in a dedicated PR. This makes the change:
 
     - Easier to track.
     - Trivial to revert.
 
-### Adding/modifying direct dependencies
+### Adding or modifying direct dependencies
 
-These are packages listed in the project's direct dependencies, i.e., in `pyproject.toml` `[project]` section:
+Direct dependencies are the packages listed in each package's `[project] dependencies` table.
 
-```toml
-[project]
-...
-dependencies = [
-    "click>=8.1.0,<9",
-    ...
-    "pytest-regex>=0.2.0,<0.3",
-]
-```
+!!! example "Adding a direct dependency to the specs package"
 
-or, for source package dependencies (directly installed via a `git+` specifier from Github), in the `[tool.uv.sources]` section:
-
-```toml
-[tool.uv.sources]
-ethereum-spec-evm-resolver = { git = "https://github.com/petertdavies/ethereum-spec-evm-resolver", rev = \
-...
-```
-
-!!! example "Example: Updating direct dependencies"
-
-    Example of a package dependency update:
     ```console
     uv add "requests>=2.31,<2.33"
     ```
 
-    Example of a source dependency update:
+!!! example "Adding a direct dependency to the testing package"
+
     ```console
-    uv add "ethereum-spec-evm-resolver @ git+https://github.com/petertdavies/ethereum-spec-evm-resolver@623ac4565025e72b65f45b926da2a3552041b469"
+    uv add --package ethereum-execution-testing "requests>=2.31,<2.33"
     ```
 
-### Adding/modifying development dependencies
+### Adding or modifying development dependencies
 
-Development dependencies are managed in dependency groups: `lint`, `doc`, `test`, and `mkdocs` defined in the `pyproject.toml`:
+Development dependencies are grouped into `[dependency-groups]`, one group per concern, plus a `dev` meta-group that includes them all.
 
-```toml
-[dependency-groups]
-test = [
-    "pytest>=8,<9",
-    "pytest-cov>=4.1.0,<5",
-    ...
-]
-lint = [
-    "ruff==0.13.2",
-    "mypy==1.17.0",
-    "types-requests>=2.31,<2.33",
-    ...
-]
-```
+Groups defined by the specs package:
 
-These can be modified via `uv`on the command-line or edited by hand. If editing manually, you must run `uv lock` afterwards to update the lockfile.
+- `test`, `lint`, `actionlint`, `doc`, `mkdocs`.
+- `dev` includes all of the above plus the `optimized` extra.
 
-!!! example "Example: Updating a development dependency"
+Groups defined by the testing package:
 
-    Using uv:
+- `test`, `lint`.
+- `dev` includes both.
+
+!!! example "Adding a dev dependency to the specs `lint` group"
+
     ```console
     uv add --group lint "types-requests>=2.31,<2.33"
     ```
 
-    Or edit `pyproject.toml` manually and then run:
+!!! example "Adding a dev dependency to the testing package `test` group"
+
     ```console
-    uv lock
+    uv add --package ethereum-execution-testing --group test "pytest-timeout>=2.3,<3"
     ```
 
-### Adding/modifying optional dependencies
+### Adding or modifying optional dependencies
 
-The `optimized` optional extra provides performance enhancements and is the only remaining optional dependency group:
+The specs package defines a single optional extra, `optimized`, which pulls in `rust-pyspec-glue` and `ethash` for EVM performance.
 
-```toml
-[project.optional-dependencies]
-optimized = [
-    "rust-pyspec-glue>=0.0.9,<0.1.0",
-    "ethash>=1.1.0,<2",
-]
-```
-
-!!! example "Example: Updating an optional dependency"
+!!! example "Updating an optional dependency"
 
     ```console
     uv add --optional optimized "ethash>=1.1.0,<2"
     ```
 
-    Or edit `pyproject.toml` by hand and run `uv lock`.
-
 ## Upgrading Pinned Dependencies in `uv.lock`
 
-To upgrade all pinned dependencies in `uv.lock` to the latest version permitted by EEST's `project.toml` version specifiers run:
+To upgrade all pinned dependencies in `uv.lock` to the latest versions permitted by both packages' version specifiers, run:
 
 ```console
 uv lock --upgrade
 ```
 
-Project-wide dependency upgrades must be made via a dedicated PR!
+Project-wide dependency upgrades must be made via a dedicated PR.
 
-To upgrade a single package run:
+To upgrade a single package, run:
 
 ```console
 uv lock --upgrade-package <package>
 ```
 
 See [Locking and Syncing](https://docs.astral.sh/uv/concepts/projects/sync/#upgrading-locked-package-versions) in the `uv` docs for more information.
+
+## Verifying `uv.lock`
+
+After any dependency change, verify that `uv.lock` is consistent with both `pyproject.toml` files:
+
+```console
+just lock-check
+```
+
+This recipe also runs as part of `just static` and must be clean before committing.

@@ -7,7 +7,6 @@ state_tests/stQuadraticComplexityTest/Call50000_rip160Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -60,9 +59,7 @@ def test_call50000_rip160(
 ) -> None:
     """Test_call50000_rip160."""
     coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0xE7C72B378297589ACEE4E0BA3272841BCFC5E220F86DE253F890274CFEE9E474
-    )
+    sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -73,7 +70,6 @@ def test_call50000_rip160(
         gas_limit=3925000000,
     )
 
-    pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) [[ 0 ]] (CALL 78200 3 1 0 50000 0 0) ) [[ 1 ]] @i}  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -100,7 +96,6 @@ def test_call50000_rip160(
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
-        address=Address(0xC10D84BAA3A4BB4E45C856EBE1EF386BFED327DB),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

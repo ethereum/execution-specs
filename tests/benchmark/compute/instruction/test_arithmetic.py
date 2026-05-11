@@ -302,6 +302,7 @@ def test_mod(
 
     input_value = initial_mod if not should_negate else neg(initial_mod)
     benchmark_test(
+        target_opcode=opcode,
         code_generator=JumpLoopGenerator(
             setup=setup,
             attack_block=attack_block,
@@ -440,6 +441,7 @@ def test_exp_bench_arithmetic(
     attack_block = Op.DUP2 + Op.EXP
     cleanup = Op.POP + Op.POP + Op.DUP2 + Op.DUP2
     benchmark_test(
+        target_opcode=Op.EXP,
         code_generator=JumpLoopGenerator(
             setup=setup,
             attack_block=attack_block,

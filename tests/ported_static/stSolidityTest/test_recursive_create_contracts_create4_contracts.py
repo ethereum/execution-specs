@@ -7,7 +7,6 @@ state_tests/stSolidityTest/RecursiveCreateContractsCreate4ContractsFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -38,9 +37,7 @@ def test_recursive_create_contracts_create4_contracts(
     """Test_recursive_create_contracts_create4_contracts."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0x1DCD6500)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -250,7 +247,6 @@ def test_recursive_create_contracts_create4_contracts(
         nonce=0,
         address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x1DCD6500)
 
     tx = Transaction(
         sender=sender,
@@ -261,16 +257,11 @@ def test_recursive_create_contracts_create4_contracts(
     )
 
     post = {
-        contract_0: Account(
-            storage={
-                0: 0x95E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87,
-                1: 4,
-            },
-            nonce=3,
-        ),
-        Address(0x2B25AE4B13CB6E06869F694D29DE45E7614EBD97): Account(
-            storage={0: 1}, nonce=1
-        ),
+        contract_0: Account(storage={0: contract_0, 1: 4}, nonce=3),
+        compute_create_address(
+            address=compute_create_address(address=contract_0, nonce=1),
+            nonce=1,
+        ): Account(storage={0: 1}, nonce=1),
         compute_create_address(address=contract_0, nonce=2): Account(
             balance=2, nonce=1
         ),

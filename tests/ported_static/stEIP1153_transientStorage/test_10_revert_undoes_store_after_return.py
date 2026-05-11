@@ -7,7 +7,6 @@ state_tests/Cancun/stEIP1153_transientStorage/10_revertUndoesStoreAfterReturnFil
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -35,9 +34,7 @@ def test_10_revert_undoes_store_after_return(
 ) -> None:
     """Revert undoes the transient storage writes after a successful call."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xBE0E7D5FEA1604BF57E004B0B414DF8DE04816DBB1C8F8719B725D0D6619B531
-    )
+    sender = pre.fund_eoa(amount=0x3635C9ADC5DEA00000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -136,9 +133,7 @@ def test_10_revert_undoes_store_after_return(
         storage={1: 65535},
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0xE42B9E92D5348B0FC6353D40E3D220C316D3C685),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x3635C9ADC5DEA00000)
 
     tx = Transaction(
         sender=sender,

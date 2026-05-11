@@ -16,6 +16,7 @@ from execution_testing import (
     Hash,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -74,6 +75,7 @@ def test_code_in_constructor(
         gas_limit=4294967296,
     )
 
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
     # Source: lll
     # {
     #     (def 'counterLoc 0)
@@ -157,7 +159,7 @@ def test_code_in_constructor(
         + Op.POP(
             Op.CALL(
                 gas=0xFFFFFF,
-                address=0xDA7A,
+                address=contract_0,
                 value=0x0,
                 args_offset=0x260,
                 args_size=0x20,
@@ -169,7 +171,7 @@ def test_code_in_constructor(
         + Op.POP(
             Op.CALL(
                 gas=0xFFFFFF,
-                address=0xDA7A,
+                address=contract_0,
                 value=0x0,
                 args_offset=0x260,
                 args_size=0x20,
@@ -181,7 +183,7 @@ def test_code_in_constructor(
         + Op.POP(
             Op.CALL(
                 gas=0xFFFFFF,
-                address=0xDA7A,
+                address=contract_0,
                 value=0x0,
                 args_offset=0x260,
                 args_size=0x20,
@@ -193,7 +195,7 @@ def test_code_in_constructor(
         + Op.POP(
             Op.CALL(
                 gas=0xFFFFFF,
-                address=0xDA7A,
+                address=contract_0,
                 value=0x0,
                 args_offset=0x260,
                 args_size=0x20,
@@ -206,7 +208,7 @@ def test_code_in_constructor(
         + Op.POP(
             Op.CALL(
                 gas=0xFFFFFF,
-                address=0xDA7A,
+                address=contract_0,
                 value=0x0,
                 args_offset=0x260,
                 args_size=0x20,
@@ -221,7 +223,7 @@ def test_code_in_constructor(
         + Op.POP(
             Op.CALL(
                 gas=0xFFFFFF,
-                address=0xDA7A,
+                address=contract_0,
                 value=0x0,
                 args_offset=0x260,
                 args_size=0x20,
@@ -233,7 +235,7 @@ def test_code_in_constructor(
         + Op.POP(
             Op.CALL(
                 gas=0xFFFFFF,
-                address=0xDA7A,
+                address=contract_0,
                 value=0x0,
                 args_offset=0x260,
                 args_size=0x20,
@@ -247,7 +249,6 @@ def test_code_in_constructor(
         nonce=0,
         address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     expect_entries_: list[dict] = [
         {
@@ -258,7 +259,7 @@ def test_code_in_constructor(
                     storage={
                         0: 8,
                         1: 10,
-                        2: 0x8AF6A7AF30D840BA137E8F3F34D54CFB8BEBA6E2,
+                        2: compute_create_address(address=contract_1, nonce=0),
                         3: 262,
                         4: 0,
                         5: 0x610100610100610100395861026052600060006020610260600061DA7A62FFFF,  # noqa: E501

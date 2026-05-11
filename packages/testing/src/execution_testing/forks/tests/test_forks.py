@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from execution_testing.base_types import BlobSchedule
 
+from ..forks.eips.paris.eip_3675 import EIP3675
 from ..forks.forks import (
     BPO1,
     BPO2,
@@ -23,6 +24,7 @@ from ..forks.forks import (
     Paris,
     Prague,
     Shanghai,
+    SpuriousDragon,
 )
 from ..forks.transition import (
     BerlinToLondonAt5,
@@ -696,3 +698,75 @@ class TestSelectedForkSetWithTransitionBoundaries:
         assert OsakaToBPO1AtTime15k in result
         assert BPO1ToBPO2AtTime15k in result
         assert BPO2ToAmsterdamAtTime15k not in result
+
+
+def test_blob_constants() -> None:  # noqa: D103
+    assert Osaka.get_blob_constant("AMOUNT_CELL_PROOFS") == 128
+
+
+def test_method_versions() -> None:  # noqa: D103
+    assert London.engine_get_blobs_version() is None
+    assert London.engine_get_payload_version() is None
+    assert London.engine_new_payload_version() is None
+    assert London.engine_forkchoice_updated_version() is None
+
+    assert Paris.engine_get_blobs_version() is None
+    assert Paris.engine_get_payload_version() == 1
+    assert Paris.engine_new_payload_version() == 1
+    assert Paris.engine_forkchoice_updated_version() == 1
+
+    assert Shanghai.engine_get_blobs_version() is None
+    assert Shanghai.engine_get_payload_version() == 2
+    assert Shanghai.engine_new_payload_version() == 2
+    assert Shanghai.engine_forkchoice_updated_version() == 2
+
+    assert Cancun.engine_get_blobs_version() == 1
+    assert Cancun.engine_get_payload_version() == 3
+    assert Cancun.engine_new_payload_version() == 3
+    assert Cancun.engine_forkchoice_updated_version() == 3
+
+    assert Prague.engine_get_blobs_version() == 1
+    assert Prague.engine_get_payload_version() == 4
+    assert Prague.engine_new_payload_version() == 4
+    assert Prague.engine_forkchoice_updated_version() == 3
+
+    assert Osaka.engine_get_blobs_version() == 2
+    assert Osaka.engine_get_payload_version() == 5
+    assert Osaka.engine_new_payload_version() == 4
+    assert Osaka.engine_forkchoice_updated_version() == 3
+
+    assert Amsterdam.engine_get_payload_version() == 6
+    assert Amsterdam.engine_new_payload_version() == 5
+
+
+def test_eips() -> None:  # noqa: D103
+    assert EIP3675.enabling_forks() == {Paris}
+    assert Paris.is_eip_enabled(3675)
+    assert Paris.is_eip_enabled(3675, 1559)
+    assert Shanghai.is_eip_enabled(3675)
+    assert not Paris.is_eip_enabled(3855)
+    assert not Paris.is_eip_enabled(3675, 3855)
+    assert not Paris.is_eip_enabled(3855, 3675)
+    assert Shanghai.is_eip_enabled(3855)
+
+
+def test_fork_variant_ordering() -> None:
+    """
+    Variants from `with_env_gas_limit` must compare consistently with
+    their canonical parent: equal to the parent, ordered identically
+    against other canonical forks.
+    """
+    variant = London.with_env_gas_limit(30_000_000)
+
+    assert variant == London
+    assert hash(variant) == hash(London)
+
+    assert variant > SpuriousDragon
+    assert variant >= SpuriousDragon
+    assert variant < Cancun
+    assert variant <= Cancun
+
+    assert not (variant > London)
+    assert not (variant < London)
+    assert variant >= London
+    assert variant <= London

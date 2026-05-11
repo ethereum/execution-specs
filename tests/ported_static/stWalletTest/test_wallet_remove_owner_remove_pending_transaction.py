@@ -68,8 +68,8 @@ def test_wallet_remove_owner_remove_pending_transaction(
         storage={
             0: 1,
             1: 2,
-            3: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-            4: 0x3FB1CD2CD96C6D5C0B5EB3322D807B34482481D4,
+            3: contract_0,
+            4: sender,
             260: 1,
             263: 0xC22E4,
             0x3736DCA762B6FCB9A97D5EAFDA4032FDBA21DBFA25F875001D51E03EFF955FB2: 1,  # noqa: E501
@@ -99,7 +99,7 @@ def test_wallet_remove_owner_remove_pending_transaction(
             storage={
                 0: 1,
                 1: 1,
-                3: 0x3FB1CD2CD96C6D5C0B5EB3322D807B34482481D4,
+                3: sender,
                 263: 0xC22E4,
                 0xD3E69D8C7F41F7AEAF8130DDC53047AEEE8CB46A73D6BAE86B7E7D6BF8312E6B: 1,  # noqa: E501
             },

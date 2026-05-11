@@ -7,7 +7,6 @@ state_tests/stEIP158Specific/EXTCODESIZE_toEpmtyParisFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,10 +32,7 @@ def test_extcodesize_to_epmty_paris(
 ) -> None:
     """Test_extcodesize_to_epmty_paris."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    addr = Address(0x76FAE819612A29489A1A43208613D8F8557B8898)
-    sender = EOA(
-        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -47,24 +43,17 @@ def test_extcodesize_to_epmty_paris(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
+    addr = pre.fund_eoa(amount=10)  # noqa: F841
     # Source: lll
     # { [0](GAS) [[1]] (EXTCODESIZE <eoa:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b>) [[100]] (SUB @0 (GAS)) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.SSTORE(
-            key=0x1,
-            value=Op.EXTCODESIZE(
-                address=0x76FAE819612A29489A1A43208613D8F8557B8898
-            ),
-        )
+        + Op.SSTORE(key=0x1, value=Op.EXTCODESIZE(address=addr))
         + Op.SSTORE(key=0x64, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
         + Op.STOP,
         storage={1: 1536},
         nonce=0,
-        address=Address(0x6A7CA130BA6213231C23332FA5FCAB8CCB85C04B),  # noqa: E501
     )
-    pre[addr] = Account(balance=10)
 
     tx = Transaction(
         sender=sender,

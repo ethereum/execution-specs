@@ -7,7 +7,6 @@ state_tests/stRefundTest/refund_CallA_notEnoughGasInCallFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_refund_call_a_not_enough_gas_in_call(
 ) -> None:
     """Test_refund_call_a_not_enough_gas_in_call."""
     coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
-    sender = EOA(
-        key=0x7C857D62C76CE09F2E8EC3FA9277578C67B69C6547364568FDDB841071E5BD7
-    )
+    sender = pre.fund_eoa(amount=0xF4240)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -48,13 +45,21 @@ def test_refund_call_a_not_enough_gas_in_call(
 
     pre[coinbase] = Account(balance=0, nonce=1)
     # Source: lll
+    # { [[ 1 ]] 0 }
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x1, value=0x0) + Op.STOP,
+        storage={1: 1},
+        balance=0xDE0B6B3A7640000,
+        nonce=0,
+    )
+    # Source: lll
     # { [[ 0 ]] (CALL 5005 <contract:0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa> 0 0 0 0 0 )}  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALL(
                 gas=0x138D,
-                address=0xF4C9FC42FAEDA49049E3B8E2B97A17CC2FE95718,
+                address=addr,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -66,17 +71,6 @@ def test_refund_call_a_not_enough_gas_in_call(
         storage={1: 1},
         balance=0xDE0B6B3A7640000,
         nonce=0,
-        address=Address(0x8329332CCFB6AE9DF0412E842619FB1C989FBF48),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0xF4240)
-    # Source: lll
-    # { [[ 1 ]] 0 }
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x1, value=0x0) + Op.STOP,
-        storage={1: 1},
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0xF4C9FC42FAEDA49049E3B8E2B97A17CC2FE95718),  # noqa: E501
     )
 
     tx = Transaction(

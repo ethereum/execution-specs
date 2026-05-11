@@ -277,6 +277,7 @@ def test_ecrecover_weird_v(
     )
 
     pre[coinbase] = Account(balance=0, nonce=1)
+    pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
     # Source: yul
     # berlin
     # {
@@ -315,7 +316,6 @@ def test_ecrecover_weird_v(
         nonce=1,
         address=Address(0x9121BB12ADE6BF12796E6007B21A204E05B1BD49),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
 
     expect_entries_: list[dict] = [
         {

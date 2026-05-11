@@ -22,14 +22,13 @@ from ..state import (
     set_code,
 )
 from ..utils.hexadecimal import hex_to_address
-from ..vm.gas import GAS_COLD_ACCOUNT_ACCESS, GAS_WARM_ACCESS
+from ..vm.gas import GasCosts
 from . import Evm, Message
 
 SET_CODE_TX_MAGIC = b"\x05"
 EOA_DELEGATION_MARKER = b"\xef\x01\x00"
 EOA_DELEGATION_MARKER_LENGTH = len(EOA_DELEGATION_MARKER)
 EOA_DELEGATED_CODE_LENGTH = 23
-GAS_AUTH_PER_EMPTY_ACCOUNT = 25000
 REFUND_AUTH_PER_EXISTING_ACCOUNT = 12500
 NULL_ADDRESS = hex_to_address("0x0000000000000000000000000000000000000000")
 
@@ -148,10 +147,10 @@ def access_delegation(
 
     address = Address(code[EOA_DELEGATION_MARKER_LENGTH:])
     if address in evm.accessed_addresses:
-        access_gas_cost = GAS_WARM_ACCESS
+        access_gas_cost = GasCosts.WARM_ACCESS
     else:
         evm.accessed_addresses.add(address)
-        access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
+        access_gas_cost = GasCosts.COLD_ACCOUNT_ACCESS
     code = get_code(state, get_account(state, address).code_hash)
 
     return True, address, code, access_gas_cost
@@ -200,7 +199,8 @@ def set_delegation(message: Message) -> U256:
 
         if account_exists(state, authority):
             refund_counter += U256(
-                GAS_AUTH_PER_EMPTY_ACCOUNT - REFUND_AUTH_PER_EXISTING_ACCOUNT
+                GasCosts.AUTH_PER_EMPTY_ACCOUNT
+                - REFUND_AUTH_PER_EXISTING_ACCOUNT
             )
 
         if auth.address == NULL_ADDRESS:

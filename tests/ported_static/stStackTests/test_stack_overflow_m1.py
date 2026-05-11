@@ -7,7 +7,6 @@ state_tests/stStackTests/stackOverflowM1Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -128,7 +127,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_stack_overflow_m1(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -139,10 +137,7 @@ def test_stack_overflow_m1(
 ) -> None:
     """Test_stack_overflow_m1."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A5100000000000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -153,8 +148,7 @@ def test_stack_overflow_m1(
         gas_limit=42949672960,
     )
 
-    pre[contract_0] = Account(balance=0xE8D4A5100000000000)
-    pre[sender] = Account(balance=0xE8D4A5100000000000)
+    contract_0 = pre.fund_eoa(amount=0xE8D4A5100000000000)  # noqa: F841
 
     tx_data = [
         Op.ADDRESS * 1024,

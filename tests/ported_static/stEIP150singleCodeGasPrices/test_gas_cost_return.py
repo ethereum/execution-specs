@@ -7,7 +7,6 @@ state_tests/stEIP150singleCodeGasPrices/gasCostReturnFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,9 +32,7 @@ def test_gas_cost_return(
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x40AC0FC28C27E961EE46EC43355A094DE205856EDBD4654CF2577C2608D4EC1E
-    )
+    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -52,7 +49,6 @@ def test_gas_cost_return(
         code=Op.PUSH1[0x0] + Op.PUSH1[0xFF] + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address(0xEB0E68B88A12FC84AD4A1EEB07B289638C4D9F3C),  # noqa: E501
     )
     # Source: raw
     # 0x600060FFF3
@@ -60,7 +56,6 @@ def test_gas_cost_return(
         code=Op.RETURN(offset=0xFF, size=0x0),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address(0x35CD99E56B0F9AC243172A86BEF4D042DFDBC166),  # noqa: E501
     )
     # Source: lll
     # {
@@ -131,9 +126,7 @@ def test_gas_cost_return(
         storage={0: 24743},
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
-        address=Address(0x155665FB22995BB5B9DC1D8D9D57A00AC64DC1E0),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     tx = Transaction(
         sender=sender,

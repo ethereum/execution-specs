@@ -20,6 +20,7 @@ APPROVE_SELECTOR = 0x095EA7B3  # approve(address,uint256)
 ALLOWANCE_SELECTOR = 0xDD62ED3E  # allowance(address,address)
 MINT_SELECTOR = 0x40C10F19  # mint(address,uint256)
 
+
 # Standard While-loop decrement-and-test condition.
 #
 # Expects the iteration counter on top of the stack:

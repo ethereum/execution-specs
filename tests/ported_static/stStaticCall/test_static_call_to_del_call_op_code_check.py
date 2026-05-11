@@ -47,6 +47,7 @@ def test_static_call_to_del_call_op_code_check(
         gas_limit=10000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {  [[ 0 ]] (STATICCALL 100000 (CALLDATALOAD 0) 0 0 0 0)  }
     target = pre.deploy_contract(  # noqa: F841
@@ -138,7 +139,6 @@ def test_static_call_to_del_call_op_code_check(
         nonce=0,
         address=Address(0x114CA039127835CA3472EF43E00D15E2D8623286),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

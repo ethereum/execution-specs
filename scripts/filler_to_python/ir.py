@@ -36,6 +36,7 @@ class AccountIR:
     code_expr: str = ""
     storage: dict = field(default_factory=dict)
     oversized_code: bool = False
+    use_dynamic: bool = True
 
 
 @dataclass
@@ -80,6 +81,7 @@ class AccessListEntryIR:
 
     address: str = ""
     storage_keys: list = field(default_factory=list)
+    use_dynamic: bool = False
 
 
 @dataclass
@@ -108,7 +110,9 @@ class SenderIR:
     is_tagged: bool = False
     key: int | None = None
     balance: int = 0
+    nonce: int | None = None
     not_in_pre: bool = False
+    use_dynamic: bool = True
 
 
 @dataclass
@@ -136,6 +140,7 @@ class IntermediateTestModel:
     is_slow: bool = False
     is_multi_case: bool = False
     is_fork_dependent: bool = False
+    needs_mutable_pre: bool = False
     environment: EnvironmentIR = field(
         default_factory=lambda: EnvironmentIR(
             coinbase_var="coinbase", number=0, timestamp=0

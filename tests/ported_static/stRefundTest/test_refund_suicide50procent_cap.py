@@ -7,7 +7,6 @@ state_tests/stRefundTest/refundSuicide50procentCapFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -58,9 +57,7 @@ def test_refund_suicide50procent_cap(
 ) -> None:
     """Test_refund_suicide50procent_cap."""
     coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
-    sender = EOA(
-        key=0xF79127A3004ABDE26A4CBD80C428CB10F829FA11B54D36E7B326F4F4A5927ACF
-    )
+    sender = pre.fund_eoa(amount=0x3B9ACA00)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -104,7 +101,6 @@ def test_refund_suicide50procent_cap(
         nonce=0,
         address=Address(0xA6CC2CA5611255D50118601AA8ECE6F124FC4C45),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x3B9ACA00)
     # Source: lll
     # { (SELFDESTRUCT <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>) }  # noqa: E501
     addr = pre.deploy_contract(  # noqa: F841

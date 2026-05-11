@@ -7,7 +7,6 @@ state_tests/stStaticCall/static_LoopCallsDepthThenRevert2Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -37,9 +36,7 @@ def test_static_loop_calls_depth_then_revert2(
     """Test_static_loop_calls_depth_then_revert2."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xA000000000000000000000000000000000000000)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0x13426172C74D822B878FE800000000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -50,7 +47,6 @@ def test_static_loop_calls_depth_then_revert2(
         gas_limit=9223372036854775807,
     )
 
-    pre[sender] = Account(balance=0x13426172C74D822B878FE800000000)
     # Source: raw
     # 0x6103ff60003514603d57600160003501600052600060006020600073a0000000000000000000000000000000000000005afa5061041a600051106051575b66600060006002f0600052600760196003f0505b  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841

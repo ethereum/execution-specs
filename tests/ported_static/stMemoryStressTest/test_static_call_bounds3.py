@@ -7,7 +7,6 @@ state_tests/stMemoryStressTest/static_CALL_Bounds3Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -55,8 +54,8 @@ def test_static_call_bounds3(
 ) -> None:
     """Test_static_call_bounds3."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xEF111BBDAB3A1622936AFDFC9BBEC4B5BC05B4FA4B1EF0CE2A55CEF552F7650E
+    sender = pre.fund_eoa(
+        amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
     )
 
     env = Environment(
@@ -69,12 +68,19 @@ def test_static_call_bounds3(
     )
 
     # Source: lll
+    # { (MSTORE 0 (ADD 1 (SLOAD 0))) }
+    addr = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=Op.ADD(0x1, Op.SLOAD(key=0x0)))
+        + Op.STOP,
+        nonce=0,
+    )
+    # Source: lll
     # { (STATICCALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0 0xffffffffffffffff 0 0xffffffffffffffff)  (STATICCALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0 0xffffffffffffffffffffffffffffffff 0 0xffffffffffffffffffffffffffffffff)  (STATICCALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) (STATICCALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0xffffffff 0xffffffff 0xffffffff 0xffffffff) (STATICCALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0xffffffffffffffff 0xffffffffffffffff 0xffffffffffffffff 0xffffffffffffffff) (STATICCALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0xffffffffffffffffffffffffffffffff 0xffffffffffffffffffffffffffffffff 0xffffffffffffffffffffffffffffffff 0xffffffffffffffffffffffffffffffff) (STATICCALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
             Op.STATICCALL(
                 gas=0x7FFFFFFFFFFFFFF,
-                address=0xCC704D60C46B9C08AAB4D15281184441AC7ED35C,
+                address=addr,
                 args_offset=0x0,
                 args_size=0xFFFFFFFFFFFFFFFF,
                 ret_offset=0x0,
@@ -84,7 +90,7 @@ def test_static_call_bounds3(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x7FFFFFFFFFFFFFF,
-                address=0xCC704D60C46B9C08AAB4D15281184441AC7ED35C,
+                address=addr,
                 args_offset=0x0,
                 args_size=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
                 ret_offset=0x0,
@@ -94,7 +100,7 @@ def test_static_call_bounds3(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x7FFFFFFFFFFFFFF,
-                address=0xCC704D60C46B9C08AAB4D15281184441AC7ED35C,
+                address=addr,
                 args_offset=0x0,
                 args_size=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
                 ret_offset=0x0,
@@ -104,7 +110,7 @@ def test_static_call_bounds3(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x7FFFFFFFFFFFFFF,
-                address=0xCC704D60C46B9C08AAB4D15281184441AC7ED35C,
+                address=addr,
                 args_offset=0xFFFFFFFF,
                 args_size=0xFFFFFFFF,
                 ret_offset=0xFFFFFFFF,
@@ -114,7 +120,7 @@ def test_static_call_bounds3(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x7FFFFFFFFFFFFFF,
-                address=0xCC704D60C46B9C08AAB4D15281184441AC7ED35C,
+                address=addr,
                 args_offset=0xFFFFFFFFFFFFFFFF,
                 args_size=0xFFFFFFFFFFFFFFFF,
                 ret_offset=0xFFFFFFFFFFFFFFFF,
@@ -124,7 +130,7 @@ def test_static_call_bounds3(
         + Op.POP(
             Op.STATICCALL(
                 gas=0x7FFFFFFFFFFFFFF,
-                address=0xCC704D60C46B9C08AAB4D15281184441AC7ED35C,
+                address=addr,
                 args_offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
                 args_size=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
                 ret_offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
@@ -133,7 +139,7 @@ def test_static_call_bounds3(
         )
         + Op.STATICCALL(
             gas=0x7FFFFFFFFFFFFFF,
-            address=0xCC704D60C46B9C08AAB4D15281184441AC7ED35C,
+            address=addr,
             args_offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
             args_size=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
             ret_offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
@@ -141,18 +147,6 @@ def test_static_call_bounds3(
         )
         + Op.STOP,
         nonce=0,
-        address=Address(0x83143406093D1F3560DD269416596D3406F1C991),  # noqa: E501
-    )
-    # Source: lll
-    # { (MSTORE 0 (ADD 1 (SLOAD 0))) }
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=Op.ADD(0x1, Op.SLOAD(key=0x0)))
-        + Op.STOP,
-        nonce=0,
-        address=Address(0xCC704D60C46B9C08AAB4D15281184441AC7ED35C),  # noqa: E501
-    )
-    pre[sender] = Account(
-        balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
     )
 
     tx_data = [

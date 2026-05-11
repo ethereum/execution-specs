@@ -46,6 +46,7 @@ def test_sar_2_255_1(
         gas_limit=1000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: raw
     # 0x7f800000000000000000000000000000000000000000000000000000000000000060011d600055  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -61,7 +62,6 @@ def test_sar_2_255_1(
         nonce=0,
         address=Address(0xB6587B163F780EAAA5C216DD3DDF2E381FEAA96C),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,

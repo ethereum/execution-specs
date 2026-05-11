@@ -51,12 +51,22 @@ def test_create2_oo_gafter_init_code_revert(
 
     pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
+    # { (MSTORE 0 0x6460016001556000526005601bf3) (CREATE2 0 18 14 0) (REVERT 0 32) }  # noqa: E501
+    contract_1 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=0x6460016001556000526005601BF3)
+        + Op.POP(Op.CREATE2(value=0x0, offset=0x12, size=0xE, salt=0x0))
+        + Op.REVERT(offset=0x0, size=0x20)
+        + Op.STOP,
+        nonce=0,
+        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
+    )
+    # Source: lll
     # { (CALL (GAS) 0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0 32) [[ 1 ]] (MLOAD 0) }  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
             Op.CALL(
                 gas=Op.GAS,
-                address=0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                address=contract_1,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -69,16 +79,6 @@ def test_create2_oo_gafter_init_code_revert(
         storage={1: 1},
         nonce=0,
         address=Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
-    )
-    # Source: lll
-    # { (MSTORE 0 0x6460016001556000526005601bf3) (CREATE2 0 18 14 0) (REVERT 0 32) }  # noqa: E501
-    contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=0x6460016001556000526005601BF3)
-        + Op.POP(Op.CREATE2(value=0x0, offset=0x12, size=0xE, salt=0x0))
-        + Op.REVERT(offset=0x0, size=0x20)
-        + Op.STOP,
-        nonce=0,
-        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     tx = Transaction(

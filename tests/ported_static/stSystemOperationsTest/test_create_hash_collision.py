@@ -48,6 +48,7 @@ def test_create_hash_collision(
         gas_limit=100000000,
     )
 
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { (MSTORE 0 0x601080600c6000396000f3006000355415600957005b60203560003555) [[ 0 ]] (CREATE 23 3 29) }  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -63,7 +64,6 @@ def test_create_hash_collision(
         nonce=0,
         address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: raw
     # 0x60016001016055
     contract_1 = pre.deploy_contract(  # noqa: F841

@@ -7,7 +7,6 @@ state_tests/stRevertTest/TouchToEmptyAccountRevert2_ParisFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,10 +32,7 @@ def test_touch_to_empty_account_revert2_paris(
 ) -> None:
     """Test_touch_to_empty_account_revert2_paris."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    addr = Address(0x76FAE819612A29489A1A43208613D8F8557B8898)
-    sender = EOA(
-        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -47,8 +43,26 @@ def test_touch_to_empty_account_revert2_paris(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
-    pre[addr] = Account(balance=10)
+    addr = pre.fund_eoa(amount=10)  # noqa: F841
+    # Source: lll
+    # { [[2]](CALL 130000 <eoa:0x1000000000000000000000000000000000000000> 0 0 0 0 0) (KECCAK256 0x00 0x2fffff) }  # noqa: E501
+    addr_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x2,
+            value=Op.CALL(
+                gas=0x1FBD0,
+                address=addr,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
+        + Op.SHA3(offset=0x0, size=0x2FFFFF)
+        + Op.STOP,
+        nonce=0,
+    )
     # Source: lll
     # { [[0]](CALL 130000 <eoa:0x1000000000000000000000000000000000000000> 0 0 0 0 0) [[1]](CALL 130000 <contract:0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -56,7 +70,7 @@ def test_touch_to_empty_account_revert2_paris(
             key=0x0,
             value=Op.CALL(
                 gas=0x1FBD0,
-                address=0x76FAE819612A29489A1A43208613D8F8557B8898,
+                address=addr,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -68,7 +82,7 @@ def test_touch_to_empty_account_revert2_paris(
             key=0x1,
             value=Op.CALL(
                 gas=0x1FBD0,
-                address=0xFC4D79463BC948EB3FE54196270DE2B78C201506,
+                address=addr_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -78,27 +92,6 @@ def test_touch_to_empty_account_revert2_paris(
         )
         + Op.STOP,
         nonce=0,
-        address=Address(0x0982DE98D43928669EC4ED9FEA05F2B852BBEC41),  # noqa: E501
-    )
-    # Source: lll
-    # { [[2]](CALL 130000 <eoa:0x1000000000000000000000000000000000000000> 0 0 0 0 0) (KECCAK256 0x00 0x2fffff) }  # noqa: E501
-    addr_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0x2,
-            value=Op.CALL(
-                gas=0x1FBD0,
-                address=0x76FAE819612A29489A1A43208613D8F8557B8898,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.SHA3(offset=0x0, size=0x2FFFFF)
-        + Op.STOP,
-        nonce=0,
-        address=Address(0xFC4D79463BC948EB3FE54196270DE2B78C201506),  # noqa: E501
     )
 
     tx = Transaction(

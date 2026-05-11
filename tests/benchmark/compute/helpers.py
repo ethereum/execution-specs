@@ -16,6 +16,7 @@ from execution_testing import (
     Initcode,
     IteratingBytecode,
     Op,
+    OpcodeTarget,
     TransactionWithCost,
     While,
     compute_create2_address,
@@ -26,6 +27,30 @@ from pydantic import Field
 from tests.osaka.eip7951_p256verify_precompiles.spec import (
     FieldElement,
 )
+
+
+class Precompile:
+    """Target opcode labels for precompile benchmarks."""
+
+    ECRECOVER = OpcodeTarget("ECRECOVER", Op.STATICCALL)
+    SHA256 = OpcodeTarget("SHA2-256", Op.STATICCALL)
+    RIPEMD160 = OpcodeTarget("RIPEMD-160", Op.STATICCALL)
+    IDENTITY = OpcodeTarget("IDENTITY", Op.STATICCALL)
+    MODEXP = OpcodeTarget("MODEXP", Op.STATICCALL)
+    BN128_ADD = OpcodeTarget("BN128_ADD", Op.STATICCALL)
+    BN128_MUL = OpcodeTarget("BN128_MUL", Op.STATICCALL)
+    BN128_PAIRING = OpcodeTarget("BN128_PAIRING", Op.STATICCALL)
+    BLAKE2F = OpcodeTarget("BLAKE2F", Op.STATICCALL)
+    POINT_EVALUATION = OpcodeTarget("POINT_EVALUATION", Op.STATICCALL)
+    P256VERIFY = OpcodeTarget("P256VERIFY", Op.STATICCALL)
+    BLS12_G1ADD = OpcodeTarget("BLS12_G1ADD", Op.STATICCALL)
+    BLS12_G1MSM = OpcodeTarget("BLS12_G1MSM", Op.STATICCALL)
+    BLS12_G2ADD = OpcodeTarget("BLS12_G2ADD", Op.STATICCALL)
+    BLS12_G2MSM = OpcodeTarget("BLS12_G2MSM", Op.STATICCALL)
+    BLS12_PAIRING = OpcodeTarget("BLS12_PAIRING", Op.STATICCALL)
+    BLS12_MAP_FP_TO_G1 = OpcodeTarget("BLS12_MAP_FP_TO_G1", Op.STATICCALL)
+    BLS12_MAP_FP2_TO_G2 = OpcodeTarget("BLS12_MAP_FP2_TO_G2", Op.STATICCALL)
+
 
 DEFAULT_BINOP_ARGS = (
     0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F,

@@ -1,13 +1,27 @@
 """Types used in the transition tool interactions."""
 
 import json
-from dataclasses import dataclass
+import shutil
+import tempfile
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Annotated, Any, Dict, Generic, List, Self, TypeVar
+from typing import (
+    Annotated,
+    Any,
+    Dict,
+    Generic,
+    List,
+    NamedTuple,
+    Optional,
+    Self,
+    TypeVar,
+)
 
+import ijson  # type: ignore[import-untyped]
 from pydantic import Field, PlainSerializer, PlainValidator
 
 from execution_testing.base_types import (
+    Account,
     Bloom,
     Bytes,
     CamelModel,
@@ -82,18 +96,58 @@ class TraceLine(CamelModel):
     error: str | None = None
     return_data: str | None = None
 
-    def are_equivalent(self, other: Self) -> bool:
-        """Return True if the only difference is the gas counter."""
-        self_dict = self.model_dump(mode="python", exclude={"gas", "gas_cost"})
-        other_dict = other.model_dump(
-            mode="python", exclude={"gas", "gas_cost"}
-        )
-        if self_dict != other_dict:
+    _DEFAULT_EXCLUDE: set[str] = {"gas", "gas_cost"}
+
+    def compare(
+        self,
+        other: Self,
+        exclude_fields: set[str] | None = None,
+    ) -> tuple[dict[str, str], dict[str, str]]:
+        """
+        Compare two trace lines field-by-field.
+
+        Return (baseline_fields, current_fields) dicts containing only
+        the fields that differ. Both dicts are empty when lines match.
+        """
+        if exclude_fields is None:
+            exclude_fields = self._DEFAULT_EXCLUDE
+        self_dict = self.model_dump(mode="json", exclude=exclude_fields)
+        other_dict = other.model_dump(mode="json", exclude=exclude_fields)
+        baseline_diff: dict[str, str] = {}
+        current_diff: dict[str, str] = {}
+        for k in self_dict:
+            if self_dict[k] != other_dict[k]:
+                baseline_diff[k] = str(self_dict[k])
+                current_diff[k] = str(other_dict[k])
+        return baseline_diff, current_diff
+
+    def are_equivalent(
+        self,
+        other: Self,
+        exclude_fields: set[str] | None = None,
+    ) -> bool:
+        """Return True if the only difference is in excluded fields."""
+        baseline_diff, _ = self.compare(other, exclude_fields)
+        if baseline_diff:
             logger.debug(
-                f"Trace lines are not equivalent: {self_dict} != {other_dict}."
+                f"Trace lines are not equivalent: "
+                f"differing fields: {list(baseline_diff.keys())}."
             )
             return False
         return True
+
+
+class TraceFieldDiff(NamedTuple):
+    """
+    A single diff entry from TransactionTraces.compare().
+
+    line_index is None for structural diffs (trace_length, output,
+    gas_used). Field dicts map field name to string value.
+    """
+
+    line_index: int | None
+    baseline_fields: dict[str, str]
+    current_fields: dict[str, str]
 
 
 class TransactionTraces(CamelModel):
@@ -133,41 +187,99 @@ class TransactionTraces(CamelModel):
                 # Remove the result of calling `Op.GAS` from the stack.
                 trace.stack[-1] = None
 
-    def are_equivalent(
-        self, other: Self, enable_post_processing: bool
-    ) -> bool:
-        """Return True if the only difference is the gas counter."""
+    def compare(
+        self,
+        other: Self,
+        exclude_fields: set[str] | None = None,
+        ignore_gas_differences: bool = False,
+    ) -> List[TraceFieldDiff]:
+        """
+        Compare traces and return per-line differing fields.
+
+        Return a list of TraceFieldDiff entries. line_index is None for
+        structural diffs (trace_length, output, gas_used). Field dicts
+        map field name to string value.
+
+        When exclude_fields is None, no fields are excluded. Pass an
+        explicit set to skip fields (e.g. {"gas", "gas_cost"}).
+
+        ``ignore_gas_differences`` toggles two gas-specific tolerances
+        that cannot be expressed through ``exclude_fields``:
+
+        - The top-level ``gas_used`` total check is skipped (it is not a
+          per-line field, so excluding ``gas`` cannot silence it).
+        - ``Op.GAS`` results are scrubbed from the stack before per-line
+          comparison, so a differing gas value pushed by ``GAS`` does
+          not leak into a stack diff.
+        """
+        line_exclude = exclude_fields or set()
+        diffs: List[TraceFieldDiff] = []
+
         if len(self.traces) != len(other.traces):
-            logger.debug(
-                f"Traces have different lengths: "
-                f"{len(self.traces)} != {len(other.traces)}."
+            diffs.append(
+                TraceFieldDiff(
+                    None,
+                    {"trace_length": str(len(self.traces))},
+                    {"trace_length": str(len(other.traces))},
+                )
             )
-            return False
+            return diffs
+
         if self.output != other.output:
-            logger.debug(
-                f"Traces have different outputs: "
-                f"{self.output} != {other.output}."
+            diffs.append(
+                TraceFieldDiff(
+                    None,
+                    {"output": str(self.output)},
+                    {"output": str(other.output)},
+                )
             )
-            return False
-        if self.gas_used != other.gas_used and not enable_post_processing:
-            logger.debug(
-                f"Traces have different gas used: "
-                f"{self.gas_used} != {other.gas_used}."
+
+        if not ignore_gas_differences and self.gas_used != other.gas_used:
+            diffs.append(
+                TraceFieldDiff(
+                    None,
+                    {"gas_used": str(self.gas_used)},
+                    {"gas_used": str(other.gas_used)},
+                )
             )
-            return False
+
         own_traces = self.traces.copy()
         other_traces = other.traces.copy()
-        if enable_post_processing:
-            logger.debug(
-                "Removing gas from traces (enable_post_processing=True)."
-            )
+        if ignore_gas_differences:
             TransactionTraces.remove_gas(own_traces)
             TransactionTraces.remove_gas(other_traces)
-        for i in range(len(self.traces)):
-            if not own_traces[i].are_equivalent(other_traces[i]):
-                logger.debug(f"Trace line {i} is not equivalent.")
-                return False
-        return True
+
+        for i, (b_line, c_line) in enumerate(
+            zip(own_traces, other_traces, strict=False)
+        ):
+            baseline_diff, current_diff = b_line.compare(c_line, line_exclude)
+            if baseline_diff:
+                diffs.append(TraceFieldDiff(i, baseline_diff, current_diff))
+
+        return diffs
+
+    def are_equivalent(
+        self, other: Self, ignore_gas_differences: bool
+    ) -> bool:
+        """Return True if the only difference is the gas counter."""
+        diffs = self.compare(
+            other,
+            exclude_fields={"gas", "gas_cost"},
+            ignore_gas_differences=ignore_gas_differences,
+        )
+        for diff in diffs:
+            if diff.line_index is None:
+                for field_name in diff.baseline_fields:
+                    logger.debug(
+                        f"Traces have different {field_name}: "
+                        f"{diff.baseline_fields[field_name]} != "
+                        f"{diff.current_fields[field_name]}."
+                    )
+            else:
+                logger.debug(
+                    f"Trace line {diff.line_index} is not equivalent."
+                )
+        return len(diffs) == 0
 
     def print(self) -> None:
         """Print the traces in a readable format."""
@@ -189,7 +301,7 @@ class Traces(EthereumTestRootModel):
         self.root.append(item)
 
     def are_equivalent(
-        self, other: Self | None, enable_post_processing: bool
+        self, other: Self | None, ignore_gas_differences: bool
     ) -> bool:
         """Return True if the only difference is the gas counter."""
         if other is None:
@@ -198,7 +310,7 @@ class Traces(EthereumTestRootModel):
             return False
         for i in range(len(self.root)):
             if not self.root[i].are_equivalent(
-                other.root[i], enable_post_processing
+                other.root[i], ignore_gas_differences
             ):
                 logger.debug(f"Trace file {i} is not equivalent.")
                 return False
@@ -355,6 +467,55 @@ class LazyAllocStr(LazyAlloc[str]):
         return Alloc.model_validate_json(self.raw)
 
 
+@dataclass(kw_only=True)
+class LazyAllocFile(LazyAlloc[Path]):
+    """
+    Lazy allocation backed by a filesystem path.
+
+    Parses `{address: account_or_null}` entries from the file incrementally
+    via `ijson.kvitems` and validates each `Account` one at a time through
+    `Account.model_validate`. The full mapping of validated accounts is still
+    accumulated before `Alloc.model_validate` is called, so peak memory
+    scales with the size of the alloc — but the raw JSON string is never
+    held in Python memory, and there is no re-serialize / re-parse round
+    trip, which is where `LazyAllocStr` incurs its multi-GB peak.
+
+    The optional ``_keepalive`` field holds the producing t8n call's
+    ``TemporaryDirectory`` so the on-disk alloc.json survives until this
+    LazyAllocFile is dropped. That lets a chained next-block t8n call
+    consume the alloc directly from disk (via ``--input.alloc=<path>`` for
+    geth, or ``shutil.copyfile`` for filesystem t8ns) without round-tripping
+    through ``Alloc.get().model_dump_json()`` in Python.
+    """
+
+    _keepalive: Optional[tempfile.TemporaryDirectory] = field(default=None)
+
+    def validate(self) -> Alloc:
+        """Validate the alloc by streaming entries from the backing file."""
+        accumulated: Dict[str, Account | None] = {}
+        with open(self.raw, "rb") as f:
+            # `ijson.kvitems(f, "")` silently yields nothing for non-object
+            # top-level JSON (`null`, `[]`, scalars), which would turn a
+            # corrupted alloc.json into an empty post-state. Probe the first
+            # parse event so the streaming path matches the fail-loud
+            # behavior of `LazyAllocStr.validate` /
+            # `Alloc.model_validate_json`.
+            first = next(ijson.parse(f), None)
+            if first is None or first[1] != "start_map":
+                raise ValueError(
+                    f"Expected JSON object at top level of {self.raw}"
+                )
+            f.seek(0)
+            for address_str, account_data in ijson.kvitems(f, ""):
+                if account_data is None:
+                    accumulated[address_str] = None
+                else:
+                    accumulated[address_str] = Account.model_validate(
+                        account_data
+                    )
+        return Alloc.model_validate(accumulated)
+
+
 @dataclass
 class TransitionToolInput:
     """Transition tool input."""
@@ -370,13 +531,20 @@ class TransitionToolInput:
         """
         Prepare the input in a directory path in the file system for
         consumption by the t8n tool.
+
+        For ``LazyAllocFile`` inputs whose backing file is still on disk
+        (chained-block handoff: previous t8n call's temp dir is pinned via
+        the keepalive field), the alloc is copied byte-for-byte rather than
+        round-tripped through ``Alloc.get().model_dump_json()``.
         """
-        if isinstance(self.alloc, Alloc):
-            alloc_contents = self.alloc.model_dump_json(**model_dump_config)
-        elif isinstance(self.alloc, LazyAllocStr):
-            alloc_contents = self.alloc.raw
+        alloc_path = directory_path / "alloc.json"
+        if (
+            isinstance(self.alloc, LazyAllocFile)
+            and Path(self.alloc.raw).exists()
+        ):
+            shutil.copyfile(self.alloc.raw, alloc_path)
         else:
-            raise Exception(f"Invalid alloc type: {type(self.alloc)}")
+            alloc_path.write_text(self._serialize_alloc(**model_dump_config))
 
         env_contents = self.env.model_dump_json(**model_dump_config)
         txs_contents = (
@@ -386,33 +554,41 @@ class TransitionToolInput:
             )
             + "]"
         )
-        input_contents: Dict[str, str] = {
-            "alloc": alloc_contents,
-            "env": env_contents,
-            "txs": txs_contents,
-        }
-        if self.blob_params is not None:
-            input_contents["blobParams"] = self.blob_params.model_dump_json(
-                **model_dump_config
-            )
 
-        input_paths: Dict[str, str] = {}
-        for content_type, contents in input_contents.items():
-            file_path = directory_path / f"{content_type}.json"
+        input_paths: Dict[str, str] = {"alloc": str(alloc_path)}
+        for name, contents in (("env", env_contents), ("txs", txs_contents)):
+            file_path = directory_path / f"{name}.json"
             file_path.write_text(contents)
-            input_paths[content_type] = str(file_path)
+            input_paths[name] = str(file_path)
+        if self.blob_params is not None:
+            blob_path = directory_path / "blobParams.json"
+            blob_path.write_text(
+                self.blob_params.model_dump_json(**model_dump_config)
+            )
+            input_paths["blobParams"] = str(blob_path)
 
         return input_paths
 
-    def model_dump_json(self, **model_dump_config: Any) -> str:
-        """Dump the model in string JSON format."""
+    def _serialize_alloc(self, **model_dump_config: Any) -> str:
+        """Serialize ``self.alloc`` to a JSON string."""
         if isinstance(self.alloc, Alloc):
-            alloc_contents = self.alloc.model_dump_json(**model_dump_config)
-        elif isinstance(self.alloc, LazyAllocStr):
-            alloc_contents = self.alloc.raw
-        else:
-            raise Exception(f"Invalid alloc type: {type(self.alloc)}")
+            return self.alloc.model_dump_json(**model_dump_config)
+        if isinstance(self.alloc, LazyAllocStr):
+            return self.alloc.raw
+        if isinstance(self.alloc, LazyAllocFile):
+            return self.alloc.get().model_dump_json(**model_dump_config)
+        raise Exception(f"Invalid alloc type: {type(self.alloc)}")
 
+    def model_dump_json(
+        self, *, exclude_alloc: bool = False, **model_dump_config: Any
+    ) -> str:
+        """
+        Dump the model in string JSON format.
+
+        Pass ``exclude_alloc=True`` when the t8n is reading the alloc from a
+        file path instead of the stdin bundle, to avoid building a multi-GB
+        JSON string in Python memory for chained-block handoffs.
+        """
         env_contents = self.env.model_dump_json(**model_dump_config)
         txs_contents = (
             "["
@@ -421,18 +597,21 @@ class TransitionToolInput:
             )
             + "]"
         )
-        input_contents: Dict[str, str] = {
-            "alloc": alloc_contents,
-            "env": env_contents,
-            "txs": txs_contents,
-        }
+        input_contents: Dict[str, str] = {}
+        if not exclude_alloc:
+            input_contents["alloc"] = self._serialize_alloc(
+                **model_dump_config
+            )
+        input_contents["env"] = env_contents
+        input_contents["txs"] = txs_contents
         if self.blob_params is not None:
             input_contents["blobParams"] = self.blob_params.model_dump_json(
                 **model_dump_config
             )
-        contents: List[str] = []
-        for content_type, type_contents in input_contents.items():
-            contents.append(f'"{content_type}": {type_contents}')
+        contents: List[str] = [
+            f'"{content_type}": {type_contents}'
+            for content_type, type_contents in input_contents.items()
+        ]
         return "{" + ",".join(contents) + "}"
 
     def model_dump(self, mode: str, **model_dump_config: Any) -> Any:
@@ -444,6 +623,10 @@ class TransitionToolInput:
             )
         elif isinstance(self.alloc, LazyAllocJson):
             alloc_contents = self.alloc.raw
+        elif isinstance(self.alloc, LazyAllocFile):
+            alloc_contents = self.alloc.get().model_dump(
+                mode=mode, **model_dump_config
+            )
         else:
             raise Exception(f"Invalid alloc type: {type(self.alloc)}")
 
@@ -479,13 +662,19 @@ class TransitionToolOutput:
         """
         Validate the model from the file system where each key is a
         different JSON file.
+
+        `alloc.json` is referenced by path and parsed incrementally on
+        `.get()` via `LazyAllocFile`, so the full file is never held in
+        memory alongside the validated `Alloc`.
         """
-        alloc_data = (directory_path / "alloc.json").read_text()
         result_data = (directory_path / "result.json").read_text()
         result = Result.model_validate_json(
             json_data=result_data, context=context
         )
-        alloc = LazyAllocStr(raw=alloc_data, _state_root=result.state_root)
+        alloc = LazyAllocFile(
+            raw=directory_path / "alloc.json",
+            _state_root=result.state_root,
+        )
         output = cls(result=result, alloc=alloc)
         return output
 

@@ -47,6 +47,7 @@ def test_refund50percent_cap(
     )
 
     pre[coinbase] = Account(balance=0, nonce=1)
+    pre[sender] = Account(balance=0x989680)
     # Source: lll
     # { @@1 @@2 [[ 10 ]] (EXP 2 0xff) [[ 11 ]] (BALANCE (ADDRESS)) [[ 1 ]] 0 [[ 2 ]] 0 [[ 3 ]] 0 [[ 4 ]] 0 [[ 5 ]] 0 [[ 6 ]] 0 }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -66,7 +67,6 @@ def test_refund50percent_cap(
         nonce=0,
         address=Address(0xEF67F354C8505E1056889970C3D9B5E0FE65D1E2),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x989680)
 
     tx = Transaction(
         sender=sender,

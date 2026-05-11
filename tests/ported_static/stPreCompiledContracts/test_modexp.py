@@ -973,6 +973,7 @@ def test_modexp(
         gas_limit=10000000000,
     )
 
+    pre[sender] = Account(balance=0x3635C9ADC5DEA00000)
     # Source: lll
     # { (CALLDATACOPY 0 0 (CALLDATASIZE)) [[1]] (CALLCODE (GAS) 5 0 0 (CALLDATASIZE) 1000 32) [[2]](MLOAD 1000) }  # noqa: E501
     target = pre.deploy_contract(  # noqa: F841
@@ -994,7 +995,6 @@ def test_modexp(
         nonce=0,
         address=Address(0x2D06AD61919840E4E00F80782DEDCE12ADA1E859),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x3635C9ADC5DEA00000)
 
     expect_entries_: list[dict] = [
         {
