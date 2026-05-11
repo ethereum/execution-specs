@@ -29,7 +29,6 @@ from execution_testing import (
     StateTestFiller,
     Storage,
     Transaction,
-    TransactionReceipt,
     compute_create2_address,
     compute_create_address,
 )
@@ -1563,10 +1562,17 @@ def test_call_new_account_no_regular_account_creation_cost(
 
 
 @pytest.mark.parametrize(
-    "call_opcode",
+    "call_opcode,charge_via",
     [
-        pytest.param(Op.CALL, id="call"),
-        pytest.param(Op.DELEGATECALL, id="delegatecall"),
+        pytest.param(Op.CALL, "sstore", id="call_sstore_charge"),
+        pytest.param(
+            Op.DELEGATECALL, "sstore", id="delegatecall_sstore_charge"
+        ),
+        pytest.param(
+            Op.CALL,
+            "call_value_new_account",
+            id="call_call_value_new_account_charge",
+        ),
     ],
 )
 @pytest.mark.valid_from("EIP8037")
@@ -1575,64 +1581,71 @@ def test_child_failure_refunds_state_gas_to_reservoir_not_gas_left(
     pre: Alloc,
     fork: Fork,
     call_opcode: Op,
+    charge_via: str,
 ) -> None:
     """
     Verify state gas from a failing child is restored to the
-    reservoir (not regular gas), so a grandchild SSTORE can draw
-    from it under a tight regular stipend. Parametrized across CALL
-    (grandchild writes to its own storage) and DELEGATECALL
-    (grandchild writes to the parent's storage via shared context).
+    reservoir, so a sibling probe SSTORE can draw from it under a
+    tight regular stipend. Covers SSTORE and CALL-value (new
+    account) state-gas charge paths.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     gas_costs = fork.gas_costs()
     sstore_state_gas = fork.sstore_state_gas()
 
-    grandchild = pre.deploy_contract(code=Op.SSTORE(0, 1))
+    probe = pre.deploy_contract(code=Op.SSTORE(0, 1))
 
-    child = pre.deploy_contract(code=Op.SSTORE(0, 1) + Op.REVERT(0, 0))
+    if charge_via == "sstore":
+        child_code: Bytecode = Op.SSTORE(0, 1) + Op.REVERT(0, 0)
+        child_balance = 0
+        child_state_charge = sstore_state_gas
+    else:
+        fresh_target = pre.fund_eoa(amount=0)
+        child_code = (
+            Op.POP(Op.CALL(gas=Op.GAS, address=fresh_target, value=1))
+            + Op.REVERT(0, 0)
+        )
+        child_balance = 1
+        child_state_charge = gas_costs.NEW_ACCOUNT
 
-    # Tight stipend: just enough regular gas for the grandchild's
-    # SSTORE opcode plus its two stack pushes, leaving no slack to
-    # absorb a state-gas spill.
+    child = pre.deploy_contract(code=child_code, balance=child_balance)
+
+    # Tight stipend: just enough regular gas for the probe's SSTORE
+    # opcode plus its two stack pushes, leaving no slack to absorb a
+    # state-gas spill.
     push_cost = 2 * gas_costs.VERY_LOW
     sstore_regular = gas_costs.COLD_STORAGE_WRITE
-    grandchild_stipend = push_cost + sstore_regular
+    probe_stipend = push_cost + sstore_regular
 
     parent = pre.deploy_contract(
         code=(
             Op.POP(call_opcode(gas=Op.GAS, address=child))
-            + Op.POP(call_opcode(gas=grandchild_stipend, address=grandchild))
+            + Op.POP(call_opcode(gas=probe_stipend, address=probe))
         ),
     )
 
-    # Empirical per-tx cumulative, decomposed into a CPSB-independent
-    # regular base plus the grandchild's surviving SSTORE state gas.
-    # Pinning this catches a mutation that correctly restores the
-    # reservoir but also double-refunds to regular gas (or otherwise
-    # leaks extra gas to the sender), which the storage probe alone
-    # cannot discriminate.
-    regular_base = {
-        Op.CALL: 36_263,
-        Op.DELEGATECALL: 36_257,
-    }[call_opcode]
-    expected_cumulative = regular_base + sstore_state_gas
+    # Reservoir must cover the child's state charge (refunded on
+    # REVERT) so the probe SSTORE can draw from it afterwards.
+    reservoir = max(child_state_charge, sstore_state_gas)
 
     tx = Transaction(
         to=parent,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        gas_limit=gas_limit_cap + reservoir,
         sender=pre.fund_eoa(),
-        expected_receipt=TransactionReceipt(
-            cumulative_gas_used=expected_cumulative,
-        ),
     )
 
     # DELEGATECALL executes the callee in the caller's storage
-    # context, so grandchild's SSTORE lands on `parent` instead of
-    # `grandchild`.
+    # context, so the probe's SSTORE lands on `parent` instead of
+    # `probe`.
     if call_opcode == Op.DELEGATECALL:
         post: dict = {parent: Account(storage={0: 1})}
     else:
-        post = {grandchild: Account(storage={0: 1})}
+        post = {probe: Account(storage={0: 1})}
 
-    state_test(pre=pre, post=post, tx=tx)
+    state_test(
+        pre=pre,
+        post=post,
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=sstore_state_gas),
+    )
