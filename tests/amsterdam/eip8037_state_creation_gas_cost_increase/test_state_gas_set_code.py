@@ -294,21 +294,48 @@ def test_existing_account_refund_enables_sstore(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.parametrize(
+    "signer_pre_state,authorize_to_null",
+    [
+        pytest.param("nonexistent", False, id="nonexistent_authority"),
+        pytest.param("existing_leaf", False, id="existing_leaf_empty_code"),
+        pytest.param(
+            "existing_delegation",
+            False,
+            id="existing_delegation_overwrite",
+        ),
+        pytest.param(
+            "existing_delegation",
+            True,
+            id="existing_delegation_clear",
+        ),
+    ],
+)
 @pytest.mark.valid_from("EIP8037")
 def test_auth_refund_block_gas_accounting(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    signer_pre_state: str,
+    authorize_to_null: bool,
 ) -> None:
     """
-    Verify block gas accounting deducts the existing-authority refund.
+    Verify block + receipt gas accounting against per-authorization
+    state-gas refunds from `set_delegation`.
 
-    For an authorization whose authority already exists in state, the
-    new-account state gas is refunded both to the in-tx state gas
-    reservoir and from the per-tx state gas accounted into the block
-    header. block.header.gas_used therefore equals
-    `max(tx_regular_gas, intrinsic_state_gas - auth_refund)`, not the
-    full intrinsic state gas.
+    Four signer pre-states span every refund branch:
+
+    * `nonexistent` — no account leaf; no refund;
+    * `existing_leaf` — leaf, empty code; `NEW_ACCOUNT × CPSB` refilled;
+    * `existing_delegation` overwrite — leaf + delegation; full refill
+      (`NEW_ACCOUNT + AUTH_BASE`) as the 23 delegation bytes overwrite
+      in place;
+    * `existing_delegation` clear — `auth.address` =
+      `RESET_DELEGATION_ADDRESS`; same full refill, since the refill
+      keys off the *pre-state* code slot, not what we're writing.
+
+    Verified via header `gas_used`, receipt `cumulative_gas_used`, and
+    the authority post-state (catches a silently-skipped auth).
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -319,37 +346,72 @@ def test_auth_refund_block_gas_accounting(
         authorization_list_or_count=1,
     )
     intrinsic_regular = total_intrinsic - intrinsic_state_gas
-    auth_refund = fork.gas_costs().REFUND_AUTH_PER_EXISTING_ACCOUNT
+    new_account_refund = fork.gas_costs().REFUND_AUTH_PER_EXISTING_ACCOUNT
+    # Per-auth intrinsic state gas covers NEW_ACCOUNT + AUTH_BASE; the
+    # AUTH_BASE portion is what's left after stripping NEW_ACCOUNT.
+    auth_base_refund = intrinsic_state_gas - new_account_refund
 
-    contract = pre.deploy_contract(code=Op.STOP)
+    contract_old = pre.deploy_contract(code=Op.STOP)
+    contract_new = pre.deploy_contract(code=Op.STOP)
 
-    signer = pre.fund_eoa()
+    if signer_pre_state == "nonexistent":
+        signer = pre.fund_eoa(amount=0)
+        pre_nonce = 0
+        auth_refund = 0
+    elif signer_pre_state == "existing_leaf":
+        signer = pre.fund_eoa()
+        pre_nonce = 0
+        auth_refund = new_account_refund
+    elif signer_pre_state == "existing_delegation":
+        # `fund_eoa(delegation=...)` sets the authority's nonce to 1.
+        signer = pre.fund_eoa(delegation=contract_old)
+        pre_nonce = 1
+        auth_refund = new_account_refund + auth_base_refund
+    else:
+        raise ValueError(f"unknown signer_pre_state: {signer_pre_state!r}")
+
+    auth_target = (
+        Spec7702.RESET_DELEGATION_ADDRESS
+        if authorize_to_null
+        else contract_new
+    )
     authorization_list = [
         AuthorizationTuple(
-            address=contract,
-            nonce=0,
+            address=auth_target,
+            nonce=pre_nonce,
             signer=signer,
         ),
     ]
 
-    sender = pre.fund_eoa()
-    tx = Transaction(
-        to=contract,
-        gas_limit=gas_limit_cap + intrinsic_state_gas,
-        authorization_list=authorization_list,
-        sender=sender,
+    post_signer = Account(
+        nonce=pre_nonce + 1,
+        code=(
+            b""
+            if authorize_to_null
+            else Spec7702.delegation_designation(auth_target)
+        ),
     )
-
-    expected_gas_used = max(
+    header_gas_used = max(
         intrinsic_regular,
         intrinsic_state_gas - auth_refund,
+    )
+    receipt_cumulative_gas_used = total_intrinsic - auth_refund
+
+    tx = Transaction(
+        to=contract_new,
+        gas_limit=gas_limit_cap + intrinsic_state_gas,
+        authorization_list=authorization_list,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=receipt_cumulative_gas_used,
+        ),
     )
 
     state_test(
         pre=pre,
-        post={},
+        post={signer: post_signer},
         tx=tx,
-        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
+        blockchain_test_header_verify=Header(gas_used=header_gas_used),
     )
 
 
@@ -582,77 +644,6 @@ def test_auth_with_calldata_and_access_list(
 
     post = {contract: Account(storage=storage)}
     state_test(env=env, pre=pre, post=post, tx=tx)
-
-
-@pytest.mark.valid_from("EIP8037")
-def test_re_authorization_existing_delegation(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-) -> None:
-    """
-    Re-authorize an account that already has a delegation.
-
-    Both the new-account and auth-base state gas portions are refilled
-    (the 23 delegation bytes overwrite in place). Verified via:
-
-    * authority post-state — delegation now points at `contract_new`
-      and the nonce has incremented (catches a silently-skipped auth);
-    * receipt `cumulative_gas_used` — equals `intrinsic_regular`;
-    * `header.gas_used` — equals `intrinsic_regular`, since the full
-      `intrinsic_state_gas` is refilled.
-    """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    intrinsic_state_gas = fork.transaction_intrinsic_state_gas(
-        authorization_count=1,
-    )
-    intrinsic_regular = (
-        fork.transaction_intrinsic_cost_calculator()(
-            authorization_list_or_count=1,
-        )
-        - intrinsic_state_gas
-    )
-
-    contract_old = pre.deploy_contract(code=Op.STOP)
-    contract_new = pre.deploy_contract(code=Op.STOP)
-
-    # `fund_eoa(delegation=...)` sets the authority's nonce to 1, so
-    # the re-authorization must use nonce=1 to be processed.
-    signer = pre.fund_eoa(delegation=contract_old)
-    authorization_list = [
-        AuthorizationTuple(
-            address=contract_new,
-            nonce=1,
-            signer=signer,
-        ),
-    ]
-
-    # Existing delegation refills the full per-auth state gas.
-    expected_gas_used = max(intrinsic_regular, 0)
-
-    sender = pre.fund_eoa()
-    tx = Transaction(
-        to=contract_new,
-        gas_limit=gas_limit_cap + intrinsic_state_gas,
-        authorization_list=authorization_list,
-        sender=sender,
-        expected_receipt=TransactionReceipt(
-            cumulative_gas_used=expected_gas_used,
-        ),
-    )
-
-    state_test(
-        pre=pre,
-        post={
-            signer: Account(
-                nonce=2,
-                code=Spec7702.delegation_designation(contract_new),
-            ),
-        },
-        tx=tx,
-        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
-    )
 
 
 @pytest.mark.parametrize(
