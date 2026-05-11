@@ -23,6 +23,7 @@ from ..state_tracker import (
 from ..utils.hexadecimal import hex_to_address
 from ..vm.gas import (
     COST_PER_STATE_BYTE,
+    STATE_BYTES_PER_AUTH_BASE,
     STATE_BYTES_PER_NEW_ACCOUNT,
     GasCosts,
 )
@@ -162,10 +163,11 @@ def set_delegation(message: Message) -> Uint:
     """
     Set the delegation code for the authorities in the message.
 
-    For existing accounts, refunds the account-creation component of
-    state gas to the reservoir (no mutation of intrinsic_state_gas) and
-    accumulates the same amount as the auth state refund returned to the
-    caller, so block accounting can subtract it from `tx_state_gas`.
+    Refills the `STATE_BYTES_PER_NEW_ACCOUNT × CPSB` portion of
+    intrinsic state gas when the authority's account leaf already
+    exists, and the `STATE_BYTES_PER_AUTH_BASE × CPSB` portion when
+    its code slot already holds a delegation indicator. The total is
+    returned so block accounting can subtract it from `tx_state_gas`.
 
     Parameters
     ----------
@@ -175,8 +177,7 @@ def set_delegation(message: Message) -> Uint:
     Returns
     -------
     auth_state_refund : `Uint`
-        Total state gas refunded across all authorizations whose
-        authority already existed in state.
+        Total state gas refunded across all processed authorizations.
 
     """
     tx_state = message.tx_env.state
@@ -205,11 +206,15 @@ def set_delegation(message: Message) -> Uint:
         if authority_nonce != auth.nonce:
             continue
 
-        # For existing accounts, no account creation needed.
-        # Refund the account creation state gas to the reservoir.
-        # intrinsic_state_gas is immutable after validation.
         if account_exists(tx_state, authority):
             refund = STATE_BYTES_PER_NEW_ACCOUNT * COST_PER_STATE_BYTE
+            message.state_gas_reservoir += refund
+            auth_state_refund += refund
+
+        # Existing delegation indicator: overwrite in place, no new
+        # state bytes added.
+        if authority_code:
+            refund = STATE_BYTES_PER_AUTH_BASE * COST_PER_STATE_BYTE
             message.state_gas_reservoir += refund
             auth_state_refund += refund
 
