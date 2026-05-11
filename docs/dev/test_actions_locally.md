@@ -111,3 +111,13 @@ It's possible to specify the Docker image used by the `act` tool for a specific 
 ```
 
 This can be added to any `gh act` command.
+
+## Debugging CI Failures
+
+The pytest-based CLIs (`fill`, `execute`, ...) print the resolved `pytest ...` invocation at startup whenever the `CI` environment variable is set:
+
+```text
+Executing: pytest ...
+```
+
+When run under Github Actions, the same command is also appended to the job summary (via `$GITHUB_STEP_SUMMARY`), so it can be copied directly from the "Summary" panel of the failing run without scrolling through the log.
