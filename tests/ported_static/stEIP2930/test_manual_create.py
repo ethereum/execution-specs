@@ -3,6 +3,15 @@ Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/stEIP2930/manualCreateFiller.yml
+
+@manually-enhanced: Do not overwrite. The three parametrizations of
+this test measure regular gas around a fresh SSTORE-set inside a
+CREATE-deployed contract. EIP-8037 splits the Cancun-era SSTORE-set
+base into a smaller regular portion plus 37 568 state-gas; with an
+empty reservoir the full state-gas spills into regular gas and
+`Op.GAS` reads +20 468 = 37 568 - 17 100 compared to Cancun. Bake
+that delta into both `[">=Cancun"]` expect entries fork-conditionally
+via `fork.sstore_state_gas() - 17100`.
 """
 
 import pytest
@@ -81,13 +90,19 @@ def test_manual_create(
 
     pre[sender] = Account(balance=0x1000000000000000000, nonce=1)
 
+    # EIP-8037 SSTORE-set spillover: +20 468 regular gas per fresh set
+    # when the reservoir is empty.
+    sstore_set_delta = (
+        (fork.sstore_state_gas() - 17100) if fork.is_eip_enabled(8037) else 0
+    )
+
     expect_entries_: list[dict] = [
         {
             "indexes": {"data": [2], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
                 compute_create_address(address=sender, nonce=1): Account(
-                    storage={0: 20008, 1: 106}
+                    storage={0: 20008 + sstore_set_delta, 1: 106}
                 ),
             },
         },
@@ -96,7 +111,7 @@ def test_manual_create(
             "network": [">=Cancun"],
             "result": {
                 compute_create_address(address=sender, nonce=1): Account(
-                    storage={0: 22108, 1: 106}
+                    storage={0: 22108 + sstore_set_delta, 1: 106}
                 ),
             },
         },
@@ -139,7 +154,13 @@ def test_manual_create(
         + Op.SSTORE(key=0x0, value=Op.SUB)
         + Op.STOP,
     ]
-    tx_gas = [400000]
+    # EIP-8037 NEW_ACCOUNT state-gas spill into regular gas on
+    # Amsterdam exceeds the original 400 000 budget. Pre-EIP-8037
+    # keeps the original value.
+    outer_tx_gas = 400_000
+    if fork.is_eip_enabled(8037):
+        outer_tx_gas = 1_000_000
+    tx_gas = [outer_tx_gas]
     tx_access_lists: dict[int, list] = {
         0: [
             AccessList(

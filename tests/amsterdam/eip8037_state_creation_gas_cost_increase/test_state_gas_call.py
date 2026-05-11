@@ -1602,10 +1602,9 @@ def test_child_failure_refunds_state_gas_to_reservoir_not_gas_left(
         child_state_charge = sstore_state_gas
     else:
         fresh_target = pre.fund_eoa(amount=0)
-        child_code = (
-            Op.POP(Op.CALL(gas=Op.GAS, address=fresh_target, value=1))
-            + Op.REVERT(0, 0)
-        )
+        child_code = Op.POP(
+            Op.CALL(gas=Op.GAS, address=fresh_target, value=1)
+        ) + Op.REVERT(0, 0)
         child_balance = 1
         child_state_charge = gas_costs.NEW_ACCOUNT
 

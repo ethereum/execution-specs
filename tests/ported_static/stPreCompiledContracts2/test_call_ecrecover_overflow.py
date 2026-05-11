@@ -3,6 +3,13 @@ Test_call_ecrecover_overflow.
 
 Ported from:
 state_tests/stPreCompiledContracts2/CallEcrecover_OverflowFiller.yml
+
+@manually-enhanced: Do not overwrite. `tx_gas` raised from 100 000 to
+500 000 so the two outer SSTOREs that wrap the ecrecover precompile
+CALL have headroom for EIP-8037 per-storage state-gas on Amsterdam.
+The inner CALL still passes exactly 3 000 gas (the ecrecover precompile
+cost — that's the test premise); only the outer tx budget grew. Post-
+state expectations are unchanged on all forks.
 """
 
 import pytest
@@ -274,7 +281,15 @@ def test_call_ecrecover_overflow(
             0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD036413F
         ),
     ]
-    tx_gas = [100000]
+    # On Amsterdam the two outer SSTOREs that wrap the inner ecrecover
+    # CALL each accumulate EIP-8037 per-storage state-gas (37 568) that
+    # spills back into regular gas once the empty reservoir is drained,
+    # pushing the tx over the original 100 000 budget. Bump on EIP-8037
+    # only; pre-EIP-8037 forks keep the original.
+    outer_tx_gas = 100000
+    if fork.is_eip_enabled(8037):
+        outer_tx_gas = 500000
+    tx_gas = [outer_tx_gas]
     tx_value = [100000]
 
     tx = Transaction(
