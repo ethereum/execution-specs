@@ -3,6 +3,13 @@
 from typing import Any
 
 import pytest
+from ethereum.forks.amsterdam.trie import (
+    EMPTY_TRIE_ROOT,
+    Trie,
+    nibble_list_to_compact,
+    root,
+    trie_set,
+)
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
 
@@ -18,13 +25,6 @@ from ethereum.forks.amsterdam.incremental_mpt import (
     mpt_get,
     mpt_root,
     mpt_set,
-)
-from ethereum.forks.amsterdam.trie import (
-    EMPTY_TRIE_ROOT,
-    Trie,
-    nibble_list_to_compact,
-    root,
-    trie_set,
 )
 from ethereum.state import Root
 
