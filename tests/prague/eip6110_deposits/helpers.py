@@ -1,6 +1,6 @@
 """Helpers for the EIP-6110 deposit tests."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from functools import cached_property
 from hashlib import sha256 as sha256_hashlib
 from typing import Callable, ClassVar, List
@@ -229,8 +229,12 @@ class DepositInteractionBase:
         """Return a transaction for the deposit request."""
         raise NotImplementedError
 
-    def update_pre(self, pre: Alloc) -> None:
-        """Return the pre-state of the account."""
+    def update_pre(self, pre: Alloc) -> "DepositInteractionBase":
+        """
+        Allocate accounts/contracts in `pre` and return a new instance with
+        the allocated state populated. Does not mutate `self`, so the
+        parametrize value remains pristine across fixture format runs.
+        """
         raise NotImplementedError
 
     def valid_requests(self, current_minimum_fee: int) -> List[DepositRequest]:
@@ -265,9 +269,9 @@ class DepositTransaction(DepositInteractionBase):
             for request in self.requests
         ]
 
-    def update_pre(self, pre: Alloc) -> None:
-        """Return the pre-state of the account."""
-        self.sender_account = pre.fund_eoa(self.sender_balance)
+    def update_pre(self, pre: Alloc) -> "DepositTransaction":
+        """Return a copy of self with `sender_account` populated."""
+        return replace(self, sender_account=pre.fund_eoa(self.sender_balance))
 
     def valid_requests(self, current_minimum_fee: int) -> List[DepositRequest]:
         """
@@ -347,26 +351,29 @@ class DepositContract(DepositInteractionBase):
             )
         ]
 
-    def update_pre(self, pre: Alloc) -> None:
-        """Return the pre-state of the account."""
+    def update_pre(self, pre: Alloc) -> "DepositContract":
+        """
+        Return a copy of self with the allocated sender/contract/entry
+        addresses populated.
+        """
         required_balance = self.sender_balance
         if self.tx_value > 0:
             required_balance = max(
                 required_balance, self.tx_value + self.tx_gas_limit * 7
             )
-        self.sender_account = pre.fund_eoa(required_balance)
-        self.contract_address = pre.deploy_contract(
+        sender_account = pre.fund_eoa(required_balance)
+        contract_address = pre.deploy_contract(
             code=self.contract_code, balance=self.contract_balance
         )
-        self.entry_address = self.contract_address
+        entry_address = contract_address
         if self.call_depth > 2:
             for _ in range(1, self.call_depth - 1):
-                self.entry_address = pre.deploy_contract(
+                entry_address = pre.deploy_contract(
                     code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
                     + Op.POP(
                         Op.CALL(
                             Op.GAS,
-                            self.entry_address,
+                            entry_address,
                             0,
                             0,
                             Op.CALLDATASIZE,
@@ -375,6 +382,12 @@ class DepositContract(DepositInteractionBase):
                         )
                     ),
                 )
+        return replace(
+            self,
+            sender_account=sender_account,
+            contract_address=contract_address,
+            entry_address=entry_address,
+        )
 
     def valid_requests(self, current_minimum_fee: int) -> List[DepositRequest]:
         """

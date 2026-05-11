@@ -17,23 +17,24 @@ from .helpers import DepositInteractionBase, DepositRequest
 
 
 @pytest.fixture
-def update_pre(pre: Alloc, requests: List[DepositInteractionBase]) -> None:
+def prepared_requests(
+    pre: Alloc, requests: List[DepositInteractionBase]
+) -> List[DepositInteractionBase]:
     """
-    Init state of the accounts. Every deposit transaction defines their own
-    pre-state requirements, and this fixture aggregates them all.
+    Allocate accounts/contracts for each request in `pre` and return copies
+    with the allocated state populated. The parametrize value `requests` is
+    not mutated, so it stays pristine across fixture format runs.
     """
-    for d in requests:
-        d.update_pre(pre)
+    return [r.update_pre(pre) for r in requests]
 
 
 @pytest.fixture
 def txs(
-    requests: List[DepositInteractionBase],
-    update_pre: None,  # Fixture is used for its side effects
+    prepared_requests: List[DepositInteractionBase],
 ) -> List[Transaction]:
     """List of transactions to include in the block."""
     txs = []
-    for r in requests:
+    for r in prepared_requests:
         txs += r.transactions()
     return txs
 
@@ -55,14 +56,14 @@ def exception() -> BlockException | None:
 
 @pytest.fixture
 def included_requests(
-    requests: List[DepositInteractionBase],
+    prepared_requests: List[DepositInteractionBase],
 ) -> List[DepositRequest]:
     """
     Return the list of deposit requests that should be included in each block.
     """
     valid_requests: List[DepositRequest] = []
 
-    for d in requests:
+    for d in prepared_requests:
         valid_requests += d.valid_requests(10**18)
 
     return valid_requests
