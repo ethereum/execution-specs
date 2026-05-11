@@ -1218,27 +1218,43 @@ def test_selfdestruct_send_to_sender(
     Pre-Cancun: victim destroyed. >=Cancun: victim preserved with balance 0
     (EIP-6780 — victim was not created same-tx).
     """
-    alice = pre.fund_eoa()
-    victim_code = Op.SELFDESTRUCT(Op.CALLER)
+    alice_initial_balance = 10**18
+    alice = pre.fund_eoa(amount=alice_initial_balance)
+    victim_code = Op.SELFDESTRUCT(
+        Op.CALLER, address_warm=True, account_new=False
+    )
     victim = pre.deploy_contract(code=victim_code, balance=originator_balance)
 
+    gas_price = 0xA
+    gas_limit = 100_000
     tx = Transaction(
         sender=alice,
         to=victim,
-        gas_limit=100_000,
+        gas_limit=gas_limit,
+        gas_price=gas_price,
         protected=fork.supports_protected_txs(),
+    )
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        calldata=b"", contract_creation=False
+    )
+    execution_gas = victim_code.gas_cost(fork)
+    alice_final_balance = (
+        alice_initial_balance
+        + originator_balance
+        - (intrinsic_gas + execution_gas) * gas_price
     )
 
     expected_bal: BlockAccessListExpectation | None = None
     if fork.is_eip_enabled(7928):
-        # Alice gets nonce_changes (sender) plus balance_changes from
-        # receiving the transferred balance (when originator had any).
         alice_expectation = BalAccountExpectation(
             nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
+            balance_changes=[
+                BalBalanceChange(
+                    block_access_index=1, post_balance=alice_final_balance
+                )
+            ],
         )
-        # No code_changes / nonce_changes for the destructed account.
-        # Pre-existing contract under EIP-6780: code preserved post-Cancun,
-        # but the BAL still records balance change to 0 if it had any.
         if originator_balance > 0:
             victim_expectation = BalAccountExpectation(
                 balance_changes=[

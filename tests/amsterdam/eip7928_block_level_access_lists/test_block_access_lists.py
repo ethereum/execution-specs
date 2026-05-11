@@ -1502,18 +1502,12 @@ def test_bal_precompile_funded(
     )
 
 
-@pytest.mark.parametrize_by_fork(
-    "precompile",
-    lambda fork: [
-        pytest.param(addr, id=f"0x{int.from_bytes(addr, 'big'):02x}")
-        for addr in fork.precompiles()
-    ],
-)
+@pytest.mark.with_all_precompiles
 @pytest.mark.with_all_call_opcodes
 def test_bal_precompile_call_opcode(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    precompile: Address,
+    precompile: int,
     call_opcode: Op,
 ) -> None:
     """

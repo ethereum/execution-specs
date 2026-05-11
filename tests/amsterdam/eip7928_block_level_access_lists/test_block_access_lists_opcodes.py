@@ -3168,12 +3168,12 @@ def test_bal_create_storage_op_then_selfdestruct_same_tx(
     """
     Same-tx CREATE/CREATE2 + storage_op + SELFDESTRUCT.
 
-    Tx0 funds the deterministic address A. Tx1 deploys a contract at A
-    via the parametrized create opcode; init code performs SLOAD or
-    SSTORE on slot B then SELFDESTRUCTs. Because the contract is
-    destroyed in the same tx, slot B MUST appear in `storage_reads` and
-    MUST NOT appear in `storage_changes` (writes demoted to reads per
-    EIP-7928).
+    The deterministic address A is pre-funded. A single tx deploys a
+    contract at A via the parametrized create opcode; init code performs
+    SLOAD or SSTORE on slot B then SELFDESTRUCTs. Because the contract
+    is destroyed in the same tx, slot B MUST appear in `storage_reads`
+    and MUST NOT appear in `storage_changes` (writes demoted to reads
+    per EIP-7928).
     """
     alice = pre.fund_eoa()
     beneficiary = pre.fund_eoa(amount=0)
@@ -3208,14 +3208,9 @@ def test_bal_create_storage_op_then_selfdestruct_same_tx(
         initcode=initcode_bytes,
         opcode=create_opcode,
     )
+    pre.fund_address(target_a, fund_amount)
 
-    tx0 = Transaction(
-        sender=alice,
-        to=target_a,
-        value=fund_amount,
-        gas_limit=100_000,
-    )
-    tx1 = Transaction(
+    tx = Transaction(
         sender=alice,
         to=factory,
         data=initcode_bytes,
@@ -3223,15 +3218,12 @@ def test_bal_create_storage_op_then_selfdestruct_same_tx(
     )
 
     block = Block(
-        txs=[tx0, tx1],
+        txs=[tx],
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
                 target_a: BalAccountExpectation(
                     balance_changes=[
-                        BalBalanceChange(
-                            block_access_index=1, post_balance=fund_amount
-                        ),
-                        BalBalanceChange(block_access_index=2, post_balance=0),
+                        BalBalanceChange(block_access_index=1, post_balance=0),
                     ],
                     storage_reads=[slot_b],
                     storage_changes=[],
@@ -3241,7 +3233,7 @@ def test_bal_create_storage_op_then_selfdestruct_same_tx(
                 beneficiary: BalAccountExpectation(
                     balance_changes=[
                         BalBalanceChange(
-                            block_access_index=2,
+                            block_access_index=1,
                             post_balance=fund_amount,
                         )
                     ],
@@ -3256,6 +3248,7 @@ def test_bal_create_storage_op_then_selfdestruct_same_tx(
         post={
             target_a: Account.NONEXISTENT,
             beneficiary: Account(balance=fund_amount),
+            factory: Account(nonce=2, storage={0: target_a}),
         },
     )
 
@@ -3273,11 +3266,12 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
     """
     Tx1 CREATE2+SELFDESTRUCT, Tx2 CREATE2 resurrection at same address.
 
-    Both txs invoke the same factory with the same initcode (same hash =>
-    same CREATE2 address A). The factory branches on `CALLVALUE`: tx1
-    sends value=1 so factory CREATE2's then CALLs A (runtime
-    SELFDESTRUCTs); tx2 sends value=0 so factory CREATE2's only and A
-    persists with the runtime code.
+    Two identical txs invoke the same factory with the same initcode
+    (same hash => same CREATE2 address A). The factory branches on its
+    own storage slot 1: on the first tx, the slot is 0 so the factory
+    CREATE2's then CALLs A (runtime SELFDESTRUCTs) and records the
+    CALL's return code in slot 1; on the second tx, slot 1 is non-zero
+    so only CREATE2 runs and A persists with the runtime code.
 
     Per EIP-7928 SELFDESTRUCT-in-tx semantics, Tx1's destructed A has no
     `nonce_changes` or `code_changes`; only `balance_changes` if it was
@@ -3292,37 +3286,18 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
     runtime_bytes = bytes(runtime)
     initcode_bytes = bytes(Initcode(deploy_code=runtime))
 
-    # CALLVALUE=0 -> CREATE2 only; CALLVALUE>0 -> CREATE2 + CALL.
-    factory_code = Conditional(
-        condition=Op.ISZERO(Op.CALLVALUE),
-        if_true=(
-            Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-            + Op.SSTORE(
-                0,
-                Op.CREATE2(
-                    value=0,
-                    offset=0,
-                    size=Op.CALLDATASIZE,
-                    salt=salt,
-                ),
-            )
-            + Op.STOP
-        ),
-        if_false=(
-            Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-            + Op.SSTORE(
-                0,
-                Op.CREATE2(
-                    value=0,
-                    offset=0,
-                    size=Op.CALLDATASIZE,
-                    salt=salt,
-                ),
-            )
-            + Op.CALL(50_000, Op.SLOAD(0), 0, 0, 0, 0, 0)
-            + Op.POP
-            + Op.STOP
-        ),
+    factory_code = (
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.SSTORE(
+            0,
+            Op.CREATE2(value=0, offset=0, size=Op.CALLDATASIZE, salt=salt),
+        )
+        + Conditional(
+            condition=Op.ISZERO(Op.SLOAD(1)),
+            if_true=Op.SSTORE(1, Op.CALL(50_000, Op.SLOAD(0), 0, 0, 0, 0, 0)),
+            if_false=Op.STOP,
+        )
+        + Op.STOP
     )
     factory = pre.deploy_contract(code=factory_code)
     target_a = compute_create_address(
@@ -3338,14 +3313,12 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
     tx1 = Transaction(
         sender=alice,
         to=factory,
-        value=1,
         data=initcode_bytes,
         gas_limit=500_000,
     )
     tx2 = Transaction(
         sender=alice,
         to=factory,
-        value=0,
         data=initcode_bytes,
         gas_limit=500_000,
     )
@@ -3399,5 +3372,6 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
             beneficiary: Account(balance=pre_balance)
             if pre_balance > 0
             else Account.NONEXISTENT,
+            factory: Account(nonce=3, storage={0: target_a, 1: 1}),
         },
     )
