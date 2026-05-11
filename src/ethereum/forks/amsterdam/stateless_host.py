@@ -16,12 +16,17 @@ from .execution_engine.requests import ExecutionRequests
 from .execution_engine.types import ExecutionPayload, NewPayloadRequest
 from .fork_types import VersionedHash
 from .stateless import (
+    BlobSchedule,
     ChainConfig,
     ExecutionWitness,
+    ForkActivation,
+    ForkConfig,
+    ProtocolFork,
     StatelessInput,
     StatelessValidationResult,
 )
 from .stateless_ssz import (
+    STATELESS_INPUT_SCHEMA_ID_BYTES,
     SszStatelessValidationResult,
     ssz_to_validation_result,
     stateless_input_to_ssz,
@@ -33,20 +38,50 @@ from .transactions import (
     decode_transaction,
     recover_transaction_public_key,
 )
+from .vm.gas import (
+    BLOB_BASE_FEE_UPDATE_FRACTION,
+    BLOB_SCHEDULE_MAX,
+    BLOB_SCHEDULE_TARGET,
+)
 
 
 def serialize_stateless_input(
     stateless_input: StatelessInput,
 ) -> Bytes:
-    """Serialize a StatelessInput to SSZ-encoded bytes."""
+    """Serialize a StatelessInput to schema-prefixed SSZ bytes."""
     ssz_obj = stateless_input_to_ssz(stateless_input)
-    return Bytes(ssz_obj.encode_bytes())
+    return Bytes(
+        STATELESS_INPUT_SCHEMA_ID_BYTES + bytes(ssz_obj.encode_bytes())
+    )
 
 
 def deserialize_stateless_output(data: Bytes) -> StatelessValidationResult:
     """Deserialize a StatelessValidationResult from SSZ bytes."""
     ssz_obj = SszStatelessValidationResult.decode_bytes(data)
     return ssz_to_validation_result(ssz_obj)
+
+
+def build_chain_config(chain_id: U64) -> ChainConfig:
+    """
+    Build the chain configuration supported by this host.
+
+    For now the Amsterdam stateless host only describes the Amsterdam fork.
+    """
+    return ChainConfig(
+        chain_id=chain_id,
+        active_fork=ForkConfig(
+            fork=ProtocolFork.Amsterdam,
+            activation=ForkActivation(
+                block_number=None,
+                timestamp=U64(0),
+            ),
+            blob_schedule=BlobSchedule(
+                target=BLOB_SCHEDULE_TARGET,
+                max=BLOB_SCHEDULE_MAX,
+                base_fee_update_fraction=U64(BLOB_BASE_FEE_UPDATE_FRACTION),
+            ),
+        ),
+    )
 
 
 def build_stateless_input(
@@ -124,6 +159,6 @@ def build_stateless_input(
     return StatelessInput(
         new_payload_request=new_payload,
         witness=execution_witness,
-        chain_config=ChainConfig(chain_id=chain_id),
+        chain_config=build_chain_config(chain_id),
         public_keys=tuple(public_keys),
     )
