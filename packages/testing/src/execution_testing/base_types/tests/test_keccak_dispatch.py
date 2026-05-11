@@ -124,7 +124,7 @@ def test_fallback_engages_when_hashlib_lacks_keccak(
     with patch.object(hashlib, "new", side_effect=mocked_new):
         h = _clean_reimport_hash()
 
-        assert hasattr(h, "_pycryptodome_keccak"), (
+        assert h._USE_HASHLIB is False, (
             "module did not engage pycryptodome fallback"
         )
         for buffer, expected_hex in KECCAK256_VECTORS:
@@ -148,7 +148,7 @@ def test_native_path_used_when_hashlib_has_keccak(
         pytest.skip("hashlib lacks keccak-256 on this OpenSSL build")
 
     h = _clean_reimport_hash()
-    assert not hasattr(h, "_pycryptodome_keccak"), (
+    assert h._USE_HASHLIB is True, (
         "module engaged pycryptodome fallback despite hashlib having keccak"
     )
 
