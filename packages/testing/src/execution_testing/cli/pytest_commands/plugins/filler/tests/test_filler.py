@@ -1028,6 +1028,76 @@ test_module_execution_witness_missing_expected = textwrap.dedent(
 )
 
 
+test_module_execution_witness_rlp_modifier = textwrap.dedent(
+    """\
+    import pytest
+
+    from execution_testing import (
+        Account,
+        Alloc,
+        Block,
+        BlockchainTestFiller,
+        Header,
+        Op,
+        Transaction,
+    )
+
+    @pytest.mark.valid_at("Amsterdam")
+    def test_execution_witness_rlp_modifier(
+        pre: Alloc,
+        blockchain_test: BlockchainTestFiller,
+    ) -> None:
+        contract = pre.deploy_contract(code=Op.SSTORE(0, 1) + Op.STOP)
+        sender = pre.fund_eoa()
+        tx = Transaction(to=contract, gas_limit=100_000, sender=sender)
+
+        blockchain_test(
+            pre=pre,
+            post={
+                contract: Account(storage={0: 1}),
+                sender: Account(nonce=1),
+            },
+            blocks=[
+                Block(
+                    txs=[tx],
+                    rlp_modifier=Header(extra_data=b"mutated"),
+                )
+            ],
+        )
+    """
+)
+
+
+test_module_execution_witness_rlp_modifier_stateless_intent = textwrap.dedent(
+    """\
+    import pytest
+
+    from execution_testing import (
+        Alloc,
+        Block,
+        BlockchainTestFiller,
+        Header,
+    )
+
+    @pytest.mark.valid_at("Amsterdam")
+    def test_execution_witness_rlp_modifier_stateless_intent(
+        pre: Alloc,
+        blockchain_test: BlockchainTestFiller,
+    ) -> None:
+        blockchain_test(
+            pre=pre,
+            post={},
+            blocks=[
+                Block(
+                    rlp_modifier=Header(extra_data=b"mutated"),
+                    expected_stateless_validation_success=True,
+                )
+            ],
+        )
+    """
+)
+
+
 def test_execution_witness_in_blockchain_fixture(
     testdir: pytest.Testdir,
 ) -> None:
@@ -1177,6 +1247,83 @@ def test_execution_witness_skip_stateless_validation(
     assert "executionWitness" not in block
     assert "statelessInputBytes" not in block
     assert "statelessOutputBytes" not in block
+
+
+def test_execution_witness_rlp_modifier_omits_stateless_artifacts(
+    testdir: pytest.Testdir,
+) -> None:
+    """RLP-mutated blocks should not expose canonical stateless artifacts."""
+    tests_dir = testdir.mkdir("tests")
+    amsterdam_tests_dir = tests_dir.mkdir("amsterdam")
+    test_module = amsterdam_tests_dir.join(
+        "test_module_execution_witness_rlp_modifier.py"
+    )
+    test_module.write(test_module_execution_witness_rlp_modifier)
+
+    testdir.copy_example(
+        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
+    args = [
+        "-c",
+        "pytest-fill.ini",
+        "-v",
+        "--until=Amsterdam",
+        "-m",
+        "blockchain_test",
+        "--no-html",
+    ]
+    result = testdir.runpytest(*args)
+    result.assert_outcomes(
+        passed=1,
+        failed=0,
+        skipped=0,
+        errors=0,
+    )
+
+    fixture_path = Path(
+        "fixtures/blockchain_tests/for_amsterdam/amsterdam/"
+        "module_execution_witness_rlp_modifier/"
+        "execution_witness_rlp_modifier.json"
+    )
+    assert fixture_path.exists(), f"{fixture_path} does not exist"
+
+    with open(fixture_path, "r") as f:
+        fixture_data = json.load(f)
+
+    assert len(fixture_data) == 1, "Expected exactly one fixture"
+    fixture = next(iter(fixture_data.values()))
+    block = fixture["blocks"][0]
+
+    assert "executionWitness" not in block
+    assert "statelessInputBytes" not in block
+    assert "statelessOutputBytes" not in block
+
+
+def test_execution_witness_rlp_modifier_rejects_stateless_intent(
+    testdir: pytest.Testdir,
+) -> None:
+    """RLP modifiers cannot be combined with explicit stateless assertions."""
+    tests_dir = testdir.mkdir("tests")
+    amsterdam_tests_dir = tests_dir.mkdir("amsterdam")
+    test_module = amsterdam_tests_dir.join(
+        "test_module_execution_witness_rlp_modifier_stateless_intent.py"
+    )
+    test_module.write(
+        test_module_execution_witness_rlp_modifier_stateless_intent
+    )
+
+    testdir.copy_example(
+        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
+    args = ["-c", "pytest-fill.ini", "-v", "--until=Amsterdam", "--no-html"]
+    result = testdir.runpytest(*args)
+    assert result.ret != 0
+    result.stdout.fnmatch_lines(
+        [
+            "*Blocks with rlp_modifier omit stateless artifacts because "
+            "they are generated before the RLP mutation*"
+        ]
+    )
 
 
 def test_execution_witness_expected_true_reuses_canonical_stateless_result(

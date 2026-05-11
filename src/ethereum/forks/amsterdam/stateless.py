@@ -15,7 +15,7 @@ from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.forks.bpo5.blocks import Header as PreviousForkHeader
 from ethereum.state import Root
 
-from .blocks import Block, Header
+from .blocks import Header
 from .execution_engine.new_payload import execute_new_payload_request
 from .execution_engine.requests import ExecutionRequests
 from .execution_engine.types import ExecutionPayload, NewPayloadRequest
@@ -241,15 +241,6 @@ def compute_new_payload_request_root(
 
     ssz_npr = _new_payload_request_to_ssz(stateless_input.new_payload_request)
     return Hash32(ssz_npr.hash_tree_root())
-
-
-def new_payload_request_to_block(
-    new_payload_request: NewPayloadRequest,
-) -> Block:
-    """
-    Convert a NewPayloadRequest into a block.
-    """
-    raise NotImplementedError
 
 
 def _decode_header(header_bytes: Bytes) -> Header | PreviousForkHeader:

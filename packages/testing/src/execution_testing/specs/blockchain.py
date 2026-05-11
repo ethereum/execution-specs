@@ -987,6 +987,40 @@ class BlockchainTest(BaseTest):
                     "exception must be the last transaction in the block"
                 )
 
+        has_witness_expectation = (
+            block.expected_execution_witness_state is not None
+            or block.expected_execution_witness_codes is not None
+            or block.expected_execution_witness_headers is not None
+        )
+        public_keys_modifier = block.stateless_input_public_keys_modifier
+        has_public_keys_modifier = public_keys_modifier is not None
+        expected_success = block.expected_stateless_validation_success
+        omit_stateless_artifacts = block.rlp_modifier is not None
+        if omit_stateless_artifacts and (
+            has_witness_expectation
+            or has_public_keys_modifier
+            or expected_success is not None
+        ):
+            raise AssertionError(
+                "Blocks with rlp_modifier omit stateless artifacts because "
+                "they are generated before the RLP mutation. SSZ/stateless "
+                "mutation tests require a separate explicit mechanism."
+            )
+        if self.skip_stateless_validation and (
+            has_witness_expectation
+            or has_public_keys_modifier
+            or expected_success is not None
+        ):
+            raise AssertionError(
+                "skip_stateless_validation cannot be combined with "
+                "execution witness expectations, stateless input public-key "
+                "modifiers, or "
+                "expected_stateless_validation_success"
+            )
+        skip_stateless_for_block = (
+            self.skip_stateless_validation or omit_stateless_artifacts
+        )
+
         transition_tool_output = t8n.evaluate(
             transition_tool_data=TransitionTool.TransitionToolData(
                 alloc=previous_alloc,
@@ -996,7 +1030,7 @@ class BlockchainTest(BaseTest):
                 chain_id=self.chain_id,
                 reward=fork.get_reward(),
                 blob_schedule=fork.blob_schedule(),
-                skip_stateless_validation=self.skip_stateless_validation,
+                skip_stateless_validation=skip_stateless_for_block,
             ),
             slow_request=self.is_tx_gas_heavy_test,
         )
@@ -1114,25 +1148,6 @@ class BlockchainTest(BaseTest):
         # If expected witness state/codes defined, verify against actual
         t8n_witness = transition_tool_output.result.execution_witness
         execution_witness = t8n_witness
-        has_witness_expectation = (
-            block.expected_execution_witness_state is not None
-            or block.expected_execution_witness_codes is not None
-            or block.expected_execution_witness_headers is not None
-        )
-        public_keys_modifier = block.stateless_input_public_keys_modifier
-        has_public_keys_modifier = public_keys_modifier is not None
-        expected_success = block.expected_stateless_validation_success
-        if self.skip_stateless_validation and (
-            has_witness_expectation
-            or has_public_keys_modifier
-            or expected_success is not None
-        ):
-            raise AssertionError(
-                "skip_stateless_validation cannot be combined with "
-                "execution witness expectations, stateless input public-key "
-                "modifiers, or "
-                "expected_stateless_validation_success"
-            )
         state_expectation = block.expected_execution_witness_state
         if state_expectation is not None and execution_witness is not None:
             state_expectation.verify_against(execution_witness)

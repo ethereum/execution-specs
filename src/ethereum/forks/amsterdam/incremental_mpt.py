@@ -28,7 +28,7 @@ from typing import (
 
 from ethereum_rlp import Extended, rlp
 from ethereum_types.bytes import Bytes
-from ethereum_types.numeric import Uint
+from ethereum_types.numeric import Uint, ulen
 
 from ethereum.crypto.hash import keccak256
 from ethereum.merkle_patricia_trie import (
@@ -713,9 +713,7 @@ def _delete_from_extension(
         return node
 
     old_child = node.child
-    new_child = _mpt_delete_node(
-        mpt, old_child, key, level + Uint(len(segment))
-    )
+    new_child = _mpt_delete_node(mpt, old_child, key, level + ulen(segment))
 
     if new_child is None:
         return None
