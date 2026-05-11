@@ -5,6 +5,12 @@ The test check if the create transaction is reject if the origin's...
 
 Ported from:
 state_tests/stCreateTest/CreateTransactionHighNonceFiller.yml
+
+@manually-enhanced: Do not overwrite. `tx_gas` was raised from 90 000
+to 500 000 so the transaction clears the EIP-8037 intrinsic-gas floor
+on Amsterdam and the validator can actually reach the NONCE_IS_MAX
+check the test asserts. Pre-Amsterdam the floor is lower, so the same
+budget still triggers the same exception path.
 """
 
 import pytest
@@ -85,7 +91,15 @@ def test_create_transaction_high_nonce(
     tx_data = [
         Op.RETURN(offset=0x0, size=0x1),
     ]
-    tx_gas = [90000]
+    # Original budget (90 000) is below the EIP-8037 intrinsic-gas
+    # floor for a create tx on Amsterdam, so the tx is rejected for
+    # `INTRINSIC_GAS_TOO_LOW` before the NONCE_IS_MAX check this test
+    # asserts ever runs. Bump on Amsterdam to clear the floor; pre-
+    # EIP-8037 forks keep the original.
+    nonce_check_tx_gas = 90000
+    if fork.is_eip_enabled(8037):
+        nonce_check_tx_gas = 500000
+    tx_gas = [nonce_check_tx_gas]
     tx_value = [0, 1]
 
     tx = Transaction(

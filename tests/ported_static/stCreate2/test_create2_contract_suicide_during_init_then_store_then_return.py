@@ -3,6 +3,12 @@ Test_create2_contract_suicide_during_init_then_store_then_return.
 
 Ported from:
 state_tests/stCreate2/CREATE2_ContractSuicideDuringInit_ThenStoreThenReturnFiller.json
+
+@manually-enhanced: Do not overwrite. The inner CALL gas was raised
+from 0x249F0 to 0x100000 and the tx gas_limit from 600 000 to
+5 000 000 so the nested CREATE2 + init-code SELFDESTRUCT to address
+0x01 can afford its EIP-8037 NEW_ACCOUNT state gas on Amsterdam
+(post-state expectations are unchanged on all forks).
 """
 
 import pytest
@@ -16,6 +22,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +39,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_create2_contract_suicide_during_init_then_store_then_return(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_create2_contract_suicide_during_init_then_store_then_return."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
@@ -51,6 +59,14 @@ def test_create2_contract_suicide_during_init_then_store_then_return(
     )
 
     pre[sender] = Account(balance=0xE8D4A51000)
+    # EIP-8037 NEW_ACCOUNT state-gas on Amsterdam pushes both the inner
+    # CALL and the outer tx over the original budgets; pre-EIP-8037
+    # forks keep the values the original filler was tuned for.
+    inner_call_gas = 0x249F0
+    tx_gas_limit = 600_000
+    if fork.is_eip_enabled(8037):
+        inner_call_gas = 0x100000
+        tx_gas_limit = 5_000_000
     # Source: lll
     # { (MSTORE 0 0x6d64600c6000556000526005601bf36000526001ff) (CREATE2 1 11 21 0) [[0]] 11 (RETURN 18 14) }  # noqa: E501
     contract_1 = pre.deploy_contract(  # noqa: F841
@@ -70,7 +86,7 @@ def test_create2_contract_suicide_during_init_then_store_then_return(
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
             Op.CALL(
-                gas=0x249F0,
+                gas=inner_call_gas,
                 address=contract_1,
                 value=0x1,
                 args_offset=0x0,
@@ -90,7 +106,7 @@ def test_create2_contract_suicide_during_init_then_store_then_return(
         sender=sender,
         to=contract_0,
         data=Bytes(""),
-        gas_limit=600000,
+        gas_limit=tx_gas_limit,
         value=10,
     )
 
