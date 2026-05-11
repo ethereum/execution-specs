@@ -12,12 +12,11 @@ from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
-from ethereum.merkle_patricia_trie import EMPTY_TRIE_ROOT
+from ethereum.merkle_patricia_trie import EMPTY_TRIE_ROOT, InternalNode
 from ethereum.state import (
     EMPTY_CODE_HASH,
     Account,
     Address,
-    InternalNode,
     Root,
 )
 
