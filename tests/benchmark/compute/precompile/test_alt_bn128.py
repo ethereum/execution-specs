@@ -21,7 +21,7 @@ from execution_testing import (
 from py_ecc.bn128 import G1, G2, multiply
 from py_ecc.fields import bn128_FQ2
 
-from tests.benchmark.compute.helpers import Precompile
+from tests.benchmark.compute.helpers import Precompile, concatenate_parameters
 from tests.byzantium.eip196_ec_add_mul.spec import (
     PointG1,
     Scalar,
