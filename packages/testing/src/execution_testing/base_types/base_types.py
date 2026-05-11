@@ -1,6 +1,5 @@
 """Basic type primitives used to define other types."""
 
-import hashlib
 from abc import ABCMeta
 from hashlib import sha256
 from re import sub
@@ -14,6 +13,7 @@ from typing import (
     TypeVar,
 )
 
+from ethereum.crypto.hash import keccak256 as _keccak256
 from pydantic import GetCoreSchemaHandler, StringConstraints
 from pydantic_core.core_schema import (
     PlainValidatorFunctionSchema,
@@ -201,7 +201,7 @@ class Bytes(bytes, ToStringSchema):
 
     def keccak256(self) -> "Hash":
         """Return the keccak256 hash of the opcode byte representation."""
-        return Hash(hashlib.new("keccak-256", bytes(self)).digest())
+        return Hash(_keccak256(self))
 
     def sha256(self) -> "Hash":
         """Return the sha256 hash of the opcode byte representation."""
