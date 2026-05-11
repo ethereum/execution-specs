@@ -145,7 +145,7 @@ def build_bal_expectations(
     beneficiary_in_bal: bool,
 ) -> BlockAccessListExpectation | None:
     """Build BAL expectations for >=Amsterdam."""
-    if not fork.header_bal_hash_required():
+    if not fork.is_eip_enabled(7928):
         return None
 
     victim_code = Op.SELFDESTRUCT(beneficiary)
@@ -830,7 +830,7 @@ def test_selfdestruct_to_system_contract(
 
     # Build minimal BAL expectations for test-specific accounts only
     expected_bal: BlockAccessListExpectation | None = None
-    if fork.header_bal_hash_required():
+    if fork.is_eip_enabled(7928):
         account_expectations: Dict[Address, BalAccountExpectation | None] = {
             alice: BalAccountExpectation(
                 nonce_changes=[
@@ -1006,7 +1006,7 @@ def test_selfdestruct_to_self(
 
     # Build BAL expectations
     expected_bal: BlockAccessListExpectation | None = None
-    if fork.header_bal_hash_required():
+    if fork.is_eip_enabled(7928):
         if same_tx:
             if is_success:
                 # Created and destroyed in same tx - no net changes for victim
@@ -1160,7 +1160,7 @@ def test_initcode_selfdestruct_to_self(
 
     # Build BAL expectations
     expected_bal: BlockAccessListExpectation | None = None
-    if fork.header_bal_hash_required():
+    if fork.is_eip_enabled(7928):
         # Contract created and immediately destroyed - no net changes
         # for victim
         caller_expectation = BalAccountExpectation(
@@ -1189,6 +1189,86 @@ def test_initcode_selfdestruct_to_self(
         caller: Account(nonce=2),
         victim: Account.NONEXISTENT,
     }
+
+    blockchain_test(
+        pre=pre,
+        blocks=[Block(txs=[tx], expected_block_access_list=expected_bal)],
+        post=post,
+    )
+
+
+@pytest.mark.parametrize(
+    "originator_balance",
+    [0, 100],
+    ids=["no_balance", "has_balance"],
+)
+@pytest.mark.valid_from("TangerineWhistle")
+def test_selfdestruct_send_to_sender(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    fork: Fork,
+    originator_balance: int,
+) -> None:
+    """
+    SELFDESTRUCT on pre-existing contract where beneficiary is tx.sender.
+
+    Alice calls victim directly; victim runs `SELFDESTRUCT(CALLER)`. The
+    beneficiary coincides with tx.sender, so alice's BAL entry coalesces
+    `nonce_changes` (as sender) with `balance_changes` (as beneficiary).
+    Pre-Cancun: victim destroyed. >=Cancun: victim preserved with balance 0
+    (EIP-6780 — victim was not created same-tx).
+    """
+    alice = pre.fund_eoa()
+    victim_code = Op.SELFDESTRUCT(Op.CALLER)
+    victim = pre.deploy_contract(code=victim_code, balance=originator_balance)
+
+    tx = Transaction(
+        sender=alice,
+        to=victim,
+        gas_limit=100_000,
+        protected=fork.supports_protected_txs(),
+    )
+
+    expected_bal: BlockAccessListExpectation | None = None
+    if fork.is_eip_enabled(7928):
+        # Alice gets nonce_changes (sender) plus balance_changes from
+        # receiving the transferred balance (when originator had any).
+        alice_expectation = BalAccountExpectation(
+            nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
+        )
+        # No code_changes / nonce_changes for the destructed account.
+        # Pre-existing contract under EIP-6780: code preserved post-Cancun,
+        # but the BAL still records balance change to 0 if it had any.
+        if originator_balance > 0:
+            victim_expectation = BalAccountExpectation(
+                balance_changes=[
+                    BalBalanceChange(block_access_index=1, post_balance=0)
+                ],
+                code_changes=[],
+                nonce_changes=[],
+                storage_changes=[],
+                storage_reads=[],
+            )
+        else:
+            victim_expectation = BalAccountExpectation.empty()
+        expected_bal = BlockAccessListExpectation(
+            account_expectations={
+                alice: alice_expectation,
+                victim: victim_expectation,
+            }
+        )
+
+    contract_destroyed = fork < Cancun
+    if contract_destroyed:
+        post: Dict[Address | EOA, Account | object] = {
+            alice: Account(nonce=1),
+            victim: Account.NONEXISTENT,
+        }
+    else:
+        post = {
+            alice: Account(nonce=1),
+            victim: Account(balance=0, code=victim_code),
+        }
 
     blockchain_test(
         pre=pre,

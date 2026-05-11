@@ -17,7 +17,13 @@ from execution_testing import (
     Address,
     Alloc,
     AuthorizationTuple,
+    BalAccountExpectation,
+    BalCodeChange,
+    BalNonceChange,
+    BalStorageChange,
+    BalStorageSlot,
     Block,
+    BlockAccessListExpectation,
     BlockchainTestFiller,
     Bytecode,
     Bytes,
@@ -1181,6 +1187,7 @@ def test_call_into_chain_delegating_set_code(
     state_test: StateTestFiller,
     pre: Alloc,
     call_opcode: Op,
+    fork: Fork,
 ) -> None:
     """
     Test call into a set-code account that delegates to another set-code
@@ -1190,14 +1197,15 @@ def test_call_into_chain_delegating_set_code(
     auth_signer_2 = pre.fund_eoa(auth_account_start_balance)
 
     storage = Storage()
+    return_slot = storage.store_next(
+        call_return_code(
+            opcode=call_opcode,
+            success=False,
+        )
+    )
     entry_code = (
         Op.SSTORE(
-            storage.store_next(
-                call_return_code(
-                    opcode=call_opcode,
-                    success=False,
-                )
-            ),
+            return_slot,
             call_opcode(address=auth_signer_1),
         )
         + Op.STOP
@@ -1223,6 +1231,51 @@ def test_call_into_chain_delegating_set_code(
         sender=pre.fund_eoa(),
     )
 
+    expected_block_access_list = None
+    if fork.is_eip_enabled(7928):
+        # One-hop delegation resolution: CALL(A) resolves A->B once; B's
+        # 0xef0100... bytecode aborts as INVALID. CALL returns 0, so
+        # SSTORE(slot, 0) is a no-op write and is demoted to storage_reads.
+        expected_block_access_list = BlockAccessListExpectation(
+            account_expectations={
+                tx.sender: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                entry_address: BalAccountExpectation(
+                    storage_changes=[],
+                    storage_reads=[return_slot],
+                ),
+                auth_signer_1: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                    code_changes=[
+                        BalCodeChange(
+                            block_access_index=1,
+                            new_code=Spec.delegation_designation(
+                                auth_signer_2
+                            ),
+                        )
+                    ],
+                ),
+                auth_signer_2: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                    code_changes=[
+                        BalCodeChange(
+                            block_access_index=1,
+                            new_code=Spec.delegation_designation(
+                                auth_signer_1
+                            ),
+                        )
+                    ],
+                ),
+            }
+        )
+
     state_test(
         env=Environment(),
         pre=pre,
@@ -1236,6 +1289,7 @@ def test_call_into_chain_delegating_set_code(
                 nonce=1, code=Spec.delegation_designation(auth_signer_1)
             ),
         },
+        expected_block_access_list=expected_block_access_list,
     )
 
 
@@ -2465,6 +2519,7 @@ def test_signature_s_out_of_range(
     state_test: StateTestFiller,
     pre: Alloc,
     chain_config: ChainConfig,
+    fork: Fork,
 ) -> None:
     """
     Test sending a transaction with an authorization tuple where the signature
@@ -2500,6 +2555,33 @@ def test_signature_s_out_of_range(
         sender=pre.fund_eoa(),
     )
 
+    expected_block_access_list = None
+    if fork.is_eip_enabled(7928):
+        # High-s rejected pre-load -> authority not in BAL (EIP-7928).
+        expected_block_access_list = BlockAccessListExpectation(
+            account_expectations={
+                tx.sender: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                entry_address: BalAccountExpectation(
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=success_slot,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=1, post_value=1
+                                )
+                            ],
+                        )
+                    ],
+                ),
+                auth_signer: None,
+                set_code_to_address: None,
+            }
+        )
+
     state_test(
         env=Environment(),
         pre=pre,
@@ -2510,6 +2592,7 @@ def test_signature_s_out_of_range(
                 storage={success_slot: 1},
             ),
         },
+        expected_block_access_list=expected_block_access_list,
     )
 
 
@@ -2636,6 +2719,7 @@ def test_nonce_validity(
     pre: Alloc,
     account_nonce: int,
     authorization_nonce: int,
+    fork: Fork,
 ) -> None:
     """
     Test sending a transaction where the nonce field of an authorization almost
@@ -2677,6 +2761,83 @@ def test_nonce_validity(
         sender=pre.fund_eoa(),
     )
 
+    expected_block_access_list = None
+    if fork.is_eip_enabled(7928):
+        # Invalid auth -> CALL(auth_signer) returns 0; SSTORE(return_slot, 0)
+        # is a no-op write and is demoted to storage_reads per EIP-7928.
+        if valid_authorization:
+            entry_expectation = BalAccountExpectation(
+                storage_changes=[
+                    BalStorageSlot(
+                        slot=success_slot,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=1, post_value=1
+                            )
+                        ],
+                    ),
+                    BalStorageSlot(
+                        slot=return_slot,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=1, post_value=1
+                            )
+                        ],
+                    ),
+                ],
+            )
+            auth_signer_expectation: BalAccountExpectation | None = (
+                BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(
+                            block_access_index=1,
+                            post_nonce=account_nonce + 1,
+                        )
+                    ],
+                    code_changes=[
+                        BalCodeChange(
+                            block_access_index=1,
+                            new_code=Spec.delegation_designation(
+                                set_code_to_address
+                            ),
+                        )
+                    ],
+                )
+            )
+            set_code_target_expectation: BalAccountExpectation | None = (
+                BalAccountExpectation.empty()
+            )
+        else:
+            entry_expectation = BalAccountExpectation(
+                storage_changes=[
+                    BalStorageSlot(
+                        slot=success_slot,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=1, post_value=1
+                            )
+                        ],
+                    ),
+                ],
+                storage_reads=[return_slot],
+            )
+            # Auth failed; subsequent CALL still touches the signer.
+            auth_signer_expectation = BalAccountExpectation.empty()
+            set_code_target_expectation = None
+
+        expected_block_access_list = BlockAccessListExpectation(
+            account_expectations={
+                tx.sender: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                entry_address: entry_expectation,
+                auth_signer: auth_signer_expectation,
+                set_code_to_address: set_code_target_expectation,
+            }
+        )
+
     state_test(
         env=Environment(),
         pre=pre,
@@ -2699,6 +2860,7 @@ def test_nonce_validity(
                 },
             ),
         },
+        expected_block_access_list=expected_block_access_list,
     )
 
 

@@ -437,7 +437,7 @@ def test_selfdestruct_created_in_same_tx_with_revert(  # noqa SC200
     )
 
     expected_block_access_list = None
-    if fork.header_bal_hash_required():
+    if fork.is_eip_enabled(7928):
         account_expectations = {}
 
         if selfdestruct_on_outer_call > 0:

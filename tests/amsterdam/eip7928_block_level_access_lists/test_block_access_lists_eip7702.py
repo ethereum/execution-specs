@@ -515,6 +515,72 @@ def test_bal_7702_invalid_nonce_authorization(
     )
 
 
+@pytest.mark.pre_alloc_mutable()
+def test_bal_7702_invalid_authority_has_code_authorization(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Ensure BAL handles failed authorization where the authority already has
+    non-empty, non-delegation code (EIP-7702 step-5 rejection, post-load).
+    """
+    # Pre-existing non-delegation code on the authority blocks the 7702
+    # delegation at step 5, after the authority is already loaded.
+    alice = pre.fund_eoa(amount=0, code=Op.STOP, nonce=1)
+    bob = pre.fund_eoa(amount=0)
+    relayer = pre.fund_eoa()
+    oracle = pre.deploy_contract(code=Op.STOP)
+
+    tx = Transaction(
+        sender=relayer,  # Sponsored transaction
+        to=bob,
+        value=10,
+        gas_limit=1_000_000,
+        gas_price=0xA,
+        authorization_list=[
+            AuthorizationTuple(
+                address=oracle,
+                nonce=alice.nonce,
+                signer=alice,
+            )
+        ],
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                bob: BalAccountExpectation(
+                    balance_changes=[
+                        BalBalanceChange(block_access_index=1, post_balance=10)
+                    ]
+                ),
+                relayer: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                # Alice loaded at step 4 then step 5 rejects.
+                alice: BalAccountExpectation.empty(),
+                # Oracle never loaded as delegation target.
+                oracle: None,
+            }
+        ),
+    )
+
+    post = {
+        relayer: Account(nonce=1),
+        bob: Account(balance=10),
+        alice: Account(code=Op.STOP, nonce=1),
+    }
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post=post,
+    )
+
+
 def test_bal_7702_invalid_chain_id_authorization(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
