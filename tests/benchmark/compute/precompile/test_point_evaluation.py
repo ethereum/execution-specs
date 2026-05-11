@@ -31,23 +31,21 @@ INPUT_SIZE = 192
     [
         pytest.param(
             BlobsSpec.POINT_EVALUATION_PRECOMPILE_ADDRESS,
-            bytes(
-                PointEvaluationInput(
-                    versioned_hash=bytes.fromhex(
-                        "01E798154708FE7789429634053CBF9F"
-                        "99B619F9F084048927333FCE637F549B"
-                    ),
-                    z=0x564C0A11A0F704F4FC3E8ACFE0F8245F0AD1347B378FBF96E206DA11A5D36306,
-                    y=0x24D25032E67A7E6A4910DF5834B8FE70E6BCFEEAC0352434196BDF4B2485D5A1,
-                    commitment=bytes.fromhex(
-                        "8F59A8D2A1A625A17F3FEA0FE5EB8C896DB3764F3185481BC22F91B4AAFFCCA2"
-                        "5F26936857BC3A7C2539EA8EC3A952B7"
-                    ),
-                    proof=bytes.fromhex(
-                        "873033E038326E87ED3E1276FD140253FA08E9FC25FB2D9A98527FC22A2C9612"
-                        "FBEAFDAD446CBC7BCDBDCD780AF2C16A"
-                    ),
-                )
+            PointEvaluationInput(
+                versioned_hash=bytes.fromhex(
+                    "01E798154708FE7789429634053CBF9F"
+                    "99B619F9F084048927333FCE637F549B"
+                ),
+                z=0x564C0A11A0F704F4FC3E8ACFE0F8245F0AD1347B378FBF96E206DA11A5D36306,
+                y=0x24D25032E67A7E6A4910DF5834B8FE70E6BCFEEAC0352434196BDF4B2485D5A1,
+                commitment=bytes.fromhex(
+                    "8F59A8D2A1A625A17F3FEA0FE5EB8C896DB3764F3185481BC22F91B4AAFFCCA2"
+                    "5F26936857BC3A7C2539EA8EC3A952B7"
+                ),
+                proof=bytes.fromhex(
+                    "873033E038326E87ED3E1276FD140253FA08E9FC25FB2D9A98527FC22A2C9612"
+                    "FBEAFDAD446CBC7BCDBDCD780AF2C16A"
+                ),
             ),
             id="point_evaluation",
         ),

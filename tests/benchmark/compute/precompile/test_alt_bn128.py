@@ -21,7 +21,7 @@ from execution_testing import (
 from py_ecc.bn128 import G1, G2, multiply
 from py_ecc.fields import bn128_FQ2
 
-from tests.benchmark.compute.helpers import Precompile, concatenate_parameters
+from tests.benchmark.compute.helpers import Precompile
 from tests.byzantium.eip196_ec_add_mul.spec import (
     PointG1,
     Scalar,
@@ -42,29 +42,27 @@ from tests.byzantium.eip197_ec_pairing.spec import (
     [
         pytest.param(
             EIP196Spec.ECADD,
-            bytes(
-                PointG1(
-                    x=0x18B18ACFB4C2C30276DB5411368E7185B311DD124691610C5D3B74034E093DC9,
-                    y=0x063C909C4720840CB5134CB9F59FA749755796819658D32EFC0D288198F37266,
-                )
-                + PointG1(
-                    x=0x07C2B7F58A84BD6145F00C9C2BC0BB1A187F20FF2C92963A88019E7C6A014EED,
-                    y=0x06614E20C147E940F2D70DA3F74C9A17DF361706A4485C742BD6788478FA17D7,
-                )
+            PointG1(
+                x=0x18B18ACFB4C2C30276DB5411368E7185B311DD124691610C5D3B74034E093DC9,
+                y=0x063C909C4720840CB5134CB9F59FA749755796819658D32EFC0D288198F37266,
+            )
+            + PointG1(
+                x=0x07C2B7F58A84BD6145F00C9C2BC0BB1A187F20FF2C92963A88019E7C6A014EED,
+                y=0x06614E20C147E940F2D70DA3F74C9A17DF361706A4485C742BD6788478FA17D7,
             ),
             Precompile.BN128_ADD,
             id="bn128_add",
             marks=pytest.mark.repricing,
         ),
         pytest.param(
-            0x06,
-            concatenate_parameters(
-                [
-                    "18B18ACFB4C2C30276DB5411368E7185B311DD124691610C5D3B74034E093DC9",
-                    "063C909C4720840CB5134CB9F59FA749755796819658D32EFC0D288198F37266",
-                    "18B18ACFB4C2C30276DB5411368E7185B311DD124691610C5D3B74034E093DC9",
-                    "063C909C4720840CB5134CB9F59FA749755796819658D32EFC0D288198F37266",
-                ]
+            EIP196Spec.ECADD,
+            PointG1(
+                x=0x18B18ACFB4C2C30276DB5411368E7185B311DD124691610C5D3B74034E093DC9,
+                y=0x063C909C4720840CB5134CB9F59FA749755796819658D32EFC0D288198F37266,
+            )
+            + PointG1(
+                x=0x18B18ACFB4C2C30276DB5411368E7185B311DD124691610C5D3B74034E093DC9,
+                y=0x063C909C4720840CB5134CB9F59FA749755796819658D32EFC0D288198F37266,
             ),
             Precompile.BN128_ADD,
             id="bn128_double",
@@ -72,14 +70,14 @@ from tests.byzantium.eip197_ec_pairing.spec import (
         ),
         # Second point is the negative of the first one
         pytest.param(
-            0x06,
-            concatenate_parameters(
-                [
-                    "18B18ACFB4C2C30276DB5411368E7185B311DD124691610C5D3B74034E093DC9",
-                    "063C909C4720840CB5134CB9F59FA749755796819658D32EFC0D288198F37266",
-                    "18B18ACFB4C2C30276DB5411368E7185B311DD124691610C5D3B74034E093DC9",
-                    "2A27BDD69A111C1D033CF8FC8BE1B1142229D40FD218F75E401363953F898AE1",
-                ]
+            EIP196Spec.ECADD,
+            PointG1(
+                x=0x18B18ACFB4C2C30276DB5411368E7185B311DD124691610C5D3B74034E093DC9,
+                y=0x063C909C4720840CB5134CB9F59FA749755796819658D32EFC0D288198F37266,
+            )
+            + PointG1(
+                x=0x18B18ACFB4C2C30276DB5411368E7185B311DD124691610C5D3B74034E093DC9,
+                y=0x2A27BDD69A111C1D033CF8FC8BE1B1142229D40FD218F75E401363953F898AE1,
             ),
             Precompile.BN128_ADD,
             id="bn128_add_negative",
@@ -89,7 +87,7 @@ from tests.byzantium.eip197_ec_pairing.spec import (
         # https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCase.cs#L326
         pytest.param(
             EIP196Spec.ECADD,
-            bytes(EIP196Spec.INF_G1 + EIP196Spec.INF_G1),
+            EIP196Spec.INF_G1 + EIP196Spec.INF_G1,
             Precompile.BN128_ADD,
             id="bn128_add_infinities",
             marks=pytest.mark.repricing,
@@ -98,20 +96,18 @@ from tests.byzantium.eip197_ec_pairing.spec import (
         # https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCase.cs#L329
         pytest.param(
             EIP196Spec.ECADD,
-            bytes(EIP196Spec.G1 + EIP196Spec.G1),
+            EIP196Spec.G1 + EIP196Spec.G1,
             Precompile.BN128_ADD,
             id="bn128_add_1_2",
         ),
         pytest.param(
             EIP196Spec.ECMUL,
-            bytes(
-                PointG1(
-                    x=0x1A87B0584CE92F4593D161480614F2989035225609F08058CCFA3D0F940FEBE3,
-                    y=0x1A2F3C951F6DADCC7EE9007DFF81504B0FCD6D7CF59996EFDC33D92BF7F9F8F6,
-                )
-                + Scalar(
-                    x=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-                )
+            PointG1(
+                x=0x1A87B0584CE92F4593D161480614F2989035225609F08058CCFA3D0F940FEBE3,
+                y=0x1A2F3C951F6DADCC7EE9007DFF81504B0FCD6D7CF59996EFDC33D92BF7F9F8F6,
+            )
+            + Scalar(
+                x=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
             ),
             Precompile.BN128_MUL,
             id="bn128_mul",
@@ -120,7 +116,7 @@ from tests.byzantium.eip197_ec_pairing.spec import (
         # https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCase.cs#L335
         pytest.param(
             EIP196Spec.ECMUL,
-            bytes(EIP196Spec.INF_G1 + Scalar(x=2)),
+            EIP196Spec.INF_G1 + Scalar(x=2),
             Precompile.BN128_MUL,
             id="bn128_mul_infinities_2_scalar",
         ),
@@ -128,11 +124,9 @@ from tests.byzantium.eip197_ec_pairing.spec import (
         # https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCase.cs#L338
         pytest.param(
             EIP196Spec.ECMUL,
-            bytes(
-                EIP196Spec.INF_G1
-                + Scalar(
-                    x=0x25F8C89EA3437F44F8FC8B6BFBB6312074DC6F983809A5E809FF4E1D076DD585
-                )
+            EIP196Spec.INF_G1
+            + Scalar(
+                x=0x25F8C89EA3437F44F8FC8B6BFBB6312074DC6F983809A5E809FF4E1D076DD585
             ),
             Precompile.BN128_MUL,
             id="bn128_mul_infinities_32_byte_scalar",
@@ -142,7 +136,7 @@ from tests.byzantium.eip197_ec_pairing.spec import (
         # https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCase.cs#L341
         pytest.param(
             EIP196Spec.ECMUL,
-            bytes(EIP196Spec.G1 + Scalar(x=2)),
+            EIP196Spec.G1 + Scalar(x=2),
             Precompile.BN128_MUL,
             id="bn128_mul_1_2_2_scalar",
         ),
@@ -150,11 +144,9 @@ from tests.byzantium.eip197_ec_pairing.spec import (
         # https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCase.cs#L344
         pytest.param(
             EIP196Spec.ECMUL,
-            bytes(
-                EIP196Spec.G1
-                + Scalar(
-                    x=0x25F8C89EA3437F44F8FC8B6BFBB6312074DC6F983809A5E809FF4E1D076DD585
-                )
+            EIP196Spec.G1
+            + Scalar(
+                x=0x25F8C89EA3437F44F8FC8B6BFBB6312074DC6F983809A5E809FF4E1D076DD585
             ),
             Precompile.BN128_MUL,
             id="bn128_mul_1_2_32_byte_scalar",
@@ -163,13 +155,11 @@ from tests.byzantium.eip197_ec_pairing.spec import (
         # https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCase.cs#L347
         pytest.param(
             EIP196Spec.ECMUL,
-            bytes(
-                PointG1(
-                    x=0x089142DEBB13C461F61523586A60732D8B69C5B38A3380A74DA7B2961D867DBF,
-                    y=0x2D5FC7BBC013C16D7945F190B232EACC25DA675C0EB093FE6B9F1B4B4E107B36,
-                )
-                + Scalar(x=2)
-            ),
+            PointG1(
+                x=0x089142DEBB13C461F61523586A60732D8B69C5B38A3380A74DA7B2961D867DBF,
+                y=0x2D5FC7BBC013C16D7945F190B232EACC25DA675C0EB093FE6B9F1B4B4E107B36,
+            )
+            + Scalar(x=2),
             Precompile.BN128_MUL,
             id="bn128_mul_32_byte_coord_and_2_scalar",
             marks=pytest.mark.repricing,
@@ -178,14 +168,12 @@ from tests.byzantium.eip197_ec_pairing.spec import (
         # https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCase.cs#L350
         pytest.param(
             EIP196Spec.ECMUL,
-            bytes(
-                PointG1(
-                    x=0x089142DEBB13C461F61523586A60732D8B69C5B38A3380A74DA7B2961D867DBF,
-                    y=0x2D5FC7BBC013C16D7945F190B232EACC25DA675C0EB093FE6B9F1B4B4E107B36,
-                )
-                + Scalar(
-                    x=0x25F8C89EA3437F44F8FC8B6BFBB6312074DC6F983809A5E809FF4E1D076DD585
-                )
+            PointG1(
+                x=0x089142DEBB13C461F61523586A60732D8B69C5B38A3380A74DA7B2961D867DBF,
+                y=0x2D5FC7BBC013C16D7945F190B232EACC25DA675C0EB093FE6B9F1B4B4E107B36,
+            )
+            + Scalar(
+                x=0x25F8C89EA3437F44F8FC8B6BFBB6312074DC6F983809A5E809FF4E1D076DD585
             ),
             Precompile.BN128_MUL,
             id="bn128_mul_32_byte_coord_and_scalar",
@@ -193,49 +181,45 @@ from tests.byzantium.eip197_ec_pairing.spec import (
         ),
         pytest.param(
             EIP197Spec.ECPAIRING,
-            bytes(
-                # First pairing
-                PointG1(
-                    x=0x1C76476F4DEF4BB94541D57EBBA1193381FFA7AA76ADA664DD31C16024C43F59,
-                    y=0x3034DD2920F673E204FEE2811C678745FC819B55D3E9D294E45C9B03A76AEF41,
-                )
-                + PointG2(
-                    x=(
-                        0x209DD15EBFF5D46C4BD888E51A93CF99A7329636C63514396B4A452003A35BF7,
-                        0x04BF11CA01483BFA8B34B43561848D28905960114C8AC04049AF4B6315A41678,
-                    ),
-                    y=(
-                        0x2BB8324AF6CFC93537A2AD1A445CFD0CA2A71ACD7AC41FADBF933C2A51BE344D,
-                        0x120A2A4CF30C1BF9845F20C6FE39E07EA2CCE61F0C9BB048165FE5E4DE877550,
-                    ),
-                )
-                # Second pairing
-                + PointG1(
-                    x=0x111E129F1CF1097710D41C4AC70FCDFA5BA2023C6FF1CBEAC322DE49D1B6DF7C,
-                    y=0x103188585E2364128FE25C70558F1560F4F9350BAF3959E603CC91486E110936,
-                )
-                + EIP197Spec.G2
-            ),
+            # First pairing
+            PointG1(
+                x=0x1C76476F4DEF4BB94541D57EBBA1193381FFA7AA76ADA664DD31C16024C43F59,
+                y=0x3034DD2920F673E204FEE2811C678745FC819B55D3E9D294E45C9B03A76AEF41,
+            )
+            + PointG2(
+                x=(
+                    0x209DD15EBFF5D46C4BD888E51A93CF99A7329636C63514396B4A452003A35BF7,
+                    0x04BF11CA01483BFA8B34B43561848D28905960114C8AC04049AF4B6315A41678,
+                ),
+                y=(
+                    0x2BB8324AF6CFC93537A2AD1A445CFD0CA2A71ACD7AC41FADBF933C2A51BE344D,
+                    0x120A2A4CF30C1BF9845F20C6FE39E07EA2CCE61F0C9BB048165FE5E4DE877550,
+                ),
+            )
+            # Second pairing
+            + PointG1(
+                x=0x111E129F1CF1097710D41C4AC70FCDFA5BA2023C6FF1CBEAC322DE49D1B6DF7C,
+                y=0x103188585E2364128FE25C70558F1560F4F9350BAF3959E603CC91486E110936,
+            )
+            + EIP197Spec.G2,
             Precompile.BN128_PAIRING,
             id="bn128_two_pairings",
         ),
         pytest.param(
             EIP197Spec.ECPAIRING,
-            bytes(
-                PointG1(
-                    x=0x1C76476F4DEF4BB94541D57EBBA1193381FFA7AA76ADA664DD31C16024C43F59,
-                    y=0x3034DD2920F673E204FEE2811C678745FC819B55D3E9D294E45C9B03A76AEF41,
-                )
-                + PointG2(
-                    x=(
-                        0x209DD15EBFF5D46C4BD888E51A93CF99A7329636C63514396B4A452003A35BF7,
-                        0x04BF11CA01483BFA8B34B43561848D28905960114C8AC04049AF4B6315A41678,
-                    ),
-                    y=(
-                        0x2BB8324AF6CFC93537A2AD1A445CFD0CA2A71ACD7AC41FADBF933C2A51BE344D,
-                        0x120A2A4CF30C1BF9845F20C6FE39E07EA2CCE61F0C9BB048165FE5E4DE877550,
-                    ),
-                )
+            PointG1(
+                x=0x1C76476F4DEF4BB94541D57EBBA1193381FFA7AA76ADA664DD31C16024C43F59,
+                y=0x3034DD2920F673E204FEE2811C678745FC819B55D3E9D294E45C9B03A76AEF41,
+            )
+            + PointG2(
+                x=(
+                    0x209DD15EBFF5D46C4BD888E51A93CF99A7329636C63514396B4A452003A35BF7,
+                    0x04BF11CA01483BFA8B34B43561848D28905960114C8AC04049AF4B6315A41678,
+                ),
+                y=(
+                    0x2BB8324AF6CFC93537A2AD1A445CFD0CA2A71ACD7AC41FADBF933C2A51BE344D,
+                    0x120A2A4CF30C1BF9845F20C6FE39E07EA2CCE61F0C9BB048165FE5E4DE877550,
+                ),
             ),
             Precompile.BN128_PAIRING,
             id="bn128_one_pairing",
@@ -250,37 +234,35 @@ from tests.byzantium.eip197_ec_pairing.spec import (
         ),
         pytest.param(
             EIP197Spec.ECPAIRING,
-            bytes(
-                # First pairing
-                PointG1(
-                    x=0x2CF44499D5D27BB186308B7AF7AF02AC5BC9EEB6A3D147C186B21FB1B76E18DA,
-                    y=0x2C0F001F52110CCFE69108924926E45F0B0C868DF0E7BDE1FE16D3242DC715F6,
-                )
-                + PointG2(
-                    x=(
-                        0x1FB19BB476F6B9E44E2A32234DA8212F61CD63919354BC06AEF31E3CFAFF3EBC,
-                        0x22606845FF186793914E03E21DF544C34FFE2F2F3504DE8A79D9159ECA2D98D9,
-                    ),
-                    y=(
-                        0x2BD368E28381E8ECCB5FA81FC26CF3F048EEA9ABFDD85D7ED3AB3698D63E4F90,
-                        0x2FE02E47887507ADF0FF1743CBAC6BA291E66F59BE6BD763950BB16041A0A85E,
-                    ),
-                )
-                # Second pairing
-                + PointG1(
-                    x=0x0000000000000000000000000000000000000000000000000000000000000013,
-                    y=0x0644E72E131A029B85045B68181585D97816A916871CA8D3C208C16D87CFD451,
-                )
-                + PointG2(
-                    x=(
-                        0x971FF0471B09FA93CAAF13CBF443C1AEDE09CC4328F5A62AAD45F40EC133EB40,
-                        0x91058A3141822985733CBDDDFED0FD8D6C104E9E9EFF40BF5ABFEF9AB163BC72,
-                    ),
-                    y=(
-                        0xA23AF9A5CE2BA2796C1F4E453A370EB0AF8C212D9DC9ACD8FC02C2E907BAEA22,
-                        0x3A8EB0B0996252CB548A4487DA97B02422EBC0E834613F954DE6C7E0AFDC1FC0,
-                    ),
-                )
+            # First pairing
+            PointG1(
+                x=0x2CF44499D5D27BB186308B7AF7AF02AC5BC9EEB6A3D147C186B21FB1B76E18DA,
+                y=0x2C0F001F52110CCFE69108924926E45F0B0C868DF0E7BDE1FE16D3242DC715F6,
+            )
+            + PointG2(
+                x=(
+                    0x1FB19BB476F6B9E44E2A32234DA8212F61CD63919354BC06AEF31E3CFAFF3EBC,
+                    0x22606845FF186793914E03E21DF544C34FFE2F2F3504DE8A79D9159ECA2D98D9,
+                ),
+                y=(
+                    0x2BD368E28381E8ECCB5FA81FC26CF3F048EEA9ABFDD85D7ED3AB3698D63E4F90,
+                    0x2FE02E47887507ADF0FF1743CBAC6BA291E66F59BE6BD763950BB16041A0A85E,
+                ),
+            )
+            # Second pairing
+            + PointG1(
+                x=0x0000000000000000000000000000000000000000000000000000000000000013,
+                y=0x0644E72E131A029B85045B68181585D97816A916871CA8D3C208C16D87CFD451,
+            )
+            + PointG2(
+                x=(
+                    0x971FF0471B09FA93CAAF13CBF443C1AEDE09CC4328F5A62AAD45F40EC133EB40,
+                    0x91058A3141822985733CBDDDFED0FD8D6C104E9E9EFF40BF5ABFEF9AB163BC72,
+                ),
+                y=(
+                    0xA23AF9A5CE2BA2796C1F4E453A370EB0AF8C212D9DC9ACD8FC02C2E907BAEA22,
+                    0x3A8EB0B0996252CB548A4487DA97B02422EBC0E834613F954DE6C7E0AFDC1FC0,
+                ),
             ),
             Precompile.BN128_PAIRING,
             id="ec_pairing_2_sets",
@@ -293,123 +275,117 @@ from tests.byzantium.eip197_ec_pairing.spec import (
         ),
         pytest.param(
             EIP197Spec.ECPAIRING,
-            bytes(
-                # First pairing
-                PointG1(
-                    x=0x2371E7D92E9FC444D0E11526F0752B520318C80BE68BF0131704B36B7976572E,
-                    y=0x2DCA8F05ED5D58E0F2E13C49AE40480C0F99DFCD9268521EEA6C81C6387B66C4,
-                )
-                + PointG2(
-                    x=(
-                        0x051A93D697DB02AFD3DCF8414ECB906A114A2BFDB6B06C95D41798D1801B3CBD,
-                        0x2E275FEF7A0BDB0A2AEA77D8EC5817E66E199B3D55BC0FA308DCDDA74E85060B,
-                    ),
-                    y=(
-                        0x1C7E33C2A72D6E12A31EABABAD3DBC388525135628102BB64742D9E325F43410,
-                        0x115DC41FA10B2DBF99036F252AD6F00E8876B22F02CB4738DC4413B22EA9B2DF,
-                    ),
-                )
-                # Second pairing: G2 generator
-                + PointG1(
-                    x=0x09A760EA8F9BD87DC258A949395A03F7D2500C6E72C61F570986328A096B610A,
-                    y=0x148027063C072345298117EB2CB980AD79601DB31CC69BBA6BCBE4937ADA6720,
-                )
-                + EIP197Spec.G2
-            ),
+            # First pairing
+            PointG1(
+                x=0x2371E7D92E9FC444D0E11526F0752B520318C80BE68BF0131704B36B7976572E,
+                y=0x2DCA8F05ED5D58E0F2E13C49AE40480C0F99DFCD9268521EEA6C81C6387B66C4,
+            )
+            + PointG2(
+                x=(
+                    0x051A93D697DB02AFD3DCF8414ECB906A114A2BFDB6B06C95D41798D1801B3CBD,
+                    0x2E275FEF7A0BDB0A2AEA77D8EC5817E66E199B3D55BC0FA308DCDDA74E85060B,
+                ),
+                y=(
+                    0x1C7E33C2A72D6E12A31EABABAD3DBC388525135628102BB64742D9E325F43410,
+                    0x115DC41FA10B2DBF99036F252AD6F00E8876B22F02CB4738DC4413B22EA9B2DF,
+                ),
+            )
+            # Second pairing: G2 generator
+            + PointG1(
+                x=0x09A760EA8F9BD87DC258A949395A03F7D2500C6E72C61F570986328A096B610A,
+                y=0x148027063C072345298117EB2CB980AD79601DB31CC69BBA6BCBE4937ADA6720,
+            )
+            + EIP197Spec.G2,
             Precompile.BN128_PAIRING,
             id="ec_pairing_2_pair",
         ),
         pytest.param(
             EIP197Spec.ECPAIRING,
-            bytes(
-                # First pairing
-                PointG1(x=0, y=0)
-                + PointG2(
-                    x=(
-                        0x0EF4AAC9B7954D5FC6EAFAE7F4F4C2A732AB05B45F8D50D102CEE4973F36EB2C,
-                        0x23DB7D30C99E0A2A7F3BB5CD1F04635AAEA58732B58887DF93D9239C28230D28,
-                    ),
-                    y=(
-                        0x2BD99D31A5054F2556D226F2E5EF0E075423D8604178B2E2C08006311CAEE54F,
-                        0x0F11AFB0C6073D12D21B13F4F78210E8CA9A66729206D3FCC2C1B04824C425F2,
-                    ),
-                )
-                # Second pairing (32 zero + G2 generator = 160 bytes)
-                + bytes(32)
-                + bytes(EIP197Spec.G2)
-                # Third pairing (same structure as second)
-                + bytes(32)
-                + bytes(EIP197Spec.G2)
-            ),
+            # First pairing
+            PointG1(x=0, y=0)
+            + PointG2(
+                x=(
+                    0x0EF4AAC9B7954D5FC6EAFAE7F4F4C2A732AB05B45F8D50D102CEE4973F36EB2C,
+                    0x23DB7D30C99E0A2A7F3BB5CD1F04635AAEA58732B58887DF93D9239C28230D28,
+                ),
+                y=(
+                    0x2BD99D31A5054F2556D226F2E5EF0E075423D8604178B2E2C08006311CAEE54F,
+                    0x0F11AFB0C6073D12D21B13F4F78210E8CA9A66729206D3FCC2C1B04824C425F2,
+                ),
+            )
+            # Second pairing (32 zero + G2 generator = 160 bytes)
+            + bytes(32)
+            + EIP197Spec.G2
+            # Third pairing (same structure as second)
+            + bytes(32)
+            + EIP197Spec.G2,
             Precompile.BN128_PAIRING,
             id="ec_pairing_3_pair",
         ),
         pytest.param(
             EIP197Spec.ECPAIRING,
-            bytes(
-                (
-                    PointG1(
-                        x=0x24AB69F46F3E3333027D67D51AF71571141BD5652B9829157A3C5D1268461984,
-                        y=0x0F0E1495665BCCF97D627B714E8A49E9C77C21E8D5B383AD7DDE7E50040D0F62,
-                    )
-                    + PointG2(
-                        x=(
-                            0x2CAB595B9D579F8B82E433249B83AE1D7B62D7073A4F67CB3AEB9B316988907F,
-                            0x1326D1905FFDE0C77E8EBD98257AA239B05AE76C8EC7723EC19BBC8282B0DEBE,
-                        ),
-                        y=(
-                            0x130502106676B537E01CC356765E91C005D6C4BD1A75F5F6D41D2556C73E56AC,
-                            0x2DC4CB08068B4AA5F14B7F1096AB35D5C13D78319EC7E66E9F67A1FF20CBBF03,
-                        ),
-                    )
+            (
+                PointG1(
+                    x=0x24AB69F46F3E3333027D67D51AF71571141BD5652B9829157A3C5D1268461984,
+                    y=0x0F0E1495665BCCF97D627B714E8A49E9C77C21E8D5B383AD7DDE7E50040D0F62,
                 )
-                + (
-                    PointG1(
-                        x=0x1459F4140B271CBC8746DE9DFCB477D5B72D50EF95BEC5FEF4A68DD69DDFDB2E,
-                        y=0x2C589584551D16A9723B5D356D1EE2066D10381555CDC739E39EFCA2612FC544,
-                    )
-                    + PointG2(
-                        x=(
-                            0x229AB0ABDB0A7D1A5F0D93FB36CE41E12A31BA52FD9E3C27BEBCE524AB6C4E9B,
-                            0x00F8756832B244377D06E2D00EEB95EC8096DCFD81F4E4931B50FEA23C04A2FE,
-                        ),
-                        y=(
-                            0x29605352CE973EC48D1AB2C8355643C999B70FF771946078B519C556058C3D56,
-                            0x059A65AE6E0189D4E04A966140AA40F781A1345824A90A91BB035E12AD29AF1D,
-                        ),
-                    )
+                + PointG2(
+                    x=(
+                        0x2CAB595B9D579F8B82E433249B83AE1D7B62D7073A4F67CB3AEB9B316988907F,
+                        0x1326D1905FFDE0C77E8EBD98257AA239B05AE76C8EC7723EC19BBC8282B0DEBE,
+                    ),
+                    y=(
+                        0x130502106676B537E01CC356765E91C005D6C4BD1A75F5F6D41D2556C73E56AC,
+                        0x2DC4CB08068B4AA5F14B7F1096AB35D5C13D78319EC7E66E9F67A1FF20CBBF03,
+                    ),
                 )
-                + (
-                    PointG1(
-                        x=0x1459F4140B271CBC8746DE9DFCB477D5B72D50EF95BEC5FEF4A68DD69DDFDB2E,
-                        y=0x2C589584551D16A9723B5D356D1EE2066D10381555CDC739E39EFCA2612FC544,
-                    )
-                    + PointG2(
-                        x=(
-                            0x229AB0ABDB0A7D1A5F0D93FB36CE41E12A31BA52FD9E3C27BEBCE524AB6C4E9B,
-                            0x00F8756832B244377D06E2D00EEB95EC8096DCFD81F4E4931B50FEA23C04A2FE,
-                        ),
-                        y=(
-                            0x29605352CE973EC48D1AB2C8355643C999B70FF771946078B519C556058C3D56,
-                            0x059A65AE6E0189D4E04A966140AA40F781A1345824A90A91BB035E12AD29AF1D,
-                        ),
-                    )
+            )
+            + (
+                PointG1(
+                    x=0x1459F4140B271CBC8746DE9DFCB477D5B72D50EF95BEC5FEF4A68DD69DDFDB2E,
+                    y=0x2C589584551D16A9723B5D356D1EE2066D10381555CDC739E39EFCA2612FC544,
                 )
-                + (
-                    PointG1(
-                        x=0x24AB69F46F3E3333027D67D51AF71571141BD5652B9829157A3C5D1268461984,
-                        y=0x0F0E1495665BCCF97D627B714E8A49E9C77C21E8D5B383AD7DDE7E50040D0F62,
-                    )
-                    + PointG2(
-                        x=(
-                            0x2CAB595B9D579F8B82E433249B83AE1D7B62D7073A4F67CB3AEB9B316988907F,
-                            0x1326D1905FFDE0C77E8EBD98257AA239B05AE76C8EC7723EC19BBC8282B0DEBE,
-                        ),
-                        y=(
-                            0x130502106676B537E01CC356765E91C005D6C4BD1A75F5F6D41D2556C73E56AC,
-                            0x2DC4CB08068B4AA5F14B7F1096AB35D5C13D78319EC7E66E9F67A1FF20CBBF03,
-                        ),
-                    )
+                + PointG2(
+                    x=(
+                        0x229AB0ABDB0A7D1A5F0D93FB36CE41E12A31BA52FD9E3C27BEBCE524AB6C4E9B,
+                        0x00F8756832B244377D06E2D00EEB95EC8096DCFD81F4E4931B50FEA23C04A2FE,
+                    ),
+                    y=(
+                        0x29605352CE973EC48D1AB2C8355643C999B70FF771946078B519C556058C3D56,
+                        0x059A65AE6E0189D4E04A966140AA40F781A1345824A90A91BB035E12AD29AF1D,
+                    ),
+                )
+            )
+            + (
+                PointG1(
+                    x=0x1459F4140B271CBC8746DE9DFCB477D5B72D50EF95BEC5FEF4A68DD69DDFDB2E,
+                    y=0x2C589584551D16A9723B5D356D1EE2066D10381555CDC739E39EFCA2612FC544,
+                )
+                + PointG2(
+                    x=(
+                        0x229AB0ABDB0A7D1A5F0D93FB36CE41E12A31BA52FD9E3C27BEBCE524AB6C4E9B,
+                        0x00F8756832B244377D06E2D00EEB95EC8096DCFD81F4E4931B50FEA23C04A2FE,
+                    ),
+                    y=(
+                        0x29605352CE973EC48D1AB2C8355643C999B70FF771946078B519C556058C3D56,
+                        0x059A65AE6E0189D4E04A966140AA40F781A1345824A90A91BB035E12AD29AF1D,
+                    ),
+                )
+            )
+            + (
+                PointG1(
+                    x=0x24AB69F46F3E3333027D67D51AF71571141BD5652B9829157A3C5D1268461984,
+                    y=0x0F0E1495665BCCF97D627B714E8A49E9C77C21E8D5B383AD7DDE7E50040D0F62,
+                )
+                + PointG2(
+                    x=(
+                        0x2CAB595B9D579F8B82E433249B83AE1D7B62D7073A4F67CB3AEB9B316988907F,
+                        0x1326D1905FFDE0C77E8EBD98257AA239B05AE76C8EC7723EC19BBC8282B0DEBE,
+                    ),
+                    y=(
+                        0x130502106676B537E01CC356765E91C005D6C4BD1A75F5F6D41D2556C73E56AC,
+                        0x2DC4CB08068B4AA5F14B7F1096AB35D5C13D78319EC7E66E9F67A1FF20CBBF03,
+                    ),
                 )
             ),
             Precompile.BN128_PAIRING,
@@ -417,73 +393,71 @@ from tests.byzantium.eip197_ec_pairing.spec import (
         ),
         pytest.param(
             EIP197Spec.ECPAIRING,
-            bytes(
-                # First pairing
-                PointG1(
-                    x=0x1147057B17237DF94A3186435ACF66924E1D382B8C935FDD493CEB38C38DEF73,
-                    y=0x03CD046286139915160357CE5B29B9EA28BFB781B71734455D20EF1A64BE76CA,
-                )
-                + PointG2(
-                    x=(
-                        0x0DAA7CC4983CF74C94607519DF747F61E317307C449BAFB6923F6D6A65299A7E,
-                        0x1D48DB8F275830859FD61370ADDBC5D5EF3F0CE7491D16918E065F7E3727439D,
-                    ),
-                    y=(
-                        0x1CA8AC2F4A0F540E5505EDBE1D15D13899A2A0DFCCB012D068134AC66EDEC625,
-                        0x2162C315417D1D12C9D7028C5619015391003A9006D4D8979784C7AF2C4537A3,
-                    ),
-                )
-                # Second pairing
-                + PointG1(
-                    x=0x0D221A19CA86DAFA8CB804DAFF78FD3D1BED30AA32E7D4029B1AA69AFDA2D750,
-                    y=0x018628C766A98DE1D0CCA887A6D90303E68A7729490F25F937B76B57624BA0BE,
-                )
-                + PointG2(
-                    x=(
-                        0x14550CCF7139312DA6FA9EB1259C6365B0BD688A27473CCB42BC5CD6F14C8ABD,
-                        0x165F8721EE9F614382C8C7EDB103C941D3A55C1849C9787F34317777D5D9365B,
-                    ),
-                    y=(
-                        0x0D19DA7439EDB573A1B3E357FAADE63D5D68B6031771FD911459B7AB0BDA9D3F,
-                        0x25A50A44D10C99C5F107E3B3874F717873CB2D4674699A468204DF27C0C50A9A,
-                    ),
-                )
-                # Third pairing
-                + PointG1(
-                    x=0x0D7136C59B907615E1B45CF730FBFD6CF38B7E126E85E52BE804620A23ACE4FB,
-                    y=0x03E80C29D24ED5CC407329AE093BB1BE00F9E3C9332F532BC3658937110D7607,
-                )
-                + PointG2(
-                    x=(
-                        0x2129813BD7247065AC58EAC42C81E874044E199F48C12AA749A9FE6BB6E4BDDC,
-                        0x1B72B9AB4579283E62445555D5B2921424213D09A776152361C46988B82BE8A7,
-                    ),
-                    y=(
-                        0x111BC8198F932E379B8F9825F01AF0F5E5CACBF8BFE274BF674F6EAA6E338E04,
-                        0x259F58D438FD6391E158C991E155966218E6A432703A84068A32543965749857,
-                    ),
-                )
-                # Fourth pairing: G2 generator
-                + PointG1(
-                    x=0x1BA47A91D487CCE77AA78390A295DF54D9351637D67810C400415FB374278E3F,
-                    y=0x24318BBC05A4E4D779B9498075841C360C6973C1C51DEA254281829BBC9AEF33,
-                )
-                + EIP197Spec.G2
-                # Fifth pairing
-                + PointG1(
-                    x=0x1E219772C16EEE72450BBF43E9CADAE7BF6B2E6AE6637CFEB1D1E8965287ACFB,
-                    y=0x0347E7BF4245DEBD3D00B6F51D2D50FD718E6769352F4FE1DB0EFE492FED2FC3,
-                )
-                + PointG2(
-                    x=(
-                        0x24FDCC7D4ED0953E3DAD500C7EF9836FC61DED44BA454EC76F0A6D0687F4C1B4,
-                        0x282B18F7E59C1DB4852E622919B2CE9AA5980CA883EAC312049C19A3DEB79F6D,
-                    ),
-                    y=(
-                        0x0C9D6CE303B7811DD7EA506C8FA124837405BD209B8731BDA79A66EB7206277B,
-                        0x1AC5DAC62D2332FAA8069FACA3B0D27FCDF95D8C8BAFC9074EE72B5C1F33AA70,
-                    ),
-                )
+            # First pairing
+            PointG1(
+                x=0x1147057B17237DF94A3186435ACF66924E1D382B8C935FDD493CEB38C38DEF73,
+                y=0x03CD046286139915160357CE5B29B9EA28BFB781B71734455D20EF1A64BE76CA,
+            )
+            + PointG2(
+                x=(
+                    0x0DAA7CC4983CF74C94607519DF747F61E317307C449BAFB6923F6D6A65299A7E,
+                    0x1D48DB8F275830859FD61370ADDBC5D5EF3F0CE7491D16918E065F7E3727439D,
+                ),
+                y=(
+                    0x1CA8AC2F4A0F540E5505EDBE1D15D13899A2A0DFCCB012D068134AC66EDEC625,
+                    0x2162C315417D1D12C9D7028C5619015391003A9006D4D8979784C7AF2C4537A3,
+                ),
+            )
+            # Second pairing
+            + PointG1(
+                x=0x0D221A19CA86DAFA8CB804DAFF78FD3D1BED30AA32E7D4029B1AA69AFDA2D750,
+                y=0x018628C766A98DE1D0CCA887A6D90303E68A7729490F25F937B76B57624BA0BE,
+            )
+            + PointG2(
+                x=(
+                    0x14550CCF7139312DA6FA9EB1259C6365B0BD688A27473CCB42BC5CD6F14C8ABD,
+                    0x165F8721EE9F614382C8C7EDB103C941D3A55C1849C9787F34317777D5D9365B,
+                ),
+                y=(
+                    0x0D19DA7439EDB573A1B3E357FAADE63D5D68B6031771FD911459B7AB0BDA9D3F,
+                    0x25A50A44D10C99C5F107E3B3874F717873CB2D4674699A468204DF27C0C50A9A,
+                ),
+            )
+            # Third pairing
+            + PointG1(
+                x=0x0D7136C59B907615E1B45CF730FBFD6CF38B7E126E85E52BE804620A23ACE4FB,
+                y=0x03E80C29D24ED5CC407329AE093BB1BE00F9E3C9332F532BC3658937110D7607,
+            )
+            + PointG2(
+                x=(
+                    0x2129813BD7247065AC58EAC42C81E874044E199F48C12AA749A9FE6BB6E4BDDC,
+                    0x1B72B9AB4579283E62445555D5B2921424213D09A776152361C46988B82BE8A7,
+                ),
+                y=(
+                    0x111BC8198F932E379B8F9825F01AF0F5E5CACBF8BFE274BF674F6EAA6E338E04,
+                    0x259F58D438FD6391E158C991E155966218E6A432703A84068A32543965749857,
+                ),
+            )
+            # Fourth pairing: G2 generator
+            + PointG1(
+                x=0x1BA47A91D487CCE77AA78390A295DF54D9351637D67810C400415FB374278E3F,
+                y=0x24318BBC05A4E4D779B9498075841C360C6973C1C51DEA254281829BBC9AEF33,
+            )
+            + EIP197Spec.G2
+            # Fifth pairing
+            + PointG1(
+                x=0x1E219772C16EEE72450BBF43E9CADAE7BF6B2E6AE6637CFEB1D1E8965287ACFB,
+                y=0x0347E7BF4245DEBD3D00B6F51D2D50FD718E6769352F4FE1DB0EFE492FED2FC3,
+            )
+            + PointG2(
+                x=(
+                    0x24FDCC7D4ED0953E3DAD500C7EF9836FC61DED44BA454EC76F0A6D0687F4C1B4,
+                    0x282B18F7E59C1DB4852E622919B2CE9AA5980CA883EAC312049C19A3DEB79F6D,
+                ),
+                y=(
+                    0x0C9D6CE303B7811DD7EA506C8FA124837405BD209B8731BDA79A66EB7206277B,
+                    0x1AC5DAC62D2332FAA8069FACA3B0D27FCDF95D8C8BAFC9074EE72B5C1F33AA70,
+                ),
             ),
             Precompile.BN128_PAIRING,
             id="ec_pairing_5_pair",
@@ -554,7 +528,7 @@ def _generate_bn128_pairs(n: int, seed: int = 0) -> Bytes:
             ),
         )
 
-        calldata = Bytes(calldata + bytes(g1 + g2))
+        calldata = Bytes(calldata + g1 + g2)
 
     return calldata
 

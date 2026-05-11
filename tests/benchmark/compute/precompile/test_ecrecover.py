@@ -22,13 +22,11 @@ from tests.frontier.precompiles.spec import Spec as EcrecoverSpec
             EcrecoverSpec.ECRECOVER,
             # Inputs below are a valid signature, thus ECRECOVER call
             # will perform full computation, not blocked by validation.
-            bytes(
-                EcrecoverInput(
-                    msg_hash=0x38D18ACB67D25C8BB9942764B62F18E17054F66A817BD4295423ADF9ED98873E,
-                    v=0x1B,
-                    r=0x38D18ACB67D25C8BB9942764B62F18E17054F66A817BD4295423ADF9ED98873E,
-                    s=0x789D1DD423D25F0772D2748D60F7E4B81BB14D086EBA8E8E8EFB6DCFF8A4AE02,
-                )
+            EcrecoverInput(
+                msg_hash=0x38D18ACB67D25C8BB9942764B62F18E17054F66A817BD4295423ADF9ED98873E,
+                v=0x1B,
+                r=0x38D18ACB67D25C8BB9942764B62F18E17054F66A817BD4295423ADF9ED98873E,
+                s=0x789D1DD423D25F0772D2748D60F7E4B81BB14D086EBA8E8E8EFB6DCFF8A4AE02,
             ),
             id="ecrecover",
         )
