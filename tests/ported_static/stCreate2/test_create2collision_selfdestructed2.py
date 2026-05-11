@@ -3,6 +3,13 @@ A contract which performs SUICIDE, and is then attempted to be...
 
 Ported from:
 state_tests/stCreate2/create2collisionSelfdestructed2Filler.json
+
+@manually-enhanced: Do not overwrite. The inner CALL's gas budget was
+raised from 0xC350 to 0x40000 and the outer tx gas from 400 000 to
+1 000 000 so the SELFDESTRUCT-to-empty path can afford its EIP-8037
+NEW_ACCOUNT state gas on Amsterdam (the test's intent — exercising
+CREATE2 collision against a freshly self-destructed address — is
+preserved on all forks).
 """
 
 import pytest
@@ -122,10 +129,19 @@ def test_create2collision_selfdestructed2(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    # EIP-8037 NEW_ACCOUNT state-gas pushes both the outer tx and the
+    # inner CALL over their original budgets on Amsterdam. Pre-EIP-8037
+    # forks keep the original tuned values.
+    inner_call_gas = 0xC350
+    outer_tx_gas = 400_000
+    if fork.is_eip_enabled(8037):
+        inner_call_gas = 0x40000
+        outer_tx_gas = 1_000_000
+
     tx_data = [
         Op.POP(
             Op.CALL(
-                gas=0xC350,
+                gas=inner_call_gas,
                 address=contract_0,
                 value=0x0,
                 args_offset=0x0,
@@ -139,7 +155,7 @@ def test_create2collision_selfdestructed2(
         + Op.STOP,
         Op.POP(
             Op.CALL(
-                gas=0xC350,
+                gas=inner_call_gas,
                 address=contract_1,
                 value=0x0,
                 args_offset=0x0,
@@ -152,7 +168,7 @@ def test_create2collision_selfdestructed2(
         + Op.CREATE2(value=0x0, offset=0x14, size=0xC, salt=0x0)
         + Op.STOP,
     ]
-    tx_gas = [400000]
+    tx_gas = [outer_tx_gas]
 
     tx = Transaction(
         sender=sender,

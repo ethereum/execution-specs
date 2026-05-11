@@ -3,6 +3,17 @@ Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/stPreCompiledContracts/precompsEIP2929CancunFiller.yml
+
+@manually-enhanced: Do not overwrite. 87 parametrizations of this
+test measure the regular gas consumed by a CALL with value to an
+inactive precompile address. EIP-8037 replaces the Cancun-era
+CALL_NEW_ACCOUNT cost of 25 000 with a per-new-account state-gas
+charge of `STATE_BYTES_PER_NEW_ACCOUNT (112) * COST_PER_STATE_BYTE
+(1174) = 131 488`. With an empty reservoir (the case here), the
+full state-gas spills back into regular gas, so `Op.GAS` reads
++106 488 (= 131 488 - 25 000) compared to Cancun. Bake that delta
+into the two affected `[">=Cancun"]` expect-entries fork-condition-
+ally; the third entry is gated to `["Cancun"]` only and unchanged.
 """
 
 import pytest
@@ -3580,6 +3591,11 @@ def test_precomps_eip2929_cancun(
         nonce=1,
     )
 
+    # EIP-8037 replaces the 25 000 CALL_NEW_ACCOUNT base cost with a
+    # 131 488 state-gas charge. With an empty reservoir the full
+    # state-gas spills into regular gas, so Op.GAS reads +106 488.
+    new_account_delta = (fork.create_state_gas() - 25000) if fork.is_eip_enabled(8037) else 0
+
     expect_entries_: list[dict] = [
         {
             "indexes": {
@@ -4218,7 +4234,9 @@ def test_precomps_eip2929_cancun(
                 "value": -1,
             },
             "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 0, 1: 25000})},
+            "result": {
+                target: Account(storage={0: 0, 1: 25000 + new_account_delta})
+            },
         },
         {
             "indexes": {
@@ -4227,7 +4245,9 @@ def test_precomps_eip2929_cancun(
                 "value": -1,
             },
             "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 0, 1: 27500})},
+            "result": {
+                target: Account(storage={0: 0, 1: 27500 + new_account_delta})
+            },
         },
         {
             "indexes": {
