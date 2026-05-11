@@ -8,7 +8,7 @@ from .types import (
 )
 
 
-def get_payload(payload_id: PayloadId) -> GetPayloadResponse:
+def get_payload(_payload_id: PayloadId) -> GetPayloadResponse:
     """
     Return a prepared payload response for a previously returned
     ``PayloadId``.

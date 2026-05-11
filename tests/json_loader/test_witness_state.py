@@ -3,11 +3,6 @@
 from typing import Any, Optional
 
 import pytest
-from ethereum.forks.amsterdam.trie import (
-    EMPTY_TRIE_ROOT,
-    bytes_to_nibble_list,
-    nibble_list_to_compact,
-)
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import U256, Uint
@@ -24,6 +19,11 @@ from ethereum.forks.amsterdam.witness_state import (
     WitnessState,
     build_code_db,
     build_node_db,
+)
+from ethereum.merkle_patricia_trie import (
+    EMPTY_TRIE_ROOT,
+    bytes_to_nibble_list,
+    nibble_list_to_compact,
 )
 from ethereum.state import EMPTY_CODE_HASH, Account, Address, Root
 
