@@ -7,7 +7,36 @@ from hashlib import sha256
 from typing import List, Optional, Set, Tuple
 
 import pytest
-from execution_testing import Fork, ParameterSet, Transaction
+from execution_testing import (
+    BytesConcatenation,
+    Fork,
+    ParameterSet,
+    Transaction,
+)
+
+
+@dataclass(frozen=True)
+class PointEvaluationInput(BytesConcatenation):
+    """
+    EIP-4844 KZG point-evaluation precompile input (192 bytes):
+    versioned_hash (32) || z (32) || y (32) || commitment (48) || proof (48).
+    """
+
+    versioned_hash: bytes
+    z: int
+    y: int
+    commitment: bytes
+    proof: bytes
+
+    def __bytes__(self) -> bytes:
+        """Convert input to bytes."""
+        return (
+            self.versioned_hash
+            + self.z.to_bytes(32, byteorder="big")
+            + self.y.to_bytes(32, byteorder="big")
+            + self.commitment
+            + self.proof
+        )
 
 
 @dataclass(frozen=True)

@@ -16,7 +16,11 @@ from execution_testing import (
     WhileGas,
 )
 
-from ..helpers import Precompile, calculate_optimal_input_length
+from tests.benchmark.compute.helpers import (
+    Precompile,
+    calculate_optimal_input_length,
+)
+from tests.frontier.precompiles.spec import Spec as PrecompilesSpec
 
 
 def test_ripemd160(
@@ -39,7 +43,12 @@ def test_ripemd160(
 
     attack_block = Op.POP(
         Op.STATICCALL(
-            Op.GAS, 0x03, Op.PUSH0, optimal_input_length, Op.PUSH0, Op.PUSH0
+            Op.GAS,
+            PrecompilesSpec.RIPEMD160,
+            Op.PUSH0,
+            optimal_input_length,
+            Op.PUSH0,
+            Op.PUSH0,
         )
     )
 
@@ -59,7 +68,14 @@ def test_ripemd160_fixed_size(
 ) -> None:
     """Benchmark RIPEMD160 with fixed size input."""
     attack_block = Op.POP(
-        Op.STATICCALL(Op.GAS, 0x03, Op.PUSH0, size, Op.PUSH0, Op.PUSH0)
+        Op.STATICCALL(
+            Op.GAS,
+            PrecompilesSpec.RIPEMD160,
+            Op.PUSH0,
+            size,
+            Op.PUSH0,
+            Op.PUSH0,
+        )
     )
 
     benchmark_test(
@@ -94,7 +110,7 @@ def test_ripemd160_uncachable(
     attack_block = Op.POP(
         Op.STATICCALL(
             gas=Op.GAS,
-            address=0x03,
+            address=PrecompilesSpec.RIPEMD160,
             args_size=size,
             ret_size=0x20,
             # gas accounting
