@@ -29,6 +29,7 @@ from ethereum.forks.amsterdam.stateless import (
     StatelessInput,
     StatelessValidationResult,
     compute_new_payload_request_root,
+    verify_stateless_new_payload,
 )
 from ethereum.forks.amsterdam.stateless_guest import (
     deserialize_stateless_input,
@@ -168,7 +169,7 @@ def _make_stateless_input() -> StatelessInput:
             headers=(Bytes(_rb(512)), Bytes(_rb(512))),
         ),
         chain_config=build_chain_config(U64(1)),
-        public_keys=(Bytes(_rb(33)), Bytes(_rb(33))),
+        public_keys=(Bytes(_rb(65)), Bytes(_rb(65))),
     )
 
 
@@ -246,6 +247,19 @@ class TestSerializeStatelessInput:
         assert encoded[:2] == STATELESS_INPUT_SCHEMA_ID_BYTES
         recovered = deserialize_stateless_input(encoded)
         assert recovered == original
+
+    def test_rejects_non_65_byte_public_key(self) -> None:
+        """Public keys must be 65-byte uncompressed SEC1 points."""
+        original = _make_stateless_input()
+        invalid = StatelessInput(
+            new_payload_request=original.new_payload_request,
+            witness=original.witness,
+            chain_config=original.chain_config,
+            public_keys=(Bytes(_rb(64)), Bytes(_rb(65))),
+        )
+
+        with pytest.raises(ValueError):
+            serialize_stateless_input(invalid)
 
 
 class TestDeserializeStatelessInput:
@@ -341,3 +355,37 @@ class TestComputeNewPayloadRequestRoot:
         si = _make_stateless_input()
         root = compute_new_payload_request_root(si)
         assert len(root) == 32
+
+
+class TestTransactionPublicKeys:
+    """Test stateless transaction public-key validation."""
+
+    def test_too_few_public_keys_fail_validation(self) -> None:
+        """Stateless validation should fail with too few public keys."""
+        original = _make_stateless_input()
+        invalid = StatelessInput(
+            new_payload_request=original.new_payload_request,
+            witness=original.witness,
+            chain_config=original.chain_config,
+            public_keys=(original.public_keys[0],),
+        )
+
+        result = verify_stateless_new_payload(invalid)
+        assert not result.successful_validation
+
+    def test_too_many_public_keys_fail_validation(self) -> None:
+        """Stateless validation should fail with too many public keys."""
+        original = _make_stateless_input()
+        invalid = StatelessInput(
+            new_payload_request=original.new_payload_request,
+            witness=original.witness,
+            chain_config=original.chain_config,
+            public_keys=(
+                original.public_keys[0],
+                original.public_keys[1],
+                Bytes(_rb(65)),
+            ),
+        )
+
+        result = verify_stateless_new_payload(invalid)
+        assert not result.successful_validation

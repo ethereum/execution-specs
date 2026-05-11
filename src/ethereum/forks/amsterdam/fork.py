@@ -88,6 +88,7 @@ from .transactions import (
     get_transaction_hash,
     has_access_list,
     recover_sender,
+    recover_sender_from_public_key,
     validate_transaction,
 )
 from .trie import root, trie_set
@@ -269,6 +270,7 @@ def execute_block(
     block: Block,
     pre_state: PreState,
     chain_context: ChainContext,
+    transaction_public_keys: Optional[Tuple[Bytes, ...]] = None,
 ) -> BlockDiff:
     """
     Execute a block and validate the resulting roots against the header.
@@ -283,6 +285,8 @@ def execute_block(
         Pre-execution state provider.
     chain_context :
         Chain context that the block may need during execution.
+    transaction_public_keys :
+        Optional transaction public keys in block order.
 
     Returns
     -------
@@ -292,6 +296,13 @@ def execute_block(
     """
     if len(rlp.encode(block)) > MAX_RLP_BLOCK_SIZE:
         raise InvalidBlock("Block rlp size exceeds MAX_RLP_BLOCK_SIZE")
+
+    if transaction_public_keys is not None and len(
+        transaction_public_keys
+    ) != len(block.transactions):
+        raise InvalidBlock(
+            "Transaction public key count does not match block transactions"
+        )
 
     parent_header = chain_context.parent_header
     validate_header(parent_header, block.header)
@@ -314,6 +325,7 @@ def execute_block(
         excess_blob_gas=block.header.excess_blob_gas,
         parent_beacon_block_root=block.header.parent_beacon_block_root,
         block_access_list_builder=BlockAccessListBuilder(),
+        transaction_public_keys=transaction_public_keys,
     )
 
     block_output = apply_body(
@@ -483,6 +495,7 @@ def check_transaction(
     block_output: vm.BlockOutput,
     tx: Transaction,
     tx_state: TransactionState,
+    sender_public_key: Optional[Bytes] = None,
 ) -> Tuple[Address, Uint, Tuple[VersionedHash, ...], U64]:
     """
     Check if the transaction is includable in the block.
@@ -497,6 +510,8 @@ def check_transaction(
         The transaction.
     tx_state :
         The transaction state tracker.
+    sender_public_key :
+        Optional sender public key to verify instead of recovering.
 
     Returns
     -------
@@ -554,7 +569,12 @@ def check_transaction(
     if tx_blob_gas_used > blob_gas_available:
         raise BlobGasLimitExceededError("blob gas limit exceeded")
 
-    sender_address = recover_sender(block_env.chain_id, tx)
+    if sender_public_key is None:
+        sender_address = recover_sender(block_env.chain_id, tx)
+    else:
+        sender_address = recover_sender_from_public_key(
+            block_env.chain_id, tx, sender_public_key
+        )
     sender_account = get_account(tx_state, sender_address)
 
     if isinstance(
@@ -975,6 +995,9 @@ def process_transaction(
     )
 
     intrinsic_gas, calldata_floor_gas_cost = validate_transaction(tx)
+    sender_public_key = None
+    if block_env.transaction_public_keys is not None:
+        sender_public_key = block_env.transaction_public_keys[int(index)]
 
     (
         sender,
@@ -986,6 +1009,7 @@ def process_transaction(
         block_output=block_output,
         tx=tx,
         tx_state=tx_state,
+        sender_public_key=sender_public_key,
     )
 
     sender_account = get_account(tx_state, sender)

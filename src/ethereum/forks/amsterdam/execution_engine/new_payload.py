@@ -2,9 +2,10 @@
 Payload verification.
 """
 
-from typing import Tuple
+from typing import Optional, Tuple
 
 from ethereum_rlp import rlp
+from ethereum_types.bytes import Bytes
 
 from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import InvalidBlock
@@ -71,6 +72,7 @@ def execute_new_payload_request(
     new_payload_request: NewPayloadRequest,
     pre_state: PreState,
     chain_context: ChainContext,
+    transaction_public_keys: Optional[Tuple[Bytes, ...]] = None,
 ) -> Tuple[BlockDiff, Block]:
     """
     Validate and execute a payload against ``pre_state``.
@@ -88,6 +90,8 @@ def execute_new_payload_request(
         Pre-execution state provider.
     chain_context :
         Chain context needed for block execution.
+    transaction_public_keys :
+        Optional transaction public keys in payload order.
 
     Returns
     -------
@@ -119,7 +123,12 @@ def execute_new_payload_request(
         parent_beacon_block_root,
         execution_requests,
     )
-    block_diff = execute_block(block, pre_state, chain_context)
+    block_diff = execute_block(
+        block,
+        pre_state,
+        chain_context,
+        transaction_public_keys=transaction_public_keys,
+    )
     return block_diff, block
 
 

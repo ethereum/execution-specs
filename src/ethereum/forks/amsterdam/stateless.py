@@ -209,7 +209,7 @@ class StatelessInput:
 
     public_keys: Tuple[Bytes, ...]
     """
-    Recovered transaction public keys, in transaction order.
+    65-byte uncompressed transaction public keys, in payload order.
     """
 
 
@@ -388,6 +388,7 @@ def verify_stateless_new_payload(
             stateless_input.new_payload_request,
             pre_state,
             chain_context,
+            transaction_public_keys=stateless_input.public_keys,
         )
         successful_validation = True
     except Exception:
