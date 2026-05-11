@@ -59,6 +59,7 @@ from .requests import (
 from .state_tracker import (
     BlockState,
     TransactionState,
+    create_ether,
     destroy_account,
     extract_block_diff,
     get_account,
@@ -608,14 +609,14 @@ def process_checked_system_transaction(
         Output of processing the system transaction.
 
     """
-    # Read through BlockState (not pre-state) so that a system contract
-    # deployed by an earlier transaction in the same block is visible.
-    # See EIP-7002 and EIP-7251 for this edge case.
-    #
-    # This read is not recorded in the state tracker.
-    # However, this is fine because `process_unchecked_system_transaction`
-    # does its own get_account on the TransactionState that we do incorporate
-    # into BlockState.
+    # Pre-check that the system contract has code. We use a throwaway
+    # TransactionState here that is *never* propagated back to BlockState
+    # (no incorporate_tx_into_block call); the same get_account / get_code
+    # lookups are performed and properly tracked by
+    # process_unchecked_system_transaction below, which this function
+    # always calls. Reading via a TransactionState (rather than directly
+    # against pre_state) lets us see system contracts deployed earlier in
+    # the same block — see EIP-7002 and EIP-7251 for this edge case.
     untracked_state = TransactionState(parent=block_env.state)
     system_contract_code = get_code(
         untracked_state,
@@ -990,9 +991,7 @@ def process_withdrawals(
             rlp.encode(wd),
         )
 
-        current_balance = get_account(wd_state, wd.address).balance
-        new_balance = current_balance + wd.amount * U256(10**9)
-        set_account_balance(wd_state, wd.address, new_balance)
+        create_ether(wd_state, wd.address, wd.amount * U256(10**9))
 
     incorporate_tx_into_block(wd_state)
 

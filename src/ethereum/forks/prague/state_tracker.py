@@ -125,10 +125,10 @@ def get_account(tx_state: TransactionState, address: Address) -> Account:
 
     """
     account = get_account_optional(tx_state, address)
-    if isinstance(account, Account):
-        return account
-    else:
+    if account is None:
         return EMPTY_ACCOUNT
+    else:
+        return account
 
 
 def get_code(tx_state: TransactionState, code_hash: Hash32) -> Bytes:
@@ -546,6 +546,29 @@ def move_ether(
 
     modify_state(tx_state, sender_address, reduce_sender_balance)
     modify_state(tx_state, recipient_address, increase_recipient_balance)
+
+
+def create_ether(
+    tx_state: TransactionState, address: Address, amount: U256
+) -> None:
+    """
+    Add newly created ether to an account.
+
+    Parameters
+    ----------
+    tx_state :
+        The transaction state.
+    address :
+        Address of the account to which ether is added.
+    amount :
+        The amount of ether to be added to the account of interest.
+
+    """
+
+    def increase_balance(account: Account) -> None:
+        account.balance += amount
+
+    modify_state(tx_state, address, increase_balance)
 
 
 def set_account_balance(

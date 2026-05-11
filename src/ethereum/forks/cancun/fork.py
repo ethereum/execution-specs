@@ -51,6 +51,7 @@ from .fork_types import VersionedHash
 from .state_tracker import (
     BlockState,
     TransactionState,
+    create_ether,
     destroy_account,
     extract_block_diff,
     get_account,
@@ -822,9 +823,7 @@ def process_withdrawals(
             rlp.encode(wd),
         )
 
-        current_balance = get_account(wd_state, wd.address).balance
-        new_balance = current_balance + wd.amount * U256(10**9)
-        set_account_balance(wd_state, wd.address, new_balance)
+        create_ether(wd_state, wd.address, wd.amount * U256(10**9))
 
     incorporate_tx_into_block(wd_state)
 
