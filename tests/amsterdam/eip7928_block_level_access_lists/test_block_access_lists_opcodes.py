@@ -2385,88 +2385,124 @@ def test_bal_create_contract_init_revert(
     )
 
 
+@pytest.mark.parametrize(
+    "delegated,target_is_warm,delegation_is_warm",
+    [
+        pytest.param(False, False, False, id="no_delegation-cold_target"),
+        pytest.param(False, True, False, id="no_delegation-warm_target"),
+        pytest.param(
+            True, False, False, id="delegated-cold_target-cold_delegation"
+        ),
+        pytest.param(
+            True, True, False, id="delegated-warm_target-cold_delegation"
+        ),
+        pytest.param(
+            True, False, True, id="delegated-cold_target-warm_delegation"
+        ),
+        pytest.param(
+            True, True, True, id="delegated-warm_target-warm_delegation"
+        ),
+    ],
+)
+@pytest.mark.with_all_call_opcodes(
+    selector=lambda call_opcode: call_opcode in (Op.CALL, Op.CALLCODE)
+)
 def test_bal_call_revert_insufficient_funds(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    call_opcode: Op,
+    delegated: bool,
+    target_is_warm: bool,
+    delegation_is_warm: bool,
 ) -> None:
     """
-    Test BAL with CALL failure due to insufficient balance (not OOG).
+    Test BAL with CALL/CALLCODE failure due to insufficient balance
+    (not OOG), with and without 7702 delegation.
 
-    Contract (balance=100): SLOAD(0x01)→CALL(target, value=1000)→SSTORE(0x02).
-    CALL fails because 1000 > 100. Target is 0xDEAD.
+    Caller (balance=100): SLOAD(0x01) → call_opcode(target, value=1000)
+    → SSTORE(0x02, result). The call fails because 1000 > 100. The
+    failure happens after delegation resolution, so when the target is
+    a 7702-delegated EOA both target and delegation target appear in
+    the BAL — distinct from the OOG case (see
+    test_bal_call_7702_delegation_and_oog) where the static-check
+    optimization keeps the delegation target out of the BAL.
 
-    Expected BAL:
-    - Contract: storage_reads [0x01], storage_changes slot 0x02 (value=0)
-    - Target: appears in BAL (accessed before balance check fails)
+    Access-list warming does NOT add to BAL on its own — only EVM
+    access does — so the BAL is identical across warm/cold variants.
     """
     alice = pre.fund_eoa()
 
-    contract_balance = 100
-    transfer_amount = 1000  # More than contract has
+    caller_balance = 100
+    transfer_amount = 1000  # > caller_balance, transfer must fail
+    target_balance = 1  # non-zero balance keeps non-delegated target non-empty
 
-    # Target address that should be warmed but not receive funds
-    # Give it a small balance so it's not considered "empty" and pruned
-    target_balance = 1
-    target_address = pre.fund_eoa(amount=target_balance)
+    delegation_target: Address | None = None
+    if delegated:
+        delegation_target = pre.deploy_contract(code=Op.STOP)
+        target = pre.fund_eoa(
+            amount=target_balance, delegation=delegation_target
+        )
+    else:
+        target = pre.fund_eoa(amount=target_balance)
 
-    # Contract that:
-    # 1. SLOAD slot 0x01
-    # 2. CALL target with value=1000 (will fail - insufficient funds)
-    # 3. SSTORE slot 0x02 with CALL result (0 = failure)
-    contract_code = (
-        Op.SLOAD(0x01)  # Read from slot 0x01, push to stack
-        + Op.POP  # Discard value
-        # CALL(gas, addr, value, argsOffset, argsSize, retOffset, retSize)
-        + Op.CALL(100_000, target_address, transfer_amount, 0, 0, 0, 0)
-        # CALL result is on stack (0 = failure, 1 = success)
-        # Stack: [result]
-        + Op.PUSH1(0x02)  # Push slot number
-        # Stack: [0x02, result]
-        + Op.SSTORE  # SSTORE pops slot (0x02), then value (result)
+    caller_code = (
+        Op.SLOAD(0x01)
+        + Op.POP
+        + call_opcode(100_000, target, transfer_amount, 0, 0, 0, 0)
+        + Op.PUSH1(0x02)
+        + Op.SSTORE
         + Op.STOP
     )
 
-    contract = pre.deploy_contract(
-        code=contract_code,
-        balance=contract_balance,
-        storage={
-            0x02: 0xDEAD
-        },  # Non-zero initial value so SSTORE(0) is a change
+    caller = pre.deploy_contract(
+        code=caller_code,
+        balance=caller_balance,
+        storage={0x02: 0xDEAD},  # non-zero so SSTORE(0) is a change
     )
+
+    access_list: list[AccessList] = []
+    if target_is_warm:
+        access_list.append(AccessList(address=target, storage_keys=[]))
+    if delegated and delegation_is_warm:
+        assert delegation_target is not None
+        access_list.append(
+            AccessList(address=delegation_target, storage_keys=[])
+        )
 
     tx = Transaction(
         sender=alice,
-        to=contract,
+        to=caller,
         gas_limit=1_000_000,
+        access_list=access_list,
     )
+
+    account_expectations: Dict[Address, BalAccountExpectation] = {
+        alice: BalAccountExpectation(
+            nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
+        ),
+        caller: BalAccountExpectation(
+            storage_reads=[0x01],
+            storage_changes=[
+                BalStorageSlot(
+                    slot=0x02,
+                    slot_changes=[
+                        BalStorageChange(block_access_index=1, post_value=0)
+                    ],
+                )
+            ],
+        ),
+        # Target accessed before balance check fails.
+        target: BalAccountExpectation.empty(),
+    }
+    if delegated:
+        assert delegation_target is not None
+        # Delegation resolved before balance check fails.
+        account_expectations[delegation_target] = BalAccountExpectation.empty()
 
     block = Block(
         txs=[tx],
         expected_block_access_list=BlockAccessListExpectation(
-            account_expectations={
-                alice: BalAccountExpectation(
-                    nonce_changes=[
-                        BalNonceChange(block_access_index=1, post_nonce=1)
-                    ],
-                ),
-                contract: BalAccountExpectation(
-                    # Storage read for slot 0x01
-                    storage_reads=[0x01],
-                    # Storage change for slot 0x02 (CALL result = 0)
-                    storage_changes=[
-                        BalStorageSlot(
-                            slot=0x02,
-                            slot_changes=[
-                                BalStorageChange(
-                                    block_access_index=1, post_value=0
-                                )
-                            ],
-                        )
-                    ],
-                ),
-                # Target appears in BAL - accessed before balance check fails
-                target_address: BalAccountExpectation.empty(),
-            }
+            account_expectations=account_expectations
         ),
     )
 
@@ -2475,11 +2511,11 @@ def test_bal_call_revert_insufficient_funds(
         blocks=[block],
         post={
             alice: Account(nonce=1),
-            contract: Account(
-                balance=contract_balance,  # Unchanged - transfer failed
-                storage={0x02: 0},  # CALL returned 0 (failure)
+            caller: Account(
+                balance=caller_balance,  # unchanged - transfer failed
+                storage={0x02: 0},  # Failed call returned 0
             ),
-            target_address: Account(balance=target_balance),  # Unchanged
+            target: Account(balance=target_balance),  # unchanged
         },
     )
 
