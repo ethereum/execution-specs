@@ -1136,22 +1136,17 @@ def test_call_into_self_delegating_set_code(
     state_test: StateTestFiller,
     pre: Alloc,
     call_opcode: Op,
+    fork: Fork,
 ) -> None:
     """Test call into a set-code account that delegates to itself."""
     auth_signer = pre.fund_eoa(auth_account_start_balance)
 
     storage = Storage()
+    return_slot = storage.store_next(
+        call_return_code(opcode=call_opcode, success=False)
+    )
     entry_code = (
-        Op.SSTORE(
-            storage.store_next(
-                call_return_code(
-                    opcode=call_opcode,
-                    success=False,
-                )
-            ),
-            call_opcode(address=auth_signer),
-        )
-        + Op.STOP
+        Op.SSTORE(return_slot, call_opcode(address=auth_signer)) + Op.STOP
     )
     entry_address = pre.deploy_contract(entry_code)
 
@@ -1169,6 +1164,36 @@ def test_call_into_self_delegating_set_code(
         sender=pre.fund_eoa(),
     )
 
+    expected_block_access_list = None
+    if fork.is_eip_enabled(7928):
+        # Degenerate one-hop: auth_signer's delegation target IS itself.
+        # CALL(auth_signer) resolves once, runs the 0xef0100... designator
+        # as bytecode -> INVALID -> returns 0. SSTORE(slot, 0) is no-op.
+        expected_block_access_list = BlockAccessListExpectation(
+            account_expectations={
+                tx.sender: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                entry_address: BalAccountExpectation(
+                    storage_changes=[],
+                    storage_reads=[return_slot],
+                ),
+                auth_signer: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                    code_changes=[
+                        BalCodeChange(
+                            block_access_index=1,
+                            new_code=Spec.delegation_designation(auth_signer),
+                        )
+                    ],
+                ),
+            }
+        )
+
     state_test(
         env=Environment(),
         pre=pre,
@@ -1179,6 +1204,7 @@ def test_call_into_self_delegating_set_code(
                 nonce=1, code=Spec.delegation_designation(auth_signer)
             ),
         },
+        expected_block_access_list=expected_block_access_list,
     )
 
 

@@ -581,6 +581,68 @@ def test_bal_7702_invalid_authority_has_code_authorization(
     )
 
 
+def test_bal_7702_invalid_nonce_field_max_authorization(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Pre-load rejection isolator: authorization tuple with
+    `nonce = 2**64 - 1` is skipped before the authority is added to
+    `accessed_addresses` per EIP-7702. Per EIP-7928, the authority MUST
+    NOT be in BAL.
+    """
+    alice = pre.fund_eoa()
+    bob = pre.fund_eoa(amount=0)
+    relayer = pre.fund_eoa()
+    oracle = pre.deploy_contract(code=Op.STOP)
+
+    tx = Transaction(
+        sender=relayer,
+        to=bob,
+        value=10,
+        gas_limit=1_000_000,
+        gas_price=0xA,
+        authorization_list=[
+            AuthorizationTuple(
+                address=oracle,
+                nonce=Spec7702.MAX_NONCE,
+                signer=alice,
+            )
+        ],
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                # Pre-load failure: authority never accessed
+                alice: None,
+                bob: BalAccountExpectation(
+                    balance_changes=[
+                        BalBalanceChange(block_access_index=1, post_balance=10)
+                    ]
+                ),
+                relayer: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                # Delegation target never loaded.
+                oracle: None,
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            relayer: Account(nonce=1),
+            bob: Account(balance=10),
+        },
+    )
+
+
 def test_bal_7702_invalid_chain_id_authorization(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
@@ -698,6 +760,108 @@ def test_bal_7702_delegated_via_call_opcode(
     )
 
     post = {bob: Account(nonce=1)}
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post=post,
+    )
+
+
+def test_bal_7702_multi_hop_delegation_chain(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Acyclic multi-hop EIP-7702 delegation: A->B->C.
+
+    Both auths succeed (A delegates to B, B delegates to C). The tx then
+    CALLs A. Per EIP-7702, the EVM resolves the delegation once (A->B)
+    and runs B's bytecode (which is the `0xef0100<C>` designator). `0xef`
+    is INVALID in legacy bytecode and the call frame reverts. The second
+    hop is not followed, so C MUST NOT appear in the BAL (it is never
+    loaded as an execution target).
+    """
+    alice = pre.fund_eoa()
+    auth_a = pre.fund_eoa(amount=0)
+    auth_b = pre.fund_eoa(amount=0)
+    target_c = pre.deploy_contract(code=Op.STOP)
+
+    entry_code = Op.SSTORE(0, Op.CALL(50_000, auth_a, 0, 0, 0, 0, 0)) + Op.STOP
+    entry_address = pre.deploy_contract(code=entry_code)
+
+    tx = Transaction(
+        sender=alice,
+        to=entry_address,
+        gas_limit=1_000_000,
+        gas_price=0xA,
+        authorization_list=[
+            AuthorizationTuple(
+                address=auth_b,
+                nonce=0,
+                signer=auth_a,
+            ),
+            AuthorizationTuple(
+                address=target_c,
+                nonce=0,
+                signer=auth_b,
+            ),
+        ],
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                auth_a: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                    code_changes=[
+                        BalCodeChange(
+                            block_access_index=1,
+                            new_code=Spec7702.delegation_designation(auth_b),
+                        )
+                    ],
+                ),
+                auth_b: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                    code_changes=[
+                        BalCodeChange(
+                            block_access_index=1,
+                            new_code=Spec7702.delegation_designation(target_c),
+                        )
+                    ],
+                ),
+                # CALL returned 0 (INVALID); SSTORE(0, 0) is a no-op write.
+                entry_address: BalAccountExpectation(
+                    storage_reads=[0],
+                    storage_changes=[],
+                ),
+                # Second-hop delegation target MUST NOT appear in BAL.
+                target_c: None,
+            }
+        ),
+    )
+
+    post = {
+        auth_a: Account(
+            nonce=1,
+            code=Spec7702.delegation_designation(auth_b),
+        ),
+        auth_b: Account(
+            nonce=1,
+            code=Spec7702.delegation_designation(target_c),
+        ),
+        target_c: Account(code=bytes(Op.STOP), nonce=1),
+    }
+
     blockchain_test(
         pre=pre,
         blocks=[block],
