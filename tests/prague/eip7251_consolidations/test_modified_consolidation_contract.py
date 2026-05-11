@@ -125,9 +125,9 @@ def test_extra_consolidations(
         requests=requests_list
     )
     # prepare consolidation senders
-    consolidation_request_transaction.update_pre(pre=pre)
+    prepared = consolidation_request_transaction.update_pre(pre=pre)
     # get transaction list
-    txs: List[Transaction] = consolidation_request_transaction.transactions()
+    txs: List[Transaction] = prepared.transactions()
 
     blockchain_test(
         pre=pre,
