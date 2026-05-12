@@ -8,7 +8,7 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 869
+# Total entries: 857
 
 # stAttackTest (1)
 stAttackTest/test_crashing_transaction.py::test_crashing_transaction[fork_Amsterdam]
@@ -396,7 +396,7 @@ stCallDelegateCodesCallCodeHomestead/test_callcallcodecallcode_011_oogm_before.p
 
 # stCallDelegateCodesHomestead (0)
 
-# stCreate2 (18)
+# stCreate2 (17)
 stCreate2/test_create2_oog_from_call_refunds.py::test_create2_oog_from_call_refunds[fork_Amsterdam-SStore_Create2_Refund_NoOoG]
 stCreate2/test_create2_oog_from_call_refunds.py::test_create2_oog_from_call_refunds[fork_Amsterdam-SStore_Create_Refund_NoOoG]
 stCreate2/test_create2call_precompiles.py::test_create2call_precompiles[fork_Amsterdam-d7]
@@ -406,7 +406,6 @@ stCreate2/test_create2check_fields_in_initcode.py::test_create2check_fields_in_i
 stCreate2/test_create2check_fields_in_initcode.py::test_create2check_fields_in_initcode[fork_Amsterdam-d4]
 stCreate2/test_create2check_fields_in_initcode.py::test_create2check_fields_in_initcode[fork_Amsterdam-d5]
 stCreate2/test_create2check_fields_in_initcode.py::test_create2check_fields_in_initcode[fork_Amsterdam-d6]
-stCreate2/test_create2collision_balance.py::test_create2collision_balance[fork_Amsterdam-d1]
 stCreate2/test_revert_depth_create2_oog.py::test_revert_depth_create2_oog[fork_Amsterdam-d0-g1-v0]
 stCreate2/test_revert_depth_create2_oog.py::test_revert_depth_create2_oog[fork_Amsterdam-d0-g1-v1]
 stCreate2/test_revert_depth_create2_oog_berlin.py::test_revert_depth_create2_oog_berlin[fork_Amsterdam-d0-g1-v0]
@@ -919,21 +918,10 @@ stCallCodes/test_callcode_in_initcode_to_empty_contract.py::test_callcode_in_ini
 stCallCodes/test_callcode_in_initcode_to_empty_contract.py::test_callcode_in_initcode_to_empty_contract[fork_Amsterdam-d1]
 stCallCodes/test_callcode_in_initcode_to_existing_contract_with_value_transfer.py::test_callcode_in_initcode_to_existing_contract_with_value_transfer[fork_Amsterdam]
 
-# stCreate2 (18)
+# stCreate2 (7)
 stCreate2/test_create2_oog_from_call_refunds.py::test_create2_oog_from_call_refunds[fork_Amsterdam-SStore_CallCode_Refund_NoOoG]
 stCreate2/test_create2_oog_from_call_refunds.py::test_create2_oog_from_call_refunds[fork_Amsterdam-SStore_DelegateCall_Refund_NoOoG]
 stCreate2/test_create2_suicide.py::test_create2_suicide[fork_Amsterdam-d3]
-stCreate2/test_create2collision_balance.py::test_create2collision_balance[fork_Amsterdam-d0]
-stCreate2/test_create2collision_balance.py::test_create2collision_balance[fork_Amsterdam-d2]
-stCreate2/test_create2collision_balance.py::test_create2collision_balance[fork_Amsterdam-d3]
-stCreate2/test_create2collision_code.py::test_create2collision_code[fork_Amsterdam-d0]
-stCreate2/test_create2collision_code.py::test_create2collision_code[fork_Amsterdam-d1]
-stCreate2/test_create2collision_code.py::test_create2collision_code[fork_Amsterdam-d2]
-stCreate2/test_create2collision_code2.py::test_create2collision_code2[fork_Amsterdam-d0]
-stCreate2/test_create2collision_code2.py::test_create2collision_code2[fork_Amsterdam-d1]
-stCreate2/test_create2collision_nonce.py::test_create2collision_nonce[fork_Amsterdam-d0]
-stCreate2/test_create2collision_nonce.py::test_create2collision_nonce[fork_Amsterdam-d1]
-stCreate2/test_create2collision_nonce.py::test_create2collision_nonce[fork_Amsterdam-d2]
 stCreate2/test_create2collision_selfdestructed_oog.py::test_create2collision_selfdestructed_oog[fork_Amsterdam-d0]
 stCreate2/test_create2collision_selfdestructed_oog.py::test_create2collision_selfdestructed_oog[fork_Amsterdam-d1]
 stCreate2/test_create2collision_selfdestructed_oog.py::test_create2collision_selfdestructed_oog[fork_Amsterdam-d2]
