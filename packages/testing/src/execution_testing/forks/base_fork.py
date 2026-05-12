@@ -864,6 +864,34 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         pass
 
     @classmethod
+    def oog_budget_lift(
+        cls,
+        *,
+        sstores_before_oog: int = 0,
+        creates_before_oog: int = 0,
+        deploy_code_size: int = 0,
+    ) -> int:
+        """
+        Return how much an OoG-tuned regular-gas budget must lift on this
+        fork to preserve the same intermediate state.
+
+        EIP-8037 splits each fresh SSTORE-set, CREATE, and deployed code
+        byte into a regular portion plus a state-gas portion; when the
+        per-tx state-gas reservoir is empty, the state-gas portion spills
+        back into regular gas. For tests calibrated to OoG mid-execution
+        after N SSTOREs, M CREATEs, and a deploy of K bytes complete,
+        Amsterdam needs the original budget plus the cumulative spill to
+        land at the same point. Pre-EIP-8037 forks return 0 (state-gas
+        helpers are 0), so callers can apply this unconditionally without
+        a fork guard.
+        """
+        return (
+            sstores_before_oog * cls.sstore_state_gas()
+            + creates_before_oog * cls.create_state_gas()
+            + cls.code_deposit_state_gas(code_size=deploy_code_size)
+        )
+
+    @classmethod
     @abstractmethod
     def block_rlp_size_limit(cls) -> int | None:
         """
