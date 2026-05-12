@@ -265,6 +265,17 @@ class Header:
     [EIP-7843]: https://eips.ethereum.org/EIPS/eip-7843
     """
 
+    partial_header_hash: Hash32
+    """
+    [SHA2-256] commitment cross-checked against the consensus layer.
+    Last RLP field of the header so the block hash covers it. Introduced
+    in [EIP-8237]. See [`compute_partial_header_hash`][cphh].
+
+    [SHA2-256]: https://en.wikipedia.org/wiki/SHA-2
+    [EIP-8237]: https://eips.ethereum.org/EIPS/eip-8237
+    [cphh]: ref:ethereum.forks.amsterdam.partial_header_hash.compute_partial_header_hash
+    """  # noqa: E501
+
 
 @slotted_freezable
 @dataclass

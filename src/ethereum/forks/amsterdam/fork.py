@@ -60,6 +60,7 @@ from .exceptions import (
     TransactionTypeContractCreationError,
 )
 from .fork_types import Authorization, VersionedHash
+from .partial_header_hash import compute_partial_header_hash
 from .requests import (
     CONSOLIDATION_REQUEST_TYPE,
     DEPOSIT_REQUEST_TYPE,
@@ -353,6 +354,19 @@ def execute_block(
         raise InvalidBlock
     if computed_block_access_list_hash != block.header.block_access_list_hash:
         raise InvalidBlock("Invalid block access list hash")
+
+    expected_partial_header_hash = compute_partial_header_hash(
+        parent_hash=block.header.parent_hash,
+        prev_randao=block.header.prev_randao,
+        gas_limit=U64(block.header.gas_limit),
+        timestamp=U64(block.header.timestamp),
+        withdrawals=block.withdrawals,
+        parent_beacon_block_root=block.header.parent_beacon_block_root,
+        slot_number=block.header.slot_number,
+        execution_requests=tuple(block_output.requests),
+    )
+    if expected_partial_header_hash != block.header.partial_header_hash:
+        raise InvalidBlock("Invalid partial header hash")
 
     return block_diff
 
