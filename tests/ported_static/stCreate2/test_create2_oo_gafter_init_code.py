@@ -3,6 +3,9 @@ Test_create2_oo_gafter_init_code.
 
 Ported from:
 state_tests/stCreate2/Create2OOGafterInitCodeFiller.json
+@manually-enhanced: Do not overwrite. tx_gas[1] is tuned to barely
+succeed CREATE2 on Cancun; on Amsterdam EIP-8037 the NEW_ACCOUNT
+state-gas spills, so lift the budget by Fork.oog_budget_lift.
 """
 
 import pytest
@@ -110,7 +113,7 @@ def test_create2_oo_gafter_init_code(
     tx_data = [
         Bytes(""),
     ]
-    tx_gas = [54000, 55000]
+    tx_gas = [54000, 55000 + fork.oog_budget_lift(creates_before_oog=1)]
 
     tx = Transaction(
         sender=sender,
