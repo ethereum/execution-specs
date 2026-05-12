@@ -6,11 +6,6 @@ state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcallcode_101_Suicid
 
 @manually-enhanced: Do not overwrite. The hardcoded inner-CALL gas
 values (50k / 100k / 150k) were tuned to the pre-EIP-8037 gas budget.
-On Amsterdam each SSTORE in the innermost callee adds per-storage
-state-gas (32 * COST_PER_STATE_BYTE) that spills back into regular
-gas when the reservoir is empty, OoG'ing the inner CALL before its
-SSTORE marker fires. Bump fork-conditionally on EIP-8037 only; pre-
-EIP-8037 forks keep the original values.
 
 """
 
