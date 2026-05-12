@@ -8,7 +8,7 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 840
+# Total entries: 828
 
 # stAttackTest (1)
 stAttackTest/test_crashing_transaction.py::test_crashing_transaction[fork_Amsterdam]
@@ -152,8 +152,7 @@ stEIP158Specific/test_exp_empty.py::test_exp_empty[fork_Amsterdam]
 
 # stEIP2930 (0)
 
-# stEIP3855_push0 (2)
-stEIP3855_push0/test_push0.py::test_push0[fork_Amsterdam-push0_upd_storage_sc]
+# stEIP3855_push0 (1)
 stEIP3855_push0/test_push0_gas.py::test_push0_gas[fork_Amsterdam]
 
 # stEIP3860_limitmeterinitcode (6)
@@ -427,7 +426,7 @@ stDelegatecallTestHomestead/test_delegatecode_dynamic_code.py::test_delegatecode
 
 # stEIP2930 (0)
 
-# stEIP3651_warmcoinbase (12)
+# stEIP3651_warmcoinbase (8)
 stEIP3651_warmcoinbase/test_coinbase_warm_account_call_gas.py::test_coinbase_warm_account_call_gas[fork_Amsterdam-d0]
 stEIP3651_warmcoinbase/test_coinbase_warm_account_call_gas.py::test_coinbase_warm_account_call_gas[fork_Amsterdam-d1]
 stEIP3651_warmcoinbase/test_coinbase_warm_account_call_gas.py::test_coinbase_warm_account_call_gas[fork_Amsterdam-d2]
@@ -436,10 +435,6 @@ stEIP3651_warmcoinbase/test_coinbase_warm_account_call_gas.py::test_coinbase_war
 stEIP3651_warmcoinbase/test_coinbase_warm_account_call_gas.py::test_coinbase_warm_account_call_gas[fork_Amsterdam-d5]
 stEIP3651_warmcoinbase/test_coinbase_warm_account_call_gas.py::test_coinbase_warm_account_call_gas[fork_Amsterdam-d6]
 stEIP3651_warmcoinbase/test_coinbase_warm_account_call_gas.py::test_coinbase_warm_account_call_gas[fork_Amsterdam-d7]
-stEIP3651_warmcoinbase/test_coinbase_warm_account_call_gas_fail.py::test_coinbase_warm_account_call_gas_fail[fork_Amsterdam-d0]
-stEIP3651_warmcoinbase/test_coinbase_warm_account_call_gas_fail.py::test_coinbase_warm_account_call_gas_fail[fork_Amsterdam-d1]
-stEIP3651_warmcoinbase/test_coinbase_warm_account_call_gas_fail.py::test_coinbase_warm_account_call_gas_fail[fork_Amsterdam-d2]
-stEIP3651_warmcoinbase/test_coinbase_warm_account_call_gas_fail.py::test_coinbase_warm_account_call_gas_fail[fork_Amsterdam-d3]
 
 # stEIP5656_MCOPY (32)
 stEIP5656_MCOPY/test_mcopy_copy_cost.py::test_mcopy_copy_cost[fork_Amsterdam-src0_size0-g0]
@@ -776,7 +771,7 @@ stRandom2/test_random_statetest641.py::test_random_statetest641[fork_Amsterdam]
 stReturnDataTest/test_returndatasize_after_successful_callcode.py::test_returndatasize_after_successful_callcode[fork_Amsterdam]
 stReturnDataTest/test_subcall_return_more_then_expected.py::test_subcall_return_more_then_expected[fork_Amsterdam]
 
-# stRevertTest (27)
+# stRevertTest (23)
 stRevertTest/test_loop_calls_depth_then_revert.py::test_loop_calls_depth_then_revert[fork_Amsterdam]
 stRevertTest/test_loop_calls_then_revert.py::test_loop_calls_then_revert[fork_Amsterdam]
 stRevertTest/test_loop_delegate_calls_depth_then_revert.py::test_loop_delegate_calls_depth_then_revert[fork_Amsterdam]
@@ -785,10 +780,6 @@ stRevertTest/test_revert_depth_create_address_collision.py::test_revert_depth_cr
 stRevertTest/test_revert_depth_create_oog.py::test_revert_depth_create_oog[fork_Amsterdam-d0-g1-v0]
 stRevertTest/test_revert_depth_create_oog.py::test_revert_depth_create_oog[fork_Amsterdam-d0-g1-v1]
 stRevertTest/test_revert_opcode_calls.py::test_revert_opcode_calls[fork_Amsterdam-d3-g0]
-stRevertTest/test_revert_opcode_in_calls_on_non_empty_return_data.py::test_revert_opcode_in_calls_on_non_empty_return_data[fork_Amsterdam-d0-g0]
-stRevertTest/test_revert_opcode_in_calls_on_non_empty_return_data.py::test_revert_opcode_in_calls_on_non_empty_return_data[fork_Amsterdam-d1-g0]
-stRevertTest/test_revert_opcode_in_calls_on_non_empty_return_data.py::test_revert_opcode_in_calls_on_non_empty_return_data[fork_Amsterdam-d2-g0]
-stRevertTest/test_revert_opcode_in_calls_on_non_empty_return_data.py::test_revert_opcode_in_calls_on_non_empty_return_data[fork_Amsterdam-d3-g0]
 stRevertTest/test_revert_opcode_multiple_sub_calls.py::test_revert_opcode_multiple_sub_calls[fork_Amsterdam-d0-g0-v0]
 stRevertTest/test_revert_opcode_multiple_sub_calls.py::test_revert_opcode_multiple_sub_calls[fork_Amsterdam-d0-g0-v1]
 stRevertTest/test_revert_opcode_multiple_sub_calls.py::test_revert_opcode_multiple_sub_calls[fork_Amsterdam-d0-g2-v0]
@@ -921,10 +912,7 @@ stDelegatecallTestHomestead/test_delegatecall_emptycontract.py::test_delegatecal
 
 # stEIP2930 (0)
 
-# stEIP3855_push0 (5)
-stEIP3855_push0/test_push0.py::test_push0[fork_Amsterdam-1024_push0]
-stEIP3855_push0/test_push0.py::test_push0[fork_Amsterdam-jumpdest]
-stEIP3855_push0/test_push0.py::test_push0[fork_Amsterdam-single_push0]
+# stEIP3855_push0 (2)
 stEIP3855_push0/test_push0_gas2.py::test_push0_gas2[fork_Amsterdam-use_push0]
 stEIP3855_push0/test_push0_gas2.py::test_push0_gas2[fork_Amsterdam-use_push1_00]
 
