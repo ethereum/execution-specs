@@ -8,7 +8,7 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 816
+# Total entries: 798
 
 # stAttackTest (1)
 stAttackTest/test_crashing_transaction.py::test_crashing_transaction[fork_Amsterdam]
@@ -468,32 +468,14 @@ stEIP5656_MCOPY/test_mcopy_copy_cost.py::test_mcopy_copy_cost[fork_Amsterdam-src
 stEIP5656_MCOPY/test_mcopy_copy_cost.py::test_mcopy_copy_cost[fork_Amsterdam-src32_size44768-g0]
 stEIP5656_MCOPY/test_mcopy_copy_cost.py::test_mcopy_copy_cost[fork_Amsterdam-src32_size44769-g0]
 
-# stMemoryTest (25)
+# stMemoryTest (7)
 stMemoryTest/test_call_data_copy_offset.py::test_call_data_copy_offset[fork_Amsterdam]
 stMemoryTest/test_calldatacopy_dejavu2.py::test_calldatacopy_dejavu2[fork_Amsterdam]
 stMemoryTest/test_code_copy_offset.py::test_code_copy_offset[fork_Amsterdam]
 stMemoryTest/test_mem0b_single_byte.py::test_mem0b_single_byte[fork_Amsterdam]
 stMemoryTest/test_mem31b_single_byte.py::test_mem31b_single_byte[fork_Amsterdam]
 stMemoryTest/test_mem32b_single_byte.py::test_mem32b_single_byte[fork_Amsterdam]
-stMemoryTest/test_mem32kb_single_byte.py::test_mem32kb_single_byte[fork_Amsterdam]
-stMemoryTest/test_mem32kb_single_byte_minus_1.py::test_mem32kb_single_byte_minus_1[fork_Amsterdam]
-stMemoryTest/test_mem32kb_single_byte_minus_31.py::test_mem32kb_single_byte_minus_31[fork_Amsterdam]
-stMemoryTest/test_mem32kb_single_byte_minus_32.py::test_mem32kb_single_byte_minus_32[fork_Amsterdam]
-stMemoryTest/test_mem32kb_single_byte_minus_33.py::test_mem32kb_single_byte_minus_33[fork_Amsterdam]
-stMemoryTest/test_mem32kb_single_byte_plus_1.py::test_mem32kb_single_byte_plus_1[fork_Amsterdam]
-stMemoryTest/test_mem32kb_single_byte_plus_31.py::test_mem32kb_single_byte_plus_31[fork_Amsterdam]
-stMemoryTest/test_mem32kb_single_byte_plus_32.py::test_mem32kb_single_byte_plus_32[fork_Amsterdam]
-stMemoryTest/test_mem32kb_single_byte_plus_33.py::test_mem32kb_single_byte_plus_33[fork_Amsterdam]
 stMemoryTest/test_mem33b_single_byte.py::test_mem33b_single_byte[fork_Amsterdam]
-stMemoryTest/test_mem64kb_single_byte.py::test_mem64kb_single_byte[fork_Amsterdam]
-stMemoryTest/test_mem64kb_single_byte_minus_1.py::test_mem64kb_single_byte_minus_1[fork_Amsterdam]
-stMemoryTest/test_mem64kb_single_byte_minus_31.py::test_mem64kb_single_byte_minus_31[fork_Amsterdam]
-stMemoryTest/test_mem64kb_single_byte_minus_32.py::test_mem64kb_single_byte_minus_32[fork_Amsterdam]
-stMemoryTest/test_mem64kb_single_byte_minus_33.py::test_mem64kb_single_byte_minus_33[fork_Amsterdam]
-stMemoryTest/test_mem64kb_single_byte_plus_1.py::test_mem64kb_single_byte_plus_1[fork_Amsterdam]
-stMemoryTest/test_mem64kb_single_byte_plus_31.py::test_mem64kb_single_byte_plus_31[fork_Amsterdam]
-stMemoryTest/test_mem64kb_single_byte_plus_32.py::test_mem64kb_single_byte_plus_32[fork_Amsterdam]
-stMemoryTest/test_mem64kb_single_byte_plus_33.py::test_mem64kb_single_byte_plus_33[fork_Amsterdam]
 
 # stPreCompiledContracts2 (4)
 stPreCompiledContracts2/test_modexp_0_0_0_20500.py::test_modexp_0_0_0_20500[fork_Amsterdam--g1]
