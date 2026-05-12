@@ -19,6 +19,7 @@ from execution_testing import (
     Op,
     Transaction,
     compute_create_address,
+    keccak256,
 )
 
 
@@ -73,6 +74,61 @@ def get_single_receiver_list(
         yield receiver
 
 
+# Bittrex Controller: created 1,586,350 contracts on mainnet that cannot
+# selfdestruct, so they are guaranteed to be on-chain. Safe for benchmarks
+# up to ~300M gas (at 2000 gas per cold address).
+BITTREX_CONTROLLER_ADDRESS = Address(
+    0xA3C1E324CA1CE40DB73ED6026C4A177F099B5770
+)
+
+
+def get_distinct_contract_receiver_list() -> Generator[Address, None, None]:
+    """
+    Yield addresses of contracts created by the Bittrex Controller,
+    starting at nonce 1.
+    """
+    nonce = 1
+    while True:
+        yield compute_create_address(
+            address=BITTREX_CONTROLLER_ADDRESS, nonce=nonce
+        )
+        nonce += 1
+
+
+def get_distinct_existent_receiver_list() -> Generator[Address, None, None]:
+    """
+    Yield sequential EOA addresses starting at 0x1000.
+
+    The Spamoor EOA creator
+    (https://github.com/CPerezz/spamoor/pull/12) funded these addresses
+    on bloatnet.
+    """
+    address = 0x1000
+    while True:
+        yield Address(address)
+        address += 1
+
+
+def get_distinct_nonexistent_receiver_list() -> Generator[
+    Address, None, None
+]:
+    """Yield sequential addresses starting at keccak256("random")."""
+    address = int.from_bytes(keccak256(b"random")[-20:], "big")
+    while True:
+        yield Address(address)
+        address += 1
+
+
+# Cases where the receiver address is determined by case_id rather than
+# being constructed in pre-state. The receiver_account_type parametrization
+# is not multiplied with these.
+RECEIVER_TYPED_CASES: set[str] = {
+    "diff_to_nonexistent",
+    "diff_to_existent",
+    "diff_to_contract",
+}
+
+
 @dataclass(frozen=True)
 class ReceiverAccountType:
     """Receiver account type for ether transfer benchmarks."""
@@ -120,6 +176,21 @@ def ether_transfer_case(
         senders = get_distinct_sender_list(pre)
         receivers = get_distinct_receiver_list(pre, balance, delegation)
 
+    elif case_id == "diff_to_nonexistent":
+        """Multiple senders → distinct nonexistent receivers."""
+        senders = get_distinct_sender_list(pre)
+        receivers = get_distinct_nonexistent_receiver_list()
+
+    elif case_id == "diff_to_existent":
+        """Multiple senders → distinct existent EOA receivers."""
+        senders = get_distinct_sender_list(pre)
+        receivers = get_distinct_existent_receiver_list()
+
+    elif case_id == "diff_to_contract":
+        """Multiple senders → distinct contract receivers."""
+        senders = get_distinct_sender_list(pre)
+        receivers = get_distinct_contract_receiver_list()
+
     else:
         raise ValueError(f"Unknown case: {case_id}")
 
@@ -134,6 +205,9 @@ def ether_transfer_case(
         "diff_acc_to_b",
         "a_to_diff_acc",
         "diff_acc_to_diff_acc",
+        "diff_to_nonexistent",
+        "diff_to_existent",
+        "diff_to_contract",
     ],
 )
 @pytest.mark.parametrize("transfer_amount", [0, 1])
@@ -177,13 +251,34 @@ def test_ether_transfers(
     - diff_acc_to_b: multiple senders → one receiver
     - a_to_diff_acc: one sender → multiple receivers
     - diff_acc_to_diff_acc: multiple senders → multiple receivers
+    - diff_to_nonexistent: multiple senders → distinct nonexistent
+      receivers (matches AccountMode.NON_EXISTING_ACCOUNT)
+    - diff_to_existent: multiple senders → distinct existent EOA
+      receivers (matches AccountMode.EXISTING_EOA)
+    - diff_to_contract: multiple senders → distinct contract receivers
+      (matches AccountMode.EXISTING_CONTRACT)
 
     When warm_access is True, each transaction includes an access list
     entry for the receiver to warm the account before the transfer.
     """
-    senders, receivers = ether_transfer_case
+    if case_id in RECEIVER_TYPED_CASES:
+        # Receiver address is determined by case_id; avoid multiplying with
+        # receiver_account_type and only run for the default variant.
+        if receiver_account_type != ReceiverAccountType(
+            balance=0, delegated=False
+        ):
+            pytest.skip(
+                "Receiver address is determined by case_id; skipping "
+                "non-default receiver_account_type."
+            )
+        # Receivers are not allocated in pre-state during fill (they are
+        # expected to already exist on-chain at run time, e.g. on bloatnet),
+        # so their initial balance during fill is 0.
+        balance = 0
+    else:
+        balance = receiver_account_type.balance
 
-    balance = receiver_account_type.balance
+    senders, receivers = ether_transfer_case
 
     txs = []
     token_transfers: dict[Address, int] = {}
