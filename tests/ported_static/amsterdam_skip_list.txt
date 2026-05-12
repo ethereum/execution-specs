@@ -8,7 +8,7 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 523
+# Total entries: 522
 
 # stAttackTest (1)
 stAttackTest/test_crashing_transaction.py::test_crashing_transaction[fork_Amsterdam]
@@ -329,8 +329,7 @@ stSpecialTest/test_make_money.py::test_make_money[fork_Amsterdam]
 stSystemOperationsTest/test_ab_acalls3.py::test_ab_acalls3[fork_Amsterdam]
 stSystemOperationsTest/test_call_recursive_bomb3.py::test_call_recursive_bomb3[fork_Amsterdam]
 
-# stTransactionTest (3)
-stTransactionTest/test_internal_call_hitting_gas_limit_success.py::test_internal_call_hitting_gas_limit_success[fork_Amsterdam]
+# stTransactionTest (2)
 stTransactionTest/test_store_gas_on_create.py::test_store_gas_on_create[fork_Amsterdam]
 stTransactionTest/test_suicides_and_internal_call_suicides_success.py::test_suicides_and_internal_call_suicides_success[fork_Amsterdam-d1]
 
