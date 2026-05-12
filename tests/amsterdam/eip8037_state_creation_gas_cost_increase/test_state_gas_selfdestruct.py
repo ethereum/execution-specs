@@ -264,21 +264,14 @@ def test_selfdestruct_new_beneficiary_header_gas_used(
 )
 @pytest.mark.with_all_create_opcodes()
 @pytest.mark.valid_from("EIP8037")
-def test_create_selfdestruct_refunds_account_and_storage(
+def test_create_selfdestruct_no_refund_account_and_storage(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
     create_opcode: Op,
     num_slots: int,
 ) -> None:
-    """
-    Verify same tx CREATE+SELFDESTRUCT refunds account and storage.
-
-    Factory CREATE/CREATE2 initcode does N cold SSTOREs then
-    SELFDESTRUCTs. Refund covers `GAS_NEW_ACCOUNT` plus each
-    created slot's state gas. Under OLD behavior the state charges
-    remain in `block_state_gas_used`. Under NEW they are refunded.
-    """
+    """Verify same tx CREATE+SELFDESTRUCT does not refund state gas."""
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
@@ -309,24 +302,26 @@ def test_create_selfdestruct_refunds_account_and_storage(
     factory_code = mstore + Op.POP(create_call)
     factory = pre.deploy_contract(code=factory_code)
 
-    total_state_refund = new_account_state_gas + num_slots * sstore_state_gas
-    # Subtract the state portion so tx_regular matches the header.
-    tx_regular = (
+    total_state_gas = new_account_state_gas + num_slots * sstore_state_gas
+    regular_used = (
         intrinsic_gas
         + factory_code.gas_cost(fork)
         + init_code.gas_cost(fork)
-        - total_state_refund
+        - total_state_gas
     )
+    expected_gas_used = max(regular_used, total_state_gas)
 
     tx = Transaction(
         to=factory,
-        gas_limit=gas_limit_cap + total_state_refund,
+        gas_limit=gas_limit_cap + total_state_gas,
         sender=pre.fund_eoa(),
     )
 
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[tx], header_verify=Header(gas_used=tx_regular))],
+        blocks=[
+            Block(txs=[tx], header_verify=Header(gas_used=expected_gas_used)),
+        ],
         post={},
     )
 
@@ -340,7 +335,7 @@ def test_create_selfdestruct_refunds_account_and_storage(
     ],
 )
 @pytest.mark.valid_from("EIP8037")
-def test_create_selfdestruct_refunds_code_deposit_state_gas(
+def test_create_selfdestruct_no_refund_code_deposit_state_gas(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -348,13 +343,8 @@ def test_create_selfdestruct_refunds_code_deposit_state_gas(
     beneficiary_type: str,
 ) -> None:
     """
-    Verify same tx CREATE+SELFDESTRUCT refunds code deposit state gas.
-
-    Factory CREATEs a contract deploying `code_size` bytes of code
-    then CALLs it to trigger SELFDESTRUCT. Refund is account plus
-    `code_size * cost_per_state_byte`. `external` beneficiary tests
-    that the refund applies to the created account, not the
-    destination of the ETH transfer.
+    Verify same tx CREATE+SELFDESTRUCT does not refund code deposit
+    state gas.
     """
     assert code_size >= 2
     gas_limit_cap = fork.transaction_gas_limit_cap()
@@ -397,11 +387,11 @@ def test_create_selfdestruct_refunds_code_deposit_state_gas(
     factory = pre.deploy_contract(code=factory_code)
     created_address = compute_create_address(address=factory, nonce=1)
 
-    total_state_refund = new_account_state_gas + code_deposit_state_gas
+    total_state_gas = new_account_state_gas + code_deposit_state_gas
     tx = Transaction(
         to=factory,
         data=bytes(initcode),
-        gas_limit=gas_limit_cap + total_state_refund,
+        gas_limit=gas_limit_cap + total_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -413,22 +403,20 @@ def test_create_selfdestruct_refunds_code_deposit_state_gas(
 
 
 @pytest.mark.valid_from("EIP8037")
-def test_create_selfdestruct_code_deposit_refund_header_check(
+def test_create_selfdestruct_code_deposit_no_refund_header_check(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
-    Verify block header gas reflects the code-deposit state-gas
-    refund on a same-tx CREATE plus SELFDESTRUCT.
+    Verify block header gas reflects the full account plus code-deposit
+    state-gas charge on a same-tx CREATE+SELFDESTRUCT.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     gas_costs = fork.gas_costs()
     new_account_state_gas = gas_costs.NEW_ACCOUNT
 
-    # Deployed code is sized so the code-deposit state gas would
-    # dominate block regular gas if the refund did not land.
     selfdestruct = Op.SELFDESTRUCT(Op.ADDRESS)
     sd_len = len(bytes(selfdestruct))
     code_size = 256
@@ -458,30 +446,23 @@ def test_create_selfdestruct_code_deposit_refund_header_check(
     factory = pre.deploy_contract(code=factory_code)
     created_address = compute_create_address(address=factory, nonce=1)
 
-    total_state_refund = new_account_state_gas + code_deposit_state_gas
+    total_state_gas = new_account_state_gas + code_deposit_state_gas
     tx = Transaction(
         to=factory,
         data=bytes(initcode),
-        gas_limit=gas_limit_cap + total_state_refund,
+        gas_limit=gas_limit_cap + total_state_gas,
         sender=pre.fund_eoa(),
     )
 
-    # Empirical baseline: block_state_gas refunds to zero so the
-    # header reports block regular only. Baseline regular must stay
-    # below the code-deposit state gas so a missing refund would
-    # push the header above this value.
     baseline_block_regular = 0x94C8
-    assert baseline_block_regular < code_deposit_state_gas, (
-        "Baseline regular must be below code_deposit_state_gas so "
-        "the mutation's un-refunded state_gas dominates the header."
-    )
+    expected_gas_used = max(baseline_block_regular, total_state_gas)
 
     blockchain_test(
         pre=pre,
         blocks=[
             Block(
                 txs=[tx],
-                header_verify=Header(gas_used=baseline_block_regular),
+                header_verify=Header(gas_used=expected_gas_used),
             ),
         ],
         post={created_address: Account.NONEXISTENT},
@@ -489,19 +470,14 @@ def test_create_selfdestruct_code_deposit_refund_header_check(
 
 
 @pytest.mark.valid_from("EIP8037")
-def test_create_selfdestruct_no_double_refund_with_sstore_restoration(
+def test_create_selfdestruct_sstore_restoration_refund(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
-    Verify SSTORE restoration and SELFDESTRUCT refunds do not stack.
-
-    Initcode does SSTORE(0, 1) then SSTORE(0, 0) then SELFDESTRUCT.
-    The 0 to x to 0 restoration refunds the slot inline. The end of
-    tx selfdestruct refund scans `storage_writes[B]` and only counts
-    non zero final values, so the restored slot is excluded and the
-    end of tx refund is account only.
+    Verify SSTORE restoration still refunds its slot state gas when
+    the surrounding contract SELFDESTRUCTs.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -533,15 +509,15 @@ def test_create_selfdestruct_no_double_refund_with_sstore_restoration(
     factory_code = mstore + Op.POP(create_call)
     factory = pre.deploy_contract(code=factory_code)
 
-    # Subtract both state charges (CREATE account + cold SSTORE) to
-    # isolate the regular total.
-    tx_regular = (
+    state_used = new_account_state_gas
+    regular_used = (
         intrinsic_gas
         + factory_code.gas_cost(fork)
         + init_code.gas_cost(fork)
         - new_account_state_gas
         - sstore_state_gas
     )
+    expected_gas_used = max(regular_used, state_used)
 
     tx = Transaction(
         to=factory,
@@ -551,7 +527,9 @@ def test_create_selfdestruct_no_double_refund_with_sstore_restoration(
 
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[tx], header_verify=Header(gas_used=tx_regular))],
+        blocks=[
+            Block(txs=[tx], header_verify=Header(gas_used=expected_gas_used)),
+        ],
         post={},
     )
 
@@ -617,7 +595,7 @@ def test_selfdestruct_pre_existing_account_no_refund(
     selector=lambda call_opcode: call_opcode in (Op.DELEGATECALL, Op.CALLCODE)
 )
 @pytest.mark.valid_from("EIP8037")
-def test_selfdestruct_via_delegatecall_chain(
+def test_selfdestruct_via_delegatecall_chain_no_refund(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -625,15 +603,8 @@ def test_selfdestruct_via_delegatecall_chain(
     call_opcode: Op,
 ) -> None:
     """
-    Verify SELFDESTRUCT refund when the opcode executes in a nested
-    DELEGATECALL/CALLCODE frame below a same-tx-created contract.
-
-    A factory CREATEs contract A; A delegates down `num_hops` frames
-    into a helper that runs SELFDESTRUCT(Op.ADDRESS). `current_target`
-    is preserved by DELEGATECALL/CALLCODE, so A is queued for deletion
-    and its account + code-deposit state gas is refunded at tx end.
-    Exercises `accounts_to_delete` propagation across multiple
-    `incorporate_child_on_success` hops.
+    Verify SELFDESTRUCT in a nested DELEGATECALL/CALLCODE frame below
+    a same-tx-created contract does not refund state gas.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -693,12 +664,11 @@ def test_selfdestruct_via_delegatecall_chain(
     factory = pre.deploy_contract(code=factory_code)
     created_address = compute_create_address(address=factory, nonce=1)
 
-    # Reservoir must also cover the two fresh SSTORE markers.
-    total_state_refund = new_account_state_gas + code_deposit_state_gas
+    total_state_gas = new_account_state_gas + code_deposit_state_gas
     tx = Transaction(
         to=factory,
         data=bytes(initcode),
-        gas_limit=gas_limit_cap + total_state_refund + 2 * sstore_state_gas,
+        gas_limit=gas_limit_cap + total_state_gas + 2 * sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -760,7 +730,7 @@ def test_selfdestruct_new_beneficiary_no_regular_account_creation_cost(
 )
 @pytest.mark.pre_alloc_mutable()
 @pytest.mark.valid_from("EIP8037")
-def test_create_tx_selfdestruct_initcode_refunds_intrinsic(
+def test_create_tx_selfdestruct_initcode_state_gas(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -768,20 +738,8 @@ def test_create_tx_selfdestruct_initcode_refunds_intrinsic(
     beneficiary_kind: str,
 ) -> None:
     """
-    Verify a creation tx whose initcode SELFDESTRUCTs the new
-    contract refunds the intrinsic NEW_ACCOUNT × CPSB so the user
-    only pays state-gas for any genuinely new account that persists.
-
-    Cases:
-    - value=0 (any beneficiary): contract is destroyed, no
-      beneficiary creation. Net new state = 0; expected state-gas
-      bill = 0.
-    - value>0 to self/existing: balance burned or transferred to a
-      live account; contract destroyed. Net new state = 0; expected
-      state-gas bill = 0.
-    - value>0 to empty beneficiary: SELFDESTRUCT charges a NEW_ACCOUNT
-      for the new beneficiary which persists; contract is destroyed.
-      Net new state = 1; expected state-gas bill = NEW_ACCOUNT × CPSB.
+    Verify a creation tx whose initcode SELFDESTRUCTs the new contract
+    still pays the intrinsic NEW_ACCOUNT state gas.
     """
     new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
     intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
@@ -810,13 +768,12 @@ def test_create_tx_selfdestruct_initcode_refunds_intrinsic(
     intrinsic_regular = intrinsic_total - new_account_state_gas
 
     creates_new_beneficiary = beneficiary_kind == "empty" and tx_value > 0
-    expected_state = new_account_state_gas if creates_new_beneficiary else 0
+    expected_state = new_account_state_gas + (
+        new_account_state_gas if creates_new_beneficiary else 0
+    )
     expected_regular = intrinsic_regular + init_code.regular_cost(fork)
     expected_gas_used = max(expected_regular, expected_state)
 
-    # Reservoir is empty for sub-cap txs, so SELFDESTRUCT's state-gas
-    # charge for a new beneficiary spills into gas_left. The buffer
-    # has to cover that spillover plus the regular execution costs.
     tx = Transaction(
         to=None,
         data=init_code,
