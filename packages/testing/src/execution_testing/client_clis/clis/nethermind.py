@@ -458,14 +458,10 @@ class NethermindExceptionMapper(ExceptionMapper):
         BlockException.INVALID_BLOCK_ACCESS_LIST: (
             r"InvalidBlockLevelAccessListHash:"
             r"|InvalidBlockLevelAccessList:"
-            r"|could not be parsed as a block: "
-            r"Error decoding block access list:"
             r"|Error decoding block access list:"
         ),
         BlockException.INCORRECT_BLOCK_FORMAT: (
-            r"could not be parsed as a block: "
             r"Error decoding block access list:"
-            r"|Error decoding block access list:"
         ),
         # When the modified-deposit-contract test produces a malformed log,
         # BAL validation rejects the block before per-tx validation runs;
