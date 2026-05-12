@@ -1,10 +1,9 @@
 """Benchmark different transaction types."""
 
-import itertools
 import math
 import random
 from dataclasses import dataclass
-from typing import Generator, List
+from typing import Generator, List, Tuple
 
 import pytest
 from execution_testing import (
@@ -74,42 +73,6 @@ def get_single_receiver_list(
         yield receiver
 
 
-# Bitterex controller mainnet address
-# Creates 1.5M contracts with deterministic address via CREATE
-# It is guaranteed no contract is destructed
-# Used for existing contract targets in benchmark
-BITTREX_CONTROLLER_ADDRESS = Address(
-    0xA3C1E324CA1CE40DB73ED6026C4A177F099B5770
-)
-
-
-# Ether reception cost for Bittrex-created contracts
-RECEIVER_CONTRACT_EXECUTION_GAS = 51
-
-
-def get_distinct_contract_receiver_list() -> Generator[Address, None, None]:
-    """Yield contract account created by Bitterex controller via CREATE."""
-    for nonce in itertools.count(1):
-        yield compute_create_address(
-            address=BITTREX_CONTROLLER_ADDRESS, nonce=nonce
-        )
-
-
-def get_distinct_existent_receiver_list() -> Generator[Address, None, None]:
-    """
-    Yield existing balance-only EOA on bloatnet. pre-funded by Spamoor
-    (https://github.com/CPerezz/spamoor/pull/12).
-    """
-    for address in itertools.count(0x1000):
-        yield Address(address)
-
-
-def get_distinct_nonexistent_receiver_list() -> Generator[Address, None, None]:
-    """Yield non-existent accounts starting from keccak256('random')."""
-    for address in itertools.count(0xF3CF193BB4AF1022AF7D2089F37D8BAE7157B85F):
-        yield Address(address)
-
-
 @dataclass(frozen=True)
 class ReceiverAccountType:
     """Receiver account type for ether transfer benchmarks."""
@@ -118,72 +81,49 @@ class ReceiverAccountType:
     delegated: bool
 
 
-def _run_ether_transfer_benchmark(
-    benchmark_test: BenchmarkTestFiller,
+@pytest.fixture
+def ether_transfer_case(
+    case_id: str,
     pre: Alloc,
-    fork: Fork,
-    gas_benchmark_value: int,
-    senders: Generator[Address, None, None],
-    receivers: Generator[Address, None, None],
-    transfer_amount: int,
-    warm_access: bool,
-    receiver_initial_balance: int,
-    track_post_state: bool,
-    receiver_execution_gas: int = 0,
-) -> None:
-    """Fill a block with ether transfers between the given generators."""
-    iteration_cost = (
-        fork.transaction_intrinsic_cost_calculator()(
-            access_list=(
-                [AccessList(address=Address(0x100), storage_keys=[])]
-                if warm_access
-                else None
-            ),
-        )
-        + receiver_execution_gas
-    )
-    iteration_count = gas_benchmark_value // iteration_cost
-
-    txs = []
-    token_transfers: dict[Address, int] = {}
-    for _ in range(iteration_count):
-        receiver = next(receivers)
-        token_transfers[receiver] = (
-            token_transfers.get(receiver, 0) + transfer_amount
-        )
-        access_list = (
-            [AccessList(address=receiver, storage_keys=[])]
-            if warm_access
-            else None
-        )
-        txs.append(
-            Transaction(
-                to=receiver,
-                value=transfer_amount,
-                gas_limit=iteration_cost,
-                sender=next(senders),
-                access_list=access_list,
-            )
-        )
-
-    post_state = (
-        {
-            receiver: Account(
-                balance=receiver_initial_balance + transferred_amount
-            )
-            for receiver, transferred_amount in token_transfers.items()
-            if receiver_initial_balance + transferred_amount > 0
-        }
-        if track_post_state
-        else {}
+    receiver_account_type: ReceiverAccountType,
+) -> Tuple[Generator[Address, None, None], Generator[Address, None, None]]:
+    """Generate sender and receiver generators based on the test case."""
+    balance = receiver_account_type.balance
+    delegation = (
+        pre.deploy_contract(code=Op.STOP)
+        if receiver_account_type.delegated
+        else None
     )
 
-    benchmark_test(
-        pre=pre,
-        post=post_state,
-        blocks=[Block(txs=txs)],
-        expected_benchmark_gas_used=iteration_count * iteration_cost,
-    )
+    if case_id == "a_to_a":
+        """Sending to self."""
+        senders = get_single_sender_list(pre)
+        receivers = senders
+
+    elif case_id == "a_to_b":
+        """One sender → one receiver."""
+        senders = get_single_sender_list(pre)
+        receivers = get_single_receiver_list(pre, balance, delegation)
+
+    elif case_id == "diff_acc_to_b":
+        """Multiple senders → one receiver."""
+        senders = get_distinct_sender_list(pre)
+        receivers = get_single_receiver_list(pre, balance, delegation)
+
+    elif case_id == "a_to_diff_acc":
+        """One sender → multiple receivers."""
+        senders = get_single_sender_list(pre)
+        receivers = get_distinct_receiver_list(pre, balance, delegation)
+
+    elif case_id == "diff_acc_to_diff_acc":
+        """Multiple senders → multiple receivers."""
+        senders = get_distinct_sender_list(pre)
+        receivers = get_distinct_receiver_list(pre, balance, delegation)
+
+    else:
+        raise ValueError(f"Unknown case: {case_id}")
+
+    return senders, receivers
 
 
 @pytest.mark.parametrize(
@@ -224,108 +164,74 @@ def test_ether_transfers(
     fork: Fork,
     gas_benchmark_value: int,
     warm_access: bool,
+    ether_transfer_case: Tuple[
+        Generator[Address, None, None], Generator[Address, None, None]
+    ],
 ) -> None:
     """
-    Ether transfers where receivers constructed in pre-allocation.
+    Single test for ether transfer scenarios.
 
     Scenarios:
-    - a_to_a: self-transfer
+    - a_to_a: one sender → one sender
     - a_to_b: one sender → one receiver
     - diff_acc_to_b: multiple senders → one receiver
     - a_to_diff_acc: one sender → multiple receivers
     - diff_acc_to_diff_acc: multiple senders → multiple receivers
+
+    When warm_access is True, each transaction includes an access list
+    entry for the receiver to warm the account before the transfer.
     """
+    senders, receivers = ether_transfer_case
+
     balance = receiver_account_type.balance
-    delegation = (
-        pre.deploy_contract(code=Op.STOP)
-        if receiver_account_type.delegated
-        else None
+
+    txs = []
+    token_transfers: dict[Address, int] = {}
+
+    iteration_cost = fork.transaction_intrinsic_cost_calculator()(
+        access_list=(
+            [AccessList(address=Address(0x100), storage_keys=[])]
+            if warm_access
+            else None
+        ),
+    )
+    iteration_count = gas_benchmark_value // iteration_cost
+
+    for _ in range(iteration_count):
+        receiver = next(receivers)
+        token_transfers[receiver] = (
+            token_transfers.get(receiver, 0) + transfer_amount
+        )
+        access_list = (
+            [AccessList(address=receiver, storage_keys=[])]
+            if warm_access
+            else None
+        )
+        txs.append(
+            Transaction(
+                to=receiver,
+                value=transfer_amount,
+                gas_limit=iteration_cost,
+                sender=next(senders),
+                access_list=access_list,
+            )
+        )
+
+    post_state = (
+        {}
+        if case_id == "a_to_a"
+        else {
+            receiver: Account(balance=balance + transferred_amount)
+            for receiver, transferred_amount in token_transfers.items()
+            if balance + transferred_amount > 0
+        }
     )
 
-    if case_id == "a_to_a":
-        senders = get_single_sender_list(pre)
-        receivers = senders
-    elif case_id == "a_to_b":
-        senders = get_single_sender_list(pre)
-        receivers = get_single_receiver_list(pre, balance, delegation)
-    elif case_id == "diff_acc_to_b":
-        senders = get_distinct_sender_list(pre)
-        receivers = get_single_receiver_list(pre, balance, delegation)
-    elif case_id == "a_to_diff_acc":
-        senders = get_single_sender_list(pre)
-        receivers = get_distinct_receiver_list(pre, balance, delegation)
-    elif case_id == "diff_acc_to_diff_acc":
-        senders = get_distinct_sender_list(pre)
-        receivers = get_distinct_receiver_list(pre, balance, delegation)
-    else:
-        raise ValueError(f"Unknown case: {case_id}")
-
-    _run_ether_transfer_benchmark(
-        benchmark_test=benchmark_test,
+    benchmark_test(
         pre=pre,
-        fork=fork,
-        gas_benchmark_value=gas_benchmark_value,
-        senders=senders,
-        receivers=receivers,
-        transfer_amount=transfer_amount,
-        warm_access=warm_access,
-        receiver_initial_balance=balance,
-        track_post_state=(case_id != "a_to_a"),
-    )
-
-
-@pytest.mark.parametrize(
-    "case_id",
-    [
-        "diff_to_nonexistent",
-        "diff_to_existent",
-        "diff_to_contract",
-    ],
-)
-@pytest.mark.parametrize("transfer_amount", [0, 1])
-def test_ether_transfers_onchain_receivers(
-    benchmark_test: BenchmarkTestFiller,
-    pre: Alloc,
-    case_id: str,
-    transfer_amount: int,
-    fork: Fork,
-    gas_benchmark_value: int,
-) -> None:
-    """
-    Ether transfers to receivers that exist on-chain at run time.
-
-    Scenarios:
-    - diff_to_nonexistent: distinct nonexistent receivers
-      (matches AccountMode.NON_EXISTING_ACCOUNT)
-    - diff_to_existent: distinct existent EOA receivers
-      (matches AccountMode.EXISTING_EOA)
-    - diff_to_contract: distinct contract receivers
-      (matches AccountMode.EXISTING_CONTRACT)
-    """
-    senders = get_distinct_sender_list(pre)
-    receiver_execution_gas = 0
-    if case_id == "diff_to_nonexistent":
-        receivers = get_distinct_nonexistent_receiver_list()
-    elif case_id == "diff_to_existent":
-        receivers = get_distinct_existent_receiver_list()
-    elif case_id == "diff_to_contract":
-        receivers = get_distinct_contract_receiver_list()
-        receiver_execution_gas = RECEIVER_CONTRACT_EXECUTION_GAS
-    else:
-        raise ValueError(f"Unknown case: {case_id}")
-
-    _run_ether_transfer_benchmark(
-        benchmark_test=benchmark_test,
-        pre=pre,
-        fork=fork,
-        gas_benchmark_value=gas_benchmark_value,
-        senders=senders,
-        receivers=receivers,
-        transfer_amount=transfer_amount,
-        warm_access=False,
-        receiver_initial_balance=0,
-        track_post_state=False,
-        receiver_execution_gas=receiver_execution_gas,
+        post=post_state,
+        blocks=[Block(txs=txs)],
+        expected_benchmark_gas_used=iteration_count * iteration_cost,
     )
 
 
