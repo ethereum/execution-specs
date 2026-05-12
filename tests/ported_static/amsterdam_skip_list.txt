@@ -8,7 +8,7 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 897
+# Total entries: 869
 
 # stAttackTest (1)
 stAttackTest/test_crashing_transaction.py::test_crashing_transaction[fork_Amsterdam]
@@ -19,7 +19,7 @@ stBadOpcode/test_measure_gas.py::test_measure_gas[fork_Amsterdam-CREATE]
 stBadOpcode/test_operation_diff_gas.py::test_operation_diff_gas[fork_Amsterdam-CREATE2]
 stBadOpcode/test_operation_diff_gas.py::test_operation_diff_gas[fork_Amsterdam-CREATE]
 
-# stCallCodes (17)
+# stCallCodes (0)
 
 # stCallCreateCallCodeTest (12)
 stCallCreateCallCodeTest/test_call1024_oog.py::test_call1024_oog[fork_Amsterdam--g0]
@@ -35,15 +35,15 @@ stCallCreateCallCodeTest/test_create_name_registrator_per_txs_not_enough_gas.py:
 stCallCreateCallCodeTest/test_create_name_registrator_per_txs_not_enough_gas.py::test_create_name_registrator_per_txs_not_enough_gas[fork_Amsterdam--g1]
 stCallCreateCallCodeTest/test_create_name_registrator_pre_store1_not_enough_gas.py::test_create_name_registrator_pre_store1_not_enough_gas[fork_Amsterdam]
 
-# stCallDelegateCodesCallCodeHomestead (11)
+# stCallDelegateCodesCallCodeHomestead (0)
 
-# stCallDelegateCodesHomestead (10)
+# stCallDelegateCodesHomestead (0)
 
 # stCodeSizeLimit (2)
 stCodeSizeLimit/test_create2_code_size_limit.py::test_create2_code_size_limit[fork_Amsterdam-valid]
 stCodeSizeLimit/test_create_code_size_limit.py::test_create_code_size_limit[fork_Amsterdam-valid]
 
-# stCreate2 (23)
+# stCreate2 (15)
 stCreate2/test_create2_first_byte_loop.py::test_create2_first_byte_loop[fork_Amsterdam-firstHalf]
 stCreate2/test_create2_oo_gafter_init_code.py::test_create2_oo_gafter_init_code[fork_Amsterdam--g1]
 stCreate2/test_create2_oo_gafter_init_code_returndata2.py::test_create2_oo_gafter_init_code_returndata2[fork_Amsterdam--g1]
@@ -60,7 +60,7 @@ stCreate2/test_revert_depth_create_address_collision.py::test_revert_depth_creat
 stCreate2/test_revert_depth_create_address_collision_berlin.py::test_revert_depth_create_address_collision_berlin[fork_Amsterdam-d1-g1-v0]
 stCreate2/test_revert_depth_create_address_collision_berlin.py::test_revert_depth_create_address_collision_berlin[fork_Amsterdam-d1-g1-v1]
 
-# stCreateTest (47)
+# stCreateTest (42)
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create-0xef-v1]
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create-code-too-big-v1]
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create-contructor-revert-v1]
@@ -154,7 +154,7 @@ stEIP1559/test_sender_balance.py::test_sender_balance[fork_Amsterdam]
 # stEIP158Specific (1)
 stEIP158Specific/test_exp_empty.py::test_exp_empty[fork_Amsterdam]
 
-# stEIP2930 (41)
+# stEIP2930 (0)
 
 # stEIP3855_push0 (2)
 stEIP3855_push0/test_push0.py::test_push0[fork_Amsterdam-push0_upd_storage_sc]
@@ -235,7 +235,7 @@ stNonZeroCallsTest/test_non_zero_value_delegatecall_to_one_storage_key_paris.py:
 
 # stPreCompiledContracts (0)
 
-# stPreCompiledContracts2 (7)
+# stPreCompiledContracts2 (4)
 stPreCompiledContracts2/test_ecrecover_short_buff.py::test_ecrecover_short_buff[fork_Amsterdam]
 stPreCompiledContracts2/test_modexp_0_0_0_22000.py::test_modexp_0_0_0_22000[fork_Amsterdam--g0]
 stPreCompiledContracts2/test_modexp_0_0_0_25000.py::test_modexp_0_0_0_25000[fork_Amsterdam--g0]
@@ -253,7 +253,7 @@ stRefundTest/test_refund_suicide50procent_cap.py::test_refund_suicide50procent_c
 stRefundTest/test_refund_suicide50procent_cap.py::test_refund_suicide50procent_cap[fork_Amsterdam-d1]
 stRefundTest/test_refund_tx_to_suicide.py::test_refund_tx_to_suicide[fork_Amsterdam]
 
-# stRevertTest (7)
+# stRevertTest (5)
 stRevertTest/test_revert_depth2.py::test_revert_depth2[fork_Amsterdam--g1]
 stRevertTest/test_revert_depth_create_address_collision.py::test_revert_depth_create_address_collision[fork_Amsterdam-d1-g1-v0]
 stRevertTest/test_revert_depth_create_address_collision.py::test_revert_depth_create_address_collision[fork_Amsterdam-d1-g1-v1]
@@ -383,43 +383,18 @@ stZeroKnowledge/test_point_mul_add2.py::test_point_mul_add2[fork_Amsterdam-d9-g3
 # vmArithmeticTest (1)
 vmArithmeticTest/test_two_ops.py::test_two_ops[fork_Amsterdam]
 
-# stCallCodes (8)
-stCallCodes/test_callcall_00_suicide_end.py::test_callcall_00_suicide_end[fork_Amsterdam]
-stCallCodes/test_callcallcall_000_suicide_end.py::test_callcallcall_000_suicide_end[fork_Amsterdam]
-stCallCodes/test_callcallcodecall_010_suicide_end.py::test_callcallcodecall_010_suicide_end[fork_Amsterdam]
+# stCallCodes (2)
 stCallCodes/test_callcode_in_initcode_to_existing_contract.py::test_callcode_in_initcode_to_existing_contract[fork_Amsterdam-d0]
 stCallCodes/test_callcode_in_initcode_to_existing_contract.py::test_callcode_in_initcode_to_existing_contract[fork_Amsterdam-d1]
-stCallCodes/test_callcodecall_10_suicide_end.py::test_callcodecall_10_suicide_end[fork_Amsterdam]
-stCallCodes/test_callcodecallcall_100_suicide_end.py::test_callcodecallcall_100_suicide_end[fork_Amsterdam]
-stCallCodes/test_callcodecallcodecall_110_suicide_end.py::test_callcodecallcodecall_110_suicide_end[fork_Amsterdam]
 
-# stCallCreateCallCodeTest (14)
+# stCallCreateCallCodeTest (2)
 stCallCreateCallCodeTest/test_create_fail_balance_too_low.py::test_create_fail_balance_too_low[fork_Amsterdam--v1]
 stCallCreateCallCodeTest/test_create_init_fail_undefined_instruction.py::test_create_init_fail_undefined_instruction[fork_Amsterdam]
 
-# stCallDelegateCodesCallCodeHomestead (10)
-stCallDelegateCodesCallCodeHomestead/test_callcallcallcode_001_suicide_end.py::test_callcallcallcode_001_suicide_end[fork_Amsterdam]
-stCallDelegateCodesCallCodeHomestead/test_callcallcode_01_suicide_end.py::test_callcallcode_01_suicide_end[fork_Amsterdam]
-stCallDelegateCodesCallCodeHomestead/test_callcallcodecall_010_suicide_end.py::test_callcallcodecall_010_suicide_end[fork_Amsterdam]
+# stCallDelegateCodesCallCodeHomestead (1)
 stCallDelegateCodesCallCodeHomestead/test_callcallcodecallcode_011_oogm_before.py::test_callcallcodecallcode_011_oogm_before[fork_Amsterdam]
-stCallDelegateCodesCallCodeHomestead/test_callcallcodecallcode_011_suicide_end.py::test_callcallcodecallcode_011_suicide_end[fork_Amsterdam]
-stCallDelegateCodesCallCodeHomestead/test_callcodecall_10_suicide_end.py::test_callcodecall_10_suicide_end[fork_Amsterdam]
-stCallDelegateCodesCallCodeHomestead/test_callcodecallcall_100_suicide_end.py::test_callcodecallcall_100_suicide_end[fork_Amsterdam]
-stCallDelegateCodesCallCodeHomestead/test_callcodecallcallcode_101_suicide_end.py::test_callcodecallcallcode_101_suicide_end[fork_Amsterdam]
-stCallDelegateCodesCallCodeHomestead/test_callcodecallcode_11_suicide_end.py::test_callcodecallcode_11_suicide_end[fork_Amsterdam]
-stCallDelegateCodesCallCodeHomestead/test_callcodecallcodecall_110_suicide_end.py::test_callcodecallcodecall_110_suicide_end[fork_Amsterdam]
 
-# stCallDelegateCodesHomestead (10)
-stCallDelegateCodesHomestead/test_callcallcallcode_001_suicide_end.py::test_callcallcallcode_001_suicide_end[fork_Amsterdam]
-stCallDelegateCodesHomestead/test_callcallcode_01_suicide_end.py::test_callcallcode_01_suicide_end[fork_Amsterdam]
-stCallDelegateCodesHomestead/test_callcallcodecall_010_suicide_end.py::test_callcallcodecall_010_suicide_end[fork_Amsterdam]
-stCallDelegateCodesHomestead/test_callcallcodecallcode_011_suicide_end.py::test_callcallcodecallcode_011_suicide_end[fork_Amsterdam]
-stCallDelegateCodesHomestead/test_callcodecall_10_suicide_end.py::test_callcodecall_10_suicide_end[fork_Amsterdam]
-stCallDelegateCodesHomestead/test_callcodecallcall_100_suicide_end.py::test_callcodecallcall_100_suicide_end[fork_Amsterdam]
-stCallDelegateCodesHomestead/test_callcodecallcallcode_101_suicide_end.py::test_callcodecallcallcode_101_suicide_end[fork_Amsterdam]
-stCallDelegateCodesHomestead/test_callcodecallcode_11_suicide_end.py::test_callcodecallcode_11_suicide_end[fork_Amsterdam]
-stCallDelegateCodesHomestead/test_callcodecallcodecall_110_suicide_end.py::test_callcodecallcodecall_110_suicide_end[fork_Amsterdam]
-stCallDelegateCodesHomestead/test_callcodecallcodecallcode_111_suicide_end.py::test_callcodecallcodecallcode_111_suicide_end[fork_Amsterdam]
+# stCallDelegateCodesHomestead (0)
 
 # stCreate2 (18)
 stCreate2/test_create2_oog_from_call_refunds.py::test_create2_oog_from_call_refunds[fork_Amsterdam-SStore_Create2_Refund_NoOoG]
@@ -459,7 +434,7 @@ stDelegatecallTestHomestead/test_deleagate_call_after_value_transfer.py::test_de
 stDelegatecallTestHomestead/test_delegatecall_in_initcode_to_existing_contract.py::test_delegatecall_in_initcode_to_existing_contract[fork_Amsterdam]
 stDelegatecallTestHomestead/test_delegatecode_dynamic_code.py::test_delegatecode_dynamic_code[fork_Amsterdam]
 
-# stEIP2930 (4)
+# stEIP2930 (0)
 
 # stEIP3651_warmcoinbase (12)
 stEIP3651_warmcoinbase/test_coinbase_warm_account_call_gas.py::test_coinbase_warm_account_call_gas[fork_Amsterdam-d0]
@@ -475,7 +450,7 @@ stEIP3651_warmcoinbase/test_coinbase_warm_account_call_gas_fail.py::test_coinbas
 stEIP3651_warmcoinbase/test_coinbase_warm_account_call_gas_fail.py::test_coinbase_warm_account_call_gas_fail[fork_Amsterdam-d2]
 stEIP3651_warmcoinbase/test_coinbase_warm_account_call_gas_fail.py::test_coinbase_warm_account_call_gas_fail[fork_Amsterdam-d3]
 
-# stEIP5656_MCOPY (55)
+# stEIP5656_MCOPY (32)
 stEIP5656_MCOPY/test_mcopy_copy_cost.py::test_mcopy_copy_cost[fork_Amsterdam-src0_size0-g0]
 stEIP5656_MCOPY/test_mcopy_copy_cost.py::test_mcopy_copy_cost[fork_Amsterdam-src0_size1-g0]
 stEIP5656_MCOPY/test_mcopy_copy_cost.py::test_mcopy_copy_cost[fork_Amsterdam-src0_size31-g0]
@@ -509,7 +484,7 @@ stEIP5656_MCOPY/test_mcopy_copy_cost.py::test_mcopy_copy_cost[fork_Amsterdam-src
 stEIP5656_MCOPY/test_mcopy_copy_cost.py::test_mcopy_copy_cost[fork_Amsterdam-src32_size44768-g0]
 stEIP5656_MCOPY/test_mcopy_copy_cost.py::test_mcopy_copy_cost[fork_Amsterdam-src32_size44769-g0]
 
-# stMemoryTest (27)
+# stMemoryTest (25)
 stMemoryTest/test_call_data_copy_offset.py::test_call_data_copy_offset[fork_Amsterdam]
 stMemoryTest/test_calldatacopy_dejavu2.py::test_calldatacopy_dejavu2[fork_Amsterdam]
 stMemoryTest/test_code_copy_offset.py::test_code_copy_offset[fork_Amsterdam]
@@ -536,7 +511,7 @@ stMemoryTest/test_mem64kb_single_byte_plus_31.py::test_mem64kb_single_byte_plus_
 stMemoryTest/test_mem64kb_single_byte_plus_32.py::test_mem64kb_single_byte_plus_32[fork_Amsterdam]
 stMemoryTest/test_mem64kb_single_byte_plus_33.py::test_mem64kb_single_byte_plus_33[fork_Amsterdam]
 
-# stPreCompiledContracts2 (9)
+# stPreCompiledContracts2 (4)
 stPreCompiledContracts2/test_modexp_0_0_0_20500.py::test_modexp_0_0_0_20500[fork_Amsterdam--g1]
 stPreCompiledContracts2/test_modexp_0_0_0_22000.py::test_modexp_0_0_0_22000[fork_Amsterdam--g1]
 stPreCompiledContracts2/test_modexp_0_0_0_25000.py::test_modexp_0_0_0_25000[fork_Amsterdam--g1]
@@ -853,7 +828,7 @@ stSelfBalance/test_self_balance.py::test_self_balance[fork_Amsterdam]
 stSelfBalance/test_self_balance_equals_balance.py::test_self_balance_equals_balance[fork_Amsterdam]
 stSelfBalance/test_self_balance_gas_cost.py::test_self_balance_gas_cost[fork_Amsterdam]
 
-# stSolidityTest (5)
+# stSolidityTest (4)
 stSolidityTest/test_test_contract_interaction.py::test_test_contract_interaction[fork_Amsterdam]
 stSolidityTest/test_test_contract_suicide.py::test_test_contract_suicide[fork_Amsterdam]
 stSolidityTest/test_test_overflow.py::test_test_overflow[fork_Amsterdam]
@@ -928,7 +903,7 @@ stSystemOperationsTest/test_double_selfdestruct_touch_paris.py::test_double_self
 # stTransactionTest (1)
 stTransactionTest/test_opcodes_transaction_init.py::test_opcodes_transaction_init[fork_Amsterdam-side_effects]
 
-# vmArithmeticTest (2)
+# vmArithmeticTest (1)
 vmArithmeticTest/test_exp_power256_of256.py::test_exp_power256_of256[fork_Amsterdam]
 
 # -----------------------------------------------------------------------------
@@ -939,15 +914,12 @@ vmArithmeticTest/test_exp_power256_of256.py::test_exp_power256_of256[fork_Amster
 # CPSB recalibration work.
 # -----------------------------------------------------------------------------
 
-# stCallCodes (14)
-stCallCodes/test_callcallcallcode_001_suicide_end.py::test_callcallcallcode_001_suicide_end[fork_Amsterdam]
+# stCallCodes (3)
 stCallCodes/test_callcode_in_initcode_to_empty_contract.py::test_callcode_in_initcode_to_empty_contract[fork_Amsterdam-d0]
 stCallCodes/test_callcode_in_initcode_to_empty_contract.py::test_callcode_in_initcode_to_empty_contract[fork_Amsterdam-d1]
 stCallCodes/test_callcode_in_initcode_to_existing_contract_with_value_transfer.py::test_callcode_in_initcode_to_existing_contract_with_value_transfer[fork_Amsterdam]
-stCallCodes/test_callcodecallcallcode_101_suicide_end.py::test_callcodecallcallcode_101_suicide_end[fork_Amsterdam]
-stCallCodes/test_callcodecallcodecallcode_111_suicide_end.py::test_callcodecallcodecallcode_111_suicide_end[fork_Amsterdam]
 
-# stCreate2 (51)
+# stCreate2 (18)
 stCreate2/test_create2_oog_from_call_refunds.py::test_create2_oog_from_call_refunds[fork_Amsterdam-SStore_CallCode_Refund_NoOoG]
 stCreate2/test_create2_oog_from_call_refunds.py::test_create2_oog_from_call_refunds[fork_Amsterdam-SStore_DelegateCall_Refund_NoOoG]
 stCreate2/test_create2_suicide.py::test_create2_suicide[fork_Amsterdam-d3]
@@ -967,35 +939,35 @@ stCreate2/test_create2collision_selfdestructed_oog.py::test_create2collision_sel
 stCreate2/test_create2collision_selfdestructed_oog.py::test_create2collision_selfdestructed_oog[fork_Amsterdam-d2]
 stCreate2/test_create2no_cash.py::test_create2no_cash[fork_Amsterdam-d1]
 
-# stCreateTest (57)
+# stCreateTest (4)
 stCreateTest/test_create_collision_results.py::test_create_collision_results[fork_Amsterdam-d0]
 stCreateTest/test_create_collision_results.py::test_create_collision_results[fork_Amsterdam-d1]
 stCreateTest/test_create_oog_from_call_refunds.py::test_create_oog_from_call_refunds[fork_Amsterdam-SStore_Refund_NoOoG2]
 stCreateTest/test_create_oog_from_call_refunds.py::test_create_oog_from_call_refunds[fork_Amsterdam-SStore_Refund_NoOoG3]
 
-# stDelegatecallTestHomestead (7)
+# stDelegatecallTestHomestead (1)
 stDelegatecallTestHomestead/test_delegatecall_emptycontract.py::test_delegatecall_emptycontract[fork_Amsterdam]
 
 # stEIP2930 (0)
 
-# stEIP3855_push0 (7)
+# stEIP3855_push0 (5)
 stEIP3855_push0/test_push0.py::test_push0[fork_Amsterdam-1024_push0]
 stEIP3855_push0/test_push0.py::test_push0[fork_Amsterdam-jumpdest]
 stEIP3855_push0/test_push0.py::test_push0[fork_Amsterdam-single_push0]
 stEIP3855_push0/test_push0_gas2.py::test_push0_gas2[fork_Amsterdam-use_push0]
 stEIP3855_push0/test_push0_gas2.py::test_push0_gas2[fork_Amsterdam-use_push1_00]
 
-# stPreCompiledContracts2 (13)
+# stPreCompiledContracts2 (5)
 stPreCompiledContracts2/test_call_sha256_1_nonzero_value.py::test_call_sha256_1_nonzero_value[fork_Amsterdam]
 stPreCompiledContracts2/test_modexp_0_0_0_20500.py::test_modexp_0_0_0_20500[fork_Amsterdam--g2]
 stPreCompiledContracts2/test_modexp_0_0_0_22000.py::test_modexp_0_0_0_22000[fork_Amsterdam--g2]
 stPreCompiledContracts2/test_modexp_0_0_0_25000.py::test_modexp_0_0_0_25000[fork_Amsterdam--g2]
 stPreCompiledContracts2/test_modexp_0_0_0_35000.py::test_modexp_0_0_0_35000[fork_Amsterdam--g2]
 
-# stRevertTest (33)
+# stRevertTest (1)
 stRevertTest/test_revert_in_create_in_init_paris.py::test_revert_in_create_in_init_paris[fork_Amsterdam]
 
-# stStaticCall (81)
+# stStaticCall (31)
 stStaticCall/test_static_call_ask_more_gas_on_depth2_then_transaction_has.py::test_static_call_ask_more_gas_on_depth2_then_transaction_has[fork_Amsterdam-d0]
 stStaticCall/test_static_call_sha256_1_nonzero_value.py::test_static_call_sha256_1_nonzero_value[fork_Amsterdam]
 stStaticCall/test_static_call_value_inherit_from_call.py::test_static_call_value_inherit_from_call[fork_Amsterdam]
@@ -1028,11 +1000,11 @@ stStaticCall/test_static_check_opcodes5.py::test_static_check_opcodes5[fork_Amst
 stStaticCall/test_static_check_opcodes5.py::test_static_check_opcodes5[fork_Amsterdam-d4-g1-v1]
 stStaticCall/test_static_create_empty_contract_and_call_it_0wei.py::test_static_create_empty_contract_and_call_it_0wei[fork_Amsterdam]
 
-# stStaticFlagEnabled (6)
+# stStaticFlagEnabled (2)
 stStaticFlagEnabled/test_callcode_to_precompile_from_called_contract.py::test_callcode_to_precompile_from_called_contract[fork_Amsterdam]
 stStaticFlagEnabled/test_callcode_to_precompile_from_transaction.py::test_callcode_to_precompile_from_transaction[fork_Amsterdam]
 
-# stSystemOperationsTest (14)
+# stSystemOperationsTest (6)
 stSystemOperationsTest/test_call_to_name_registrator0.py::test_call_to_name_registrator0[fork_Amsterdam]
 stSystemOperationsTest/test_call_to_name_registrator_address_too_big_right.py::test_call_to_name_registrator_address_too_big_right[fork_Amsterdam]
 stSystemOperationsTest/test_create_name_registrator.py::test_create_name_registrator[fork_Amsterdam]
@@ -1040,7 +1012,7 @@ stSystemOperationsTest/test_create_name_registrator_zero_mem.py::test_create_nam
 stSystemOperationsTest/test_create_name_registrator_zero_mem2.py::test_create_name_registrator_zero_mem2[fork_Amsterdam]
 stSystemOperationsTest/test_create_name_registrator_zero_mem_expansion.py::test_create_name_registrator_zero_mem_expansion[fork_Amsterdam]
 
-# stTransactionTest (21)
+# stTransactionTest (17)
 stTransactionTest/test_no_src_account_create.py::test_no_src_account_create[fork_Amsterdam-d0-g1-v0]
 stTransactionTest/test_no_src_account_create.py::test_no_src_account_create[fork_Amsterdam-d0-g1-v1]
 stTransactionTest/test_no_src_account_create.py::test_no_src_account_create[fork_Amsterdam-d1-g1-v0]
