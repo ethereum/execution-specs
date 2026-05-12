@@ -8,7 +8,7 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 515
+# Total entries: 514
 
 # stAttackTest (1)
 stAttackTest/test_crashing_transaction.py::test_crashing_transaction[fork_Amsterdam]
@@ -37,11 +37,10 @@ stCallCreateCallCodeTest/test_create_name_registrator_pre_store1_not_enough_gas.
 stCodeSizeLimit/test_create2_code_size_limit.py::test_create2_code_size_limit[fork_Amsterdam-valid]
 stCodeSizeLimit/test_create_code_size_limit.py::test_create_code_size_limit[fork_Amsterdam-valid]
 
-# stCreate2 (10)
+# stCreate2 (9)
 stCreate2/test_create2_oo_gafter_init_code.py::test_create2_oo_gafter_init_code[fork_Amsterdam--g1]
 stCreate2/test_create2_oo_gafter_init_code_returndata2.py::test_create2_oo_gafter_init_code_returndata2[fork_Amsterdam--g1]
 stCreate2/test_create2_oo_gafter_init_code_revert2.py::test_create2_oo_gafter_init_code_revert2[fork_Amsterdam]
-stCreate2/test_create_message_reverted.py::test_create_message_reverted[fork_Amsterdam--g1]
 stCreate2/test_create_message_reverted_oog_in_init2.py::test_create_message_reverted_oog_in_init2[fork_Amsterdam--g0]
 stCreate2/test_create_message_reverted_oog_in_init2.py::test_create_message_reverted_oog_in_init2[fork_Amsterdam--g1]
 stCreate2/test_revert_depth_create2_oog.py::test_revert_depth_create2_oog[fork_Amsterdam-d1-g1-v0]
