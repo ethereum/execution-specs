@@ -3,6 +3,10 @@ Test_callcodecallcodecall_110_suicide_end.
 
 Ported from:
 state_tests/stCallDelegateCodesHomestead/callcodecallcodecall_110_SuicideEndFiller.json
+
+@manually-enhanced: Do not overwrite. The hardcoded inner-CALL gas
+values (50k / 100k / 150k) were tuned to the pre-EIP-8037 gas budget.
+
 """
 
 import pytest
@@ -15,6 +19,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -31,8 +36,20 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_callcodecallcodecall_110_suicide_end(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_callcodecallcodecall_110_suicide_end."""
+    # EIP-8037 inner-CALL gas bumps: original values restored for
+    # pre-EIP-8037 forks; bumped values cover the per-storage state-
+    # gas spill into regular gas on Amsterdam.
+    outer_call_gas = 150000
+    middle_call_gas = 100000
+    inner_call_gas = 50000
+    if fork.is_eip_enabled(8037):
+        outer_call_gas = 1000000
+        middle_call_gas = 800000
+        inner_call_gas = 100000
+
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
@@ -59,7 +76,7 @@ def test_callcodecallcodecall_110_suicide_end(
         code=Op.SSTORE(
             key=0x0,
             value=Op.DELEGATECALL(
-                gas=0x249F0,
+                gas=outer_call_gas,
                 address=0x2CAC1D43F00E8B40B63426AB460C7E8717EE6455,
                 args_offset=0x0,
                 args_size=0x40,
@@ -78,7 +95,7 @@ def test_callcodecallcodecall_110_suicide_end(
         code=Op.SSTORE(
             key=0x1,
             value=Op.DELEGATECALL(
-                gas=0x186A0,
+                gas=middle_call_gas,
                 address=0xD957E143AD2C011BC6A2B142795F1A9BA70D0680,
                 args_offset=0x0,
                 args_size=0x40,
@@ -97,7 +114,7 @@ def test_callcodecallcodecall_110_suicide_end(
         code=Op.SSTORE(
             key=0x2,
             value=Op.CALL(
-                gas=0xC350,
+                gas=inner_call_gas,
                 address=0x73B954EBC05BB0FF4A0F6A13A054D50AD1584099,
                 value=0x0,
                 args_offset=0x0,
