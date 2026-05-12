@@ -3,6 +3,9 @@ Test_coinbase_warm_account_call_gas_fail.
 
 Ported from:
 state_tests/Shanghai/stEIP3651_warmcoinbase/coinbaseWarmAccountCallGasFailFiller.yml
+@manually-enhanced: Do not overwrite. `tx_gas` bumped on Amsterdam
+to cover EIP-8037 state-gas spill; pre-EIP-8037 unchanged.
+
 """
 
 import pytest
@@ -251,7 +254,11 @@ def test_coinbase_warm_account_call_gas_fail(
         Bytes("693c6139") + Hash(addr_3, left_padding=True),
         Bytes("693c6139") + Hash(addr_4, left_padding=True),
     ]
-    tx_gas = [80000]
+    # EIP-8037 state-gas spill on Amsterdam exceeds the original 80k.
+    outer_tx_gas = 80000
+    if fork.is_eip_enabled(8037):
+        outer_tx_gas = 500_000
+    tx_gas = [outer_tx_gas]
 
     tx = Transaction(
         sender=sender,
