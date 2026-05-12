@@ -8,7 +8,7 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 514
+# Total entries: 512
 
 # stAttackTest (1)
 stAttackTest/test_crashing_transaction.py::test_crashing_transaction[fork_Amsterdam]
@@ -451,7 +451,7 @@ stMemoryTest/test_code_copy_offset.py::test_code_copy_offset[fork_Amsterdam]
 stReturnDataTest/test_returndatasize_after_successful_callcode.py::test_returndatasize_after_successful_callcode[fork_Amsterdam]
 stReturnDataTest/test_subcall_return_more_then_expected.py::test_subcall_return_more_then_expected[fork_Amsterdam]
 
-# stRevertTest (22)
+# stRevertTest (21)
 stRevertTest/test_loop_calls_depth_then_revert.py::test_loop_calls_depth_then_revert[fork_Amsterdam]
 stRevertTest/test_loop_calls_then_revert.py::test_loop_calls_then_revert[fork_Amsterdam]
 stRevertTest/test_loop_delegate_calls_depth_then_revert.py::test_loop_delegate_calls_depth_then_revert[fork_Amsterdam]
@@ -471,7 +471,6 @@ stRevertTest/test_revert_opcode_multiple_sub_calls.py::test_revert_opcode_multip
 stRevertTest/test_revert_opcode_multiple_sub_calls.py::test_revert_opcode_multiple_sub_calls[fork_Amsterdam-d3-g0-v1]
 stRevertTest/test_revert_opcode_multiple_sub_calls.py::test_revert_opcode_multiple_sub_calls[fork_Amsterdam-d3-g2-v0]
 stRevertTest/test_revert_opcode_multiple_sub_calls.py::test_revert_opcode_multiple_sub_calls[fork_Amsterdam-d3-g2-v1]
-stRevertTest/test_revert_opcode_return.py::test_revert_opcode_return[fork_Amsterdam-d0-g1]
 stRevertTest/test_revert_sub_call_storage_oog.py::test_revert_sub_call_storage_oog[fork_Amsterdam--g1-v0]
 stRevertTest/test_revert_sub_call_storage_oog2.py::test_revert_sub_call_storage_oog2[fork_Amsterdam--g1-v0]
 
@@ -592,8 +591,7 @@ stEIP3855_push0/test_push0_gas2.py::test_push0_gas2[fork_Amsterdam-use_push1_00]
 # stPreCompiledContracts2 (1)
 stPreCompiledContracts2/test_call_sha256_1_nonzero_value.py::test_call_sha256_1_nonzero_value[fork_Amsterdam]
 
-# stRevertTest (1)
-stRevertTest/test_revert_in_create_in_init_paris.py::test_revert_in_create_in_init_paris[fork_Amsterdam]
+# stRevertTest (0)
 
 # stStaticCall (31)
 stStaticCall/test_static_call_ask_more_gas_on_depth2_then_transaction_has.py::test_static_call_ask_more_gas_on_depth2_then_transaction_has[fork_Amsterdam-d0]
