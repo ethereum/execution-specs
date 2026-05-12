@@ -8,7 +8,7 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 857
+# Total entries: 849
 
 # stAttackTest (1)
 stAttackTest/test_crashing_transaction.py::test_crashing_transaction[fork_Amsterdam]
@@ -43,7 +43,7 @@ stCallCreateCallCodeTest/test_create_name_registrator_pre_store1_not_enough_gas.
 stCodeSizeLimit/test_create2_code_size_limit.py::test_create2_code_size_limit[fork_Amsterdam-valid]
 stCodeSizeLimit/test_create_code_size_limit.py::test_create_code_size_limit[fork_Amsterdam-valid]
 
-# stCreate2 (15)
+# stCreate2 (11)
 stCreate2/test_create2_first_byte_loop.py::test_create2_first_byte_loop[fork_Amsterdam-firstHalf]
 stCreate2/test_create2_oo_gafter_init_code.py::test_create2_oo_gafter_init_code[fork_Amsterdam--g1]
 stCreate2/test_create2_oo_gafter_init_code_returndata2.py::test_create2_oo_gafter_init_code_returndata2[fork_Amsterdam--g1]
@@ -55,10 +55,6 @@ stCreate2/test_revert_depth_create2_oog.py::test_revert_depth_create2_oog[fork_A
 stCreate2/test_revert_depth_create2_oog.py::test_revert_depth_create2_oog[fork_Amsterdam-d1-g1-v1]
 stCreate2/test_revert_depth_create2_oog_berlin.py::test_revert_depth_create2_oog_berlin[fork_Amsterdam-d1-g1-v0]
 stCreate2/test_revert_depth_create2_oog_berlin.py::test_revert_depth_create2_oog_berlin[fork_Amsterdam-d1-g1-v1]
-stCreate2/test_revert_depth_create_address_collision.py::test_revert_depth_create_address_collision[fork_Amsterdam-d1-g1-v0]
-stCreate2/test_revert_depth_create_address_collision.py::test_revert_depth_create_address_collision[fork_Amsterdam-d1-g1-v1]
-stCreate2/test_revert_depth_create_address_collision_berlin.py::test_revert_depth_create_address_collision_berlin[fork_Amsterdam-d1-g1-v0]
-stCreate2/test_revert_depth_create_address_collision_berlin.py::test_revert_depth_create_address_collision_berlin[fork_Amsterdam-d1-g1-v1]
 
 # stCreateTest (42)
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create-0xef-v1]
@@ -396,7 +392,7 @@ stCallDelegateCodesCallCodeHomestead/test_callcallcodecallcode_011_oogm_before.p
 
 # stCallDelegateCodesHomestead (0)
 
-# stCreate2 (17)
+# stCreate2 (13)
 stCreate2/test_create2_oog_from_call_refunds.py::test_create2_oog_from_call_refunds[fork_Amsterdam-SStore_Create2_Refund_NoOoG]
 stCreate2/test_create2_oog_from_call_refunds.py::test_create2_oog_from_call_refunds[fork_Amsterdam-SStore_Create_Refund_NoOoG]
 stCreate2/test_create2call_precompiles.py::test_create2call_precompiles[fork_Amsterdam-d7]
@@ -410,10 +406,6 @@ stCreate2/test_revert_depth_create2_oog.py::test_revert_depth_create2_oog[fork_A
 stCreate2/test_revert_depth_create2_oog.py::test_revert_depth_create2_oog[fork_Amsterdam-d0-g1-v1]
 stCreate2/test_revert_depth_create2_oog_berlin.py::test_revert_depth_create2_oog_berlin[fork_Amsterdam-d0-g1-v0]
 stCreate2/test_revert_depth_create2_oog_berlin.py::test_revert_depth_create2_oog_berlin[fork_Amsterdam-d0-g1-v1]
-stCreate2/test_revert_depth_create_address_collision.py::test_revert_depth_create_address_collision[fork_Amsterdam-d0-g1-v0]
-stCreate2/test_revert_depth_create_address_collision.py::test_revert_depth_create_address_collision[fork_Amsterdam-d0-g1-v1]
-stCreate2/test_revert_depth_create_address_collision_berlin.py::test_revert_depth_create_address_collision_berlin[fork_Amsterdam-d0-g1-v0]
-stCreate2/test_revert_depth_create_address_collision_berlin.py::test_revert_depth_create_address_collision_berlin[fork_Amsterdam-d0-g1-v1]
 
 # stCreateTest (11)
 stCreateTest/test_create_e_contract_create_e_contract_in_init_tr.py::test_create_e_contract_create_e_contract_in_init_tr[fork_Amsterdam]

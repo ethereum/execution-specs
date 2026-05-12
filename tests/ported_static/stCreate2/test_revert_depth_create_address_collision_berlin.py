@@ -3,6 +3,12 @@ Copy of this test for CREATE2.
 
 Ported from:
 state_tests/stCreate2/RevertDepthCreateAddressCollisionBerlinFiller.json
+
+@manually-enhanced: Do not overwrite. `tx_gas` raised on Amsterdam to
+cover EIP-8037 NEW_ACCOUNT state-gas spill on the CREATE2-via-revert
+path. Pre-EIP-8037 keeps the original [110_000, 170_000] tuned budgets;
+post-state expectations unchanged on all forks.
+
 """
 
 import pytest
@@ -198,7 +204,11 @@ def test_revert_depth_create_address_collision_berlin(
         Hash(0xEA60),
         Hash(0x1EA60),
     ]
+    # EIP-8037 NEW_ACCOUNT state-gas spill on Amsterdam exceeds the
+    # original tuned tx_gas budgets; pre-EIP-8037 keeps the originals.
     tx_gas = [110000, 170000]
+    if fork.is_eip_enabled(8037):
+        tx_gas = [500_000, 700_000]
     tx_value = [1, 0]
 
     tx = Transaction(
