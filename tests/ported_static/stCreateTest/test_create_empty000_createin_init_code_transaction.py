@@ -40,10 +40,10 @@ def test_create_empty000_createin_init_code_transaction(
 ) -> None:
     """Test_create_empty000_createin_init_code_transaction."""
     # EIP-8037 state-gas spill OoGs the 60k inner CALL.
-    inner_call_gas = 0xEA60
+    inner_call_gas = 60000
     tx_gas_limit = 600000
     if fork.is_eip_enabled(8037):
-        inner_call_gas = 0x30D40
+        inner_call_gas = 200000
         tx_gas_limit = 1_000_000
 
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)

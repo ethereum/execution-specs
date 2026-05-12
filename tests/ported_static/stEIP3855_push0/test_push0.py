@@ -86,9 +86,9 @@ def test_push0(
     # EIP-8037 inner-CALL gas: 100k OoGs the SSTORE-containing callees
     # on Amsterdam (per-storage state-gas spill). Pre-EIP-8037 keeps
     # the original 100k.
-    inner_call_gas = 0x186A0
+    inner_call_gas = 100000
     if fork.is_eip_enabled(8037):
-        inner_call_gas = 0xF4240
+        inner_call_gas = 1000000
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_1 = Address(0x0000000000000000000000000000000000001000)

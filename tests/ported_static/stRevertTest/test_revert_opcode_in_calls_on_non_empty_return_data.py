@@ -117,13 +117,13 @@ def test_revert_opcode_in_calls_on_non_empty_return_data(
     # EIP-8037 inner-CALL/DELEGATECALL gas bumps: original values
     # restored for pre-EIP-8037 forks; bumped for state-gas spill on
     # Amsterdam.
-    inner_call_gas = 0xC350
-    deeper_call_gas = 0x186A0
-    deepest_call_gas = 0x3F7A0
+    inner_call_gas = 50000
+    deeper_call_gas = 100000
+    deepest_call_gas = 260000
     if fork.is_eip_enabled(8037):
-        inner_call_gas = 0x186A0
-        deeper_call_gas = 0xF4240
-        deepest_call_gas = 0xF4240
+        inner_call_gas = 100000
+        deeper_call_gas = 1000000
+        deepest_call_gas = 1000000
     # Source: lll
     # { [[1]] 12 (REVERT 0 1) [[3]] 13 }
     addr_6 = pre.deploy_contract(  # noqa: F841

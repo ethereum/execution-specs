@@ -41,10 +41,10 @@ def test_transaction_create_auto_suicide_contract(
     """Test_transaction_create_auto_suicide_contract."""
     # EIP-8037 folds new-account state-gas into TX_CREATE intrinsic.
     tx_gas_limit = 55000
-    sender_balance = 0xF4240
+    sender_balance = 1000000
     if fork.is_eip_enabled(8037):
         tx_gas_limit = 300_000
-        sender_balance = 0x989680
+        sender_balance = 10000000
 
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(

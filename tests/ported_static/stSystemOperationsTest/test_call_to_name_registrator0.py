@@ -38,9 +38,9 @@ def test_call_to_name_registrator0(
 ) -> None:
     """Test_call_to_name_registrator0."""
     # EIP-8037 gas bumps: original values for pre-EIP-8037 forks.
-    inner_call_gas = 0x186A0
+    inner_call_gas = 100000
     if fork.is_eip_enabled(8037):
-        inner_call_gas = 0xF4240
+        inner_call_gas = 1000000
 
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)

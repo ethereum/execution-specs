@@ -41,10 +41,10 @@ def test_call_contract_to_create_contract_which_would_create_contract_if_called(
 ) -> None:
     """Test_call_contract_to_create_contract_which_would_create_contract_i..."""  # noqa: E501
     # EIP-8037 state-gas spill OoGs the inner CREATE/CALL chain.
-    inner_call_gas = 0xC350
+    inner_call_gas = 50000
     tx_gas_limit = 200000
     if fork.is_eip_enabled(8037):
-        inner_call_gas = 0x30D40
+        inner_call_gas = 200000
         tx_gas_limit = 800_000
 
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)

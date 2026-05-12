@@ -97,13 +97,13 @@ def test_revert_opcode_calls(
 ) -> None:
     """Test_revert_opcode_calls."""
     # EIP-8037 gas bumps: original values for pre-EIP-8037 forks.
-    inner_call_gas = 0xC350
-    inner_call_gas_2 = 0x186A0
-    inner_call_gas_3 = 0x3F7A0
+    inner_call_gas = 50000
+    inner_call_gas_2 = 100000
+    inner_call_gas_3 = 260000
     if fork.is_eip_enabled(8037):
-        inner_call_gas = 0xF4240
-        inner_call_gas_2 = 0xF4240
-        inner_call_gas_3 = 0x13D620
+        inner_call_gas = 1000000
+        inner_call_gas_2 = 1000000
+        inner_call_gas_3 = 1300000
 
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xE8D4A51000)

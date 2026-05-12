@@ -40,11 +40,11 @@ def test_internal_call_hitting_gas_limit_success(
 ) -> None:
     """Test_internal_call_hitting_gas_limit_success."""
     # EIP-8037 SSTORE-set state-gas spill OoGs the 25k inner CALL.
-    inner_call_gas = 0x61A8
+    inner_call_gas = 25000
     tx_gas_limit = 150000
     env_gas_limit = 220000
     if fork.is_eip_enabled(8037):
-        inner_call_gas = 0x30D40
+        inner_call_gas = 200000
         tx_gas_limit = 500000
         env_gas_limit = 1_000_000
 

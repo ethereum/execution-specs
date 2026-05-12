@@ -123,10 +123,10 @@ def test_create2_suicide(
     """CREATE2 suicide with/without value, CREATE2 suicide to itself   + ..."""
     # EIP-8037 gas bumps: original values for pre-EIP-8037 forks.
     outer_tx_gas = 600000
-    inner_call_gas = 0x249F0
+    inner_call_gas = 150000
     if fork.is_eip_enabled(8037):
         outer_tx_gas = 3000000
-        inner_call_gas = 0xF4240
+        inner_call_gas = 1000000
 
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(

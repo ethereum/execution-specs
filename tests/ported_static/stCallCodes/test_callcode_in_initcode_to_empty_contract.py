@@ -64,10 +64,10 @@ def test_callcode_in_initcode_to_empty_contract(
     """Callcode inside create contract init to non-existent contract."""
     # EIP-8037 gas bumps: original values for pre-EIP-8037 forks.
     outer_tx_gas = 1453081
-    inner_call_gas = 0x493E0
+    inner_call_gas = 300000
     if fork.is_eip_enabled(8037):
         outer_tx_gas = 7265405
-        inner_call_gas = 0x16E360
+        inner_call_gas = 1500000
 
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x1100000000000000000000000000000000000000)

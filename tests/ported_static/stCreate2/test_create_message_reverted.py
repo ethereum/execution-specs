@@ -77,9 +77,9 @@ def test_create_message_reverted(
         gas_limit=1000000000000,
     )
 
-    sender_balance = 0x2DC6C0
+    sender_balance = 3000000
     if fork.is_eip_enabled(8037):
-        sender_balance = 0x989680
+        sender_balance = 10000000
     pre[sender] = Account(balance=sender_balance)
     # Source: lll
     # {(MSTORE 0 0x600c600055600d600155) (CREATE2 0 22 10 0)}

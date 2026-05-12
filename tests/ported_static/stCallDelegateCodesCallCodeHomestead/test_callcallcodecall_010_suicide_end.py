@@ -47,13 +47,13 @@ def test_callcallcodecall_010_suicide_end(
     # EIP-8037 inner-CALL gas bumps: original values restored for
     # pre-EIP-8037 forks; bumped values cover the per-storage state-
     # gas spill into regular gas on Amsterdam.
-    outer_call_gas = 0x249F0
-    middle_call_gas = 0x186A0
-    inner_call_gas = 0xC350
+    outer_call_gas = 150000
+    middle_call_gas = 100000
+    inner_call_gas = 50000
     if fork.is_eip_enabled(8037):
-        outer_call_gas = 0xF4240
-        middle_call_gas = 0xC3500
-        inner_call_gas = 0x186A0
+        outer_call_gas = 1000000
+        middle_call_gas = 800000
+        inner_call_gas = 100000
 
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
