@@ -357,16 +357,13 @@ class NethermindExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_4_TX_PRE_FORK: (
             "InvalidTxType: Transaction type in"
         ),
-        BlockException.INCORRECT_BLOB_GAS_USED: (
-            "HeaderBlobGasMismatch: "
-            "Blob gas in header does not match calculated"
-        ),
-        # Nethermind raises the same HeaderBlobGasMismatch text for both the
-        # incorrect-value and above-limit cases; map both EEST classes.
-        BlockException.BLOB_GAS_USED_ABOVE_LIMIT: (
-            "HeaderBlobGasMismatch: "
-            "Blob gas in header does not match calculated"
-        ),
+        # Nethermind emits two distinct HeaderBlobGasMismatch messages from
+        # block-level validation: one when block.header.BlobGasUsed differs
+        # from the calculated total, and one (HeaderBlobGasAboveBlockLimit)
+        # when the cumulative block blob gas exceeds the block limit. Both
+        # share the "HeaderBlobGasMismatch:" prefix; match on that.
+        BlockException.INCORRECT_BLOB_GAS_USED: "HeaderBlobGasMismatch:",
+        BlockException.BLOB_GAS_USED_ABOVE_LIMIT: "HeaderBlobGasMismatch:",
         BlockException.INVALID_REQUESTS: (
             "InvalidRequestsHash: Requests hash mismatch in block"
         ),
