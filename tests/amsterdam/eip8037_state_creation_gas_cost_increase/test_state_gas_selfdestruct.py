@@ -610,20 +610,36 @@ def test_selfdestruct_via_delegatecall_chain_no_refund(
     assert gas_limit_cap is not None
     new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
     sstore_state_gas = fork.sstore_state_gas()
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
 
     # Bottom of the chain does the SELFDESTRUCT; intermediate helpers
-    # just delegate further down.
-    delegate_target = pre.deploy_contract(code=Op.SELFDESTRUCT(Op.ADDRESS))
+    # just delegate further down. Track each frame's bytecode so we
+    # can sum its regular gas into `expected_gas_used` below.
+    sd_code = Op.SELFDESTRUCT.with_metadata(address_warm=True)(Op.ADDRESS)
+    chain_regular_gas = sd_code.gas_cost(fork)
+    delegate_target = pre.deploy_contract(code=sd_code)
     for _ in range(num_hops - 1):
-        delegate_target = pre.deploy_contract(
-            code=Op.POP(call_opcode(gas=Op.GAS, address=delegate_target))
-            + Op.STOP,
+        hop_code = (
+            Op.POP(
+                call_opcode.with_metadata(address_warm=False)(
+                    gas=Op.GAS, address=delegate_target
+                )
+            )
+            + Op.STOP
         )
+        chain_regular_gas += hop_code.gas_cost(fork)
+        delegate_target = pre.deploy_contract(code=hop_code)
 
     # A's deployed runtime: one delegation into the top of the chain.
-    deployed = bytes(
-        Op.POP(call_opcode(gas=Op.GAS, address=delegate_target)) + Op.STOP
+    deployed_code = (
+        Op.POP(
+            call_opcode.with_metadata(address_warm=False)(
+                gas=Op.GAS, address=delegate_target
+            )
+        )
+        + Op.STOP
     )
+    deployed = bytes(deployed_code)
     code_deposit_state_gas = fork.code_deposit_state_gas(
         code_size=len(deployed)
     )
@@ -645,36 +661,66 @@ def test_selfdestruct_via_delegatecall_chain_no_refund(
         )
         + Op.TSTORE(
             0,
-            Op.CREATE(
+            Op.CREATE.with_metadata(init_code_size=initcode_len)(
                 value=0,
                 offset=0,
                 size=Op.CALLDATASIZE,
-                init_code_size=initcode_len,
             ),
         )
-        + Op.SSTORE(
+        + Op.SSTORE.with_metadata(
+            key_warm=False,
+            original_value=0,
+            current_value=0,
+            new_value=1,
+        )(
             factory_storage.store_next(1, "create_returned_nonzero"),
             Op.ISZERO(Op.ISZERO(Op.TLOAD(0))),
         )
-        + Op.SSTORE(
+        + Op.SSTORE.with_metadata(
+            key_warm=False,
+            original_value=0,
+            current_value=0,
+            new_value=1,
+        )(
             factory_storage.store_next(1, "call_returned_success"),
-            Op.CALL(gas=Op.GAS, address=Op.TLOAD(0)),
+            Op.CALL.with_metadata(address_warm=True)(
+                gas=Op.GAS, address=Op.TLOAD(0)
+            ),
         )
     )
     factory = pre.deploy_contract(code=factory_code)
     created_address = compute_create_address(address=factory, nonce=1)
 
-    total_state_gas = new_account_state_gas + code_deposit_state_gas
+    total_state_gas = (
+        new_account_state_gas + code_deposit_state_gas + 2 * sstore_state_gas
+    )
+    regular_used = (
+        intrinsic_gas
+        + factory_code.gas_cost(fork)
+        + initcode.gas_cost(fork)
+        + deployed_code.gas_cost(fork)
+        + chain_regular_gas
+        - new_account_state_gas
+        - code_deposit_state_gas
+        - 2 * sstore_state_gas
+    )
+    expected_gas_used = max(regular_used, total_state_gas)
+
     tx = Transaction(
         to=factory,
         data=bytes(initcode),
-        gas_limit=gas_limit_cap + total_state_gas + 2 * sstore_state_gas,
+        gas_limit=gas_limit_cap + total_state_gas,
         sender=pre.fund_eoa(),
     )
 
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[tx])],
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=expected_gas_used),
+            )
+        ],
         post={
             created_address: Account.NONEXISTENT,
             factory: Account(storage=factory_storage),
