@@ -309,8 +309,6 @@ class NethermindExceptionMapper(ExceptionMapper):
         TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: (
             "miner premium is negative"
         ),
-        # Pre-EIP-1559 path: legacy / 2930 tx with maxFeePerGas <= baseFee
-        # raises this exception text instead of the miner-premium phrasing.
         TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
             "InvalidMaxPriorityFeePerGas: Cannot be higher than maxFeePerGas"
         ),
