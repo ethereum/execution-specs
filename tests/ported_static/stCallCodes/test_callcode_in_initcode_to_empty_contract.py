@@ -3,6 +3,10 @@ Callcode inside create contract init to non-existent contract.
 
 Ported from:
 state_tests/stCallCodes/callcodeInInitcodeToEmptyContractFiller.json
+@manually-enhanced: Do not overwrite. Gas bumped fork-conditionally
+to cover EIP-8037 state-gas spill into regular gas; pre-EIP-8037
+behavior unchanged.
+
 """
 
 import pytest
@@ -58,6 +62,13 @@ def test_callcode_in_initcode_to_empty_contract(
     v: int,
 ) -> None:
     """Callcode inside create contract init to non-existent contract."""
+    # EIP-8037 gas bumps: original values for pre-EIP-8037 forks.
+    outer_tx_gas = 1453081
+    inner_call_gas = 0x493E0
+    if fork.is_eip_enabled(8037):
+        outer_tx_gas = 7265405
+        inner_call_gas = 0x16E360
+
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x1100000000000000000000000000000000000000)
     contract_1 = Address(0x1000000000000000000000000000000000000000)
@@ -80,7 +91,7 @@ def test_callcode_in_initcode_to_empty_contract(
     # { (CALL 300000 (CALLDATALOAD 0) 0 0 0 0 0) }
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.CALL(
-            gas=0x493E0,
+            gas=inner_call_gas,
             address=Op.CALLDATALOAD(offset=0x0),
             value=0x0,
             args_offset=0x0,
@@ -175,7 +186,7 @@ def test_callcode_in_initcode_to_empty_contract(
         Hash(contract_1, left_padding=True),
         Hash(contract_2, left_padding=True),
     ]
-    tx_gas = [1453081]
+    tx_gas = [outer_tx_gas]
 
     tx = Transaction(
         sender=sender,
