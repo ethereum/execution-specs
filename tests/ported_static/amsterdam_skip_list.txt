@@ -8,7 +8,7 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 522
+# Total entries: 518
 
 # stAttackTest (1)
 stAttackTest/test_crashing_transaction.py::test_crashing_transaction[fork_Amsterdam]
@@ -367,8 +367,7 @@ vmArithmeticTest/test_two_ops.py::test_two_ops[fork_Amsterdam]
 stCallCodes/test_callcode_in_initcode_to_existing_contract.py::test_callcode_in_initcode_to_existing_contract[fork_Amsterdam-d0]
 stCallCodes/test_callcode_in_initcode_to_existing_contract.py::test_callcode_in_initcode_to_existing_contract[fork_Amsterdam-d1]
 
-# stCallCreateCallCodeTest (1)
-stCallCreateCallCodeTest/test_create_init_fail_undefined_instruction.py::test_create_init_fail_undefined_instruction[fork_Amsterdam]
+# stCallCreateCallCodeTest (0)
 
 # stCallDelegateCodesCallCodeHomestead (1)
 stCallDelegateCodesCallCodeHomestead/test_callcallcodecallcode_011_oogm_before.py::test_callcallcodecallcode_011_oogm_before[fork_Amsterdam]
@@ -388,10 +387,7 @@ stCreate2/test_revert_depth_create2_oog.py::test_revert_depth_create2_oog[fork_A
 stCreate2/test_revert_depth_create2_oog_berlin.py::test_revert_depth_create2_oog_berlin[fork_Amsterdam-d0-g1-v0]
 stCreate2/test_revert_depth_create2_oog_berlin.py::test_revert_depth_create2_oog_berlin[fork_Amsterdam-d0-g1-v1]
 
-# stCreateTest (11)
-stCreateTest/test_create_e_contract_create_e_contract_in_init_tr.py::test_create_e_contract_create_e_contract_in_init_tr[fork_Amsterdam]
-stCreateTest/test_create_e_contract_create_ne_contract_in_init_tr.py::test_create_e_contract_create_ne_contract_in_init_tr[fork_Amsterdam]
-stCreateTest/test_create_empty000_createin_init_code_transaction.py::test_create_empty000_createin_init_code_transaction[fork_Amsterdam]
+# stCreateTest (8)
 stCreateTest/test_create_oog_from_call_refunds.py::test_create_oog_from_call_refunds[fork_Amsterdam-SStore_Create2_Refund_NoOoG]
 stCreateTest/test_create_oog_from_call_refunds.py::test_create_oog_from_call_refunds[fork_Amsterdam-SStore_Create_Refund_NoOoG]
 stCreateTest/test_create_results.py::test_create_results[fork_Amsterdam-d0]
