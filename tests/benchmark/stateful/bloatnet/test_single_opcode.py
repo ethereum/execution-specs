@@ -108,8 +108,9 @@ def delegate_with_calldata(
         calldata=bytes(calldata),
         authorization_list_or_count=1,
     )
+    gas_limit = intrinsic_gas + 500_000
     tx = Transaction(
-        gas_limit=intrinsic_gas,
+        gas_limit=gas_limit,
         to=authority,
         value=0,
         data=calldata,
