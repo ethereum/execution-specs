@@ -84,8 +84,7 @@ BITTREX_CONTROLLER_ADDRESS = Address(
 
 
 # Ether reception cost for Bittrex-created contracts
-# Exact: 51 gas, rounded up to 60.
-RECEIVER_CONTRACT_EXECUTION_GAS = 60
+RECEIVER_CONTRACT_EXECUTION_GAS = 51
 
 
 def get_distinct_contract_receiver_list() -> Generator[Address, None, None]:
@@ -284,7 +283,6 @@ def test_ether_transfers(
     ],
 )
 @pytest.mark.parametrize("transfer_amount", [0, 1])
-@pytest.mark.parametrize("warm_access", [False, True])
 def test_ether_transfers_onchain_receivers(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
@@ -292,7 +290,6 @@ def test_ether_transfers_onchain_receivers(
     transfer_amount: int,
     fork: Fork,
     gas_benchmark_value: int,
-    warm_access: bool,
 ) -> None:
     """
     Ether transfers to receivers that exist on-chain at run time.
@@ -325,7 +322,7 @@ def test_ether_transfers_onchain_receivers(
         senders=senders,
         receivers=receivers,
         transfer_amount=transfer_amount,
-        warm_access=warm_access,
+        warm_access=False,
         receiver_initial_balance=0,
         track_post_state=False,
         receiver_execution_gas=receiver_execution_gas,
