@@ -367,9 +367,7 @@ class NethermindExceptionMapper(ExceptionMapper):
         BlockException.INVALID_REQUESTS: (
             "InvalidRequestsHash: Requests hash mismatch in block"
         ),
-        BlockException.INVALID_GAS_USED_ABOVE_LIMIT: (
-            "ExceededGasLimit: Gas used exceeds gas limit."
-        ),
+        BlockException.INVALID_GAS_USED_ABOVE_LIMIT: "ExceededGasLimit:",
         BlockException.RLP_BLOCK_LIMIT_EXCEEDED: (
             "ExceededBlockSizeLimit: Exceeded block size limit"
         ),
@@ -479,11 +477,9 @@ class NethermindExceptionMapper(ExceptionMapper):
             r"Suggested block-level access list missing account changes"
         ),
         # GAS_USED_OVERFLOW already maps the "Block gas limit exceeded"
-        # substring; some block-level header validators emit the longer
-        # ExceededGasLimit form instead.
-        BlockException.GAS_USED_OVERFLOW: (
-            r"ExceededGasLimit: Gas used exceeds gas limit\."
-        ),
+        # substring; some block-level header validators emit the
+        # ExceededGasLimit form instead. Match on the prefix.
+        BlockException.GAS_USED_OVERFLOW: r"ExceededGasLimit:",
         # Both the legacy TxGasLimitCapExceeded path and the BAL-aware
         # block-access-list-gas-limit path can emit GAS_ALLOWANCE_EXCEEDED.
         TransactionException.GAS_ALLOWANCE_EXCEEDED: (
