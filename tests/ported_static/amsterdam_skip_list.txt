@@ -8,7 +8,7 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 794
+# Total entries: 783
 
 # stAttackTest (1)
 stAttackTest/test_crashing_transaction.py::test_crashing_transaction[fork_Amsterdam]
@@ -229,11 +229,8 @@ stNonZeroCallsTest/test_non_zero_value_delegatecall_to_one_storage_key_paris.py:
 
 # stPreCompiledContracts (0)
 
-# stPreCompiledContracts2 (4)
+# stPreCompiledContracts2 (1)
 stPreCompiledContracts2/test_ecrecover_short_buff.py::test_ecrecover_short_buff[fork_Amsterdam]
-stPreCompiledContracts2/test_modexp_0_0_0_22000.py::test_modexp_0_0_0_22000[fork_Amsterdam--g0]
-stPreCompiledContracts2/test_modexp_0_0_0_25000.py::test_modexp_0_0_0_25000[fork_Amsterdam--g0]
-stPreCompiledContracts2/test_modexp_0_0_0_35000.py::test_modexp_0_0_0_35000[fork_Amsterdam--g0]
 
 # stRecursiveCreate (1)
 stRecursiveCreate/test_recursive_create.py::test_recursive_create[fork_Amsterdam]
@@ -473,11 +470,7 @@ stMemoryTest/test_call_data_copy_offset.py::test_call_data_copy_offset[fork_Amst
 stMemoryTest/test_calldatacopy_dejavu2.py::test_calldatacopy_dejavu2[fork_Amsterdam]
 stMemoryTest/test_code_copy_offset.py::test_code_copy_offset[fork_Amsterdam]
 
-# stPreCompiledContracts2 (4)
-stPreCompiledContracts2/test_modexp_0_0_0_20500.py::test_modexp_0_0_0_20500[fork_Amsterdam--g1]
-stPreCompiledContracts2/test_modexp_0_0_0_22000.py::test_modexp_0_0_0_22000[fork_Amsterdam--g1]
-stPreCompiledContracts2/test_modexp_0_0_0_25000.py::test_modexp_0_0_0_25000[fork_Amsterdam--g1]
-stPreCompiledContracts2/test_modexp_0_0_0_35000.py::test_modexp_0_0_0_35000[fork_Amsterdam--g1]
+# stPreCompiledContracts2 (0)
 
 # stRandom (153)
 stRandom/test_random_statetest102.py::test_random_statetest102[fork_Amsterdam]
@@ -887,12 +880,8 @@ stDelegatecallTestHomestead/test_delegatecall_emptycontract.py::test_delegatecal
 stEIP3855_push0/test_push0_gas2.py::test_push0_gas2[fork_Amsterdam-use_push0]
 stEIP3855_push0/test_push0_gas2.py::test_push0_gas2[fork_Amsterdam-use_push1_00]
 
-# stPreCompiledContracts2 (5)
+# stPreCompiledContracts2 (1)
 stPreCompiledContracts2/test_call_sha256_1_nonzero_value.py::test_call_sha256_1_nonzero_value[fork_Amsterdam]
-stPreCompiledContracts2/test_modexp_0_0_0_20500.py::test_modexp_0_0_0_20500[fork_Amsterdam--g2]
-stPreCompiledContracts2/test_modexp_0_0_0_22000.py::test_modexp_0_0_0_22000[fork_Amsterdam--g2]
-stPreCompiledContracts2/test_modexp_0_0_0_25000.py::test_modexp_0_0_0_25000[fork_Amsterdam--g2]
-stPreCompiledContracts2/test_modexp_0_0_0_35000.py::test_modexp_0_0_0_35000[fork_Amsterdam--g2]
 
 # stRevertTest (1)
 stRevertTest/test_revert_in_create_in_init_paris.py::test_revert_in_create_in_init_paris[fork_Amsterdam]
