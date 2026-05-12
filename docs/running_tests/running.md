@@ -17,7 +17,7 @@ Both `consume` and `execute` provide sub-commands which correspond to different 
 | [`consume enginex`](#enginex)           | Client imports blocks via Engine API in Hive, optimized by client reuse            | EVM, block processing, Engine API                            | Staging, Hive | System test                       |
 | [`consume sync`](#sync)                 | Client syncs from another client using Engine API in Hive                               | EVM, block processing, Engine API, P2P sync                  | Staging, Hive | System test                       |
 | [`consume rlp`](#rlp)                   | Client imports RLP-encoded blocks upon start-up in Hive                                 | EVM, block processing, RLP import (sync\*)                   | Staging, Hive | System test                       |
-| [`build-block`](#block-building)        | Client builds blocks via Engine API testing namespace in Hive, validated against fixture | EVM, block production, Engine API testing namespace          | Staging, Hive | System test                       |
+| [`build-block`](#block-building)        | Client builds blocks via `testing_buildBlockV1` in Hive, validated against fixture       | EVM, block production, Engine API (testing namespace)        | Staging, Hive | System test                       |
 | [`execute hive`](./execute/hive.md)     | Tests executed against a client via JSON RPC `eth_sendRawTransaction` in Hive           | EVM, JSON RPC, mempool                                       | Staging, Hive | System test                       |
 | [`execute remote`](./execute/remote.md) | Tests executed against a client via JSON RPC `eth_sendRawTransaction` on a live network | EVM, JSON RPC, mempool, EL-EL/EL-CL interaction (indirectly) | Production    | System Test                       |
 
@@ -155,7 +155,7 @@ The `consume sync` command:
 
 The block-building method tests the **producer-side** of an execution client: rather than asking the client to validate and import a pre-built block, it asks the client to build a block from inputs (parent, payload attributes, transactions) and then validates the resulting block field-by-field against the fixture's expected block. This exercises tx ordering, gas accounting, payload assembly, and (for fork ≥ Prague) `executionRequests` derivation.
 
-The endpoint used is `testing_buildBlockV1`, an engine-API testing-namespace method exposed by `ethpandaops/<client>:master` builds (and similar performance forks). It is not part of the standard Engine API — the testing namespace is opt-in and intended for fixture-driven block-building verification.
+The endpoint used is `testing_buildBlockV1`, an engine-API testing-namespace method exposed by `ethpandaops/<client>:master` (and similar performance builds). It is not part of the standard Engine API — the testing namespace is opt-in and intended for fixture-driven block-building verification.
 
 The `build-block` command, for each valid payload in the fixture:
 
