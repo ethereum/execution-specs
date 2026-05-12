@@ -194,14 +194,22 @@ def _overlay_yaml_on_config(
             value = "0x" + format(value, "040x" if c_key == "contract_address" else "x")
         cfg[c_key] = value
 
+    # ``*_wei`` may arrive as a Python int (YAML ``safe_load`` default) or
+    # as a string (e.g. ``"1000000000"``). Accept both — silently falling
+    # back to the gwei field when the int form is present would change the
+    # effective fee profile without telling the user.
     base_fee_wei = yaml_cfg.get("base_fee_wei")
-    if isinstance(base_fee_wei, str) and base_fee_wei.strip():
+    if isinstance(base_fee_wei, int) and not isinstance(base_fee_wei, bool):
+        cfg["basefee"] = base_fee_wei
+    elif isinstance(base_fee_wei, str) and base_fee_wei.strip():
         cfg["basefee"] = int(base_fee_wei)
     elif isinstance(yaml_cfg.get("base_fee"), (int, float)):
         cfg["basefee"] = int(float(yaml_cfg["base_fee"]) * 1e9)
 
     tip_fee_wei = yaml_cfg.get("tip_fee_wei")
-    if isinstance(tip_fee_wei, str) and tip_fee_wei.strip():
+    if isinstance(tip_fee_wei, int) and not isinstance(tip_fee_wei, bool):
+        cfg["tip_fee"] = tip_fee_wei
+    elif isinstance(tip_fee_wei, str) and tip_fee_wei.strip():
         cfg["tip_fee"] = int(tip_fee_wei)
     elif isinstance(yaml_cfg.get("tip_fee"), (int, float)):
         cfg["tip_fee"] = int(float(yaml_cfg["tip_fee"]) * 1e9)
@@ -894,7 +902,11 @@ def spamoor_wallet_pool(
     gas = int(spamoor_config.get("gas_limit") or 0) or 500_000
     basefee = int(spamoor_config.get("basefee") or 1_000_000_000)
     tip = int(spamoor_config.get("tip_fee") or 1_000_000_000)
-    max_fee_per_gas = max(basefee, tip)
+    # Mirror the ``max(basefee*2, tip*2)`` upper bound that the funding
+    # path below sets as ``maxFeePerGas`` — the txpool reserves balance
+    # against that cap, not against the current basefee, so a tighter
+    # estimate here triggers intermittent ``InsufficientFunds``.
+    max_fee_per_gas = max(basefee * 2, tip * 2)
     value = int(spamoor_config.get("amount") or 0)
     expected_per_wallet = int(
         (gas * max_fee_per_gas + value) * txs_per_wallet * 1.5

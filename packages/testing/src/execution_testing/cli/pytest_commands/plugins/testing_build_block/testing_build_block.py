@@ -234,8 +234,14 @@ def bloat_signer(bloat_config: BloatConfig, bloat_eth_rpc: EthRPC) -> EOA:
     probe = EOA(key=bloat_config.signer_key, nonce=0)
     try:
         nonce = bloat_eth_rpc.get_transaction_count(probe, "latest")
-    except Exception:  # noqa: BLE001 - avoid coupling to RPC failures
-        nonce = 0
+    except Exception as exc:  # noqa: BLE001
+        # Fail fast: a silent ``nonce=0`` fallback would collide with any
+        # prior tx the signer has on chain and produce flaky "invalid
+        # nonce" rejects that mask the real RPC error.
+        raise pytest.UsageError(
+            f"bloat_signer: failed to fetch on-chain nonce for "
+            f"{probe} from {bloat_config.rpc_url}: {exc}"
+        ) from exc
     # ``EOA.__new__`` short-circuits when ``address`` is already an
     # ``EOA``, so wrap it as a plain ``Address`` to force re-construction
     # with the freshly fetched nonce.

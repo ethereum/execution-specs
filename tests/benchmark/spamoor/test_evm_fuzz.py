@@ -41,8 +41,10 @@ def test_evm_fuzz_scenario(
         assert tx["to"] == ""
         assert tx["data"].startswith("0x")
 
+    # Random bytecode reverts by design — landing on-chain is the success
+    # criterion for this scenario, not execution status.
     submit_pool_workload(
-        spamoor_config=spamoor_config,
+        spamoor_config={**spamoor_config, "allow_revert": True},
         rpc_client=spamoor_rpc_client,
         pool=spamoor_wallet_pool,
         tx_dicts=txs,

@@ -227,6 +227,7 @@ def submit_pool_workload(
         throughput=float(spamoor_config.get("throughput") or 1.0),
         max_pending=sizing["max_pending"],
         skip_assert=bool(spamoor_config.get("skip_assert", False)),
+        allow_revert=bool(spamoor_config.get("allow_revert", False)),
         fork=fork,
         blob_seed=blob_seed,
     )

@@ -88,6 +88,7 @@ class TxRecord:
     rebroadcasts: int = 0
     receipt: Optional[Dict[str, Any]] = None
     failed: bool = False
+    reverted: bool = False
     error: Optional[str] = None
 
 
@@ -97,11 +98,33 @@ class WorkloadResult:
     confirmed: int = 0
     failed: int = 0
     pending: int = 0
+    reverted: int = 0
     wall_clock_seconds: float = 0.0
     records: List[TxRecord] = field(default_factory=list)
 
     def asserts_pass(self) -> bool:
-        return self.failed == 0 and self.pending == 0
+        return (
+            self.failed == 0
+            and self.pending == 0
+            and self.reverted == 0
+        )
+
+
+def _receipt_status_ok(receipt: Dict[str, Any]) -> bool:
+    """Return ``True`` if the receipt reports a successful execution.
+
+    Pre-Byzantium receipts use ``root`` instead of ``status``; lacking
+    either, we treat the receipt as successful since we cannot prove
+    otherwise.
+    """
+    status = receipt.get("status")
+    if status is None:
+        return True
+    if isinstance(status, int):
+        return status == 1
+    if isinstance(status, str):
+        return int(status, 16) == 1
+    return False
 
 
 # --- Submitter --------------------------------------------------------------
@@ -149,6 +172,7 @@ def submit_workload(
     fork: Any | None = None,
     blob_seed: int = 0,
     skip_assert: bool = False,
+    allow_revert: bool = False,
 ) -> WorkloadResult:
     """
     Drive ``total_count`` transactions across the wallet pool.
@@ -217,6 +241,11 @@ def submit_workload(
             if receipt:
                 record.receipt = receipt
                 record.confirmed_at = time.monotonic()
+                if not _receipt_status_ok(receipt) and not allow_revert:
+                    record.reverted = True
+                    record.error = (
+                        f"reverted: status={receipt.get('status')!r}"
+                    )
                 wallet.mark_confirmed(record.nonce)
                 break
             if (
@@ -311,9 +340,12 @@ def submit_workload(
     stop_event.set()
 
     confirmed = sum(
-        1 for r in records if r.receipt is not None and not r.failed
+        1
+        for r in records
+        if r.receipt is not None and not r.failed and not r.reverted
     )
     failed = sum(1 for r in records if r.failed)
+    reverted = sum(1 for r in records if r.reverted)
     pending = sum(
         1 for r in records if r.receipt is None and not r.failed
     )
@@ -322,6 +354,7 @@ def submit_workload(
         confirmed=confirmed,
         failed=failed,
         pending=pending,
+        reverted=reverted,
         wall_clock_seconds=time.monotonic() - start,
         records=records,
     )
@@ -332,7 +365,8 @@ def submit_workload(
         raise AssertionError(
             f"workload incomplete: submitted={result.submitted} "
             f"confirmed={result.confirmed} pending={result.pending} "
-            f"failed={result.failed}; first error: {sample}"
+            f"failed={result.failed} reverted={result.reverted}; "
+            f"first error: {sample}"
         )
     return result
 
