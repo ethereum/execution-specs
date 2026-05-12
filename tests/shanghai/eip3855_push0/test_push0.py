@@ -28,6 +28,7 @@ REFERENCE_SPEC_VERSION = ref_spec_3855.version
 pytestmark = pytest.mark.valid_from("Shanghai")
 
 
+@pytest.mark.bigmem
 @pytest.mark.xdist_group(name="bigmem")
 @pytest.mark.parametrize(
     "contract_code,expected_storage",
@@ -160,6 +161,7 @@ class TestPush0CallContext:
         """
         return pre.deploy_contract(push0_contract_caller_code)
 
+    @pytest.mark.bigmem
     @pytest.mark.xdist_group(name="bigmem")
     @pytest.mark.parametrize(
         "call_opcode",

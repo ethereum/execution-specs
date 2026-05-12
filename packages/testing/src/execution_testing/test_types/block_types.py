@@ -138,6 +138,9 @@ class Environment(EnvironmentGeneric[ZeroPaddedHexNumber]):
     parent_beacon_block_root: Hash | None = Field(None)
 
     block_hashes: Dict[ZeroPaddedHexNumber, Hash] = Field(default_factory=dict)
+    block_headers: Dict[ZeroPaddedHexNumber, Bytes] = Field(
+        default_factory=dict
+    )
     ommers: List[Hash] = Field(default_factory=list)
     withdrawals: List[Withdrawal] | None = Field(None)
     extra_data: Bytes = Field(Bytes(b"\x00"), exclude=True)

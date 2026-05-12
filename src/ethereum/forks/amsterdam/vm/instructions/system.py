@@ -456,7 +456,7 @@ def call(evm: Evm) -> None:
             evm.accessed_addresses.add(code_address)
 
     code_hash = get_account(tx_state, code_address).code_hash
-    code = get_code(tx_state, code_hash)
+    code = get_code(tx_state, code_hash, code_address)
 
     # TODO: Consider consolidating charge_gas + charge_state_gas into
     # a single gas charge to avoid duplicate EVM trace entries.
@@ -577,7 +577,7 @@ def callcode(evm: Evm) -> None:
             evm.accessed_addresses.add(code_address)
 
     code_hash = get_account(tx_state, code_address).code_hash
-    code = get_code(tx_state, code_hash)
+    code = get_code(tx_state, code_hash, code_address)
 
     message_call_gas = calculate_message_call_gas(
         value,
@@ -757,7 +757,7 @@ def delegatecall(evm: Evm) -> None:
             evm.accessed_addresses.add(code_address)
 
     code_hash = get_account(tx_state, code_address).code_hash
-    code = get_code(tx_state, code_hash)
+    code = get_code(tx_state, code_hash, code_address)
 
     message_call_gas = calculate_message_call_gas(
         U256(0),
@@ -854,7 +854,7 @@ def staticcall(evm: Evm) -> None:
             evm.accessed_addresses.add(code_address)
 
     code_hash = get_account(tx_state, code_address).code_hash
-    code = get_code(tx_state, code_hash)
+    code = get_code(tx_state, code_hash, code_address)
 
     message_call_gas = calculate_message_call_gas(
         U256(0),

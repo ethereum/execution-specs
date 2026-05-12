@@ -62,6 +62,7 @@ from execution_testing.fixtures import (
     LabeledFixtureFormat,
 )
 from execution_testing.fixtures.blockchain import (
+    ExecutionWitness,
     FixtureBlock,
     FixtureBlockBase,
     FixtureConfig,
@@ -90,6 +91,14 @@ from execution_testing.test_types.block_access_list import (
     BlockAccessListExpectation,
 )
 from execution_testing.test_types.chain_config_types import ChainConfigDefaults
+from execution_testing.test_types.execution_witness import (
+    ExecutionWitnessCodesExpectation,
+    ExecutionWitnessHeadersExpectation,
+    ExecutionWitnessStateExpectation,
+)
+from execution_testing.test_types.execution_witness.modifiers import (
+    PublicKeyModifier,
+)
 
 from .base import BaseTest, FillResult, OpMode, verify_result
 from .debugging import print_traces
@@ -108,6 +117,7 @@ def environment_from_parent_header(parent: "FixtureHeader") -> "Environment":
         parent_gas_limit=parent.gas_limit,
         parent_ommers_hash=parent.ommers_hash,
         block_hashes={parent.number: parent.block_hash},
+        block_headers={parent.number: parent.rlp},
     )
 
 
@@ -126,7 +136,10 @@ def apply_new_parent(
     updated["parent_ommers_hash"] = new_parent.ommers_hash
     block_hashes = env.block_hashes.copy()
     block_hashes[new_parent.number] = new_parent.block_hash
+    block_headers = env.block_headers.copy()
+    block_headers[new_parent.number] = new_parent.rlp
     updated["block_hashes"] = block_hashes
+    updated["block_headers"] = block_headers
     return env.copy(**updated)
 
 
@@ -139,6 +152,274 @@ def count_blobs(txs: List[Transaction]) -> int:
             if tx.blob_versioned_hashes is not None
         ]
     )
+
+
+def execution_witness_implicit_codes_for_block(
+    *,
+    fork: Fork,
+    alloc: Alloc | LazyAlloc,
+    block_number: int,
+    timestamp: int,
+) -> List[Bytes]:
+    """
+    Return ambient witness bytecodes implied by block-level execution.
+
+    These codes are resolved from the effective pre-state for the block, not
+    from raw fork defaults, so test `pre` overrides are respected.
+    """
+    active_fork = fork.fork_at(block_number=block_number, timestamp=timestamp)
+    addresses = active_fork.execution_witness_implicit_code_addresses(
+        block_number=block_number,
+        timestamp=timestamp,
+    )
+    if not addresses:
+        return []
+
+    effective_alloc = alloc.get() if isinstance(alloc, LazyAlloc) else alloc
+
+    codes: List[Bytes] = []
+    seen: set[Bytes] = set()
+    for address in addresses:
+        if address not in effective_alloc:
+            continue
+        account = effective_alloc[address]
+        if account is None or len(account.code) == 0:
+            continue
+        code = Bytes(account.code)
+        if code in seen:
+            continue
+        codes.append(code)
+        seen.add(code)
+    return codes
+
+
+def with_execution_witness_implicit_codes(
+    *,
+    expectation: ExecutionWitnessCodesExpectation,
+    fork: Fork,
+    alloc: Alloc | LazyAlloc,
+    block_number: int,
+    timestamp: int,
+) -> ExecutionWitnessCodesExpectation:
+    """Return expectation copy with ambient block-level codes added."""
+    codes_present = list(expectation.codes_present)
+    seen = set(codes_present)
+
+    for code in execution_witness_implicit_codes_for_block(
+        fork=fork,
+        alloc=alloc,
+        block_number=block_number,
+        timestamp=timestamp,
+    ):
+        if code in seen:
+            continue
+        codes_present.append(code)
+        seen.add(code)
+
+    return expectation.model_copy(update={"codes_present": codes_present})
+
+
+def rerun_amsterdam_stateless_guest_with_overrides(
+    *,
+    fork: Fork,
+    block_number: int,
+    timestamp: int,
+    original_stateless_input_bytes: Bytes,
+    execution_witness: ExecutionWitness | None = None,
+    public_keys: Tuple[Bytes, ...] | None = None,
+) -> tuple[Bytes, Bytes, bool]:
+    """
+    Rebuild the stateless input with test overrides and rerun the guest.
+
+    Amsterdam is currently the only fork with stateless guest support in this
+    repository, so the rerun path is kept Amsterdam-specific.
+    """
+    active_fork = fork.fork_at(block_number=block_number, timestamp=timestamp)
+    if active_fork.name() != "Amsterdam":
+        raise Exception(
+            "Execution witness guest rerun is only supported for Amsterdam"
+        )
+
+    from ethereum.forks.amsterdam.stateless import (
+        ExecutionWitness as AmsterdamExecutionWitness,
+    )
+    from ethereum.forks.amsterdam.stateless import (
+        StatelessInput as AmsterdamStatelessInput,
+    )
+    from ethereum.forks.amsterdam.stateless_guest import (
+        deserialize_stateless_input,
+        run_stateless_guest,
+    )
+    from ethereum.forks.amsterdam.stateless_host import (
+        deserialize_stateless_output,
+        serialize_stateless_input,
+    )
+    from ethereum_types.bytes import Bytes as AmsterdamBytes
+
+    original_input = deserialize_stateless_input(
+        AmsterdamBytes(bytes(original_stateless_input_bytes))
+    )
+    rebuilt_witness = original_input.witness
+    if execution_witness is not None:
+        rebuilt_witness = AmsterdamExecutionWitness(
+            state=tuple(
+                AmsterdamBytes(bytes(node)) for node in execution_witness.state
+            ),
+            codes=tuple(
+                AmsterdamBytes(bytes(code)) for code in execution_witness.codes
+            ),
+            headers=tuple(
+                AmsterdamBytes(bytes(header))
+                for header in execution_witness.headers
+            ),
+        )
+    rebuilt_input = AmsterdamStatelessInput(
+        new_payload_request=original_input.new_payload_request,
+        witness=rebuilt_witness,
+        chain_config=original_input.chain_config,
+        public_keys=(
+            tuple(AmsterdamBytes(bytes(key)) for key in public_keys)
+            if public_keys is not None
+            else original_input.public_keys
+        ),
+    )
+    rebuilt_input_bytes = serialize_stateless_input(rebuilt_input)
+    rebuilt_output_bytes = run_stateless_guest(rebuilt_input_bytes)
+    rebuilt_output = deserialize_stateless_output(rebuilt_output_bytes)
+
+    return (
+        Bytes(bytes(rebuilt_input_bytes)),
+        Bytes(bytes(rebuilt_output_bytes)),
+        rebuilt_output.successful_validation,
+    )
+
+
+def get_amsterdam_stateless_input_public_key_data(
+    *,
+    fork: Fork,
+    block_number: int,
+    timestamp: int,
+    stateless_input_bytes: Bytes,
+) -> tuple[Tuple[Bytes, ...], Tuple[Bytes, ...]]:
+    """
+    Decode Amsterdam stateless input public keys and payload transactions.
+    """
+    active_fork = fork.fork_at(block_number=block_number, timestamp=timestamp)
+    if active_fork.name() != "Amsterdam":
+        raise Exception(
+            "Stateless input public-key decoding is only supported for "
+            "Amsterdam"
+        )
+
+    from ethereum.forks.amsterdam.stateless_guest import (
+        deserialize_stateless_input,
+    )
+    from ethereum_types.bytes import Bytes as AmsterdamBytes
+
+    stateless_input = deserialize_stateless_input(
+        AmsterdamBytes(bytes(stateless_input_bytes))
+    )
+    public_keys = tuple(
+        Bytes(bytes(public_key)) for public_key in stateless_input.public_keys
+    )
+    payload_transactions = tuple(
+        Bytes(bytes(transaction))
+        for transaction in (
+            stateless_input.new_payload_request.execution_payload.transactions
+        )
+    )
+    return public_keys, payload_transactions
+
+
+def verify_stateless_input_public_keys(
+    public_keys: Tuple[Bytes, ...],
+    payload_transactions: Tuple[Bytes, ...],
+    chain_id: int,
+) -> None:
+    """
+    Verify that every payload transaction has its recovered public key.
+    """
+    payload_transaction_count = len(payload_transactions)
+    if len(public_keys) != payload_transaction_count:
+        raise AssertionError(
+            "Stateless input public key count does not match payload "
+            f"transactions: got {len(public_keys)} public keys for "
+            f"{payload_transaction_count} transactions"
+        )
+
+    from ethereum.forks.amsterdam.transactions import (
+        decode_transaction,
+        recover_transaction_public_key,
+    )
+    from ethereum_types.bytes import Bytes as AmsterdamBytes
+    from ethereum_types.numeric import U64
+
+    for index, (public_key, payload_transaction) in enumerate(
+        zip(public_keys, payload_transactions, strict=True)
+    ):
+        transaction = decode_transaction(
+            AmsterdamBytes(bytes(payload_transaction))
+        )
+        expected_public_key = recover_transaction_public_key(
+            U64(chain_id),
+            transaction,
+        )
+        if bytes(public_key) != bytes(expected_public_key):
+            raise AssertionError(
+                "Stateless input public key "
+                f"{index} does not match recovered transaction public key"
+            )
+
+
+def decode_amsterdam_stateless_output(
+    *,
+    fork: Fork,
+    block_number: int,
+    timestamp: int,
+    stateless_output_bytes: Bytes | None,
+) -> Any | None:
+    """
+    Decode Amsterdam stateless output, if available for the active fork.
+
+    Amsterdam is currently the only fork with stateless guest support in this
+    repository, so the decode path is kept Amsterdam-specific.
+    """
+    active_fork = fork.fork_at(block_number=block_number, timestamp=timestamp)
+    if active_fork.name() != "Amsterdam" or stateless_output_bytes is None:
+        return None
+
+    from ethereum.forks.amsterdam.stateless_host import (
+        deserialize_stateless_output,
+    )
+    from ethereum_types.bytes import Bytes as AmsterdamBytes
+
+    return deserialize_stateless_output(
+        AmsterdamBytes(bytes(stateless_output_bytes))
+    )
+
+
+def assert_amsterdam_stateless_output_chain_config(
+    *,
+    block_number: int,
+    chain_id: int,
+    stateless_output: Any | None,
+) -> None:
+    """
+    Assert the stateless output reports the fixed Amsterdam chain config.
+    """
+    if stateless_output is None:
+        return
+
+    from ethereum.forks.amsterdam.stateless_host import build_chain_config
+    from ethereum_types.numeric import U64
+
+    expected_chain_config = build_chain_config(U64(chain_id))
+    if stateless_output.chain_config != expected_chain_config:
+        raise AssertionError(
+            "Stateless output chain_config mismatch for block "
+            f"{block_number}: got {stateless_output.chain_config}, "
+            f"want {expected_chain_config}"
+        )
 
 
 class Header(CamelModel):
@@ -275,6 +556,40 @@ class Block(Header):
     If set, the block access list will be verified and potentially corrupted
     for invalid tests.
     """
+    expected_execution_witness_codes: (
+        ExecutionWitnessCodesExpectation | None
+    ) = None
+    """
+    If set, the execution witness codes will be verified and potentially
+    modified for invalid tests.
+    """
+    expected_execution_witness_state: (
+        ExecutionWitnessStateExpectation | None
+    ) = None
+    """
+    If set, the execution witness state will be verified and potentially
+    modified for invalid tests.
+    """
+    expected_execution_witness_headers: (
+        ExecutionWitnessHeadersExpectation | None
+    ) = None
+    """
+    If set, the execution witness headers will be verified and potentially
+    modified for invalid tests.
+    """
+    stateless_input_public_keys_modifier: PublicKeyModifier | None = Field(
+        default=None,
+        exclude=True,
+    )
+    """
+    If set, mutate the stateless input transaction public keys before rerunning
+    the guest for invalid tests.
+    """
+    expected_stateless_validation_success: bool | None = None
+    """
+    If set, assert the stateless guest result matches this expectation. This
+    must be set explicitly for tests that mutate stateless validation input.
+    """
     exception: BLOCK_EXCEPTION_TYPE = None
     # If set, the block is expected to be rejected by the client.
     skip_exception_verification: bool = False
@@ -397,6 +712,9 @@ class BuiltBlock(CamelModel):
     engine_api_error_code: EngineAPIError | None = None
     fork: Fork
     block_access_list: BlockAccessList | None
+    execution_witness: ExecutionWitness | None = None
+    stateless_input_bytes: Bytes | None = None
+    stateless_output_bytes: Bytes | None = None
 
     def get_fixture_block(
         self, *, include_receipts: bool = True
@@ -426,6 +744,15 @@ class BuiltBlock(CamelModel):
             block_access_list=self.block_access_list
             if self.block_access_list
             else None,
+            execution_witness=self.execution_witness
+            if self.execution_witness
+            else None,
+            stateless_input_bytes=self.stateless_input_bytes
+            if self.stateless_input_bytes
+            else None,
+            stateless_output_bytes=self.stateless_output_bytes
+            if self.stateless_output_bytes
+            else None,
             fork=self.fork,
         ).with_rlp(txs=self.txs)
 
@@ -439,6 +766,9 @@ class BuiltBlock(CamelModel):
                     in self.expected_exception
                     else fixture_block.without_rlp()
                 ),
+                execution_witness=self.execution_witness,
+                stateless_input_bytes=self.stateless_input_bytes,
+                stateless_output_bytes=self.stateless_output_bytes,
             )
 
         return fixture_block
@@ -458,6 +788,7 @@ class BuiltBlock(CamelModel):
             block_access_list=self.block_access_list.rlp
             if self.block_access_list
             else None,
+            execution_witness=self.execution_witness,
             validation_error=self.expected_exception,
             error_code=self.engine_api_error_code,
         )
@@ -530,6 +861,11 @@ class BlockchainTest(BaseTest):
     """
     Include transaction receipts in the fixture output.
     """
+    skip_stateless_validation: bool = False
+    """
+    Skip stateless witness generation, input serialization, and guest
+    validation for this test.
+    """
 
     supported_fixture_formats: ClassVar[
         Sequence[FixtureFormat | LabeledFixtureFormat]
@@ -552,6 +888,10 @@ class BlockchainTest(BaseTest):
             "Only generate a blockchain test engine fixture"
         ),
         "blockchain_test_only": "Only generate a blockchain test fixture",
+        "skip_stateless_validation": (
+            "Skip stateless witness generation, input serialization, and "
+            "guest validation."
+        ),
     }
 
     @classmethod
@@ -653,6 +993,40 @@ class BlockchainTest(BaseTest):
                     "exception must be the last transaction in the block"
                 )
 
+        has_witness_expectation = (
+            block.expected_execution_witness_state is not None
+            or block.expected_execution_witness_codes is not None
+            or block.expected_execution_witness_headers is not None
+        )
+        public_keys_modifier = block.stateless_input_public_keys_modifier
+        has_public_keys_modifier = public_keys_modifier is not None
+        expected_success = block.expected_stateless_validation_success
+        omit_stateless_artifacts = block.rlp_modifier is not None
+        if omit_stateless_artifacts and (
+            has_witness_expectation
+            or has_public_keys_modifier
+            or expected_success is not None
+        ):
+            raise AssertionError(
+                "Blocks with rlp_modifier omit stateless artifacts because "
+                "they are generated before the RLP mutation. SSZ/stateless "
+                "mutation tests require a separate explicit mechanism."
+            )
+        if self.skip_stateless_validation and (
+            has_witness_expectation
+            or has_public_keys_modifier
+            or expected_success is not None
+        ):
+            raise AssertionError(
+                "skip_stateless_validation cannot be combined with "
+                "execution witness expectations, stateless input public-key "
+                "modifiers, or "
+                "expected_stateless_validation_success"
+            )
+        skip_stateless_for_block = (
+            self.skip_stateless_validation or omit_stateless_artifacts
+        )
+
         transition_tool_output = t8n.evaluate(
             transition_tool_data=TransitionTool.TransitionToolData(
                 alloc=previous_alloc,
@@ -662,6 +1036,7 @@ class BlockchainTest(BaseTest):
                 chain_id=self.chain_id,
                 reward=fork.get_reward(),
                 blob_schedule=fork.blob_schedule(),
+                skip_stateless_validation=skip_stateless_for_block,
             ),
             slow_request=self.is_tx_gas_heavy_test,
         )
@@ -800,6 +1175,206 @@ class BlockchainTest(BaseTest):
                 # header hash
                 header.block_access_list_hash = Hash(bal.rlp.keccak256())
 
+        # If expected witness state/codes defined, verify against actual
+        t8n_witness = transition_tool_output.result.execution_witness
+        execution_witness = t8n_witness
+        state_expectation = block.expected_execution_witness_state
+        if state_expectation is not None and execution_witness is not None:
+            state_expectation.verify_against(execution_witness)
+            execution_witness = state_expectation.modify_if_invalid_test(
+                execution_witness
+            )
+
+        if (
+            block.expected_execution_witness_codes is not None
+            and execution_witness is not None
+        ):
+            effective_codes_expectation = (
+                with_execution_witness_implicit_codes(
+                    expectation=block.expected_execution_witness_codes,
+                    fork=fork,
+                    alloc=previous_alloc,
+                    block_number=env.number,
+                    timestamp=env.timestamp,
+                )
+            )
+            effective_codes_expectation.verify_against(execution_witness)
+            execution_witness = (
+                block.expected_execution_witness_codes.modify_if_invalid_test(
+                    execution_witness
+                )
+            )
+
+        # If expected witness headers defined, verify against actual
+        headers_expectation = block.expected_execution_witness_headers
+        if headers_expectation is not None and execution_witness is not None:
+            headers_expectation.verify_against(
+                execution_witness,
+                parent_hash=header.parent_hash,
+                fork=fork,
+            )
+            execution_witness = headers_expectation.modify_if_invalid_test(
+                execution_witness
+            )
+
+        has_witness_modifier = (
+            (
+                block.expected_execution_witness_state is not None
+                and (
+                    block.expected_execution_witness_state._modifier
+                    is not None
+                )
+            )
+            or (
+                block.expected_execution_witness_codes is not None
+                and block.expected_execution_witness_codes._modifier
+                is not None
+            )
+            or (
+                block.expected_execution_witness_headers is not None
+                and block.expected_execution_witness_headers._modifier
+                is not None
+            )
+        )
+        stateless_input_bytes = (
+            transition_tool_output.result.stateless_input_bytes
+        )
+        stateless_output_bytes = (
+            transition_tool_output.result.stateless_output_bytes
+        )
+        stateless_output = decode_amsterdam_stateless_output(
+            fork=fork,
+            block_number=int(env.number),
+            timestamp=int(env.timestamp),
+            stateless_output_bytes=stateless_output_bytes,
+        )
+        if has_witness_modifier and expected_success is None:
+            raise AssertionError(
+                "Mutated execution witness tests must set "
+                "expected_stateless_validation_success explicitly"
+            )
+        if has_public_keys_modifier and expected_success is None:
+            raise AssertionError(
+                "Mutated stateless input public-key tests must set "
+                "expected_stateless_validation_success explicitly"
+            )
+        public_keys: Tuple[Bytes, ...] | None = None
+        should_verify_stateless_input_public_keys = (
+            stateless_input_bytes is not None
+            # The block could be invalid because of invalid txs, thus
+            # the public keys might not be properly constructed given they
+            # can't be decoded and thus provided in the execution witness.
+            and block.exception is None
+        )
+        if stateless_input_bytes is not None and (
+            should_verify_stateless_input_public_keys
+            or has_public_keys_modifier
+        ):
+            payload_transactions: Tuple[Bytes, ...]
+            (
+                public_keys,
+                payload_transactions,
+            ) = get_amsterdam_stateless_input_public_key_data(
+                fork=fork,
+                block_number=int(env.number),
+                timestamp=int(env.timestamp),
+                stateless_input_bytes=stateless_input_bytes,
+            )
+            if should_verify_stateless_input_public_keys:
+                verify_stateless_input_public_keys(
+                    public_keys,
+                    payload_transactions,
+                    self.chain_id,
+                )
+        elif has_public_keys_modifier:
+            raise Exception(
+                "Stateless input public-key mutation requires stateless "
+                "input bytes"
+            )
+        canonical_successful_validation: bool | None = None
+        if (
+            has_witness_modifier
+            or has_public_keys_modifier
+            or expected_success is not None
+        ):
+            if stateless_output_bytes is None:
+                raise Exception(
+                    "Stateless guest verification requires stateless output "
+                    "bytes"
+                )
+            if stateless_output is None:
+                raise Exception(
+                    "Stateless output decoding is only supported for Amsterdam"
+                )
+            canonical_successful_validation = (
+                stateless_output.successful_validation
+            )
+
+        should_rerun_stateless_guest = (
+            has_witness_modifier or has_public_keys_modifier
+        )
+        if should_rerun_stateless_guest:
+            if stateless_input_bytes is None:
+                raise Exception(
+                    "Stateless guest rerun requires stateless input bytes"
+                )
+            if has_witness_modifier and execution_witness is None:
+                raise Exception(
+                    "Stateless guest witness mutation rerun requires "
+                    "execution witness"
+                )
+            modified_public_keys: Tuple[Bytes, ...] | None = None
+            if public_keys_modifier is not None:
+                if public_keys is None:
+                    raise Exception(
+                        "Stateless guest rerun requires public keys"
+                    )
+                modified_public_keys = public_keys_modifier(public_keys)
+            (
+                stateless_input_bytes,
+                stateless_output_bytes,
+                successful_validation,
+            ) = rerun_amsterdam_stateless_guest_with_overrides(
+                fork=fork,
+                block_number=int(env.number),
+                timestamp=int(env.timestamp),
+                original_stateless_input_bytes=stateless_input_bytes,
+                execution_witness=(
+                    execution_witness if has_witness_modifier else None
+                ),
+                public_keys=modified_public_keys,
+            )
+            stateless_output = decode_amsterdam_stateless_output(
+                fork=fork,
+                block_number=int(env.number),
+                timestamp=int(env.timestamp),
+                stateless_output_bytes=stateless_output_bytes,
+            )
+            if (
+                expected_success is not None
+                and successful_validation != expected_success
+            ):
+                raise AssertionError(
+                    "Stateless guest validation result mismatch: "
+                    f"got {successful_validation}, "
+                    f"want {expected_success}"
+                )
+        elif (
+            expected_success is not None
+            and canonical_successful_validation != expected_success
+        ):
+            raise AssertionError(
+                "Canonical stateless guest validation result mismatch: "
+                f"got {canonical_successful_validation}, "
+                f"want {expected_success}"
+            )
+
+        assert_amsterdam_stateless_output_chain_config(
+            block_number=int(env.number),
+            chain_id=self.chain_id,
+            stateless_output=stateless_output,
+        )
+
         built_block = BuiltBlock(
             header=header,
             alloc=transition_tool_output.alloc,
@@ -814,6 +1389,9 @@ class BlockchainTest(BaseTest):
             engine_api_error_code=block.engine_api_error_code,
             fork=fork,
             block_access_list=bal,
+            execution_witness=execution_witness,
+            stateless_input_bytes=stateless_input_bytes,
+            stateless_output_bytes=stateless_output_bytes,
         )
 
         try:
@@ -829,15 +1407,17 @@ class BlockchainTest(BaseTest):
                     block.expected_block_access_list is not None
                     and block.expected_block_access_list._modifier is not None
                 )
+                and not has_witness_modifier
             ):
                 # Only verify block level exception if: - No transaction
                 # exception was raised, because these are not reported as block
                 # exceptions. - No RLP modifier was specified, because the
                 # modifier is what normally produces the block exception. - No
                 # requests were specified, because modified requests are also
-                # what normally produces the block exception. - No BAL modifier
-                # was specified, because modified BAL also produces block
-                # exceptions.
+                # what normally produces the block exception. - No BAL
+                # modifier was specified, because modified BAL produces block
+                # exceptions. - No witness modifier was specified, because
+                # witness soundness is verified separately via the guest rerun.
                 built_block.verify_block_exception(
                     transition_tool_exceptions_reliable=t8n.exception_mapper.reliable,
                 )

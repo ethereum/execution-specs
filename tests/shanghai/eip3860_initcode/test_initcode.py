@@ -111,6 +111,7 @@ SINGLE_BYTE_INITCODE.opcode_list = _single_bytecode.opcode_list
 """Test cases using a contract creating transaction"""
 
 
+@pytest.mark.bigmem
 @pytest.mark.xdist_group(name="bigmem")
 @pytest.mark.parametrize(
     "initcode",
@@ -611,6 +612,7 @@ class TestCreateInitcode:
     # state gas under Amsterdam.
     # Gas calculations need updating for two-dimensional gas.
     @pytest.mark.valid_before("EIP8037")
+    @pytest.mark.bigmem
     @pytest.mark.xdist_group(name="bigmem")
     @pytest.mark.slow()
     def test_create_opcode_initcode(

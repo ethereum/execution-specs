@@ -97,6 +97,15 @@ def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
     t8n_parser.add_argument("--opcode.count", dest="opcode_count", type=str)
 
     t8n_parser.add_argument("--state-test", action="store_true")
+    t8n_parser.add_argument(
+        "--no-stateless",
+        dest="no_stateless",
+        action="store_true",
+        help=(
+            "Skip stateless witness generation, input serialization, "
+            "and guest validation."
+        ),
+    )
 
 
 @dataclass(frozen=True)
@@ -492,6 +501,11 @@ class T8N(Load):
                 target_address=self.fork.HISTORY_STORAGE_ADDRESS,
                 data=block_env.block_hashes[-1],  # The parent hash
             )
+            if self.fork.has_track_ancestor_access:
+                self.fork.track_ancestor_access(
+                    block_env.state,
+                    Uint(1),
+                )
 
         if self.fork.has_beacon_roots_address:
             self.fork.process_unchecked_system_transaction(
@@ -548,7 +562,6 @@ class T8N(Load):
             block_output.block_access_list = self.fork.build_block_access_list(
                 block_env.block_access_list_builder, block_env.state
             )
-
             # Validate block access list gas limit constraint (EIP-7928)
             validate_block_access_list_gas_limit(
                 block_access_list=block_output.block_access_list,

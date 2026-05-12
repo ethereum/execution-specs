@@ -501,6 +501,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                 "currentNumber": "0x01",
                 "currentTimestamp": "0x03e8",
                 "blockHashes": {},
+                "blockHeaders": {},
                 "ommers": [],
                 "parentUncleHash": (
                     "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
@@ -566,6 +567,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                     "0x01": "0x0000000000000000000000000000000000000000000000000000000000000002",  # noqa: E501
                     "0x03": "0x0000000000000000000000000000000000000000000000000000000000000004",  # noqa: E501
                 },
+                "blockHeaders": {},
                 "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000004",  # noqa: E501
                 "ommers": [],
             },

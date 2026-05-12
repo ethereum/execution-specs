@@ -154,6 +154,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
             message.code = get_code(
                 tx_state,
                 get_account(tx_state, delegated_address).code_hash,
+                delegated_address,
             )
             message.code_address = delegated_address
 

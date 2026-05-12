@@ -16,7 +16,7 @@ from typing import List, Tuple
 
 from ethereum_types.numeric import U64, U256, Uint, ulen
 
-from ethereum.forks.bpo5.blocks import Header as PreviousHeader
+from ethereum.forks.bpo5.blocks import Header as PreviousForkHeader
 from ethereum.trace import GasAndRefund, StateGasAndRefund, evm_trace
 from ethereum.utils.numeric import ceil32, taylor_exponential
 
@@ -206,6 +206,11 @@ class GasCosts:
     OPCODE_LOG_TOPIC = Uint(375)
     OPCODE_SELFDESTRUCT_BASE = Uint(5000)
     OPCODE_SELFDESTRUCT_NEW_ACCOUNT = Uint(25000)
+
+
+BLOB_SCHEDULE_TARGET = GasCosts.BLOB_SCHEDULE_TARGET
+BLOB_SCHEDULE_MAX = GasCosts.BLOB_SCHEDULE_MAX
+BLOB_BASE_FEE_UPDATE_FRACTION = GasCosts.BLOB_BASE_FEE_UPDATE_FRACTION
 
 
 @dataclass
@@ -455,7 +460,7 @@ def init_code_cost(init_code_length: Uint) -> Uint:
 
 
 def calculate_excess_blob_gas(
-    parent_header: Header | PreviousHeader,
+    parent_header: Header | PreviousForkHeader,
 ) -> U64:
     """
     Calculates the excess blob gas for the current block based
@@ -477,7 +482,7 @@ def calculate_excess_blob_gas(
     blob_gas_used = U64(0)
     base_fee_per_gas = Uint(0)
 
-    if isinstance(parent_header, Header):
+    if isinstance(parent_header, (Header, PreviousForkHeader)):
         # After the fork block, read them from the parent header.
         excess_blob_gas = parent_header.excess_blob_gas
         blob_gas_used = parent_header.blob_gas_used

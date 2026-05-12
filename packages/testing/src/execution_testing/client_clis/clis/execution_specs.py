@@ -97,6 +97,8 @@ class ExecutionSpecsTransitionTool(TransitionTool):
 
         if transition_tool_data.state_test:
             t8n_args.append("--state-test")
+        if transition_tool_data.skip_stateless_validation:
+            t8n_args.append("--no-stateless")
 
         if transition_tool_data.blob_params:
             fork = transition_tool_data.fork

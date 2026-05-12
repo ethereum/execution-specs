@@ -355,21 +355,26 @@ def bytes_to_nibble_list(bytes_: Bytes) -> Bytes:
     return Bytes(nibble_list)
 
 
-def _prepare_trie(
-    trie: Trie[K, V],
+def _prepare_data(
+    data: Mapping[K, V],
+    secured: bool,
     get_storage_root: Optional[Callable[[Address], Root]] = None,
 ) -> Mapping[Bytes, Bytes]:
     """
-    Prepares the trie for root calculation. Removes values that are empty,
-    hashes the keys (if `secured == True`) and encodes all the nodes.
+    Prepare data for trie root calculation.
+
+    Remove values that are empty, hash the keys (if ``secured``
+    is ``True``) and encode all the nodes.
 
     Parameters
     ----------
-    trie :
-        The `Trie` to prepare.
+    data :
+        The key-value data to prepare.
+    secured :
+        Whether keys should be hashed.
     get_storage_root :
-        Function to get the storage root of an account. Needed to encode
-        `Account` objects.
+        Function to get the storage root of an account. Needed
+        to encode ``Account`` objects.
 
     Returns
     -------
@@ -381,7 +386,7 @@ def _prepare_trie(
 
     mapped: MutableMapping[Bytes, Bytes] = {}
 
-    for preimage, value in trie._data.items():
+    for preimage, value in data.items():
         if isinstance(value, Account):
             assert get_storage_root is not None
             address = Address(preimage)
@@ -393,7 +398,7 @@ def _prepare_trie(
         if encoded_value == b"":
             raise AssertionError
         key: Bytes
-        if trie.secured:
+        if secured:
             # "secure" tries hash keys once before construction
             key = keccak256(preimage)
         else:
@@ -401,6 +406,33 @@ def _prepare_trie(
         mapped[bytes_to_nibble_list(key)] = encoded_value
 
     return mapped
+
+
+def _prepare_trie(
+    trie: Trie[K, V],
+    get_storage_root: Optional[Callable[[Address], Root]] = None,
+) -> Mapping[Bytes, Bytes]:
+    """
+    Prepare the trie for root calculation.
+
+    Remove values that are empty, hash the keys (if
+    ``secured == True``) and encode all the nodes.
+
+    Parameters
+    ----------
+    trie :
+        The ``Trie`` to prepare.
+    get_storage_root :
+        Function to get the storage root of an account. Needed
+        to encode ``Account`` objects.
+
+    Returns
+    -------
+    out : `Mapping[ethereum.base_types.Bytes, Node]`
+        Object with keys mapped to nibble-byte form.
+
+    """
+    return _prepare_data(trie._data, trie.secured, get_storage_root)
 
 
 def root(

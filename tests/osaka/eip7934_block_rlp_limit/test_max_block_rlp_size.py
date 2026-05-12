@@ -36,7 +36,7 @@ from .spec import Spec, ref_spec_7934
 REFERENCE_SPEC_GIT_PATH = ref_spec_7934.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7934.version
 
-pytestmark = pytest.mark.xdist_group(name="bigmem")
+pytestmark = [pytest.mark.bigmem, pytest.mark.xdist_group(name="bigmem")]
 
 
 HEADER_TIMESTAMP = 123456789
