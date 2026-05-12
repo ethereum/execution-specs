@@ -460,7 +460,6 @@ class NethermindExceptionMapper(ExceptionMapper):
         BlockException.INVALID_BLOCK_ACCESS_LIST: (
             r"InvalidBlockLevelAccessListHash:"
             r"|InvalidBlockLevelAccessList:"
-            r"|BlockLevelAccessListIndexOutOfRange:"
             r"|could not be parsed as a block: "
             r"Error decoding block access list:"
             r"|Error decoding block access list:"
