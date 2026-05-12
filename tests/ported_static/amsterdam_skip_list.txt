@@ -8,7 +8,7 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 820
+# Total entries: 816
 
 # stAttackTest (1)
 stAttackTest/test_crashing_transaction.py::test_crashing_transaction[fork_Amsterdam]
@@ -956,12 +956,8 @@ stStaticCall/test_static_create_empty_contract_and_call_it_0wei.py::test_static_
 stStaticFlagEnabled/test_callcode_to_precompile_from_called_contract.py::test_callcode_to_precompile_from_called_contract[fork_Amsterdam]
 stStaticFlagEnabled/test_callcode_to_precompile_from_transaction.py::test_callcode_to_precompile_from_transaction[fork_Amsterdam]
 
-# stSystemOperationsTest (5)
+# stSystemOperationsTest (1)
 stSystemOperationsTest/test_call_to_name_registrator_address_too_big_right.py::test_call_to_name_registrator_address_too_big_right[fork_Amsterdam]
-stSystemOperationsTest/test_create_name_registrator.py::test_create_name_registrator[fork_Amsterdam]
-stSystemOperationsTest/test_create_name_registrator_zero_mem.py::test_create_name_registrator_zero_mem[fork_Amsterdam]
-stSystemOperationsTest/test_create_name_registrator_zero_mem2.py::test_create_name_registrator_zero_mem2[fork_Amsterdam]
-stSystemOperationsTest/test_create_name_registrator_zero_mem_expansion.py::test_create_name_registrator_zero_mem_expansion[fork_Amsterdam]
 
 # stTransactionTest (17)
 stTransactionTest/test_no_src_account_create.py::test_no_src_account_create[fork_Amsterdam-d0-g1-v0]

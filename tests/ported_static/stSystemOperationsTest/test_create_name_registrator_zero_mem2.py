@@ -3,6 +3,9 @@ Test_create_name_registrator_zero_mem2.
 
 Ported from:
 state_tests/stSystemOperationsTest/createNameRegistratorZeroMem2Filler.json
+@manually-enhanced: Do not overwrite. tx `gas_limit` bumped on Amsterdam
+to cover EIP-8037 state-gas spill; pre-EIP-8037 unchanged.
+
 """
 
 import pytest
@@ -16,6 +19,7 @@ from execution_testing import (
     Transaction,
     compute_create_address,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,8 +36,14 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_create_name_registrator_zero_mem2(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_create_name_registrator_zero_mem2."""
+    # EIP-8037 state-gas spill on Amsterdam exceeds 300k tx_gas.
+    tx_gas_limit = 300000
+    if fork.is_eip_enabled(8037):
+        tx_gas_limit = 1_000_000
+
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
@@ -71,7 +81,7 @@ def test_create_name_registrator_zero_mem2(
         sender=sender,
         to=contract_0,
         data=Bytes(""),
-        gas_limit=300000,
+        gas_limit=tx_gas_limit,
         value=0x186A0,
     )
 
