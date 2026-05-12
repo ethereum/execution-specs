@@ -410,16 +410,7 @@ class NethermindExceptionMapper(ExceptionMapper):
         ),
     }
     mapping_regex = {
-        # Nethermind emits one of several phrasings depending on which check
-        # fails: the value-transfer check uses "insufficient funds for
-        # transfer" (TransactionResult.InsufficientSenderBalance); planned
-        # variants share the "insufficient funds for ..." prefix
-        # ("insufficient funds for gas", "insufficient funds for gas * price
-        # + value"). The combined gas+value check uses "insufficient sender
-        # balance for gas * price + value", and the EIP-1559 fee-cap path
-        # uses "insufficient MaxFeePerGas for sender balance".
         TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
-            r"insufficient funds for|"
             r"insufficient sender balance|"
             r"insufficient MaxFeePerGas for sender balance"
         ),
