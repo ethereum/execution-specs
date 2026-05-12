@@ -83,6 +83,11 @@ BITTREX_CONTROLLER_ADDRESS = Address(
 )
 
 
+# Ether reception cost for Bittrex-created contracts
+# Exact: 51 gas, rounded up to 60.
+RECEIVER_CONTRACT_EXECUTION_GAS = 60
+
+
 def get_distinct_contract_receiver_list() -> Generator[Address, None, None]:
     """Yield contract account created by Bitterex controller via CREATE."""
     for nonce in itertools.count(1):
@@ -125,14 +130,18 @@ def _run_ether_transfer_benchmark(
     warm_access: bool,
     receiver_initial_balance: int,
     track_post_state: bool,
+    receiver_execution_gas: int = 0,
 ) -> None:
     """Fill a block with ether transfers between the given generators."""
-    iteration_cost = fork.transaction_intrinsic_cost_calculator()(
-        access_list=(
-            [AccessList(address=Address(0x100), storage_keys=[])]
-            if warm_access
-            else None
-        ),
+    iteration_cost = (
+        fork.transaction_intrinsic_cost_calculator()(
+            access_list=(
+                [AccessList(address=Address(0x100), storage_keys=[])]
+                if warm_access
+                else None
+            ),
+        )
+        + receiver_execution_gas
     )
     iteration_count = gas_benchmark_value // iteration_cost
 
@@ -297,12 +306,14 @@ def test_ether_transfers_onchain_receivers(
       (matches AccountMode.EXISTING_CONTRACT)
     """
     senders = get_distinct_sender_list(pre)
+    receiver_execution_gas = 0
     if case_id == "diff_to_nonexistent":
         receivers = get_distinct_nonexistent_receiver_list()
     elif case_id == "diff_to_existent":
         receivers = get_distinct_existent_receiver_list()
     elif case_id == "diff_to_contract":
         receivers = get_distinct_contract_receiver_list()
+        receiver_execution_gas = RECEIVER_CONTRACT_EXECUTION_GAS
     else:
         raise ValueError(f"Unknown case: {case_id}")
 
@@ -317,6 +328,7 @@ def test_ether_transfers_onchain_receivers(
         warm_access=warm_access,
         receiver_initial_balance=0,
         track_post_state=False,
+        receiver_execution_gas=receiver_execution_gas,
     )
 
 
