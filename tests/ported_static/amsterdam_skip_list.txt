@@ -8,7 +8,7 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 518
+# Total entries: 515
 
 # stAttackTest (1)
 stAttackTest/test_crashing_transaction.py::test_crashing_transaction[fork_Amsterdam]
@@ -182,8 +182,7 @@ stEIP5656_MCOPY/test_mcopy_copy_cost.py::test_mcopy_copy_cost[fork_Amsterdam-src
 # stHomesteadSpecific (1)
 stHomesteadSpecific/test_contract_creation_oo_gdont_leave_empty_contract_via_transaction.py::test_contract_creation_oo_gdont_leave_empty_contract_via_transaction[fork_Amsterdam]
 
-# stInitCodeTest (10)
-stInitCodeTest/test_call_contract_to_create_contract_which_would_create_contract_if_called.py::test_call_contract_to_create_contract_which_would_create_contract_if_called[fork_Amsterdam]
+# stInitCodeTest (7)
 stInitCodeTest/test_out_of_gas_contract_creation.py::test_out_of_gas_contract_creation[fork_Amsterdam-d0-g0]
 stInitCodeTest/test_out_of_gas_contract_creation.py::test_out_of_gas_contract_creation[fork_Amsterdam-d0-g1]
 stInitCodeTest/test_out_of_gas_contract_creation.py::test_out_of_gas_contract_creation[fork_Amsterdam-d1-g0]
@@ -191,8 +190,6 @@ stInitCodeTest/test_out_of_gas_contract_creation.py::test_out_of_gas_contract_cr
 stInitCodeTest/test_out_of_gas_prefunded_contract_creation.py::test_out_of_gas_prefunded_contract_creation[fork_Amsterdam--g0]
 stInitCodeTest/test_out_of_gas_prefunded_contract_creation.py::test_out_of_gas_prefunded_contract_creation[fork_Amsterdam--g1]
 stInitCodeTest/test_out_of_gas_prefunded_contract_creation.py::test_out_of_gas_prefunded_contract_creation[fork_Amsterdam--g2]
-stInitCodeTest/test_transaction_create_auto_suicide_contract.py::test_transaction_create_auto_suicide_contract[fork_Amsterdam]
-stInitCodeTest/test_transaction_create_stop_in_initcode.py::test_transaction_create_stop_in_initcode[fork_Amsterdam]
 
 # stMemExpandingEIP150Calls (4)
 stMemExpandingEIP150Calls/test_call_ask_more_gas_on_depth2_then_transaction_has_with_mem_expanding_calls.py::test_call_ask_more_gas_on_depth2_then_transaction_has_with_mem_expanding_calls[fork_Amsterdam]
