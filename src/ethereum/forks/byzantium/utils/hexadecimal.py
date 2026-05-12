@@ -14,10 +14,8 @@ Byzantium types.
 
 from ethereum_types.bytes import Bytes
 
-from ethereum.state import Address
+from ethereum.state import Address, Root
 from ethereum.utils.hexadecimal import remove_hex_prefix
-
-from ..fork_types import Root
 
 
 def hex_to_root(hex_string: str) -> Root:

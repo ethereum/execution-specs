@@ -13,7 +13,7 @@ Implementations of the EVM storage related instructions.
 
 from ethereum_types.numeric import Uint
 
-from ...state import get_storage, get_storage_original, set_storage
+from ...state_tracker import get_storage, get_storage_original, set_storage
 from .. import Evm
 from ..exceptions import OutOfGasError, WriteInStaticContext
 from ..gas import (
@@ -41,9 +41,8 @@ def sload(evm: Evm) -> None:
     charge_gas(evm, GasCosts.SLOAD)
 
     # OPERATION
-    value = get_storage(
-        evm.message.block_env.state, evm.message.current_target, key
-    )
+    tx_state = evm.message.tx_env.state
+    value = get_storage(tx_state, evm.message.current_target, key)
 
     push(evm.stack, value)
 
@@ -67,11 +66,11 @@ def sstore(evm: Evm) -> None:
     if evm.gas_left <= GasCosts.CALL_STIPEND:
         raise OutOfGasError
 
-    state = evm.message.block_env.state
+    tx_state = evm.message.tx_env.state
     original_value = get_storage_original(
-        state, evm.message.current_target, key
+        tx_state, evm.message.current_target, key
     )
-    current_value = get_storage(state, evm.message.current_target, key)
+    current_value = get_storage(tx_state, evm.message.current_target, key)
 
     if original_value == current_value and current_value != new_value:
         if original_value == 0:
@@ -107,7 +106,7 @@ def sstore(evm: Evm) -> None:
     charge_gas(evm, gas_cost)
     if evm.message.is_static:
         raise WriteInStaticContext
-    set_storage(state, evm.message.current_target, key, new_value)
+    set_storage(tx_state, evm.message.current_target, key, new_value)
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)

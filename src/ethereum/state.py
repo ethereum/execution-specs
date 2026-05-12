@@ -14,7 +14,7 @@ There is a distinction between an account that does not exist and
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Protocol, Tuple
+from typing import AbstractSet, Dict, List, Optional, Protocol, Set, Tuple
 
 from ethereum_types.bytes import Bytes, Bytes20, Bytes32
 from ethereum_types.frozen import slotted_freezable
@@ -71,6 +71,16 @@ class BlockDiff:
     code_changes: Dict[Hash32, Bytes]
     """New bytecodes (keyed by code hash) introduced by execution."""
 
+    storage_clears: Set[Address] = field(default_factory=set)
+    """
+    Addresses whose pre-existing storage was wiped during block
+    execution (via a pre-EIP-6780 `SELFDESTRUCT`). Their storage
+    tries are dropped before [`storage_changes`][sc] is applied, so any
+    post-wipe writes begin from empty storage.
+
+    [sc]: ref:ethereum.state.BlockDiff.storage_changes
+    """
+
 
 class PreState(Protocol):
     """
@@ -116,9 +126,14 @@ class PreState(Protocol):
         self,
         account_changes: Dict[Address, Optional[Account]],
         storage_changes: Dict[Address, Dict[Bytes32, U256]],
+        storage_clears: AbstractSet[Address] = frozenset(),
     ) -> Tuple[Root, List["InternalNode"]]:
         """
         Compute the state root after applying changes to the pre-state.
+
+        ``storage_clears`` lists addresses whose pre-existing storage
+        tries must be dropped before ``storage_changes`` is applied, so
+        any post-wipe writes begin from empty storage.
 
         Return the new state root together with the internal trie nodes
         that were created or modified.
@@ -187,16 +202,23 @@ class State:
         self,
         account_changes: Dict[Address, Optional[Account]],
         storage_changes: Dict[Address, Dict[Bytes32, U256]],
+        storage_clears: AbstractSet[Address] = frozenset(),
     ) -> Tuple[Root, List["InternalNode"]]:
         """
         Compute the state root after applying changes to the pre-state.
+
+        ``storage_clears`` lists addresses whose pre-existing storage
+        tries are dropped before ``storage_changes`` is applied, so any
+        post-wipe writes begin from empty storage.
 
         Return the new state root together with the internal trie nodes
         that were created or modified.
         """
         main_trie = copy_trie(self._main_trie)
         storage_tries = {
-            k: copy_trie(v) for k, v in self._storage_tries.items()
+            k: copy_trie(v)
+            for k, v in self._storage_tries.items()
+            if k not in storage_clears
         }
 
         for address, account in account_changes.items():
@@ -244,6 +266,9 @@ def apply_changes_to_state(state: State, diff: BlockDiff) -> None:
         Account, storage, and code changes to apply.
 
     """
+    for address in diff.storage_clears:
+        state._storage_tries.pop(address, None)
+
     for address, account in diff.account_changes.items():
         trie_set(state._main_trie, address, account)
 
