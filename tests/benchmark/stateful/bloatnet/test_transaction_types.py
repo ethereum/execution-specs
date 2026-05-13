@@ -12,6 +12,7 @@ from execution_testing import (
     Block,
     Fork,
     Transaction,
+    compute_create2_address,
     compute_create_address,
 )
 
@@ -42,11 +43,55 @@ BITTREX_CONTROLLER_ADDRESS = Address(
 RECEIVER_CONTRACT_EXECUTION_GAS = 51
 
 
+# Arachnid's deterministic deployment proxy. Assumed to have already
+# deployed the unique-code contracts via CREATE2 with salts 0, 1, 2, ...
+DETERMINISTIC_FACTORY_ADDRESS = Address(
+    0x4E59B44847B379578588920CA78FBF26C0B4956C
+)
+
+
+# Initcode deployed by DETERMINISTIC_FACTORY_ADDRESS for each
+# diff_to_unique_code_jumpdest_contract receiver. Returns a 24,576-byte
+# runtime whose entry is PUSH2 0x5fff; JUMP, landing on a JUMPDEST near
+# the end of code (then implicit STOP). Each contract embeds its own
+# address in code, so the deployed code is unique per address while
+# initcode (and therefore the CREATE2 hash input) is shared.
+UNIQUE_CODE_JUMPDEST_INITCODE = bytes.fromhex(
+    "7f5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b6000"
+    "526020600060205e6040600060405e6080600060805e61010060006101005e61020060"
+    "006102005e61040060006104005e61080060006108005e61100060006110005e612000"
+    "60006120005e61400060006140005e7f615fff565b5b5b5b5b5b5b5b5b5b5b5b5b5b5b"
+    "5b5b5b5b5b5b5b5b5b5b5b5b5b6000527f5b5b5b5b5b5b5b5b5b5b5b5b000000000000"
+    "000000000000000000000000000030176020526160006000f3"
+)
+
+
+# Runtime gas cost: PUSH2 (3) + JUMP (8) + JUMPDEST (1) = 12.
+RECEIVER_JUMPDEST_EXECUTION_GAS = 3 + 8 + 1
+
+
 def yield_distinct_contract_receiver() -> Generator[Address, None, None]:
     """Yield contract account created by Bittrex controller via CREATE."""
     for nonce in itertools.count(2):
         yield compute_create_address(
             address=BITTREX_CONTROLLER_ADDRESS, nonce=nonce
+        )
+
+
+def yield_distinct_unique_code_jumpdest_receiver() -> (
+    Generator[Address, None, None]
+):
+    """
+    Yield contract addresses deployed by the deterministic CREATE2 factory.
+
+    Each address corresponds to a contract with unique deployed code whose
+    runtime executes PUSH2 + JUMP + JUMPDEST (12 gas).
+    """
+    for salt in itertools.count(0):
+        yield compute_create2_address(
+            address=DETERMINISTIC_FACTORY_ADDRESS,
+            salt=salt,
+            initcode=UNIQUE_CODE_JUMPDEST_INITCODE,
         )
 
 
@@ -72,6 +117,7 @@ def yield_distinct_nonexistent_receiver() -> Generator[Address, None, None]:
         "diff_to_nonexistent",
         "diff_to_existent",
         "diff_to_contract",
+        "diff_to_unique_code_jumpdest_contract",
     ],
 )
 @pytest.mark.parametrize("transfer_amount", [0, 1])
@@ -93,6 +139,9 @@ def test_ether_transfers_onchain_receivers(
       (matches AccountMode.EXISTING_EOA)
     - diff_to_contract: distinct contract receivers
       (matches AccountMode.EXISTING_CONTRACT)
+    - diff_to_unique_code_jumpdest_contract: distinct CREATE2 contract
+      receivers each holding unique deployed code; runtime executes
+      PUSH2 + JUMP + JUMPDEST.
     """
     senders = yield_distinct_sender()
     receiver_execution_gas = 0
@@ -103,6 +152,9 @@ def test_ether_transfers_onchain_receivers(
     elif case_id == "diff_to_contract":
         receivers = yield_distinct_contract_receiver()
         receiver_execution_gas = RECEIVER_CONTRACT_EXECUTION_GAS
+    elif case_id == "diff_to_unique_code_jumpdest_contract":
+        receivers = yield_distinct_unique_code_jumpdest_receiver()
+        receiver_execution_gas = RECEIVER_JUMPDEST_EXECUTION_GAS
     else:
         raise ValueError(f"Unknown case: {case_id}")
 
