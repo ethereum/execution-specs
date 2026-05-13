@@ -23,7 +23,7 @@ in this fork.
 
 [EIP-5133]: https://eips.ethereum.org/EIPS/eip-5133
 [Geth 1.10.19]: https://github.com/ethereum/go-ethereum/releases/tag/v1.10.19
-[Besu 22.4.3]: https://github.com/hyperledger/besu/releases/tag/22.4.3
+[Besu 22.4.3]: https://github.com/besu-eth/besu/releases/tag/22.4.3
 [e]: https://github.com/ledgerwatch/erigon/releases/tag/v2022.06.03
 [js]: https://github.com/ethereumjs/ethereumjs-monorepo/releases/tag/@ethereumjs/vm@5.9.3
 [n]: https://github.com/NethermindEth/nethermind/releases/tag/1.13.3

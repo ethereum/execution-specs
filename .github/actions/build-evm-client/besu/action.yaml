@@ -4,7 +4,7 @@ inputs:
   repo:
     description: 'Source repository to use to build the EVM binary'
     required: true
-    default: 'hyperledger/besu'
+    default: 'besu-eth/besu'
   ref:
     description: 'Reference to branch, commit, or tag to use to build the EVM binary'
     required: true
