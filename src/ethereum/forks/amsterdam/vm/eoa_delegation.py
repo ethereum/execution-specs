@@ -10,7 +10,7 @@ from ethereum_types.numeric import U64, U256, Uint
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import InvalidBlock, InvalidSignatureError
-from ethereum.state import Address
+from ethereum.state import EMPTY_CODE_HASH, Address
 
 from ..fork_types import Authorization
 from ..state_tracker import (
@@ -214,7 +214,10 @@ def set_delegation(message: Message) -> Uint:
         # No new delegation indicator bytes are written: either the
         # authority already has one (overwrite in place / clear) or
         # this auth clears against an authority with no prior code.
-        if authority_code or auth.address == NULL_ADDRESS:
+        if (
+            authority_account.code_hash != EMPTY_CODE_HASH
+            or auth.address == NULL_ADDRESS
+        ):
             refund = STATE_BYTES_PER_AUTH_BASE * COST_PER_STATE_BYTE
             message.state_gas_reservoir += refund
             auth_state_refund += refund
