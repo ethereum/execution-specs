@@ -453,6 +453,15 @@ fork_covariant_decorators: List[Type[CovariantDecorator]] = [
         fork_attribute_name="system_contracts",
         argnames=["system_contract"],
     ),
+    covariant_decorator(
+        marker_name="with_all_refund_types",
+        description=(
+            "marks a test to be parametrized for all refund types at "
+            "parameter named refund_type"
+        ),
+        fork_attribute_name="refund_types",
+        argnames=["refund_type"],
+    ),
 ]
 
 
