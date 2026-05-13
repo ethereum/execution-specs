@@ -21,6 +21,7 @@ from execution_testing import (
     Storage,
     Transaction,
 )
+
 from .spec import (
     GAS_CALCULATION_FUNCTION_MAP,
     PointG1,
