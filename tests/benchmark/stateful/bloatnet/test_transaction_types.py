@@ -21,12 +21,11 @@ from execution_testing import (
 SENDER_BASE_KEY = (
     0x1111111111111111111111111111111111111111111111111111111111111111
 )
-SENDER_COUNT = 15_000
 
 
 def yield_distinct_sender() -> Generator[EOA, None, None]:
     """Yield deterministic sender EOAs pre-funded on-chain."""
-    for i in range(SENDER_COUNT):
+    for i in itertools.count(0):
         yield EOA(key=SENDER_BASE_KEY + i)
 
 
