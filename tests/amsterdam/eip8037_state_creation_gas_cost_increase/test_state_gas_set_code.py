@@ -298,7 +298,9 @@ def test_existing_account_refund_enables_sstore(
     "signer_pre_state,authorize_to_null",
     [
         pytest.param("nonexistent", False, id="nonexistent_authority"),
+        pytest.param("nonexistent", True, id="nonexistent_clear"),
         pytest.param("existing_leaf", False, id="existing_leaf_empty_code"),
+        pytest.param("existing_leaf", True, id="existing_leaf_clear"),
         pytest.param(
             "existing_delegation",
             False,
@@ -354,14 +356,19 @@ def test_auth_refund_block_gas_accounting(
     contract_old = pre.deploy_contract(code=Op.STOP)
     contract_new = pre.deploy_contract(code=Op.STOP)
 
+    # AUTH_BASE is refunded when no new delegation-indicator bytes are
+    # written: either the authority already has an indicator (overwrite
+    # in place / clear) or `auth.address` is zero (no indicator written).
     if signer_pre_state == "nonexistent":
         signer = pre.fund_eoa(amount=0)
         pre_nonce = 0
-        auth_refund = 0
+        auth_refund = auth_base_refund if authorize_to_null else 0
     elif signer_pre_state == "existing_leaf":
         signer = pre.fund_eoa()
         pre_nonce = 0
-        auth_refund = new_account_refund
+        auth_refund = new_account_refund + (
+            auth_base_refund if authorize_to_null else 0
+        )
     elif signer_pre_state == "existing_delegation":
         # `fund_eoa(delegation=...)` sets the authority's nonce to 1.
         signer = pre.fund_eoa(delegation=contract_old)

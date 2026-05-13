@@ -211,9 +211,10 @@ def set_delegation(message: Message) -> Uint:
             message.state_gas_reservoir += refund
             auth_state_refund += refund
 
-        # Existing delegation indicator: overwrite in place, no new
-        # state bytes added.
-        if authority_code:
+        # No new delegation indicator bytes are written: either the
+        # authority already has one (overwrite in place / clear) or
+        # this auth clears against an authority with no prior code.
+        if authority_code or auth.address == NULL_ADDRESS:
             refund = STATE_BYTES_PER_AUTH_BASE * COST_PER_STATE_BYTE
             message.state_gas_reservoir += refund
             auth_state_refund += refund
