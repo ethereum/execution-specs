@@ -17,7 +17,10 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    Block,
+    BlockchainTestFiller,
     Fork,
+    Header,
     Initcode,
     Op,
     StateTestFiller,
@@ -333,3 +336,80 @@ def test_create_oog_reservoir_inflation_detection(
 
     post = {caller: Account(storage=caller_storage)}
     state_test(pre=pre, tx=tx, post=post)
+
+
+@pytest.mark.parametrize(
+    "oog_step",
+    [
+        pytest.param("create_base", id="oog_on_create_base"),
+        pytest.param("init_code_word_cost", id="oog_on_init_code_word_cost"),
+    ],
+)
+@pytest.mark.with_all_create_opcodes()
+@pytest.mark.valid_from("EIP8037")
+def test_create_oog_full_burn_no_state_credit(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    create_opcode: Op,
+    oog_step: str,
+) -> None:
+    """
+    Verify a CREATE OOG inside a non-creation tx burns the whole
+    tx gas_limit — no state-gas leftover is credited at tx-end.
+    """
+    gas_costs = fork.gas_costs()
+    new_account_state_gas = gas_costs.NEW_ACCOUNT
+
+    if oog_step == "create_base":
+        initcode_size = 0
+        setup_gas = 0
+        init_code_word_cost = 0
+    else:
+        initcode_size = 32
+        setup_gas = (
+            2 * gas_costs.VERY_LOW
+            + gas_costs.OPCODE_MSTORE_BASE
+            + gas_costs.MEMORY_PER_WORD
+        )
+        init_code_word_cost = gas_costs.CODE_INIT_PER_WORD
+
+    if create_opcode == Op.CREATE:
+        create_op = create_opcode(value=0, offset=0, size=initcode_size)
+        pushes_gas = 3 * gas_costs.VERY_LOW
+    else:
+        create_op = create_opcode(
+            value=0, offset=0, size=initcode_size, salt=0
+        )
+        pushes_gas = 4 * gas_costs.VERY_LOW
+
+    if oog_step == "create_base":
+        factory_code = create_op
+    else:
+        factory_code = Op.MSTORE(0, 0) + create_op
+    factory = pre.deploy_contract(factory_code)
+
+    create_regular_gas = gas_costs.OPCODE_CREATE_BASE + init_code_word_cost
+    body_gas = (
+        setup_gas + pushes_gas + create_regular_gas + new_account_state_gas - 1
+    )
+
+    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
+    tx_gas_limit = intrinsic_calc() + body_gas
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=factory,
+        gas_limit=tx_gas_limit,
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=tx_gas_limit),
+            ),
+        ],
+        post={},
+    )
