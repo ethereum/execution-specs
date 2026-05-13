@@ -5,6 +5,7 @@ from typing import Generator
 
 import pytest
 from execution_testing import (
+    EOA,
     Address,
     Alloc,
     BenchmarkTestFiller,
@@ -14,11 +15,19 @@ from execution_testing import (
     compute_create_address,
 )
 
+# Deterministic sender pool: keys start at 0x111...111 (32 bytes) and
+# increment by 1. Accounts are assumed to be pre-funded on bloatnet
+# (e.g. by Spamoor), so they are intentionally NOT added to the pre-alloc.
+SENDER_BASE_KEY = (
+    0x1111111111111111111111111111111111111111111111111111111111111111
+)
+SENDER_COUNT = 15_000
 
-def yield_distinct_sender(pre: Alloc) -> Generator[Address, None, None]:
-    """Get a list of distinct sender accounts."""
-    while True:
-        yield pre.fund_eoa()
+
+def yield_distinct_sender() -> Generator[EOA, None, None]:
+    """Yield deterministic sender EOAs pre-funded on-chain."""
+    for i in range(SENDER_COUNT):
+        yield EOA(key=SENDER_BASE_KEY + i)
 
 
 # Bittrex controller mainnet address
@@ -86,7 +95,7 @@ def test_ether_transfers_onchain_receivers(
     - diff_to_contract: distinct contract receivers
       (matches AccountMode.EXISTING_CONTRACT)
     """
-    senders = yield_distinct_sender(pre)
+    senders = yield_distinct_sender()
     receiver_execution_gas = 0
     if case_id == "diff_to_nonexistent":
         receivers = yield_distinct_nonexistent_receiver()
