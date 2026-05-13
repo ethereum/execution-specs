@@ -212,7 +212,7 @@ Useful to mark tests to fail if a new refund type is introduced by a future fork
 ```python
 import pytest
 
-from execution_testing import Address, Alloc, RefundType, StateTestFiller
+from execution_testing import Address, Alloc, RefundTypes, StateTestFiller
 
 @pytest.mark.with_all_refund_types
 @pytest.mark.valid_from("Prague")
