@@ -53,7 +53,7 @@ KECCAK512_VECTORS: list[tuple[bytes, str]] = [
 def _hashlib_has_keccak() -> bool:
     """Return True if `hashlib.new("keccak-256", ...)` succeeds here."""
     try:
-        hashlib.new("keccak-256", b"")
+        hashlib.new("keccak-256")
     except ValueError:
         return False
     return True
