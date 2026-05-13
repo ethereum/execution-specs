@@ -6,6 +6,8 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    BalAccountExpectation,
+    BlockAccessListExpectation,
     Environment,
     Fork,
     Op,
@@ -74,6 +76,21 @@ def test_selfdestruct_balance_transfer_reverted(
         TransactionReceipt(logs=[]) if fork.is_eip_enabled(7708) else None
     )
 
+    # Under EIP-7928 (BAL): victim and beneficiary are touched in the
+    # reverted sub-call's SELFDESTRUCT and again by outer's BALANCE reads.
+    # The balance transfer is undone, so they appear with empty changes
+    # (accessed but no net state change).
+    expected_bal = (
+        BlockAccessListExpectation(
+            account_expectations={
+                victim: BalAccountExpectation.empty(),
+                beneficiary: BalAccountExpectation.empty(),
+            }
+        )
+        if fork.is_eip_enabled(7928)
+        else None
+    )
+
     state_test(
         env=env,
         pre=pre,
@@ -90,4 +107,5 @@ def test_selfdestruct_balance_transfer_reverted(
             gas_limit=1_000_000,
             expected_receipt=expected_receipt,
         ),
+        expected_block_access_list=expected_bal,
     )

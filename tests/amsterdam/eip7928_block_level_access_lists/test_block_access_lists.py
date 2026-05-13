@@ -28,11 +28,13 @@ from execution_testing import (
     Header,
     Initcode,
     Op,
+    StateTestFiller,
     Transaction,
     TransactionException,
     add_kzg_version,
     compute_create_address,
 )
+from execution_testing import Macros as Om
 
 from .spec import ref_spec_7928
 
@@ -578,6 +580,136 @@ def test_bal_block_rewards(
         blocks=[block],
         post={},
         genesis_environment=genesis_env,
+    )
+
+
+@pytest.mark.parametrize(
+    "same_tx", [False, True], ids=["pre_deploy", "same_tx"]
+)
+def test_bal_selfdestruct_to_coinbase(
+    pre: Alloc,
+    state_test: StateTestFiller,
+    fork: Fork,
+    same_tx: bool,
+) -> None:
+    """
+    Ensure BAL records SELFDESTRUCT when the beneficiary is the coinbase.
+
+    Post-Cancun (EIP-6780) the contract is only actually destroyed when
+    created in the same tx; the pre-deployed path only transfers balance
+    and preserves the contract. Both shapes must appear in BAL.
+    """
+    alice = pre.fund_eoa()
+    coinbase = pre.fund_eoa(amount=0)
+    victim_balance = 100
+    victim_code = Op.SELFDESTRUCT(Op.COINBASE)
+
+    # Match gas_price to base_fee so the priority-fee tip is zero;
+    # coinbase's BAL entry then carries only the SELFDESTRUCT transfer.
+    base_fee_per_gas = 7
+    env = Environment(
+        base_fee_per_gas=base_fee_per_gas, fee_recipient=coinbase
+    )
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        calldata=b"",
+        contract_creation=False,
+        access_list=[],
+    )
+    # Coinbase is warm post-EIP-3651 but empty (pre-funded amount=0),
+    # so SELFDESTRUCT charges the new-account fee on the value transfer.
+    selfdestruct_gas = Op.SELFDESTRUCT(
+        Op.COINBASE, address_warm=True, account_new=True
+    ).gas_cost(fork)
+
+    if same_tx:
+        initcode = Initcode(deploy_code=victim_code)
+        factory_code = Om.MSTORE(initcode, 0) + Op.CALL(
+            gas=Op.GAS,
+            address=Op.CREATE(
+                value=victim_balance, offset=0, size=len(initcode)
+            ),
+        )
+        factory = pre.deploy_contract(
+            code=factory_code, balance=victim_balance
+        )
+        victim = compute_create_address(address=factory, nonce=1)
+        tx_target = factory
+        # intrinsic + factory runtime (CALL/CREATE/MSTORE etc.)
+        # + initcode init + SELFDESTRUCT inside victim.
+        tx_gas_limit = (
+            intrinsic_gas
+            + factory_code.gas_cost(fork)
+            + initcode.gas_cost(fork)
+            + selfdestruct_gas
+            + 5_000
+        )
+        post = {
+            factory: Account(balance=0),
+            victim: Account.NONEXISTENT,
+            coinbase: Account(balance=victim_balance),
+        }
+        account_expectations: dict[Address, BalAccountExpectation | None] = {
+            factory: BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=2)
+                ],
+                balance_changes=[
+                    BalBalanceChange(block_access_index=1, post_balance=0)
+                ],
+            ),
+            # Created and destroyed in the same tx — empty changes.
+            victim: BalAccountExpectation.empty(),
+            coinbase: BalAccountExpectation(
+                balance_changes=[
+                    BalBalanceChange(
+                        block_access_index=1, post_balance=victim_balance
+                    )
+                ],
+            ),
+        }
+    else:
+        victim = pre.deploy_contract(code=victim_code, balance=victim_balance)
+        tx_target = victim
+        tx_gas_limit = intrinsic_gas + selfdestruct_gas + 1_000
+        # Pre-deployed and not same-tx: post-Cancun preserves the contract.
+        post = {
+            victim: Account(balance=0, code=victim_code),
+            coinbase: Account(balance=victim_balance),
+        }
+        account_expectations = {
+            victim: BalAccountExpectation(
+                balance_changes=[
+                    BalBalanceChange(block_access_index=1, post_balance=0)
+                ],
+            ),
+            coinbase: BalAccountExpectation(
+                balance_changes=[
+                    BalBalanceChange(
+                        block_access_index=1, post_balance=victim_balance
+                    )
+                ],
+            ),
+        }
+
+    tx = Transaction(
+        sender=alice,
+        to=tx_target,
+        gas_limit=tx_gas_limit,
+        gas_price=base_fee_per_gas,
+    )
+
+    state_test(
+        env=env,
+        pre=pre,
+        post=post,
+        tx=tx,
+        blockchain_test_header_verify=Header(
+            base_fee_per_gas=base_fee_per_gas
+        ),
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations=account_expectations,
+        ),
     )
 
 
@@ -1236,6 +1368,86 @@ def test_bal_aborted_account_access(
         pre=pre,
         blocks=[block],
         post={},
+    )
+
+
+@pytest.mark.parametrize(
+    "inner_action",
+    ["sstore", "sload", "balance", "extcodesize"],
+)
+@pytest.mark.parametrize(
+    "outer_abort",
+    [
+        pytest.param(Op.REVERT(0, 0), id="outer_revert"),
+        pytest.param(Op.INVALID, id="outer_invalid"),
+    ],
+)
+def test_bal_parent_revert_state_access(
+    pre: Alloc,
+    state_test: StateTestFiller,
+    fork: Fork,
+    inner_action: str,
+    outer_abort: Op,
+) -> None:
+    """Ensure BAL captures child-frame state access when the parent reverts."""
+    alice = pre.fund_eoa()
+    extra_target = pre.deploy_contract(code=Op.STOP)
+
+    if inner_action == "sstore":
+        # Write demoted to read by parent revert.
+        inner = pre.deploy_contract(code=Op.SSTORE(1, 0x42) + Op.STOP)
+    elif inner_action == "sload":
+        inner = pre.deploy_contract(
+            code=Op.POP(Op.SLOAD(1)) + Op.STOP,
+            storage={1: 0xDEAD},
+        )
+    elif inner_action == "balance":
+        inner = pre.deploy_contract(
+            code=Op.POP(Op.BALANCE(extra_target)) + Op.STOP
+        )
+    elif inner_action == "extcodesize":
+        inner = pre.deploy_contract(
+            code=Op.POP(Op.EXTCODESIZE(extra_target)) + Op.STOP
+        )
+    else:
+        raise ValueError(f"unknown inner_action: {inner_action}")
+    outer = pre.deploy_contract(
+        code=Op.CALL(gas=Op.GAS, address=inner) + outer_abort
+    )
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        calldata=b"",
+        contract_creation=False,
+        access_list=[],
+    )
+    costs = fork.gas_costs()
+    # Cover the heaviest inner action (cold SSTORE on a zero slot) plus
+    # outer's CALL overhead. Scales with fork gas-cost changes.
+    inner_allowance = costs.COLD_STORAGE_ACCESS + costs.STORAGE_SET
+    outer_overhead = costs.COLD_ACCOUNT_ACCESS
+    tx_gas_limit = intrinsic_gas + inner_allowance + outer_overhead + 10_000
+
+    tx = Transaction(sender=alice, to=outer, gas_limit=tx_gas_limit)
+
+    if inner_action in ("sstore", "sload"):
+        account_expectations: dict[Address, BalAccountExpectation | None] = {
+            inner: BalAccountExpectation(storage_reads=[1]),
+        }
+    elif inner_action in ("balance", "extcodesize"):
+        account_expectations = {
+            inner: BalAccountExpectation.empty(),
+            extra_target: BalAccountExpectation.empty(),
+        }
+    else:
+        raise ValueError(f"unknown inner_action: {inner_action}")
+
+    state_test(
+        pre=pre,
+        post={},
+        tx=tx,
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations=account_expectations,
+        ),
     )
 
 
