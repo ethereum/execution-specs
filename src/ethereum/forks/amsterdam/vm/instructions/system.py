@@ -610,20 +610,15 @@ def selfdestruct(evm: Evm) -> None:
     # Transfer balance
     move_ether(tx_state, originator, beneficiary, originator_balance)
 
-    # EIP-7708: Emit appropriate log based on whether ETH is burned
-    # or transferred to a different account
+    # Emit transfer or burn log
     if originator in tx_state.created_accounts and beneficiary == originator:
-        # Self-destruct to self in same tx burns the balance
         emit_burn_log(evm, originator, originator_balance)
     elif beneficiary != originator:
-        # Transfer to different beneficiary
         emit_transfer_log(evm, originator, beneficiary, originator_balance)
 
-    # register account for deletion only if it was created
-    # in the same transaction
+    # Register account for deletion iff created in same transaction
     if originator in tx_state.created_accounts:
-        # If beneficiary is the same as originator, then
-        # the ether is burnt.
+        # If beneficiary and originator are the same then the ether is burnt.
         set_account_balance(tx_state, originator, U256(0))
         evm.accounts_to_delete.add(originator)
 

@@ -262,7 +262,6 @@ def process_message(message: Message) -> Evm:
         accessed_storage_keys=message.accessed_storage_keys,
     )
 
-    # take snapshot of state before processing the message
     snapshot = copy_tx_state(tx_state)
 
     if message.should_transfer_value and message.value != 0:
@@ -272,7 +271,6 @@ def process_message(message: Message) -> Evm:
             message.current_target,
             message.value,
         )
-        # EIP-7708: Only emit transfer log to a different account
         if message.caller != message.current_target:
             emit_transfer_log(
                 evm, message.caller, message.current_target, message.value

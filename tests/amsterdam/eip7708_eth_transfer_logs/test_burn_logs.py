@@ -15,6 +15,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
+    Conditional,
     Environment,
     Fork,
     Header,
@@ -259,20 +260,31 @@ def test_selfdestruct_same_tx_via_call(
 
     factory_code = (
         Om.MSTORE(initcode, 0)
-        + Op.TSTORE(
+        + Op.SSTORE(
             0, Op.CREATE(value=create_value, offset=0, size=initcode_len)
         )
-        + Op.CALL(gas=100_000, address=Op.TLOAD(0), value=first_call_value)
+        + Op.SSTORE(
+            1,
+            Op.CALL(gas=100_000, address=Op.SLOAD(0), value=first_call_value),
+        )
     )
     if call_twice:
-        factory_code += Op.CALL(
-            gas=100_000, address=Op.TLOAD(0), value=second_call_value
+        factory_code += Op.SSTORE(
+            2,
+            Op.CALL(gas=100_000, address=Op.SLOAD(0), value=second_call_value),
         )
 
     factory = pre.deploy_contract(
         factory_code, balance=contract_balance + second_call_value
     )
     created_address = compute_create_address(address=factory, nonce=1)
+
+    factory_storage = {
+        0: created_address,
+        1: 1,
+    }
+    if call_twice:
+        factory_storage[2] = 1
 
     if to_self:
         expected_logs = [
@@ -284,7 +296,7 @@ def test_selfdestruct_same_tx_via_call(
                 transfer_log(factory, created_address, second_call_value),
                 burn_log(created_address, second_call_value),
             ]
-        post = {}
+        post = {factory: Account(storage=factory_storage)}
     else:
         expected_logs = [
             transfer_log(factory, created_address, contract_balance),
@@ -296,7 +308,8 @@ def test_selfdestruct_same_tx_via_call(
                 transfer_log(created_address, beneficiary, second_call_value),
             ]
         post = {
-            beneficiary: Account(balance=contract_balance + second_call_value)
+            beneficiary: Account(balance=contract_balance + second_call_value),
+            factory: Account(storage=factory_storage),
         }
 
     tx = Transaction(
@@ -385,15 +398,10 @@ def test_finalization_burn_logs(
 
     # Runtime: selfdestruct on first call, STOP on subsequent calls
     target: Address | Opcodes = Op.ADDRESS if to_self else beneficiary
-    runtime = (
-        Op.TLOAD(0)
-        + Op.ISZERO
-        + Op.PUSH1(8)
-        + Op.JUMPI
-        + Op.STOP
-        + Op.JUMPDEST
-        + Op.TSTORE(0, 1)
-        + Op.SELFDESTRUCT(target)
+    runtime = Conditional(
+        condition=Op.ISZERO(Op.TLOAD(0)),
+        if_true=Op.TSTORE(0, 1) + Op.SELFDESTRUCT(target),
+        if_false=Op.STOP,
     )
     initcode = Initcode(deploy_code=runtime)
     initcode_len = len(initcode)
@@ -679,17 +687,23 @@ def test_finalization_burn_log_single_account_multiple_transfers(
     # x as the beneficiary so each payer's balance is forwarded to x.
     factory_code: Bytecode = (
         Om.MSTORE(initcode, 0)
-        + Op.TSTORE(
+        + Op.SSTORE(
             0, Op.CREATE(value=create_balance, offset=0, size=initcode_len)
         )
-        + Op.CALL(gas=Op.GAS, address=Op.TLOAD(0), value=0)
+        + Op.SSTORE(
+            1,
+            Op.CALL(gas=Op.GAS, address=Op.SLOAD(0), value=0),
+        )
     )
     for i in range(num_transfers):
-        factory_code += Op.CALL(
-            gas=Op.GAS,
-            address=payers[i],
-            args_offset=0,
-            args_size=32,
+        factory_code += Op.SSTORE(
+            2 + i,
+            Op.CALL(
+                gas=Op.GAS,
+                address=payers[i],
+                args_offset=0,
+                args_size=32,
+            ),
         )
 
     execution_logs = [
@@ -716,9 +730,14 @@ def test_finalization_burn_log_single_account_multiple_transfers(
         ),
     )
 
+    factory_storage = {0: x, 1: 1}
+    for i in range(num_transfers):
+        factory_storage[2 + i] = 1
+
     post: dict[Address, Account | None] = {
         x: Account.NONEXISTENT,
         beneficiary: Account(balance=create_balance),
+        factory_address: Account(storage=factory_storage),
     }
     for payer in payers:
         post[payer] = Account(balance=0)
@@ -872,12 +891,15 @@ def test_selfdestruct_finalization_after_priority_fee(
 
     # finalization burn log
     if fork.is_eip_enabled(8037):
-        # TODO: Fix calculation of the exact expected gas usage
-        finalization_balance = None
+        raise Exception(
+            "Test needs update: recompute exact gas usage with 8037"
+        )
+
     expected_logs.append(burn_log(created_address, finalization_balance))
     gas_limit = 500_000
     if fork.is_eip_enabled(8037):
         gas_limit = 2_000_000
+
     tx = Transaction(
         sender=sender,
         to=None,
