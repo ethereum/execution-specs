@@ -33,6 +33,7 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     Bytecode,
+    Conditional,
     Fork,
     Initcode,
     Op,
@@ -3148,5 +3149,229 @@ def test_bal_create_early_failure(
             ),
             # Contract was never created
             would_be_contract_address: Account.NONEXISTENT,
+        },
+    )
+
+
+@pytest.mark.with_all_create_opcodes
+@pytest.mark.parametrize(
+    "storage_op",
+    ["read", "write"],
+    ids=["sload_then_selfdestruct", "sstore_then_selfdestruct"],
+)
+def test_bal_create_storage_op_then_selfdestruct_same_tx(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    create_opcode: Op,
+    storage_op: str,
+) -> None:
+    """
+    Same-tx CREATE/CREATE2 + storage_op + SELFDESTRUCT.
+
+    The deterministic address A is pre-funded. A single tx deploys a
+    contract at A via the parametrized create opcode; init code performs
+    SLOAD or SSTORE on slot B then SELFDESTRUCTs. Because the contract
+    is destroyed in the same tx, slot B MUST appear in `storage_reads`
+    and MUST NOT appear in `storage_changes` (writes demoted to reads
+    per EIP-7928).
+    """
+    alice = pre.fund_eoa()
+    beneficiary = pre.fund_eoa(amount=0)
+    fund_amount = 100
+    slot_b = 0x07
+
+    if storage_op == "read":
+        initcode = Op.POP(Op.SLOAD(slot_b)) + Op.SELFDESTRUCT(beneficiary)
+    else:
+        initcode = Op.SSTORE(slot_b, 0xCAFE) + Op.SELFDESTRUCT(beneficiary)
+    initcode_bytes = bytes(initcode)
+
+    salt = 0
+    is_create2 = create_opcode == Op.CREATE2
+    if is_create2:
+        deploy_op = Op.CREATE2(
+            value=0, offset=0, size=Op.CALLDATASIZE, salt=salt
+        )
+    else:
+        deploy_op = Op.CREATE(value=0, offset=0, size=Op.CALLDATASIZE)
+
+    factory_code = (
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.SSTORE(0, deploy_op)
+        + Op.STOP
+    )
+    factory = pre.deploy_contract(code=factory_code)
+    target_a = compute_create_address(
+        address=factory,
+        nonce=1,
+        salt=salt,
+        initcode=initcode_bytes,
+        opcode=create_opcode,
+    )
+    pre.fund_address(target_a, fund_amount)
+
+    tx = Transaction(
+        sender=alice,
+        to=factory,
+        data=initcode_bytes,
+        gas_limit=1_000_000,
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                target_a: BalAccountExpectation(
+                    balance_changes=[
+                        BalBalanceChange(block_access_index=1, post_balance=0),
+                    ],
+                    storage_reads=[slot_b],
+                    storage_changes=[],
+                    code_changes=[],
+                    nonce_changes=[],
+                ),
+                beneficiary: BalAccountExpectation(
+                    balance_changes=[
+                        BalBalanceChange(
+                            block_access_index=1,
+                            post_balance=fund_amount,
+                        )
+                    ],
+                ),
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            target_a: Account.NONEXISTENT,
+            beneficiary: Account(balance=fund_amount),
+            factory: Account(nonce=2, storage={0: target_a}),
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "pre_balance",
+    [0, 100],
+    ids=["no_balance", "with_balance"],
+)
+def test_bal_create2_selfdestruct_then_recreate_same_block(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    pre_balance: int,
+) -> None:
+    """
+    Tx1 CREATE2+SELFDESTRUCT, Tx2 CREATE2 resurrection at same address.
+
+    Two identical txs invoke the same factory with the same initcode
+    (same hash => same CREATE2 address A). The factory branches on its
+    own storage slot 1: on the first tx, the slot is 0 so the factory
+    CREATE2's then CALLs A (runtime SELFDESTRUCTs) and records the
+    CALL's return code in slot 1; on the second tx, slot 1 is non-zero
+    so only CREATE2 runs and A persists with the runtime code.
+
+    Per EIP-7928 SELFDESTRUCT-in-tx semantics, Tx1's destructed A has no
+    `nonce_changes` or `code_changes`; only `balance_changes` if it was
+    pre-funded. Tx2's fresh A has `nonce_changes` (post=1) and
+    `code_changes` (post=runtime).
+    """
+    alice = pre.fund_eoa()
+    beneficiary = pre.fund_eoa(amount=0)
+    salt = 0
+
+    runtime = Op.SELFDESTRUCT(beneficiary)
+    runtime_bytes = bytes(runtime)
+    initcode_bytes = bytes(Initcode(deploy_code=runtime))
+
+    factory_code = (
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.SSTORE(
+            0,
+            Op.CREATE2(value=0, offset=0, size=Op.CALLDATASIZE, salt=salt),
+        )
+        + Conditional(
+            condition=Op.ISZERO(Op.SLOAD(1)),
+            if_true=Op.SSTORE(1, Op.CALL(50_000, Op.SLOAD(0), 0, 0, 0, 0, 0)),
+            if_false=Op.STOP,
+        )
+        + Op.STOP
+    )
+    factory = pre.deploy_contract(code=factory_code)
+    target_a = compute_create_address(
+        address=factory,
+        salt=salt,
+        initcode=initcode_bytes,
+        opcode=Op.CREATE2,
+    )
+
+    if pre_balance > 0:
+        pre.fund_address(target_a, pre_balance)
+
+    tx1 = Transaction(
+        sender=alice,
+        to=factory,
+        data=initcode_bytes,
+        gas_limit=500_000,
+    )
+    tx2 = Transaction(
+        sender=alice,
+        to=factory,
+        data=initcode_bytes,
+        gas_limit=500_000,
+    )
+
+    target_a_balance_changes = []
+    if pre_balance > 0:
+        target_a_balance_changes = [
+            BalBalanceChange(block_access_index=1, post_balance=0),
+        ]
+        beneficiary_expectation = BalAccountExpectation(
+            balance_changes=[
+                BalBalanceChange(
+                    block_access_index=1, post_balance=pre_balance
+                )
+            ],
+        )
+    else:
+        # SELFDESTRUCT touches the beneficiary even with 0 value; no
+        # balance change is recorded.
+        beneficiary_expectation = BalAccountExpectation.empty()
+
+    block = Block(
+        txs=[tx1, tx2],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                target_a: BalAccountExpectation(
+                    # Tx1 destruction (EIP-7928 #165): no nonce/code changes.
+                    # Tx2 resurrection: fresh contract with nonce=1, runtime.
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=2, post_nonce=1),
+                    ],
+                    code_changes=[
+                        BalCodeChange(
+                            block_access_index=2, new_code=runtime_bytes
+                        ),
+                    ],
+                    balance_changes=target_a_balance_changes,
+                    storage_changes=[],
+                    storage_reads=[],
+                ),
+                beneficiary: beneficiary_expectation,
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            target_a: Account(nonce=1, balance=0, code=runtime_bytes),
+            beneficiary: Account(balance=pre_balance)
+            if pre_balance > 0
+            else Account.NONEXISTENT,
+            factory: Account(nonce=3, storage={0: target_a, 1: 1}),
         },
     )
