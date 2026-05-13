@@ -20,7 +20,6 @@ from execution_testing import (
     Transaction,
     compute_create_address,
 )
-from execution_testing.forks import Amsterdam
 
 
 def test_empty_block(
@@ -615,7 +614,9 @@ def test_auth_transaction(
 
     # EIP-7778: refunds no longer reduce block-level gas accounting
     expected_gas_usage = (
-        total_gas_used if fork.is_eip_enabled(7778) else total_gas_used - total_refund
+        total_gas_used
+        if fork.is_eip_enabled(7778)
+        else total_gas_used - total_refund
     )
 
     benchmark_test(
