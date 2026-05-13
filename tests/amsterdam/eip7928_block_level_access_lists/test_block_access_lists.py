@@ -1451,6 +1451,122 @@ def test_bal_parent_revert_state_access(
     )
 
 
+@pytest.mark.parametrize(
+    "inner_op",
+    [pytest.param("call", id="call"), pytest.param("create", id="create")],
+)
+def test_bal_outer_revert_with_inner_insufficient_funds(
+    pre: Alloc,
+    state_test: StateTestFiller,
+    fork: Fork,
+    inner_op: str,
+) -> None:
+    """
+    Outer REVERT + inner CALL/CREATE that fails on insufficient funds.
+
+    Inner writes two slots and then attempts a value-bearing CALL or
+    CREATE that fails (balance=0 < value). The opcode's state-touching
+    costs are charged before the balance check, so the failed CALL's
+    target stays in BAL with empty changes, while CREATE fails before
+    `track_address` and the would-be address does not appear at all.
+    Inner's writes demote to reads under outer's REVERT; the post-state
+    checks confirm none of the rolled-back state leaked through.
+    """
+    alice = pre.fund_eoa()
+    slot_a, slot_b = 1, 2
+    insufficient_value = 100
+
+    if inner_op == "call":
+        target = pre.deploy_contract(code=Op.STOP)
+        inner = pre.deploy_contract(
+            code=(
+                Op.SSTORE(slot_a, 0x42)
+                + Op.SSTORE(
+                    slot_b,
+                    Op.CALL(
+                        gas=100_000,
+                        address=target,
+                        value=insufficient_value,
+                    ),
+                )
+                + Op.STOP
+            ),
+            balance=0,
+        )
+        extra_account = target
+        extra_bal: BalAccountExpectation | None = BalAccountExpectation.empty()
+        extra_post: Account | None = Account(balance=0)
+    elif inner_op == "create":
+        initcode_bytes = bytes(Initcode(deploy_code=Op.STOP))
+        inner = pre.deploy_contract(
+            code=(
+                Op.MSTORE(0, Op.PUSH32(initcode_bytes))
+                + Op.SSTORE(slot_a, 0x42)
+                + Op.SSTORE(
+                    slot_b,
+                    Op.CREATE(
+                        value=insufficient_value,
+                        offset=32 - len(initcode_bytes),
+                        size=len(initcode_bytes),
+                    ),
+                )
+                + Op.STOP
+            ),
+            balance=0,
+        )
+        extra_account = compute_create_address(address=inner, nonce=1)
+        extra_bal = None
+        extra_post = Account.NONEXISTENT
+    else:
+        raise ValueError(f"unknown inner_op: {inner_op}")
+
+    outer = pre.deploy_contract(
+        code=Op.CALL(gas=Op.GAS, address=inner) + Op.REVERT(0, 0)
+    )
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        calldata=b"",
+        contract_creation=False,
+        access_list=[],
+    )
+    costs = fork.gas_costs()
+    # Worst-case inner work: 2 cold SSTOREs plus the union of CREATE base
+    # and CALL-with-value extras, so one limit fits both branches.
+    inner_max = (
+        2 * (costs.COLD_STORAGE_ACCESS + costs.STORAGE_SET)
+        + costs.TX_CREATE
+        + costs.COLD_ACCOUNT_ACCESS
+        + costs.CALL_VALUE
+    )
+    tx_gas_limit = (
+        intrinsic_gas + inner_max + costs.COLD_ACCOUNT_ACCESS + 10_000
+    )
+    tx = Transaction(sender=alice, to=outer, gas_limit=tx_gas_limit)
+
+    state_test(
+        pre=pre,
+        post={
+            alice: Account(nonce=1),
+            outer: Account(balance=0, storage={}),
+            inner: Account(balance=0, storage={}),
+            extra_account: extra_post,
+        },
+        tx=tx,
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                outer: BalAccountExpectation.empty(),
+                inner: BalAccountExpectation(storage_reads=[slot_a, slot_b]),
+                extra_account: extra_bal,
+            },
+        ),
+    )
+
+
 def test_bal_fully_unmutated_account(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
