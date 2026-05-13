@@ -53,9 +53,21 @@ EvmTracer.__call__
 # src/ethereum/optimized/state_db.py
 State.rollback_db_transaction
 
+# src/ethereum_optimized/state_db.py - registered as patches via @add_item
+from ethereum_optimized.state_db import (
+    begin_transaction,
+    commit_transaction,
+    rollback_transaction,
+)
+
+begin_transaction
+commit_transaction
+rollback_transaction
+
 # src/ethereum_spec_tools/docc.py
 docc.EthereumDiscover
 docc.EthereumBuilder
+docc.EthereumPythonDiscover
 docc.EthereumListingDiscover
 docc.DiffSource.show_in_listing
 docc.FixIndexTransform

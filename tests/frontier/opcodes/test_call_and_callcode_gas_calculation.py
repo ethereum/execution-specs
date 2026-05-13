@@ -234,7 +234,7 @@ def expected_block_access_list(
     gas_shortage: int,
 ) -> None | BlockAccessListExpectation:
     """The expected block access list for >=Amsterdam cases."""
-    if fork.header_bal_hash_required():
+    if fork.is_eip_enabled(7928):
         if callee_opcode == Op.CALL:
             if gas_shortage:
                 # call runs OOG after state access due to `is_account_alive` in

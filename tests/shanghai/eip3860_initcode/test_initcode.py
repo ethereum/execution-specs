@@ -714,6 +714,7 @@ def test_create2_oversized_initcode_with_insufficient_balance(
     pre: Alloc,
     initcode_oversize: bool,
     expected_storage_1: int,
+    fork: Fork,
 ) -> None:
     """
     Test CREATE2 with oversized initcode and insufficient balance.
@@ -730,7 +731,9 @@ def test_create2_oversized_initcode_with_insufficient_balance(
     - Initcode within limit: insufficient balance pushes 0, execution
       continues, SSTORE(1, 1) executes, so storage slot 1 becomes 1.
     """
-    initcode_size = 0x20000 if initcode_oversize else 0x100
+    initcode_size = (
+        fork.max_initcode_size() * 2 if initcode_oversize else 0x100
+    )
     caller_code = (
         Op.CREATE2(1123123123, 0, initcode_size, 0) + Op.POP + Op.SSTORE(1, 1)
     )

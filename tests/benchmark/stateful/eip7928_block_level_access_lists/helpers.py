@@ -12,9 +12,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
+    AuthorizationTuple,
     BalAccountExpectation,
     BalNonceChange,
     BalStorageSlot,
@@ -24,9 +26,14 @@ from execution_testing import (
     Bytecode,
     Fork,
     Op,
-    Storage,
     TestPhaseManager,
     Transaction,
+)
+from execution_testing.base_types.base_types import Number
+
+from tests.benchmark.stateful.helpers import (
+    StorageInitRange,
+    build_sequential_storage_init,
 )
 
 CURSOR_SLOT = 0
@@ -207,38 +214,83 @@ def plan_benchmark(
 
 def run_bal_benchmark(
     pre: Alloc,
+    fork: Fork,
     benchmark_test: BenchmarkTestFiller,
     contract_code: Bytecode,
-    contract_storage: Storage,
     plan: BenchmarkPlan,
+    tx_gas_limit: int,
+    authority: EOA,
+    storage_init_ranges: list[StorageInitRange] | None = None,
     data_slot_reads: list[int] | None = None,
     extra_expectations: (dict[Address, BalAccountExpectation] | None) = None,
 ) -> None:
-    """Deploy contract, create txs, BAL expectations, and run."""
-    contract = pre.deploy_contract(
-        code=contract_code, storage=contract_storage
-    )
+    """
+    Run a BAL benchmark using EIP-7702 delegated storage initialization.
 
+    Deploy the executor contract, optionally initialize the
+    *authority*'s storage via delegation, then delegate to the
+    executor and run the benchmark transactions.  The authority's
+    nonce is incremented in-place.
+    """
+    executor_addr = pre.deploy_contract(code=contract_code)
+
+    blocks: list[Block] = []
+
+    with TestPhaseManager.setup():
+        if storage_init_ranges:
+            blocks.extend(
+                build_sequential_storage_init(
+                    pre=pre,
+                    fork=fork,
+                    tx_gas_limit=tx_gas_limit,
+                    authority=authority,
+                    storage_init_ranges=storage_init_ranges,
+                )
+            )
+
+        # Delegate authority to executor
+        delegation_sender = pre.fund_eoa()
+        blocks.append(
+            Block(
+                txs=[
+                    Transaction(
+                        to=delegation_sender,
+                        gas_limit=tx_gas_limit,
+                        sender=delegation_sender,
+                        authorization_list=[
+                            AuthorizationTuple(
+                                address=executor_addr,
+                                nonce=authority.nonce,
+                                signer=authority,
+                            ),
+                        ],
+                    )
+                ]
+            )
+        )
+        authority.nonce = Number(authority.nonce + 1)
+
+    # Execution phase
     num_txs = len(plan.gas_limits)
     with TestPhaseManager.execution():
         sender = pre.fund_eoa()
         transactions = [
             Transaction(
                 sender=sender,
-                to=contract,
+                to=authority,
                 gas_limit=plan.gas_limits[i],
                 data=b"",
             )
             for i in range(num_txs)
         ]
 
-    # BAL expectations: contract slots + sender nonces.
+    # BAL expectations: authority slots + sender nonces.
     # Use validate_any_change for cursor — exact values depend
     # on gas dynamics and are verified by consensus test suites.
     # All txs share a single sender to prevent trivial per-sender
     # optimizations in BAL implementations.
     expectations: dict[Address, BalAccountExpectation] = {
-        contract: BalAccountExpectation(
+        authority: BalAccountExpectation(
             storage_reads=sorted(set(data_slot_reads or [])),
             storage_changes=[
                 BalStorageSlot(
@@ -260,12 +312,14 @@ def run_bal_benchmark(
     if extra_expectations:
         expectations.update(extra_expectations)
 
-    block = Block(
+    exec_block = Block(
         txs=transactions,
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations=expectations
         ),
     )
+
+    blocks.append(exec_block)
 
     # Post-state: only check sender nonce (sanity).
     # Exact storage values depend on gas dynamics and may be
@@ -275,5 +329,9 @@ def run_bal_benchmark(
     }
 
     benchmark_test(
-        pre=pre, post=post, blocks=[block], skip_gas_used_validation=True
+        pre=pre,
+        post=post,
+        blocks=blocks,
+        skip_gas_used_validation=True,
+        expected_receipt_status=1,
     )

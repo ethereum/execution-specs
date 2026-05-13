@@ -8,21 +8,21 @@ from ethereum.crypto.hash import keccak256
 from ethereum.forks.frontier.blocks import Block, Header
 from ethereum.forks.frontier.fork import BlockChain
 from ethereum.forks.frontier.fork_types import Account, Bloom
-from ethereum.forks.frontier.state import (
-    State,
-    set_account,
-    set_storage,
-    state_root,
-    store_code,
-)
-from ethereum.forks.frontier.trie import Trie, root
 from ethereum.forks.frontier.utils.hexadecimal import hex_to_address
 from ethereum.genesis import (
     GenesisFork,
     add_genesis_block,
     get_genesis_configuration,
 )
-from ethereum.state import Address
+from ethereum.merkle_patricia_trie import Trie, root
+from ethereum.state import (
+    Address,
+    State,
+    set_account,
+    set_storage,
+    state_root,
+    store_code,
+)
 from ethereum.utils.hexadecimal import hex_to_hash
 from ethereum_spec_tools.forks import Hardfork
 

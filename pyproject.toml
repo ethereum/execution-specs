@@ -225,7 +225,7 @@ actionlint = [
     "shellcheck-py>=0.10",
 ]
 doc = [
-    "docc>=0.5.1,<0.6.0",
+    "docc>=0.6.0,<0.7.0",
     "fladrif>=0.2.0,<0.3.0",
     "mistletoe>=1.5.0,<2",
 ]
@@ -273,6 +273,7 @@ whitelist = "ethereum_spec_tools.whitelist:main"
 [project.entry-points."docc.plugins"]
 "ethereum_spec_tools.docc.listing" = "ethereum_spec_tools.docc:EthereumListingDiscover"
 "ethereum_spec_tools.docc.discover" = "ethereum_spec_tools.docc:EthereumDiscover"
+"ethereum_spec_tools.docc.python" = "ethereum_spec_tools.docc:EthereumPythonDiscover"
 "ethereum_spec_tools.docc.build" = "ethereum_spec_tools.docc:EthereumBuilder"
 "ethereum_spec_tools.docc.fix-indexes" = "ethereum_spec_tools.docc:FixIndexTransform"
 "ethereum_spec_tools.docc.minimize-diffs" = "ethereum_spec_tools.docc:MinimizeDiffsTransform"
@@ -311,7 +312,7 @@ context = [
 discovery = [
     "docc.search.discover",
     "docc.html.discover",
-    "docc.python.discover",
+    "ethereum_spec_tools.docc.python",
     "ethereum_spec_tools.docc.discover",
     "ethereum_spec_tools.docc.listing",
     "docc.files.discover",
@@ -341,7 +342,7 @@ excluded_references = [
     "ethereum_spec_tools.lint.lints",   # This is a namespace package.
 ]
 
-[tool.docc.plugins."docc.python.discover"]
+[tool.docc.plugins."ethereum_spec_tools.docc.python"]
 paths = [
     "src",
 ]

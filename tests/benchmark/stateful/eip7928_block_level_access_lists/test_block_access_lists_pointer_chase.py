@@ -15,10 +15,10 @@ from execution_testing import (
     Bytecode,
     Fork,
     Op,
-    Storage,
 )
 
 from .helpers import (
+    StorageInitRange,
     cursor_read,
     gas_check_loop_contract,
     plan_benchmark,
@@ -64,6 +64,7 @@ def test_bal_max_pointer_chase(
     benchmark_test: BenchmarkTestFiller,
     fork: Fork,
     gas_benchmark_value: int,
+    tx_gas_limit: int,
 ) -> None:
     """Test BAL with maximum dependent pointer-chasing SLOADs."""
     body_gas = _chase_body().gas_cost(fork)
@@ -74,14 +75,15 @@ def test_bal_max_pointer_chase(
         gas_benchmark_value=gas_benchmark_value,
     )
     total = plan.total_iterations
-    storage = Storage(
-        {i: i + 1 for i in range(total + 1)}  # type: ignore
-    )
+    authority = pre.fund_eoa(amount=0)
     run_bal_benchmark(
         pre=pre,
+        fork=fork,
         benchmark_test=benchmark_test,
         contract_code=create_pointer_chase_contract(plan.gas_threshold),
-        contract_storage=storage,
         plan=plan,
+        tx_gas_limit=tx_gas_limit,
+        authority=authority,
+        storage_init_ranges=[StorageInitRange(0, total + 1, 1)],
         data_slot_reads=list(range(1, total + 1)),
     )

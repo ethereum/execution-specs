@@ -21,12 +21,11 @@ from execution_testing import (
 )
 from py_ecc import optimized_bls12_381 as bls_curve
 
+from tests.benchmark.compute.helpers import Precompile
 from tests.prague.eip2537_bls_12_381_precompiles import spec as bls12381_spec
 from tests.prague.eip2537_bls_12_381_precompiles.spec import (
     build_gas_calculation_function_map,
 )
-
-from ..helpers import Precompile, concatenate_parameters
 
 
 @pytest.mark.parametrize(
@@ -34,90 +33,59 @@ from ..helpers import Precompile, concatenate_parameters
     [
         pytest.param(
             bls12381_spec.Spec.G1ADD,
-            concatenate_parameters(
-                [
-                    bls12381_spec.Spec.G1,
-                    bls12381_spec.Spec.P1,
-                ]
-            ),
+            bls12381_spec.Spec.G1 + bls12381_spec.Spec.P1,
             Precompile.BLS12_G1ADD,
             id="bls12_g1add",
             marks=pytest.mark.repricing,
         ),
         pytest.param(
             bls12381_spec.Spec.G1MSM,
-            concatenate_parameters(
-                [
-                    (
-                        bls12381_spec.Spec.P1
-                        + bls12381_spec.Scalar(bls12381_spec.Spec.Q)
-                    )
-                    * (len(bls12381_spec.Spec.G1MSM_DISCOUNT_TABLE) - 1),
-                ]
-            ),
+            (
+                bls12381_spec.Spec.P1
+                + bls12381_spec.Scalar(bls12381_spec.Spec.Q)
+            )
+            * (len(bls12381_spec.Spec.G1MSM_DISCOUNT_TABLE) - 1),
             Precompile.BLS12_G1MSM,
             id="bls12_g1msm",
         ),
         pytest.param(
             bls12381_spec.Spec.G2ADD,
-            concatenate_parameters(
-                [
-                    bls12381_spec.Spec.G2,
-                    bls12381_spec.Spec.P2,
-                ]
-            ),
+            bls12381_spec.Spec.G2 + bls12381_spec.Spec.P2,
             Precompile.BLS12_G2ADD,
             id="bls12_g2add",
             marks=pytest.mark.repricing,
         ),
         pytest.param(
             bls12381_spec.Spec.G2MSM,
-            concatenate_parameters(
-                [
-                    # TODO: the //2 is required due to a limitation of the max
-                    # contract size limit. In a further iteration we can insert
-                    # inputs as calldata or storage and avoid doing PUSHes
-                    # which has this limitation. This also applies to G1MSM.
-                    (
-                        bls12381_spec.Spec.P2
-                        + bls12381_spec.Scalar(bls12381_spec.Spec.Q)
-                    )
-                    * (len(bls12381_spec.Spec.G2MSM_DISCOUNT_TABLE) // 2),
-                ]
-            ),
+            # TODO: the //2 is required due to a limitation of the max
+            # contract size limit. In a further iteration we can insert
+            # inputs as calldata or storage and avoid doing PUSHes which
+            # has this limitation. This also applies to G1MSM.
+            (
+                bls12381_spec.Spec.P2
+                + bls12381_spec.Scalar(bls12381_spec.Spec.Q)
+            )
+            * (len(bls12381_spec.Spec.G2MSM_DISCOUNT_TABLE) // 2),
             Precompile.BLS12_G2MSM,
             id="bls12_g2msm",
         ),
         pytest.param(
             bls12381_spec.Spec.PAIRING,
-            concatenate_parameters(
-                [
-                    bls12381_spec.Spec.G1,
-                    bls12381_spec.Spec.G2,
-                ]
-            ),
+            bls12381_spec.Spec.G1 + bls12381_spec.Spec.G2,
             Precompile.BLS12_PAIRING,
             id="bls12_pairing_check",
         ),
         pytest.param(
             bls12381_spec.Spec.MAP_FP_TO_G1,
-            concatenate_parameters(
-                [
-                    bls12381_spec.FP(bls12381_spec.Spec.P - 1),
-                ]
-            ),
+            bls12381_spec.FP(bls12381_spec.Spec.P - 1),
             Precompile.BLS12_MAP_FP_TO_G1,
             id="bls12_fp_to_g1",
             marks=pytest.mark.repricing,
         ),
         pytest.param(
             bls12381_spec.Spec.MAP_FP2_TO_G2,
-            concatenate_parameters(
-                [
-                    bls12381_spec.FP2(
-                        (bls12381_spec.Spec.P - 1, bls12381_spec.Spec.P - 1)
-                    ),
-                ]
+            bls12381_spec.FP2(
+                (bls12381_spec.Spec.P - 1, bls12381_spec.Spec.P - 1)
             ),
             Precompile.BLS12_MAP_FP2_TO_G2,
             id="bls12_fp_to_g2",
@@ -309,19 +277,19 @@ def _generate_bls12_pairs(n: int, seed: int = 0) -> Bytes:
 
 def _g1add_calldata(seed: int) -> Bytes:
     """Generate G1ADD calldata with unique first point."""
-    return Bytes(_generate_bls12_g1_point(seed) + bytes(bls12381_spec.Spec.P1))
+    return Bytes(_generate_bls12_g1_point(seed) + bls12381_spec.Spec.P1)
 
 
 def _g2add_calldata(seed: int) -> Bytes:
     """Generate G2ADD calldata with unique first point."""
-    return Bytes(_generate_bls12_g2_point(seed) + bytes(bls12381_spec.Spec.P2))
+    return Bytes(_generate_bls12_g2_point(seed) + bls12381_spec.Spec.P2)
 
 
 def _g1msm_calldata(seed: int) -> Bytes:
     """Generate G1MSM calldata with unique point."""
     return Bytes(
         _generate_bls12_g1_point(seed)
-        + bytes(bls12381_spec.Scalar(bls12381_spec.Spec.Q))
+        + bls12381_spec.Scalar(bls12381_spec.Spec.Q)
     )
 
 
@@ -329,7 +297,7 @@ def _g2msm_calldata(seed: int) -> Bytes:
     """Generate G2MSM calldata with unique point."""
     return Bytes(
         _generate_bls12_g2_point(seed)
-        + bytes(bls12381_spec.Scalar(bls12381_spec.Spec.Q))
+        + bls12381_spec.Scalar(bls12381_spec.Spec.Q)
     )
 
 

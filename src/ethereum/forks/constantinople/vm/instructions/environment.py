@@ -13,10 +13,10 @@ Implementations of the EVM environment related instructions.
 
 from ethereum_types.numeric import U256, Uint, ulen
 
+from ethereum.state import EMPTY_ACCOUNT
 from ethereum.utils.numeric import ceil32
 
-from ...fork_types import EMPTY_ACCOUNT
-from ...state import get_account, get_code
+from ...state_tracker import get_account, get_code
 from ...utils.address import to_address_masked
 from ...vm.memory import buffer_read, memory_write
 from .. import Evm
@@ -70,7 +70,8 @@ def balance(evm: Evm) -> None:
 
     # OPERATION
     # Non-existent accounts default to EMPTY_ACCOUNT, which has balance 0.
-    balance = get_account(evm.message.block_env.state, address).balance
+    tx_state = evm.message.tx_env.state
+    balance = get_account(tx_state, address).balance
 
     push(evm.stack, balance)
 
@@ -336,8 +337,9 @@ def extcodesize(evm: Evm) -> None:
     charge_gas(evm, GasCosts.OPCODE_EXTERNAL_BASE)
 
     # OPERATION
-    account = get_account(evm.message.block_env.state, address)
-    code = get_code(evm.message.block_env.state, account.code_hash)
+    tx_state = evm.message.tx_env.state
+    account = get_account(tx_state, address)
+    code = get_code(tx_state, account.code_hash)
 
     codesize = U256(len(code))
     push(evm.stack, codesize)
@@ -375,8 +377,9 @@ def extcodecopy(evm: Evm) -> None:
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
-    account = get_account(evm.message.block_env.state, address)
-    code = get_code(evm.message.block_env.state, account.code_hash)
+    tx_state = evm.message.tx_env.state
+    account = get_account(tx_state, address)
+    code = get_code(tx_state, account.code_hash)
 
     value = buffer_read(code, code_start_index, size)
     memory_write(evm.memory, memory_start_index, value)
@@ -465,7 +468,7 @@ def extcodehash(evm: Evm) -> None:
     charge_gas(evm, GasCosts.OPCODE_EXTCODEHASH)
 
     # OPERATION
-    account = get_account(evm.message.block_env.state, address)
+    account = get_account(evm.message.tx_env.state, address)
 
     if account == EMPTY_ACCOUNT:
         codehash = U256(0)

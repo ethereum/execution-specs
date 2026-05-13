@@ -1,7 +1,7 @@
 # Unless filling for special features, all features should fill for previous forks (starting from Frontier) too
 mainnet:
   evm-type: eels
-  fill-params: --until=BPO2
+  fill-params: --until=BPO2 --generate-all-formats
 
 benchmark:
   evm-type: benchmark

@@ -18,8 +18,9 @@ from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U256, Uint
 
 from ethereum.crypto.hash import Hash32
+from ethereum.state import Address, Root
 
-from .fork_types import Address, Bloom, Root
+from .fork_types import Bloom
 from .transactions import (
     AccessListTransaction,
     FeeMarketTransaction,
@@ -69,13 +70,14 @@ class Header:
     Root hash ([`keccak256`]) of the state trie after executing all
     transactions in this block. It represents the state of the Ethereum Virtual
     Machine (EVM) after all transactions in this block have been processed. It
-    is computed using the [`state_root()`] function, which computes the root
-    of the Merkle-Patricia [Trie] representing the Ethereum world state.
+    is computed using [`compute_state_root_and_trie_changes()`][changes],
+    which computes the root of the Merkle-Patricia [Trie] representing the
+    Ethereum world state after applying the block's state changes.
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
-    [`state_root()`]: ref:ethereum.forks.arrow_glacier.state.state_root
-    [Trie]: ref:ethereum.forks.arrow_glacier.trie.Trie
-    """
+    [changes]: ref:ethereum.state.State.compute_state_root_and_trie_changes
+    [Trie]: ref:ethereum.merkle_patricia_trie.Trie
+    """  # noqa: E501
 
     transactions_root: Root
     """
@@ -85,8 +87,8 @@ class Header:
     transactions as the parameter.
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
-    [`root()`]: ref:ethereum.forks.arrow_glacier.trie.root
-    [Trie]: ref:ethereum.forks.arrow_glacier.trie.Trie
+    [`root()`]: ref:ethereum.merkle_patricia_trie.root
+    [Trie]: ref:ethereum.merkle_patricia_trie.Trie
     """
 
     receipt_root: Root
@@ -96,8 +98,8 @@ class Header:
     function over the Merkle-Patricia [trie] constructed from the receipts.
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
-    [`root()`]: ref:ethereum.forks.arrow_glacier.trie.root
-    [Trie]: ref:ethereum.forks.arrow_glacier.trie.Trie
+    [`root()`]: ref:ethereum.merkle_patricia_trie.root
+    [Trie]: ref:ethereum.merkle_patricia_trie.Trie
     """
 
     bloom: Bloom

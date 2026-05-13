@@ -20,7 +20,7 @@ from ethereum.state import Address
 from ethereum.trace import GasAndRefund, evm_trace
 from ethereum.utils.numeric import ceil32
 
-from ..state import State, account_exists
+from ..state_tracker import TransactionState, account_exists
 from . import Evm
 from .exceptions import OutOfGasError
 
@@ -266,7 +266,7 @@ def calculate_gas_extend_memory(
 
 
 def calculate_message_call_gas(
-    state: State, gas: Uint, to: Address, value: U256
+    state: TransactionState, gas: Uint, to: Address, value: U256
 ) -> MessageCallGas:
     """
     Calculates the gas amount for executing Opcodes `CALL` and `CALLCODE`.
