@@ -28,6 +28,7 @@ from execution_testing import (
     Initcode,
     Op,
     Transaction,
+    TransactionException,
     add_kzg_version,
     compute_create_address,
 )
@@ -2376,18 +2377,27 @@ def test_bal_cross_tx_deploy_then_call(
     )
 
 
+@pytest.mark.parametrize(
+    "funding_method",
+    ["direct_call", "selfdestruct"],
+)
 def test_bal_cross_tx_balance_dependency(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    funding_method: str,
 ) -> None:
     """
     Verify clients apply Tx1's balance change before executing Tx2 in
-    the same block. Tx1 sends value to a contract; Tx2 invokes the
+    the same block. Tx1 routes value into a contract; Tx2 invokes the
     contract which records its `SELFBALANCE` to storage. A client that
     parallelizes Tx2 without applying Tx1's `balance_changes` would
-    record the pre-block balance, yielding a different state root.
+    record the pre-block balance, yielding a different state root. The
+    `selfdestruct` variant routes the funds via SELFDESTRUCT from a
+    pre-funded killer contract so the recipient's bytecode never runs
+    in Tx1 — catching any client optimization that ties balance
+    tracking to code execution.
     """
-    transferred = 10**18
+    transferred = 1
     alice = pre.fund_eoa()
     bob = pre.fund_eoa()
 
@@ -2401,12 +2411,34 @@ def test_bal_cross_tx_balance_dependency(
         ),
     )
 
-    tx_send = Transaction(
-        sender=alice,
-        to=contract,
-        value=transferred,
-        gas_limit=100_000,
-    )
+    if funding_method == "direct_call":
+        tx_send = Transaction(
+            sender=alice,
+            to=contract,
+            value=transferred,
+            gas_limit=100_000,
+        )
+        send_expectations: dict = {}
+    elif funding_method == "selfdestruct":
+        killer = pre.deploy_contract(
+            code=Op.SELFDESTRUCT(contract),
+            balance=transferred,
+        )
+        tx_send = Transaction(
+            sender=alice,
+            to=killer,
+            gas_limit=100_000,
+        )
+        send_expectations = {
+            killer: BalAccountExpectation(
+                balance_changes=[
+                    BalBalanceChange(block_access_index=1, post_balance=0),
+                ],
+            ),
+        }
+    else:
+        raise ValueError(f"unknown funding_method: {funding_method}")
+
     tx_read = Transaction(
         sender=bob,
         to=contract,
@@ -2432,6 +2464,7 @@ def test_bal_cross_tx_balance_dependency(
                 ),
             ],
         ),
+        **send_expectations,
     }
 
     blockchain_test(
@@ -2451,26 +2484,36 @@ def test_bal_cross_tx_balance_dependency(
 
 
 @pytest.mark.parametrize(
-    "eunice_oog",
-    [False, True],
-    ids=["success", "oog_minus_1"],
+    "eunice_outcome",
+    [
+        pytest.param("success", id="success"),
+        pytest.param("oog_minus_1", id="oog_minus_1"),
+        pytest.param(
+            "insufficient_funds",
+            id="insufficient_funds",
+            marks=pytest.mark.exception_test,
+        ),
+    ],
 )
 def test_bal_cross_tx_funding_chain(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
     fork: Fork,
-    eunice_oog: bool,
+    eunice_outcome: str,
 ) -> None:
     """
     Funding chain: alice → bob → charlie → dan → eunice → target. Each
     intermediate starts empty and must receive the prior tx's forwarded
     value to afford its own upfront gas + outgoing transfer. A client
     that parallelizes any later tx against pre-block state would see a
-    zero balance on its sender and wrongly reject the block. In
-    `oog_minus_1`, eunice's tx is funded with exactly `gas_limit - 1`
-    worth of gas so the SSTORE OOGs at the boundary: the funding chain
-    must still resolve, eunice's nonce and balance updates persist, but
-    the target sees a `storage_reads` entry instead of a write.
+    zero balance on its sender and wrongly reject the block. The
+    `oog_minus_1` variant funds eunice with exactly `gas_limit - 1`
+    worth of gas so her SSTORE OOGs at the boundary (target's BAL flips
+    from `storage_changes` to `storage_reads`). The `insufficient_funds`
+    variant has dan forward one wei short of eunice's `gas_limit *
+    gas_price`, so eunice's tx is rejected pre-execution and the entire
+    block MUST be rejected with `INSUFFICIENT_ACCOUNT_FUNDS` — a sanity
+    check on the off-by-one boundary of the upfront balance check.
     """
     gas_price = 0xA
 
@@ -2482,13 +2525,23 @@ def test_bal_cross_tx_funding_chain(
     intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
     intrinsic_gas = intrinsic_calc()
     eunice_exact_gas = intrinsic_gas + target_code.gas_cost(fork)
-    eunice_gas_limit = eunice_exact_gas - 1 if eunice_oog else eunice_exact_gas
+    eunice_gas_limit = (
+        eunice_exact_gas - 1
+        if eunice_outcome == "oog_minus_1"
+        else eunice_exact_gas
+    )
     eunice_upfront = eunice_gas_limit * gas_price
     transfer_cost = intrinsic_gas * gas_price
 
-    # Each sender (including alice) receives or starts with exactly what
-    # the next forward + its own gas demands; everyone ends at zero.
-    dan_value = eunice_upfront
+    # Each sender (including alice) starts with or receives exactly what
+    # the next forward + its own gas demands; everyone ends at zero in
+    # the success/oog variants. `insufficient_funds` shorts eunice by
+    # one wei via dan, leaving her unable to cover upfront gas.
+    dan_value = (
+        eunice_upfront - 1
+        if eunice_outcome == "insufficient_funds"
+        else eunice_upfront
+    )
     charlie_value = transfer_cost + dan_value
     bob_value = transfer_cost + charlie_value
     alice_value = transfer_cost + bob_value
@@ -2499,6 +2552,12 @@ def test_bal_cross_tx_funding_chain(
     charlie = pre.fund_eoa(amount=0)
     dan = pre.fund_eoa(amount=0)
     eunice = pre.fund_eoa(amount=0)
+
+    eunice_error = (
+        TransactionException.INSUFFICIENT_ACCOUNT_FUNDS
+        if eunice_outcome == "insufficient_funds"
+        else None
+    )
 
     txs = [
         Transaction(
@@ -2534,10 +2593,26 @@ def test_bal_cross_tx_funding_chain(
             to=target,
             gas_limit=eunice_gas_limit,
             gas_price=gas_price,
+            error=eunice_error,
         ),
     ]
 
-    if eunice_oog:
+    if eunice_outcome == "insufficient_funds":
+        blockchain_test(
+            pre=pre,
+            blocks=[
+                Block(
+                    txs=txs,
+                    exception=(
+                        TransactionException.INSUFFICIENT_ACCOUNT_FUNDS
+                    ),
+                )
+            ],
+            post={},
+        )
+        return
+
+    if eunice_outcome == "oog_minus_1":
         target_bal = BalAccountExpectation(
             storage_reads=[0],
             nonce_changes=[],
@@ -2546,7 +2621,7 @@ def test_bal_cross_tx_funding_chain(
             storage_changes=[],
         )
         target_post = Account(storage={})
-    else:
+    elif eunice_outcome == "success":
         target_bal = BalAccountExpectation(
             storage_changes=[
                 BalStorageSlot(
@@ -2564,6 +2639,8 @@ def test_bal_cross_tx_funding_chain(
             storage_reads=[],
         )
         target_post = Account(storage={0: 0xC0FFEE})
+    else:
+        raise ValueError(f"unknown eunice_outcome: {eunice_outcome}")
 
     account_expectations = {
         alice: BalAccountExpectation(
