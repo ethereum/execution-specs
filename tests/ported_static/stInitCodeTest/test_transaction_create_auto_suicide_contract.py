@@ -3,6 +3,10 @@ Test_transaction_create_auto_suicide_contract.
 
 Ported from:
 state_tests/stInitCodeTest/TransactionCreateAutoSuicideContractFiller.json
+@manually-enhanced: Do not overwrite. tx `gas_limit` and sender balance
+bumped on Amsterdam to cover EIP-8037 TX_CREATE intrinsic (new-account
+state-gas folded in); pre-EIP-8037 unchanged.
+
 """
 
 import pytest
@@ -15,6 +19,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -31,8 +36,16 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_transaction_create_auto_suicide_contract(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_transaction_create_auto_suicide_contract."""
+    # EIP-8037 folds new-account state-gas into TX_CREATE intrinsic.
+    tx_gas_limit = 55000
+    sender_balance = 1000000
+    if fork.is_eip_enabled(8037):
+        tx_gas_limit = 300_000
+        sender_balance = 10000000
+
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
@@ -47,7 +60,7 @@ def test_transaction_create_auto_suicide_contract(
         gas_limit=1000000,
     )
 
-    pre[sender] = Account(balance=0xF4240)
+    pre[sender] = Account(balance=sender_balance)
 
     tx = Transaction(
         sender=sender,
@@ -61,7 +74,7 @@ def test_transaction_create_auto_suicide_contract(
         + Op.PUSH1[0x0]
         + Op.BYTE(Op.DUP2, Op.CALLDATALOAD(offset=Op.DUP1))
         + Op.DUP2,
-        gas_limit=55000,
+        gas_limit=tx_gas_limit,
         value=15,
     )
 

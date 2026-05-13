@@ -488,7 +488,7 @@ def test_modexp_uncachable(
     attack_block = Op.POP(
         Op.STATICCALL(
             gas=Op.GAS,
-            address=0x05,
+            address=Spec.MODEXP_ADDRESS,
             args_size=Op.CALLDATASIZE,
             ret_offset=96,
             ret_size=base_length,

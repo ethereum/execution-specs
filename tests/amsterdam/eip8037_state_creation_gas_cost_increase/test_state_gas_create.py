@@ -2095,7 +2095,7 @@ def test_selfdestruct_in_create_tx_initcode(
         calldata=bytes(initcode), contract_creation=True
     )
 
-    expected_state = create_state_gas
+    expected_state = create_state_gas + gas_costs.NEW_ACCOUNT
 
     initcode_gas = initcode.gas_cost(fork)
     gas_limit = intrinsic_total + initcode_gas + gas_costs.NEW_ACCOUNT + 1000

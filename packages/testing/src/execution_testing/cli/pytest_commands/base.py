@@ -1,5 +1,6 @@
 """Base classes and utilities for pytest-based CLI commands."""
 
+import os
 import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -57,6 +58,15 @@ class PytestRunner:
     console: Console = field(default_factory=lambda: Console(highlight=False))
     """Console to use for output."""
 
+    error_console: Console = field(
+        default_factory=lambda: Console(stderr=True, highlight=False)
+    )
+    """Console for diagnostic output.
+
+    Written to stderr so it doesn't pollute stdout captures such as the
+    `fill --help` subprocess in `docs/scripts/generate_fill_help.py`.
+    """
+
     def run_single(self, execution: PytestExecution) -> int:
         """Run pytest once with the given configuration and arguments."""
         root_dir_arg = ["--rootdir", "."]
@@ -75,9 +85,15 @@ class PytestRunner:
                 "execution_testing.cli."
                 "pytest_commands.plugins.fix_package_test_path",
             ]
-        if self._is_verbose(execution.args):
+        if self._is_verbose(execution.args) or "CI" in os.environ:
             pytest_cmd = f"pytest {' '.join(pytest_args)}"
-            self.console.print(f"Executing: [bold]{pytest_cmd}[/bold]")
+            self.error_console.print(f"Executing: [bold]{pytest_cmd}[/bold]")
+            summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+            if summary_path:
+                with Path(summary_path).open("a") as summary:
+                    summary.write(
+                        f"### Executing\n\n```bash\n{pytest_cmd}\n```\n\n"
+                    )
 
         return pytest.main(pytest_args)
 

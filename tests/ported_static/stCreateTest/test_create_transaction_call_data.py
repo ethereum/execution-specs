@@ -5,6 +5,10 @@ call data is always empty in initcode context and "code" is initcode.
 
 Ported from:
 state_tests/stCreateTest/CreateTransactionCallDataFiller.yml
+
+@manually-enhanced: Do not overwrite. tx_gas was raised from 100 000 to
+500 000 so the CREATE path can afford its EIP-8037 NEW_ACCOUNT state
+gas on Amsterdam (post-state expectations are unchanged on all forks).
 """
 
 import pytest
@@ -111,7 +115,12 @@ def test_create_transaction_call_data(
         Op.CODECOPY(dest_offset=Op.DUP1, offset=0x0, size=Op.CODESIZE)
         + Op.RETURN(offset=0x0, size=Op.CODESIZE),
     ]
-    tx_gas = [100000]
+    # EIP-8037 NEW_ACCOUNT + per-byte state-gas spill on Amsterdam;
+    # pre-EIP-8037 keeps the original 100 000 budget.
+    outer_tx_gas = 100_000
+    if fork.is_eip_enabled(8037):
+        outer_tx_gas = 500_000
+    tx_gas = [outer_tx_gas]
 
     tx = Transaction(
         sender=sender,

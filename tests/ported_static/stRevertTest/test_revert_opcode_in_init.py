@@ -3,6 +3,10 @@ TODO revertOpcodeInInit followed by OOG.
 
 Ported from:
 state_tests/stRevertTest/RevertOpcodeInInitFiller.json
+
+@manually-enhanced: Do not overwrite. tx gas budget bumped
+for EIP-8037 NEW_ACCOUNT state-gas headroom on Amsterdam (post-state
+expectations are unchanged on all forks).
 """
 
 import pytest
@@ -69,7 +73,12 @@ def test_revert_opcode_in_init(
         + Op.REVERT(offset=0x0, size=0x1)
         + Op.SSTORE(key=0x1, value=0x11),
     ]
-    tx_gas = [160000]
+    # EIP-8037 NEW_ACCOUNT + init-code state-gas spill on Amsterdam;
+    # pre-EIP-8037 keeps the original 160 000 budget.
+    outer_tx_gas = 160_000
+    if fork.is_eip_enabled(8037):
+        outer_tx_gas = 800_000
+    tx_gas = [outer_tx_gas]
     tx_value = [0, 10]
 
     tx = Transaction(

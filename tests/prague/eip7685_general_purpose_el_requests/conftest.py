@@ -97,8 +97,8 @@ def blocks(
     # Single block therefore base fee
     withdrawal_request_fee = 1
     consolidation_request_fee = 1
-    for r in requests:
-        r.update_pre(pre)
+    prepared = [r.update_pre(pre) for r in requests]
+    for r in prepared:
         if isinstance(r, DepositInteractionBase):
             valid_requests_list += r.valid_requests(10**18)
         elif isinstance(r, WithdrawalRequestInteractionBase):
@@ -115,7 +115,7 @@ def blocks(
         )
     return [
         Block(
-            txs=sum((r.transactions() for r in requests), []),
+            txs=sum((r.transactions() for r in prepared), []),
             header_verify=Header(requests_hash=valid_requests),
             requests=block_body_override_requests,
             exception=exception,

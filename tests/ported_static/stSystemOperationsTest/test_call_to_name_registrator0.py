@@ -3,6 +3,10 @@ Test_call_to_name_registrator0.
 
 Ported from:
 state_tests/stSystemOperationsTest/CallToNameRegistrator0Filler.json
+@manually-enhanced: Do not overwrite. Gas bumped fork-conditionally
+to cover EIP-8037 state-gas spill into regular gas; pre-EIP-8037
+behavior unchanged.
+
 """
 
 import pytest
@@ -15,6 +19,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,8 +34,14 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_call_to_name_registrator0(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_call_to_name_registrator0."""
+    # EIP-8037 gas bumps: original values for pre-EIP-8037 forks.
+    inner_call_gas = 100000
+    if fork.is_eip_enabled(8037):
+        inner_call_gas = 1000000
+
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
@@ -72,7 +83,7 @@ def test_call_to_name_registrator0(
         + Op.SSTORE(
             key=0x0,
             value=Op.CALL(
-                gas=0x186A0,
+                gas=inner_call_gas,
                 address=addr,
                 value=0x17,
                 args_offset=0x0,

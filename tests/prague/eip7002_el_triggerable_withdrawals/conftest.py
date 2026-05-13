@@ -10,6 +10,7 @@ from execution_testing import (
     Fork,
     Header,
     Requests,
+    TransitionFork,
 )
 
 from .helpers import (
@@ -20,23 +21,27 @@ from .spec import Spec
 
 
 @pytest.fixture
-def update_pre(
+def prepared_blocks_withdrawal_requests(
     pre: Alloc,
     blocks_withdrawal_requests: List[List[WithdrawalRequestInteractionBase]],
-) -> None:
+) -> List[List[WithdrawalRequestInteractionBase]]:
     """
-    Init state of the accounts. Every deposit transaction defines their own
-    pre-state requirements, and this fixture aggregates them all.
+    Allocate accounts/contracts for each interaction in `pre` and return
+    copies with the allocated state populated. The parametrize value
+    `blocks_withdrawal_requests` is not mutated, so it stays pristine across
+    fixture format runs.
     """
-    for requests in blocks_withdrawal_requests:
-        for r in requests:
-            r.update_pre(pre)
+    return [
+        [r.update_pre(pre) for r in block_requests]
+        for block_requests in blocks_withdrawal_requests
+    ]
 
 
 @pytest.fixture
 def included_requests(
-    update_pre: None,  # Fixture is used for its side effects
-    blocks_withdrawal_requests: List[List[WithdrawalRequestInteractionBase]],
+    prepared_blocks_withdrawal_requests: List[
+        List[WithdrawalRequestInteractionBase]
+    ],
 ) -> List[List[WithdrawalRequest]]:
     """
     Return the list of withdrawal requests that should be included in each
@@ -45,7 +50,7 @@ def included_requests(
     excess_withdrawal_requests = 0
     carry_over_requests: List[WithdrawalRequest] = []
     per_block_included_requests: List[List[WithdrawalRequest]] = []
-    for block_withdrawal_requests in blocks_withdrawal_requests:
+    for block_withdrawal_requests in prepared_blocks_withdrawal_requests:
         # Get fee for the current block
         current_minimum_fee = Spec.get_fee(excess_withdrawal_requests)
 
@@ -88,9 +93,10 @@ def timestamp() -> int:
 
 @pytest.fixture
 def blocks(
-    fork: Fork,
-    update_pre: None,  # Fixture is used for its side effects
-    blocks_withdrawal_requests: List[List[WithdrawalRequestInteractionBase]],
+    fork: Fork | TransitionFork,
+    prepared_blocks_withdrawal_requests: List[
+        List[WithdrawalRequestInteractionBase]
+    ],
     included_requests: List[List[WithdrawalRequest]],
     timestamp: int,
 ) -> List[Block]:
@@ -98,7 +104,7 @@ def blocks(
     blocks: List[Block] = []
 
     for block_requests, block_included_requests in zip_longest(  # type: ignore
-        blocks_withdrawal_requests,
+        prepared_blocks_withdrawal_requests,
         included_requests,
         fillvalue=[],
     ):

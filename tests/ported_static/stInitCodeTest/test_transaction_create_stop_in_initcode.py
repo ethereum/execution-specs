@@ -3,6 +3,9 @@ Test_transaction_create_stop_in_initcode.
 
 Ported from:
 state_tests/stInitCodeTest/TransactionCreateStopInInitcodeFiller.json
+@manually-enhanced: Do not overwrite. tx `gas_limit` bumped on Amsterdam
+above intrinsic+state-gas; pre-EIP-8037 unchanged.
+
 """
 
 import pytest
@@ -15,6 +18,7 @@ from execution_testing import (
     Transaction,
     compute_create_address,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -28,10 +32,18 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_transaction_create_stop_in_initcode(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_transaction_create_stop_in_initcode."""
+    # EIP-8037 folds new-account state-gas into TX_CREATE intrinsic.
+    tx_gas_limit = 55000
+    sender_balance = 1000000
+    if fork.is_eip_enabled(8037):
+        tx_gas_limit = 300_000
+        sender_balance = 10000000
+
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xF4240)
+    sender = pre.fund_eoa(amount=sender_balance)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -55,7 +67,7 @@ def test_transaction_create_stop_in_initcode(
         + Op.PUSH1[0x0]
         + Op.BYTE(Op.DUP2, Op.CALLDATALOAD(offset=Op.DUP1))
         + Op.DUP2,
-        gas_limit=55000,
+        gas_limit=tx_gas_limit,
         value=1,
     )
 

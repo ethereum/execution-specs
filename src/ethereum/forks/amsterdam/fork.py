@@ -73,6 +73,7 @@ from .state_tracker import (
     BlockState,
     TransactionState,
     account_exists_and_is_empty,
+    create_ether,
     destroy_account,
     extract_block_diff,
     get_account,
@@ -754,14 +755,14 @@ def process_checked_system_transaction(
         Output of processing the system transaction.
 
     """
-    # Read through BlockState (not pre-state) so that a system contract
-    # deployed by an earlier transaction in the same block is visible.
-    # See EIP-7002 and EIP-7251 for this edge case.
-    #
-    # This read is not recorded in the state tracker.
-    # However, this is fine because `process_unchecked_system_transaction`
-    # does its own get_account on the TransactionState that we do incorporate
-    # into BlockState.
+    # Pre-check that the system contract has code. We use a throwaway
+    # TransactionState here that is *never* propagated back to BlockState
+    # (no incorporate_tx_into_block call); the same get_account / get_code
+    # lookups are performed and properly tracked by
+    # process_unchecked_system_transaction below, which this function
+    # always calls. Reading via a TransactionState (rather than directly
+    # against pre_state) lets us see system contracts deployed earlier in
+    # the same block — see EIP-7002 and EIP-7251 for this edge case.
     untracked_state = TransactionState(parent=block_env.state)
     system_contract_code = get_code(
         untracked_state,
@@ -1127,50 +1128,6 @@ def process_transaction(
             )
             tx_output.state_gas_left += new_account_refund
             tx_output.state_refund += new_account_refund
-    else:
-        # Refund state gas for accounts created and destroyed in the
-        # same tx (EIP-6780). Covers account, storage, and code.
-        new_account_refund = STATE_BYTES_PER_NEW_ACCOUNT * COST_PER_STATE_BYTE
-        for address in tx_output.accounts_to_delete:
-            if address in tx_state.created_accounts:
-                storage = tx_state.storage_writes.get(address, {})
-                created_slots = sum(1 for v in storage.values() if v != 0)
-                non_account_refund = (
-                    Uint(created_slots)
-                    * STATE_BYTES_PER_STORAGE_SET
-                    * COST_PER_STATE_BYTE
-                )
-                # EIP-6780 defers account/storage/code removal to
-                # tx-end, so `account.code_hash` still points at the
-                # deployed code here and `get_code` returns it
-                # pre-deletion.
-                account = get_account(tx_state, address)
-                code = get_code(tx_state, account.code_hash, address)
-                non_account_refund += ulen(code) * COST_PER_STATE_BYTE
-
-                tx_created_target = (
-                    tx.to == Bytes0(b"") and address == message.current_target
-                )
-                if tx_created_target:
-                    # NEW_ACCOUNT was paid via intrinsic, not via
-                    # state_gas_used. Refund through state_refund so
-                    # tx-level accounting subtracts it from
-                    # tx_state_gas at block aggregation.
-                    tx_output.state_refund += new_account_refund
-                    selfdestruct_refund = non_account_refund
-                else:
-                    # Inner CREATE: NEW_ACCOUNT was charged via the
-                    # parent's execution state_gas_used, so refund
-                    # through the same channel (clamped below).
-                    selfdestruct_refund = (
-                        new_account_refund + non_account_refund
-                    )
-
-                selfdestruct_refund = min(
-                    selfdestruct_refund, tx_output.state_gas_used
-                )
-                tx_output.state_gas_left += selfdestruct_refund
-                tx_output.state_gas_used -= selfdestruct_refund
 
     tx_gas_used_before_refund = (
         tx.gas - tx_output.gas_left - tx_output.state_gas_left
@@ -1287,9 +1244,7 @@ def process_withdrawals(
             rlp.encode(wd),
         )
 
-        current_balance = get_account(wd_state, wd.address).balance
-        new_balance = current_balance + wd.amount * GWEI_TO_WEI
-        set_account_balance(wd_state, wd.address, new_balance)
+        create_ether(wd_state, wd.address, wd.amount * GWEI_TO_WEI)
 
     incorporate_tx_into_block(wd_state, block_env.block_access_list_builder)
 

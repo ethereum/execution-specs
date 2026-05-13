@@ -31,13 +31,13 @@ from ethereum.trace import (
 )
 
 from ..blocks import Log
-from ..state import (
+from ..state_tracker import (
     account_has_code_or_nonce,
     account_has_storage,
-    begin_transaction,
-    commit_transaction,
+    copy_tx_state,
+    destroy_storage,
     move_ether,
-    rollback_transaction,
+    restore_tx_state,
     set_code,
     touch_account,
 )
@@ -94,12 +94,12 @@ def process_message_call(message: Message) -> MessageCallOutput:
         Output of the message call
 
     """
-    block_env = message.block_env
+    tx_state = message.tx_env.state
     refund_counter = U256(0)
     if message.target == Bytes0(b""):
         is_collision = account_has_code_or_nonce(
-            block_env.state, message.current_target
-        ) or account_has_storage(block_env.state, message.current_target)
+            tx_state, message.current_target
+        ) or account_has_storage(tx_state, message.current_target)
         if is_collision:
             return MessageCallOutput(
                 gas_left=Uint(0),
@@ -150,9 +150,16 @@ def process_create_message(message: Message) -> Evm:
         Items containing execution specific objects.
 
     """
-    state = message.block_env.state
+    tx_state = message.tx_env.state
     # take snapshot of state before processing the message
-    begin_transaction(state)
+    snapshot = copy_tx_state(tx_state)
+
+    # If the address where the account is being created has storage, it is
+    # destroyed. This can only happen in the following highly unlikely
+    # circumstances:
+    # * The address created by a `CREATE` call collides with a subsequent
+    #   `CREATE` call.
+    destroy_storage(tx_state, message.current_target)
 
     evm = process_message(message)
     if not evm.error:
@@ -163,14 +170,13 @@ def process_create_message(message: Message) -> Evm:
         try:
             charge_gas(evm, contract_code_gas)
         except ExceptionalHalt as error:
-            rollback_transaction(state)
+            restore_tx_state(tx_state, snapshot)
             evm.gas_left = Uint(0)
             evm.error = error
         else:
-            set_code(state, message.current_target, contract_code)
-            commit_transaction(state)
+            set_code(tx_state, message.current_target, contract_code)
     else:
-        rollback_transaction(state)
+        restore_tx_state(tx_state, snapshot)
     return evm
 
 
@@ -189,7 +195,7 @@ def process_message(message: Message) -> Evm:
         Items containing execution specific objects
 
     """
-    state = message.block_env.state
+    tx_state = message.tx_env.state
     if message.depth > STACK_DEPTH_LIMIT:
         raise StackDepthLimitError("Stack depth limit reached")
 
@@ -212,13 +218,16 @@ def process_message(message: Message) -> Evm:
     )
 
     # take snapshot of state before processing the message
-    begin_transaction(state)
+    snapshot = copy_tx_state(tx_state)
 
-    touch_account(state, message.current_target)
+    touch_account(tx_state, message.current_target)
 
     if message.should_transfer_value and message.value != 0:
         move_ether(
-            state, message.caller, message.current_target, message.value
+            tx_state,
+            message.caller,
+            message.current_target,
+            message.value,
         )
 
     try:
@@ -245,9 +254,5 @@ def process_message(message: Message) -> Evm:
         evm.error = error
 
     if evm.error:
-        # revert state to the last saved checkpoint
-        # since the message call resulted in an error
-        rollback_transaction(state)
-    else:
-        commit_transaction(state)
+        restore_tx_state(tx_state, snapshot)
     return evm

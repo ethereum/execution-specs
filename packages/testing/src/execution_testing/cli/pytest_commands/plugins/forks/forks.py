@@ -118,7 +118,7 @@ class ForkParametrizer:
             marks = []
         self.fork_covariant_parameters = [
             ForkCovariantParameter(
-                names=["parametrized_fork"],
+                names=["fork"],
                 values=[
                     pytest.param(
                         fork,
@@ -680,7 +680,7 @@ def pytest_report_header(config: pytest.Config, start_path: Any) -> List[str]:
 
 
 @pytest.fixture(autouse=True)
-def parametrized_fork(request: pytest.FixtureRequest) -> None:
+def fork(request: pytest.FixtureRequest) -> None:
     """Parametrize test cases by fork."""
     pass
 
@@ -1243,9 +1243,7 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
                     ],
                 )
             ]
-            metafunc.parametrize(
-                "parametrized_fork", pytest_params, scope="function"
-            )
+            metafunc.parametrize("fork", pytest_params, scope="function")
         return
 
     # Get the intersection between the test's validity marker and the current
@@ -1254,7 +1252,7 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
         test_fork_set & metafunc.config.selected_fork_set  # type: ignore
     )
 
-    if "parametrized_fork" not in metafunc.fixturenames:
+    if "fork" not in metafunc.fixturenames:
         return
 
     unsupported_forks: Set[Fork | TransitionFork] = (
@@ -1277,9 +1275,7 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
                     ],
                 )
             ]
-            metafunc.parametrize(
-                "parametrized_fork", pytest_params, scope="function"
-            )
+            metafunc.parametrize("fork", pytest_params, scope="function")
     else:
         pytest_params = []
         for fork in sorted(intersection_set):
@@ -1583,7 +1579,7 @@ def pytest_collection_modifyitems(
                 continue
 
         # --- validity markers ---
-        fork = params.get("parametrized_fork")
+        fork = params.get("fork")
         if fork is None:
             continue
 

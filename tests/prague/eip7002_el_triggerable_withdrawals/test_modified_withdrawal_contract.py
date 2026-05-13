@@ -124,9 +124,9 @@ def test_extra_withdrawals(
         requests=requests_list
     )
     # prepare withdrawal senders
-    withdrawal_request_transaction.update_pre(pre=pre)
+    prepared = withdrawal_request_transaction.update_pre(pre=pre)
     # get transaction list
-    txs: List[Transaction] = withdrawal_request_transaction.transactions()
+    txs: List[Transaction] = prepared.transactions()
 
     blockchain_test(
         pre=pre,

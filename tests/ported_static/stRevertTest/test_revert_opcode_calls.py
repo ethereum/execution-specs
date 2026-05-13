@@ -3,6 +3,10 @@ Test_revert_opcode_calls.
 
 Ported from:
 state_tests/stRevertTest/RevertOpcodeCallsFiller.json
+@manually-enhanced: Do not overwrite. Gas bumped fork-conditionally
+to cover EIP-8037 state-gas spill into regular gas; pre-EIP-8037
+behavior unchanged.
+
 """
 
 import pytest
@@ -92,6 +96,15 @@ def test_revert_opcode_calls(
     v: int,
 ) -> None:
     """Test_revert_opcode_calls."""
+    # EIP-8037 gas bumps: original values for pre-EIP-8037 forks.
+    inner_call_gas = 50000
+    inner_call_gas_2 = 100000
+    inner_call_gas_3 = 260000
+    if fork.is_eip_enabled(8037):
+        inner_call_gas = 1000000
+        inner_call_gas_2 = 1000000
+        inner_call_gas_3 = 1300000
+
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xE8D4A51000)
 
@@ -109,7 +122,7 @@ def test_revert_opcode_calls(
         code=Op.SSTORE(
             key=0xA,
             value=Op.CALL(
-                gas=0x3F7A0,
+                gas=inner_call_gas_3,
                 address=Op.CALLDATALOAD(offset=0x0),
                 value=0x0,
                 args_offset=0x0,
@@ -140,7 +153,7 @@ def test_revert_opcode_calls(
         code=Op.SSTORE(
             key=0x4,
             value=Op.CALL(
-                gas=0xC350,
+                gas=inner_call_gas,
                 address=0x93A599BDE9A3B6390AFDB06952AA5EC0B8C44F3B,
                 value=0x0,
                 args_offset=0x0,
@@ -161,7 +174,7 @@ def test_revert_opcode_calls(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALL(
-                gas=0xC350,
+                gas=inner_call_gas,
                 address=0x93A599BDE9A3B6390AFDB06952AA5EC0B8C44F3B,
                 value=0x0,
                 args_offset=0x0,
@@ -182,7 +195,7 @@ def test_revert_opcode_calls(
         code=Op.SSTORE(
             key=0x0,
             value=Op.DELEGATECALL(
-                gas=0xC350,
+                gas=inner_call_gas,
                 address=0x93A599BDE9A3B6390AFDB06952AA5EC0B8C44F3B,
                 args_offset=0x0,
                 args_size=0x0,
@@ -202,7 +215,7 @@ def test_revert_opcode_calls(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALLCODE(
-                gas=0xC350,
+                gas=inner_call_gas,
                 address=0x93A599BDE9A3B6390AFDB06952AA5EC0B8C44F3B,
                 value=0x0,
                 args_offset=0x0,
@@ -223,7 +236,7 @@ def test_revert_opcode_calls(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALL(
-                gas=0x186A0,
+                gas=inner_call_gas_2,
                 address=0x652761B88018EA027F6F27E456FE55C2DC5D6A91,
                 value=0x0,
                 args_offset=0x0,

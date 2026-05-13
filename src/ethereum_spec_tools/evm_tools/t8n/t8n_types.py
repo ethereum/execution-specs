@@ -12,7 +12,8 @@ from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import InvalidBlock
-from ethereum.state import EMPTY_CODE_HASH
+from ethereum.merkle_patricia_trie import root, trie_get
+from ethereum.state import EMPTY_CODE_HASH, apply_changes_to_state
 from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_u256, hex_to_uint
 
 from ..loaders.transaction_loader import TransactionLoad, UnsupportedTxError
@@ -290,8 +291,8 @@ class Result:
         """
         receipts: List[Any] = []
         for key in block_output.receipt_keys:
-            tx = t8n.fork.trie_get(block_output.transactions_trie, key)
-            receipt = t8n.fork.trie_get(block_output.receipts_trie, key)
+            tx = trie_get(block_output.transactions_trie, key)
+            receipt = trie_get(block_output.receipts_trie, key)
 
             assert tx is not None
             assert receipt is not None
@@ -319,52 +320,42 @@ class Result:
             )
         else:
             self.gas_used = block_output.block_gas_used
-        self.tx_root = t8n.fork.root(block_output.transactions_trie)
-        self.receipt_root = t8n.fork.root(block_output.receipts_trie)
+        self.tx_root = root(block_output.transactions_trie)
+        self.receipt_root = root(block_output.receipts_trie)
         self.bloom = t8n.fork.logs_bloom(block_output.block_logs)
         self.logs_hash = keccak256(rlp.encode(block_output.block_logs))
-        if t8n.fork.has_block_state:
-            # TODO: remove this once the state tracker is ported over
-            # to the older forks
-            from ethereum.forks.amsterdam.state_tracker import (
-                extract_block_diff,
+        block_diff = t8n.fork.extract_block_diff(t8n._block_state)
+        state_root_value, _ = (
+            t8n.alloc.state.compute_state_root_and_trie_changes(
+                block_diff.account_changes,
+                block_diff.storage_changes,
+                block_diff.storage_clears,
             )
-            from ethereum.state import apply_changes_to_state
+        )
+        self.state_root = state_root_value
 
-            block_diff = extract_block_diff(t8n._block_state)
-            state_root_value, _ = (
-                t8n.alloc.state.compute_state_root_and_trie_changes(
-                    block_diff.account_changes, block_diff.storage_changes
-                )
+        # Build witness between state root and apply_changes_to_state:
+        # the witness reads pre-state tries that apply_changes mutates.
+        # This is safe because compute_state_root_and_trie_changes
+        # does not mutate state (it makes transient copies of MPTs).
+        if t8n.fork.has_execution_witness and not skip_stateless:
+            self.execution_witness = t8n.fork.build_execution_witness(
+                block_env.state,
+                expected_post_state_root=state_root_value,
+                pre_state_accounts_data=(t8n.alloc.state._main_trie),
+                pre_state_storages_data=(t8n.alloc.state._storage_tries),
+                blockchain_headers=t8n.env.block_headers,
             )
-            self.state_root = state_root_value
 
-            # Build witness between state root and apply_changes_to_state:
-            # the witness reads pre-state tries that apply_changes mutates.
-            # This is safe because compute_state_root_and_trie_changes
-            # does not mutate state (it makes transient copies of MPTs).
-            if t8n.fork.has_execution_witness and not skip_stateless:
-                self.execution_witness = t8n.fork.build_execution_witness(
-                    block_env.state,
-                    expected_post_state_root=state_root_value,
-                    pre_state_accounts_data=(t8n.alloc.state._main_trie),
-                    pre_state_storages_data=(t8n.alloc.state._storage_tries),
-                    blockchain_headers=t8n.env.block_headers,
-                )
-
-            # Apply diffs to pre-state for alloc output
-            apply_changes_to_state(t8n.alloc.state, block_diff)
-        else:
-            self.state_root = t8n.fork.state_root(block_env.state)
+        # Apply diffs to pre-state for alloc output
+        apply_changes_to_state(t8n.alloc.state, block_diff)
         self.receipts = self.get_receipts_from_output(t8n, block_output)
 
         if hasattr(block_env, "base_fee_per_gas"):
             self.base_fee = block_env.base_fee_per_gas
 
         if hasattr(block_output, "withdrawals_trie"):
-            self.withdrawals_root = t8n.fork.root(
-                block_output.withdrawals_trie
-            )
+            self.withdrawals_root = root(block_output.withdrawals_trie)
 
         if hasattr(block_env, "excess_blob_gas"):
             self.excess_blob_gas = block_env.excess_blob_gas
@@ -416,7 +407,7 @@ class Result:
             payload_txs = []
             for tx_index in range(len(t8n.txs.transactions)):
                 key = rlp.encode(Uint(tx_index))
-                tx = t8n.fork.trie_get(block_output.transactions_trie, key)
+                tx = trie_get(block_output.transactions_trie, key)
                 assert tx is not None
                 payload_txs.append(tx)
 
