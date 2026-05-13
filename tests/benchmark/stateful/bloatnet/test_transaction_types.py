@@ -118,4 +118,5 @@ def test_ether_transfers_onchain_receivers(
         post={},
         blocks=[Block(txs=txs)],
         expected_benchmark_gas_used=iteration_count * iteration_cost,
+        expected_receipt_status=1,
     )
