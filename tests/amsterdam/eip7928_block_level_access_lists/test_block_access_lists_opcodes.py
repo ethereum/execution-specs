@@ -466,7 +466,13 @@ def test_bal_extcodesize_and_oog(
 )
 @pytest.mark.parametrize("value", [0, 1], ids=["no_value", "with_value"])
 @pytest.mark.parametrize(
-    "memory_expansion", [False, True], ids=["no_memory", "with_memory"]
+    "args_size,ret_size",
+    [
+        pytest.param(0, 0, id="no_memory"),
+        pytest.param(4096, 0, id="args_large"),
+        pytest.param(0, 4096, id="ret_large"),
+        pytest.param(32, 32, id="both_small"),
+    ],
 )
 def test_bal_call_no_delegation_and_oog_before_target_access(
     pre: Alloc,
@@ -476,13 +482,18 @@ def test_bal_call_no_delegation_and_oog_before_target_access(
     target_is_warm: bool,
     target_is_empty: bool,
     value: int,
-    memory_expansion: bool,
+    args_size: int,
+    ret_size: int,
 ) -> None:
     """
     CALL without 7702 delegation - test SUCCESS and OOG before target access.
 
     When target_is_warm=True, we use EIP-2930 tx access list to warm the
     target. Access list warming does NOT add to BAL - only EVM access does.
+
+    Memory expansion is parametrized independently for args (insize) and
+    ret (outsize) per #1910, surfacing client-impl asymmetry bugs in the
+    memory-cost calculator.
     """
     alice = pre.fund_eoa()
 
@@ -492,19 +503,21 @@ def test_bal_call_no_delegation_and_oog_before_target_access(
         else pre.deploy_contract(code=Op.STOP)
     )
 
-    ret_size = 32 if memory_expansion else 0
+    new_memory_size = max(args_size, ret_size)
 
     # Full gas metadata: includes create_cost when applicable
     call_code = Op.CALL(
         gas=0,
         address=target,
         value=value,
+        args_size=args_size,
+        args_offset=0,
         ret_size=ret_size,
         ret_offset=0,
         address_warm=target_is_warm,
         value_transfer=value > 0,
         account_new=value > 0 and target_is_empty,
-        new_memory_size=ret_size,
+        new_memory_size=new_memory_size,
     )
     caller = pre.deploy_contract(code=call_code, balance=value)
 
@@ -524,12 +537,14 @@ def test_bal_call_no_delegation_and_oog_before_target_access(
             gas=0,
             address=target,
             value=value,
+            args_size=args_size,
+            args_offset=0,
             ret_size=ret_size,
             ret_offset=0,
             address_warm=target_is_warm,
             value_transfer=value > 0,
             account_new=False,
-            new_memory_size=ret_size,
+            new_memory_size=new_memory_size,
         )
         gas_limit = intrinsic_cost + call_static.gas_cost(fork) - 1
     else:  # SUCCESS
@@ -602,7 +617,13 @@ def test_bal_call_no_delegation_and_oog_before_target_access(
     "target_is_warm", [False, True], ids=["cold_target", "warm_target"]
 )
 @pytest.mark.parametrize(
-    "memory_expansion", [False, True], ids=["no_memory", "with_memory"]
+    "args_size,ret_size",
+    [
+        pytest.param(0, 0, id="no_memory"),
+        pytest.param(4096, 0, id="args_large"),
+        pytest.param(0, 4096, id="ret_large"),
+        pytest.param(32, 32, id="both_small"),
+    ],
 )
 @pytest.mark.eels_base_coverage
 def test_bal_call_no_delegation_oog_after_target_access(
@@ -610,7 +631,8 @@ def test_bal_call_no_delegation_oog_after_target_access(
     blockchain_test: BlockchainTestFiller,
     fork: Fork,
     target_is_warm: bool,
-    memory_expansion: bool,
+    args_size: int,
+    ret_size: int,
 ) -> None:
     """
     CALL without 7702 delegation - OOG after state access.
@@ -629,6 +651,9 @@ def test_bal_call_no_delegation_oog_after_target_access(
     The create_cost (NEW_ACCOUNT = 25000) is charged only for value
     transfers to empty accounts, creating the gap tested here.
 
+    Memory expansion is parametrized independently for args (insize) and
+    ret (outsize) per #1910.
+
     """
     alice = pre.fund_eoa()
 
@@ -637,8 +662,7 @@ def test_bal_call_no_delegation_oog_after_target_access(
     # value > 0 required for create_cost
     value = 1
 
-    # memory expansion / no expansion
-    ret_size = 32 if memory_expansion else 0
+    new_memory_size = max(args_size, ret_size)
 
     # Static gas (before state access): no create_cost
     # Pass static check, fail at second check due to create cost
@@ -646,12 +670,14 @@ def test_bal_call_no_delegation_oog_after_target_access(
         gas=0,
         address=target,
         value=value,
+        args_size=args_size,
+        args_offset=0,
         ret_size=ret_size,
         ret_offset=0,
         address_warm=target_is_warm,
         value_transfer=True,
         account_new=False,
-        new_memory_size=ret_size,
+        new_memory_size=new_memory_size,
     )
     caller = pre.deploy_contract(code=call_code, balance=value)
 
@@ -717,7 +743,13 @@ def test_bal_call_no_delegation_oog_after_target_access(
 )
 @pytest.mark.parametrize("value", [0, 1], ids=["no_value", "with_value"])
 @pytest.mark.parametrize(
-    "memory_expansion", [False, True], ids=["no_memory", "with_memory"]
+    "args_size,ret_size",
+    [
+        pytest.param(0, 0, id="no_memory"),
+        pytest.param(4096, 0, id="args_large"),
+        pytest.param(0, 4096, id="ret_large"),
+        pytest.param(32, 32, id="both_small"),
+    ],
 )
 def test_bal_call_7702_delegation_and_oog(
     pre: Alloc,
@@ -727,33 +759,37 @@ def test_bal_call_7702_delegation_and_oog(
     target_is_warm: bool,
     delegation_is_warm: bool,
     value: int,
-    memory_expansion: bool,
+    args_size: int,
+    ret_size: int,
 ) -> None:
     """
     CALL with 7702 delegation - test all OOG boundaries.
 
     When target_is_warm or delegation_is_warm, we use EIP-2930 tx access list.
     Access list warming does NOT add targets to BAL - only EVM access does.
+
+    Memory expansion is parametrized independently for args and ret per #1910.
     """
     alice = pre.fund_eoa()
 
     delegation_target = pre.deploy_contract(code=Op.STOP)
     target = pre.fund_eoa(amount=0, delegation=delegation_target)
 
-    # memory expansion / no expansion
-    ret_size = 32 if memory_expansion else 0
+    new_memory_size = max(args_size, ret_size)
 
     # Full gas metadata: includes delegation cost
     call_code = Op.CALL(
         gas=0,
         address=target,
         value=value,
+        args_size=args_size,
+        args_offset=0,
         ret_size=ret_size,
         ret_offset=0,
         address_warm=target_is_warm,
         value_transfer=value > 0,
         account_new=False,
-        new_memory_size=ret_size,
+        new_memory_size=new_memory_size,
         delegated_address=True,
         delegated_address_warm=delegation_is_warm,
     )
@@ -777,12 +813,14 @@ def test_bal_call_7702_delegation_and_oog(
         gas=0,
         address=target,
         value=value,
+        args_size=args_size,
+        args_offset=0,
         ret_size=ret_size,
         ret_offset=0,
         address_warm=target_is_warm,
         value_transfer=value > 0,
         account_new=False,
-        new_memory_size=ret_size,
+        new_memory_size=new_memory_size,
     )
 
     if oog_boundary == OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS:
@@ -877,7 +915,13 @@ def test_bal_call_7702_delegation_and_oog(
     "target_is_warm", [False, True], ids=["cold_target", "warm_target"]
 )
 @pytest.mark.parametrize(
-    "memory_expansion", [False, True], ids=["no_memory", "with_memory"]
+    "args_size,ret_size",
+    [
+        pytest.param(0, 0, id="no_memory"),
+        pytest.param(4096, 0, id="args_large"),
+        pytest.param(0, 4096, id="ret_large"),
+        pytest.param(32, 32, id="both_small"),
+    ],
 )
 def test_bal_delegatecall_no_delegation_and_oog_before_target_access(
     pre: Alloc,
@@ -885,28 +929,32 @@ def test_bal_delegatecall_no_delegation_and_oog_before_target_access(
     fork: Fork,
     oog_boundary: OutOfGasBoundary,
     target_is_warm: bool,
-    memory_expansion: bool,
+    args_size: int,
+    ret_size: int,
 ) -> None:
     """
     DELEGATECALL without 7702 delegation - test SUCCESS and OOG boundaries.
 
     When target_is_warm=True, we use EIP-2930 tx access list to warm the
     target. Access list warming does NOT add to BAL - only EVM access does.
+
+    Memory expansion is parametrized independently for args and ret per #1910.
     """
     alice = pre.fund_eoa()
 
     target = pre.deploy_contract(code=Op.STOP)
 
-    ret_size = 32 if memory_expansion else 0
-    ret_offset = 0
+    new_memory_size = max(args_size, ret_size)
 
     delegatecall_code = Op.DELEGATECALL(
         address=target,
         gas=0,
+        args_size=args_size,
+        args_offset=0,
         ret_size=ret_size,
-        ret_offset=ret_offset,
+        ret_offset=0,
         address_warm=target_is_warm,
-        new_memory_size=ret_size,
+        new_memory_size=new_memory_size,
     )
 
     caller = pre.deploy_contract(code=delegatecall_code)
@@ -975,7 +1023,13 @@ def test_bal_delegatecall_no_delegation_and_oog_before_target_access(
     ids=["cold_delegation", "warm_delegation"],
 )
 @pytest.mark.parametrize(
-    "memory_expansion", [False, True], ids=["no_memory", "with_memory"]
+    "args_size,ret_size",
+    [
+        pytest.param(0, 0, id="no_memory"),
+        pytest.param(4096, 0, id="args_large"),
+        pytest.param(0, 4096, id="ret_large"),
+        pytest.param(32, 32, id="both_small"),
+    ],
 )
 def test_bal_delegatecall_7702_delegation_and_oog(
     pre: Alloc,
@@ -984,7 +1038,8 @@ def test_bal_delegatecall_7702_delegation_and_oog(
     oog_boundary: OutOfGasBoundary,
     target_is_warm: bool,
     delegation_is_warm: bool,
-    memory_expansion: bool,
+    args_size: int,
+    ret_size: int,
 ) -> None:
     """
     DELEGATECALL with 7702 delegation - test all OOG boundaries.
@@ -995,24 +1050,26 @@ def test_bal_delegatecall_7702_delegation_and_oog(
     For 7702 delegation, there's ALWAYS a gap between static gas and
     second check (delegation_cost) - all 3 scenarios produce distinct
     behaviors.
+
+    Memory expansion is parametrized independently for args and ret per #1910.
     """
     alice = pre.fund_eoa()
 
     delegation_target = pre.deploy_contract(code=Op.STOP)
     target = pre.fund_eoa(amount=0, delegation=delegation_target)
 
-    # memory expansion / no expansion
-    ret_size = 32 if memory_expansion else 0
-    ret_offset = 0
+    new_memory_size = max(args_size, ret_size)
 
     # Full gas metadata: includes delegation cost
     delegatecall_code = Op.DELEGATECALL(
         gas=0,
         address=target,
+        args_size=args_size,
+        args_offset=0,
         ret_size=ret_size,
-        ret_offset=ret_offset,
+        ret_offset=0,
         address_warm=target_is_warm,
-        new_memory_size=ret_size,
+        new_memory_size=new_memory_size,
         delegated_address=True,
         delegated_address_warm=delegation_is_warm,
     )
@@ -1036,10 +1093,12 @@ def test_bal_delegatecall_7702_delegation_and_oog(
     delegatecall_static = Op.DELEGATECALL(
         gas=0,
         address=target,
+        args_size=args_size,
+        args_offset=0,
         ret_size=ret_size,
-        ret_offset=ret_offset,
+        ret_offset=0,
         address_warm=target_is_warm,
-        new_memory_size=ret_size,
+        new_memory_size=new_memory_size,
     )
 
     if oog_boundary == OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS:
@@ -1112,7 +1171,13 @@ def test_bal_delegatecall_7702_delegation_and_oog(
 )
 @pytest.mark.parametrize("value", [0, 1], ids=["no_value", "with_value"])
 @pytest.mark.parametrize(
-    "memory_expansion", [False, True], ids=["no_memory", "with_memory"]
+    "args_size,ret_size",
+    [
+        pytest.param(0, 0, id="no_memory"),
+        pytest.param(4096, 0, id="args_large"),
+        pytest.param(0, 4096, id="ret_large"),
+        pytest.param(32, 32, id="both_small"),
+    ],
 )
 def test_bal_callcode_no_delegation_and_oog_before_target_access(
     pre: Alloc,
@@ -1121,7 +1186,8 @@ def test_bal_callcode_no_delegation_and_oog_before_target_access(
     oog_boundary: OutOfGasBoundary,
     target_is_warm: bool,
     value: int,
-    memory_expansion: bool,
+    args_size: int,
+    ret_size: int,
 ) -> None:
     """
     CALLCODE without 7702 delegation - test SUCCESS and OOG boundaries.
@@ -1129,23 +1195,27 @@ def test_bal_callcode_no_delegation_and_oog_before_target_access(
     When target_is_warm=True, we use EIP-2930 tx access list to warm the
     target. Access list warming does NOT add to BAL - only EVM access does.
     CALLCODE has no balance transfer to target (runs in caller's context).
+
+    Memory expansion is parametrized independently for args and ret per #1910.
     """
     alice = pre.fund_eoa()
 
     target = pre.deploy_contract(code=Op.STOP)
 
-    ret_size = 32 if memory_expansion else 0
+    new_memory_size = max(args_size, ret_size)
 
     callcode_code = Op.CALLCODE(
         gas=0,
         address=target,
         value=value,
+        args_size=args_size,
+        args_offset=0,
         ret_size=ret_size,
         ret_offset=0,
         address_warm=target_is_warm,
         value_transfer=value > 0,
         account_new=False,
-        new_memory_size=ret_size,
+        new_memory_size=new_memory_size,
     )
     caller = pre.deploy_contract(code=callcode_code, balance=value)
 
@@ -1221,7 +1291,13 @@ def test_bal_callcode_no_delegation_and_oog_before_target_access(
 )
 @pytest.mark.parametrize("value", [0, 1], ids=["no_value", "with_value"])
 @pytest.mark.parametrize(
-    "memory_expansion", [False, True], ids=["no_memory", "with_memory"]
+    "args_size,ret_size",
+    [
+        pytest.param(0, 0, id="no_memory"),
+        pytest.param(4096, 0, id="args_large"),
+        pytest.param(0, 4096, id="ret_large"),
+        pytest.param(32, 32, id="both_small"),
+    ],
 )
 def test_bal_callcode_7702_delegation_and_oog(
     pre: Alloc,
@@ -1231,7 +1307,8 @@ def test_bal_callcode_7702_delegation_and_oog(
     target_is_warm: bool,
     delegation_is_warm: bool,
     value: int,
-    memory_expansion: bool,
+    args_size: int,
+    ret_size: int,
 ) -> None:
     """
     CALLCODE with 7702 delegation - test all OOG boundaries.
@@ -1242,26 +1319,29 @@ def test_bal_callcode_7702_delegation_and_oog(
     For 7702 delegation, there's ALWAYS a gap between static gas and
     second check (delegation_cost) - all 3 scenarios produce distinct
     behaviors.
+
+    Memory expansion is parametrized independently for args and ret per #1910.
     """
     alice = pre.fund_eoa()
 
     delegation_target = pre.deploy_contract(code=Op.STOP)
     target = pre.fund_eoa(amount=0, delegation=delegation_target)
 
-    # memory expansion / no expansion
-    ret_size = 32 if memory_expansion else 0
+    new_memory_size = max(args_size, ret_size)
 
     # Full gas metadata: includes delegation cost
     callcode_code = Op.CALLCODE(
         gas=0,
         address=target,
         value=value,
+        args_size=args_size,
+        args_offset=0,
         ret_size=ret_size,
         ret_offset=0,
         address_warm=target_is_warm,
         value_transfer=value > 0,
         account_new=False,
-        new_memory_size=ret_size,
+        new_memory_size=new_memory_size,
         delegated_address=True,
         delegated_address_warm=delegation_is_warm,
     )
@@ -1285,12 +1365,14 @@ def test_bal_callcode_7702_delegation_and_oog(
         gas=0,
         address=target,
         value=value,
+        args_size=args_size,
+        args_offset=0,
         ret_size=ret_size,
         ret_offset=0,
         address_warm=target_is_warm,
         value_transfer=value > 0,
         account_new=False,
-        new_memory_size=ret_size,
+        new_memory_size=new_memory_size,
     )
 
     if oog_boundary == OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS:
@@ -1362,7 +1444,13 @@ def test_bal_callcode_7702_delegation_and_oog(
     "target_is_warm", [False, True], ids=["cold_target", "warm_target"]
 )
 @pytest.mark.parametrize(
-    "memory_expansion", [False, True], ids=["no_memory", "with_memory"]
+    "args_size,ret_size",
+    [
+        pytest.param(0, 0, id="no_memory"),
+        pytest.param(4096, 0, id="args_large"),
+        pytest.param(0, 4096, id="ret_large"),
+        pytest.param(32, 32, id="both_small"),
+    ],
 )
 def test_bal_staticcall_no_delegation_and_oog_before_target_access(
     pre: Alloc,
@@ -1370,7 +1458,8 @@ def test_bal_staticcall_no_delegation_and_oog_before_target_access(
     fork: Fork,
     oog_boundary: OutOfGasBoundary,
     target_is_warm: bool,
-    memory_expansion: bool,
+    args_size: int,
+    ret_size: int,
 ) -> None:
     """
     STATICCALL without 7702 delegation - test SUCCESS and OOG boundaries.
@@ -1382,16 +1471,17 @@ def test_bal_staticcall_no_delegation_and_oog_before_target_access(
 
     target = pre.deploy_contract(code=Op.STOP)
 
-    ret_size = 32 if memory_expansion else 0
-    ret_offset = 0
+    new_memory_size = max(args_size, ret_size)
 
     staticcall_code = Op.STATICCALL(
         address=target,
         gas=0,
+        args_size=args_size,
+        args_offset=0,
         ret_size=ret_size,
-        ret_offset=ret_offset,
+        ret_offset=0,
         address_warm=target_is_warm,
-        new_memory_size=ret_size,
+        new_memory_size=new_memory_size,
     )
 
     caller = pre.deploy_contract(code=staticcall_code)
@@ -1460,7 +1550,13 @@ def test_bal_staticcall_no_delegation_and_oog_before_target_access(
     ids=["cold_delegation", "warm_delegation"],
 )
 @pytest.mark.parametrize(
-    "memory_expansion", [False, True], ids=["no_memory", "with_memory"]
+    "args_size,ret_size",
+    [
+        pytest.param(0, 0, id="no_memory"),
+        pytest.param(4096, 0, id="args_large"),
+        pytest.param(0, 4096, id="ret_large"),
+        pytest.param(32, 32, id="both_small"),
+    ],
 )
 def test_bal_staticcall_7702_delegation_and_oog(
     pre: Alloc,
@@ -1469,7 +1565,8 @@ def test_bal_staticcall_7702_delegation_and_oog(
     oog_boundary: OutOfGasBoundary,
     target_is_warm: bool,
     delegation_is_warm: bool,
-    memory_expansion: bool,
+    args_size: int,
+    ret_size: int,
 ) -> None:
     """
     STATICCALL with 7702 delegation - test all OOG boundaries.
@@ -1486,25 +1583,23 @@ def test_bal_staticcall_7702_delegation_and_oog(
     delegation_target = pre.deploy_contract(code=Op.STOP)
     target = pre.fund_eoa(amount=0, delegation=delegation_target)
 
-    # memory expansion / no expansion
-    ret_size = 32 if memory_expansion else 0
-    ret_offset = 0
+    new_memory_size = max(args_size, ret_size)
 
-    # Full gas metadata: includes delegation cost
     staticcall_code = Op.STATICCALL(
         gas=0,
         address=target,
+        args_size=args_size,
+        args_offset=0,
         ret_size=ret_size,
-        ret_offset=ret_offset,
+        ret_offset=0,
         address_warm=target_is_warm,
-        new_memory_size=ret_size,
+        new_memory_size=new_memory_size,
         delegated_address=True,
         delegated_address_warm=delegation_is_warm,
     )
 
     caller = pre.deploy_contract(code=staticcall_code)
 
-    # Build access list for warming
     access_list: list[AccessList] = []
     if target_is_warm:
         access_list.append(AccessList(address=target, storage_keys=[]))
@@ -1517,14 +1612,15 @@ def test_bal_staticcall_7702_delegation_and_oog(
         access_list=access_list
     )
 
-    # Static gas (before state access): no delegation
     staticcall_static = Op.STATICCALL(
         gas=0,
         address=target,
+        args_size=args_size,
+        args_offset=0,
         ret_size=ret_size,
-        ret_offset=ret_offset,
+        ret_offset=0,
         address_warm=target_is_warm,
-        new_memory_size=ret_size,
+        new_memory_size=new_memory_size,
     )
 
     if oog_boundary == OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS:
