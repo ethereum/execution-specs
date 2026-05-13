@@ -29,6 +29,7 @@ from ..base_fork import (
     CalldataGasCalculator,
     ExcessBlobGasCalculator,
     MemoryExpansionGasCalculator,
+    RefundTypes,
     TransactionDataFloorCostCalculator,
     TransactionIntrinsicCostCalculator,
 )
@@ -1198,6 +1199,13 @@ class Frontier(
     def max_request_type(cls) -> int:
         """At genesis, no request type is supported, signaled by -1."""
         return -1
+
+    @classmethod
+    def refund_types(cls) -> List[RefundTypes]:
+        """
+        At genesis, storage clearing refund is introduced.
+        """
+        return [RefundTypes.STORAGE_CLEAR]
 
     @classmethod
     def pre_allocation(cls) -> Mapping:

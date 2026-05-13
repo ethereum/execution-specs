@@ -360,6 +360,7 @@ class Receipt:
     cumulative_gas_used: Uint
     """
     Total gas used in the block up to and including this transaction.
+    This is the gas used after refunds, paid by the user.
     """
 
     bloom: Bloom

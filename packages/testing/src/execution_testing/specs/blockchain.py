@@ -303,6 +303,8 @@ class Block(Header):
     """Post state for verification after block execution in BlockchainTest"""
     block_access_list: Bytes | None = Field(None)
     """EIP-7928: Block-level access lists (serialized)."""
+    expected_gas_used: int | None = None
+    """Expected gas used for the block."""
 
     def set_environment(self, env: Environment) -> Environment:
         """
@@ -694,6 +696,14 @@ class BlockchainTest(BaseTest):
                 raise Exception(
                     f"Verification of block {int(env.number)} failed"
                 ) from e
+
+        if block.expected_gas_used is not None:
+            gas_used = int(transition_tool_output.result.gas_used)
+            assert gas_used == block.expected_gas_used, (
+                f"gas_used ({gas_used}) does not match expected_gas_used "
+                f"({block.expected_gas_used})"
+                f", difference: {gas_used - block.expected_gas_used}"
+            )
 
         requests_list: List[Bytes] | None = None
         if fork.header_requests_required():
