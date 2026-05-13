@@ -33,6 +33,8 @@ from .spec import ref_spec_8037
 REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
 
+WORD_SIZE = 32
+
 
 def _single_sstore_probe_gas(fork: Fork) -> int:
     """
@@ -286,10 +288,9 @@ def test_create_oog_reservoir_inflation_detection(
         setup_gas = 0
         init_code_word_cost = 0
     else:
-        # 32-byte initcode = exactly one word.
-        initcode_size = 32
+        initcode_size = WORD_SIZE
         setup_gas = (
-            2 * gas_costs.VERY_LOW
+            Op.MSTORE.popped_stack_items * gas_costs.VERY_LOW
             + gas_costs.OPCODE_MSTORE_BASE
             + gas_costs.MEMORY_PER_WORD
         )
@@ -297,12 +298,11 @@ def test_create_oog_reservoir_inflation_detection(
 
     if create_opcode == Op.CREATE:
         create_op = create_opcode(value=0, offset=0, size=initcode_size)
-        pushes_gas = 3 * gas_costs.VERY_LOW
     else:
         create_op = create_opcode(
             value=0, offset=0, size=initcode_size, salt=0
         )
-        pushes_gas = 4 * gas_costs.VERY_LOW
+    pushes_gas = create_opcode.popped_stack_items * gas_costs.VERY_LOW
 
     if oog_step == "create_base":
         child_code = create_op
@@ -366,7 +366,7 @@ def test_create_oog_full_burn_no_state_credit(
         setup_gas = 0
         init_code_word_cost = 0
     else:
-        initcode_size = 32
+        initcode_size = WORD_SIZE
         setup_gas = (
             2 * gas_costs.VERY_LOW
             + gas_costs.OPCODE_MSTORE_BASE
@@ -376,12 +376,11 @@ def test_create_oog_full_burn_no_state_credit(
 
     if create_opcode == Op.CREATE:
         create_op = create_opcode(value=0, offset=0, size=initcode_size)
-        pushes_gas = 3 * gas_costs.VERY_LOW
     else:
         create_op = create_opcode(
             value=0, offset=0, size=initcode_size, salt=0
         )
-        pushes_gas = 4 * gas_costs.VERY_LOW
+    pushes_gas = create_opcode.popped_stack_items * gas_costs.VERY_LOW
 
     if oog_step == "create_base":
         factory_code = create_op
