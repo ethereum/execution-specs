@@ -15,13 +15,13 @@ from execution_testing import (
 )
 
 
-def get_distinct_sender_list(pre: Alloc) -> Generator[Address, None, None]:
+def yield_distinct_sender(pre: Alloc) -> Generator[Address, None, None]:
     """Get a list of distinct sender accounts."""
     while True:
         yield pre.fund_eoa()
 
 
-# Bitterex controller mainnet address
+# Bittrex controller mainnet address
 # Creates 1.5M contracts with deterministic address via CREATE
 # It is guaranteed no contract is destructed
 # Used for existing contract targets in benchmark
@@ -34,15 +34,15 @@ BITTREX_CONTROLLER_ADDRESS = Address(
 RECEIVER_CONTRACT_EXECUTION_GAS = 51
 
 
-def get_distinct_contract_receiver_list() -> Generator[Address, None, None]:
-    """Yield contract account created by Bitterex controller via CREATE."""
-    for nonce in itertools.count(1):
+def yield_distinct_contract_receiver() -> Generator[Address, None, None]:
+    """Yield contract account created by Bittrex controller via CREATE."""
+    for nonce in itertools.count(2):
         yield compute_create_address(
             address=BITTREX_CONTROLLER_ADDRESS, nonce=nonce
         )
 
 
-def get_distinct_existent_receiver_list() -> Generator[Address, None, None]:
+def yield_distinct_existent_receiver() -> Generator[Address, None, None]:
     """
     Yield existing balance-only EOA on bloatnet. pre-funded by Spamoor
     (https://github.com/CPerezz/spamoor/pull/12).
@@ -51,12 +51,13 @@ def get_distinct_existent_receiver_list() -> Generator[Address, None, None]:
         yield Address(address)
 
 
-def get_distinct_nonexistent_receiver_list() -> Generator[Address, None, None]:
+def yield_distinct_nonexistent_receiver() -> Generator[Address, None, None]:
     """Yield non-existent accounts starting from keccak256('random')."""
     for address in itertools.count(0xF3CF193BB4AF1022AF7D2089F37D8BAE7157B85F):
         yield Address(address)
 
 
+@pytest.mark.repricing
 @pytest.mark.parametrize(
     "case_id",
     [
@@ -85,14 +86,14 @@ def test_ether_transfers_onchain_receivers(
     - diff_to_contract: distinct contract receivers
       (matches AccountMode.EXISTING_CONTRACT)
     """
-    senders = get_distinct_sender_list(pre)
+    senders = yield_distinct_sender(pre)
     receiver_execution_gas = 0
     if case_id == "diff_to_nonexistent":
-        receivers = get_distinct_nonexistent_receiver_list()
+        receivers = yield_distinct_nonexistent_receiver()
     elif case_id == "diff_to_existent":
-        receivers = get_distinct_existent_receiver_list()
+        receivers = yield_distinct_existent_receiver()
     elif case_id == "diff_to_contract":
-        receivers = get_distinct_contract_receiver_list()
+        receivers = yield_distinct_contract_receiver()
         receiver_execution_gas = RECEIVER_CONTRACT_EXECUTION_GAS
     else:
         raise ValueError(f"Unknown case: {case_id}")
