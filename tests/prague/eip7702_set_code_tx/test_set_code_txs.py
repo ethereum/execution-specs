@@ -2584,7 +2584,6 @@ def test_signature_s_out_of_range(
     pre: Alloc,
     fork: Fork,
     chain_config: ChainConfig,
-    fork: Fork,
 ) -> None:
     """
     Test sending a transaction with an authorization tuple where the signature
@@ -2794,7 +2793,6 @@ def test_nonce_validity(
     fork: Fork,
     account_nonce: int,
     authorization_nonce: int,
-    fork: Fork,
 ) -> None:
     """
     Test sending a transaction where the nonce field of an authorization almost

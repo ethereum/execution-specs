@@ -3377,6 +3377,7 @@ def test_bal_create_storage_op_then_selfdestruct_same_tx(
 def test_bal_create2_selfdestruct_then_recreate_same_block(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    fork: Fork,
     pre_balance: int,
 ) -> None:
     """
@@ -3431,17 +3432,19 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
     if pre_balance > 0:
         pre.fund_address(target_a, pre_balance)
 
+    # Headroom for the self-destruct to fund a fresh beneficiary.
+    gas_limit = (fork.transaction_gas_limit_cap() or 0) + 2_000_000
     tx1 = Transaction(
         sender=alice,
         to=factory,
         data=initcode_bytes,
-        gas_limit=500_000,
+        gas_limit=gas_limit,
     )
     tx2 = Transaction(
         sender=alice,
         to=factory,
         data=initcode_bytes,
-        gas_limit=500_000,
+        gas_limit=gas_limit,
     )
 
     target_a_balance_changes = []
