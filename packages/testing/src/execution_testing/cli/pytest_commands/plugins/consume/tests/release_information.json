@@ -1341,7 +1341,7 @@
     ],
     "tarball_url": "https://api.github.com/repos/ethereum/execution-spec-tests/tarball/eip7692@v1.1.1",
     "zipball_url": "https://api.github.com/repos/ethereum/execution-spec-tests/zipball/eip7692@v1.1.1",
-    "body": "Filled using Besu commit https://github.com/hyperledger/besu/commit/0d6395515890280c29ee2402c03b1ee81bde3bab\r\n\r\n## What's Changed\r\n* new(tests): EOF - EIP-7620 EOFCREATE gas testing by @pdobacz in https://github.com/ethereum/execution-spec-tests/pull/785\r\n\r\n**Full Changelog**: https://github.com/ethereum/execution-spec-tests/compare/eip7692@v1.1.0...eip7692@v1.1.1",
+    "body": "Filled using Besu commit https://github.com/besu-eth/besu/commit/0d6395515890280c29ee2402c03b1ee81bde3bab\r\n\r\n## What's Changed\r\n* new(tests): EOF - EIP-7620 EOFCREATE gas testing by @pdobacz in https://github.com/ethereum/execution-spec-tests/pull/785\r\n\r\n**Full Changelog**: https://github.com/ethereum/execution-spec-tests/compare/eip7692@v1.1.0...eip7692@v1.1.1",
     "mentions_count": 1
   },
   {

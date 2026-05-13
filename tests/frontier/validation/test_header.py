@@ -47,7 +47,7 @@ def test_gas_limit_below_minimum(
     if gas_limit < 5000:
         block.rlp_modifier = Header(**modified_fields)
         block.exception = BlockException.INVALID_GASLIMIT
-    elif fork.header_bal_hash_required():
+    elif fork.is_eip_enabled(7928):
         block.exception = BlockException.BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED
 
     blockchain_test(pre=pre, post={}, blocks=[block], genesis_environment=env)

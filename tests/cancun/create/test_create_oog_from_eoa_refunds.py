@@ -345,7 +345,7 @@ def test_create_oog_from_eoa_refunds(
             )
 
     bal_expectation = None
-    if fork.header_bal_hash_required():
+    if fork.is_eip_enabled(7928):
         if oog_scenario == OogScenario.NO_OOG:
             # Success: storage write to slot 0 persists
             expected_nonce = (

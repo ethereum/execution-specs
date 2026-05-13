@@ -40,7 +40,7 @@ instruction to fetch the current chain identifier.
 [EIP-2028]: https://eips.ethereum.org/EIPS/eip-2028
 [EIP-2200]: https://eips.ethereum.org/EIPS/eip-2200
 [a]: https://github.com/ethereum/aleth/releases/tag/v1.7.1
-[Besu 1.3.6]: https://github.com/hyperledger/besu/releases/tag/1.3.6
+[Besu 1.3.6]: https://github.com/besu-eth/besu/releases/tag/1.3.6
 [js]: https://github.com/ethereumjs/ethereumjs-blockchain/releases/tag/v4.0.2
 [Geth 1.9.9]: https://github.com/ethereum/go-ethereum/releases/tag/v1.9.9
 [n]: https://github.com/NethermindEth/nethermind/releases/tag/1.2.3

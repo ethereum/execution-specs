@@ -1,0 +1,14 @@
+opcode = EIP does not introduce a new opcode
+precompile = EIP does not introduce a new precompile
+removed_precompile = EIP does not remove a precompile
+system_contract = EIP does not introduce a new system contract
+transaction_type = EIP does not introduce a new transaction type
+block_header_field = EIP does not add any new block header fields
+block_body_field = EIP does not add any new block body fields
+gas_cost_changes = EIP does not introduce any gas cost changes
+gas_refunds_changes = EIP does not introduce any gas refund changes
+blob_count_changes = EIP does not introduce any blob count changes
+execution_layer_request = EIP does not introduce an execution layer request
+new_transaction_validity_constraint = EIP does not introduce a new transaction validity constraint
+modified_transaction_validity_constraint = EIP does not introduce a modified transaction validity constraint
+block_level_constraint = EIP does not introduce a block-level validation constraint

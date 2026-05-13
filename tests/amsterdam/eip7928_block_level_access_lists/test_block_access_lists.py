@@ -1502,29 +1502,26 @@ def test_bal_precompile_funded(
     )
 
 
-@pytest.mark.parametrize_by_fork(
-    "precompile",
-    lambda fork: [
-        pytest.param(addr, id=f"0x{int.from_bytes(addr, 'big'):02x}")
-        for addr in fork.precompiles()
-    ],
-)
-def test_bal_precompile_call(
+@pytest.mark.with_all_precompiles
+@pytest.mark.with_all_call_opcodes
+def test_bal_precompile_call_opcode(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    precompile: Address,
+    precompile: int,
+    call_opcode: Op,
 ) -> None:
     """
-    Ensure BAL records precompile when called via contract.
+    Ensure BAL records the precompile address regardless of call opcode.
 
-    Alice calls Oracle contract which calls precompile.
-    BAL must include precompile with no balance/storage/code changes.
+    Alice calls Oracle contract which invokes the precompile via the
+    parametrized call opcode. For DELEGATECALL/CALLCODE the precompile
+    provides the code but is not the call target, so its access has to
+    be recorded explicitly rather than incidentally.
     """
     alice = pre.fund_eoa()
 
-    # Oracle contract that calls the precompile
     oracle = pre.deploy_contract(
-        code=Op.CALL(100_000, precompile, 0, 0, 0, 0, 0) + Op.STOP
+        code=call_opcode(gas=100_000, address=precompile) + Op.STOP
     )
 
     tx = Transaction(

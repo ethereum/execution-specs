@@ -48,7 +48,7 @@ from ..vm import Message
 from ..vm.eoa_delegation import get_delegated_code_address, set_delegation
 from ..vm.gas import GasCosts, charge_gas
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
-from . import Evm
+from . import Evm, emit_transfer_log
 from .exceptions import (
     AddressCollision,
     ExceptionalHalt,
@@ -262,7 +262,6 @@ def process_message(message: Message) -> Evm:
         accessed_storage_keys=message.accessed_storage_keys,
     )
 
-    # take snapshot of state before processing the message
     snapshot = copy_tx_state(tx_state)
 
     if message.should_transfer_value and message.value != 0:
@@ -272,7 +271,12 @@ def process_message(message: Message) -> Evm:
             message.current_target,
             message.value,
         )
+        if message.caller != message.current_target:
+            emit_transfer_log(
+                evm, message.caller, message.current_target, message.value
+            )
 
+    # Execute message code and handle errors
     try:
         if evm.message.code_address in PRE_COMPILED_CONTRACTS:
             if not message.disable_precompiles:

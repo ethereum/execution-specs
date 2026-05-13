@@ -37,7 +37,7 @@ same transaction, and adds an instruction to read the blob base fee.
 [EIP-5656]: https://eips.ethereum.org/EIPS/eip-5656
 [EIP-6780]: https://eips.ethereum.org/EIPS/eip-6780
 [EIP-7516]: https://eips.ethereum.org/EIPS/eip-7516
-[Besu 24.1.2]: https://github.com/hyperledger/besu/releases/tag/24.1.2
+[Besu 24.1.2]: https://github.com/besu-eth/besu/releases/tag/24.1.2
 [e]: https://github.com/ledgerwatch/erigon/releases/tag/v2.58.1
 [Geth 1.13.13]: https://github.com/ethereum/go-ethereum/releases/tag/v1.13.13
 [n]: https://github.com/NethermindEth/nethermind/releases/tag/1.25.4
