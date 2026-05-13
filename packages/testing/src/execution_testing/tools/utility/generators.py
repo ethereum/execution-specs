@@ -621,7 +621,6 @@ def gas_test(
             LEGACY_CALL_SUCCESS
         )
 
-    gas_sstore = Op.SSTORE(1, 1).gas_cost(fork=fork)
     if tx_gas is None:
         tx_gas = gas_single_gas_run + cold_gas + 1_000_000
     tx = Transaction(
