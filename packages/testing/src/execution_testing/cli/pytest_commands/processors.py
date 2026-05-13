@@ -122,32 +122,18 @@ class HiveEnvironmentProcessor(ArgumentProcessor):
         if os.getenv("HIVE_LOGLEVEL") is not None:
             warnings.warn("HIVE_LOG_LEVEL is not yet supported.", stacklevel=2)
 
-        if self.command_name == "engine":
+        simulator_commands = {
+            "engine",
+            "enginex",
+            "sync",
+            "rlp",
+            "build_block",
+        }
+        if self.command_name in simulator_commands:
             modified_args.extend(
                 [
                     "-p",
-                    "execution_testing.cli.pytest_commands.plugins.consume.simulators.engine.conftest",
-                ]
-            )
-        elif self.command_name == "enginex":
-            modified_args.extend(
-                [
-                    "-p",
-                    "execution_testing.cli.pytest_commands.plugins.consume.simulators.enginex.conftest",
-                ]
-            )
-        elif self.command_name == "sync":
-            modified_args.extend(
-                [
-                    "-p",
-                    "execution_testing.cli.pytest_commands.plugins.consume.simulators.sync.conftest",
-                ]
-            )
-        elif self.command_name == "rlp":
-            modified_args.extend(
-                [
-                    "-p",
-                    "execution_testing.cli.pytest_commands.plugins.consume.simulators.rlp.conftest",
+                    f"execution_testing.cli.pytest_commands.plugins.consume.simulators.{self.command_name}.conftest",
                 ]
             )
         else:
