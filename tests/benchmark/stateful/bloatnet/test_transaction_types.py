@@ -5,20 +5,22 @@ from typing import Generator
 
 import pytest
 from execution_testing import (
+    DETERMINISTIC_FACTORY_ADDRESS,
     EOA,
     Address,
     Alloc,
     BenchmarkTestFiller,
     Block,
     Fork,
+    Op,
     Transaction,
     compute_create2_address,
     compute_create_address,
 )
 
-# Deterministic sender pool: keys start at 0x111...111 (32 bytes) and
-# increment by 1. Accounts are assumed to be pre-funded on bloatnet
-# (e.g. by Spamoor), so they are intentionally NOT added to the pre-alloc.
+# Deterministic sender pool of 15K accounts.
+# Funded via system contract withdrawals (funding.txt) in payload generation.
+# Placed outside pre-allocation to ensure accounts remain uncached.
 SENDER_BASE_KEY = (
     0x1111111111111111111111111111111111111111111111111111111111111111
 )
@@ -30,6 +32,67 @@ def yield_distinct_sender() -> Generator[EOA, None, None]:
         yield EOA(key=SENDER_BASE_KEY + i)
 
 
+def build_unique_contract_initcode() -> bytes:
+    """
+    Deployed runtime contract layout.
+
+        offset    size   contents
+        ------    ----   --------------------------------
+        0x0000       4   PUSH2 0x5FFF; JUMP   <- entry
+        0x0004      28   JUMPDEST padding
+        0x0020      12   JUMPDEST padding
+        0x002C      20   contract ADDRESS     <- unique
+        0x0040   24512   JUMPDEST             <- 0x5FFF lands here
+        0x6000           STOP
+
+    Embedded ADDRESS makes runtime unique per contract;
+    initcode and its CREATE2 hash is shared across all salts.
+    """
+    max_code_size = 0x6000  # EIP-170 contract code size limit
+
+    # MCOPY fills MEM[0:0x8000] with JUMPDEST.
+    # Runtime only uses MEM[0:0x6000].
+    code = Op.MSTORE(0, bytes(Op.JUMPDEST * 32))
+    for size in (1 << s for s in range(5, 15)):
+        code += Op.MCOPY(size, 0, size)
+
+    # Runtime entry: JUMP to final JUMPDEST, then STOP.
+    entry = Op.JUMP(max_code_size - 1)
+    entry += Op.JUMPDEST * (32 - len(entry))  # Padding
+
+    code += Op.MSTORE(0, bytes(entry))
+
+    # Mask ADDRESS into a JUMPDEST template via OR:
+    #                  bytes 0..12   bytes 12..32
+    #                  -----------   ------------
+    #     ADDRESS      00 .. 00      <20-byte address>
+    #     addr_slot    5b .. 5b      00 .. 00
+    #     OR result    5b .. 5b      <20-byte address>
+    addr_slot = Op.JUMPDEST * 12 + Op.STOP * 20
+    code += Op.MSTORE(0x20, Op.OR(Op.ADDRESS, bytes(addr_slot)))
+
+    code += Op.RETURN(0, max_code_size)
+
+    return bytes(code)
+
+
+JOCHEMNET_UNIQUE_CONTRACT_INITCODE = build_unique_contract_initcode()
+
+
+def yield_distinct_unique_code_jumpdest_receiver() -> Generator[
+    Address, None, None
+]:
+    """
+    Yield contract addresses deployed by the deterministic CREATE2 factory.
+    """
+    for salt in itertools.count(0):
+        yield compute_create2_address(
+            address=DETERMINISTIC_FACTORY_ADDRESS,
+            salt=salt,
+            initcode=JOCHEMNET_UNIQUE_CONTRACT_INITCODE,
+        )
+
+
 # Bittrex controller mainnet address
 # Creates 1.5M contracts with deterministic address via CREATE
 # It is guaranteed no contract is destructed
@@ -39,59 +102,11 @@ BITTREX_CONTROLLER_ADDRESS = Address(
 )
 
 
-# Ether reception cost for Bittrex-created contracts
-RECEIVER_CONTRACT_EXECUTION_GAS = 51
-
-
-# Arachnid's deterministic deployment proxy. Assumed to have already
-# deployed the unique-code contracts via CREATE2 with salts 0, 1, 2, ...
-DETERMINISTIC_FACTORY_ADDRESS = Address(
-    0x4E59B44847B379578588920CA78FBF26C0B4956C
-)
-
-
-# Initcode deployed by DETERMINISTIC_FACTORY_ADDRESS for each
-# diff_to_unique_code_jumpdest_contract receiver. Returns a 24,576-byte
-# runtime whose entry is PUSH2 0x5fff; JUMP, landing on a JUMPDEST near
-# the end of code (then implicit STOP). Each contract embeds its own
-# address in code, so the deployed code is unique per address while
-# initcode (and therefore the CREATE2 hash input) is shared.
-UNIQUE_CODE_JUMPDEST_INITCODE = bytes.fromhex(
-    "7f5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b6000"
-    "526020600060205e6040600060405e6080600060805e61010060006101005e61020060"
-    "006102005e61040060006104005e61080060006108005e61100060006110005e612000"
-    "60006120005e61400060006140005e7f615fff565b5b5b5b5b5b5b5b5b5b5b5b5b5b5b"
-    "5b5b5b5b5b5b5b5b5b5b5b5b5b6000527f5b5b5b5b5b5b5b5b5b5b5b5b000000000000"
-    "000000000000000000000000000030176020526160006000f3"
-)
-
-
-# Runtime gas cost: PUSH2 (3) + JUMP (8) + JUMPDEST (1) = 12.
-RECEIVER_JUMPDEST_EXECUTION_GAS = 3 + 8 + 1
-
-
 def yield_distinct_contract_receiver() -> Generator[Address, None, None]:
     """Yield contract account created by Bittrex controller via CREATE."""
     for nonce in itertools.count(2):
         yield compute_create_address(
             address=BITTREX_CONTROLLER_ADDRESS, nonce=nonce
-        )
-
-
-def yield_distinct_unique_code_jumpdest_receiver() -> (
-    Generator[Address, None, None]
-):
-    """
-    Yield contract addresses deployed by the deterministic CREATE2 factory.
-
-    Each address corresponds to a contract with unique deployed code whose
-    runtime executes PUSH2 + JUMP + JUMPDEST (12 gas).
-    """
-    for salt in itertools.count(0):
-        yield compute_create2_address(
-            address=DETERMINISTIC_FACTORY_ADDRESS,
-            salt=salt,
-            initcode=UNIQUE_CODE_JUMPDEST_INITCODE,
         )
 
 
@@ -140,8 +155,7 @@ def test_ether_transfers_onchain_receivers(
     - diff_to_contract: distinct contract receivers
       (matches AccountMode.EXISTING_CONTRACT)
     - diff_to_unique_code_jumpdest_contract: distinct CREATE2 contract
-      receivers each holding unique deployed code; runtime executes
-      PUSH2 + JUMP + JUMPDEST.
+      receivers each holding unique deployed code
     """
     senders = yield_distinct_sender()
     receiver_execution_gas = 0
@@ -151,10 +165,21 @@ def test_ether_transfers_onchain_receivers(
         receivers = yield_distinct_existent_receiver()
     elif case_id == "diff_to_contract":
         receivers = yield_distinct_contract_receiver()
-        receiver_execution_gas = RECEIVER_CONTRACT_EXECUTION_GAS
+        # Runtime code is the same across all the receivers
+        # Example contract: https://etherscan.io/address/0xa888df3ef62286dde06a79395760b9bce6c83c83#code
+        runtime = (
+            Op.MSTORE(0x40, 0x60, new_memory_size=0x60)
+            + Op.JUMPI(Op.PUSH2(0x49), Op.ISZERO(Op.CALLDATASIZE))
+            + Op.JUMPDEST * 3
+            + Op.JUMP(Op.PUSH2(0x50))
+            + Op.JUMPDEST
+        )
+        receiver_execution_gas = runtime.gas_cost(fork)
     elif case_id == "diff_to_unique_code_jumpdest_contract":
         receivers = yield_distinct_unique_code_jumpdest_receiver()
-        receiver_execution_gas = RECEIVER_JUMPDEST_EXECUTION_GAS
+        # Runtime code aligns entry code path.
+        runtime = Op.JUMP(Op.PUSH2(0x5FFF)) + Op.JUMPDEST
+        receiver_execution_gas = runtime.gas_cost(fork)
     else:
         raise ValueError(f"Unknown case: {case_id}")
 
