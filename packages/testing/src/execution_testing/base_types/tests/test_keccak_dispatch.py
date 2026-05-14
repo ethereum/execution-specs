@@ -16,7 +16,6 @@ succeeds. These tests verify:
 
 import hashlib
 import importlib
-import sys
 from collections.abc import Iterator
 from typing import Any
 from unittest.mock import patch
@@ -61,8 +60,8 @@ def _hashlib_has_keccak() -> bool:
 
 def _clean_reimport_hash() -> Any:
     """Drop and reimport `ethereum.crypto.hash` for a fresh dispatch run."""
-    sys.modules.pop("ethereum.crypto.hash", None)
-    return importlib.import_module("ethereum.crypto.hash")
+    mod = importlib.import_module("ethereum.crypto.hash")
+    return importlib.reload(mod)
 
 
 @pytest.fixture

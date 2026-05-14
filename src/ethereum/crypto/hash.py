@@ -39,16 +39,24 @@ def _hashlib_has_keccak() -> bool:
 _USE_HASHLIB = _hashlib_has_keccak()
 
 
-def _keccak256_digest(buffer: bytes | bytearray) -> bytes:
-    if _USE_HASHLIB:
+if _USE_HASHLIB:
+
+    def _keccak256_digest(buffer: bytes | bytearray) -> bytes:
         return hashlib.new("keccak-256", buffer).digest()
-    return _pycryptodome_keccak.new(digest_bits=256).update(buffer).digest()
 
-
-def _keccak512_digest(buffer: bytes | bytearray) -> bytes:
-    if _USE_HASHLIB:
+    def _keccak512_digest(buffer: bytes | bytearray) -> bytes:
         return hashlib.new("keccak-512", buffer).digest()
-    return _pycryptodome_keccak.new(digest_bits=512).update(buffer).digest()
+else:
+
+    def _keccak256_digest(buffer: bytes | bytearray) -> bytes:
+        return (
+            _pycryptodome_keccak.new(digest_bits=256).update(buffer).digest()
+        )
+
+    def _keccak512_digest(buffer: bytes | bytearray) -> bytes:
+        return (
+            _pycryptodome_keccak.new(digest_bits=512).update(buffer).digest()
+        )
 
 
 def keccak256(buffer: bytes | bytearray) -> Hash32:
