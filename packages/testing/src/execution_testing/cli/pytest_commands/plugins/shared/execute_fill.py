@@ -421,9 +421,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "test_mutators", "Arguments to specify spec test mutators"
     )
     test_mutators_group.addoption(
-        "--spec-test-mutators",
+        "--test-mutators",
         action="store",
-        dest="spec_test_mutators",
+        dest="test_mutators",
         default=None,
         help="Parametrize spec tests with the given comma-separated list of "
         "mutators.",
@@ -435,12 +435,12 @@ def spec_test_mutator_parameter(
     request: pytest.FixtureRequest,
 ) -> SpecTestMutator:
     """
-    Parse the ``--spec-test-mutators`` option value into a single
+    Parse the ``--test-mutators`` option value into a single
     ``SpecTestMutator`` value with every named mutator OR'd in.
 
     Exits with a usage error if an entry does not match an existing mutator.
     """
-    value: str | None = request.config.getoption("spec_test_mutators")
+    value: str | None = request.config.getoption("test_mutators")
     if not value:
         return SpecTestMutator.NONE
     combined: SpecTestMutator = SpecTestMutator.NONE
