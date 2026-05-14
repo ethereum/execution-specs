@@ -2707,6 +2707,95 @@ def test_bal_cross_tx_deploy_then_call(
     )
 
 
+def test_bal_cross_tx_factory_nonce_create_chain(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Eight distinct senders each invoke a shared factory's CREATE with
+    identical initcode; resulting addresses derive solely from
+    `factory.nonce`. With no storage or balance signals in the BAL, a
+    parallelizer that skips `nonce_changes` would collide every tx on
+    `addr(factory, N+1)`.
+    """
+    chain_length = 8
+
+    factory_code = (
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.CREATE(0, 0, Op.CALLDATASIZE)
+        + Op.STOP
+    )
+    factory = pre.deploy_contract(code=factory_code)
+    factory_pre_nonce = 1
+
+    deploy_code_bytes = bytes(Op.STOP)
+    initcode_bytes = bytes(Initcode(deploy_code=Op.STOP))
+
+    targets = [
+        compute_create_address(address=factory, nonce=factory_pre_nonce + i)
+        for i in range(chain_length)
+    ]
+
+    senders = [pre.fund_eoa() for _ in range(chain_length)]
+    txs = [
+        Transaction(
+            sender=senders[i],
+            to=factory,
+            data=initcode_bytes,
+            gas_limit=200_000,
+        )
+        for i in range(chain_length)
+    ]
+
+    account_expectations: dict = {
+        senders[i]: BalAccountExpectation(
+            nonce_changes=[
+                BalNonceChange(block_access_index=i + 1, post_nonce=1)
+            ],
+        )
+        for i in range(chain_length)
+    }
+    account_expectations[factory] = BalAccountExpectation(
+        nonce_changes=[
+            BalNonceChange(
+                block_access_index=i + 1,
+                post_nonce=factory_pre_nonce + i + 1,
+            )
+            for i in range(chain_length)
+        ],
+    )
+    for i, target in enumerate(targets):
+        account_expectations[target] = BalAccountExpectation(
+            nonce_changes=[
+                BalNonceChange(block_access_index=i + 1, post_nonce=1)
+            ],
+            code_changes=[
+                BalCodeChange(
+                    block_access_index=i + 1, new_code=deploy_code_bytes
+                )
+            ],
+        )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=txs,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations=account_expectations
+                ),
+            )
+        ],
+        post={
+            factory: Account(nonce=factory_pre_nonce + chain_length),
+            **{
+                target: Account(nonce=1, code=deploy_code_bytes)
+                for target in targets
+            },
+        },
+    )
+
+
 @pytest.mark.parametrize(
     "funding_method",
     ["direct_call", "selfdestruct"],
