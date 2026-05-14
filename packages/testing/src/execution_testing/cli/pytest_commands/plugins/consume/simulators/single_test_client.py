@@ -34,6 +34,9 @@ def client_genesis(fixture: BlockchainFixtureCommon) -> dict:
     alloc = to_json(fixture.pre)
     # NOTE: nethermind requires account keys without '0x' prefix
     genesis["alloc"] = {k.replace("0x", ""): v for k, v in alloc.items()}
+    # NOTE: geth expects slotNumber as plain integer, not hex string
+    if "slotNumber" in genesis:
+        genesis["slotNumber"] = int(genesis["slotNumber"], 16)
     return genesis
 
 

@@ -57,6 +57,7 @@ class BlockEnvironment:
     excess_blob_gas: U64
     parent_beacon_block_root: Hash32
     block_access_list_builder: BlockAccessListBuilder
+    slot_number: U64
 
 
 @dataclass
