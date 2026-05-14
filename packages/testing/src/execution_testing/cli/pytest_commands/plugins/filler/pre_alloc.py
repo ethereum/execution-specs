@@ -25,7 +25,7 @@ from execution_testing.base_types.conversions import (
     NumberConvertible,
 )
 from execution_testing.fixtures import LabeledFixtureFormat
-from execution_testing.forks import Fork, TransitionFork
+from execution_testing.forks import Fork, SpecTestMutator, TransitionFork
 from execution_testing.specs import BaseTest
 from execution_testing.test_types import (
     DETERMINISTIC_FACTORY_ADDRESS,
@@ -69,6 +69,9 @@ class Alloc(SharedAlloc):
     _eoa_fund_amount_default: int = PrivateAttr(10**21)
     _account_salt: Dict[Hash, int] = PrivateAttr(default_factory=dict)
     _stub_accounts: Dict[str, Account] = PrivateAttr(default_factory=dict)
+    _spec_test_mutator: SpecTestMutator = PrivateAttr(
+        default=SpecTestMutator.NONE
+    )
 
     def __init__(
         self,
@@ -77,6 +80,7 @@ class Alloc(SharedAlloc):
         flags: AllocFlags,
         stub_accounts: Dict[str, Account] | None = None,
         stub_eoas: Dict[str, EOA] | None = None,
+        spec_test_mutator: SpecTestMutator = SpecTestMutator.NONE,
         **kwargs: Any,
     ) -> None:
         """Initialize the pre-alloc."""
@@ -89,16 +93,13 @@ class Alloc(SharedAlloc):
         )
         if stub_accounts is not None:
             self._stub_accounts = stub_accounts
+        self._spec_test_mutator = spec_test_mutator
 
     def get_next_account_salt(self, account_hash: Hash) -> int:
         """Retrieve the next salt for this account."""
         salt = self._account_salt.get(account_hash, 0)
         self._account_salt[account_hash] = salt + 1
         return salt
-
-    def code_pre_processor(self, code: BytesConvertible) -> BytesConvertible:
-        """Pre-processes the code before setting it."""
-        return code
 
     def modified_accounts_salt(self) -> int:
         """
@@ -264,7 +265,6 @@ class Alloc(SharedAlloc):
         else:
             if storage is None:
                 storage = {}
-            code = self.code_pre_processor(code)
             code_bytes = (
                 bytes(code) if not isinstance(code, (bytes, str)) else code
             )
@@ -499,6 +499,7 @@ def pre(
     request: pytest.FixtureRequest,
     stub_accounts: Dict[str, Account],
     stub_eoas: Dict[str, EOA],
+    spec_test_mutator: SpecTestMutator,
 ) -> Alloc:
     """Return default pre allocation for all tests (Empty alloc)."""
     # FIXME: Static tests don't have a fork so we need to get it from the node.
@@ -512,4 +513,5 @@ def pre(
         fork=actual_fork,
         stub_accounts=stub_accounts,
         stub_eoas=stub_eoas,
+        spec_test_mutator=spec_test_mutator,
     )
