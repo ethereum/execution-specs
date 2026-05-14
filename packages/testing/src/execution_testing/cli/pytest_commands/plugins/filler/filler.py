@@ -68,6 +68,7 @@ from execution_testing.forks import (
     TransitionFork,
     get_transition_forks,
 )
+from execution_testing.forks.mutators import SpecTestMutator
 from execution_testing.specs import BaseTest
 from execution_testing.specs.base import FillResult, OpMode
 from execution_testing.test_types import EnvironmentDefaults
@@ -1648,6 +1649,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         fixed_opcode_count: int | None,
         is_tx_gas_heavy_test: bool,
         is_exception_test: bool,
+        spec_test_mutator: SpecTestMutator,
     ) -> Any:
         """
         Fixture used to instantiate an auto-fillable BaseTest object from
@@ -1683,6 +1685,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 kwargs["operation_mode"] = op_mode
                 kwargs["is_tx_gas_heavy_test"] = is_tx_gas_heavy_test
                 kwargs["is_exception_test"] = is_exception_test
+                kwargs["spec_test_mutator"] = spec_test_mutator
                 if (
                     op_mode == OpMode.OPTIMIZE_GAS
                     or op_mode == OpMode.OPTIMIZE_GAS_POST_PROCESSING

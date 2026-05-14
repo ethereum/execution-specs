@@ -15,6 +15,8 @@ from execution_testing.execution import (
     LabeledExecuteFormat,
 )
 from execution_testing.fixtures import BaseFixture, LabeledFixtureFormat
+from execution_testing.forks import Fork, TransitionFork
+from execution_testing.forks.mutators import SpecTestMutator
 from execution_testing.logging import get_logger
 from execution_testing.rpc import EthRPC
 from execution_testing.specs import BaseTest
@@ -415,4 +417,64 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="fill_static_tests_enabled",
         default=None,
         help=("Enable reading and filling from static test files."),
+    )
+    test_mutators_group = parser.getgroup(
+        "test_mutators", "Arguments to specify spec test mutators"
+    )
+    test_mutators_group.addoption(
+        "--spec-test-mutators",
+        action="store",
+        dest="spec_test_mutators",
+        default=None,
+        help="Parametrize spec tests with the given comma-separated list of "
+        "mutators.",
+    )
+
+
+@pytest.fixture(scope="session")
+def spec_test_mutator_parameter(
+    request: pytest.FixtureRequest,
+) -> SpecTestMutator:
+    """
+    Parse the ``--spec-test-mutators`` option value into a single
+    ``SpecTestMutator`` value with every named mutator OR'd in.
+
+    Exits with a usage error if an entry does not match an existing mutator.
+    """
+    value: str | None = request.config.getoption("spec_test_mutators")
+    if not value:
+        return SpecTestMutator.NONE
+    combined: SpecTestMutator = SpecTestMutator.NONE
+    value = value.strip()
+    if value.lower() == "all":
+        for mutator in SpecTestMutator:
+            combined |= mutator
+    else:
+        for raw in value.split(","):
+            name = raw.strip()
+            if not name:
+                continue
+            if name.upper() not in SpecTestMutator.__members__:
+                available = ", ".join(
+                    m.name for m in SpecTestMutator if m.name is not None
+                )
+                pytest.exit(
+                    f"Error: Unknown spec test mutator: {name}.\n"
+                    f"Available mutators: {available}",
+                    returncode=pytest.ExitCode.USAGE_ERROR,
+                )
+            mutator = SpecTestMutator[name.upper()]
+            combined |= mutator
+    return combined
+
+
+@pytest.fixture(scope="function")
+def spec_test_mutator(
+    spec_test_mutator_parameter: SpecTestMutator,
+    fork: Fork | TransitionFork,
+) -> SpecTestMutator:
+    """Return the mutator for the current test."""
+    return (
+        spec_test_mutator_parameter
+        | fork.transitions_from().spec_test_mutators()
     )

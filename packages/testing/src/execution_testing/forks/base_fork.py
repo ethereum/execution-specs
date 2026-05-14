@@ -828,9 +828,9 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def spec_test_mutators(cls) -> List[SpecTestMutator]:
+    def spec_test_mutators(cls) -> SpecTestMutator:
         """
-        Return the list of spec test mutators that can be enabled starting
+        Return the spec test mutators that can be enabled starting
         on this fork.
         """
         pass

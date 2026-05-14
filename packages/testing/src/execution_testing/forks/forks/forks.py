@@ -1239,12 +1239,12 @@ class Frontier(
         return {}
 
     @classmethod
-    def spec_test_mutators(cls) -> List[SpecTestMutator]:
+    def spec_test_mutators(cls) -> SpecTestMutator:
         """
         Return the list of spec test mutators that can be enabled starting
         on this fork.
         """
-        return []
+        return SpecTestMutator.NONE
 
     @classmethod
     def build_default_block_header(

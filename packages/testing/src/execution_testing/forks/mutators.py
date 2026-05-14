@@ -9,4 +9,4 @@ class SpecTestMutator(Flag):
     modifications on all tests depending on fork activation.
     """
 
-    pass
+    NONE = 0
