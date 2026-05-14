@@ -1,5 +1,7 @@
 """Tests for EIP-7843 (SLOTNUM)."""
 
+from dataclasses import dataclass
+
 import pytest
 from execution_testing import (
     Account,
@@ -11,7 +13,19 @@ from execution_testing import (
     Transaction,
 )
 
-from .spec import ref_spec_7843
+
+@dataclass(frozen=True)
+class ReferenceSpec:
+    """Reference specification."""
+
+    git_path: str
+    version: str
+
+
+ref_spec_7843 = ReferenceSpec(
+    git_path="EIPS/eip-7843.md",
+    version="6bc5d6b7acbc016a79fa573f98975093b5c2ca52",
+)
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7843.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7843.version
