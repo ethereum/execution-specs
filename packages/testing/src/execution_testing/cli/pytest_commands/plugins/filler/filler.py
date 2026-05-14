@@ -65,10 +65,10 @@ from execution_testing.fixtures.pre_alloc_groups import (
 )
 from execution_testing.forks import (
     Fork,
+    SpecTestMutator,
     TransitionFork,
     get_transition_forks,
 )
-from execution_testing.forks.mutators import SpecTestMutator
 from execution_testing.specs import BaseTest
 from execution_testing.specs.base import FillResult, OpMode
 from execution_testing.test_types import EnvironmentDefaults

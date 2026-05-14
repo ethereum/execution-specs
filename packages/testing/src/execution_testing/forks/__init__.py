@@ -74,6 +74,7 @@ from .helpers import (
     transition_fork_from_to,
     transition_fork_to,
 )
+from .mutators import SpecTestMutator
 
 __all__ = [
     "ALL_FORKS_WITH_TRANSITIONS",
@@ -85,6 +86,7 @@ __all__ = [
     "ForkOrNoneAdapter",
     "ForkSet",
     "ForkSetAdapter",
+    "SpecTestMutator",
     "TransitionFork",
     "TransitionForkAdapter",
     "TransitionForkOrNoneAdapter",

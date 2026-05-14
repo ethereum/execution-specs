@@ -34,9 +34,8 @@ from execution_testing.fixtures import (
     LabeledFixtureFormat,
 )
 from execution_testing.fixtures.post_verifications import PostVerifications
-from execution_testing.forks import Fork, TransitionFork
+from execution_testing.forks import Fork, SpecTestMutator, TransitionFork
 from execution_testing.forks.base_fork import BaseFork
-from execution_testing.forks.mutators import SpecTestMutator
 from execution_testing.test_types import Environment, Withdrawal
 from execution_testing.test_types.receipt_types import (
     TransactionReceipt,

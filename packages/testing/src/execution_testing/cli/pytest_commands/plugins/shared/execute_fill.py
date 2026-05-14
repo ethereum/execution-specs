@@ -15,8 +15,7 @@ from execution_testing.execution import (
     LabeledExecuteFormat,
 )
 from execution_testing.fixtures import BaseFixture, LabeledFixtureFormat
-from execution_testing.forks import Fork, TransitionFork
-from execution_testing.forks.mutators import SpecTestMutator
+from execution_testing.forks import Fork, SpecTestMutator, TransitionFork
 from execution_testing.logging import get_logger
 from execution_testing.rpc import EthRPC
 from execution_testing.specs import BaseTest
