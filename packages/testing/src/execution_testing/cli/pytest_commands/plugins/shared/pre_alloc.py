@@ -205,6 +205,11 @@ class Alloc(BaseAlloc):
         if Number(nonce) == 0:
             self.assert_mutable()
 
+        if storage is None:
+            storage = Storage()
+        elif not isinstance(storage, Storage):
+            storage = Storage(storage)  # type: ignore
+
         return self._deploy_contract(
             code=code,
             storage=storage,
@@ -219,7 +224,7 @@ class Alloc(BaseAlloc):
         self,
         code: BytesConvertible,
         *,
-        storage: Storage | StorageRootType | None,
+        storage: Storage,
         balance: NumberConvertible,
         nonce: NumberConvertible,
         address: Address | None,

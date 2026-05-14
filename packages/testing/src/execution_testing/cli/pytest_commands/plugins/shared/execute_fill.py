@@ -475,5 +475,5 @@ def spec_test_mutator(
     """Return the mutator for the current test."""
     return (
         spec_test_mutator_parameter
-        | fork.transitions_from().spec_test_mutators()
+        & fork.transitions_from().spec_test_mutators()
     )

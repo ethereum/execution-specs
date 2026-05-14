@@ -243,11 +243,28 @@ class Alloc(SharedAlloc):
         contract_address.label = label
         return contract_address
 
+    def _set_account(
+        self, account: Account, address: Address | None = None
+    ) -> Address:
+        """Set an account to an address calculated from its account hash."""
+        if address is not None:
+            assert address not in self, (
+                f"address {address} already in allocation"
+            )
+            account_address = address
+        else:
+            account_hash = account.hash()
+            salt = self.get_next_account_salt(account_hash)
+            account_address = contract_address_from_hash(account_hash, salt)
+
+        self.__internal_setitem__(account_address, account)
+        return account_address
+
     def _deploy_contract(
         self,
         code: BytesConvertible,
         *,
-        storage: Storage | StorageRootType | None,
+        storage: Storage,
         balance: NumberConvertible,
         nonce: NumberConvertible,
         address: Address | None,
@@ -263,8 +280,6 @@ class Alloc(SharedAlloc):
                 )
             account = self._stub_accounts[stub]
         else:
-            if storage is None:
-                storage = {}
             code_bytes = (
                 bytes(code) if not isinstance(code, (bytes, str)) else code
             )
@@ -280,17 +295,6 @@ class Alloc(SharedAlloc):
                 storage=storage,
             )
 
-        if address is not None:
-            assert address not in self, (
-                f"address {address} already in allocation"
-            )
-            contract_address = address
-        else:
-            account_hash = account.hash()
-            salt = self.get_next_account_salt(account_hash)
-            contract_address = contract_address_from_hash(account_hash, salt)
-
-        self.__internal_setitem__(contract_address, account)
         if label is None:
             # Try to deduce the label from the code
             frame = inspect.currentframe()
@@ -304,6 +308,33 @@ class Alloc(SharedAlloc):
                         line = code_context[0].strip()
                         if "=" in line:
                             label = line.split("=")[0].strip()
+
+        if (
+            SpecTestMutator.EIP_7702_ALL_CONTRACTS_AS_DELEGATIONS
+            in self._spec_test_mutator
+            and address is None
+        ):
+            code_address = self._set_account(
+                Account(
+                    nonce=1,
+                    balance=0,
+                    code=account.code,
+                    storage={},
+                ),
+                address,
+            )
+            contract_address = Address(
+                self._fund_eoa(
+                    amount=balance,
+                    label=label,
+                    storage=storage,
+                    code=None,
+                    delegation=code_address,
+                    nonce=nonce,
+                )
+            )
+        else:
+            contract_address = self._set_account(account, address)
 
         contract_address.label = label
         return contract_address

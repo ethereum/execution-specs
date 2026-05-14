@@ -390,7 +390,7 @@ class Alloc(SharedAlloc):
         self,
         code: BytesConvertible,
         *,
-        storage: Storage | StorageRootType | None,
+        storage: Storage,
         balance: NumberConvertible,
         nonce: NumberConvertible,
         address: Address | None,
@@ -398,8 +398,6 @@ class Alloc(SharedAlloc):
         stub: str | None,
     ) -> Address:
         """Execute implementation of contract deployment."""
-        if storage is None:
-            storage = {}
         assert address is None, "address parameter is not supported"
         fork = self._fork.fork_at(
             block_number=self._block_number, timestamp=self._timestamp
@@ -409,9 +407,6 @@ class Alloc(SharedAlloc):
             fork.memory_expansion_gas_calculator()
         )
         calldata_gas_calculator = fork.calldata_gas_calculator()
-
-        if not isinstance(storage, Storage):
-            storage = Storage(storage)  # type: ignore
 
         if stub is not None:
             if stub not in self._address_stubs:

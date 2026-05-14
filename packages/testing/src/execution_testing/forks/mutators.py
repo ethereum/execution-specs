@@ -1,6 +1,6 @@
 """Fork specific test modifiers."""
 
-from enum import Flag
+from enum import Flag, auto
 
 
 class SpecTestMutator(Flag):
@@ -10,3 +10,4 @@ class SpecTestMutator(Flag):
     """
 
     NONE = 0
+    EIP_7702_ALL_CONTRACTS_AS_DELEGATIONS = auto()
