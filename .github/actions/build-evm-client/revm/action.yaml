@@ -40,7 +40,7 @@ runs:
       shell: bash
       run: |
         sudo DEBIAN_FRONTEND=noninteractive apt-get install --yes --force-yes build-essential rustup
-        rustup update --no-self-update 1.89.0 && rustup default 1.89.0
+        rustup update --no-self-update 1.94.0 && rustup default 1.94.0
     - name: Build revme
       if: steps.cache-restore.outputs.cache-hit != 'true'
       shell: bash
