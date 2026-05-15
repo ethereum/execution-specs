@@ -1,5 +1,7 @@
 """
-A hive based simulator that executes blocks against clients using either:
+Hive-based simulator for witness-emitting payload execution.
+
+Executes blocks against clients using either:
 
 - `engine_newPayloadWithWitnessVX` JSON-RPC (geth-style, RLP witness) — default
 - `POST /new-payload-with-witness` REST+SSZ (execution-apis PR #773) — `--ssz`
@@ -80,6 +82,9 @@ def test_blockchain_via_engine_witness(
     Skip the whole fixture if no payload carries an executionWitness, or if
     the SSZ endpoint is missing (HTTP 404/405) when `--ssz` is requested.
     """
+    if any(p.execution_witness_mutated for p in fixture.payloads):
+        pytest.skip("fixture contains a deliberately mutated executionWitness")
+
     if not any(p.execution_witness is not None for p in fixture.payloads):
         pytest.skip("fixture has no executionWitness on any payload")
 
@@ -89,7 +94,7 @@ def test_blockchain_via_engine_witness(
     with timing_data.time("Initial forkchoice update"):
         logger.info("Sending initial forkchoice update to genesis block...")
         try:
-            response = engine_rpc.forkchoice_updated_with_retry(
+            forkchoice_response = engine_rpc.forkchoice_updated_with_retry(
                 forkchoice_state=ForkchoiceState(
                     head_block_hash=fixture.genesis.block_hash,
                 ),
@@ -99,10 +104,13 @@ def test_blockchain_via_engine_witness(
                 max_attempts=30,
                 wait_fixed=1.0,
             )
-            if response.payload_status.status != PayloadStatusEnum.VALID:
+            if (
+                forkchoice_response.payload_status.status
+                != PayloadStatusEnum.VALID
+            ):
                 raise LoggedError(
                     f"Unexpected status on forkchoice updated to genesis: "
-                    f"{response.payload_status.status}"
+                    f"{forkchoice_response.payload_status.status}"
                 )
         except ForkchoiceUpdateTimeoutError as e:
             raise LoggedError(
@@ -137,7 +145,7 @@ def test_blockchain_via_engine_witness(
                 )
                 with payload_timing.time(timing_label):
                     try:
-                        response = _call_endpoint(
+                        witness_response = _call_endpoint(
                             use_ssz=use_ssz_transport,
                             engine_rpc=engine_rpc,
                             engine_witness_rpc=engine_witness_rpc,
@@ -162,19 +170,19 @@ def test_blockchain_via_engine_witness(
                     if payload.valid()
                     else PayloadStatusEnum.INVALID
                 )
-                if response.status != expected_validity:
+                if witness_response.status != expected_validity:
                     raise LoggedError(
                         f"unexpected status: want {expected_validity}, "
-                        f"got {response.status}"
+                        f"got {witness_response.status}"
                     )
 
-                if response.status == PayloadStatusEnum.VALID:
+                if witness_response.status == PayloadStatusEnum.VALID:
                     if payload.execution_witness is None:
                         logger.warning(
                             f"Payload {i + 1}: fixture has no "
                             "executionWitness; skipping witness diff"
                         )
-                    elif response.witness is None:
+                    elif witness_response.witness is None:
                         raise LoggedError(
                             f"Payload {i + 1}: VALID status but client "
                             "returned no witness"
@@ -184,18 +192,20 @@ def test_blockchain_via_engine_witness(
                             try:
                                 assert_witness_matches(
                                     expected=payload.execution_witness,
-                                    actual=response.witness,
+                                    actual=witness_response.witness,
                                 )
                             except WitnessMismatchError as e:
                                 raise LoggedError(str(e)) from e
-                elif use_ssz_transport and response.witness is not None:
+                elif (
+                    use_ssz_transport and witness_response.witness is not None
+                ):
                     # PR #773 requires an empty witness when status != VALID.
                     # Geth's JSON-RPC does not mandate this, so only enforce
                     # in SSZ mode.
                     raise LoggedError(
-                        f"Payload {i + 1}: {response.status} status but "
-                        "client returned a non-empty witness (PR #773 "
-                        "requires empty witness when not VALID)"
+                        f"Payload {i + 1}: {witness_response.status} "
+                        "status but client returned a non-empty witness "
+                        "(PR #773 requires empty witness when not VALID)"
                     )
 
                 if payload.valid():

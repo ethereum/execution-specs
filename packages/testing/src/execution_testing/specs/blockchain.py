@@ -707,6 +707,7 @@ class BuiltBlock(CamelModel):
     fork: Fork
     block_access_list: BlockAccessList | None
     execution_witness: ExecutionWitness | None = None
+    execution_witness_mutated: bool = False
     stateless_input_bytes: Bytes | None = None
     stateless_output_bytes: Bytes | None = None
 
@@ -783,6 +784,9 @@ class BuiltBlock(CamelModel):
             if self.block_access_list
             else None,
             execution_witness=self.execution_witness,
+            execution_witness_mutated=(
+                True if self.execution_witness_mutated else None
+            ),
             validation_error=self.expected_exception,
             error_code=self.engine_api_error_code,
         )
@@ -1360,6 +1364,7 @@ class BlockchainTest(BaseTest):
             fork=fork,
             block_access_list=bal,
             execution_witness=execution_witness,
+            execution_witness_mutated=has_witness_modifier,
             stateless_input_bytes=stateless_input_bytes,
             stateless_output_bytes=stateless_output_bytes,
         )
