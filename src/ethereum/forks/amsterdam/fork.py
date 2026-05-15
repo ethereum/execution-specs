@@ -1084,8 +1084,12 @@ def process_transaction(
     tx_output = process_message_call(message)
 
     if tx_output.error is not None:
-        tx_output.state_gas_left += tx_output.state_gas_used
-        tx_output.state_gas_used = Uint(0)
+        # State rolled back: restore reservoir via the
+        # `state_gas_left + state_gas_used` invariant.
+        tx_output.state_gas_left = Uint(
+            int(tx_output.state_gas_left) + tx_output.state_gas_used
+        )
+        tx_output.state_gas_used = 0
         if isinstance(tx.to, Bytes0):
             new_account_refund = (
                 STATE_BYTES_PER_NEW_ACCOUNT * COST_PER_STATE_BYTE
@@ -1155,15 +1159,17 @@ def process_transaction(
         destroy_account(tx_state, block_env.coinbase)
 
     tx_regular_gas = tx_env.intrinsic_regular_gas + tx_output.regular_gas_used
+    # `state_gas_used` may be negative when inline refunds exceed
+    # gross charges; clamp the block contribution at zero.
     tx_state_gas = (
-        tx_env.intrinsic_state_gas
+        int(tx_env.intrinsic_state_gas)
         + tx_output.state_gas_used
-        - tx_output.state_refund
+        - int(tx_output.state_refund)
     )
     block_output.block_gas_used += max(
         tx_regular_gas, intrinsic.calldata_floor
     )
-    block_output.block_state_gas_used += tx_state_gas
+    block_output.block_state_gas_used += Uint(max(0, tx_state_gas))
     block_output.blob_gas_used += tx_blob_gas_used
 
     block_output.cumulative_gas_used += tx_gas_used_after_refund

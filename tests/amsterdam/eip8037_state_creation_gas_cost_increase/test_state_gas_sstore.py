@@ -15,6 +15,7 @@ Tests for [EIP-8037: State Creation Gas Cost Increase]
 import pytest
 from execution_testing import (
     Account,
+    Address,
     Alloc,
     Block,
     BlockchainTestFiller,
@@ -153,6 +154,74 @@ def test_sstore_zero_to_zero(
 
     post = {contract: Account(storage=storage)}
     state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "delegatecall_depth",
+    [
+        pytest.param(1, id="depth_1"),
+        pytest.param(3, id="depth_3"),
+        pytest.param(10, id="depth_10"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_sstore_restoration_refund_credits_local_reservoir(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    delegatecall_depth: int,
+) -> None:
+    """
+    SSTORE 0→x→0 restoration refund credits the *local* reservoir.
+
+    Parent sets slots `0` and `1` to `1`, then DELEGATECALLs through a
+    chain that clears both slots and CREATEs an empty account from
+    the clearing frame. The two restoration refunds credit the
+    clearing frame's reservoir, funding the CREATE.
+
+    A spec that clamps the refund to the clearing frame's own
+    `state_gas_used` (zero — it does no `0→x` set) would OOG the
+    CREATE and leave both slots set.
+    """
+    state_gas = fork.sstore_state_gas()
+    create_state_gas = fork.create_state_gas()
+
+    clearing = pre.deploy_contract(
+        code=(
+            Op.SSTORE(0, 0)
+            + Op.SSTORE(1, 0)
+            + Op.POP(Op.CREATE(0, 0, 0))
+            + Op.STOP
+        )
+    )
+    inner: Address = clearing
+    for _ in range(delegatecall_depth):
+        inner = pre.deploy_contract(
+            code=(Op.POP(Op.DELEGATECALL(gas=Op.GAS, address=inner)) + Op.STOP)
+        )
+    parent = pre.deploy_contract(
+        code=(
+            Op.SSTORE(0, 1)
+            + Op.SSTORE(1, 1)
+            + Op.POP(Op.DELEGATECALL(gas=Op.GAS, address=inner))
+            + Op.STOP
+        )
+    )
+
+    # Guard against fork-constant drift: the two restoration refunds
+    # must cover `create_state_gas`.
+    assert state_gas == 97_920 and create_state_gas == 183_600
+    tx = Transaction(
+        to=parent,
+        gas_limit=500_000,
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(
+        pre=pre,
+        post={parent: Account(storage={0: 0, 1: 0})},
+        tx=tx,
+    )
 
 
 @EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
@@ -743,6 +812,7 @@ def test_sstore_restoration_cross_frame(
         pytest.param(1, id="single_hop"),
         pytest.param(2, id="two_hops"),
         pytest.param(3, id="three_hops"),
+        pytest.param(10, id="ten_hops"),
     ],
 )
 @pytest.mark.with_all_call_opcodes(
