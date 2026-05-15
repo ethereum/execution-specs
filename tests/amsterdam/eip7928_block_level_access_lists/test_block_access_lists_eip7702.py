@@ -67,7 +67,6 @@ def test_bal_7702_delegation_create(
         to=bob,
         value=10,
         gas_limit=1_000_000,
-        gas_price=0xA,
         authorization_list=[
             AuthorizationTuple(
                 address=oracle,
@@ -166,7 +165,6 @@ def test_bal_7702_delegation_update(
         to=bob,
         value=10,
         gas_limit=1_000_000,
-        gas_price=0xA,
         authorization_list=[
             AuthorizationTuple(
                 address=oracle1,
@@ -182,7 +180,6 @@ def test_bal_7702_delegation_update(
         to=bob,
         value=10,
         gas_limit=1_000_000,
-        gas_price=0xA,
         authorization_list=[
             AuthorizationTuple(
                 address=oracle2,
@@ -295,7 +292,6 @@ def test_bal_7702_delegation_clear(
         to=bob,
         value=10,
         gas_limit=1_000_000,
-        gas_price=0xA,
         authorization_list=[
             AuthorizationTuple(
                 address=oracle,
@@ -311,7 +307,6 @@ def test_bal_7702_delegation_clear(
         to=bob,
         value=10,
         gas_limit=1_000_000,
-        gas_price=0xA,
         authorization_list=[
             AuthorizationTuple(
                 address=abyss,
@@ -473,7 +468,6 @@ def test_bal_7702_invalid_nonce_authorization(
         to=bob,
         value=10,
         gas_limit=1_000_000,
-        gas_price=0xA,
         authorization_list=[
             AuthorizationTuple(
                 address=oracle,
@@ -540,7 +534,6 @@ def test_bal_7702_invalid_authority_has_code_authorization(
         to=bob,
         value=10,
         gas_limit=1_000_000,
-        gas_price=0xA,
         authorization_list=[
             AuthorizationTuple(
                 address=oracle,
@@ -600,7 +593,6 @@ def test_bal_7702_invalid_chain_id_authorization(
         to=bob,
         value=10,
         gas_limit=1_000_000,
-        gas_price=0xA,
         authorization_list=[
             AuthorizationTuple(
                 chain_id=999,  # Wrong chain id
@@ -744,7 +736,6 @@ def test_bal_7702_multi_hop_delegation_chain(
         sender=alice,
         to=entry_address,
         gas_limit=1_000_000,
-        gas_price=0xA,
         authorization_list=[
             AuthorizationTuple(
                 address=auth_b,
@@ -855,7 +846,6 @@ def test_bal_7702_cross_tx_delegation_then_call(
         to=bob,
         value=0,
         gas_limit=1_000_000,
-        gas_price=0xA,
         authorization_list=[
             AuthorizationTuple(
                 address=counter,
@@ -1022,7 +1012,6 @@ def test_bal_7702_double_auth_reset(
         to=bob,
         value=10,
         gas_limit=1_000_000,
-        gas_price=0xA,
         authorization_list=[
             AuthorizationTuple(
                 address=contract_a,
@@ -1111,7 +1100,6 @@ def test_bal_7702_double_auth_swap(
         to=bob,
         value=10,
         gas_limit=1_000_000,
-        gas_price=0xA,
         authorization_list=[
             AuthorizationTuple(
                 address=contract_a,
@@ -1213,7 +1201,6 @@ def test_bal_selfdestruct_to_7702_delegation(
         to=bob,
         value=10,
         gas_limit=1_000_000,
-        gas_price=0xA,
         authorization_list=[
             AuthorizationTuple(
                 address=oracle,
@@ -1346,7 +1333,6 @@ def test_bal_withdrawal_to_7702_delegation(
         to=bob,
         value=10,
         gas_limit=1_000_000,
-        gas_price=0xA,
         authorization_list=[
             AuthorizationTuple(
                 address=oracle,
