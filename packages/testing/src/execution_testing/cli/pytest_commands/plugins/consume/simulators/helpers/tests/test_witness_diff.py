@@ -1,4 +1,4 @@
-"""Tests for set-based witness comparison helper."""
+"""Tests for strict witness comparison helper."""
 
 import pytest
 
@@ -28,22 +28,24 @@ def test_matching_witnesses_pass() -> None:
     assert_witness_matches(expected=w, actual=w)
 
 
-def test_reordered_witness_matches() -> None:
-    """Set-equality ignores ordering — PR #773 does not mandate it."""
+def test_reordered_witness_fails() -> None:
+    """Witness comparison is order-sensitive."""
     expected = _w(state=[b"\xaa", b"\xbb"], codes=[b"\x60", b"\x70"])
     actual = _w(state=[b"\xbb", b"\xaa"], codes=[b"\x70", b"\x60"])
-    assert_witness_matches(expected=expected, actual=actual)
+    with pytest.raises(WitnessMismatchError, match="state: ordered mismatch"):
+        assert_witness_matches(expected=expected, actual=actual)
 
 
-def test_duplicates_reduced_to_set() -> None:
-    """Duplicate items on either side collapse to a single set element."""
+def test_duplicates_are_significant() -> None:
+    """Duplicate items make the witness differ."""
     expected = _w(state=[b"\xaa"])
     actual = _w(state=[b"\xaa", b"\xaa"])
-    assert_witness_matches(expected=expected, actual=actual)
+    with pytest.raises(WitnessMismatchError, match="state: 1 extra"):
+        assert_witness_matches(expected=expected, actual=actual)
 
 
 def test_missing_state_node_fails() -> None:
-    """Client missing a state node gives a 'missing' diff line."""
+    """Client missing a state node gives a missing diff line."""
     expected = _w(state=[b"\xaa", b"\xbb"])
     actual = _w(state=[b"\xaa"])
     with pytest.raises(WitnessMismatchError, match="state: 1 missing"):
@@ -51,7 +53,7 @@ def test_missing_state_node_fails() -> None:
 
 
 def test_extra_code_fails() -> None:
-    """Client over-collecting a code gives an 'extra' diff line."""
+    """Client over-collecting a code gives an extra diff line."""
     expected = _w(codes=[b"\x60"])
     actual = _w(codes=[b"\x60", b"\x70"])
     with pytest.raises(WitnessMismatchError, match=r"codes: 1 extra"):

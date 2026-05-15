@@ -5,7 +5,7 @@ A hive based simulator that executes blocks against clients using either:
 - `POST /new-payload-with-witness` REST+SSZ (execution-apis PR #773) — `--ssz`
 
 Both paths converge on a common verification: status matches the fixture
-expectation, and when VALID the client-emitted witness is set-equal to
+expectation, and when VALID the client-emitted witness exactly matches
 `fixture.execution_witness` on state/codes/headers.
 """
 
@@ -73,8 +73,8 @@ def test_blockchain_via_engine_witness(
     Per payload:
     1. Call the witness-emitting endpoint (RLP JSON-RPC or REST+SSZ).
     2. Assert status matches fixture expectation.
-    3. On VALID, compare the client-emitted witness to fixture.execution_witness
-       as set-equality per field (state, codes, headers).
+    3. On VALID, compare the client-emitted witness exactly to
+       fixture.execution_witness per field (state, codes, headers).
     4. On VALID, issue an engine_forkchoiceUpdatedVX to advance the head.
 
     Skip the whole fixture if no payload carries an executionWitness, or if
