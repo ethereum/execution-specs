@@ -927,11 +927,12 @@ def test_revert_precompiled_touch_exact_oog_paris(
     ]
     tx_gas = [22500, 120000, 69000]
 
+    floor_cost = fork.transaction_data_floor_cost_calculator()(data=tx_data[d])
     tx = Transaction(
         sender=sender,
         to=target,
         data=tx_data[d],
-        gas_limit=tx_gas[g],
+        gas_limit=max(tx_gas[g], floor_cost),
         nonce=1,
         error=_exc,
     )
