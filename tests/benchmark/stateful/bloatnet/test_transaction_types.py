@@ -16,13 +16,14 @@ from execution_testing import (
     Transaction,
     compute_create2_address,
     compute_create_address,
+    keccak256,
 )
 
 # Deterministic sender pool of 15K accounts.
 # Funded via system contract withdrawals (funding.txt) in payload generation.
 # Placed outside pre-allocation to ensure accounts remain uncached.
-SENDER_BASE_KEY = (
-    0x1111111111111111111111111111111111111111111111111111111111111111
+SENDER_BASE_KEY = int.from_bytes(
+    keccak256(b"gas-repricings-private-key"), "big"
 )
 
 
