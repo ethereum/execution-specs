@@ -74,3 +74,9 @@ runs:
       with:
         repo: ${{ steps.config-evm-reader.outputs.repo }}
         ref: ${{ steps.config-evm-reader.outputs.ref }}
+    - name: Build the EVM using revm action
+      if: steps.config-evm-reader.outputs.impl == 'revm'
+      uses: ./.github/actions/build-evm-client/revm
+      with:
+        repo: ${{ steps.config-evm-reader.outputs.repo }}
+        ref: ${{ steps.config-evm-reader.outputs.ref }}

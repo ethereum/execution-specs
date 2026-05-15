@@ -1,43 +1,49 @@
-"""Reth execution client transition tool."""
+"""Reth execution client transition tool — exception mapper only.
 
+Reth's EVM is revm, so all the EVM-level error strings reth surfaces
+match revm's `Display for InvalidTransaction` output and live in the
+shared [`RevmExceptionMapper`] base. This module only contains the
+strings that come from layers *above* revm — reth's payload validator,
+its consensus engine, its tx pool, and its BAL validator — because
+those wrap or replace revm's errors with reth-specific phrasing.
+"""
+
+from execution_testing.client_clis.clis.revm import RevmExceptionMapper
 from execution_testing.exceptions import (
     BlockException,
-    ExceptionMapper,
     TransactionException,
 )
 
 
-class RethExceptionMapper(ExceptionMapper):
-    """Reth exception mapper."""
+class RethExceptionMapper(RevmExceptionMapper):
+    """
+    Reth-specific overrides on top of the revm base mapper.
+
+    Only entries that diverge from revm's `Display for
+    InvalidTransaction` belong here. Anything matching revm's core
+    error vocabulary lives in [`RevmExceptionMapper`].
+    """
 
     mapping_substring = {
-        TransactionException.SENDER_NOT_EOA: (
-            "reject transactions from senders with deployed code"
+        **RevmExceptionMapper.mapping_substring,
+        # Reth's payload validator wording (revm itself says
+        # "blob versioned hashes not supported" — that's the base).
+        TransactionException.TYPE_3_TX_PRE_FORK: (
+            "blob transactions present in pre-cancun payload"
         ),
-        TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: "lack of funds",
-        TransactionException.INITCODE_SIZE_EXCEEDED: (
-            "create initcode size limit"
-        ),
-        TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: (
-            "gas price is less than basefee"
-        ),
-        TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
-            "priority fee is greater than max fee"
-        ),
-        TransactionException.GASLIMIT_PRICE_PRODUCT_OVERFLOW: "overflow",
-        TransactionException.TYPE_3_TX_CONTRACT_CREATION: "unexpected length",
-        TransactionException.TYPE_3_TX_WITH_FULL_BLOBS: "unexpected list",
-        TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: (
-            "blob version not supported"
-        ),
-        TransactionException.TYPE_3_TX_ZERO_BLOBS: "empty blobs",
-        TransactionException.TYPE_4_EMPTY_AUTHORIZATION_LIST: (
-            "empty authorization list"
-        ),
-        TransactionException.TYPE_4_TX_CONTRACT_CREATION: "unexpected length",
+        # Reth's payload validator wording for EIP-7702 pre-Prague.
         TransactionException.TYPE_4_TX_PRE_FORK: (
             "eip 7702 transactions present in pre-prague payload"
         ),
+        # Reth's RLP decoder catches type-3/type-4 contract-creation
+        # attempts at decode time and surfaces them as "unexpected
+        # length" / "unexpected list" — revm never sees them, so these
+        # are reth-only.
+        TransactionException.TYPE_3_TX_CONTRACT_CREATION: "unexpected length",
+        TransactionException.TYPE_3_TX_WITH_FULL_BLOBS: "unexpected list",
+        TransactionException.TYPE_4_TX_CONTRACT_CREATION: "unexpected length",
+        # Block-envelope / consensus errors — emitted by reth's
+        # consensus engine, never by revm.
         BlockException.INVALID_REQUESTS: "mismatched block requests hash",
         BlockException.INVALID_RECEIPTS_ROOT: "receipt root mismatch",
         BlockException.INVALID_STATE_ROOT: "mismatched block state root",
@@ -48,38 +54,24 @@ class RethExceptionMapper(ExceptionMapper):
         BlockException.EXTRA_DATA_TOO_BIG: "invalid payload extra data",
         BlockException.INVALID_LOG_BLOOM: "header bloom filter mismatch",
     }
+
     mapping_regex = {
-        TransactionException.NONCE_MISMATCH_TOO_LOW: (
-            r"nonce \d+ too low, expected \d+"
-        ),
-        TransactionException.NONCE_MISMATCH_TOO_HIGH: (
-            r"nonce \d+ too high, expected \d+"
-        ),
-        TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS: (
-            r"blob gas price \(\d+\) is greater than "
-            r"max fee per blob gas \(\d+\)"
-        ),
-        TransactionException.INTRINSIC_GAS_TOO_LOW: (
-            r"call gas cost \(\d+\) exceeds the gas limit \(\d+\)"
-        ),
-        TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
-            r"gas floor \(\d+\) exceeds the gas limit \(\d+\)"
-        ),
+        **RevmExceptionMapper.mapping_regex,
+        # Reth's blob-allowance checker phrasing.
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
             r"blob gas used \d+ exceeds maximum allowance \d+"
         ),
-        TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: (
-            r"too many blobs, have \d+, max \d+"
-        ),
-        TransactionException.TYPE_3_TX_PRE_FORK: (
-            r"blob transactions present in pre-cancun payload|empty blobs"
-        ),
+        # Reth tx-pool phrasing for over-budget tx gas (revm's
+        # equivalent "caller gas limit exceeds the block gas limit"
+        # lives in the base).
         TransactionException.GAS_ALLOWANCE_EXCEEDED: (
             r"transaction gas limit \w+ is more than blocks available gas \w+"
         ),
+        # Reth tx-pool phrasing.
         TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
             r"transaction gas limit.*is greater than the cap"
         ),
+        # Reth consensus / block-execution errors.
         BlockException.SYSTEM_CONTRACT_CALL_FAILED: (
             r"failed to apply .* requests contract call"
         ),
@@ -109,8 +101,10 @@ class RethExceptionMapper(ExceptionMapper):
         BlockException.GAS_USED_OVERFLOW: (
             r"transaction gas limit \w+ is more than blocks available gas \w+"
         ),
-        # BAL Exceptions
-        BlockException.INVALID_BAL_HASH: (r"block access list hash mismatch"),
+        # BAL exceptions — reth's BAL validator.
+        BlockException.INVALID_BAL_HASH: (
+            r"block access list hash mismatch"
+        ),
         BlockException.INVALID_BLOCK_ACCESS_LIST: (
             r"block access list hash mismatch"
         ),
@@ -118,8 +112,8 @@ class RethExceptionMapper(ExceptionMapper):
             r"block access list hash mismatch"
         ),
         # Reth does not validate the sizes or offsets of the deposit
-        # contract logs. As a workaround we have set
-        # INVALID_DEPOSIT_EVENT_LAYOUT equal to INVALID_REQUESTS.
+        # contract logs. As a workaround we map INVALID_DEPOSIT_EVENT_LAYOUT
+        # to the same error pattern as INVALID_REQUESTS.
         #
         # Although this is out of spec, it is understood that this
         # will not cause an issue so long as the mainnet/testnet

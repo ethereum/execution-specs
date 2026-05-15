@@ -1,0 +1,59 @@
+name: 'Build revm revme'
+description: 'Builds the revme t8n binary from bluealloy/revm (or a fork)'
+inputs:
+  repo:
+    description: 'Source repository to use to build the EVM binary'
+    required: true
+    default: 'bluealloy/revm'
+  ref:
+    description: 'Reference to branch, commit, or tag to use to build the EVM binary'
+    required: true
+    default: 'main'
+runs:
+  using: "composite"
+  steps:
+    - name: Get latest revm commit
+      id: revm-sha
+      shell: bash
+      run: |
+        SHA=$(git ls-remote https://github.com/${{ inputs.repo }}.git refs/heads/${{ inputs.ref }} | cut -f1)
+        echo "sha=$SHA" >> $GITHUB_OUTPUT
+        echo "Latest revm commit: $SHA"
+    - name: Restore build cache
+      id: cache-restore
+      uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+      with:
+        path: |
+          ${{ github.workspace }}/revm/target/release/revme
+        key: revm-revme-build-sha=${{ steps.revm-sha.outputs.sha }}
+        restore-keys: |
+          revm-revme-build-
+    - name: Checkout revm
+      if: steps.cache-restore.outputs.cache-hit != 'true'
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      with:
+        repository: ${{ inputs.repo }}
+        ref: ${{ steps.revm-sha.outputs.sha }}
+        path: revm
+    - name: Install Rust
+      if: steps.cache-restore.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install --yes --force-yes build-essential rustup
+        rustup update --no-self-update 1.89.0 && rustup default 1.89.0
+    - name: Build revme
+      if: steps.cache-restore.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        cd $GITHUB_WORKSPACE/revm
+        cargo build --release -p revme
+    - name: Add revme to PATH
+      shell: bash
+      run: echo $GITHUB_WORKSPACE/revm/target/release >> $GITHUB_PATH
+    - name: Save build cache
+      if: steps.cache-restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+      with:
+        path: |
+          ${{ github.workspace }}/revm/target/release/revme
+        key: revm-revme-build-sha=${{ steps.revm-sha.outputs.sha }}
