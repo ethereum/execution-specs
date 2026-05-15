@@ -3364,25 +3364,30 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
     pre_balance: int,
 ) -> None:
     """
-    Tx1 CREATE2+SELFDESTRUCT, Tx2 CREATE2 resurrection at same address.
+    Tx1 CREATE2+SSTORE+SELFDESTRUCT, Tx2 CREATE2 resurrection at same
+    address.
 
     Two identical txs invoke the same factory with the same initcode
     (same hash => same CREATE2 address A). The factory branches on its
     own storage slot 1: on the first tx, the slot is 0 so the factory
-    CREATE2's then CALLs A (runtime SELFDESTRUCTs) and records the
-    CALL's return code in slot 1; on the second tx, slot 1 is non-zero
-    so only CREATE2 runs and A persists with the runtime code.
+    CREATE2's then CALLs A (runtime SSTOREs to slot_b then
+    SELFDESTRUCTs) and records the CALL's return code in slot 1; on the
+    second tx, slot 1 is non-zero so only CREATE2 runs and A persists
+    with the runtime code (its runtime is never executed).
 
     Per EIP-7928 SELFDESTRUCT-in-tx semantics, Tx1's destructed A has no
     `nonce_changes` or `code_changes`; only `balance_changes` if it was
-    pre-funded. Tx2's fresh A has `nonce_changes` (post=1) and
-    `code_changes` (post=runtime).
+    pre-funded. The SSTORE is demoted to `storage_reads` because the
+    contract is destroyed in the same tx. Tx2's fresh A has
+    `nonce_changes` (post=1), `code_changes` (post=runtime), and empty
+    storage.
     """
     alice = pre.fund_eoa()
     beneficiary = pre.fund_eoa(amount=0)
     salt = 0
+    slot_b = 0x07
 
-    runtime = Op.SELFDESTRUCT(beneficiary)
+    runtime = Op.SSTORE(slot_b, 0xCAFE) + Op.SELFDESTRUCT(beneficiary)
     runtime_bytes = bytes(runtime)
     initcode_bytes = bytes(Initcode(deploy_code=runtime))
 
@@ -3394,7 +3399,7 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
         )
         + Conditional(
             condition=Op.ISZERO(Op.SLOAD(1)),
-            if_true=Op.SSTORE(1, Op.CALL(50_000, Op.SLOAD(0), 0, 0, 0, 0, 0)),
+            if_true=Op.SSTORE(1, Op.CALL(100_000, Op.SLOAD(0), 0, 0, 0, 0, 0)),
             if_false=Op.STOP,
         )
         + Op.STOP
@@ -3445,8 +3450,10 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
                 target_a: BalAccountExpectation(
-                    # Tx1 destruction (EIP-7928 #165): no nonce/code changes.
-                    # Tx2 resurrection: fresh contract with nonce=1, runtime.
+                    # Tx1 destruction (EIP-7928 #165): no nonce/code changes;
+                    # the SSTORE is demoted to a storage_read because A is
+                    # destroyed same-tx. Tx2 resurrection: fresh contract
+                    # with nonce=1, runtime, and untouched storage.
                     nonce_changes=[
                         BalNonceChange(block_access_index=2, post_nonce=1),
                     ],
@@ -3457,7 +3464,7 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
                     ],
                     balance_changes=target_a_balance_changes,
                     storage_changes=[],
-                    storage_reads=[],
+                    storage_reads=[slot_b],
                 ),
                 beneficiary: beneficiary_expectation,
             }
@@ -3468,7 +3475,9 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
         pre=pre,
         blocks=[block],
         post={
-            target_a: Account(nonce=1, balance=0, code=runtime_bytes),
+            target_a: Account(
+                nonce=1, balance=0, code=runtime_bytes, storage={}
+            ),
             beneficiary: Account(balance=pre_balance)
             if pre_balance > 0
             else Account.NONEXISTENT,
