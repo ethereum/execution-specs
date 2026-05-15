@@ -428,6 +428,10 @@ class Transaction(
         if self.ty <= 1 and self.gas_price is None:
             self.gas_price = HexNumber(TransactionDefaults.gas_price)
             self.model_fields_set.remove("gas_price")
+        if self.ty >= 2:
+            assert self.gas_price is None, (
+                f"gas_price not supported for tx type {int(self.ty)}"
+            )
         if self.ty >= 1 and self.access_list is None:
             self.access_list = []
         if self.ty < 1:
