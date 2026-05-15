@@ -66,6 +66,7 @@ from execution_testing.fixtures.blockchain import (
     FixtureBlockBase,
     FixtureConfig,
     FixtureEngineNewPayload,
+    FixtureExecutionPayloadModifier,
     FixtureHeader,
     FixtureTransaction,
     FixtureWithdrawal,
@@ -395,6 +396,7 @@ class BuiltBlock(CamelModel):
     result: Result
     expected_exception: BLOCK_EXCEPTION_TYPE = None
     engine_api_error_code: EngineAPIError | None = None
+    rlp_modifier: Header | None = None
     fork: Fork
     block_access_list: BlockAccessList | None
 
@@ -447,6 +449,40 @@ class BuiltBlock(CamelModel):
         """Get the RLP of the block."""
         return self.get_fixture_block().rlp
 
+    @staticmethod
+    def derive_engine_payload_modifier(
+        rlp_modifier: Header | None,
+        block_access_list: BlockAccessList | None,
+    ) -> "FixtureExecutionPayloadModifier | None":
+        """
+        Propagate ``rlp_modifier``'s header changes to the engine payload.
+
+        The engine ``ExecutionPayload`` schema does not carry
+        ``block_access_list_hash`` directly; the equivalent payload field is
+        the ``block_access_list`` body. So a header modifier that touches the
+        BAL hash needs to drive a matching change on the payload body.
+        """
+        if rlp_modifier is None:
+            return None
+        bal_hash_override = rlp_modifier.block_access_list_hash
+        if bal_hash_override is None:
+            return None
+        if bal_hash_override is Header.REMOVE_FIELD:
+            return FixtureExecutionPayloadModifier(
+                block_access_list=(
+                    FixtureExecutionPayloadModifier.REMOVE_FIELD
+                ),
+            )
+        # The user injected a header BAL hash; mirror that on the engine
+        # payload by forcing a body to be present. Its exact value is
+        # irrelevant for negative tests — a non-``None`` value is enough to
+        # make a payload-version mismatch detectable.
+        if block_access_list is None:
+            return FixtureExecutionPayloadModifier(
+                block_access_list=Bytes(b""),
+            )
+        return None
+
     def get_fixture_engine_new_payload(self) -> FixtureEngineNewPayload:
         """Get a FixtureEngineNewPayload from the built block."""
         return FixtureEngineNewPayload.from_fixture_header(
@@ -458,6 +494,9 @@ class BuiltBlock(CamelModel):
             block_access_list=self.block_access_list.rlp
             if self.block_access_list
             else None,
+            execution_payload_modifier=self.derive_engine_payload_modifier(
+                self.rlp_modifier, self.block_access_list
+            ),
             validation_error=self.expected_exception,
             error_code=self.engine_api_error_code,
         )
@@ -808,6 +847,7 @@ class BlockchainTest(BaseTest):
             result=transition_tool_output.result,
             expected_exception=block.exception,
             engine_api_error_code=block.engine_api_error_code,
+            rlp_modifier=block.rlp_modifier,
             fork=fork,
             block_access_list=bal,
         )
