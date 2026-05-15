@@ -8,6 +8,7 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    CodeGasMeasure,
     Fork,
     Initcode,
     Op,
@@ -267,6 +268,87 @@ def test_max_code_size_self_opcodes(
                 1: keccak256(bytes(target_code)),
             }
         )
+    }
+
+    state_test(pre=pre, tx=tx, post=post)
+
+
+@pytest.mark.parametrize(
+    "create_opcode",
+    [
+        pytest.param(Op.CREATE, id="CREATE"),
+        pytest.param(Op.CREATE2, id="CREATE2"),
+    ],
+)
+def test_warm_after_failed_create_over_max_code_size(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    create_opcode: Op,
+) -> None:
+    """
+    Verify the would-be contract address is warm after a CREATE that fails
+    because the returned deploy code exceeds max_code_size.
+
+    Unlike pre-validation aborts (insufficient balance, nonce overflow), the
+    address is added to the access list during initcode execution, so the
+    post-RETURN size check rejecting deployment must leave the address warm.
+    """
+    initcode = Op.RETURN(offset=0, size=fork.max_code_size() + 1)
+    initcode_bytes = bytes(initcode)
+    if create_opcode == Op.CREATE2:
+        salt = CREATE2_SALT
+        create_call = create_opcode(
+            value=0,
+            offset=0,
+            size=len(initcode_bytes),
+            salt=salt,
+        )
+    else:
+        salt = 0
+        create_call = create_opcode(
+            value=0, offset=0, size=len(initcode_bytes)
+        )
+
+    creator_code = Op.MSTORE(
+        0, Op.PUSH32(initcode_bytes.ljust(32, b"\0"))
+    ) + Op.SSTORE(0, create_call)
+
+    creator_address = pre.deploy_contract(creator_code, storage={0: 1})
+
+    contract_address = compute_create_address(
+        address=creator_address,
+        nonce=1,
+        salt=salt,
+        initcode=initcode_bytes,
+        opcode=create_opcode,
+    )
+
+    warm_balance = Op.BALANCE(contract_address, address_warm=True)
+    checker_address = pre.deploy_contract(
+        CodeGasMeasure(
+            code=warm_balance,
+            extra_stack_items=1,
+            sstore_key=1,
+        )
+    )
+
+    entry_address = pre.deploy_contract(
+        Op.CALL(gas=Op.GAS, address=creator_address)
+        + Op.CALL(gas=Op.GAS, address=checker_address)
+        + Op.STOP
+    )
+
+    tx = Transaction(
+        to=entry_address,
+        gas_limit=fork.transaction_gas_limit_cap(),
+        sender=pre.fund_eoa(),
+    )
+
+    post = {
+        creator_address: Account(storage={0: 0}),
+        checker_address: Account(storage={1: warm_balance.gas_cost(fork)}),
+        contract_address: Account.NONEXISTENT,
     }
 
     state_test(pre=pre, tx=tx, post=post)
