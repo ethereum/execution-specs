@@ -16,6 +16,7 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     Op,
+    Storage,
     Transaction,
 )
 
@@ -797,7 +798,9 @@ def test_bal_7002_request_invalid(
 
     post: dict = {
         alice: Account(nonce=1),
-        Spec7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS: Account(storage={}),
+        Spec7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS: Account(
+            storage=Storage.EMPTY
+        ),
     }
 
     # Add relay contract to post-state for contract scenarios

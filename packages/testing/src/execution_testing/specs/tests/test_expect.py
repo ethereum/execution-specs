@@ -121,11 +121,15 @@ def state_test(  # noqa: D103
                 address=ADDRESS_UNDER_TEST, key=1, want=0, got=1
             ),
         ),
-        (  # mismatch_2_b: 1:1 vs empty
+        (  # mismatch_2_b: 1:1 vs Storage.EMPTY
             {ADDRESS_UNDER_TEST: Account(storage={"0x01": "0x01"}, nonce=1)},
-            {ADDRESS_UNDER_TEST: Account(storage={})},
+            {ADDRESS_UNDER_TEST: Account(storage=Storage.EMPTY)},
             Storage.KeyValueMismatchError(
-                address=ADDRESS_UNDER_TEST, key=1, want=0, got=1
+                address=ADDRESS_UNDER_TEST,
+                key=1,
+                want=0,
+                got=1,
+                hint="Storage.EMPTY expects completely empty storage",
             ),
         ),
         (  # mismatch_3: 0:0 vs 1:2
@@ -135,8 +139,8 @@ def state_test(  # noqa: D103
                 address=ADDRESS_UNDER_TEST, key=1, want=2, got=0
             ),
         ),
-        (  # mismatch_3_a: empty vs 1:2
-            {ADDRESS_UNDER_TEST: Account(storage={}, nonce=1)},
+        (  # mismatch_3_a: Storage.EMPTY vs 1:2
+            {ADDRESS_UNDER_TEST: Account(storage=Storage.EMPTY, nonce=1)},
             {ADDRESS_UNDER_TEST: Account(storage={"0x01": "0x02"})},
             Storage.KeyValueMismatchError(
                 address=ADDRESS_UNDER_TEST, key=1, want=2, got=0

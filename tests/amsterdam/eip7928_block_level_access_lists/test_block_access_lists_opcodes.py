@@ -37,6 +37,7 @@ from execution_testing import (
     Fork,
     Initcode,
     Op,
+    Storage,
     Transaction,
     compute_create_address,
 )
@@ -254,7 +255,7 @@ def test_bal_sload_and_oog(
         blocks=[block],
         post={
             alice: Account(nonce=1),
-            storage_contract: Account(storage={}),
+            storage_contract: Account(storage=Storage.EMPTY),
         },
     )
 

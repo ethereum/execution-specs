@@ -66,6 +66,13 @@ class Storage(
     Dictionary type to be used when defining an input to initialize a storage.
     """
 
+    EMPTY: ClassVar[None] = None
+    """
+    Sentinel object used to specify that the storage must be completely empty.
+    When used in a test's post state, this signals that the account's storage
+    should be verified as empty (e.g., via eth_getProof checking the storage root).
+    """
+
     @dataclass(kw_only=True)
     class InvalidTypeError(Exception):
         """
@@ -360,8 +367,11 @@ class Account(CamelModel):
     """The amount of Wei (10<sup>-18</sup> Eth) the account has."""
     code: Bytes = Bytes(b"")
     """Bytecode contained by the account."""
-    storage: Storage = Field(default_factory=Storage)
-    """Storage within a contract."""
+    storage: Storage | None = Field(default_factory=Storage)
+    """
+    Storage within a contract.
+    Use `Storage.EMPTY` (None) to explicitly verify that storage is completely empty.
+    """
 
     NONEXISTENT: ClassVar[None] = None
     """
@@ -515,7 +525,19 @@ class Account(CamelModel):
                 )
 
         if "storage" in self.model_fields_set:
-            self.storage.must_be_equal(address=address, other=account.storage)
+            if self.storage is None:
+                if account.storage is not None and account.storage:
+                    for key, value in account.storage.items():
+                        if value != 0:
+                            raise Storage.KeyValueMismatchError(
+                                address=address,
+                                key=key,
+                                want=0,
+                                got=value,
+                                hint="Storage.EMPTY expects completely empty storage",
+                            )
+            elif self.storage.root:
+                self.storage.must_be_equal(address=address, other=account.storage)
 
     def __bool__(self: "Account") -> bool:
         """Return True on a non-empty account."""

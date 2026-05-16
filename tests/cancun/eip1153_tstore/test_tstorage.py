@@ -17,6 +17,7 @@ from execution_testing import (
     Fork,
     Op,
     StateTestFiller,
+    Storage,
     Transaction,
 )
 
@@ -336,6 +337,6 @@ def test_run_until_out_of_gas(
         sender=pre.fund_eoa(), to=code_address, gas_limit=tx_gas_limit
     )
     post = {
-        code_address: Account(code=bytecode, storage={}),
+        code_address: Account(code=bytecode, storage=Storage.EMPTY),
     }
     state_test(pre=pre, tx=tx, post=post)

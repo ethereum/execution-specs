@@ -463,7 +463,7 @@ def test_clz_from_set_code(
         pre=pre,
         tx=tx,
         post={
-            set_code_to_address: Account(storage={}),
+            set_code_to_address: Account(storage=Storage.EMPTY),
             auth_signer: Account(
                 nonce=1,
                 code=Spec7702.delegation_designation(set_code_to_address),

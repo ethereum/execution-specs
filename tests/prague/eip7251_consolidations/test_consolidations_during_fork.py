@@ -14,6 +14,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Environment,
+    Storage,
     Transaction,
 )
 
@@ -97,7 +98,7 @@ def test_consolidation_requests_during_fork(
         balance=0,
         code=bytes(),
         nonce=0,
-        storage={},
+        storage=Storage.EMPTY,
     )
 
     with open(

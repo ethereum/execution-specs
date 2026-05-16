@@ -9,6 +9,7 @@ from execution_testing import (
     Fork,
     Initcode,
     Op,
+    Storage,
     Transaction,
     compute_create2_address,
 )
@@ -104,7 +105,7 @@ def test_recreate(
             nonce=1,
             balance=balance,
             code=deploy_code,
-            storage={},
+            storage=Storage.EMPTY,
         ),
     }
 

@@ -28,6 +28,7 @@ from execution_testing import (
     Header,
     Initcode,
     Op,
+    Storage,
     Transaction,
     TransactionException,
     add_kzg_version,
@@ -232,7 +233,7 @@ def test_bal_code_changes(
             factory_contract: Account(nonce=2),  # incremented by CREATE to 2
             created_contract: Account(
                 code=runtime_code_bytes,
-                storage={},
+                storage=Storage.EMPTY,
             ),
         },
     )

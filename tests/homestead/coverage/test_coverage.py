@@ -10,6 +10,7 @@ from execution_testing import (
     Fork,
     Op,
     StateTestFiller,
+    Storage,
     Transaction,
 )
 from execution_testing.forks import Cancun
@@ -63,7 +64,7 @@ def test_coverage(
         + Op.POP(0x01)
         # lllc tests insert codecopy when using lll(seq())
         + Op.CODECOPY(0, 16, 4),
-        storage={},
+        storage=Storage.EMPTY,
     )
     address_to = pre.deploy_contract(
         balance=1_000_000_000_000_000_000,

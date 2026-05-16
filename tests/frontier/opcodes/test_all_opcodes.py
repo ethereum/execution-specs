@@ -17,6 +17,7 @@ from execution_testing import (
     Opcode,
     ParameterSet,
     StateTestFiller,
+    Storage,
     Transaction,
     gas_test,
 )
@@ -84,7 +85,7 @@ def test_all_opcodes(
         code_contract[opcode] = pre.deploy_contract(
             balance=10,
             code=prepare_stack(opcode) + opcode + prepare_suffix(opcode),
-            storage={},
+            storage=Storage.EMPTY,
         )
 
     # EVM code to make the call and store the result
