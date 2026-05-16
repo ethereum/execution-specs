@@ -542,17 +542,8 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
     [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
     [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
     """
-    from .vm.interpreter import MAX_INIT_CODE_SIZE
-
     intrinsic_gas, data_floor_gas_cost = calculate_intrinsic_cost(tx)
-    if max(intrinsic_gas, data_floor_gas_cost) > tx.gas:
-        raise InsufficientTransactionGasError("Insufficient gas")
-    if U256(tx.nonce) >= U256(U64.MAX_VALUE):
-        raise NonceOverflowError("Nonce too high")
-    if tx.to == Bytes0(b"") and len(tx.data) > MAX_INIT_CODE_SIZE:
-        raise InitCodeTooLargeError("Code size too large")
-    if tx.gas > TX_MAX_GAS_LIMIT:
-        raise TransactionGasLimitExceededError("Gas limit too high")
+    validate_transaction_rules(tx, intrinsic_gas, data_floor_gas_cost)
 
     return intrinsic_gas, data_floor_gas_cost
 
@@ -582,19 +573,131 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     gas cost of the transaction and the minimum gas cost used by the
     transaction based on the calldata size.
     """
+    regular_intrinsic_cost = calculate_regular_intrinsic_cost(tx)
+    state_intrinsic_cost = calculate_intrinsic_state_cost(tx, tx.gas)
+    data_floor_gas_cost = calculate_data_floor_gas_cost(
+        calculate_floor_tokens_in_calldata(tx),
+        calculate_floor_tokens_in_access_list(tx),
+    )
+
+    return (
+        regular_intrinsic_cost + state_intrinsic_cost,
+        data_floor_gas_cost,
+    )
+
+
+def validate_transaction_rules(
+    tx: Transaction, intrinsic_gas: Uint, data_floor_gas_cost: Uint
+) -> None:
+    """
+    Run the ordered transaction validation checks after intrinsic costing.
+
+    Keeping the sequence behind a dedicated helper reduces merge conflicts
+    when future EIPs need to insert or adjust validation rules without
+    rewriting ``validate_transaction()``.
+    """
+    validate_transaction_gas(tx, intrinsic_gas, data_floor_gas_cost)
+    validate_transaction_nonce(tx)
+    validate_transaction_init_code_size(tx)
+    validate_transaction_gas_limit(tx)
+
+
+def validate_transaction_gas(
+    tx: Transaction, intrinsic_gas: Uint, data_floor_gas_cost: Uint
+) -> None:
+    """
+    Validate that the transaction provides enough gas for intrinsic costs.
+    """
+    if max(intrinsic_gas, data_floor_gas_cost) > tx.gas:
+        raise InsufficientTransactionGasError("Insufficient gas")
+
+
+def validate_transaction_nonce(tx: Transaction) -> None:
+    """
+    Validate that the transaction nonce does not overflow the protocol limit.
+    """
+    if U256(tx.nonce) >= U256(U64.MAX_VALUE):
+        raise NonceOverflowError("Nonce too high")
+
+
+def validate_transaction_init_code_size(tx: Transaction) -> None:
+    """
+    Validate that contract creation initcode does not exceed the size limit.
+    """
+    from .vm.interpreter import MAX_INIT_CODE_SIZE
+
+    if tx.to == Bytes0(b"") and len(tx.data) > MAX_INIT_CODE_SIZE:
+        raise InitCodeTooLargeError("Code size too large")
+
+
+def validate_transaction_gas_limit(tx: Transaction) -> None:
+    """
+    Validate that the transaction gas limit does not exceed the fork cap.
+    """
+    if tx.gas > TX_MAX_GAS_LIMIT:
+        raise TransactionGasLimitExceededError("Gas limit too high")
+
+
+def calculate_regular_intrinsic_cost(tx: Transaction) -> Uint:
+    """
+    Calculate the regular intrinsic gas before state-dependent adjustments.
+    """
+    from .vm.gas import GasCosts
+
+    return Uint(
+        GasCosts.TX_BASE
+        + calculate_intrinsic_data_cost(tx)
+        + calculate_intrinsic_create_cost(tx)
+        + calculate_intrinsic_access_list_cost(tx)
+        + calculate_intrinsic_authorization_cost(tx)
+    )
+
+
+def calculate_intrinsic_data_cost(tx: Transaction) -> Uint:
+    """
+    Calculate the intrinsic calldata contribution.
+    """
+    from .vm.gas import GasCosts
+
+    return count_tokens_in_data(tx.data) * GasCosts.TX_DATA_TOKEN_STANDARD
+
+
+def calculate_floor_tokens_in_calldata(tx: Transaction) -> Uint:
+    """
+    Calculate the calldata contribution to floor tokens.
+    """
+    return count_tokens_in_data(tx.data)
+
+
+def calculate_intrinsic_create_cost(tx: Transaction) -> Uint:
+    """
+    Calculate the intrinsic contract creation contribution.
+    """
     from .vm.gas import GasCosts, init_code_cost
-
-    tokens_in_calldata = count_tokens_in_data(tx.data)
-
-    data_cost = tokens_in_calldata * GasCosts.TX_DATA_TOKEN_STANDARD
 
     if tx.to == Bytes0(b""):
         create_cost = GasCosts.TX_CREATE + init_code_cost(ulen(tx.data))
-    else:
-        create_cost = Uint(0)
+        return create_cost
+
+    return Uint(0)
+
+
+def calculate_floor_tokens_in_access_list(_tx: Transaction) -> Uint:
+    """
+    Calculate the access-list contribution to floor tokens.
+
+    Amsterdam does not charge additional floor tokens for access-list bytes.
+    """
+    return Uint(0)
+
+
+def calculate_intrinsic_access_list_cost(tx: Transaction) -> Uint:
+    """
+    Calculate the intrinsic access-list contribution.
+    """
+    from .vm.gas import GasCosts
 
     access_list_cost = Uint(0)
-    tokens_in_access_list = Uint(0)
     if has_access_list(tx):
         for access in tx.access_list:
             access_list_cost += GasCosts.TX_ACCESS_LIST_ADDRESS
@@ -602,36 +705,41 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
                 ulen(access.slots) * GasCosts.TX_ACCESS_LIST_STORAGE_KEY
             )
 
-    # Data token floor cost for access list bytes.
-    access_list_cost += tokens_in_access_list * GasCosts.TX_DATA_TOKEN_FLOOR
+    return access_list_cost
 
-    auth_cost = Uint(0)
+
+def calculate_intrinsic_authorization_cost(tx: Transaction) -> Uint:
+    """
+    Calculate the intrinsic authorization contribution.
+    """
+    from .vm.gas import GasCosts
+
     if isinstance(tx, SetCodeTransaction):
-        auth_cost += Uint(
-            GasCosts.AUTH_PER_EMPTY_ACCOUNT * len(tx.authorizations)
-        )
+        return Uint(GasCosts.AUTH_PER_EMPTY_ACCOUNT * len(tx.authorizations))
 
-    # Floor tokens from calldata.
-    floor_tokens_in_calldata = tokens_in_calldata
+    return Uint(0)
 
-    # Total floor tokens.
-    total_floor_tokens = floor_tokens_in_calldata + tokens_in_access_list
 
-    # Floor gas cost (EIP-7623: minimum gas for data-heavy transactions).
-    data_floor_gas_cost = (
-        total_floor_tokens * GasCosts.TX_DATA_TOKEN_FLOOR + GasCosts.TX_BASE
-    )
+def calculate_intrinsic_state_cost(_tx: Transaction, _gas_limit: Uint) -> Uint:
+    """
+    Calculate state-dependent intrinsic gas.
 
-    return (
-        Uint(
-            GasCosts.TX_BASE
-            + data_cost
-            + create_cost
-            + access_list_cost
-            + auth_cost
-        ),
-        data_floor_gas_cost,
-    )
+    Amsterdam has no state-dependent intrinsic gas component.
+    """
+    return Uint(0)
+
+
+def calculate_data_floor_gas_cost(
+    tokens_in_calldata: Uint, tokens_in_access_list: Uint
+) -> Uint:
+    """
+    Calculate the EIP-7623 floor gas contribution.
+    """
+    from .vm.gas import GasCosts
+
+    total_floor_tokens = tokens_in_calldata + tokens_in_access_list
+
+    return total_floor_tokens * GasCosts.TX_DATA_TOKEN_FLOOR + GasCosts.TX_BASE
 
 
 def count_tokens_in_data(data: bytes) -> Uint:
