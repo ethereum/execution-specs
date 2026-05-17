@@ -347,10 +347,10 @@ class NethermindExceptionMapper(ExceptionMapper):
             "blob transaction of type create"
         ),
         TransactionException.TYPE_4_EMPTY_AUTHORIZATION_LIST: (
-            "MissingAuthorizationList: Must be set"
+            "EIP-7702 transaction with empty auth list"
         ),
         TransactionException.TYPE_4_TX_CONTRACT_CREATION: (
-            "NotAllowedCreateTransaction: To must be set"
+            "EIP-7702 transaction cannot be used to create contract"
         ),
         TransactionException.TYPE_4_TX_PRE_FORK: (
             "InvalidTxType: Transaction type in Custom is not supported"
