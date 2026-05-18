@@ -414,9 +414,9 @@ class NewPayloadWithWitnessResponse:
         )
 
     @classmethod
-    def from_geth_json(cls, data: Dict[str, Any]) -> Self:
+    def from_json_rpc_result(cls, data: Dict[str, Any]) -> Self:
         """
-        Decode geth's JSON-RPC `engine_newPayloadWithWitnessVX` response.
+        Decode a JSON-RPC `engine_newPayloadWithWitnessVX` response.
 
         The `witness` field is a hex-encoded RLP list
         `[Headers, Codes, State, Keys]` where Headers are RLP-encoded header
@@ -446,7 +446,7 @@ class NewPayloadWithWitnessResponse:
                 parsed = eth_rlp.decode(witness_bytes)
                 if not isinstance(parsed, list) or len(parsed) < 3:
                     raise ValueError(
-                        "Unexpected geth ExtWitness RLP structure: "
+                        "Unexpected execution witness RLP structure: "
                         f"{type(parsed).__name__} of length "
                         f"{len(parsed) if isinstance(parsed, list) else 0}"
                     )

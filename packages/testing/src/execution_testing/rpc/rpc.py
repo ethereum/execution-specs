@@ -1212,8 +1212,7 @@ class EngineRPC(BaseJwtRPC):
     ) -> NewPayloadWithWitnessResponse:
         """
         `engine_newPayloadWithWitnessVX`: execute the payload and return the
-        payload status plus an RLP-encoded execution witness (geth extension,
-        see go-ethereum PR #30069).
+        payload status plus an RLP-encoded execution witness.
         """
         method = f"newPayloadWithWitnessV{version}"
         params_list = [to_json(param) for param in params]
@@ -1222,7 +1221,7 @@ class EngineRPC(BaseJwtRPC):
             request=RPCCall(method=method, params=params_list)
         ).result_or_raise()
 
-        return NewPayloadWithWitnessResponse.from_geth_json(result)
+        return NewPayloadWithWitnessResponse.from_json_rpc_result(result)
 
     def forkchoice_updated(
         self,

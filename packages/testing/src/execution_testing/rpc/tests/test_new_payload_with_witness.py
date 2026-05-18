@@ -137,23 +137,23 @@ def test_decode_unknown_status_byte_raises() -> None:
         NewPayloadWithWitnessResponse.from_ssz_bytes(raw)
 
 
-# --- Geth JSON-RPC (RLP witness) decode ---
+# --- JSON-RPC (RLP witness) decode ---
 
 
-def _geth_witness_rlp(
+def _json_rpc_witness_rlp(
     headers: list[list], codes: list[bytes], state: list[bytes]
 ) -> bytes:
-    """Build a geth ExtWitness RLP payload."""
+    """Build an RLP witness payload returned by the JSON-RPC endpoint."""
     return eth_rlp.encode([headers, codes, state, []])
 
 
-def test_decode_geth_json_valid() -> None:
-    """Round-trip a geth VALID response with RLP witness."""
+def test_decode_json_rpc_valid() -> None:
+    """Round-trip a VALID JSON-RPC response with RLP witness."""
     # A minimal "header" RLP list with two short fields.
     header_list = [b"\x01" * 4, b"\x02" * 4]
     witness_hex = (
         "0x"
-        + _geth_witness_rlp(
+        + _json_rpc_witness_rlp(
             headers=[header_list],
             codes=[b"\x60\x01"],
             state=[b"\xaa\xaa", b"\xbb"],
@@ -167,7 +167,7 @@ def test_decode_geth_json_valid() -> None:
         "witness": witness_hex,
     }
 
-    decoded = NewPayloadWithWitnessResponse.from_geth_json(response_json)
+    decoded = NewPayloadWithWitnessResponse.from_json_rpc_result(response_json)
 
     assert decoded.status == PayloadStatusEnum.VALID
     assert decoded.latest_valid_hash is not None
@@ -184,16 +184,16 @@ def test_decode_geth_json_valid() -> None:
     assert eth_rlp.decode(bytes(decoded.witness.headers[0])) == header_list
 
 
-def test_decode_geth_json_invalid_no_witness() -> None:
-    """An INVALID geth response has no witness payload."""
+def test_decode_json_rpc_invalid_no_witness() -> None:
+    """An INVALID JSON-RPC response has no witness payload."""
     response_json = {
         "status": "INVALID",
         "latestValidHash": None,
         "validationError": "block root mismatch",
-        # geth omits the witness field on INVALID
+        # The witness field may be omitted on INVALID.
     }
 
-    decoded = NewPayloadWithWitnessResponse.from_geth_json(response_json)
+    decoded = NewPayloadWithWitnessResponse.from_json_rpc_result(response_json)
 
     assert decoded.status == PayloadStatusEnum.INVALID
     assert decoded.latest_valid_hash is None
@@ -201,8 +201,8 @@ def test_decode_geth_json_invalid_no_witness() -> None:
     assert decoded.witness is None
 
 
-def test_decode_geth_json_empty_witness_hex() -> None:
-    """Parse geth's empty non-VALID witness as no witness."""
+def test_decode_json_rpc_empty_witness_hex() -> None:
+    """Parse an empty non-VALID witness as no witness."""
     response_json = {
         "status": "SYNCING",
         "latestValidHash": None,
@@ -210,7 +210,7 @@ def test_decode_geth_json_empty_witness_hex() -> None:
         "witness": "0x",
     }
 
-    decoded = NewPayloadWithWitnessResponse.from_geth_json(response_json)
+    decoded = NewPayloadWithWitnessResponse.from_json_rpc_result(response_json)
 
     assert decoded.status == PayloadStatusEnum.SYNCING
     assert decoded.witness is None
