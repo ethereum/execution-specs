@@ -1,9 +1,10 @@
 """
 Pytest fixtures for the `consume engine-witness` simulator.
 
-Drives the Hive back-end and EL clients through the REST
-`POST /new-payload-with-witness` endpoint (execution-apis PR #773),
-asserting the client-generated execution witness matches the fixture.
+Drives the Hive back-end and EL clients through a witness-emitting
+payload execution path, using JSON-RPC+RLP by default or REST+SSZ when
+`--ssz` is enabled, then asserts the client-generated execution witness
+matches the fixture.
 """
 
 import io
@@ -64,10 +65,12 @@ def test_suite_name() -> str:
 def test_suite_description() -> str:
     """The description of the hive test suite used in this simulator."""
     return (
-        "Execute blockchain-engine fixtures via the REST "
-        "POST /new-payload-with-witness endpoint (execution-apis PR #773), "
-        "verifying the client-generated execution witness against the "
-        "fixture witness."
+        "Execute blockchain-engine fixtures via the witness-emitting Engine "
+        "API path, using JSON-RPC engine_newPayloadWithWitnessVX with "
+        "RLP-encoded witness by default or REST POST "
+        "/new-payload-with-witness with SSZ response when --ssz is enabled, "
+        "verifying the client-generated execution witness against the fixture "
+        "witness."
     )
 
 
@@ -91,7 +94,7 @@ def genesis_header(fixture: BlockchainEngineFixture) -> "FixtureHeader":
 def engine_witness_rpc(
     client: Client, client_exception_mapper: ExceptionMapper | None
 ) -> EngineWitnessRPC:
-    """Provide a REST client for POST /new-payload-with-witness."""
+    """Provide the REST client used by the `--ssz` witness transport."""
     if client_exception_mapper:
         return EngineWitnessRPC(
             f"http://{client.ip}:8551",
