@@ -67,6 +67,7 @@ from execution_testing.fixtures.blockchain import (
     FixtureBlockBase,
     FixtureConfig,
     FixtureEngineNewPayload,
+    FixtureExecutionPayloadModifier,
     FixtureHeader,
     FixtureTransaction,
     FixtureWithdrawal,
@@ -712,9 +713,35 @@ class BuiltBlock(CamelModel):
     engine_api_error_code: EngineAPIError | None = None
     fork: Fork
     block_access_list: BlockAccessList | None
+    rlp_modifier: Header | None = None
     execution_witness: ExecutionWitness | None = None
     stateless_input_bytes: Bytes | None = None
     stateless_output_bytes: Bytes | None = None
+
+    @staticmethod
+    def derive_engine_payload_modifier(
+        *,
+        rlp_modifier: Header | None,
+        block_access_list: BlockAccessList | None,
+    ) -> FixtureExecutionPayloadModifier | None:
+        """Derive payload body overrides implied by a header modifier."""
+        if rlp_modifier is None:
+            return None
+
+        bal_hash = rlp_modifier.block_access_list_hash
+        if bal_hash is None:
+            return None
+        if bal_hash is Header.REMOVE_FIELD:
+            return FixtureExecutionPayloadModifier(
+                block_access_list=(
+                    FixtureExecutionPayloadModifier.REMOVE_FIELD
+                )
+            )
+        if block_access_list is None:
+            return FixtureExecutionPayloadModifier(
+                block_access_list=Bytes(b"")
+            )
+        return None
 
     def get_fixture_block(
         self, *, include_receipts: bool = True
@@ -789,6 +816,10 @@ class BuiltBlock(CamelModel):
             if self.block_access_list
             else None,
             execution_witness=self.execution_witness,
+            execution_payload_modifier=self.derive_engine_payload_modifier(
+                rlp_modifier=self.rlp_modifier,
+                block_access_list=self.block_access_list,
+            ),
             validation_error=self.expected_exception,
             error_code=self.engine_api_error_code,
         )
@@ -1389,6 +1420,7 @@ class BlockchainTest(BaseTest):
             engine_api_error_code=block.engine_api_error_code,
             fork=fork,
             block_access_list=bal,
+            rlp_modifier=block.rlp_modifier,
             execution_witness=execution_witness,
             stateless_input_bytes=stateless_input_bytes,
             stateless_output_bytes=stateless_output_bytes,

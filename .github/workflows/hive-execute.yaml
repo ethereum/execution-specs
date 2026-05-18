@@ -81,7 +81,7 @@ jobs:
           clients: go-ethereum
           client-file: execution-specs/.github/configs/hive/latest.yaml
           hive-path: hive
-          timeout: "120"
+          timeout: "180"
 
       - name: Run execute remote E2E tests
         working-directory: execution-specs

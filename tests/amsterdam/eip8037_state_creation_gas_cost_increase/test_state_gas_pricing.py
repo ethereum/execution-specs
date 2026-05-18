@@ -29,7 +29,7 @@ from execution_testing import (
 )
 from execution_testing.checklists import EIPChecklist
 
-from .spec import ref_spec_8037
+from .spec import Spec, ref_spec_8037
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
@@ -298,6 +298,54 @@ def test_intrinsic_regular_gas_exceeds_cap(
         error=TransactionException.INTRINSIC_GAS_TOO_LOW,
     )
 
+    state_test(pre=pre, post={}, tx=tx)
+
+
+@pytest.mark.exception_test
+@pytest.mark.valid_from("EIP8037")
+def test_intrinsic_regular_gas_exceeds_cap_with_floor_below_cap(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Test rejection when intrinsic regular gas exceeds the per-tx gas
+    cap while the calldata floor stays below the cap.
+
+    EIP-7825/8037 applies the cap to both intrinsic dimensions
+    independently. The companion `test_intrinsic_regular_gas_exceeds_cap`
+    pushes both dimensions above the cap with non-zero calldata, so an
+    implementation that only checks `max(regular, floor)` against the
+    cap would still pass. This test isolates the regular-only case via
+    a large EIP-7702 authorization list and minimal calldata.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+
+    # Authorizations contribute to regular intrinsic only (not floor).
+    # Pick enough to push regular > cap by a comfortable margin.
+    auth_count = (gas_limit_cap // Spec.PER_AUTH_BASE_COST) + 1
+    calldata = b"\x01" * 4  # tiny: floor stays << cap.
+
+    target = pre.deploy_contract(code=Op.STOP)
+    authorizations = [
+        AuthorizationTuple(
+            address=target,
+            nonce=0,
+            signer=pre.fund_eoa(),
+        )
+        for _ in range(auth_count)
+    ]
+
+    tx = Transaction(
+        ty=4,
+        to=target,
+        gas_limit=gas_limit_cap * 2,
+        data=calldata,
+        authorization_list=authorizations,
+        sender=pre.fund_eoa(),
+        error=TransactionException.INTRINSIC_GAS_TOO_LOW,
+    )
     state_test(pre=pre, post={}, tx=tx)
 
 

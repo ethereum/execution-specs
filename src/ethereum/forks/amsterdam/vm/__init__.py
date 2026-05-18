@@ -181,18 +181,15 @@ class Evm:
     accessed_addresses: Set[Address]
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
     regular_gas_used: Uint = Uint(0)
-    state_gas_used: Uint = Uint(0)
-    state_gas_refund_pending: Uint = Uint(0)
+    state_gas_used: int = 0
 
 
 def credit_state_gas_refund(evm: Evm, amount: Uint) -> None:
     """
-    Credit an inline state gas refund to `evm.state_gas_left`.
+    Credit an inline state gas refund to the local frame's reservoir.
 
-    Clamp the applied portion to this frame's `state_gas_used` — the
-    matching charge may sit in an ancestor sharing storage via
-    CALLCODE/DELEGATECALL.  Defer the unapplied remainder in
-    `state_gas_refund_pending` for propagation on success.
+    `state_gas_used` may go negative when the refund matches an
+    ancestor's charge (e.g. an `SSTORE` clearing a slot a parent set).
 
     Parameters
     ----------
@@ -202,19 +199,13 @@ def credit_state_gas_refund(evm: Evm, amount: Uint) -> None:
         The refund amount to credit.
 
     """
-    applied = min(amount, evm.state_gas_used)
-    evm.state_gas_left += applied
-    evm.state_gas_used -= applied
-    evm.state_gas_refund_pending += amount - applied
+    evm.state_gas_left += amount
+    evm.state_gas_used -= int(amount)
 
 
 def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
     """
     Incorporate the state of a successful `child_evm` into the parent `evm`.
-
-    Apply `state_gas_refund_pending` (the unapplied remainder of any
-    refund credited inside the child) to the parent via
-    `credit_state_gas_refund`; any leftover propagates further up.
 
     Parameters
     ----------
@@ -233,7 +224,6 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
     evm.accessed_storage_keys.update(child_evm.accessed_storage_keys)
     evm.regular_gas_used += child_evm.regular_gas_used
     evm.state_gas_used += child_evm.state_gas_used
-    credit_state_gas_refund(evm, child_evm.state_gas_refund_pending)
 
 
 def incorporate_child_on_error(
@@ -243,16 +233,10 @@ def incorporate_child_on_error(
     """
     Incorporate the state of an unsuccessful `child_evm` into the parent `evm`.
 
-    On failure (revert or exceptional halt) state changes are rolled back,
-    so no state was actually grown.  All state gas, both reservoir and any
-    that spilled into `gas_left`, is restored to the parent's reservoir and
-    the child's `state_gas_used` is not accumulated.
-
-    `state_gas_refund_pending` is discarded with the child frame: any
-    inline credits the child applied are keyed to charges (its own
-    SSTORE or CREATE pre-charge) that are themselves rolled back, so
-    the matching `state_gas_left + state_gas_used` sum already reflects
-    the correct amount to return to the parent.
+    State is rolled back, so all state gas is restored to the parent's
+    reservoir via the `state_gas_left + state_gas_used` invariant. Any
+    inline refunds the child credited net out automatically — their
+    matching charges are rolled back too.
 
     Parameters
     ----------
@@ -263,7 +247,11 @@ def incorporate_child_on_error(
 
     """
     evm.gas_left += child_evm.gas_left
-    evm.state_gas_left += child_evm.state_gas_used + child_evm.state_gas_left
+    evm.state_gas_left = Uint(
+        int(evm.state_gas_left)
+        + child_evm.state_gas_used
+        + int(child_evm.state_gas_left)
+    )
     evm.regular_gas_used += child_evm.regular_gas_used
 
 

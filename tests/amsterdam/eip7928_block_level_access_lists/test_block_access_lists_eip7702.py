@@ -67,7 +67,6 @@ def test_bal_7702_delegation_create(
         to=bob,
         value=10,
         gas_limit=1_000_000,
-        gas_price=0xA,
         authorization_list=[
             AuthorizationTuple(
                 address=oracle,
@@ -166,7 +165,6 @@ def test_bal_7702_delegation_update(
         to=bob,
         value=10,
         gas_limit=1_000_000,
-        gas_price=0xA,
         authorization_list=[
             AuthorizationTuple(
                 address=oracle1,
@@ -182,7 +180,6 @@ def test_bal_7702_delegation_update(
         to=bob,
         value=10,
         gas_limit=1_000_000,
-        gas_price=0xA,
         authorization_list=[
             AuthorizationTuple(
                 address=oracle2,
@@ -295,7 +292,6 @@ def test_bal_7702_delegation_clear(
         to=bob,
         value=10,
         gas_limit=1_000_000,
-        gas_price=0xA,
         authorization_list=[
             AuthorizationTuple(
                 address=oracle,
@@ -311,7 +307,6 @@ def test_bal_7702_delegation_clear(
         to=bob,
         value=10,
         gas_limit=1_000_000,
-        gas_price=0xA,
         authorization_list=[
             AuthorizationTuple(
                 address=abyss,
@@ -473,7 +468,6 @@ def test_bal_7702_invalid_nonce_authorization(
         to=bob,
         value=10,
         gas_limit=1_000_000,
-        gas_price=0xA,
         authorization_list=[
             AuthorizationTuple(
                 address=oracle,
@@ -540,7 +534,6 @@ def test_bal_7702_invalid_authority_has_code_authorization(
         to=bob,
         value=10,
         gas_limit=1_000_000,
-        gas_price=0xA,
         authorization_list=[
             AuthorizationTuple(
                 address=oracle,
@@ -600,7 +593,6 @@ def test_bal_7702_invalid_chain_id_authorization(
         to=bob,
         value=10,
         gas_limit=1_000_000,
-        gas_price=0xA,
         authorization_list=[
             AuthorizationTuple(
                 chain_id=999,  # Wrong chain id
@@ -744,7 +736,6 @@ def test_bal_7702_multi_hop_delegation_chain(
         sender=alice,
         to=entry_address,
         gas_limit=1_000_000,
-        gas_price=0xA,
         authorization_list=[
             AuthorizationTuple(
                 address=auth_b,
@@ -824,6 +815,103 @@ def test_bal_7702_multi_hop_delegation_chain(
         pre=pre,
         blocks=[block],
         post=post,
+    )
+
+
+def test_bal_7702_cross_tx_delegation_then_call(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Verify clients apply Tx1's EIP-7702 delegation before later txs CALL
+    the now-delegated EOA. Tx1 installs a delegation designator on `alice`
+    pointing to a contract that increments slot 0. Tx2 and Tx3 CALL alice,
+    so each later tx must observe both the installed code (Tx1) and the
+    prior increment (the immediately preceding tx) for the final slot 0
+    to read 2. A client that parallelizes any tx against pre-block state
+    would see no code or a stale counter, yielding a different state root.
+    """
+    alice = pre.fund_eoa()
+    bob = pre.fund_eoa()
+    charlie = pre.fund_eoa()
+    relayer = pre.fund_eoa()
+
+    # Delegation target: increments slot 0 each time it's invoked.
+    counter = pre.deploy_contract(
+        code=Op.SSTORE(0, Op.ADD(Op.SLOAD(0), 1)),
+    )
+
+    tx_delegate = Transaction(
+        sender=relayer,
+        to=bob,
+        value=0,
+        gas_limit=1_000_000,
+        authorization_list=[
+            AuthorizationTuple(
+                address=counter,
+                nonce=0,
+                signer=alice,
+            )
+        ],
+    )
+    tx_call_1 = Transaction(
+        sender=bob,
+        to=alice,
+        gas_limit=200_000,
+        gas_price=0xA,
+    )
+    tx_call_2 = Transaction(
+        sender=charlie,
+        to=alice,
+        gas_limit=200_000,
+        gas_price=0xA,
+    )
+
+    block = Block(
+        txs=[tx_delegate, tx_call_1, tx_call_2],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1),
+                    ],
+                    code_changes=[
+                        BalCodeChange(
+                            block_access_index=1,
+                            new_code=Spec7702.delegation_designation(counter),
+                        )
+                    ],
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=2, post_value=1
+                                ),
+                                BalStorageChange(
+                                    block_access_index=3, post_value=2
+                                ),
+                            ],
+                        ),
+                    ],
+                ),
+                # Delegation target: loaded as execution target on each
+                # CALL to alice, but mutations land in alice's storage.
+                counter: BalAccountExpectation.empty(),
+            },
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(
+                nonce=1,
+                code=Spec7702.delegation_designation(counter),
+                storage={0: 2},
+            ),
+        },
     )
 
 
@@ -924,7 +1012,6 @@ def test_bal_7702_double_auth_reset(
         to=bob,
         value=10,
         gas_limit=1_000_000,
-        gas_price=0xA,
         authorization_list=[
             AuthorizationTuple(
                 address=contract_a,
@@ -1013,7 +1100,6 @@ def test_bal_7702_double_auth_swap(
         to=bob,
         value=10,
         gas_limit=1_000_000,
-        gas_price=0xA,
         authorization_list=[
             AuthorizationTuple(
                 address=contract_a,
@@ -1115,7 +1201,6 @@ def test_bal_selfdestruct_to_7702_delegation(
         to=bob,
         value=10,
         gas_limit=1_000_000,
-        gas_price=0xA,
         authorization_list=[
             AuthorizationTuple(
                 address=oracle,
@@ -1248,7 +1333,6 @@ def test_bal_withdrawal_to_7702_delegation(
         to=bob,
         value=10,
         gas_limit=1_000_000,
-        gas_price=0xA,
         authorization_list=[
             AuthorizationTuple(
                 address=oracle,

@@ -70,24 +70,28 @@ REFERENCE_SPEC_VERSION = "N/A"
             0,
             0,
             id="create-code-too-big-v0",
+            marks=pytest.mark.valid_before("EIP7954"),
         ),
         pytest.param(
             2,
             0,
             1,
             id="create-code-too-big-v1",
+            marks=pytest.mark.valid_before("EIP7954"),
         ),
         pytest.param(
             3,
             0,
             0,
             id="create2-code-too-big-v0",
+            marks=pytest.mark.valid_before("EIP7954"),
         ),
         pytest.param(
             3,
             0,
             1,
             id="create2-code-too-big-v1",
+            marks=pytest.mark.valid_before("EIP7954"),
         ),
         pytest.param(
             4,

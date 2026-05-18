@@ -1,0 +1,2 @@
+general/code_coverage/eels = Please check https://app.codecov.io/gh/ethereum/execution-specs/pull/2840 for relevant test coverage
+general/code_coverage/test_coverage = Please run the test with `--cov` flag for final coverage

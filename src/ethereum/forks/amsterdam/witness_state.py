@@ -5,7 +5,7 @@ Implement the ``PreState`` protocol using execution witness data
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import AbstractSet, Dict, List, Optional, Tuple
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes32
@@ -225,6 +225,7 @@ class WitnessState:
         self,
         account_changes: Dict[Address, Optional[Account]],
         storage_changes: Dict[Address, Dict[Bytes32, U256]],
+        storage_clears: AbstractSet[Address] = frozenset(),
     ) -> Tuple[Root, List[InternalNode]]:
         """
         Compute the state root after applying changes.
@@ -232,12 +233,22 @@ class WitnessState:
         Build partial ``IncrementalMPT`` tries from the witness,
         apply diffs, and compute the new root.
         """
-        new_storage_roots: Dict[Address, Root] = {}
+        new_storage_roots: Dict[Address, Root] = dict.fromkeys(
+            storage_clears, EMPTY_TRIE_ROOT
+        )
 
         for address, slots in storage_changes.items():
-            if address not in self._storage_root_cache:
+            if address in storage_clears:
+                old_root = EMPTY_TRIE_ROOT
+            elif address not in self._storage_root_cache:
                 self.get_account_optional(address)
-            old_root = self._storage_root_cache.get(address, EMPTY_TRIE_ROOT)
+                old_root = self._storage_root_cache.get(
+                    address, EMPTY_TRIE_ROOT
+                )
+            else:
+                old_root = self._storage_root_cache.get(
+                    address, EMPTY_TRIE_ROOT
+                )
             storage_mpt: IncrementalMPT[Bytes32, U256] = decode_witness_to_mpt(
                 self._node_db,
                 old_root,

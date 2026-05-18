@@ -114,7 +114,7 @@ class Header:
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
     [changes]: ref:ethereum.state.State.compute_state_root_and_trie_changes
     [Trie]: ref:ethereum.merkle_patricia_trie.Trie
-    """  # noqa: E501
+    """
 
     transactions_root: Root
     """

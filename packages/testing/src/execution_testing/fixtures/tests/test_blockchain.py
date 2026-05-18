@@ -23,7 +23,7 @@ from execution_testing.exceptions import (
     EngineAPIError,
     TransactionException,
 )
-from execution_testing.forks import Prague
+from execution_testing.forks import Amsterdam, Prague
 from execution_testing.test_types import (
     EOA,
     AuthorizationTuple,
@@ -43,6 +43,7 @@ from ..blockchain import (
     FixtureConfig,
     FixtureEngineNewPayload,
     FixtureExecutionPayload,
+    FixtureExecutionPayloadModifier,
     FixtureHeader,
     FixtureTransaction,
     InvalidFixtureBlock,
@@ -1579,3 +1580,153 @@ class TestPydanticAdaptersConversion:
         if not can_be_deserialized:
             pytest.skip(reason="Model instance cannot be deserialized")
         assert adapter.validate_python(json_repr) == type_instance
+
+
+def _amsterdam_payload_header() -> FixtureHeader:
+    """Build a fully-populated header suitable for an Amsterdam V5 payload."""
+    return FixtureHeader(
+        parent_hash=Hash(0),
+        ommers_hash=Hash(1),
+        fee_recipient=Address(2),
+        state_root=Hash(3),
+        transactions_trie=Hash(4),
+        receipts_root=Hash(5),
+        logs_bloom=Bloom(6),
+        difficulty=7,
+        number=1,
+        gas_limit=9,
+        gas_used=10,
+        timestamp=11,
+        extra_data=Bytes([12]),
+        prev_randao=Hash(13),
+        nonce=HeaderNonce(14),
+        base_fee_per_gas=15,
+        withdrawals_root=Hash(16),
+        blob_gas_used=17,
+        excess_blob_gas=18,
+        parent_beacon_block_root=19,
+        requests_hash=20,
+        block_access_list_hash=Hash(21),
+        slot_number=22,
+    )
+
+
+class TestFixtureExecutionPayloadModifier:
+    """Verify the internal modifier helper used to mutate engine payloads."""
+
+    def test_apply_no_fields_is_noop(self) -> None:
+        """A modifier with no fields set must not change the payload."""
+        payload = FixtureExecutionPayload.from_fixture_header(
+            header=_amsterdam_payload_header(),
+            transactions=[],
+            withdrawals=[],
+            block_access_list=Bytes(b"\xaa\xbb"),
+        )
+        result = FixtureExecutionPayloadModifier().apply(payload)
+        assert result == payload
+
+    def test_apply_overrides_block_access_list_value(self) -> None:
+        """Setting block_access_list overrides the body on the payload."""
+        payload = FixtureExecutionPayload.from_fixture_header(
+            header=_amsterdam_payload_header(),
+            transactions=[],
+            withdrawals=[],
+            block_access_list=Bytes(b"\xaa\xbb"),
+        )
+        result = FixtureExecutionPayloadModifier(
+            block_access_list=Bytes(b"\xcc\xdd"),
+        ).apply(payload)
+        assert result.block_access_list == Bytes(b"\xcc\xdd")
+
+    def test_apply_remove_field_clears_block_access_list(self) -> None:
+        """REMOVE_FIELD removes block_access_list so it's excluded on dump."""
+        payload = FixtureExecutionPayload.from_fixture_header(
+            header=_amsterdam_payload_header(),
+            transactions=[],
+            withdrawals=[],
+            block_access_list=Bytes(b"\xaa\xbb"),
+        )
+        result = FixtureExecutionPayloadModifier(
+            block_access_list=FixtureExecutionPayloadModifier.REMOVE_FIELD,
+        ).apply(payload)
+        assert result.block_access_list is None
+        assert "blockAccessList" not in to_json(result)
+
+    def test_from_fixture_header_injects_body_on_pre_bal_fork(self) -> None:
+        """Modifier can inject a BAL body into a fork that doesn't carry it."""
+        payload = FixtureEngineNewPayload.from_fixture_header(
+            fork=Prague,
+            header=FixtureHeader(
+                parent_hash=Hash(0),
+                ommers_hash=Hash(1),
+                fee_recipient=Address(2),
+                state_root=Hash(3),
+                transactions_trie=Hash(4),
+                receipts_root=Hash(5),
+                logs_bloom=Bloom(6),
+                difficulty=7,
+                number=1,
+                gas_limit=9,
+                gas_used=10,
+                timestamp=11,
+                extra_data=Bytes([12]),
+                prev_randao=Hash(13),
+                nonce=HeaderNonce(14),
+                base_fee_per_gas=15,
+                withdrawals_root=Hash(16),
+                blob_gas_used=17,
+                excess_blob_gas=18,
+                parent_beacon_block_root=19,
+                requests_hash=20,
+            ),
+            transactions=[],
+            withdrawals=[],
+            requests=[],
+            execution_payload_modifier=FixtureExecutionPayloadModifier(
+                block_access_list=Bytes(b""),
+            ),
+        )
+        assert payload.params[0].block_access_list == Bytes(b"")
+        assert "blockAccessList" in to_json(payload.params[0])
+
+    def test_from_fixture_header_removes_body_on_post_bal_fork(self) -> None:
+        """REMOVE_FIELD bypasses the fork-required check and omits the body."""
+        payload = FixtureEngineNewPayload.from_fixture_header(
+            fork=Amsterdam,
+            header=_amsterdam_payload_header(),
+            transactions=[],
+            withdrawals=[],
+            requests=[],
+            block_access_list=None,
+            execution_payload_modifier=FixtureExecutionPayloadModifier(
+                block_access_list=(
+                    FixtureExecutionPayloadModifier.REMOVE_FIELD
+                ),
+            ),
+        )
+        assert payload.params[0].block_access_list is None
+        assert "blockAccessList" not in to_json(payload.params[0])
+
+    def test_from_fixture_header_requires_bal_on_post_bal_fork(self) -> None:
+        """Without a modifier override, Amsterdam still requires a BAL body."""
+        with pytest.raises(ValueError, match="block_access_list"):
+            FixtureEngineNewPayload.from_fixture_header(
+                fork=Amsterdam,
+                header=_amsterdam_payload_header(),
+                transactions=[],
+                withdrawals=[],
+                requests=[],
+                block_access_list=None,
+            )
+
+    def test_from_fixture_header_passthrough_without_modifier(self) -> None:
+        """No modifier leaves the payload's BAL body unchanged."""
+        payload = FixtureEngineNewPayload.from_fixture_header(
+            fork=Amsterdam,
+            header=_amsterdam_payload_header(),
+            transactions=[],
+            withdrawals=[],
+            requests=[],
+            block_access_list=Bytes(b"\xaa\xbb"),
+        )
+        assert payload.params[0].block_access_list == Bytes(b"\xaa\xbb")
