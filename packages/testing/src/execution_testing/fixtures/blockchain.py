@@ -515,6 +515,7 @@ class FixtureEngineNewPayload(CamelModel):
     new_payload_version: Number
     forkchoice_updated_version: Number
     execution_witness: ExecutionWitness | None = None
+    execution_witness_mutated: bool | None = None
     validation_error: ExceptionInstanceOrList | None = None
     error_code: (
         Annotated[
@@ -561,6 +562,7 @@ class FixtureEngineNewPayload(CamelModel):
         requests: List[Bytes] | None,
         block_access_list: Bytes | None = None,
         execution_witness: ExecutionWitness | None = None,
+        execution_witness_mutated: bool | None = None,
         execution_payload_modifier: (
             "FixtureExecutionPayloadModifier | None"
         ) = None,
@@ -631,6 +633,7 @@ class FixtureEngineNewPayload(CamelModel):
             new_payload_version=new_payload_version,
             forkchoice_updated_version=forkchoice_updated_version,
             execution_witness=execution_witness,
+            execution_witness_mutated=execution_witness_mutated,
             **kwargs,
         )
 

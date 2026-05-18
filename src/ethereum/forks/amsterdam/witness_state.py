@@ -238,17 +238,16 @@ class WitnessState:
         )
 
         for address, slots in storage_changes.items():
-            if address in storage_clears:
-                old_root = EMPTY_TRIE_ROOT
-            elif address not in self._storage_root_cache:
+            if (
+                address not in storage_clears
+                and address not in self._storage_root_cache
+            ):
                 self.get_account_optional(address)
-                old_root = self._storage_root_cache.get(
-                    address, EMPTY_TRIE_ROOT
-                )
-            else:
-                old_root = self._storage_root_cache.get(
-                    address, EMPTY_TRIE_ROOT
-                )
+            old_root = (
+                EMPTY_TRIE_ROOT
+                if address in storage_clears
+                else self._storage_root_cache.get(address, EMPTY_TRIE_ROOT)
+            )
             storage_mpt: IncrementalMPT[Bytes32, U256] = decode_witness_to_mpt(
                 self._node_db,
                 old_root,
@@ -274,7 +273,8 @@ class WitnessState:
             )
         )
 
-        for address in storage_changes:
+        storage_touched = set(storage_changes) | set(storage_clears)
+        for address in storage_touched:
             if address not in account_changes:
                 account = self.get_account_optional(address)
                 if account is not None:
@@ -293,6 +293,8 @@ class WitnessState:
         def get_storage_root(addr: Address) -> Root:
             if addr in new_storage_roots:
                 return new_storage_roots[addr]
+            if addr in storage_clears:
+                return EMPTY_TRIE_ROOT
             return self._storage_root_cache.get(addr, EMPTY_TRIE_ROOT)
 
         for address, account in account_changes.items():

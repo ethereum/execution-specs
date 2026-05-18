@@ -1424,6 +1424,23 @@ def test_execution_witness_soundness_rewrites_stateless_fixture_bytes(
         for header in stateless_input.witness.headers
     ] == block["executionWitness"]["headers"]
 
+    engine_fixture_path = Path(
+        "fixtures/blockchain_tests_engine/for_amsterdam/amsterdam/"
+        "module_execution_witness_soundness/"
+        "execution_witness_soundness.json"
+    )
+    assert engine_fixture_path.exists(), (
+        f"{engine_fixture_path} does not exist"
+    )
+
+    with open(engine_fixture_path, "r") as f:
+        engine_fixture_data = json.load(f)
+
+    engine_fixture = next(iter(engine_fixture_data.values()))
+    engine_payload = engine_fixture["engineNewPayloads"][-1]
+    assert engine_payload["executionWitnessMutated"] is True
+    assert engine_payload["executionWitness"] == block["executionWitness"]
+
 
 def test_execution_witness_modifier_requires_explicit_guest_expectation(
     testdir: pytest.Testdir,

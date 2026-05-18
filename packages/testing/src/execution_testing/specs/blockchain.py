@@ -715,6 +715,7 @@ class BuiltBlock(CamelModel):
     block_access_list: BlockAccessList | None
     rlp_modifier: Header | None = None
     execution_witness: ExecutionWitness | None = None
+    execution_witness_mutated: bool = False
     stateless_input_bytes: Bytes | None = None
     stateless_output_bytes: Bytes | None = None
 
@@ -816,6 +817,9 @@ class BuiltBlock(CamelModel):
             if self.block_access_list
             else None,
             execution_witness=self.execution_witness,
+            execution_witness_mutated=(
+                True if self.execution_witness_mutated else None
+            ),
             execution_payload_modifier=self.derive_engine_payload_modifier(
                 rlp_modifier=self.rlp_modifier,
                 block_access_list=self.block_access_list,
@@ -1422,6 +1426,7 @@ class BlockchainTest(BaseTest):
             block_access_list=bal,
             rlp_modifier=block.rlp_modifier,
             execution_witness=execution_witness,
+            execution_witness_mutated=has_witness_modifier,
             stateless_input_bytes=stateless_input_bytes,
             stateless_output_bytes=stateless_output_bytes,
         )

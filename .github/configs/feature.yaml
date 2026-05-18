@@ -25,5 +25,5 @@ snobal-devnet-6:
 
 zkevm:
   evm-type: eels
-  fill-params: -m "blockchain_test" --fork=Amsterdam ./tests/
+  fill-params: -m "blockchain_test or blockchain_test_engine" --fork=Amsterdam ./tests/
   feature_only: true
