@@ -743,6 +743,7 @@ fixture_header_ones = FixtureHeader(
                     codes=[Bytes(b"code")],
                     headers=[Bytes(b"header")],
                 ),
+                execution_witness_mutated=True,
                 validation_error=[
                     BlockException.INCORRECT_BLOCK_FORMAT,
                     TransactionException.INTRINSIC_GAS_TOO_LOW,
@@ -832,6 +833,7 @@ fixture_header_ones = FixtureHeader(
                     "codes": [Bytes(b"code").hex()],
                     "headers": [Bytes(b"header").hex()],
                 },
+                "executionWitnessMutated": True,
                 "forkchoiceUpdatedVersion": "3",
                 "newPayloadVersion": "4",
                 "validationError": "BlockException.INCORRECT_BLOCK_FORMAT"
