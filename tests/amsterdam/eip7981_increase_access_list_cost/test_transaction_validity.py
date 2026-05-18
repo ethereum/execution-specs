@@ -87,6 +87,12 @@ def test_insufficient_gas_for_access_list(
             -1,
             id="large_calldata_and_access_list_insufficient_gas",
         ),
+        pytest.param(
+            [AccessList(address=Address(1), storage_keys=[Hash(0)])],
+            Bytes(b"\x00" * 1000),
+            -1,
+            id="large_zero_calldata_and_access_list_insufficient_gas",
+        ),
     ],
 )
 @pytest.mark.parametrize(
