@@ -353,10 +353,14 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
                 next_timestamp=next_timestamp,
                 withdrawals=withdrawals,
             )
+            # Pass an explicit empty list rather than ``None``. Per the
+            # ``testing_buildBlockV1`` spec, ``transactions: null`` lets the
+            # client build from its local mempool — for withdrawal-funding
+            # blocks we want a deterministic transaction-free block.
             new_payload = self.testing_rpc.build_block(
                 parent_block_hash=Hash(head_block["hash"]),
                 payload_attributes=payload_attributes,
-                transactions=None,
+                transactions=[],
                 extra_data=Bytes(b""),
             )
             self._finalize_payload(

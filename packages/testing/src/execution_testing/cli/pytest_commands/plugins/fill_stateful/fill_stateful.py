@@ -164,7 +164,10 @@ def _captured_to_payload(
         )
         params.append(blob_hashes)
         params.append(captured.payload_attributes.parent_beacon_block_root)
-    if version >= 4 and response.execution_requests is not None:
+    if version >= 4:
+        assert response.execution_requests is not None, (
+            "engine_newPayloadV4+ requires execution_requests"
+        )
         params.append(response.execution_requests)
     return FixtureEngineNewPayload(
         params=tuple(params),
@@ -200,6 +203,20 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "key is generated and funded via CL withdrawal if omitted."
         ),
     )
+    group.addoption(
+        "--snapshot-block",
+        action="store",
+        dest="snapshot_block",
+        default=None,
+        type=str,
+        help=(
+            "Anchor the snapshot to a specific block. Accepts a 0x-prefixed "
+            "32-byte block hash (recommended — survives a chain reorg on "
+            "the live client) or a block number (hex or decimal). When "
+            "omitted, the client's ``latest`` block is used and recorded "
+            "by hash. The produced fixtures are anchored by hash regardless."
+        ),
+    )
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -217,6 +234,11 @@ def pytest_configure(config: pytest.Config) -> None:
     config.skip_transition_forks = True  # type: ignore[attr-defined]
     config.single_fork_mode = True  # type: ignore[attr-defined]
 
+    # Help/collect-only modes never talk to a client, so skip endpoint
+    # defaulting and chain-id detection entirely.
+    if is_help_or_collectonly_mode(config):
+        return
+
     if not config.getoption("rpc_endpoint", default=None):
         config.option.rpc_endpoint = "http://localhost:8545"
     if not config.getoption("engine_endpoint", default=None):
@@ -224,9 +246,6 @@ def pytest_configure(config: pytest.Config) -> None:
         config.option.engine_endpoint = urlunparse(
             parsed._replace(netloc=f"{parsed.hostname}:8551")
         )
-
-    if is_help_or_collectonly_mode(config):
-        return
 
     if not config.getoption("chain_id", default=None):
         rpc = EthRPC(config.getoption("rpc_endpoint"))
@@ -316,13 +335,33 @@ def sender_fund_refund_gas_limit() -> int:
     return 21_000
 
 
+@pytest.fixture()
+def max_gas_limit_per_test(
+    request: pytest.FixtureRequest,
+    session_fork: Fork | TransitionFork,
+) -> int | None:
+    """
+    Override of ``live_client_flags.max_gas_limit_per_test``: when the CLI
+    flag is unset, fall back to ``Fork.transaction_gas_limit_cap()``
+    (introduced by EIP-7825 in Osaka), so the cap tracks the active fork
+    instead of being a hardcoded constant. Returns ``None`` on pre-Osaka
+    forks when the CLI flag is also unset (no cap).
+    """
+    cli_value = request.config.getoption("max_gas_per_test")
+    if cli_value is not None:
+        return cli_value
+    fork_at_genesis = session_fork.fork_at(block_number=0, timestamp=0)
+    return fork_at_genesis.transaction_gas_limit_cap()
+
+
 # NOTE: ``max_transactions_per_batch``, ``use_testing_build_block``,
 # ``dry_run``, ``max_fee_per_gas``, ``max_priority_fee_per_gas``,
-# ``max_fee_per_blob_gas``, ``gas_price``, ``default_*``, and
-# ``max_gas_limit_per_test`` are provided by the shared
-# ``live_client_flags`` plugin loaded from our ini. ``skip_cleanup`` is
-# provided by ``execute.pre_alloc`` and reads ``config.option.skip_cleanup``,
-# which we force-enable in ``pytest_configure`` above.
+# ``max_fee_per_blob_gas``, ``gas_price``, ``default_*`` are provided by
+# the shared ``live_client_flags`` plugin loaded from our ini.
+# ``skip_cleanup`` is provided by ``execute.pre_alloc`` and reads
+# ``config.option.skip_cleanup``, which we force-enable in
+# ``pytest_configure`` above. ``max_gas_limit_per_test`` is overridden
+# above to be fork-aware.
 
 
 # ---------------------------------------------------------------------------
@@ -404,6 +443,53 @@ def _setup_groups_dir(config: pytest.Config) -> Path:
     return output_dir / "blockchain_tests_stateful_engine" / "setup_groups"
 
 
+def _resolve_snapshot_block(
+    eth_rpc: "ChainBuilderEthRPC",
+    arg: str | None,
+) -> Any:
+    """
+    Resolve the snapshot anchor to a client-returned block dict.
+
+    Accepts either a 32-byte block hash (preferred — survives reorgs on
+    the live client), an integer block number (hex ``0x...`` or decimal),
+    or ``None`` for the client's current ``latest`` head. Returns the
+    full block dict whose ``hash`` field is the authoritative anchor we
+    record into the fixture.
+    """
+    if arg is None or arg == "":
+        block = eth_rpc.get_block_by_number("latest")
+        if block is None:
+            pytest.exit("Failed to fetch 'latest' block as snapshot anchor")
+        return block
+
+    stripped = arg.strip()
+    lower = stripped.lower()
+    is_hash = (
+        lower.startswith("0x")
+        and len(lower) == 66
+        and all(c in "0123456789abcdef" for c in lower[2:])
+    )
+    if is_hash:
+        block = eth_rpc.get_block_by_hash(Hash(stripped))
+        if block is None:
+            pytest.exit(
+                f"--snapshot-block hash {stripped} not found on client"
+            )
+        return block
+
+    try:
+        number = int(stripped, 0)
+    except ValueError:
+        pytest.exit(
+            f"--snapshot-block must be a 0x-prefixed 32-byte hash or an "
+            f"integer block number; got {arg!r}"
+        )
+    block = eth_rpc.get_block_by_number(number)
+    if block is None:
+        pytest.exit(f"--snapshot-block number {number} not found on client")
+    return block
+
+
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     """Merge per-test setup-group partials into final ``<hash>.json`` files."""
     del exitstatus
@@ -442,9 +528,13 @@ def _session_pre_run(
     if is_help_or_collectonly_mode(request.config):
         return
 
-    # 1. Snapshot block (raw datadir head)
-    snapshot_block = eth_rpc.get_block_by_number("latest")
-    assert snapshot_block is not None, "Failed to fetch snapshot block"
+    # 1. Snapshot block: explicit hash/number from CLI if provided, else
+    #    the client's ``latest`` head. Either way, the authoritative hash
+    #    returned by the client is what we record in the fixture; a
+    #    later reorg on the live client cannot silently re-anchor us to
+    #    a different block of the same number.
+    snapshot_arg = request.config.getoption("snapshot_block", default=None)
+    snapshot_block = _resolve_snapshot_block(eth_rpc, snapshot_arg)
     client_backend.snapshot_block = snapshot_block
     logger.info(
         f"Snapshot block {snapshot_block['number']} "
@@ -555,16 +645,35 @@ def t8n(
 def _reset_chain_between_tests(
     client_backend: ClientBackend,
     debug_rpc: DebugRPC,
+    eth_rpc: "ChainBuilderEthRPC",
 ) -> Generator[None, None, None]:
     """
     debug_setHead back to start_block after each test so every subsequent
     test fills against identical state.
+
+    ``debug_setHead`` only takes a block number — the client could in
+    principle land on a same-numbered block from a different fork. After
+    the rewind we re-fetch ``latest`` and assert the hash matches the
+    expected ``start_block_hash`` recorded at session setup; if it
+    doesn't, every subsequent fixture would be silently anchored to the
+    wrong state, so fail loudly.
     """
     yield
     if client_backend.start_block is None:
         return
     start_hex = client_backend.start_block["number"]
+    expected_hash = client_backend.start_block["hash"]
     try:
         debug_rpc.set_head(start_hex)
     except Exception as e:
         pytest.exit(f"debug_setHead failed — subsequent fixtures invalid: {e}")
+    head = eth_rpc.get_block_by_number("latest")
+    if head is None or head["hash"] != expected_hash:
+        observed = head["hash"] if head is not None else "<none>"
+        pytest.exit(
+            f"debug_setHead landed on hash {observed} but expected "
+            f"{expected_hash} (start_block at number {start_hex}). The "
+            "live chain may have reorged out from under fill-stateful; "
+            "rerun against a quiescent client or use --snapshot-block "
+            "with an explicit hash."
+        )

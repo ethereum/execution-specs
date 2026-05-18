@@ -597,6 +597,79 @@ headers.
 """
 
 
+def _tx_phase(tx: Transaction) -> TestPhase | None:
+    """Read a tx's phase: ``test_phase`` first, then ``metadata.phase``."""
+    phase = getattr(tx, "test_phase", None)
+    if phase is not None:
+        return phase
+    meta = getattr(tx, "metadata", None)
+    if meta is None:
+        return None
+    return getattr(meta, "phase", None)
+
+
+def _split_blocks_by_phase(blocks: List[Block]) -> List[Block]:
+    """
+    Split each block by contiguous phase runs of its transactions.
+
+    A block whose transactions interleave phases (e.g. an EIP-7702
+    authorization tagged SETUP followed by benchmark TEST transactions)
+    becomes multiple back-to-back blocks, one per contiguous phase run.
+    Without the split, ``FixtureEngineNewPayload.derive_phase`` returns
+    SETUP whenever any setup tx is present and the entire payload is
+    swallowed into ``setupEngineNewPayloads`` — benchmark gas would
+    never be measured.
+
+    Block-level fields that describe the block's final state
+    (``expected_post_state``, ``header_verify``, etc.) only apply to
+    the original whole block, so they stay on the LAST sub-block;
+    earlier sub-blocks get those fields cleared. Untagged
+    transactions (phase ``None``) run in their own contiguous group.
+    """
+    out: List[Block] = []
+    for block in blocks:
+        phases = [_tx_phase(tx) for tx in block.txs]
+        if len(set(phases)) <= 1:
+            out.append(block)
+            continue
+
+        runs: List[List[Transaction]] = []
+        current_run: List[Transaction] = []
+        current_phase: Any = object()  # sentinel
+        for tx, phase in zip(block.txs, phases, strict=False):
+            if not current_run or phase == current_phase:
+                current_run.append(tx)
+                current_phase = phase
+            else:
+                runs.append(current_run)
+                current_run = [tx]
+                current_phase = phase
+        if current_run:
+            runs.append(current_run)
+
+        last_idx = len(runs) - 1
+        for idx, run_txs in enumerate(runs):
+            if idx == last_idx:
+                out.append(block.model_copy(update={"txs": run_txs}))
+            else:
+                out.append(
+                    block.model_copy(
+                        update={
+                            "txs": run_txs,
+                            "header_verify": None,
+                            "rlp_modifier": None,
+                            "expected_block_access_list": None,
+                            "expected_post_state": None,
+                            "expected_gas_used": None,
+                            "exception": None,
+                            "skip_exception_verification": False,
+                            "engine_api_error_code": None,
+                        }
+                    )
+                )
+    return out
+
+
 class BlockchainTest(BaseTest):
     """Filler type that tests multiple blocks (valid or invalid) in a chain."""
 
@@ -1318,7 +1391,13 @@ class BlockchainTest(BaseTest):
             if setup_txs:
                 blocks_to_process.append(Block(txs=setup_txs))
                 declared_setup_tx_groups.append(setup_txs)
-        blocks_to_process.extend(self.blocks)
+        # Split each user-declared block by contiguous phase runs. A
+        # block holding both SETUP (e.g. an EIP-7702 authorization) and
+        # TEST (the benchmark exec) transactions would otherwise have
+        # its entire payload routed to ``setupEngineNewPayloads`` —
+        # ``derive_phase`` returns SETUP whenever any setup tx is
+        # present — so benchmark gas would never be measured.
+        blocks_to_process.extend(_split_blocks_by_phase(self.blocks))
 
         # Hash declared setup intent for cross-test dedup. Pre-RLP the txs
         # now (the synthetic setup block will re-sign them, but declared

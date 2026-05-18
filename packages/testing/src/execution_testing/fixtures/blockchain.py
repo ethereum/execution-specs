@@ -1013,9 +1013,19 @@ class StatefulPreRunFixture(CamelModel):
     """
     Pre-run payloads for stateful benchmark fixtures.
 
-    Contains session-scoped blocks (e.g. deterministic factory
-    deploy) that must be replayed once before any per-test
-    fixtures.
+    Contains session-scoped blocks (e.g. deterministic factory deploy,
+    seed funding via CL withdrawal) that must be replayed once before
+    any per-test fixtures land.
+
+    This is a deliberately smaller sibling of
+    :class:`BlockchainEngineStatefulFixture` — they share the snapshot/
+    start anchor fields and the ``engineNewPayloads`` payload list, but
+    pre-run carries no per-test fields (``last_block_hash``, ``config``,
+    ``setup_group_hash``, ``setupEngineNewPayloads``) because there is
+    no test execution attached to it. Consumers (benchmarkoor) route by
+    directory: ``pre_run/*.json`` parse as ``StatefulPreRunFixture`` and
+    apply once per session; ``for_<fork>_at_<gas>/.../*.json`` parse as
+    ``BlockchainEngineStatefulFixture`` and apply per test.
     """
 
     network: str
