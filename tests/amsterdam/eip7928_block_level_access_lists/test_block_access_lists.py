@@ -2250,6 +2250,7 @@ def test_bal_cross_tx_storage_revert_to_zero(
 def test_bal_cross_tx_storage_chain(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    fork: Fork,
 ) -> None:
     """
     Verify clients apply BAL state changes from prior transactions before
@@ -2291,7 +2292,7 @@ def test_bal_cross_tx_storage_chain(
                 sender=sender,
                 to=contract,
                 data=Hash(i),
-                gas_limit=100_000,
+                gas_limit=fork.transaction_gas_limit_cap(),
             )
         )
 
@@ -2344,6 +2345,7 @@ def test_bal_cross_tx_deploy_then_call(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
     create_opcode: Op,
+    fork: Fork,
 ) -> None:
     """
     Verify clients apply Tx1's CREATE to their state view before
@@ -2387,12 +2389,12 @@ def test_bal_cross_tx_deploy_then_call(
         sender=alice,
         to=factory,
         data=initcode_bytes,
-        gas_limit=500_000,
+        gas_limit=fork.transaction_gas_limit_cap(),
     )
     tx_call = Transaction(
         sender=bob,
         to=target,
-        gas_limit=100_000,
+        gas_limit=fork.transaction_gas_limit_cap(),
     )
 
     account_expectations = {
@@ -2441,6 +2443,7 @@ def test_bal_cross_tx_balance_dependency(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
     funding_method: str,
+    fork: Fork,
 ) -> None:
     """
     Verify clients apply Tx1's balance change before executing Tx2 in
@@ -2472,7 +2475,7 @@ def test_bal_cross_tx_balance_dependency(
             sender=alice,
             to=contract,
             value=transferred,
-            gas_limit=100_000,
+            gas_limit=fork.transaction_gas_limit_cap(),
         )
         send_expectations: dict = {}
     elif funding_method == "selfdestruct":
@@ -2483,7 +2486,7 @@ def test_bal_cross_tx_balance_dependency(
         tx_send = Transaction(
             sender=alice,
             to=killer,
-            gas_limit=100_000,
+            gas_limit=fork.transaction_gas_limit_cap(),
         )
         send_expectations = {
             killer: BalAccountExpectation(
@@ -2499,7 +2502,7 @@ def test_bal_cross_tx_balance_dependency(
         sender=bob,
         to=contract,
         data=b"\x01",
-        gas_limit=100_000,
+        gas_limit=fork.transaction_gas_limit_cap(),
     )
 
     account_expectations = {
