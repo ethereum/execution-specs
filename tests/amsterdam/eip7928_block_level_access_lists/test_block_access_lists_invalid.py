@@ -21,6 +21,7 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     BlockException,
+    EIPChecklist,
     Environment,
     Fork,
     Hash,
@@ -1181,6 +1182,7 @@ def test_bal_invalid_duplicate_entries(
     )
 
 
+@EIPChecklist.BlockHeaderField.Test.ValueBehavior.Reject()
 @pytest.mark.valid_from("Amsterdam")
 @pytest.mark.exception_test
 def test_bal_invalid_hash_mismatch(

@@ -14,3 +14,7 @@ uv run consume <engine|rlp> [OPTIONS]
 - Help [setting up](../hive/index.md) and [starting Hive in dev mode](../hive/dev_mode.md).
 - For an explanation of how the `consume` simulators work, see the [Engine](../running.md#engine) and [RLP](../running.md#rlp) sections in [Running Tests](../running.md).
 - Help for relevant options can be found in [Consume Cache and Fixture Inputs](./cache.md) and [Useful Pytest Options](../useful_pytest_options.md).
+
+## Related: Block Building
+
+A separate hive simulator [`build-block`](../running.md#block-building) is also fixture-driven but tests the client's **producer-side** path via the `testing_buildBlockV1` engine-API testing-namespace endpoint, rather than the consumer-side import path that the simulators above exercise.

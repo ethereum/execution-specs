@@ -2,9 +2,11 @@
 
 from functools import cached_property
 from typing import (
+    TYPE_CHECKING,
     Annotated,
     Any,
     ClassVar,
+    Dict,
     List,
     Literal,
     Self,
@@ -22,9 +24,11 @@ import pytest
 from ethereum_types.numeric import Uint
 from pydantic import (
     AliasChoices,
+    ConfigDict,
     Field,
     PlainSerializer,
     computed_field,
+    model_serializer,
     model_validator,
 )
 from pydantic_core import PydanticUndefined
@@ -52,6 +56,7 @@ from execution_testing.forks import Fork, Paris, TransitionFork
 from execution_testing.test_types import (
     BlockAccessList,
     Environment,
+    Removable,
     Requests,
     Transaction,
     Withdrawal,
@@ -68,6 +73,9 @@ from .common import (
     FixtureBlobSchedule,
     FixtureTransactionReceipt,
 )
+
+if TYPE_CHECKING:
+    from execution_testing.rpc.rpc_types import PayloadAttributes
 
 
 def post_state_validator(
@@ -433,6 +441,49 @@ class FixtureExecutionPayload(CamelModel):
         )
 
 
+class FixtureExecutionPayloadModifier(CamelModel):
+    """
+    Modifier for ``FixtureExecutionPayload`` fields, used to construct
+    intentionally invalid ``engine_newPayload`` requests in negative tests.
+
+    Each field defaults to ``None`` (no override). Set a field to a concrete
+    value to override it on the payload, or to ``REMOVE_FIELD`` (sentinel) to
+    omit it from the payload entirely. This mirrors ``Header``'s mechanism
+    but targets ``FixtureExecutionPayload`` instead of ``FixtureHeader``.
+    """
+
+    model_config = ConfigDict(
+        **CamelModel.model_config,
+        arbitrary_types_allowed=True,
+    )
+
+    block_access_list: Removable | Bytes | None = None
+
+    REMOVE_FIELD: ClassVar[Removable] = Removable()
+    """Sentinel to specify that a payload field should be removed."""
+
+    @model_serializer(mode="wrap", when_used="json")
+    def _serialize_model(self, serializer: Any, info: Any) -> Dict[str, Any]:
+        """Exclude Removable fields from serialization."""
+        del info
+        data = serializer(self)
+        return {k: v for k, v in data.items() if not isinstance(v, Removable)}
+
+    def apply(
+        self, target: "FixtureExecutionPayload"
+    ) -> "FixtureExecutionPayload":
+        """Return a copy of ``target`` with this modifier's overrides."""
+        overrides: Dict[str, Any] = {}
+        for field_name in self.__class__.model_fields:
+            value = getattr(self, field_name)
+            if value is None:
+                continue
+            overrides[field_name] = (
+                None if isinstance(value, Removable) else value
+            )
+        return target.model_copy(update=overrides)
+
+
 EngineNewPayloadV1Parameters = Tuple[FixtureExecutionPayload]
 EngineNewPayloadV3Parameters = Tuple[FixtureExecutionPayload, List[Hash], Hash]
 EngineNewPayloadV4Parameters = Tuple[
@@ -478,6 +529,26 @@ class FixtureEngineNewPayload(CamelModel):
         """Return whether the payload is valid."""
         return self.validation_error is None
 
+    def get_payload_attributes(self) -> "PayloadAttributes":
+        """Return the ``PayloadAttributes`` corresponding to this payload."""
+        from execution_testing.rpc.rpc_types import PayloadAttributes
+
+        execution_payload = self.params[0]
+        # parent_beacon_block_root exists from V3 onwards. The length check
+        # is for mypy narrowing; the version check captures the actual rule.
+        parent_beacon_block_root = (
+            self.params[2]
+            if self.forkchoice_updated_version >= 3 and len(self.params) >= 3
+            else None
+        )
+        return PayloadAttributes(
+            timestamp=execution_payload.timestamp,
+            prev_randao=execution_payload.prev_randao,
+            suggested_fee_recipient=execution_payload.fee_recipient,
+            withdrawals=execution_payload.withdrawals,
+            parent_beacon_block_root=parent_beacon_block_root,
+        )
+
     @classmethod
     def from_fixture_header(
         cls,
@@ -487,6 +558,9 @@ class FixtureEngineNewPayload(CamelModel):
         withdrawals: List[Withdrawal] | None,
         requests: List[Bytes] | None,
         block_access_list: Bytes | None = None,
+        execution_payload_modifier: (
+            "FixtureExecutionPayloadModifier | None"
+        ) = None,
         **kwargs: Any,
     ) -> Self:
         """Create `FixtureEngineNewPayload` from a `FixtureHeader`."""
@@ -497,7 +571,17 @@ class FixtureEngineNewPayload(CamelModel):
             "Invalid header for engine_newPayload"
         )
 
-        if fork.engine_execution_payload_block_access_list():
+        # An ``execution_payload_modifier`` that touches ``block_access_list``
+        # (either overriding or removing it) replaces the fork's default body,
+        # so the fork-required check is skipped in that case.
+        modifier_overrides_bal = (
+            execution_payload_modifier is not None
+            and execution_payload_modifier.block_access_list is not None
+        )
+        if (
+            fork.engine_execution_payload_block_access_list()
+            and not modifier_overrides_bal
+        ):
             if block_access_list is None:
                 raise ValueError(
                     "`block_access_list` is required in engine "
@@ -510,6 +594,10 @@ class FixtureEngineNewPayload(CamelModel):
             withdrawals=withdrawals,
             block_access_list=block_access_list,
         )
+        if execution_payload_modifier is not None:
+            execution_payload = execution_payload_modifier.apply(
+                execution_payload
+            )
 
         params: List[Any] = [execution_payload]
         if fork.engine_new_payload_blob_hashes():

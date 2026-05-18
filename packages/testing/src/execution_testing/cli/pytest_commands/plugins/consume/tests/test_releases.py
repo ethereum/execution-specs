@@ -7,8 +7,10 @@ from typing import List
 import pytest
 
 from ..releases import (
+    SUPPORTED_REPOS,
     ReleaseInformation,
     get_release_url_from_release_information,
+    is_release_url,
     parse_release_information_from_file,
 )
 
@@ -61,3 +63,62 @@ def test_release_parsing(
     ) == get_release_url_from_release_information(
         release_name, release_information
     )
+
+
+@pytest.mark.parametrize(
+    "url,expected",
+    [
+        # All currently supported release-hosting repos must be recognized so
+        # `FixtureDownloader.get_cache_path` versions the cache directory by
+        # release tag. A repo missing from `SUPPORTED_REPOS` falls through to
+        # the unversioned `cache_folder / "other" / archive_name` path, which
+        # silently shadows newer releases with the same archive filename.
+        (
+            "https://github.com/ethereum/execution-spec-tests/releases/download/v3.0.0/fixtures_stable.tar.gz",
+            True,
+        ),
+        (
+            "https://github.com/ethereum/execution-specs/releases/download/tests-bal%40v7.1.0/fixtures_bal.tar.gz",
+            True,
+        ),
+        (
+            "https://github.com/ethereum/tests/releases/download/v14.0/some.tar.gz",
+            True,
+        ),
+        (
+            "https://github.com/ethereum/legacytests/releases/download/v1.0/some.tar.gz",
+            True,
+        ),
+        (
+            # Not a recognized repo; must NOT match.
+            "https://github.com/some-fork/execution-spec-tests/releases/download/v1/foo.tar.gz",
+            False,
+        ),
+        (
+            # Local path, not a URL.
+            "./fixtures",
+            False,
+        ),
+    ],
+)
+def test_is_release_url_covers_supported_repos(
+    url: str, expected: bool
+) -> None:
+    """
+    All entries in `SUPPORTED_REPOS` must be matched by `is_release_url`.
+
+    Regression test for bal-devnet-7: when the BAL fixture URL moved from
+    `execution-spec-tests` to `execution-specs`, the new URL stopped being
+    recognized as a release URL, so the cache key dropped the version tag and
+    a `tests-bal@v7.0.0` download from a prior session silently shadowed
+    `tests-bal@v7.1.0`.
+    """
+    assert is_release_url(url) is expected
+
+
+def test_supported_repos_contains_execution_specs() -> None:
+    """
+    `ethereum/execution-specs` hosts the BAL fixture releases (from
+    `tests-bal@v7.1.0` onward) and must be in `SUPPORTED_REPOS`.
+    """
+    assert "ethereum/execution-specs" in SUPPORTED_REPOS
