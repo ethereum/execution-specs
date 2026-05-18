@@ -13,12 +13,10 @@ transactions that ``make_stateful_fixture`` materialises as a
 setup-phase block prepended to ``self.blocks``.
 """
 
-import os
 import secrets
 from dataclasses import dataclass
-from itertools import count
 from pathlib import Path
-from typing import Any, Generator, Iterator, List, Sequence
+from typing import Any, Generator, List, Sequence
 from urllib.parse import urlparse, urlunparse
 
 import pytest
@@ -37,9 +35,6 @@ from execution_testing.fixtures.blockchain import (
     FixtureEngineNewPayload,
     StatefulPreRunFixture,
 )
-from execution_testing.fixtures.setup_groups import (
-    merge_partial_setup_group_files,
-)
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.logging import get_logger
 from execution_testing.rpc import DebugRPC, EthRPC, TestingRPC
@@ -55,6 +50,12 @@ from execution_testing.test_types import EOA
 from ..execute import contracts
 from ..execute.rpc.chain_builder_eth_rpc import ChainBuilderEthRPC
 from ..shared.helpers import is_help_or_collectonly_mode
+from ..shared.live_client_flags import FEE_BUMP_MULTIPLIER
+
+# 1 billion ETH funded into the seed key via CL withdrawal. Withdrawals
+# are denominated in Gwei (capped at u64), so going much higher risks
+# overflow on some clients; this is plenty for any single fill session.
+SEED_FUNDING_WEI = 10**9 * 10**18
 
 logger = get_logger(__name__)
 
@@ -294,7 +295,7 @@ def seed_key(eth_rpc: EthRPC, request: pytest.FixtureRequest) -> EOA:
 
 @pytest.fixture(scope="session")
 def session_worker_key(seed_key: EOA) -> EOA:
-    """execute.pre_alloc expects this fixture name; alias seed_key."""
+    """Alias of ``seed_key`` under the name pre_alloc's ``Alloc`` expects."""
     return seed_key
 
 
@@ -304,23 +305,6 @@ def worker_key(eth_rpc: EthRPC, session_worker_key: EOA) -> EOA:
     account = eth_rpc.get_account(session_worker_key, skip_code=True)
     session_worker_key.nonce = Number(account.nonce)
     return session_worker_key
-
-
-@pytest.fixture(scope="function")
-def eoa_iterator(request: pytest.FixtureRequest) -> Iterator[EOA]:
-    """
-    Override ``execute.pre_alloc.eoa_iterator`` at function scope.
-
-    ``_reset_chain_between_tests`` rewinds the chain back to ``start_block``
-    between tests, and ``worker_key`` re-reads the sender nonce per test;
-    resetting the EOA iterator closes the loop so parametrized tests with
-    equivalent setup bodies produce byte-identical signed setup txs. Their
-    ``derive_setup_group_hash`` collapses onto the same value, the partial
-    setup-group files merge into one shared ``setup_groups/<hash>.json``,
-    and benchmarkoor applies that shared setup once per group.
-    """
-    eoa_start = request.config.getoption("eoa_iterator_start")
-    return iter(EOA(key=i, nonce=0) for i in count(start=eoa_start))
 
 
 @pytest.fixture(scope="session")
@@ -407,15 +391,17 @@ def client_backend(
 
     priority_fee = default_max_priority_fee_per_gas
     if priority_fee is None:
-        priority_fee = int(eth_rpc.max_priority_fee_per_gas() * 1.5)
+        priority_fee = int(
+            eth_rpc.max_priority_fee_per_gas() * FEE_BUMP_MULTIPLIER
+        )
     max_fee = default_max_fee_per_gas
     if max_fee is None:
-        max_fee = int(eth_rpc.gas_price() * 1.5)
+        max_fee = int(eth_rpc.gas_price() * FEE_BUMP_MULTIPLIER)
     if priority_fee > max_fee:
         max_fee = priority_fee + 1
     blob_fee = default_max_fee_per_blob_gas
     if blob_fee is None:
-        blob_fee = int(eth_rpc.blob_base_fee() * 1.5)
+        blob_fee = int(eth_rpc.blob_base_fee() * FEE_BUMP_MULTIPLIER)
     gas_price = (
         default_gas_price
         if default_gas_price is not None
@@ -426,7 +412,6 @@ def client_backend(
     backend.max_fee_per_gas = max_fee
     backend.max_priority_fee_per_gas = priority_fee
     backend.max_fee_per_blob_gas = blob_fee
-    backend.setup_groups_dir = _setup_groups_dir(request.config)
     logger.info(
         "ClientBackend fees pinned: "
         f"gas_price={gas_price / 10**9:.2f} Gwei, "
@@ -435,12 +420,6 @@ def client_backend(
         f"blob={blob_fee / 10**9:.2f} Gwei"
     )
     return backend
-
-
-def _setup_groups_dir(config: pytest.Config) -> Path:
-    """Return the directory where setup-group partials/merged files live."""
-    output_dir = Path(config.getoption("output"))
-    return output_dir / "blockchain_tests_stateful_engine" / "setup_groups"
 
 
 def _resolve_snapshot_block(
@@ -490,23 +469,6 @@ def _resolve_snapshot_block(
     return block
 
 
-def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
-    """Merge per-test setup-group partials into final ``<hash>.json`` files."""
-    del exitstatus
-    if is_help_or_collectonly_mode(session.config):
-        return
-    # Only the xdist master (or non-xdist) master merges. Workers just
-    # flush their partials and exit.
-    worker = os.environ.get("PYTEST_XDIST_WORKER")
-    if worker is not None:
-        return
-    try:
-        folder = _setup_groups_dir(session.config)
-    except Exception:  # pragma: no cover — output option may be unset
-        return
-    merge_partial_setup_group_files(folder)
-
-
 @pytest.fixture(scope="session", autouse=True)
 def _session_pre_run(
     client_backend: ClientBackend,
@@ -549,9 +511,8 @@ def _session_pre_run(
 
     try:
         # 3. Fund seed key via CL withdrawal.
-        funding_wei = 10**9 * 10**18
         eth_rpc.fund_via_withdrawals(
-            [(Address(session_worker_key), funding_wei)]
+            [(Address(session_worker_key), SEED_FUNDING_WEI)]
         )
         logger.info(f"Funded {Address(session_worker_key)} via withdrawal")
 
@@ -622,8 +583,14 @@ def session_t8n(
     client_backend: ClientBackend,
     _session_pre_run: None,
 ) -> Generator[ClientBackend, None, None]:
-    """Override: fill's session_t8n returns ClientBackend for stateful runs."""
-    del _session_pre_run  # ordering only
+    """
+    Override: fill's session_t8n returns ClientBackend for stateful runs.
+
+    The ``_session_pre_run`` parameter is a fixture-dependency-only handle
+    used to force snapshot/start-block capture before the backend is yielded
+    to fill's spec loop.
+    """
+    del _session_pre_run
     yield client_backend
     client_backend.shutdown()
 

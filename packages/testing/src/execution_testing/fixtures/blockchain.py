@@ -1,7 +1,6 @@
 """BlockchainTest types."""
 
 from functools import cached_property
-from hashlib import sha256
 from typing import (
     TYPE_CHECKING,
     Annotated,
@@ -79,34 +78,6 @@ from .common import (
 
 if TYPE_CHECKING:
     from execution_testing.rpc.rpc_types import PayloadAttributes
-
-
-def derive_setup_group_hash(
-    setup_transaction_groups: Sequence[Sequence[Any]],
-) -> str | None:
-    """
-    Return a deterministic hash over a test's declared setup transactions.
-
-    The input is an ordered sequence of per-block transaction lists (the
-    setup-phase blocks the test emits before its execution phase). The hash
-    concatenates the canonical RLP of each signed transaction in declaration
-    order — tests with byte-identical setup sequences collapse onto the same
-    hash and can share a single ``setup_groups/<hash>.json`` file.
-
-    Returns ``None`` when the input carries no setup-phase transactions.
-    """
-    any_tx = False
-    hasher = sha256()
-    for block_txs in setup_transaction_groups:
-        for tx in block_txs:
-            any_tx = True
-            tx_rlp = tx.rlp() if hasattr(tx, "rlp") else None
-            if tx_rlp is None:
-                return None
-            hasher.update(bytes(tx_rlp))
-            hasher.update(b"\x00")
-        hasher.update(b"\x01")
-    return hasher.hexdigest() if any_tx else None
 
 
 def post_state_validator(
@@ -985,23 +956,12 @@ class BlockchainEngineStatefulFixture(BlockchainEngineFixtureCommon):
     start_block_number: HexNumber
     start_block_hash: Hash
 
-    setup_group_hash: str | None = Field(
-        None,
-        description=(
-            "Hash of this test's declared setup transaction sequence. "
-            "When set, ``setupEngineNewPayloads`` is a copy of the shared "
-            "``setup_groups/<setup_group_hash>.json`` — consumers can skip "
-            "re-applying setup per test by loading the group file once "
-            "and snapshotting the post-setup state."
-        ),
-    )
     setup_payloads: List[FixtureEngineNewPayload] = Field(
         default_factory=list,
         alias="setupEngineNewPayloads",
         description=(
-            "Per-test setup-phase payloads. Empty when ``setup_group_hash`` "
-            "is set — consumers must load the referenced "
-            "``setup_groups/<hash>.json`` file instead of replaying these."
+            "Per-test setup-phase payloads applied on top of "
+            "``start_block_hash`` before the test's execution payloads."
         ),
     )
     payloads: List[FixtureEngineNewPayload] = Field(
@@ -1021,10 +981,10 @@ class StatefulPreRunFixture(CamelModel):
     :class:`BlockchainEngineStatefulFixture` — they share the snapshot/
     start anchor fields and the ``engineNewPayloads`` payload list, but
     pre-run carries no per-test fields (``last_block_hash``, ``config``,
-    ``setup_group_hash``, ``setupEngineNewPayloads``) because there is
-    no test execution attached to it. Consumers (benchmarkoor) route by
-    directory: ``pre_run/*.json`` parse as ``StatefulPreRunFixture`` and
-    apply once per session; ``for_<fork>_at_<gas>/.../*.json`` parse as
+    ``setupEngineNewPayloads``) because there is no test execution
+    attached to it. Consumers (benchmarkoor) route by directory:
+    ``pre_run/*.json`` parse as ``StatefulPreRunFixture`` and apply
+    once per session; ``for_<fork>_at_<gas>/.../*.json`` parse as
     ``BlockchainEngineStatefulFixture`` and apply per test.
     """
 

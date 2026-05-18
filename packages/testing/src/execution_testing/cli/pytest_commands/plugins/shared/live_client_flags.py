@@ -25,6 +25,11 @@ from execution_testing.test_types import EnvironmentDefaults
 
 logger = get_logger(__name__)
 
+# Multiplier applied to a one-shot live fee-market query to absorb the gap
+# between query timing and tx submission (basefee can climb a few blocks
+# between the two; the bump keeps txs landing without per-tx requeries).
+FEE_BUMP_MULTIPLIER = 1.5
+
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Register live-client CLI flags."""
@@ -268,7 +273,9 @@ def max_priority_fee_per_gas(
     max_priority_fee_per_gas = default_max_priority_fee_per_gas
     if max_priority_fee_per_gas is None:
         network_max_priority_fee = eth_rpc.max_priority_fee_per_gas()
-        max_priority_fee_per_gas = int(network_max_priority_fee * 1.5)
+        max_priority_fee_per_gas = int(
+            network_max_priority_fee * FEE_BUMP_MULTIPLIER
+        )
     return max_priority_fee_per_gas
 
 
@@ -282,7 +289,7 @@ def max_fee_per_gas(
     max_fee_per_gas = default_max_fee_per_gas
     if max_fee_per_gas is None:
         network_gas_price = eth_rpc.gas_price()
-        max_fee_per_gas = int(network_gas_price * 1.5)
+        max_fee_per_gas = int(network_gas_price * FEE_BUMP_MULTIPLIER)
     if max_priority_fee_per_gas > max_fee_per_gas:
         # Priority fee can exceed max fee due to query timing; bump.
         max_fee_per_gas = max_priority_fee_per_gas + 1
@@ -298,7 +305,7 @@ def max_fee_per_blob_gas(
     max_fee_per_blob_gas = default_max_fee_per_blob_gas
     if max_fee_per_blob_gas is None:
         network_blob_base_fee = eth_rpc.blob_base_fee()
-        max_fee_per_blob_gas = int(network_blob_base_fee * 1.5)
+        max_fee_per_blob_gas = int(network_blob_base_fee * FEE_BUMP_MULTIPLIER)
     return max_fee_per_blob_gas
 
 

@@ -124,7 +124,6 @@ def pytest_configure(config: pytest.Config) -> None:
             [
                 "fill_stateful",
                 "stateful fixture",
-                "execute",
                 "remote RPC configuration",
                 "filler location",
                 "benchmark",

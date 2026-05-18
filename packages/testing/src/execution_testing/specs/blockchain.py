@@ -1,6 +1,5 @@
 """Ethereum blockchain test spec definition and filler."""
 
-import secrets
 from pprint import pprint
 from typing import (
     Any,
@@ -74,17 +73,12 @@ from execution_testing.fixtures.blockchain import (
     FixtureTransaction,
     FixtureWithdrawal,
     InvalidFixtureBlock,
-    derive_setup_group_hash,
 )
 from execution_testing.fixtures.common import (
     FixtureBlobSchedule,
     FixtureTransactionReceipt,
 )
 from execution_testing.fixtures.post_verifications import PostVerifications
-from execution_testing.fixtures.setup_groups import (
-    StatefulSetupGroup,
-    write_partial_setup_group,
-)
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.test_types import (
     Alloc,
@@ -1385,12 +1379,10 @@ class BlockchainTest(BaseTest):
 
         # Materialise queued pre-alloc txs into a synthetic setup block.
         blocks_to_process: List[Block] = []
-        declared_setup_tx_groups: List[List[Transaction]] = []
         if callable(pending_getter):
             setup_txs = pending_getter()
             if setup_txs:
                 blocks_to_process.append(Block(txs=setup_txs))
-                declared_setup_tx_groups.append(setup_txs)
         # Split each user-declared block by contiguous phase runs. A
         # block holding both SETUP (e.g. an EIP-7702 authorization) and
         # TEST (the benchmark exec) transactions would otherwise have
@@ -1398,15 +1390,6 @@ class BlockchainTest(BaseTest):
         # ``derive_phase`` returns SETUP whenever any setup tx is
         # present — so benchmark gas would never be measured.
         blocks_to_process.extend(_split_blocks_by_phase(self.blocks))
-
-        # Hash declared setup intent for cross-test dedup. Pre-RLP the txs
-        # now (the synthetic setup block will re-sign them, but declared
-        # senders/nonces/gas prices are pinned so hashes are stable).
-        signed_setup_groups: List[List[Transaction]] = [
-            [tx.with_signature_and_sender() for tx in group]
-            for group in declared_setup_tx_groups
-        ]
-        setup_group_hash = derive_setup_group_hash(signed_setup_groups)
 
         # Chain blocks off the session's start_block (client head after
         # global pre-run). Each built block updates env.parent_hash.
@@ -1499,30 +1482,6 @@ class BlockchainTest(BaseTest):
                     )
                     head_hash = actual_hash
 
-        # When the backend exposes a setup-groups directory and this test
-        # has a non-null ``setup_group_hash``, dedup the setup payloads to
-        # a shared ``setup_groups/<hash>.json`` file and clear the inline
-        # array. Consumers read the group file once per hash and skip
-        # replaying setup per-test. Without ``setup_groups_dir`` the
-        # payloads stay inlined (legacy / non-dedup mode).
-        setup_groups_dir = getattr(t8n, "setup_groups_dir", None)
-        inlined_setup_payloads = setup_payloads
-        if setup_group_hash is not None and setup_groups_dir is not None:
-            session_fork = self.fork.fork_at(block_number=0, timestamp=0)
-            node_id = getattr(self.pre, "_node_id", "") or ""
-            group = StatefulSetupGroup(
-                network=str(session_fork),
-                setup_group_hash=setup_group_hash,
-                test_ids=[node_id] if node_id else [],
-                payloads=setup_payloads,
-            )
-            write_partial_setup_group(
-                folder=setup_groups_dir,
-                group=group,
-                test_suffix=secrets.token_hex(8),
-            )
-            inlined_setup_payloads = []
-
         fixture = BlockchainEngineStatefulFixture(
             fork=self.fork,
             last_block_hash=head_hash,
@@ -1531,8 +1490,7 @@ class BlockchainTest(BaseTest):
             snapshot_block_hash=Hash(snapshot_block["hash"]),
             start_block_number=HexNumber(start_block_number),
             start_block_hash=start_block_hash,
-            setup_group_hash=setup_group_hash,
-            setup_payloads=inlined_setup_payloads,
+            setup_payloads=setup_payloads,
             payloads=execution_payloads,
         )
         return FillResult(
