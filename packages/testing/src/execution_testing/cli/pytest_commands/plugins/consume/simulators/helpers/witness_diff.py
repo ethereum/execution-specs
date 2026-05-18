@@ -1,69 +1,60 @@
 """Strict witness comparison helper for the engine-witness simulator."""
 
-from typing import Iterable, List
+from typing import Iterable
 
 from execution_testing.base_types import Bytes
 from execution_testing.test_types.execution_witness import ExecutionWitness
 
 
-def _preview(value: bytes | None) -> str:
-    """Return a compact hex preview for a witness item."""
-    if value is None:
-        return "<missing>"
+def _item_preview(value: bytes) -> str:
+    """Return a short hex preview for one witness item."""
     return "0x" + value.hex()[:16]
 
 
-def _diff_ordered(
+def _items_preview(items: list[bytes]) -> str:
+    """Return previews for the first few witness items."""
+    return ", ".join(_item_preview(item) for item in items[:5])
+
+
+def _ordered_field_mismatch(
     field: str, expected: Iterable[Bytes], actual: Iterable[Bytes]
-) -> List[str]:
-    """Return human-readable diff messages for a single witness field."""
+) -> str | None:
+    """Return a human-readable mismatch line for one ordered field."""
     exp = [bytes(x) for x in expected]
     act = [bytes(x) for x in actual]
 
     if exp == act:
-        return []
+        return None
 
-    if len(exp) > len(act) and exp[: len(act)] == act:
-        missing_count = len(exp) - len(act)
-        preview = ", ".join(_preview(item) for item in exp[len(act) :][:5])
-        return [
-            (
-                f"{field}: {missing_count} missing "
-                f"(not emitted by client): {preview}"
+    common_len = min(len(exp), len(act))
+    if exp[:common_len] == act[:common_len]:
+        if len(exp) > len(act):
+            missing = exp[common_len:]
+            return (
+                f"{field}: {len(missing)} missing "
+                f"(not emitted by client): {_items_preview(missing)}"
             )
-        ]
-
-    if len(act) > len(exp) and act[: len(exp)] == exp:
-        extra_count = len(act) - len(exp)
-        preview = ", ".join(_preview(item) for item in act[len(exp) :][:5])
-        return [
-            (
-                f"{field}: {extra_count} extra "
-                f"(over-collected by client): {preview}"
-            )
-        ]
+        extra = act[common_len:]
+        return (
+            f"{field}: {len(extra)} extra "
+            f"(over-collected by client): {_items_preview(extra)}"
+        )
 
     first_mismatch = next(
-        (
-            i
-            for i, (expected_item, actual_item) in enumerate(
-                zip(exp, act, strict=False)
-            )
-            if expected_item != actual_item
-        ),
-        min(len(exp), len(act)),
-    )
-    expected_item = exp[first_mismatch] if first_mismatch < len(exp) else None
-    actual_item = act[first_mismatch] if first_mismatch < len(act) else None
-
-    return [
-        (
-            f"{field}: ordered mismatch "
-            f"(expected {len(exp)} items, got {len(act)}); "
-            f"first mismatch at index {first_mismatch}: "
-            f"expected {_preview(expected_item)}, got {_preview(actual_item)}"
+        i
+        for i, (expected_item, actual_item) in enumerate(
+            zip(exp, act, strict=False)
         )
-    ]
+        if expected_item != actual_item
+    )
+
+    return (
+        f"{field}: ordered mismatch "
+        f"(expected {len(exp)} items, got {len(act)}); "
+        f"first mismatch at index {first_mismatch}: "
+        f"expected {_item_preview(exp[first_mismatch])}, "
+        f"got {_item_preview(act[first_mismatch])}"
+    )
 
 
 class WitnessMismatchError(AssertionError):
@@ -74,15 +65,22 @@ def assert_witness_matches(
     expected: ExecutionWitness, actual: ExecutionWitness
 ) -> None:
     """
-    Assert the client-emitted `actual` witness matches the fixture `expected`
-    witness exactly on each of `state`, `codes`, and `headers`.
+    Assert the client-emitted `actual` witness matches the fixture `expected`.
 
-    Ordering and duplicate entries are significant.
+    Each of `state`, `codes`, and `headers` must match exactly. Ordering and
+    duplicate entries are significant.
     """
-    messages: List[str] = []
-    messages += _diff_ordered("state", expected.state, actual.state)
-    messages += _diff_ordered("codes", expected.codes, actual.codes)
-    messages += _diff_ordered("headers", expected.headers, actual.headers)
+    messages: list[str] = []
+    for field, expected_items, actual_items in (
+        ("state", expected.state, actual.state),
+        ("codes", expected.codes, actual.codes),
+        ("headers", expected.headers, actual.headers),
+    ):
+        mismatch = _ordered_field_mismatch(
+            field, expected_items, actual_items
+        )
+        if mismatch is not None:
+            messages.append(mismatch)
 
     if messages:
         raise WitnessMismatchError(
