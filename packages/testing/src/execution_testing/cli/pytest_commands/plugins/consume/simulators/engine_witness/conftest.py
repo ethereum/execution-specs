@@ -16,7 +16,7 @@ from hive.client import Client
 from execution_testing.exceptions import ExceptionMapper
 from execution_testing.fixtures import BlockchainEngineFixture
 from execution_testing.fixtures.blockchain import FixtureHeader
-from execution_testing.rpc import EngineWitnessRPC
+from execution_testing.rpc import EngineSszRPC
 
 pytest_plugins = (
     "execution_testing.cli.pytest_commands.plugins.pytest_hive.pytest_hive",
@@ -37,9 +37,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=False,
         help=(
             "Use the REST POST /new-payload-with-witness endpoint with "
-            "SSZ-encoded response (execution-apis PR #773) instead of the "
-            "default JSON-RPC engine_newPayloadWithWitnessVX with "
-            "RLP-encoded witness (geth-style)."
+            "SSZ-encoded response instead of the default JSON-RPC "
+            "engine_newPayloadWithWitnessVX with RLP-encoded witness "
         ),
     )
 
@@ -91,15 +90,15 @@ def genesis_header(fixture: BlockchainEngineFixture) -> "FixtureHeader":
 
 
 @pytest.fixture(scope="function")
-def engine_witness_rpc(
+def engine_ssz_rpc(
     client: Client, client_exception_mapper: ExceptionMapper | None
-) -> EngineWitnessRPC:
+) -> EngineSszRPC:
     """Provide the REST client used by the `--ssz` witness transport."""
     if client_exception_mapper:
-        return EngineWitnessRPC(
+        return EngineSszRPC(
             f"http://{client.ip}:8551",
             response_validation_context={
                 "exception_mapper": client_exception_mapper,
             },
         )
-    return EngineWitnessRPC(f"http://{client.ip}:8551")
+    return EngineSszRPC(f"http://{client.ip}:8551")

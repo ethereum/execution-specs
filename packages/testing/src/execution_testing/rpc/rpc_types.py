@@ -332,8 +332,7 @@ class EthConfigResponse(CamelModel):
     last: ForkConfig | None = None
 
 
-# SSZ schema for POST /new-payload-with-witness response per execution-apis
-# PR #773 (https://github.com/ethereum/execution-apis/pull/773).
+# SSZ schema for the REST POST /new-payload-with-witness response.
 
 VALIDATION_ERROR_MAX = 8192
 MAX_WITNESS_BYTES = 2**30  # 1 GiB
@@ -366,7 +365,7 @@ _SSZ_STATUS_TO_ENUM: Dict[int, PayloadStatusEnum] = {
 @dataclass
 class NewPayloadWithWitnessResponse:
     """
-    Decoded response of POST /new-payload-with-witness (PR #773).
+    Decoded response of POST /new-payload-with-witness.
 
     The witness field is ``None`` whenever status is not ``VALID`` (the spec
     mandates an empty SSZ witness in that case).

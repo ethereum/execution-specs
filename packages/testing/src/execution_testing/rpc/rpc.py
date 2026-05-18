@@ -1370,9 +1370,9 @@ class EngineRPC(BaseJwtRPC):
         return _do_forkchoice_update()
 
 
-class EngineWitnessRPC(BaseJwtRPC):
+class EngineSszRPC(BaseJwtRPC):
     """
-    REST client for `POST /new-payload-with-witness` (execution-apis PR #773).
+    REST client for `POST /new-payload-with-witness`.
 
     The endpoint uses a JSON request body and an SSZ response body; JWT auth
     is inherited from `BaseJwtRPC`.

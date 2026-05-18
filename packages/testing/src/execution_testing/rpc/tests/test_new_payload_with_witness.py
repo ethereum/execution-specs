@@ -108,7 +108,7 @@ def test_decode_invalid_with_validation_error() -> None:
 
 
 def test_decode_syncing_empty_witness() -> None:
-    """A SYNCING response has no witness per PR #773."""
+    """A SYNCING response has no witness."""
     raw = _build_response(
         status=2,
         latest_valid_hash=None,

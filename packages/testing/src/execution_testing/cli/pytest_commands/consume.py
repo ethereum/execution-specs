@@ -134,8 +134,7 @@ def engine_witness() -> None:
     Verify client-emitted execution witnesses against the fixture.
 
     Default transport: engine_newPayloadWithWitnessVX JSON-RPC (geth).
-    Pass --ssz to use the REST POST /new-payload-with-witness endpoint
-    (execution-apis PR #773).
+    Pass --ssz to use the REST POST /new-payload-with-witness endpoint.
     """
     pass
 

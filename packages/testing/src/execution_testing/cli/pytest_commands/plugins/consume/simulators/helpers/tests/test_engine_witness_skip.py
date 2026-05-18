@@ -33,7 +33,7 @@ def test_mutated_execution_witness_fixture_is_skipped() -> None:
             timing_data=unused_dependency,
             eth_rpc=unused_dependency,
             engine_rpc=unused_dependency,
-            engine_witness_rpc=unused_dependency,
+            engine_ssz_rpc=unused_dependency,
             fixture=fixture,
             genesis_header=unused_dependency,
             use_ssz_transport=False,

@@ -76,9 +76,7 @@ def assert_witness_matches(
         ("codes", expected.codes, actual.codes),
         ("headers", expected.headers, actual.headers),
     ):
-        mismatch = _ordered_field_mismatch(
-            field, expected_items, actual_items
-        )
+        mismatch = _ordered_field_mismatch(field, expected_items, actual_items)
         if mismatch is not None:
             messages.append(mismatch)
 
