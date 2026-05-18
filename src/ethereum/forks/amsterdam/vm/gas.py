@@ -303,7 +303,7 @@ def charge_state_gas(evm: Evm, amount: Uint) -> None:
     else:
         raise OutOfGasError
 
-    evm.state_gas_used += amount
+    evm.state_gas_used += int(amount)
 
 
 def calculate_memory_gas_cost(size_in_bytes: Uint) -> Uint:

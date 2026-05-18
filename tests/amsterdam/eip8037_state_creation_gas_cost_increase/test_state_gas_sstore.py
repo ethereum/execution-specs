@@ -15,6 +15,7 @@ Tests for [EIP-8037: State Creation Gas Cost Increase]
 import pytest
 from execution_testing import (
     Account,
+    Address,
     Alloc,
     Block,
     BlockchainTestFiller,
@@ -152,6 +153,95 @@ def test_sstore_zero_to_zero(
     )
 
     post = {contract: Account(storage=storage)}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "refund_sufficient",
+    [
+        pytest.param(True, id="refund_funds_create"),
+        pytest.param(False, id="no_refund_create_oogs"),
+    ],
+)
+@pytest.mark.parametrize(
+    "delegatecall_depth",
+    [
+        pytest.param(1, id="depth_1"),
+        pytest.param(3, id="depth_3"),
+        pytest.param(10, id="depth_10"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_sstore_restoration_refund_credits_local_reservoir(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    delegatecall_depth: int,
+    refund_sufficient: bool,
+) -> None:
+    """
+    Verify a same transaction SSTORE restoration refund credits the
+    clearing frame's own reservoir immediately so later state gas in
+    that frame is funded. Parametrized to pin the refund as necessary
+    and sufficient.
+    """
+    sstore_state_gas = fork.sstore_state_gas()
+    create_state_gas = fork.create_state_gas()
+    # Premise: the two restoration refunds must be able to cover the
+    # CREATE's new-account state gas for the funded path to exist.
+    # Drift-proof relationship (vs. hardcoding the constants).
+    assert 2 * sstore_state_gas >= create_state_gas
+
+    # Sentinel written only if the CREATE returned (frame did not OOG).
+    sentinel_slot = 2
+    # refund: clear (1→0, restoration refund). no refund: modify
+    # (1→2, no state growth, no refund) — same regular shape.
+    cleared_value = 0 if refund_sufficient else 2
+    clearing = pre.deploy_contract(
+        code=(
+            Op.SSTORE(0, cleared_value)
+            + Op.SSTORE(1, cleared_value)
+            + Op.POP(Op.CREATE(0, 0, 0))
+            + Op.SSTORE(sentinel_slot, 1)
+            + Op.STOP
+        )
+    )
+    inner: Address = clearing
+    for _ in range(delegatecall_depth):
+        inner = pre.deploy_contract(
+            code=(Op.POP(Op.DELEGATECALL(gas=Op.GAS, address=inner)) + Op.STOP)
+        )
+    parent = pre.deploy_contract(
+        code=(
+            Op.SSTORE(0, 1)
+            + Op.SSTORE(1, 1)
+            + Op.POP(Op.DELEGATECALL(gas=Op.GAS, address=inner))
+            + Op.STOP
+        )
+    )
+
+    # The two parent `0→1` sets spill their state gas into `gas_left`
+    # (tx is far below the per-tx cap, so no state-gas reservoir).
+    # Budget regular headroom for the call chain plus that spill, then
+    # sit mid-window: short of also spill-funding `create_state_gas`,
+    # so only a refund-credited reservoir can cover the CREATE.
+    regular_headroom = 200_000
+    gas_limit = regular_headroom + 2 * sstore_state_gas + create_state_gas // 2
+
+    if refund_sufficient:
+        post = {parent: Account(storage={0: 0, 1: 0, sentinel_slot: 1})}
+    else:
+        # CREATE OOGs in the clearing frame; its writes (the 1→2
+        # modifications and the sentinel) revert, leaving the parent's
+        # original sets intact.
+        post = {parent: Account(storage={0: 1, 1: 1})}
+
+    tx = Transaction(
+        to=parent,
+        gas_limit=gas_limit,
+        sender=pre.fund_eoa(),
+    )
+
     state_test(pre=pre, post=post, tx=tx)
 
 
@@ -743,6 +833,7 @@ def test_sstore_restoration_cross_frame(
         pytest.param(1, id="single_hop"),
         pytest.param(2, id="two_hops"),
         pytest.param(3, id="three_hops"),
+        pytest.param(10, id="ten_hops"),
     ],
 )
 @pytest.mark.with_all_call_opcodes(
