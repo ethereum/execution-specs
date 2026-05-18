@@ -80,6 +80,7 @@ def _make_payload() -> ExecutionPayload:
         blob_gas_used=U64(_RNG.randint(0, 2**17)),
         excess_blob_gas=U64(_RNG.randint(0, 2**17)),
         block_access_list=Bytes(_rb(16)),
+        slot_number=U64(_RNG.randint(0, 2**32)),
     )
 
 
@@ -107,6 +108,7 @@ def _make_header() -> Header:
         parent_beacon_block_root=Root(_rb(32)),
         requests_hash=Hash32(_rb(32)),
         block_access_list_hash=Hash32(_rb(32)),
+        slot_number=U64(_RNG.randint(0, 2**32)),
     )
 
 

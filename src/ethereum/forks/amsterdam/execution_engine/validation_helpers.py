@@ -80,6 +80,7 @@ def _payload_header(
         block_access_list_hash=Hash32(
             keccak256(execution_payload.block_access_list)
         ),
+        slot_number=execution_payload.slot_number,
     )
 
 

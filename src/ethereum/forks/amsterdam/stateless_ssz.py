@@ -109,6 +109,7 @@ class SszExecutionPayload(Container):
     blob_gas_used: uint64
     excess_blob_gas: uint64
     block_access_list: ByteList[MAX_BLOCK_ACCESS_LIST_BYTES]
+    slot_number: uint64
 
 
 class SszDepositRequest(Container):
@@ -291,6 +292,7 @@ def _payload_to_ssz(
         block_access_list=ByteList[MAX_BLOCK_ACCESS_LIST_BYTES](
             bytes(p.block_access_list)
         ),
+        slot_number=uint64(int(p.slot_number)),
     )
 
 
@@ -317,6 +319,7 @@ def _ssz_to_payload(
         blob_gas_used=U64(sp.blob_gas_used),
         excess_blob_gas=U64(sp.excess_blob_gas),
         block_access_list=Bytes(bytes(sp.block_access_list)),
+        slot_number=U64(sp.slot_number),
     )
 
 
