@@ -149,7 +149,7 @@ class EngineWitnessEndpointNotImplementedError(Exception):
     """
 
     def __init__(self, url: str, http_status: int):
-        """Initialize with endpoint URL and absence HTTP status."""
+        """Initialize with endpoint URL and HTTP status."""
         self.url = url
         self.http_status = http_status
         super().__init__(
@@ -1211,8 +1211,8 @@ class EngineRPC(BaseJwtRPC):
         version: int,
     ) -> NewPayloadWithWitnessResponse:
         """
-        `engine_newPayloadWithWitnessVX`: execute the payload and return the
-        payload status plus an RLP-encoded execution witness.
+        `engine_newPayloadWithWitnessVX`: execute the payload and decode the
+        payload status plus hex-encoded RLP execution witness.
         """
         method = f"newPayloadWithWitnessV{version}"
         params_list = [to_json(param) for param in params]
