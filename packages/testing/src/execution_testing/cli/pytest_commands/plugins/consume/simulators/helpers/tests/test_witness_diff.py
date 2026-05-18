@@ -23,15 +23,17 @@ def _w(
 
 
 def test_matching_witnesses_pass() -> None:
-    """Byte-equal witnesses match."""
-    w = _w(state=[b"\xaa", b"\xbb"], codes=[b"\x60"], headers=[b"\xf9"])
-    assert_witness_matches(expected=w, actual=w)
+    """Separate byte-equal witnesses match."""
+    # Create separate objects so equality is not just object identity.
+    expected = _w(state=[b"\xaa", b"\xbb"], codes=[b"\x60"], headers=[b"\xf9"])
+    actual = _w(state=[b"\xaa", b"\xbb"], codes=[b"\x60"], headers=[b"\xf9"])
+    assert_witness_matches(expected=expected, actual=actual)
 
 
-def test_reordered_witness_fails() -> None:
-    """Witness comparison is order-sensitive."""
+def test_reordered_state_fails() -> None:
+    """State item comparison is order-sensitive."""
     expected = _w(state=[b"\xaa", b"\xbb"], codes=[b"\x60", b"\x70"])
-    actual = _w(state=[b"\xbb", b"\xaa"], codes=[b"\x70", b"\x60"])
+    actual = _w(state=[b"\xbb", b"\xaa"], codes=[b"\x60", b"\x70"])
     with pytest.raises(WitnessMismatchError, match="state: ordered mismatch"):
         assert_witness_matches(expected=expected, actual=actual)
 
