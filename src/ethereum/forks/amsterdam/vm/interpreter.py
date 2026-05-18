@@ -244,9 +244,6 @@ def process_create_message(message: Message) -> Evm:
             restore_tx_state(tx_state, snapshot)
             evm.regular_gas_used += evm.gas_left
             evm.gas_left = Uint(0)
-            # State-gas counters preserved: the parent (or tx-level
-            # error handler) restores them via the
-            # `state_gas_left + state_gas_used` invariant.
             evm.output = b""
             evm.error = error
         else:
@@ -338,9 +335,6 @@ def process_message(message: Message) -> Evm:
         evm_trace(evm, OpException(error))
         evm.regular_gas_used += evm.gas_left
         evm.gas_left = Uint(0)
-        # State-gas counters preserved: the parent (or tx-level
-        # error handler) restores them via the
-        # `state_gas_left + state_gas_used` invariant.
         evm.output = b""
         evm.error = error
     except Revert as error:

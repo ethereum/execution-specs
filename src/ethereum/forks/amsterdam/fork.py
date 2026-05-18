@@ -1084,8 +1084,6 @@ def process_transaction(
     tx_output = process_message_call(message)
 
     if tx_output.error is not None:
-        # State rolled back: restore reservoir via the
-        # `state_gas_left + state_gas_used` invariant.
         tx_output.state_gas_left = Uint(
             int(tx_output.state_gas_left) + tx_output.state_gas_used
         )
@@ -1159,8 +1157,6 @@ def process_transaction(
         destroy_account(tx_state, block_env.coinbase)
 
     tx_regular_gas = tx_env.intrinsic_regular_gas + tx_output.regular_gas_used
-    # `state_gas_used` may be negative when inline refunds exceed
-    # gross charges; clamp the block contribution at zero.
     tx_state_gas = (
         int(tx_env.intrinsic_state_gas)
         + tx_output.state_gas_used
