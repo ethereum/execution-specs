@@ -34,7 +34,7 @@ def test_slotnum_mainnet(
     cannot be controlled by the test.
     """
     contract = pre.deploy_contract(
-        code=Op.SSTORE(0, Op.ISZERO(Op.ISZERO(Op.SLOTNUM))),
+        code=Op.POP(Op.SLOTNUM) + Op.SSTORE(0, 1),
         storage={"0x00": "0xdeadbeef"},
     )
     tx = Transaction(
@@ -46,7 +46,7 @@ def test_slotnum_mainnet(
     post = {contract: Account(storage={"0x00": 1})}
 
     state_test(
-        env=Environment(slot_number=1),
+        env=Environment(),
         pre=pre,
         tx=tx,
         post=post,

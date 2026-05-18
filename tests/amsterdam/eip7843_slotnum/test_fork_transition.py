@@ -45,21 +45,16 @@ def test_slotnum_at_fork_transition(
 
     blocks = [
         Block(
-            timestamp=14_999,
+            timestamp=ts,
+            slot_number=slot,
             txs=[Transaction(sender=sender, to=contract, gas_limit=100_000)],
-        ),
-        Block(
-            timestamp=15_000,
-            slot_number=at_fork_slot,
-            txs=[Transaction(sender=sender, to=contract, gas_limit=100_000)],
-        ),
-        Block(
-            timestamp=15_001,
-            slot_number=post_fork_slot,
-            txs=[Transaction(sender=sender, to=contract, gas_limit=100_000)],
-        ),
+        )
+        for ts, slot in [
+            (14_999, None),
+            (15_000, at_fork_slot),
+            (15_001, post_fork_slot),
+        ]
     ]
-
     post = {
         contract: Account(
             storage={
