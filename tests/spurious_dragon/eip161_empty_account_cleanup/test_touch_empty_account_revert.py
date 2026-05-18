@@ -64,7 +64,7 @@ def test_touch_empty_account_call_chain(
     An empty target is deleted; a funded target survives.
     """
     storage = Storage()
-    target = pre.empty_account()
+    target = pre.nonexistent_account()
     pre.fund_address(target, target_balance)
 
     intermediary_code = Op.CALL(gas=Op.GAS, address=target) + Op.POP
@@ -124,7 +124,7 @@ def test_touch_empty_account_call_then_oog(
     deletion. A funded target survives.
     """
     storage = Storage()
-    target = pre.empty_account()
+    target = pre.nonexistent_account()
     pre.fund_address(target, target_balance)
 
     # Helper that CALLs the target then runs OOG.
@@ -189,7 +189,7 @@ def test_touch_empty_account_selfdestruct_then_oog(
     target, the non-reverted touch triggers EIP-161 deletion.
     """
     storage = Storage()
-    target = pre.empty_account()
+    target = pre.nonexistent_account()
     pre.fund_address(target, target_balance)
 
     sd_code = Op.SELFDESTRUCT(target)
