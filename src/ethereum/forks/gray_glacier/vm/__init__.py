@@ -20,12 +20,16 @@ from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32
 from ethereum.exceptions import EthereumException
+from ethereum.merkle_patricia_trie import Trie
 from ethereum.state import Address
 
 from ..blocks import Log, Receipt
-from ..state import State, account_exists_and_is_empty
+from ..state_tracker import (
+    BlockState,
+    TransactionState,
+    account_exists_and_is_empty,
+)
 from ..transactions import LegacyTransaction
-from ..trie import Trie
 from .precompiled_contracts import RIPEMD160_ADDRESS
 
 __all__ = ("Environment", "Evm", "Message")
@@ -38,7 +42,7 @@ class BlockEnvironment:
     """
 
     chain_id: U64
-    state: State
+    state: BlockState
     block_gas_limit: Uint
     block_hashes: List[Hash32]
     coinbase: Address
@@ -90,6 +94,7 @@ class TransactionEnvironment:
     gas: Uint
     access_list_addresses: Set[Address]
     access_list_storage_keys: Set[Tuple[Address, Bytes32]]
+    state: TransactionState
     index_in_block: Optional[Uint]
     tx_hash: Optional[Hash32]
 
@@ -159,7 +164,7 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
     evm.accounts_to_delete.update(child_evm.accounts_to_delete)
     evm.touched_accounts.update(child_evm.touched_accounts)
     if account_exists_and_is_empty(
-        evm.message.block_env.state, child_evm.message.current_target
+        evm.message.tx_env.state, child_evm.message.current_target
     ):
         evm.touched_accounts.add(child_evm.message.current_target)
     evm.accessed_addresses.update(child_evm.accessed_addresses)
@@ -189,7 +194,7 @@ def incorporate_child_on_error(evm: Evm, child_evm: Evm) -> None:
         evm.touched_accounts.add(RIPEMD160_ADDRESS)
     if child_evm.message.current_target == RIPEMD160_ADDRESS:
         if account_exists_and_is_empty(
-            evm.message.block_env.state, child_evm.message.current_target
+            evm.message.tx_env.state, child_evm.message.current_target
         ):
             evm.touched_accounts.add(RIPEMD160_ADDRESS)
     evm.gas_left += child_evm.gas_left

@@ -102,8 +102,8 @@ def test_bal_system_dequeue_consolidations_eip7251(
     txs = []
 
     for request in blocks_consolidation_requests:
-        request.update_pre(pre=pre)
-        txs += request.transactions()
+        prepared = request.update_pre(pre=pre)
+        txs += prepared.transactions()
 
     num = len(txs)
 

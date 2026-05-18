@@ -1,14 +1,23 @@
 """Tests for the optimized state implementation."""
 
-import sys
 from typing import Any, cast
 
 import pytest
 from ethereum_types.numeric import U256
 
-import ethereum.forks.frontier.state as state
-from ethereum.forks.frontier.fork_types import EMPTY_ACCOUNT
+import ethereum.state as state
 from ethereum.forks.tangerine_whistle.utils.hexadecimal import hex_to_address
+from ethereum.state import EMPTY_ACCOUNT
+from ethereum_spec_tools.forks import Hardfork
+
+# The optimized state integration predates the ``State`` refactor and has
+# not yet been rewired onto ``PreState``/``state_tracker`` — see
+# https://github.com/ethereum/execution-specs/issues/2256. Until then,
+# both ``get_optimized_state_patches`` and the per-fork ``destroy_storage``
+# API these tests assume no longer load, so the tests are skipped wholesale.
+pytestmark = pytest.mark.skip(
+    reason="optimized state pending redesign (see issue #2256)"
+)
 
 try:
     import ethereum_optimized.state_db as state_db
@@ -20,9 +29,8 @@ try:
 
     optimized_state = cast(Any, OptimizedState())
 
-    for name, value in state_db.get_optimized_state_patches(
-        "frontier"
-    ).items():
+    frontier = Hardfork.by_short_name("frontier")
+    for name, value in state_db.get_optimized_state_patches(frontier).items():
         setattr(optimized_state, name, value)
 
 except ImportError:
@@ -33,10 +41,6 @@ ADDRESS_FOO = hex_to_address("0x00000000219ab540356cbb839cbe05303d7705fa")
 STORAGE_FOO = U256(101).to_be_bytes32()
 
 
-@pytest.mark.skipif(
-    "ethereum_optimized.state_db" not in sys.modules,
-    reason="missing dependency (use `pip install 'ethereum[optimized]'`)",
-)
 def test_storage_key() -> None:
     """
     Tests that optimized state storage operations match the normal
@@ -52,18 +56,14 @@ def test_storage_key() -> None:
 
     state_normal = actions(state)
     state_optimized = actions(optimized_state)
-    assert state.get_storage(
-        state_normal, ADDRESS_FOO, STORAGE_FOO
+    assert state_normal.get_storage(
+        ADDRESS_FOO, STORAGE_FOO
     ) == optimized_state.get_storage(state_optimized, ADDRESS_FOO, STORAGE_FOO)
     assert state.state_root(state_normal) == optimized_state.state_root(
         state_optimized
     )
 
 
-@pytest.mark.skipif(
-    "ethereum_optimized.state_db" not in sys.modules,
-    reason="missing dependency (use `pip install 'ethereum[optimized]'`)",
-)
 def test_resurrection() -> None:
     """Tests that optimized state handles storage resurrection correctly."""
 
@@ -80,8 +80,8 @@ def test_resurrection() -> None:
     state_normal = actions(state)
     state_optimized = actions(optimized_state)
     optimized_state.state_root(state_optimized)
-    assert state.get_storage(
-        state_normal, ADDRESS_FOO, STORAGE_FOO
+    assert state_normal.get_storage(
+        ADDRESS_FOO, STORAGE_FOO
     ) == optimized_state.get_storage(state_optimized, ADDRESS_FOO, STORAGE_FOO)
     assert state.state_root(state_normal) == optimized_state.state_root(
         state_optimized

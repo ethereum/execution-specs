@@ -38,6 +38,7 @@ from ethereum.state import (
     State,
     apply_changes_to_state,
 )
+from ethereum.utils.byte import left_pad_zero_bytes
 
 from . import vm
 from .block_access_lists import (
@@ -72,6 +73,7 @@ from .state_tracker import (
     BlockState,
     TransactionState,
     account_exists_and_is_empty,
+    create_ether,
     destroy_account,
     extract_block_diff,
     get_account,
@@ -325,6 +327,7 @@ def execute_block(
         excess_blob_gas=block.header.excess_blob_gas,
         parent_beacon_block_root=block.header.parent_beacon_block_root,
         block_access_list_builder=BlockAccessListBuilder(),
+        slot_number=block.header.slot_number,
         transaction_public_keys=transaction_public_keys,
     )
 
@@ -678,7 +681,7 @@ def make_receipt(
         Error in the top level frame of the transaction, if any.
     cumulative_gas_used :
         The total gas used so far in the block after the transaction was
-        executed.
+        executed. This is the gas used after refunds.
     logs :
         The logs produced by the transaction.
 
@@ -722,14 +725,14 @@ def process_checked_system_transaction(
         Output of processing the system transaction.
 
     """
-    # Read through BlockState (not pre-state) so that a system contract
-    # deployed by an earlier transaction in the same block is visible.
-    # See EIP-7002 and EIP-7251 for this edge case.
-    #
-    # This read is not recorded in the state tracker.
-    # However, this is fine because `process_unchecked_system_transaction`
-    # does its own get_account on the TransactionState that we do incorporate
-    # into BlockState.
+    # Pre-check that the system contract has code. We use a throwaway
+    # TransactionState here that is *never* propagated back to BlockState
+    # (no incorporate_tx_into_block call); the same get_account / get_code
+    # lookups are performed and properly tracked by
+    # process_unchecked_system_transaction below, which this function
+    # always calls. Reading via a TransactionState (rather than directly
+    # against pre_state) lets us see system contracts deployed earlier in
+    # the same block — see EIP-7002 and EIP-7251 for this edge case.
     untracked_state = TransactionState(parent=block_env.state)
     system_contract_code = get_code(
         untracked_state,
@@ -1073,16 +1076,17 @@ def process_transaction(
 
     # Transactions with less execution_gas_used than the floor pay at the
     # floor cost.
-    tx_gas_used_after_refund = max(
-        tx_gas_used_after_refund, calldata_floor_gas_cost
+    tx_gas_used = max(tx_gas_used_after_refund, calldata_floor_gas_cost)
+    block_gas_used_in_tx = max(
+        tx_gas_used_before_refund, calldata_floor_gas_cost
     )
 
-    tx_gas_left = tx.gas - tx_gas_used_after_refund
+    tx_gas_left = tx.gas - tx_gas_used
     gas_refund_amount = tx_gas_left * effective_gas_price
 
     # For non-1559 transactions effective_gas_price == tx.gas_price
     priority_fee_per_gas = effective_gas_price - block_env.base_fee_per_gas
-    transaction_fee = tx_gas_used_after_refund * priority_fee_per_gas
+    transaction_fee = tx_gas_used * priority_fee_per_gas
 
     # refund gas
     sender_balance_after_refund = get_account(tx_state, sender).balance + U256(
@@ -1090,6 +1094,7 @@ def process_transaction(
     )
     set_account_balance(tx_state, sender, sender_balance_after_refund)
 
+    # transfer miner fees
     coinbase_balance_after_mining_fee = get_account(
         tx_state, block_env.coinbase
     ).balance + U256(transaction_fee)
@@ -1098,16 +1103,40 @@ def process_transaction(
         tx_state, block_env.coinbase, coinbase_balance_after_mining_fee
     )
 
+    # EIP-7708: Emit burn logs for balances held by accounts marked for
+    # deletion AFTER miner fee transfer.
+    finalization_logs: List[Log] = []
+    for address in sorted(tx_output.accounts_to_delete):
+        balance = get_account(tx_state, address).balance
+        if balance > U256(0):
+            padded_address = left_pad_zero_bytes(address, 32)
+            finalization_logs.append(
+                Log(
+                    address=vm.SYSTEM_ADDRESS,
+                    topics=(
+                        vm.BURN_TOPIC,
+                        Hash32(padded_address),
+                    ),
+                    data=balance.to_be_bytes32(),
+                )
+            )
+
+    all_logs = tx_output.logs + tuple(finalization_logs)
+
     if coinbase_balance_after_mining_fee == 0 and account_exists_and_is_empty(
         tx_state, block_env.coinbase
     ):
         destroy_account(tx_state, block_env.coinbase)
 
-    block_output.block_gas_used += tx_gas_used_after_refund
+    block_output.cumulative_gas_used += tx_gas_used
+    block_output.block_gas_used += block_gas_used_in_tx
     block_output.blob_gas_used += tx_blob_gas_used
 
     receipt = make_receipt(
-        tx, tx_output.error, block_output.block_gas_used, tx_output.logs
+        tx,
+        tx_output.error,
+        block_output.cumulative_gas_used,
+        all_logs,
     )
 
     receipt_key = rlp.encode(Uint(index))
@@ -1119,7 +1148,7 @@ def process_transaction(
         receipt,
     )
 
-    block_output.block_logs += tx_output.logs
+    block_output.block_logs += all_logs
 
     for address in tx_output.accounts_to_delete:
         destroy_account(tx_state, address)
@@ -1144,9 +1173,7 @@ def process_withdrawals(
             rlp.encode(wd),
         )
 
-        current_balance = get_account(wd_state, wd.address).balance
-        new_balance = current_balance + wd.amount * GWEI_TO_WEI
-        set_account_balance(wd_state, wd.address, new_balance)
+        create_ether(wd_state, wd.address, wd.amount * GWEI_TO_WEI)
 
     incorporate_tx_into_block(wd_state, block_env.block_access_list_builder)
 

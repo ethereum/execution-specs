@@ -847,13 +847,12 @@ def test_withdrawal_requests_negative(
     Test blocks where the requests list and the actual withdrawal requests that
     happened in the block's transactions do not match.
     """
-    for d in requests:
-        d.update_pre(pre)
+    prepared = [d.update_pre(pre) for d in requests]
 
     # No previous block so fee is the base
     fee = 1
     current_block_requests = []
-    for w in requests:
+    for w in prepared:
         current_block_requests += w.valid_requests(fee)
     included_requests = current_block_requests[
         : Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK
@@ -865,7 +864,7 @@ def test_withdrawal_requests_negative(
         post={},
         blocks=[
             Block(
-                txs=sum((r.transactions() for r in requests), []),
+                txs=sum((r.transactions() for r in prepared), []),
                 header_verify=Header(
                     requests_hash=Requests(
                         *included_requests,

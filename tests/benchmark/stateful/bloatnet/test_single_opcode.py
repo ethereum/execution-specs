@@ -9,7 +9,7 @@ abstract: BloatNet single-opcode benchmark cases for state-related operations.
 
 from enum import Enum, auto
 from functools import partial
-from typing import Callable, Generator, List
+from typing import Generator, List
 
 import pytest
 from execution_testing import (
@@ -45,6 +45,9 @@ from tests.benchmark.stateful.helpers import (
     BALANCEOF_SELECTOR,
     CacheStrategy,
     build_cache_strategy_blocks,
+    build_delegated_storage_setup,
+    create_sstore_initializer,
+    initializer_calldata_generator,
 )
 
 REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
@@ -83,9 +86,9 @@ def _sender_generator(
     benchmarks so the BAL builder can group nonce changes by sender
     uniformly regardless of mode.
     """
-    sender = pre.fund_eoa()
+    shared_sender = pre.fund_eoa() if not distinct_senders else None
     while True:
-        yield sender if not distinct_senders else pre.fund_eoa()
+        yield pre.fund_eoa() if shared_sender is None else shared_sender
 
 
 def delegate_with_calldata(
@@ -883,50 +886,6 @@ def test_sstore_erc20_generic(
     )
 
 
-def create_sstore_initializer(init_val: int) -> IteratingBytecode:
-    """
-    Create a contract that initializes storage slots from calldata parameters.
-
-    - CALLDATA[0..32] start slot (index)
-    - CALLDATA[32..64] slot count (num)
-
-    storage[i] = init_val for i in [index, index + num).
-
-    Returns: IteratingBytecode representing the storage initializer.
-    """
-    # Setup: [index, index + num]
-    prefix = (
-        Op.CALLDATALOAD(0)  # [index]
-        + Op.DUP1  # [index, index]
-        + Op.CALLDATALOAD(32)  # [index, index, num]
-        + Op.ADD  # [index, index + num]
-    )
-
-    # Loop: decrement counter and store at current position
-    # Stack after subtraction: [index, current]
-    # where current goes from index+num-1 down to index
-    loop = (
-        Op.JUMPDEST
-        + Op.PUSH1(1)  # [index, current, 1]
-        + Op.SWAP1  # [index, 1, current]
-        + Op.SUB  # [index, current - 1]
-        + Op.SSTORE(  # STORAGE[current-1] = initial_value
-            Op.DUP2,
-            init_val,
-            key_warm=False,
-            # gas accounting
-            original_value=0,
-            current_value=0,
-            new_value=init_val,
-        )
-        # After SSTORE: [index, current - 1]
-        # Continue while current - 1 > index
-        + Op.JUMPI(len(prefix), Op.GT(Op.DUP2, Op.DUP2))
-    )
-
-    return IteratingBytecode(setup=prefix, iterating=loop)
-
-
 def create_sstore_executor(
     sloads_before_sstore: bool,
     key_warm: bool,
@@ -1086,140 +1045,6 @@ def executor_calldata_generator(
     if write_value is not None:
         result += Hash(write_value)
     return result
-
-
-def initializer_calldata_generator(
-    iteration_count: int, start_iteration: int
-) -> bytes:
-    """Calldata generator for the storage: Hash(start) + Hash(count)."""
-    return Hash(start_iteration) + Hash(iteration_count)
-
-
-def pack_transactions_into_blocks(
-    transactions: List[Transaction],
-    gas_limit: int,
-) -> List[Block]:
-    """
-    Pack transactions into blocks without exceeding gas_limit per block.
-
-    Greedily adds transactions to the current block until adding another
-    would exceed the gas limit, then starts a new block.
-    """
-    if not transactions:
-        return []
-
-    blocks: List[Block] = []
-    current_txs: List[Transaction] = []
-    current_gas = 0
-
-    for tx in transactions:
-        if current_gas + tx.gas_limit > gas_limit and current_txs:
-            blocks.append(Block(txs=current_txs))
-            current_txs = []
-            current_gas = 0
-
-        current_txs.append(tx)
-        current_gas += tx.gas_limit
-
-    if current_txs:
-        blocks.append(Block(txs=current_txs))
-
-    return blocks
-
-
-def build_delegated_storage_setup(
-    *,
-    pre: Alloc,
-    fork: Fork,
-    tx_gas_limit: int,
-    needs_init: bool,
-    num_target_slots: int,
-    initializer_code: IteratingBytecode,
-    initializer_addr: Address,
-    executor_addr: Address,
-    authority: EOA,
-    authority_nonce: int,
-    delegation_sender: EOA,
-    initializer_calldata_generator: Callable[[int, int], bytes],
-) -> List[Block]:
-    """
-    Build setup blocks for delegated storage benchmarks.
-
-    Returns:
-        List of blocks for the setup phase.
-
-    """
-    blocks: List[Block] = []
-
-    if needs_init:
-        # Block 1: Authorize to initializer
-        blocks.append(
-            Block(
-                txs=[
-                    Transaction(
-                        to=delegation_sender,
-                        gas_limit=tx_gas_limit,
-                        sender=delegation_sender,
-                        authorization_list=[
-                            AuthorizationTuple(
-                                address=initializer_addr,
-                                nonce=authority_nonce,
-                                signer=authority,
-                            ),
-                        ],
-                    )
-                ]
-            )
-        )
-        authority_nonce += 1
-
-        # Calculate max slots per transaction based on gas cost
-        iteration_cost = initializer_code.tx_gas_limit_by_iteration_count(
-            fork=fork,
-            iteration_count=1,
-            start_iteration=1,
-            calldata=initializer_calldata_generator,
-        )
-        iteration_count = max(1, tx_gas_limit // iteration_cost)
-
-        init_txs: List[Transaction] = []
-        for start in range(1, num_target_slots + 1, iteration_count):
-            chunk_size = min(iteration_count, num_target_slots - start + 1)
-            init_txs.extend(
-                initializer_code.transactions_by_total_iteration_count(
-                    fork=fork,
-                    total_iterations=chunk_size,
-                    sender=pre.fund_eoa(),
-                    to=authority,
-                    start_iteration=start,
-                    calldata=initializer_calldata_generator,
-                )
-            )
-
-        # Pack init transactions into blocks
-        blocks.extend(pack_transactions_into_blocks(init_txs, tx_gas_limit))
-
-    # Final block: Authorize to executor
-    blocks.append(
-        Block(
-            txs=[
-                Transaction(
-                    to=delegation_sender,
-                    gas_limit=tx_gas_limit,
-                    sender=delegation_sender,
-                    authorization_list=[
-                        AuthorizationTuple(
-                            address=executor_addr,
-                            nonce=authority_nonce,
-                            signer=authority,
-                        ),
-                    ],
-                )
-            ]
-        )
-    )
-
-    return blocks
 
 
 @pytest.mark.parametrize("access_warm", [True, False])

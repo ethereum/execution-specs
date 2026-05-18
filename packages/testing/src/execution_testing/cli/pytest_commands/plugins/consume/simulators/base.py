@@ -35,6 +35,7 @@ def check_live_port(test_suite_name: str) -> Literal[8545, 8551]:
         "eels/consume-enginex",
         "eels/consume-sync",
         "eels/consume-engine-witness",
+        "eels/build-block",
     }:
         return 8551
     raise ValueError(

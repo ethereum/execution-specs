@@ -18,10 +18,11 @@ from typing import List, Optional, Set, Tuple
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
 
-from ethereum.crypto.hash import Hash32
+from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import EthereumException
 from ethereum.merkle_patricia_trie import Trie
 from ethereum.state import Address
+from ethereum.utils.byte import left_pad_zero_bytes
 
 from ..block_access_lists import BlockAccessList, BlockAccessListBuilder
 from ..blocks import Log, Receipt, Withdrawal
@@ -30,6 +31,12 @@ from ..state_tracker import BlockState, TransactionState
 from ..transactions import LegacyTransaction
 
 __all__ = ("Environment", "Evm", "Message")
+TRANSFER_TOPIC = keccak256(b"Transfer(address,address,uint256)")
+BURN_TOPIC = keccak256(b"Burn(address,uint256)")
+SYSTEM_ADDRESS = Address(
+    bytes.fromhex("fffffffffffffffffffffffffffffffffffffffe")
+)
+CALL_SUCCESS = U256(1)
 
 
 @dataclass
@@ -50,6 +57,7 @@ class BlockEnvironment:
     excess_blob_gas: U64
     parent_beacon_block_root: Hash32
     block_access_list_builder: BlockAccessListBuilder
+    slot_number: U64
     transaction_public_keys: Optional[Tuple[Bytes, ...]] = None
 
 
@@ -82,6 +90,7 @@ class BlockOutput:
     """
 
     block_gas_used: Uint = Uint(0)
+    cumulative_gas_used: Uint = Uint(0)
     transactions_trie: Trie[Bytes, Optional[Bytes | LegacyTransaction]] = (
         field(default_factory=lambda: Trie(secured=False, default=None))
     )
@@ -196,3 +205,76 @@ def incorporate_child_on_error(evm: Evm, child_evm: Evm) -> None:
 
     """
     evm.gas_left += child_evm.gas_left
+
+
+def emit_transfer_log(
+    evm: Evm,
+    sender: Address,
+    recipient: Address,
+    transfer_amount: U256,
+) -> None:
+    """
+    Emit a LOG3 for all ETH transfers satisfying EIP-7708.
+
+    Parameters
+    ----------
+    evm :
+        The state of the ethereum virtual machine
+    sender :
+        The account address sending the transfer
+    recipient :
+        The account address receiving the transfer
+    transfer_amount :
+        The amount of ETH transacted
+
+    """
+    if transfer_amount == 0:
+        return
+
+    padded_sender = left_pad_zero_bytes(sender, 32)
+    padded_recipient = left_pad_zero_bytes(recipient, 32)
+    log_entry = Log(
+        address=SYSTEM_ADDRESS,
+        topics=(
+            TRANSFER_TOPIC,
+            Hash32(padded_sender),
+            Hash32(padded_recipient),
+        ),
+        data=transfer_amount.to_be_bytes32(),
+    )
+
+    evm.logs = evm.logs + (log_entry,)
+
+
+def emit_burn_log(
+    evm: Evm,
+    account: Address,
+    amount: U256,
+) -> None:
+    """
+    Emit a LOG2 for ETH burn per EIP-7708.
+
+    Parameters
+    ----------
+    evm :
+        The state of the ethereum virtual machine
+    account :
+        The account address whose ETH is being burned
+    amount :
+        The amount of ETH being burned
+
+    """
+    if amount == 0:
+        return
+
+    padded_account = left_pad_zero_bytes(account, 32)
+    log_entry = Log(
+        address=SYSTEM_ADDRESS,
+        topics=(
+            BURN_TOPIC,
+            Hash32(padded_account),
+        ),
+        data=amount.to_be_bytes32(),
+    )
+
+    evm.logs = evm.logs + (log_entry,)

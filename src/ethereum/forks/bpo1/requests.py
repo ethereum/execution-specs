@@ -35,10 +35,10 @@ from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import Uint, ulen
 
 from ethereum.exceptions import InvalidBlock
+from ethereum.merkle_patricia_trie import trie_get
 from ethereum.utils.hexadecimal import hex_to_bytes32
 
 from .blocks import decode_receipt
-from .trie import trie_get
 from .utils.hexadecimal import hex_to_address
 from .vm import BlockOutput
 

@@ -15,6 +15,7 @@ from execution_testing.vm import OpcodeBase
 
 from ....base_fork import (
     BaseFork,
+    RefundTypes,
     TransactionIntrinsicCostCalculator,
 )
 from ....gas_costs import GasCosts
@@ -95,3 +96,12 @@ class EIP7702(BaseFork):
             return intrinsic_cost
 
         return fn
+
+    @classmethod
+    def refund_types(cls) -> List[RefundTypes]:
+        """
+        At Prague, existing authorization refund is introduced.
+        """
+        refunds = super(EIP7702, cls).refund_types()
+        refunds.append(RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY)
+        return refunds

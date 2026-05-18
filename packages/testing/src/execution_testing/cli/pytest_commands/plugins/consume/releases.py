@@ -20,6 +20,7 @@ CACHED_RELEASE_INFORMATION_FILE = (
 
 SUPPORTED_REPOS = [
     "ethereum/execution-spec-tests",
+    "ethereum/execution-specs",
     "ethereum/tests",
     "ethereum/legacytests",
 ]

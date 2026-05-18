@@ -12,6 +12,7 @@ from ethereum_types.numeric import U256
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import StateWithEmptyAccount
+from ethereum.state import State, set_account, set_storage, store_code
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes8,
@@ -55,16 +56,11 @@ class Load(BaseLoad):
         if isinstance(fork_module, Hardfork):
             self.fork = ForkLoad(fork_module)
         else:
-            for fork in Hardfork.discover():
-                if fork.short_name == fork_module:
-                    self.fork = ForkLoad(fork)
-                    return
-            raise Exception(f"fork `{fork_module}` not found")
+            self.fork = ForkLoad(Hardfork.by_short_name(fork_module))
 
     def json_to_state(self, raw: Any) -> Any:
         """Converts json state data to a state object."""
-        state = self.fork.State()
-        set_storage = self.fork.set_storage
+        state = State()
         EMPTY_ACCOUNT = self.fork.EMPTY_ACCOUNT  # noqa N806
 
         for address_hex, account_state in raw.items():
@@ -73,7 +69,7 @@ class Load(BaseLoad):
             balance = U256(hex_to_uint(account_state.get("balance", "0x0")))
             code = hex_to_bytes(account_state.get("code", ""))
 
-            code_hash = self.fork.store_code(state, code)
+            code_hash = store_code(state, code)
             account = self.fork.Account(
                 nonce=nonce,
                 balance=balance,
@@ -83,7 +79,7 @@ class Load(BaseLoad):
             if self.fork.proof_of_stake and account == EMPTY_ACCOUNT:
                 raise StateWithEmptyAccount(f"Empty account at {address_hex}.")
 
-            self.fork.set_account(state, address, account)
+            set_account(state, address, account)
 
             for k, v in account_state.get("storage", {}).items():
                 set_storage(
@@ -200,5 +196,9 @@ class Load(BaseLoad):
         if "blockAccessListHash" in raw:
             bal_hash = hex_to_bytes32(raw.get("blockAccessListHash"))
             parameters.append(bal_hash)
+
+        if "slotNumber" in raw:
+            slot_number = hex_to_u64(raw.get("slotNumber"))
+            parameters.append(slot_number)
 
         return self.fork.Header(*parameters)

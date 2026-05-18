@@ -142,6 +142,17 @@ class Hardfork:
         return forks
 
     @classmethod
+    def by_short_name(cls: Type[H], name: str) -> H:
+        """
+        Return the hardfork matching the given short name.
+        """
+        for fork in cls.discover():
+            if fork.short_name == name:
+                return fork
+
+        raise ValueError(f"unknown hardfork `{name}`")
+
+    @classmethod
     def load(cls: Type[H], config_dict: Dict["ForkCriteria", str]) -> List[H]:
         """
         Load the forks from a config dict specifying fork blocks and

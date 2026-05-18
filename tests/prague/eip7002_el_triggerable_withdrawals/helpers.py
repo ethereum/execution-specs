@@ -1,9 +1,9 @@
 """Helpers for the EIP-7002 withdrawal tests."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from functools import cached_property
 from itertools import count
-from typing import Callable, ClassVar, List
+from typing import Callable, ClassVar, List, Self
 
 from execution_testing import (
     EOA,
@@ -69,7 +69,7 @@ class WithdrawalRequest(WithdrawalRequestBase):
         return self.copy(source_address=source_address)
 
 
-@dataclass(kw_only=True)
+@dataclass(kw_only=True, frozen=True)
 class WithdrawalRequestInteractionBase:
     """Base class for all types of withdrawal transactions we want to test."""
 
@@ -84,8 +84,12 @@ class WithdrawalRequestInteractionBase:
         """Return a transaction for the withdrawal request."""
         raise NotImplementedError
 
-    def update_pre(self, pre: Alloc) -> None:
-        """Return the pre-state of the account."""
+    def update_pre(self, pre: Alloc) -> Self:
+        """
+        Allocate accounts/contracts in `pre` and return a new instance with
+        the allocated state populated. Does not mutate `self`, so the
+        parametrize value remains pristine across fixture format runs.
+        """
         raise NotImplementedError
 
     def valid_requests(
@@ -98,7 +102,7 @@ class WithdrawalRequestInteractionBase:
         raise NotImplementedError
 
 
-@dataclass(kw_only=True)
+@dataclass(kw_only=True, frozen=True)
 class WithdrawalRequestTransaction(WithdrawalRequestInteractionBase):
     """
     Class used to describe a withdrawal request originated from an externally
@@ -122,9 +126,9 @@ class WithdrawalRequestTransaction(WithdrawalRequestInteractionBase):
             for request in self.requests
         ]
 
-    def update_pre(self, pre: Alloc) -> None:
-        """Return the pre-state of the account."""
-        self.sender_account = pre.fund_eoa(self.sender_balance)
+    def update_pre(self, pre: Alloc) -> Self:
+        """Return a copy of self with `sender_account` populated."""
+        return replace(self, sender_account=pre.fund_eoa(self.sender_balance))
 
     def valid_requests(
         self, current_minimum_fee: int
@@ -140,7 +144,7 @@ class WithdrawalRequestTransaction(WithdrawalRequestInteractionBase):
         ]
 
 
-@dataclass(kw_only=True)
+@dataclass(kw_only=True, frozen=True)
 class WithdrawalRequestContract(WithdrawalRequestInteractionBase):
     """Class used to describe a withdrawal originated from a contract."""
 
@@ -204,21 +208,24 @@ class WithdrawalRequestContract(WithdrawalRequestInteractionBase):
             )
         ]
 
-    def update_pre(self, pre: Alloc) -> None:
-        """Return the pre-state of the account."""
-        self.sender_account = pre.fund_eoa(self.sender_balance)
-        self.contract_address = pre.deploy_contract(
+    def update_pre(self, pre: Alloc) -> Self:
+        """
+        Return a copy of self with the allocated sender/contract/entry
+        addresses populated.
+        """
+        sender_account = pre.fund_eoa(self.sender_balance)
+        contract_address = pre.deploy_contract(
             code=self.contract_code, balance=self.contract_balance
         )
-        self.entry_address = self.contract_address
+        entry_address = contract_address
         if self.call_depth > 2:
             for _ in range(1, self.call_depth - 1):
-                self.entry_address = pre.deploy_contract(
+                entry_address = pre.deploy_contract(
                     code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
                     + Op.POP(
                         Op.CALL(
                             Op.GAS,
-                            self.entry_address,
+                            entry_address,
                             0,
                             0,
                             Op.CALLDATASIZE,
@@ -227,6 +234,12 @@ class WithdrawalRequestContract(WithdrawalRequestInteractionBase):
                         )
                     )
                 )
+        return replace(
+            self,
+            sender_account=sender_account,
+            contract_address=contract_address,
+            entry_address=entry_address,
+        )
 
     def valid_requests(
         self, current_minimum_fee: int

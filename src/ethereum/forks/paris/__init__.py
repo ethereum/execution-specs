@@ -28,7 +28,7 @@ marks the integration of the [consensus layer] with the execution layer
 [consensus layer]: https://github.com/ethereum/consensus-specs
 [EIP-3675]: https://eips.ethereum.org/EIPS/eip-3675
 [EIP-4399]: https://eips.ethereum.org/EIPS/eip-4399
-[Besu 22.7.2]: https://github.com/hyperledger/besu/releases/tag/22.7.2
+[Besu 22.7.2]: https://github.com/besu-eth/besu/releases/tag/22.7.2
 [e]: https://github.com/ledgerwatch/erigon/releases/tag/v2022.09.01
 [Geth 1.10.23]: https://github.com/ethereum/go-ethereum/releases/tag/v1.10.23
 [nm]: https://github.com/NethermindEth/nethermind/releases/tag/1.14.1

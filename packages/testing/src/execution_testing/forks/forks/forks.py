@@ -29,6 +29,7 @@ from ..base_fork import (
     CalldataGasCalculator,
     ExcessBlobGasCalculator,
     MemoryExpansionGasCalculator,
+    RefundTypes,
     TransactionDataFloorCostCalculator,
     TransactionIntrinsicCostCalculator,
 )
@@ -925,6 +926,11 @@ class Frontier(
         return False
 
     @classmethod
+    def header_slot_number_required(cls) -> bool:
+        """At genesis, header must not contain slot number (EIP-7843)."""
+        return False
+
+    @classmethod
     def engine_new_payload_blob_hashes(cls) -> bool:
         """At genesis, payloads do not have blob hashes."""
         return False
@@ -961,6 +967,13 @@ class Frontier(
     def engine_payload_attribute_max_blobs_per_block(cls) -> bool:
         """
         At genesis, payload attributes do not include the max blobs per block.
+        """
+        return False
+
+    @classmethod
+    def engine_payload_attribute_slot_number(cls) -> bool:
+        """
+        At genesis, payload attributes do not include the slot number.
         """
         return False
 
@@ -1198,6 +1211,13 @@ class Frontier(
     def max_request_type(cls) -> int:
         """At genesis, no request type is supported, signaled by -1."""
         return -1
+
+    @classmethod
+    def refund_types(cls) -> List[RefundTypes]:
+        """
+        At genesis, storage clearing refund is introduced.
+        """
+        return [RefundTypes.STORAGE_CLEAR]
 
     @classmethod
     def pre_allocation(cls) -> Mapping:

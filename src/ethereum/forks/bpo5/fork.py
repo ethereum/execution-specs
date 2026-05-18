@@ -27,7 +27,13 @@ from ethereum.exceptions import (
     InvalidSenderError,
     NonceMismatchError,
 )
-from ethereum.state import EMPTY_CODE_HASH, Account, Address
+from ethereum.merkle_patricia_trie import root, trie_set
+from ethereum.state import (
+    EMPTY_CODE_HASH,
+    Address,
+    State,
+    apply_changes_to_state,
+)
 
 from . import vm
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
@@ -51,16 +57,17 @@ from .requests import (
     compute_requests_hash,
     parse_deposit_requests,
 )
-from .state import (
-    State,
-    TransientStorage,
+from .state_tracker import (
+    BlockState,
+    TransactionState,
+    create_ether,
     destroy_account,
+    extract_block_diff,
     get_account,
     get_code,
+    incorporate_tx_into_block,
     increment_nonce,
-    modify_state,
     set_account_balance,
-    state_root,
 )
 from .transactions import (
     BlobTransaction,
@@ -75,7 +82,6 @@ from .transactions import (
     recover_sender,
     validate_transaction,
 )
-from .trie import root, trie_set
 from .utils.hexadecimal import hex_to_address
 from .utils.message import prepare_message
 from .vm import Message
@@ -220,9 +226,11 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     if block.ommers != ():
         raise InvalidBlock
 
+    block_state = BlockState(pre_state=chain.state)
+
     block_env = vm.BlockEnvironment(
         chain_id=chain.chain_id,
-        state=chain.state,
+        state=block_state,
         block_gas_limit=block.header.gas_limit,
         block_hashes=get_last_256_block_hashes(chain),
         coinbase=block.header.coinbase,
@@ -239,7 +247,10 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         transactions=block.transactions,
         withdrawals=block.withdrawals,
     )
-    block_state_root = state_root(block_env.state)
+    block_diff = extract_block_diff(block_state)
+    block_state_root, _ = chain.state.compute_state_root_and_trie_changes(
+        block_diff.account_changes, block_diff.storage_changes
+    )
     transactions_root = root(block_output.transactions_trie)
     receipt_root = root(block_output.receipts_trie)
     block_logs_bloom = logs_bloom(block_output.block_logs)
@@ -265,6 +276,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     if requests_hash != block.header.requests_hash:
         raise InvalidBlock
 
+    apply_changes_to_state(chain.state, block_diff)
     chain.blocks.append(block)
     if len(chain.blocks) > 255:
         # Real clients have to store more blocks to deal with reorgs, but the
@@ -396,6 +408,7 @@ def check_transaction(
     block_env: vm.BlockEnvironment,
     block_output: vm.BlockOutput,
     tx: Transaction,
+    tx_state: TransactionState,
 ) -> Tuple[Address, Uint, Tuple[VersionedHash, ...], U64]:
     """
     Check if the transaction is includable in the block.
@@ -408,6 +421,8 @@ def check_transaction(
         The block output for the current block.
     tx :
         The transaction.
+    tx_state :
+        The transaction state tracker.
 
     Returns
     -------
@@ -466,7 +481,7 @@ def check_transaction(
         raise BlobGasLimitExceededError("blob gas limit exceeded")
 
     sender_address = recover_sender(block_env.chain_id, tx)
-    sender_account = get_account(block_env.state, sender_address)
+    sender_account = get_account(tx_state, sender_address)
 
     if isinstance(
         tx, (FeeMarketTransaction, BlobTransaction, SetCodeTransaction)
@@ -534,7 +549,7 @@ def check_transaction(
 
     if Uint(sender_account.balance) < max_gas_fee + Uint(tx.value):
         raise InsufficientBalanceError("insufficient sender balance")
-    sender_code = get_code(block_env.state, sender_account.code_hash)
+    sender_code = get_code(tx_state, sender_account.code_hash)
     if sender_account.code_hash != EMPTY_CODE_HASH and not is_valid_delegation(
         sender_code
     ):
@@ -585,18 +600,14 @@ def make_receipt(
     return encode_receipt(tx, receipt)
 
 
-def process_system_transaction(
+def process_checked_system_transaction(
     block_env: vm.BlockEnvironment,
     target_address: Address,
-    system_contract_code: Bytes,
     data: Bytes,
 ) -> MessageCallOutput:
     """
-    Process a system transaction with the given code.
-
-    Prefer calling `process_checked_system_transaction` or
-    `process_unchecked_system_transaction` depending on whether missing code or
-    an execution error should cause the block to be rejected.
+    Process a system transaction and raise an error if the contract does not
+    contain code or if the transaction fails.
 
     Parameters
     ----------
@@ -604,8 +615,6 @@ def process_system_transaction(
         The block scoped environment.
     target_address :
         Address of the contract to call.
-    system_contract_code :
-        Code of the contract to call.
     data :
         Data to pass to the contract.
 
@@ -615,13 +624,78 @@ def process_system_transaction(
         Output of processing the system transaction.
 
     """
+    # Pre-check that the system contract has code. We use a throwaway
+    # TransactionState here that is *never* propagated back to BlockState
+    # (no incorporate_tx_into_block call); the same get_account / get_code
+    # lookups are performed and properly tracked by
+    # process_unchecked_system_transaction below, which this function
+    # always calls. Reading via a TransactionState (rather than directly
+    # against pre_state) lets us see system contracts deployed earlier in
+    # the same block — see EIP-7002 and EIP-7251 for this edge case.
+    untracked_state = TransactionState(parent=block_env.state)
+    system_contract_code = get_code(
+        untracked_state,
+        get_account(untracked_state, target_address).code_hash,
+    )
+
+    if len(system_contract_code) == 0:
+        raise InvalidBlock(
+            f"System contract address {target_address.hex()} does not "
+            "contain code"
+        )
+
+    system_tx_output = process_unchecked_system_transaction(
+        block_env,
+        target_address,
+        data,
+    )
+
+    if system_tx_output.error:
+        raise InvalidBlock(
+            f"System contract ({target_address.hex()}) call failed: "
+            f"{system_tx_output.error}"
+        )
+
+    return system_tx_output
+
+
+def process_unchecked_system_transaction(
+    block_env: vm.BlockEnvironment,
+    target_address: Address,
+    data: Bytes,
+) -> MessageCallOutput:
+    """
+    Process a system transaction without checking if the contract contains
+    code or if the transaction fails.
+
+    Parameters
+    ----------
+    block_env :
+        The block scoped environment.
+    target_address :
+        Address of the contract to call.
+    data :
+        Data to pass to the contract.
+
+    Returns
+    -------
+    system_tx_output : `MessageCallOutput`
+        Output of processing the system transaction.
+
+    """
+    system_tx_state = TransactionState(parent=block_env.state)
+    system_contract_code = get_code(
+        system_tx_state,
+        get_account(system_tx_state, target_address).code_hash,
+    )
+
     tx_env = vm.TransactionEnvironment(
         origin=SYSTEM_ADDRESS,
         gas_price=block_env.base_fee_per_gas,
         gas=SYSTEM_TRANSACTION_GAS,
         access_list_addresses=set(),
         access_list_storage_keys=set(),
-        transient_storage=TransientStorage(),
+        state=system_tx_state,
         blob_versioned_hashes=(),
         authorizations=(),
         index_in_block=None,
@@ -650,94 +724,9 @@ def process_system_transaction(
 
     system_tx_output = process_message_call(system_tx_message)
 
-    return system_tx_output
-
-
-def process_checked_system_transaction(
-    block_env: vm.BlockEnvironment,
-    target_address: Address,
-    data: Bytes,
-) -> MessageCallOutput:
-    """
-    Process a system transaction and raise an error if the contract does not
-    contain code or if the transaction fails.
-
-    Parameters
-    ----------
-    block_env :
-        The block scoped environment.
-    target_address :
-        Address of the contract to call.
-    data :
-        Data to pass to the contract.
-
-    Returns
-    -------
-    system_tx_output : `MessageCallOutput`
-        Output of processing the system transaction.
-
-    """
-    system_contract_code = get_code(
-        block_env.state,
-        get_account(block_env.state, target_address).code_hash,
-    )
-
-    if len(system_contract_code) == 0:
-        raise InvalidBlock(
-            f"System contract address {target_address.hex()} does not "
-            "contain code"
-        )
-
-    system_tx_output = process_system_transaction(
-        block_env,
-        target_address,
-        system_contract_code,
-        data,
-    )
-
-    if system_tx_output.error:
-        raise InvalidBlock(
-            f"System contract ({target_address.hex()}) call failed: "
-            f"{system_tx_output.error}"
-        )
+    incorporate_tx_into_block(system_tx_state)
 
     return system_tx_output
-
-
-def process_unchecked_system_transaction(
-    block_env: vm.BlockEnvironment,
-    target_address: Address,
-    data: Bytes,
-) -> MessageCallOutput:
-    """
-    Process a system transaction without checking if the contract contains code
-    or if the transaction fails.
-
-    Parameters
-    ----------
-    block_env :
-        The block scoped environment.
-    target_address :
-        Address of the contract to call.
-    data :
-        Data to pass to the contract.
-
-    Returns
-    -------
-    system_tx_output : `MessageCallOutput`
-        Output of processing the system transaction.
-
-    """
-    system_contract_code = get_code(
-        block_env.state,
-        get_account(block_env.state, target_address).code_hash,
-    )
-    return process_system_transaction(
-        block_env,
-        target_address,
-        system_contract_code,
-        data,
-    )
 
 
 def apply_body(
@@ -872,6 +861,8 @@ def process_transaction(
         Index of the transaction in the block.
 
     """
+    tx_state = TransactionState(parent=block_env.state)
+
     trie_set(
         block_output.transactions_trie,
         rlp.encode(index),
@@ -889,9 +880,10 @@ def process_transaction(
         block_env=block_env,
         block_output=block_output,
         tx=tx,
+        tx_state=tx_state,
     )
 
-    sender_account = get_account(block_env.state, sender)
+    sender_account = get_account(tx_state, sender)
 
     if isinstance(tx, BlobTransaction):
         blob_gas_fee = calculate_data_fee(block_env.excess_blob_gas, tx)
@@ -901,14 +893,12 @@ def process_transaction(
     effective_gas_fee = tx.gas * effective_gas_price
 
     gas = tx.gas - intrinsic_gas
-    increment_nonce(block_env.state, sender)
+    increment_nonce(tx_state, sender)
 
     sender_balance_after_gas_fee = (
         Uint(sender_account.balance) - effective_gas_fee - blob_gas_fee
     )
-    set_account_balance(
-        block_env.state, sender, U256(sender_balance_after_gas_fee)
-    )
+    set_account_balance(tx_state, sender, U256(sender_balance_after_gas_fee))
 
     access_list_addresses = set()
     access_list_storage_keys = set()
@@ -929,7 +919,7 @@ def process_transaction(
         gas=gas,
         access_list_addresses=access_list_addresses,
         access_list_storage_keys=access_list_storage_keys,
-        transient_storage=TransientStorage(),
+        state=tx_state,
         blob_versioned_hashes=blob_versioned_hashes,
         authorizations=authorizations,
         index_in_block=index,
@@ -962,23 +952,21 @@ def process_transaction(
     transaction_fee = tx_gas_used_after_refund * priority_fee_per_gas
 
     # refund gas
-    sender_balance_after_refund = get_account(
-        block_env.state, sender
-    ).balance + U256(gas_refund_amount)
-    set_account_balance(block_env.state, sender, sender_balance_after_refund)
+    sender_balance_after_refund = get_account(tx_state, sender).balance + U256(
+        gas_refund_amount
+    )
+    set_account_balance(tx_state, sender, sender_balance_after_refund)
 
     # transfer miner fees
     coinbase_balance_after_mining_fee = get_account(
-        block_env.state, block_env.coinbase
+        tx_state, block_env.coinbase
     ).balance + U256(transaction_fee)
     set_account_balance(
-        block_env.state,
-        block_env.coinbase,
-        coinbase_balance_after_mining_fee,
+        tx_state, block_env.coinbase, coinbase_balance_after_mining_fee
     )
 
     for address in tx_output.accounts_to_delete:
-        destroy_account(block_env.state, address)
+        destroy_account(tx_state, address)
 
     block_output.block_gas_used += tx_gas_used_after_refund
     block_output.blob_gas_used += tx_blob_gas_used
@@ -998,6 +986,8 @@ def process_transaction(
 
     block_output.block_logs += tx_output.logs
 
+    incorporate_tx_into_block(tx_state)
+
 
 def process_withdrawals(
     block_env: vm.BlockEnvironment,
@@ -1007,9 +997,7 @@ def process_withdrawals(
     """
     Increase the balance of the withdrawing account.
     """
-
-    def increase_recipient_balance(recipient: Account) -> None:
-        recipient.balance += wd.amount * U256(10**9)
+    wd_state = TransactionState(parent=block_env.state)
 
     for i, wd in enumerate(withdrawals):
         trie_set(
@@ -1018,7 +1006,9 @@ def process_withdrawals(
             rlp.encode(wd),
         )
 
-        modify_state(block_env.state, wd.address, increase_recipient_balance)
+        create_ether(wd_state, wd.address, wd.amount * U256(10**9))
+
+    incorporate_tx_into_block(wd_state)
 
 
 def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:

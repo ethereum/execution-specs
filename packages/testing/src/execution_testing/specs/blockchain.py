@@ -30,6 +30,7 @@ from execution_testing.base_types import (
     HeaderNonce,
     HexNumber,
     Number,
+    ZeroPaddedHexNumber,
 )
 from execution_testing.client_clis import (
     BlockExceptionWithMessage,
@@ -66,6 +67,7 @@ from execution_testing.fixtures.blockchain import (
     FixtureBlockBase,
     FixtureConfig,
     FixtureEngineNewPayload,
+    FixtureExecutionPayloadModifier,
     FixtureHeader,
     FixtureTransaction,
     FixtureWithdrawal,
@@ -446,6 +448,7 @@ class Header(CamelModel):
     parent_beacon_block_root: Removable | Hash | None = None
     requests_hash: Removable | Hash | None = None
     block_access_list_hash: Removable | Hash | None = None
+    slot_number: Removable | HexNumber | None = None
 
     REMOVE_FIELD: ClassVar[Removable] = Removable()
     """
@@ -618,6 +621,8 @@ class Block(Header):
     """Post state for verification after block execution in BlockchainTest"""
     block_access_list: Bytes | None = Field(None)
     """EIP-7928: Block-level access lists (serialized)."""
+    expected_gas_used: int | None = None
+    """Expected gas used for the block."""
 
     def set_environment(self, env: Environment) -> Environment:
         """
@@ -664,6 +669,8 @@ class Block(Header):
             and self.block_access_list is not None
         ):
             new_env_values["block_access_list"] = self.block_access_list
+        if not isinstance(self.slot_number, Removable):
+            new_env_values["slot_number"] = self.slot_number
         """
         These values are required, but they depend on the previous environment,
         so they can be calculated here.
@@ -704,6 +711,7 @@ class BuiltBlock(CamelModel):
     result: Result
     expected_exception: BLOCK_EXCEPTION_TYPE = None
     engine_api_error_code: EngineAPIError | None = None
+    rlp_modifier: Header | None = None
     fork: Fork
     block_access_list: BlockAccessList | None
     execution_witness: ExecutionWitness | None = None
@@ -772,6 +780,40 @@ class BuiltBlock(CamelModel):
         """Get the RLP of the block."""
         return self.get_fixture_block().rlp
 
+    @staticmethod
+    def derive_engine_payload_modifier(
+        rlp_modifier: Header | None,
+        block_access_list: BlockAccessList | None,
+    ) -> "FixtureExecutionPayloadModifier | None":
+        """
+        Propagate ``rlp_modifier``'s header changes to the engine payload.
+
+        The engine ``ExecutionPayload`` schema does not carry
+        ``block_access_list_hash`` directly; the equivalent payload field is
+        the ``block_access_list`` body. So a header modifier that touches the
+        BAL hash needs to drive a matching change on the payload body.
+        """
+        if rlp_modifier is None:
+            return None
+        bal_hash_override = rlp_modifier.block_access_list_hash
+        if bal_hash_override is None:
+            return None
+        if bal_hash_override is Header.REMOVE_FIELD:
+            return FixtureExecutionPayloadModifier(
+                block_access_list=(
+                    FixtureExecutionPayloadModifier.REMOVE_FIELD
+                ),
+            )
+        # The user injected a header BAL hash; mirror that on the engine
+        # payload by forcing a body to be present. Its exact value is
+        # irrelevant for negative tests — a non-``None`` value is enough to
+        # make a payload-version mismatch detectable.
+        if block_access_list is None:
+            return FixtureExecutionPayloadModifier(
+                block_access_list=Bytes(b""),
+            )
+        return None
+
     def get_fixture_engine_new_payload(self) -> FixtureEngineNewPayload:
         """Get a FixtureEngineNewPayload from the built block."""
         return FixtureEngineNewPayload.from_fixture_header(
@@ -786,6 +828,9 @@ class BuiltBlock(CamelModel):
             execution_witness=self.execution_witness,
             execution_witness_mutated=(
                 True if self.execution_witness_mutated else None
+            ),
+            execution_payload_modifier=self.derive_engine_payload_modifier(
+                self.rlp_modifier, self.block_access_list
             ),
             validation_error=self.expected_exception,
             error_code=self.engine_api_error_code,
@@ -1049,19 +1094,30 @@ class BlockchainTest(BaseTest):
             if (blob_gas_per_blob := fork.blob_gas_per_blob()) > 0:
                 blob_gas_used = blob_gas_per_blob * count_blobs(txs)
 
+        # Prepare slot_number for header initialization
+        slot_number_value: ZeroPaddedHexNumber | None = None
+        if fork.header_slot_number_required():
+            slot_number_value = ZeroPaddedHexNumber(
+                int(env.slot_number) if env.slot_number is not None else 0
+            )
+
         header = FixtureHeader(
             **(
                 transition_tool_output.result.model_dump(
                     exclude_none=True,
                     exclude={"blob_gas_used", "transactions_trie"},
                 )
-                | env.model_dump(exclude_none=True, exclude={"blob_gas_used"})
+                | env.model_dump(
+                    exclude_none=True,
+                    exclude={"blob_gas_used", "slot_number"},
+                )
             ),
             blob_gas_used=blob_gas_used,
             transactions_trie=Transaction.list_root(txs),
-            extra_data=block.extra_data
-            if block.extra_data is not None
-            else b"",
+            extra_data=(
+                block.extra_data if block.extra_data is not None else b""
+            ),
+            slot_number=slot_number_value,
             fork=fork,
         )
 
@@ -1073,6 +1129,14 @@ class BlockchainTest(BaseTest):
                 raise Exception(
                     f"Verification of block {int(env.number)} failed"
                 ) from e
+
+        if block.expected_gas_used is not None:
+            gas_used = int(transition_tool_output.result.gas_used)
+            assert gas_used == block.expected_gas_used, (
+                f"gas_used ({gas_used}) does not match expected_gas_used "
+                f"({block.expected_gas_used})"
+                f", difference: {gas_used - block.expected_gas_used}"
+            )
 
         requests_list: List[Bytes] | None = None
         if fork.header_requests_required():
@@ -1146,7 +1210,8 @@ class BlockchainTest(BaseTest):
                 t8n_bal
             )
             if bal != t8n_bal:
-                # If the BAL was modified, update the header hash
+                # If the BAL was modified and the fork requires it, update the
+                # header hash
                 header.block_access_list_hash = Hash(bal.rlp.keccak256())
 
         # If expected witness state/codes defined, verify against actual
@@ -1361,6 +1426,7 @@ class BlockchainTest(BaseTest):
             result=transition_tool_output.result,
             expected_exception=block.exception,
             engine_api_error_code=block.engine_api_error_code,
+            rlp_modifier=block.rlp_modifier,
             fork=fork,
             block_access_list=bal,
             execution_witness=execution_witness,

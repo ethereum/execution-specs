@@ -1930,14 +1930,10 @@ def pytest_collection_modifyitems(
             params = item.callspec.params
         elif hasattr(item, "params"):
             params = item.params
-        if (
-            not params
-            or "parametrized_fork" not in params
-            or params["parametrized_fork"] is None
-        ):
+        if not params or "fork" not in params or params["fork"] is None:
             items_for_removal.append(i)
             continue
-        fork: Fork | TransitionFork = params["parametrized_fork"]
+        fork: Fork | TransitionFork = params["fork"]
         spec_type, fixture_format = get_spec_format_for_item(params)
         if isinstance(fixture_format, NotSetType):
             items_for_removal.append(i)

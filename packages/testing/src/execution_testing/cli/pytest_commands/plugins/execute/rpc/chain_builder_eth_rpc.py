@@ -156,6 +156,9 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
                 if next_fork.engine_payload_attribute_max_blobs_per_block()
                 else None
             ),
+            slot_number=(
+                0 if next_fork.engine_payload_attribute_slot_number() else None
+            ),
         )
 
     def _finalize_payload(

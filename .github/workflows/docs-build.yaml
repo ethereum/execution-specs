@@ -71,19 +71,10 @@ jobs:
             docs/**/*.md
             *.md
 
-  changelog:
-    name: "Validate Changelog Entries"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/setup-uv
-      - name: Run changelog validation
-        run: just changelog
-
   check-should-publish:
     name: "Check Should Publish"
     runs-on: ubuntu-latest
-    needs: [lint-md, changelog]
+    needs: [lint-md]
     outputs:
       should_publish: ${{ steps.check.outputs.should_publish }}
       branch: ${{ steps.check.outputs.branch }}

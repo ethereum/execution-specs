@@ -1,0 +1,14 @@
+opcode = EIP-7928 does not introduce a new opcode
+precompile = EIP-7928 does not introduce a new precompile
+removed_precompile = EIP-7928 does not remove a precompile
+system_contract = EIP-7928 does not introduce a new system contract
+transaction_type = EIP-7928 does not introduce a new transaction type
+block_body_field = EIP-7928 does not introduce a new block body field (the block_access_list is transmitted via the Engine API payload, committed only via its hash in the header)
+gas_cost_changes = EIP-7928 does not modify existing gas costs (the BAL gas budget constraint is covered under block_level_constraint)
+gas_refunds_changes = EIP-7928 does not modify gas refunds
+blob_count_changes = EIP-7928 does not modify blob count parameters
+execution_layer_request = EIP-7928 does not introduce an execution layer request
+new_transaction_validity_constraint = EIP-7928 introduces a block-level constraint, not a transaction-level one
+modified_transaction_validity_constraint = EIP-7928 does not modify any existing transaction validity constraint
+block_level_constraint/test/content/logs = BAL size constraint depends only on (accounts + storage_keys) counts; transaction logs do not affect bal_items and therefore cannot change constraint behavior
+block_level_constraint/test/content/receipts = BAL is not part of the receipts trie; varying receipt sizes do not contribute to bal_items and therefore cannot change constraint behavior

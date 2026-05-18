@@ -542,18 +542,18 @@ def test_bal_7002_request_from_contract(
     )
 
     # Set up pre-state using helper
-    interaction.update_pre(pre)
+    prepared = interaction.update_pre(pre)
 
-    alice = interaction.sender_account
-    relay_contract = interaction.contract_address
+    alice = prepared.sender_account
+    relay_contract = prepared.contract_address
 
     # Build queue storage slots with contract as source
     queue_writes, queue_reads = _build_queue_storage_slots(
-        [relay_contract], interaction.requests
+        [relay_contract], prepared.requests
     )
 
     block = Block(
-        txs=interaction.transactions(),
+        txs=prepared.transactions(),
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
                 alice: BalAccountExpectation(
@@ -766,9 +766,9 @@ def test_bal_7002_request_invalid(
     - No withdrawal request is queued
     """
     # Use helper to set up pre-state and get transaction
-    interaction.update_pre(pre)
-    tx = interaction.transactions()[0]
-    alice = interaction.sender_account
+    prepared = interaction.update_pre(pre)
+    tx = prepared.transactions()[0]
+    alice = prepared.sender_account
 
     # Build account expectations
     account_expectations = {
@@ -801,8 +801,8 @@ def test_bal_7002_request_invalid(
     }
 
     # Add relay contract to post-state for contract scenarios
-    if isinstance(interaction, WithdrawalRequestContract):
-        post[interaction.contract_address] = Account()
+    if isinstance(prepared, WithdrawalRequestContract):
+        post[prepared.contract_address] = Account()
 
     blockchain_test(
         pre=pre,

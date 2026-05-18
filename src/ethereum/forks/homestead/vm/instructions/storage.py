@@ -13,7 +13,7 @@ Implementations of the EVM storage related instructions.
 
 from ethereum_types.numeric import Uint
 
-from ...state import get_storage, set_storage
+from ...state_tracker import get_storage, set_storage
 from .. import Evm
 from ..gas import (
     GasCosts,
@@ -40,9 +40,8 @@ def sload(evm: Evm) -> None:
     charge_gas(evm, GasCosts.SLOAD)
 
     # OPERATION
-    value = get_storage(
-        evm.message.block_env.state, evm.message.current_target, key
-    )
+    tx_state = evm.message.tx_env.state
+    value = get_storage(tx_state, evm.message.current_target, key)
 
     push(evm.stack, value)
 
@@ -65,8 +64,8 @@ def sstore(evm: Evm) -> None:
     new_value = pop(evm.stack)
 
     # GAS
-    state = evm.message.block_env.state
-    current_value = get_storage(state, evm.message.current_target, key)
+    tx_state = evm.message.tx_env.state
+    current_value = get_storage(tx_state, evm.message.current_target, key)
     if new_value != 0 and current_value == 0:
         gas_cost = GasCosts.STORAGE_SET
     else:
@@ -78,7 +77,7 @@ def sstore(evm: Evm) -> None:
     charge_gas(evm, gas_cost)
 
     # OPERATION
-    set_storage(state, evm.message.current_target, key, new_value)
+    set_storage(tx_state, evm.message.current_target, key, new_value)
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)

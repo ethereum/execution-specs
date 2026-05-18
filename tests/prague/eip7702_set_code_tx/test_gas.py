@@ -1263,7 +1263,7 @@ def test_call_to_pre_authorized_oog(
     )
 
     expected_block_access_list = None
-    if fork.header_bal_hash_required():
+    if fork.is_eip_enabled(7928):
         # Sender nonce changes, callee is accessed but storage unchanged (OOG)
         # auth_signer is tracked (we read its code to check delegation)
         # delegation is NOT tracked (OOG before reading it)
