@@ -2,6 +2,7 @@
 
 import ethereum_rlp as eth_rlp
 import pytest
+from ethereum_rlp.rlp import Extended
 from remerkleable.basic import uint8
 from remerkleable.byte_arrays import ByteList, ByteVector
 
@@ -137,14 +138,40 @@ def test_decode_unknown_status_byte_raises() -> None:
         NewPayloadWithWitnessResponse.from_ssz_bytes(raw)
 
 
+def test_decode_invalid_with_witness_raises() -> None:
+    """A non-VALID SSZ response must not carry witness bytes."""
+    raw = _build_response(
+        status=1,
+        latest_valid_hash=None,
+        validation_error="invalid state root",
+        witness_bytes=_build_inner_witness(
+            state=[b"\xaa"],
+            codes=[],
+            headers=[],
+        ),
+    )
+
+    with pytest.raises(
+        ValueError, match="INVALID SSZ response must not contain a witness"
+    ):
+        NewPayloadWithWitnessResponse.from_ssz_bytes(raw)
+
+
 # --- JSON-RPC (RLP witness) decode ---
 
 
 def _json_rpc_witness_rlp(
-    headers: list[list], codes: list[bytes], state: list[bytes]
+    headers: list[Extended],
+    codes: list[bytes],
+    state: list[bytes],
+    *,
+    legacy_keys: list[bytes] | None = None,
 ) -> bytes:
     """Build an RLP witness payload returned by the JSON-RPC endpoint."""
-    return eth_rlp.encode([headers, codes, state, []])
+    fields: list[Extended] = [headers, codes, state]
+    if legacy_keys is not None:
+        fields.append(legacy_keys)
+    return eth_rlp.encode(fields)
 
 
 def test_decode_json_rpc_valid() -> None:
@@ -184,6 +211,34 @@ def test_decode_json_rpc_valid() -> None:
     assert eth_rlp.decode(bytes(decoded.witness.headers[0])) == header_list
 
 
+def test_decode_json_rpc_ignores_legacy_keys() -> None:
+    """A legacy fourth `keys` RLP field is ignored."""
+    header_list = [b"\x01" * 4, b"\x02" * 4]
+    witness_hex = (
+        "0x"
+        + _json_rpc_witness_rlp(
+            headers=[header_list],
+            codes=[b"\x60\x01"],
+            state=[b"\xaa"],
+            legacy_keys=[b"legacy-key"],
+        ).hex()
+    )
+
+    decoded = NewPayloadWithWitnessResponse.from_json_rpc_result(
+        {
+            "status": "VALID",
+            "latestValidHash": "0x" + ("11" * 32),
+            "validationError": None,
+            "witness": witness_hex,
+        }
+    )
+
+    assert decoded.witness is not None
+    assert [bytes(c) for c in decoded.witness.codes] == [b"\x60\x01"]
+    assert [bytes(s) for s in decoded.witness.state] == [b"\xaa"]
+    assert eth_rlp.decode(bytes(decoded.witness.headers[0])) == header_list
+
+
 def test_decode_json_rpc_invalid_no_witness() -> None:
     """An INVALID JSON-RPC response has no witness payload."""
     response_json = {
@@ -214,3 +269,44 @@ def test_decode_json_rpc_empty_witness_hex() -> None:
 
     assert decoded.status == PayloadStatusEnum.SYNCING
     assert decoded.witness is None
+
+
+def test_decode_json_rpc_witness_must_be_0x_prefixed() -> None:
+    """Witness hex must use the JSON-RPC 0x prefix."""
+    response_json = {
+        "status": "VALID",
+        "latestValidHash": "0x" + ("11" * 32),
+        "validationError": None,
+        "witness": _json_rpc_witness_rlp(
+            headers=[],
+            codes=[],
+            state=[],
+        ).hex(),
+    }
+
+    with pytest.raises(ValueError, match="0x-prefixed"):
+        NewPayloadWithWitnessResponse.from_json_rpc_result(response_json)
+
+
+def test_decode_json_rpc_rejects_non_list_witness_field() -> None:
+    """Codes and state must be RLP lists, not bare byte strings."""
+    header_list = [b"\x01" * 4, b"\x02" * 4]
+    witness_hex = (
+        "0x"
+        + eth_rlp.encode(
+            [
+                [header_list],
+                b"\x60\x01",
+                [b"\xaa"],
+            ]
+        ).hex()
+    )
+    response_json = {
+        "status": "VALID",
+        "latestValidHash": "0x" + ("11" * 32),
+        "validationError": None,
+        "witness": witness_hex,
+    }
+
+    with pytest.raises(ValueError, match="codes must be an RLP list"):
+        NewPayloadWithWitnessResponse.from_json_rpc_result(response_json)
