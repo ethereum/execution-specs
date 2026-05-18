@@ -342,21 +342,15 @@ MAX_WITNESS_ITEM_BYTES = 2**20
 
 
 class _SszExecutionWitness(Container):
-    state: SszList[
-        ByteList[MAX_WITNESS_ITEM_BYTES], MAX_WITNESS_ITEMS
-    ]
-    codes: SszList[
-        ByteList[MAX_WITNESS_ITEM_BYTES], MAX_WITNESS_ITEMS
-    ]
-    headers: SszList[
-        ByteList[MAX_WITNESS_ITEM_BYTES], MAX_WITNESS_ITEMS
-    ]
+    state: SszList[ByteList[MAX_WITNESS_ITEM_BYTES], MAX_WITNESS_ITEMS]
+    codes: SszList[ByteList[MAX_WITNESS_ITEM_BYTES], MAX_WITNESS_ITEMS]
+    headers: SszList[ByteList[MAX_WITNESS_ITEM_BYTES], MAX_WITNESS_ITEMS]
 
 
 class _SszNewPayloadWithWitnessResponse(Container):
     status: uint8
-    latest_valid_hash: SszUnion[None, ByteVector[32]]  # type: ignore[valid-type]
-    validation_error: SszUnion[None, ByteList[VALIDATION_ERROR_MAX]]  # type: ignore[valid-type]
+    latest_valid_hash: SszUnion[None, ByteVector[32]]
+    validation_error: SszUnion[None, ByteList[VALIDATION_ERROR_MAX]]
     witness: ByteList[MAX_WITNESS_BYTES]
 
 
@@ -392,9 +386,7 @@ class NewPayloadWithWitnessResponse:
         try:
             status = _SSZ_STATUS_TO_ENUM[status_int]
         except KeyError as e:
-            raise ValueError(
-                f"Unknown SSZ status byte: {status_int}"
-            ) from e
+            raise ValueError(f"Unknown SSZ status byte: {status_int}") from e
 
         latest_valid_hash: Hash | None = None
         if resp.latest_valid_hash.selector() == 1:
@@ -425,7 +417,7 @@ class NewPayloadWithWitnessResponse:
     @classmethod
     def from_geth_json(cls, data: Dict[str, Any]) -> Self:
         """
-        Decode the response of geth's JSON-RPC `engine_newPayloadWithWitnessVX`.
+        Decode geth's JSON-RPC `engine_newPayloadWithWitnessVX` response.
 
         The `witness` field is a hex-encoded RLP list
         `[Headers, Codes, State, Keys]` where Headers are RLP-encoded header
@@ -441,9 +433,7 @@ class NewPayloadWithWitnessResponse:
         )
 
         raw_err = data.get("validationError")
-        validation_error: str | None = (
-            raw_err if raw_err is not None else None
-        )
+        validation_error: str | None = raw_err if raw_err is not None else None
 
         witness: ExecutionWitness | None = None
         raw_witness = data.get("witness")

@@ -8,9 +8,9 @@ from remerkleable.byte_arrays import ByteList, ByteVector
 from execution_testing.rpc.rpc_types import (
     MAX_WITNESS_BYTES,
     MAX_WITNESS_ITEM_BYTES,
+    VALIDATION_ERROR_MAX,
     NewPayloadWithWitnessResponse,
     PayloadStatusEnum,
-    VALIDATION_ERROR_MAX,
     _SszExecutionWitness,
     _SszNewPayloadWithWitnessResponse,
 )
@@ -143,7 +143,7 @@ def test_decode_unknown_status_byte_raises() -> None:
 def _geth_witness_rlp(
     headers: list[list], codes: list[bytes], state: list[bytes]
 ) -> bytes:
-    """Build a geth ExtWitness-shaped RLP payload: [Headers, Codes, State, Keys]."""
+    """Build a geth ExtWitness RLP payload."""
     return eth_rlp.encode([headers, codes, state, []])
 
 
@@ -151,11 +151,14 @@ def test_decode_geth_json_valid() -> None:
     """Round-trip a geth VALID response with RLP witness."""
     # A minimal "header" RLP list with two short fields.
     header_list = [b"\x01" * 4, b"\x02" * 4]
-    witness_hex = "0x" + _geth_witness_rlp(
-        headers=[header_list],
-        codes=[b"\x60\x01"],
-        state=[b"\xaa\xaa", b"\xbb"],
-    ).hex()
+    witness_hex = (
+        "0x"
+        + _geth_witness_rlp(
+            headers=[header_list],
+            codes=[b"\x60\x01"],
+            state=[b"\xaa\xaa", b"\xbb"],
+        ).hex()
+    )
 
     response_json = {
         "status": "VALID",
@@ -199,7 +202,7 @@ def test_decode_geth_json_invalid_no_witness() -> None:
 
 
 def test_decode_geth_json_empty_witness_hex() -> None:
-    """Geth may emit witness='0x' on non-VALID statuses; parse as no witness."""
+    """Parse geth's empty non-VALID witness as no witness."""
     response_json = {
         "status": "SYNCING",
         "latestValidHash": None,

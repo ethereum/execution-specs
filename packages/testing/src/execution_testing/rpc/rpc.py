@@ -149,7 +149,7 @@ class EngineWitnessEndpointNotImplementedError(Exception):
     """
 
     def __init__(self, url: str, http_status: int):
-        """Initialize with the URL and the HTTP status that signalled absence."""
+        """Initialize with endpoint URL and absence HTTP status."""
         self.url = url
         self.http_status = http_status
         super().__init__(

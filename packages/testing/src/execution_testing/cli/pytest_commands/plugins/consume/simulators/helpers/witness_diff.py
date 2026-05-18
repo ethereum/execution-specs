@@ -46,14 +46,14 @@ def _diff_ordered(
     first_mismatch = next(
         (
             i
-            for i, (expected_item, actual_item) in enumerate(zip(exp, act))
+            for i, (expected_item, actual_item) in enumerate(
+                zip(exp, act, strict=False)
+            )
             if expected_item != actual_item
         ),
         min(len(exp), len(act)),
     )
-    expected_item = (
-        exp[first_mismatch] if first_mismatch < len(exp) else None
-    )
+    expected_item = exp[first_mismatch] if first_mismatch < len(exp) else None
     actual_item = act[first_mismatch] if first_mismatch < len(act) else None
 
     return [
