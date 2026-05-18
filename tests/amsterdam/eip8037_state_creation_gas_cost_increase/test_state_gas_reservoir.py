@@ -19,6 +19,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    AuthorizationTuple,
     Block,
     BlockchainTestFiller,
     Bytecode,
@@ -31,11 +32,14 @@ from execution_testing import (
     Transaction,
     TransactionException,
     TransactionReceipt,
+    compute_create_address,
 )
 from execution_testing import (
     Macros as Om,
 )
 from execution_testing.checklists import EIPChecklist
+
+from tests.prague.eip7702_set_code_tx.spec import Spec as Spec7702
 
 from .spec import ref_spec_8037
 
@@ -1374,6 +1378,149 @@ def test_nested_failure_resets_to_tx_reservoir(
         ],
         post={},
     )
+
+
+@pytest.mark.parametrize(
+    "refund_scenario",
+    [
+        pytest.param("sstore_restoration", id="sstore_restoration"),
+        pytest.param("create_collision", id="create_collision"),
+        pytest.param("create_initcode_revert", id="create_initcode_revert"),
+        pytest.param("auth_existing_leaf", id="auth_existing_leaf"),
+    ],
+)
+@pytest.mark.parametrize(
+    "depth",
+    [
+        pytest.param(1, id="depth_1"),
+        pytest.param(3, id="depth_3"),
+        pytest.param(10, id="depth_10"),
+    ],
+)
+@pytest.mark.parametrize(
+    "consume_at",
+    [
+        pytest.param("deepest", id="consume_deepest"),
+        pytest.param("top", id="consume_top"),
+    ],
+)
+@pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_from("EIP8037")
+def test_nested_state_gas_refund_consumed_at_depth(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    refund_scenario: str,
+    depth: int,
+    consume_at: str,
+) -> None:
+    """
+    Verify state-gas refund credits propagate through a CALL chain so
+    they can be consumed at any depth.
+
+    Refund sources: SSTORE `0→1→0`, CREATE collision, CREATE initcode
+    revert (all credit deepest's reservoir), and a SetCode auth on an
+    `existing_leaf` authority (credits the top reservoir at message
+    entry).
+
+    A probe CALL sized one short of covering an SSTORE on full spill
+    runs either at the refund-source frame or back at the top after
+    the chain returns; it succeeds only when its frame holds enough
+    reservoir, so a missing or mis-propagated credit OOGs it.
+    """
+    gas_costs = fork.gas_costs()
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
+
+    is_auth_scenario = refund_scenario == "auth_existing_leaf"
+
+    probe_address = pre.deploy_contract(code=Op.SSTORE(0, 1))
+    probe_gas = (
+        2 * gas_costs.VERY_LOW
+        + gas_costs.COLD_STORAGE_WRITE
+        + sstore_state_gas
+        - 1
+    )
+    consumer_storage = Storage()
+    consume_op = Op.SSTORE(
+        consumer_storage.store_next(1, "probe_must_succeed"),
+        Op.CALL(gas=probe_gas, address=probe_address),
+    )
+
+    if refund_scenario == "sstore_restoration":
+        refund_body = Op.SSTORE(0, 1) + Op.SSTORE.with_metadata(
+            key_warm=True,
+            original_value=0,
+            current_value=1,
+            new_value=0,
+        )(0, 0)
+    elif refund_scenario == "create_collision":
+        refund_body = Op.POP(Op.CREATE(0, 0, 0))
+    elif refund_scenario == "create_initcode_revert":
+        revert_initcode = bytes(Op.REVERT(0, 0))
+        refund_body = Om.MSTORE(revert_initcode, 0) + Op.POP(
+            Op.CREATE(0, 0, len(revert_initcode))
+        )
+    elif is_auth_scenario:
+        refund_body = Bytecode()
+    else:
+        raise ValueError(f"unknown refund_scenario: {refund_scenario!r}")
+
+    deepest_body = refund_body
+    if consume_at == "deepest":
+        deepest_body = deepest_body + consume_op
+    elif consume_at != "top":
+        raise ValueError(f"unknown consume_at: {consume_at!r}")
+
+    deepest_address = pre.deploy_contract(code=deepest_body + Op.STOP)
+    if refund_scenario == "create_collision":
+        # Deepest is reached via plain CALL, so the CREATE's sender is
+        # deepest itself with nonce 1 (fresh `deploy_contract` default).
+        collision_target = compute_create_address(
+            address=deepest_address, nonce=1
+        )
+        pre.deploy_contract(code=Op.STOP, address=collision_target)
+
+    chain_inner = deepest_address
+    for _ in range(depth):
+        chain_inner = pre.deploy_contract(
+            code=Op.POP(Op.CALL(gas=Op.GAS, address=chain_inner)) + Op.STOP
+        )
+
+    top_body = Op.POP(Op.CALL(gas=Op.GAS, address=chain_inner))
+    if consume_at == "top":
+        top_body = top_body + consume_op
+    top = pre.deploy_contract(code=top_body + Op.STOP)
+
+    authorization_list = None
+    extra_post: dict = {}
+    if is_auth_scenario:
+        signer = pre.fund_eoa()
+        auth_target = pre.deploy_contract(code=Op.STOP)
+        authorization_list = [
+            AuthorizationTuple(
+                address=auth_target,
+                nonce=0,
+                signer=signer,
+            ),
+        ]
+        extra_post[signer] = Account(
+            nonce=1,
+            code=Spec7702.delegation_designation(auth_target),
+        )
+
+    tx = Transaction(
+        to=top,
+        gas_limit=gas_limit_cap,
+        authorization_list=authorization_list,
+        sender=pre.fund_eoa(),
+    )
+
+    consumer_address = deepest_address if consume_at == "deepest" else top
+    post: dict = {consumer_address: Account(storage=consumer_storage)}
+    post.update(extra_post)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
