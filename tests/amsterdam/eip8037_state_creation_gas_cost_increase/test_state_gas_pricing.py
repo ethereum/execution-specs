@@ -29,7 +29,7 @@ from execution_testing import (
 )
 from execution_testing.checklists import EIPChecklist
 
-from .spec import ref_spec_8037
+from .spec import Spec, ref_spec_8037
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
