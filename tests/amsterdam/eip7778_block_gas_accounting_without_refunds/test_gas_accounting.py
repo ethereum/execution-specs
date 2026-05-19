@@ -529,3 +529,119 @@ def test_multiple_refund_types_in_one_tx(
         ],
         post=post,
     )
+
+
+@pytest.mark.execute(pytest.mark.skip(reason="Requires specific gas price"))
+@pytest.mark.valid_from("EIP7778")
+def test_mixed_gas_regimes(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Lock in `block.gas_used == sum_i max(pre_refund_i, floor_i)` across a
+    block where each tx hits a different EIP-7778 regime.
+
+    tx1: SSTORE-set fresh slot (no refund, pre_refund > floor).
+    tx2: SSTORE-clear x10 (normal refund, refund not clipped to floor).
+    tx3: 1000 zero-byte calldata to STOP (floor binds upward).
+
+    The 2-tx `test_multi_transaction_gas_accounting` covers a refund tx
+    plus a minimal extra tx but never combines a refund-bearing tx with
+    a floor-binding tx in the same block. Per-tx sender balance is also
+    asserted to lock in that the floor-binding tx pays
+    `floor * gas_price`, not `pre_refund * gas_price`.
+    """
+    intrinsic_cost_calc = fork.transaction_intrinsic_cost_calculator()
+    data_floor_calc = fork.transaction_data_floor_cost_calculator()
+    initial_fund = 10**18
+
+    post = Alloc()
+
+    # tx1: SSTORE-set to a fresh slot. No refund.
+    tx1_code = Op.SSTORE(0, 1, original_value=0, new_value=1)
+    tx1_target = pre.deploy_contract(code=tx1_code)
+    tx1_sender = pre.fund_eoa(initial_fund)
+    tx1_data = b""
+    tx1_pre_refund = intrinsic_cost_calc(
+        calldata=tx1_data,
+        return_cost_deducted_prior_execution=True,
+    ) + tx1_code.gas_cost(fork)
+    tx1_floor = data_floor_calc(data=tx1_data)
+    assert tx1_pre_refund > tx1_floor, "tx1: pre_refund must exceed floor"
+    tx1_contribution = max(tx1_pre_refund, tx1_floor)
+    tx1 = Transaction(
+        to=tx1_target,
+        gas_limit=tx1_contribution,
+        sender=tx1_sender,
+        data=tx1_data,
+        # TODO: gas_used in expected_receipt is ignored by
+        # verify_transaction_receipt; only cumulative_gas_used is
+        # checked. To be fixed by #2855.
+        expected_receipt={"gas_used": tx1_contribution},
+    )
+    tx1_gas_price = tx1.gas_price if tx1.gas_price else tx1.max_fee_per_gas
+    assert tx1_gas_price is not None
+    post[tx1_target] = Account(storage={0: 1})
+    post[tx1_sender] = Account(
+        balance=initial_fund - tx1_contribution * tx1_gas_price
+    )
+
+    # tx2: SSTORE-clear with normal refund, refund not clipped to floor.
+    (
+        tx2_post_refund,
+        tx2_pre_refund,
+        tx2_floor,
+        tx2,
+    ) = build_refund_tx(
+        fork=fork,
+        pre=pre,
+        post=post,
+        refund_types={RefundTypes.STORAGE_CLEAR},
+        refunds_count=10,
+    )
+    assert tx2_pre_refund > tx2_floor, "tx2: pre_refund must exceed floor"
+    assert tx2_post_refund > tx2_floor, (
+        "tx2: refund must not be clipped to floor"
+    )
+    tx2_contribution = max(tx2_pre_refund, tx2_floor)
+
+    # tx3: floor-binding via 1000 zero bytes of calldata to STOP.
+    tx3_target = pre.deterministic_deploy_contract(deploy_code=Op.STOP)
+    tx3_sender = pre.fund_eoa(initial_fund)
+    tx3_data = b"\x00" * 1000
+    tx3_pre_refund = intrinsic_cost_calc(
+        calldata=tx3_data,
+        return_cost_deducted_prior_execution=True,
+    )
+    tx3_floor = data_floor_calc(data=tx3_data)
+    assert tx3_floor > tx3_pre_refund, "tx3: floor must bind upward"
+    tx3_contribution = max(tx3_pre_refund, tx3_floor)
+    tx3 = Transaction(
+        to=tx3_target,
+        gas_limit=tx3_contribution,
+        sender=tx3_sender,
+        data=tx3_data,
+        # TODO: gas_used in expected_receipt is ignored by
+        # verify_transaction_receipt; only cumulative_gas_used is
+        # checked. To be fixed by #2855.
+        expected_receipt={"gas_used": tx3_contribution},
+    )
+    tx3_gas_price = tx3.gas_price if tx3.gas_price else tx3.max_fee_per_gas
+    assert tx3_gas_price is not None
+    post[tx3_sender] = Account(
+        balance=initial_fund - tx3_contribution * tx3_gas_price
+    )
+
+    total_gas_used = tx1_contribution + tx2_contribution + tx3_contribution
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx1, tx2, tx3],
+                expected_gas_used=total_gas_used,
+            )
+        ],
+        post=post,
+    )
