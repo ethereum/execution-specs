@@ -28,7 +28,7 @@ def test_slotnum_mainnet(
     """
     Test that SLOTNUM is callable and returns a non-zero slot number.
 
-    Asserts on ``ISZERO(ISZERO(SLOTNUM))`` rather than the slot value itself
+    Asserts on ``POP(SLOTNUM)`` rather than the slot value itself
     so the test remains valid when ``execute``-ed against a live network,
     where the slot number is whatever the consensus layer transmits and
     cannot be controlled by the test.
