@@ -55,7 +55,7 @@ def bls12_g1_add(evm: Evm) -> None:
         raise InvalidParameter("Invalid Input Length")
 
     # GAS
-    charge_gas(evm, Uint(GasCosts.PRECOMPILE_BLS_G1ADD))
+    charge_gas(evm, GasCosts.PRECOMPILE_BLS_G1ADD)
 
     # OPERATION
     p1 = bytes_to_g1(buffer_read(data, U256(0), U256(128)))
@@ -135,7 +135,7 @@ def bls12_map_fp_to_g1(evm: Evm) -> None:
         raise InvalidParameter("Invalid Input Length")
 
     # GAS
-    charge_gas(evm, Uint(GasCosts.PRECOMPILE_BLS_G1MAP))
+    charge_gas(evm, GasCosts.PRECOMPILE_BLS_G1MAP)
 
     # OPERATION
     fp = int.from_bytes(data, "big")
