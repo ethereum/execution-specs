@@ -2675,18 +2675,30 @@ def test_bal_cross_tx_deploy_then_call(
     )
 
 
+@pytest.mark.parametrize(
+    "failure_mode",
+    [
+        pytest.param("none", id="no_failure"),
+        pytest.param("collision", id="mid_chain_collision"),
+        pytest.param("oog", id="mid_chain_oog"),
+    ],
+)
+@pytest.mark.pre_alloc_mutable()
 def test_bal_cross_tx_factory_nonce_create_chain(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    fork: Fork,
+    failure_mode: str,
 ) -> None:
     """
-    Eight distinct senders each invoke a shared factory's CREATE with
-    identical initcode; resulting addresses derive solely from
-    `factory.nonce`. With no storage or balance signals in the BAL, a
-    parallelizer that skips `nonce_changes` would collide every tx on
-    `addr(factory, N+1)`.
+    Cross-tx CREATE chain: 8 senders share a factory whose CREATE
+    address derives solely from `factory.nonce`. `collision` and `oog`
+    test opposite parallelization hazards mid-chain — collision still
+    bumps factory.nonce (later txs slide forward), OOG does not (later
+    txs slide backward, reusing the OOG'd slot).
     """
     chain_length = 8
+    failure_index = 3 if failure_mode in ("collision", "oog") else None
 
     factory_code = (
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
@@ -2698,19 +2710,53 @@ def test_bal_cross_tx_factory_nonce_create_chain(
 
     deploy_code = Op.STOP
     initcode = Initcode(deploy_code=deploy_code)
+    collision_code = Op.PUSH1(0x42) + Op.STOP
 
     targets = [
-        compute_create_address(address=factory, nonce=factory_pre_nonce + i)
-        for i in range(chain_length)
+        compute_create_address(address=factory, nonce=factory_pre_nonce + k)
+        for k in range(chain_length)
     ]
 
+    if failure_mode == "collision":
+        assert failure_index is not None
+        pre[targets[failure_index]] = Account(code=collision_code)
+
+    sequence: list[dict] = []
+    factory_nonce = factory_pre_nonce
+    for i in range(chain_length):
+        block_idx = i + 1
+        if failure_mode == "oog" and i == failure_index:
+            sequence.append(
+                {"block_idx": block_idx, "target_idx": None, "deployed": False}
+            )
+        else:
+            target_idx = factory_nonce - factory_pre_nonce
+            factory_nonce += 1
+            deployed = not (failure_mode == "collision" and i == failure_index)
+            sequence.append(
+                {
+                    "block_idx": block_idx,
+                    "factory_post_nonce": factory_nonce,
+                    "target_idx": target_idx,
+                    "deployed": deployed,
+                }
+            )
+
     senders = [pre.fund_eoa() for _ in range(chain_length)]
+    # OOG tx: intrinsic + 1 — valid to include but no gas to run CREATE.
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        calldata=bytes(initcode), contract_creation=False, access_list=[]
+    )
     txs = [
         Transaction(
             sender=senders[i],
             to=factory,
             data=initcode,
-            gas_limit=200_000,
+            gas_limit=(
+                intrinsic + 1
+                if failure_mode == "oog" and i == failure_index
+                else fork.transaction_gas_limit_cap()
+            ),
         )
         for i in range(chain_length)
     ]
@@ -2723,24 +2769,59 @@ def test_bal_cross_tx_factory_nonce_create_chain(
         )
         for i in range(chain_length)
     }
+    # Factory: only txs that bumped its nonce contribute entries.
     account_expectations[factory] = BalAccountExpectation(
         nonce_changes=[
             BalNonceChange(
-                block_access_index=i + 1,
-                post_nonce=factory_pre_nonce + i + 1,
+                block_access_index=s["block_idx"],
+                post_nonce=s["factory_post_nonce"],
             )
-            for i in range(chain_length)
+            for s in sequence
+            if s["target_idx"] is not None
         ],
     )
-    for i, target in enumerate(targets):
-        account_expectations[target] = BalAccountExpectation(
-            nonce_changes=[
-                BalNonceChange(block_access_index=i + 1, post_nonce=1)
-            ],
-            code_changes=[
-                BalCodeChange(block_access_index=i + 1, new_code=deploy_code)
-            ],
+    for s in sequence:
+        if s["target_idx"] is None:
+            continue
+        target = targets[s["target_idx"]]
+        if s["deployed"]:
+            account_expectations[target] = BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(
+                        block_access_index=s["block_idx"], post_nonce=1
+                    )
+                ],
+                code_changes=[
+                    BalCodeChange(
+                        block_access_index=s["block_idx"],
+                        new_code=deploy_code,
+                    )
+                ],
+            )
+        else:
+            # Collision: accessed during EIP-684 check, no state change.
+            account_expectations[target] = BalAccountExpectation.empty()
+
+    touched_target_idxs = {
+        s["target_idx"] for s in sequence if s["target_idx"] is not None
+    }
+    final_factory_nonce = factory_pre_nonce + len(touched_target_idxs)
+    post: dict = {
+        factory: Account(nonce=final_factory_nonce),
+        **{sender: Account(nonce=1) for sender in senders},
+    }
+    for s in sequence:
+        if s["target_idx"] is None:
+            continue
+        target = targets[s["target_idx"]]
+        post[target] = (
+            Account(nonce=1, code=deploy_code)
+            if s["deployed"]
+            else Account(code=collision_code)
         )
+    for k, target in enumerate(targets):
+        if k not in touched_target_idxs:
+            post[target] = Account.NONEXISTENT
 
     blockchain_test(
         pre=pre,
@@ -2752,14 +2833,7 @@ def test_bal_cross_tx_factory_nonce_create_chain(
                 ),
             )
         ],
-        post={
-            factory: Account(nonce=factory_pre_nonce + chain_length),
-            **{sender: Account(nonce=1) for sender in senders},
-            **{
-                target: Account(nonce=1, code=deploy_code)
-                for target in targets
-            },
-        },
+        post=post,
     )
 
 
