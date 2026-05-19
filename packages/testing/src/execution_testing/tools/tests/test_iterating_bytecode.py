@@ -120,6 +120,21 @@ def test_iterating_subcall_gas_cost() -> None:
         iterating_subcall=5000,
     )
     assert bytecode_int.iterating_subcall_gas_cost(fork=Osaka) == 5000
+    # Default int subcall carries no explicit state split.
+    assert bytecode_int.iterating_subcall_state_cost(fork=Osaka) == 0
+    assert bytecode_int.iterating_subcall_state_refund(fork=Osaka) == 0
+
+    # An int subcall with an explicit EIP-8037 state split returns the
+    # supplied components (combined cost via the int itself).
+    bytecode_split = IteratingBytecode(
+        iterating=Op.STOP,
+        iterating_subcall=5000,
+        iterating_subcall_state=1530,
+        iterating_subcall_state_refund=765,
+    )
+    assert bytecode_split.iterating_subcall_gas_cost(fork=Osaka) == 5000
+    assert bytecode_split.iterating_subcall_state_cost(fork=Osaka) == 1530
+    assert bytecode_split.iterating_subcall_state_refund(fork=Osaka) == 765
 
 
 def test_iterating_subcall_reserve() -> None:

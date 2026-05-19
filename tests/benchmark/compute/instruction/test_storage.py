@@ -361,9 +361,12 @@ def test_storage_access_cold(
         )
         for exec_tx in exec_txs:
             if tx_result == TransactionResult.OUT_OF_GAS:
+                # Error-path state-gas handling is Phase 3.
                 expected_gas_used += exec_tx.gas_limit
             else:
-                expected_gas_used += exec_tx.gas_cost
+                # EIP-7778 block gasUsed = max(regular, state), populated
+                # on the generated tx by transactions_by_gas_limit.
+                expected_gas_used += exec_tx.block_gas_used
 
     blocks.append(Block(txs=exec_txs))
 

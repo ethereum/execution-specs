@@ -809,6 +809,17 @@ class IteratingBytecode(Bytecode):
     The value can also be an integer, in which case it represents the gas cost
     of the subcall (e.g. the subcall is a precompiled contract)
     """
+    iterating_subcall_state: int
+    """
+    EIP-8037 state-gas component of an integer `iterating_subcall`.
+
+    When `iterating_subcall` is a `Bytecode` the split is derived from its
+    opcodes; for an integer (pre-summed combined) cost the state portion is
+    otherwise lost, so callers must supply it here to keep EIP-7778
+    `max(regular, state)` block accounting correct.
+    """
+    iterating_subcall_state_refund_value: int
+    """EIP-8037 state-refund component of an integer `iterating_subcall`."""
     cleanup: Bytecode
     """Bytecode executed once at the end after all iterations complete."""
 
@@ -820,6 +831,8 @@ class IteratingBytecode(Bytecode):
         cleanup: Bytecode | None = None,
         warm_iterating: Bytecode | None = None,
         iterating_subcall: Bytecode | int | None = None,
+        iterating_subcall_state: int = 0,
+        iterating_subcall_state_refund: int = 0,
     ) -> Self:
         """
         Create a new iterating bytecode.
@@ -838,6 +851,11 @@ class IteratingBytecode(Bytecode):
                 calculation. The value can also be an integer, in which case it
                 represents the gas cost of the subcall (e.g. the subcall is a
                 precompiled contract).
+            iterating_subcall_state: EIP-8037 state-gas component of an
+                integer `iterating_subcall` (ignored when it is a
+                `Bytecode`, where the split is derived from opcodes).
+            iterating_subcall_state_refund: EIP-8037 state-refund
+                component of an integer `iterating_subcall`.
 
         Returns:
             A new IteratingBytecode instance.
@@ -862,6 +880,10 @@ class IteratingBytecode(Bytecode):
             instance.iterating_subcall = Bytecode()
         else:
             instance.iterating_subcall = iterating_subcall
+        instance.iterating_subcall_state = iterating_subcall_state
+        instance.iterating_subcall_state_refund_value = (
+            iterating_subcall_state_refund
+        )
         if cleanup is None:
             cleanup = Bytecode()
         instance.cleanup = cleanup
@@ -881,11 +903,12 @@ class IteratingBytecode(Bytecode):
         """
         Return the EIP-8037 state-gas cost of the iterating subcall.
 
-        An integer subcall cost models a flat regular charge (e.g. a
-        precompile) and carries no state-gas dimension.
+        An integer subcall cost is a pre-summed combined value; its
+        state portion (otherwise lost) is supplied via the
+        `iterating_subcall_state` constructor kwarg.
         """
         if isinstance(self.iterating_subcall, int):
-            return 0
+            return self.iterating_subcall_state
         return self.iterating_subcall.state_cost(fork=fork)
 
     def iterating_subcall_state_refund(
@@ -893,7 +916,7 @@ class IteratingBytecode(Bytecode):
     ) -> int:
         """Return the EIP-8037 state refund of the iterating subcall."""
         if isinstance(self.iterating_subcall, int):
-            return 0
+            return self.iterating_subcall_state_refund_value
         return self.iterating_subcall.state_refund(fork=fork)
 
     def iterating_subcall_reserve(
@@ -993,6 +1016,10 @@ class IteratingBytecode(Bytecode):
             cleanup=self.cleanup,
             warm_iterating=self.warm_iterating,
             iterating_subcall=self.iterating_subcall,
+            iterating_subcall_state=self.iterating_subcall_state,
+            iterating_subcall_state_refund=(
+                self.iterating_subcall_state_refund_value
+            ),
             iteration_count=iteration_count,
         )
 
@@ -1046,6 +1073,7 @@ class IteratingBytecode(Bytecode):
         fork: Fork,
         iteration_count: int,
         start_iteration: int = 0,
+        extra_regular_gas: int = 0,
         **intrinsic_cost_kwargs: Any,
     ) -> int:
         """
@@ -1058,6 +1086,11 @@ class IteratingBytecode(Bytecode):
         returns `max(regular, state)` per Amsterdam EIP-7778 block
         accounting. Pre-Amsterdam the state dimension is zero so this
         equals the combined cost.
+
+        `extra_regular_gas` is added to the regular dimension only (used by
+        `tx_gas_limit_by_iteration_count` for the 63/64 subcall reserve,
+        which is a regular-gas concept — state gas is a separate reservoir
+        not subject to the 63/64 rule).
         """
         intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
         if "data" in intrinsic_cost_kwargs:
@@ -1110,7 +1143,7 @@ class IteratingBytecode(Bytecode):
         )
 
         return fork.block_gas_used_from(
-            regular_gas=regular_loop + intrinsic_regular,
+            regular_gas=regular_loop + intrinsic_regular + extra_regular_gas,
             state_gas=state_loop + intrinsic_state,
             calldata_floor=calldata_floor,
             state_refund=state_refund_loop,
@@ -1130,13 +1163,21 @@ class IteratingBytecode(Bytecode):
 
         The gas limit is calculated by adding the required extra gas for the
         last iteration due to the 63/64 rule.
+
+        Iteration fitting must size against the EIP-7778 block-gas the tx
+        actually consumes (`max(regular, state)`), not the combined sum;
+        otherwise loops are packed too sparsely on Amsterdam. The 63/64
+        subcall reserve is regular gas and is added to the regular
+        dimension. Pre-Amsterdam (state == 0) this equals the previous
+        `combined + reserve`.
         """
-        return self.tx_gas_cost_by_iteration_count(
+        return self.tx_block_gas_used_by_iteration_count(
             fork=fork,
             iteration_count=iteration_count,
             start_iteration=start_iteration,
+            extra_regular_gas=self.iterating_subcall_reserve(fork=fork),
             **intrinsic_cost_kwargs,
-        ) + self.iterating_subcall_reserve(fork=fork)
+        )
 
     def _binary_search_iterations(
         self,
@@ -1481,6 +1522,8 @@ class FixedIterationsBytecode(IteratingBytecode):
         iteration_count: int,
         warm_iterating: Bytecode | None = None,
         iterating_subcall: Bytecode | int | None = None,
+        iterating_subcall_state: int = 0,
+        iterating_subcall_state_refund: int = 0,
     ) -> Self:
         """
         Create a new FixedIterationsBytecode instance.
@@ -1502,6 +1545,10 @@ class FixedIterationsBytecode(IteratingBytecode):
                 calculation. The value can also be an integer, in which case it
                 represents the gas cost of the subcall (e.g. the subcall is a
                 precompiled contract).
+            iterating_subcall_state: EIP-8037 state-gas component of an
+                integer `iterating_subcall`.
+            iterating_subcall_state_refund: EIP-8037 state-refund
+                component of an integer `iterating_subcall`.
 
         Returns:
             A new FixedIterationsBytecode instance.
@@ -1514,6 +1561,8 @@ class FixedIterationsBytecode(IteratingBytecode):
             cleanup=cleanup,
             warm_iterating=warm_iterating,
             iterating_subcall=iterating_subcall,
+            iterating_subcall_state=iterating_subcall_state,
+            iterating_subcall_state_refund=iterating_subcall_state_refund,
         )
         instance.iteration_count = iteration_count
         return instance

@@ -136,13 +136,25 @@ def test_unchunkified_bytecode(
     with TestPhaseManager.setup():
         setup_sender = pre.fund_eoa()
         contracts_deployment_txs: List[ContractDeploymentTransaction] = []
-        for contract_creating_tx in (
-            custom_sized_contract_factory.transactions_by_total_contract_count(
-                fork=fork,
-                sender=setup_sender,
-                contract_count=num_contracts,
+        # On forks with a larger max code size the max-sized contract's
+        # single-iteration deploy cost can exceed any benchmark gas
+        # limit. That scenario is infeasible at this gas value rather
+        # than wrong, so skip instead of failing.
+        infeasible = "Single iteration gas cost is greater than gas limit"
+        try:
+            deployment_txs = list(
+                custom_sized_contract_factory.
+                transactions_by_total_contract_count(
+                    fork=fork,
+                    sender=setup_sender,
+                    contract_count=num_contracts,
+                )
             )
-        ):
+        except ValueError as exc:
+            if infeasible in str(exc):
+                pytest.skip(str(exc))
+            raise
+        for contract_creating_tx in deployment_txs:
             contracts_deployment_txs.append(contract_creating_tx)
             if custom_sized_contract_factory.contract_size > 0:
                 post[contract_creating_tx.deployed_contracts[-1]] = Account(

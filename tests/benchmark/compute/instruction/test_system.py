@@ -584,6 +584,14 @@ def test_selfdestruct_created(
         iterating=loop,
         iterating_subcall=selfdestructable_contract.gas_cost(fork)
         + initcode.gas_cost(fork),
+        # The int subcall is a pre-summed combined cost; supply its
+        # EIP-8037 state split so block accounting stays correct.
+        iterating_subcall_state=selfdestructable_contract.state_cost(fork)
+        + initcode.state_cost(fork),
+        iterating_subcall_state_refund=(
+            selfdestructable_contract.state_refund(fork)
+            + initcode.state_refund(fork)
+        ),
         cleanup=Op.STOP,
     )
 
