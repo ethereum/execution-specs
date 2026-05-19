@@ -62,7 +62,12 @@ class EIP7623(BaseFork):
         calldata_gas_calculator = cls.calldata_gas_calculator()
         gas_costs = cls.gas_costs()
 
-        def fn(*, data: BytesConvertible) -> int:
+        def fn(
+            *,
+            data: BytesConvertible,
+            access_list: List[AccessList] | None = None,
+        ) -> int:
+            del access_list
             return (
                 calldata_gas_calculator(data=data, floor=True)
                 + gas_costs.TX_BASE
