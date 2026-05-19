@@ -216,7 +216,13 @@ def _is_out_of_gas_error(error: str | None) -> bool:
     """Return True if the error string indicates an out-of-gas condition."""
     if error is None:
         return False
-    return "out of gas" in error.lower()
+    s = error.lower()
+    # Two trace conventions coexist: geth-style natural-language messages
+    # ("out of gas", "contract creation code storage out of gas") and the
+    # EELS EIP-3155 emitter, which writes the Python exception class name
+    # ("OutOfGasError"). The class name has no spaces, so the substring
+    # match alone misses it — match it explicitly.
+    return "out of gas" in s or s == "outofgaserror"
 
 
 def _find_gas_exhaustion_points(
