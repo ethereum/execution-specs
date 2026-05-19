@@ -42,6 +42,15 @@ runs:
         repository: ${{ inputs.repo }}
         ref: ${{ steps.geth-sha.outputs.sha }}
         path: go-ethereum
+    # See note in build-benchmark-genesis/action.yaml: redirect Go caches
+    # to a per-job temp dir so setup-go's cache restore doesn't collide
+    # with a persistent $GOMODCACHE on self-hosted runners.
+    - name: Use ephemeral Go cache dirs
+      if: steps.cache-restore.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        echo "GOMODCACHE=${{ runner.temp }}/go/mod" >> "$GITHUB_ENV"
+        echo "GOCACHE=${{ runner.temp }}/go/build" >> "$GITHUB_ENV"
     - name: Setup golang
       if: steps.cache-restore.outputs.cache-hit != 'true'
       uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
