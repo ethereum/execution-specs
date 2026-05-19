@@ -771,6 +771,11 @@ class TransactionWithCost(Transaction):
     """Transaction object that can include the expected gas to be consumed."""
 
     gas_cost: int = Field(..., exclude=True)
+    block_gas_used: int = Field(default=0, exclude=True)
+    """
+    EIP-7778 block header ``gasUsed`` contribution of this transaction
+    (``max(regular, state)``). Equals ``gas_cost`` pre-Amsterdam.
+    """
 
 
 class IteratingBytecode(Bytecode):
@@ -870,6 +875,27 @@ class IteratingBytecode(Bytecode):
             return self.iterating_subcall
         return self.iterating_subcall.gas_cost(fork=fork)
 
+    def iterating_subcall_state_cost(
+        self, *, fork: Type[ForkOpcodeInterface]
+    ) -> int:
+        """
+        Return the EIP-8037 state-gas cost of the iterating subcall.
+
+        An integer subcall cost models a flat regular charge (e.g. a
+        precompile) and carries no state-gas dimension.
+        """
+        if isinstance(self.iterating_subcall, int):
+            return 0
+        return self.iterating_subcall.state_cost(fork=fork)
+
+    def iterating_subcall_state_refund(
+        self, *, fork: Type[ForkOpcodeInterface]
+    ) -> int:
+        """Return the EIP-8037 state refund of the iterating subcall."""
+        if isinstance(self.iterating_subcall, int):
+            return 0
+        return self.iterating_subcall.state_refund(fork=fork)
+
     def iterating_subcall_reserve(
         self, *, fork: Type[ForkOpcodeInterface]
     ) -> int:
@@ -902,6 +928,57 @@ class IteratingBytecode(Bytecode):
             self.setup.gas_cost(fork=fork)
             + loop_gas_cost
             + self.cleanup.gas_cost(fork=fork)
+        )
+
+    def state_cost_by_iteration_count(
+        self, *, fork: Type[ForkOpcodeInterface], iteration_count: int
+    ) -> int:
+        """
+        Return the EIP-8037 state-gas cost of iterating N times.
+
+        Mirrors `gas_cost_by_iteration_count` but uses the state-gas
+        dimension only, so callers can reconstruct the EIP-7778 block
+        accounting as `max(regular, state)`.
+        """
+        loop_state_cost = 0
+        if iteration_count > 0:
+            loop_state_cost = self.iterating.state_cost(fork=fork)
+            loop_state_cost += self.warm_iterating.state_cost(fork=fork) * (
+                iteration_count - 1
+            )
+            loop_state_cost += (
+                self.iterating_subcall_state_cost(fork=fork) * iteration_count
+            )
+        return (
+            self.setup.state_cost(fork=fork)
+            + loop_state_cost
+            + self.cleanup.state_cost(fork=fork)
+        )
+
+    def state_refund_by_iteration_count(
+        self, *, fork: Type[ForkOpcodeInterface], iteration_count: int
+    ) -> int:
+        """
+        Return the EIP-8037 state refund accrued by iterating N times.
+
+        Mirrors `state_cost_by_iteration_count`; the refund is netted
+        against the state dimension in EIP-7778 block accounting
+        (`block_state_gas_used += max(0, state_gas - state_refund)`).
+        """
+        loop_state_refund = 0
+        if iteration_count > 0:
+            loop_state_refund = self.iterating.state_refund(fork=fork)
+            loop_state_refund += self.warm_iterating.state_refund(
+                fork=fork
+            ) * (iteration_count - 1)
+            loop_state_refund += (
+                self.iterating_subcall_state_refund(fork=fork)
+                * iteration_count
+            )
+        return (
+            self.setup.state_refund(fork=fork)
+            + loop_state_refund
+            + self.cleanup.state_refund(fork=fork)
         )
 
     def with_fixed_iteration_count(
@@ -962,6 +1039,82 @@ class IteratingBytecode(Bytecode):
         return self.gas_cost_by_iteration_count(
             fork=fork, iteration_count=iteration_count
         ) + intrinsic_gas_cost_calc(**intrinsic_cost_kwargs)
+
+    def tx_block_gas_used_by_iteration_count(
+        self,
+        *,
+        fork: Fork,
+        iteration_count: int,
+        start_iteration: int = 0,
+        **intrinsic_cost_kwargs: Any,
+    ) -> int:
+        """
+        Calculate the EIP-7778 block header `gasUsed` contribution of a
+        transaction calling the bytecode for a given number of iterations.
+
+        Unlike `tx_gas_cost_by_iteration_count` (which returns the combined
+        regular+state cost and drives iteration fitting), this splits the
+        loop and intrinsic costs into the regular and state dimensions and
+        returns `max(regular, state)` per Amsterdam EIP-7778 block
+        accounting. Pre-Amsterdam the state dimension is zero so this
+        equals the combined cost.
+        """
+        intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
+        if "data" in intrinsic_cost_kwargs:
+            intrinsic_cost_kwargs["calldata"] = intrinsic_cost_kwargs.pop(
+                "data"
+            )
+        if "authorization_list" in intrinsic_cost_kwargs:
+            intrinsic_cost_kwargs["authorization_list_or_count"] = len(
+                intrinsic_cost_kwargs.pop("authorization_list")
+            )
+        if "return_cost_deducted_prior_execution" not in intrinsic_cost_kwargs:
+            intrinsic_cost_kwargs["return_cost_deducted_prior_execution"] = (
+                True
+            )
+        for key, value in intrinsic_cost_kwargs.items():
+            if callable(value):
+                intrinsic_cost_kwargs[key] = value(
+                    iteration_count=iteration_count,
+                    start_iteration=start_iteration,
+                )
+        combined_loop = self.gas_cost_by_iteration_count(
+            fork=fork, iteration_count=iteration_count
+        )
+        state_loop = self.state_cost_by_iteration_count(
+            fork=fork, iteration_count=iteration_count
+        )
+        state_refund_loop = self.state_refund_by_iteration_count(
+            fork=fork, iteration_count=iteration_count
+        )
+        regular_loop = combined_loop - state_loop
+
+        intrinsic_combined = intrinsic_gas_cost_calc(**intrinsic_cost_kwargs)
+        contract_creation = bool(
+            intrinsic_cost_kwargs.get("contract_creation", False)
+        )
+        authorization_count = intrinsic_cost_kwargs.get(
+            "authorization_list_or_count", 0
+        )
+        if not isinstance(authorization_count, int):
+            authorization_count = len(authorization_count)
+        intrinsic_state = fork.transaction_intrinsic_state_gas(
+            contract_creation=contract_creation,
+            authorization_count=authorization_count,
+        )
+        intrinsic_regular = intrinsic_combined - intrinsic_state
+
+        floor_calc = fork.transaction_data_floor_cost_calculator()
+        calldata_floor = floor_calc(
+            data=intrinsic_cost_kwargs.get("calldata", b"")
+        )
+
+        return fork.block_gas_used_from(
+            regular_gas=regular_loop + intrinsic_regular,
+            state_gas=state_loop + intrinsic_state,
+            calldata_floor=calldata_floor,
+            state_refund=state_refund_loop,
+        )
 
     def tx_gas_limit_by_iteration_count(
         self,
@@ -1207,6 +1360,12 @@ class IteratingBytecode(Bytecode):
                 start_iteration=start_iteration,
                 **intrinsic_cost_kwargs,
             )
+            tx_block_gas_used = self.tx_block_gas_used_by_iteration_count(
+                fork=fork,
+                iteration_count=iteration_count,
+                start_iteration=start_iteration,
+                **intrinsic_cost_kwargs,
+            )
             current_tx_kwargs = tx_kwargs.copy()
 
             for key, value in current_tx_kwargs.items():
@@ -1220,6 +1379,7 @@ class IteratingBytecode(Bytecode):
                 gas_limit=tx_gas_limit + tx_gas_limit_delta,
                 sender=sender,
                 gas_cost=tx_gas_cost,
+                block_gas_used=tx_block_gas_used,
                 **current_tx_kwargs,
             )
             start_iteration += iteration_count
@@ -1275,6 +1435,12 @@ class IteratingBytecode(Bytecode):
                 start_iteration=start_iteration,
                 **intrinsic_cost_kwargs,
             )
+            tx_block_gas_used = self.tx_block_gas_used_by_iteration_count(
+                fork=fork,
+                iteration_count=iteration_count,
+                start_iteration=start_iteration,
+                **intrinsic_cost_kwargs,
+            )
             current_tx_kwargs = tx_kwargs.copy()
 
             for key, value in current_tx_kwargs.items():
@@ -1288,6 +1454,7 @@ class IteratingBytecode(Bytecode):
                 gas_limit=tx_gas_limit + tx_gas_limit_delta,
                 sender=sender,
                 gas_cost=tx_gas_cost,
+                block_gas_used=tx_block_gas_used,
                 **current_tx_kwargs,
             )
             start_iteration += iteration_count

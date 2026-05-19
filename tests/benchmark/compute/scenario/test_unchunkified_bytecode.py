@@ -172,7 +172,7 @@ def test_unchunkified_bytecode(
                     calldata=calldata,
                 )
             )
-        total_gas_cost = sum(tx.gas_cost for tx in attack_txs)
+        total_gas_cost = sum(tx.block_gas_used for tx in attack_txs)
 
     benchmark_test(
         pre=pre,

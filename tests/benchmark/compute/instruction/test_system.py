@@ -467,7 +467,7 @@ def test_selfdestruct_existing(
     start = 0
     total_gas_cost = 0
     for iters in iteration_counts:
-        total_gas_cost += attack_code.tx_gas_cost_by_iteration_count(
+        total_gas_cost += attack_code.tx_block_gas_used_by_iteration_count(
             fork=fork,
             iteration_count=iters,
             start_iteration=start,
@@ -601,7 +601,7 @@ def test_selfdestruct_created(
     num_iterations = sum(iteration_counts)
 
     total_gas_cost = sum(
-        attack_code.tx_gas_cost_by_iteration_count(
+        attack_code.tx_block_gas_used_by_iteration_count(
             fork=fork,
             iteration_count=iters,
             calldata=calldata,
@@ -699,7 +699,7 @@ def test_selfdestruct_initcode(
     num_iterations = sum(iteration_counts)
 
     total_gas_cost = sum(
-        attack_code.tx_gas_cost_by_iteration_count(
+        attack_code.tx_block_gas_used_by_iteration_count(
             fork=fork,
             iteration_count=iters,
             calldata=calldata,

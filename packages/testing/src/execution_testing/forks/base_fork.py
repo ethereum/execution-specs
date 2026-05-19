@@ -703,6 +703,28 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         return 0
 
     @classmethod
+    def block_gas_used_from(
+        cls,
+        *,
+        regular_gas: int,
+        state_gas: int,
+        calldata_floor: int = 0,
+        state_refund: int = 0,
+    ) -> int:
+        """
+        Return the block header ``gasUsed`` contribution of a transaction
+        under EIP-7778 two-dimensional accounting.
+
+        Mirrors EELS ``amsterdam/fork.py`` (``block_gas_used +=
+        max(tx_regular_gas, calldata_floor)``; ``block_state_gas_used +=
+        max(0, tx_state_gas)``; header ``gasUsed = max(...)``). Pre-Amsterdam
+        ``state_gas`` is zero so this degenerates to the regular cost.
+        """
+        tx_regular = max(regular_gas, calldata_floor)
+        tx_state = max(0, state_gas - state_refund)
+        return max(tx_regular, tx_state)
+
+    @classmethod
     def system_call_gas_limit(cls) -> int:
         """
         Return the total gas budget the system transaction grants the
