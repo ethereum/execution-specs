@@ -68,11 +68,12 @@ def test_transaction_data_costs652(
     ]
     tx_gas = [22000, 72000]
 
+    floor_cost = fork.transaction_data_floor_cost_calculator()(data=tx_data[d])
     tx = Transaction(
         sender=sender,
         to=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),
         data=tx_data[d],
-        gas_limit=tx_gas[g],
+        gas_limit=max(tx_gas[g], floor_cost),
     )
 
     post = {sender: Account(nonce=1)}
