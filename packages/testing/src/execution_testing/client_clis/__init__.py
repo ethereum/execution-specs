@@ -24,6 +24,7 @@ from .clis.execution_specs import ExecutionSpecsTransitionTool
 from .clis.geth import GethFixtureConsumer, GethTransitionTool
 from .clis.nethermind import Nethtest, NethtestFixtureConsumer
 from .clis.nimbus import NimbusTransitionTool
+from .clis.revm import RevmExceptionMapper, RevmTransitionTool
 from .ethereum_cli import CLINotFoundInPathError, UnknownCLIError
 from .fixture_consumer_tool import FixtureConsumerTool
 from .trace_comparators import (
@@ -62,6 +63,8 @@ __all__ = (
     "NethtestFixtureConsumer",
     "NimbusTransitionTool",
     "Result",
+    "RevmExceptionMapper",
+    "RevmTransitionTool",
     "TraceComparator",
     "TraceComparatorType",
     "TraceComparisonResult",

@@ -13,3 +13,6 @@ besu:
 ethjs:
   evm-bin: ethereumjs-t8ntool.sh
   x-dist: auto
+revm:
+  evm-bin: revme
+  x-dist: auto

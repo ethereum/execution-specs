@@ -220,7 +220,7 @@ bench-gas *args:
         --evm-bin="{{ evm_bin }}" \
         --gas-benchmark-values 1 \
         --generate-all-formats \
-        --fork Osaka \
+        --fork {{ latest_fork }} \
         -m "not slow" \
         -n auto --maxprocesses 10 --dist=loadgroup \
         --output="{{ output_dir }}/bench-gas/fixtures" \
@@ -237,7 +237,7 @@ bench-opcode *args:
     uv run fill \
         --evm-bin="{{ evm_bin }}" \
         --fixed-opcode-count 1 \
-        --fork Osaka \
+        --fork {{ latest_fork }} \
         -m repricing \
         -n auto --maxprocesses 10 --dist=loadgroup \
         -k "not test_alt_bn128 and not test_bls12_381 and not test_modexp and not uncachable" \
@@ -256,7 +256,7 @@ bench-opcode-config *args:
     uv run fill \
         --evm-bin="{{ evm_bin }}" \
         --fixed-opcode-count \
-        --fork Osaka \
+        --fork {{ latest_fork }} \
         -m repricing \
         -n auto --maxprocesses 10 --dist=loadgroup \
         -k "not test_alt_bn128 and not test_bls12_381 and not test_modexp and not test_point_evaluation_uncachable" \

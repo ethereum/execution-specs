@@ -8,6 +8,6 @@ static:
   ref: master
   targets: ["evmone-t8n"]
 benchmark:
-  impl: geth
-  repo: ethereum/go-ethereum
-  ref: master
+  impl: revm
+  repo: spencer-tb/revm
+  ref: t8n-subcommand

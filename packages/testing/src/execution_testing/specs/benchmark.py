@@ -316,7 +316,6 @@ class BenchmarkTest(BaseTest):
         Sequence[FixtureFormat | LabeledFixtureFormat]
     ] = [
         BlockchainFixture,
-        BlockchainEngineFixture,
         BlockchainEngineXFixture,
     ]
 
