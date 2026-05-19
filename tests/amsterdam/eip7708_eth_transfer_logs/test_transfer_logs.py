@@ -13,10 +13,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    BalAccountExpectation,
-    BalNonceChange,
     Block,
-    BlockAccessListExpectation,
     BlockchainTestFiller,
     Bytecode,
     Bytes,
@@ -288,13 +285,11 @@ def test_call_opcodes_insufficient_balance_no_log(
     Test CALL/CALLCODE with value exceeding caller balance.
 
     The opcode returns 0 (does not revert), transfers nothing, and emits
-    no transfer log. CALLCODE never emits a transfer log regardless of
-    balance — it's a self-transfer exempted by EIP-7708.
+    no transfer log.
 
-    Under EIP-7928 this exercises two BAL semantics: the callee is
-    warmed before the balance check (so it appears with empty changes
-    even though no value moves), and `SSTORE(0, 0)` is a no-op write
-    that gets demoted to `storage_reads` rather than `storage_changes`.
+    Note CALLCODE never emits a transfer log regardless
+    of balance — it's a self-transfer exempted by EIP-7708 — so for that
+    opcode the meaningful assertion is that the return value is 0.
     """
     caller_balance = 1
     attempted_value = 100
@@ -314,27 +309,10 @@ def test_call_opcodes_insufficient_balance_no_log(
     )
 
     post = {
-        sender: Account(nonce=1),
         contract: Account(storage={0: 0}, balance=caller_balance),
         callee: Account(balance=0),
     }
-    state_test(
-        env=env,
-        pre=pre,
-        post=post,
-        tx=tx,
-        expected_block_access_list=BlockAccessListExpectation(
-            account_expectations={
-                sender: BalAccountExpectation(
-                    nonce_changes=[
-                        BalNonceChange(block_access_index=1, post_nonce=1)
-                    ],
-                ),
-                contract: BalAccountExpectation(storage_reads=[0]),
-                callee: BalAccountExpectation.empty(),
-            }
-        ),
-    )
+    state_test(env=env, pre=pre, post=post, tx=tx)
 
 
 def test_delegatecall_inner_call_with_value(

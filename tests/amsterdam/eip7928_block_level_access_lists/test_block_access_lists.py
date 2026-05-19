@@ -611,16 +611,8 @@ def test_bal_selfdestruct_to_coinbase(
         base_fee_per_gas=base_fee_per_gas, fee_recipient=coinbase
     )
 
-    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
-        calldata=b"",
-        contract_creation=False,
-        access_list=[],
-    )
-    # Coinbase is warm post-EIP-3651 but empty (pre-funded amount=0),
-    # so SELFDESTRUCT charges the new-account fee on the value transfer.
-    selfdestruct_gas = Op.SELFDESTRUCT(
-        Op.COINBASE, address_warm=True, account_new=True
-    ).gas_cost(fork)
+    tx_gas_limit = fork.transaction_gas_limit_cap()
+    account_expectations: dict[Address, BalAccountExpectation]
 
     if same_tx:
         initcode = Initcode(deploy_code=victim_code)
@@ -635,21 +627,12 @@ def test_bal_selfdestruct_to_coinbase(
         )
         victim = compute_create_address(address=factory, nonce=1)
         tx_target = factory
-        # intrinsic + factory runtime (CALL/CREATE/MSTORE etc.)
-        # + initcode init + SELFDESTRUCT inside victim.
-        tx_gas_limit = (
-            intrinsic_gas
-            + factory_code.gas_cost(fork)
-            + initcode.gas_cost(fork)
-            + selfdestruct_gas
-            + 5_000
-        )
         post = {
             factory: Account(balance=0),
             victim: Account.NONEXISTENT,
             coinbase: Account(balance=victim_balance),
         }
-        account_expectations: dict[Address, BalAccountExpectation | None] = {
+        account_expectations = {
             factory: BalAccountExpectation(
                 nonce_changes=[
                     BalNonceChange(block_access_index=1, post_nonce=2)
@@ -671,7 +654,6 @@ def test_bal_selfdestruct_to_coinbase(
     else:
         victim = pre.deploy_contract(code=victim_code, balance=victim_balance)
         tx_target = victim
-        tx_gas_limit = intrinsic_gas + selfdestruct_gas + 1_000
         # Pre-deployed and not same-tx: post-Cancun preserves the contract.
         post = {
             victim: Account(balance=0, code=victim_code),
@@ -1394,8 +1376,12 @@ def test_bal_parent_revert_state_access(
     extra_target = pre.deploy_contract(code=Op.STOP)
 
     if inner_action == "sstore":
-        # Write demoted to read by parent revert.
-        inner = pre.deploy_contract(code=Op.SSTORE(1, 0x42) + Op.STOP)
+        # Write demoted to read by parent revert; pre-set 0xDEAD so the
+        # post-state confirms the slot was unchanged.
+        inner = pre.deploy_contract(
+            code=Op.SSTORE(1, 0x42) + Op.STOP,
+            storage={1: 0xDEAD},
+        )
     elif inner_action == "sload":
         inner = pre.deploy_contract(
             code=Op.POP(Op.SLOAD(1)) + Op.STOP,
@@ -1415,22 +1401,13 @@ def test_bal_parent_revert_state_access(
         code=Op.CALL(gas=Op.GAS, address=inner) + outer_abort
     )
 
-    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
-        calldata=b"",
-        contract_creation=False,
-        access_list=[],
+    tx = Transaction(
+        sender=alice, to=outer, gas_limit=fork.transaction_gas_limit_cap()
     )
-    costs = fork.gas_costs()
-    # Cover the heaviest inner action (cold SSTORE on a zero slot) plus
-    # outer's CALL overhead. Scales with fork gas-cost changes.
-    inner_allowance = costs.COLD_STORAGE_ACCESS + costs.STORAGE_SET
-    outer_overhead = costs.COLD_ACCOUNT_ACCESS
-    tx_gas_limit = intrinsic_gas + inner_allowance + outer_overhead + 10_000
 
-    tx = Transaction(sender=alice, to=outer, gas_limit=tx_gas_limit)
-
+    account_expectations: dict[Address, BalAccountExpectation]
     if inner_action in ("sstore", "sload"):
-        account_expectations: dict[Address, BalAccountExpectation | None] = {
+        account_expectations = {
             inner: BalAccountExpectation(storage_reads=[1]),
         }
     elif inner_action in ("balance", "extcodesize"):
@@ -1441,9 +1418,15 @@ def test_bal_parent_revert_state_access(
     else:
         raise ValueError(f"unknown inner_action: {inner_action}")
 
+    post: dict = {alice: Account(nonce=1)}
+    if inner_action in ("sstore", "sload"):
+        # Slot 1 stays at its pre-state value: SSTORE demoted to read,
+        # SLOAD never mutates.
+        post[inner] = Account(storage={1: 0xDEAD})
+
     state_test(
         pre=pre,
-        post={},
+        post=post,
         tx=tx,
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations=account_expectations,
@@ -1524,24 +1507,9 @@ def test_bal_outer_revert_with_inner_insufficient_funds(
         code=Op.CALL(gas=Op.GAS, address=inner) + Op.REVERT(0, 0)
     )
 
-    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
-        calldata=b"",
-        contract_creation=False,
-        access_list=[],
+    tx = Transaction(
+        sender=alice, to=outer, gas_limit=fork.transaction_gas_limit_cap()
     )
-    costs = fork.gas_costs()
-    # Worst-case inner work: 2 cold SSTOREs plus the union of CREATE base
-    # and CALL-with-value extras, so one limit fits both branches.
-    inner_max = (
-        2 * (costs.COLD_STORAGE_ACCESS + costs.STORAGE_SET)
-        + costs.TX_CREATE
-        + costs.COLD_ACCOUNT_ACCESS
-        + costs.CALL_VALUE
-    )
-    tx_gas_limit = (
-        intrinsic_gas + inner_max + costs.COLD_ACCOUNT_ACCESS + 10_000
-    )
-    tx = Transaction(sender=alice, to=outer, gas_limit=tx_gas_limit)
 
     state_test(
         pre=pre,
@@ -2728,8 +2696,8 @@ def test_bal_cross_tx_factory_nonce_create_chain(
     factory = pre.deploy_contract(code=factory_code)
     factory_pre_nonce = 1
 
-    deploy_code_bytes = bytes(Op.STOP)
-    initcode_bytes = bytes(Initcode(deploy_code=Op.STOP))
+    deploy_code = Op.STOP
+    initcode = Initcode(deploy_code=deploy_code)
 
     targets = [
         compute_create_address(address=factory, nonce=factory_pre_nonce + i)
@@ -2741,7 +2709,7 @@ def test_bal_cross_tx_factory_nonce_create_chain(
         Transaction(
             sender=senders[i],
             to=factory,
-            data=initcode_bytes,
+            data=initcode,
             gas_limit=200_000,
         )
         for i in range(chain_length)
@@ -2770,9 +2738,7 @@ def test_bal_cross_tx_factory_nonce_create_chain(
                 BalNonceChange(block_access_index=i + 1, post_nonce=1)
             ],
             code_changes=[
-                BalCodeChange(
-                    block_access_index=i + 1, new_code=deploy_code_bytes
-                )
+                BalCodeChange(block_access_index=i + 1, new_code=deploy_code)
             ],
         )
 
@@ -2788,8 +2754,9 @@ def test_bal_cross_tx_factory_nonce_create_chain(
         ],
         post={
             factory: Account(nonce=factory_pre_nonce + chain_length),
+            **{sender: Account(nonce=1) for sender in senders},
             **{
-                target: Account(nonce=1, code=deploy_code_bytes)
+                target: Account(nonce=1, code=deploy_code)
                 for target in targets
             },
         },

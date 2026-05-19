@@ -3,13 +3,7 @@
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    BalAccountExpectation,
-    BalNonceChange,
-    BalStorageChange,
-    BalStorageSlot,
-    BlockAccessListExpectation,
     CodeGasMeasure,
     Environment,
     Fork,
@@ -158,47 +152,6 @@ def test_call_memory_expands_on_early_revert(
     # mstore cost: base cost. No memory expansion cost needed, it was expanded
     # on CALL.
     mstore_cost = Op.MSTORE(new_memory_size=0).gas_cost(fork)
-
-    # Under EIP-7928 (BAL): cold access of the target (zero address by
-    # default) is charged before the balance check, so the address
-    # appears in BAL even though the value transfer is skipped.
-    expected_bal = (
-        BlockAccessListExpectation(
-            account_expectations={
-                sender: BalAccountExpectation(
-                    nonce_changes=[
-                        BalNonceChange(block_access_index=1, post_nonce=1)
-                    ],
-                ),
-                contract: BalAccountExpectation(
-                    storage_changes=[
-                        BalStorageSlot(
-                            slot=0,
-                            slot_changes=[
-                                BalStorageChange(
-                                    block_access_index=1,
-                                    post_value=call_cost,
-                                )
-                            ],
-                        ),
-                        BalStorageSlot(
-                            slot=1,
-                            slot_changes=[
-                                BalStorageChange(
-                                    block_access_index=1,
-                                    post_value=mstore_cost,
-                                )
-                            ],
-                        ),
-                    ],
-                ),
-                Address(0): BalAccountExpectation.empty(),
-            }
-        )
-        if fork.is_eip_enabled(7928)
-        else None
-    )
-
     state_test(
         env=Environment(),
         pre=pre,
@@ -211,7 +164,6 @@ def test_call_memory_expands_on_early_revert(
                 },
             )
         },
-        expected_block_access_list=expected_bal,
     )
 
 

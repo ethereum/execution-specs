@@ -3370,7 +3370,7 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
     Two identical txs invoke the same factory with the same initcode
     (same hash => same CREATE2 address A). The factory branches on its
     own storage slot 1: on the first tx, the slot is 0 so the factory
-    CREATE2's then CALLs A (runtime SSTOREs to slot_b then
+    CREATE2's then CALLs A (runtime SSTOREs to a target slot then
     SELFDESTRUCTs) and records the CALL's return code in slot 1; on the
     second tx, slot 1 is non-zero so only CREATE2 runs and A persists
     with the runtime code (its runtime is never executed).
@@ -3385,9 +3385,9 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
     alice = pre.fund_eoa()
     beneficiary = pre.fund_eoa(amount=0)
     salt = 0
-    slot_b = 0x07
+    target_slot = 0x07
 
-    runtime = Op.SSTORE(slot_b, 0xCAFE) + Op.SELFDESTRUCT(beneficiary)
+    runtime = Op.SSTORE(target_slot, 0xCAFE) + Op.SELFDESTRUCT(beneficiary)
     runtime_bytes = bytes(runtime)
     initcode_bytes = bytes(Initcode(deploy_code=runtime))
 
@@ -3399,7 +3399,7 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
         )
         + Conditional(
             condition=Op.ISZERO(Op.SLOAD(1)),
-            if_true=Op.SSTORE(1, Op.CALL(100_000, Op.SLOAD(0), 0, 0, 0, 0, 0)),
+            if_true=Op.SSTORE(1, Op.CALL(Op.GAS, Op.SLOAD(0), 0, 0, 0, 0, 0)),
             if_false=Op.STOP,
         )
         + Op.STOP
@@ -3464,7 +3464,7 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
                     ],
                     balance_changes=target_a_balance_changes,
                     storage_changes=[],
-                    storage_reads=[slot_b],
+                    storage_reads=[target_slot],
                 ),
                 beneficiary: beneficiary_expectation,
             }
