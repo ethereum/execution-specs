@@ -12,7 +12,7 @@ EVM gas constants and calculators.
 """
 
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import Final, List, Tuple
 
 from ethereum_types.numeric import U64, U256, Uint, ulen
 
@@ -32,161 +32,161 @@ class GasCosts:
     """
 
     # Tiers
-    BASE = Uint(2)
-    VERY_LOW = Uint(3)
-    LOW = Uint(5)
-    MID = Uint(8)
-    HIGH = Uint(10)
+    BASE: Final[Uint] = Uint(2)
+    VERY_LOW: Final[Uint] = Uint(3)
+    LOW: Final[Uint] = Uint(5)
+    MID: Final[Uint] = Uint(8)
+    HIGH: Final[Uint] = Uint(10)
 
     # Access
-    WARM_ACCESS = Uint(100)
-    COLD_ACCOUNT_ACCESS = Uint(2600)
-    COLD_STORAGE_ACCESS = Uint(2100)
+    WARM_ACCESS: Final[Uint] = Uint(100)
+    COLD_ACCOUNT_ACCESS: Final[Uint] = Uint(2600)
+    COLD_STORAGE_ACCESS: Final[Uint] = Uint(2100)
 
     # Storage
-    STORAGE_SET = Uint(20000)
-    COLD_STORAGE_WRITE = Uint(5000)
+    STORAGE_SET: Final[Uint] = Uint(20000)
+    COLD_STORAGE_WRITE: Final[Uint] = Uint(5000)
 
     # Call
-    CALL_VALUE = Uint(9000)
-    CALL_STIPEND = Uint(2300)
-    NEW_ACCOUNT = Uint(25000)
+    CALL_VALUE: Final[Uint] = Uint(9000)
+    CALL_STIPEND: Final[Uint] = Uint(2300)
+    NEW_ACCOUNT: Final[Uint] = Uint(25000)
 
     # Contract Creation
-    CODE_DEPOSIT_PER_BYTE = Uint(200)
-    CODE_INIT_PER_WORD = Uint(2)
+    CODE_DEPOSIT_PER_BYTE: Final[Uint] = Uint(200)
+    CODE_INIT_PER_WORD: Final[Uint] = Uint(2)
 
     # Authorization
-    AUTH_PER_EMPTY_ACCOUNT = 25000
+    AUTH_PER_EMPTY_ACCOUNT: Final[int] = 25000
 
     # Utility
-    ZERO = Uint(0)
-    MEMORY_PER_WORD = Uint(3)
-    FAST_STEP = Uint(5)
+    ZERO: Final[Uint] = Uint(0)
+    MEMORY_PER_WORD: Final[Uint] = Uint(3)
+    FAST_STEP: Final[Uint] = Uint(5)
 
     # Refunds
-    REFUND_STORAGE_CLEAR = 4800
+    REFUND_STORAGE_CLEAR: Final[int] = 4800
 
     # Precompiles
-    PRECOMPILE_ECRECOVER = Uint(3000)
-    PRECOMPILE_P256VERIFY = Uint(6900)
-    PRECOMPILE_SHA256_BASE = Uint(60)
-    PRECOMPILE_SHA256_PER_WORD = Uint(12)
-    PRECOMPILE_RIPEMD160_BASE = Uint(600)
-    PRECOMPILE_RIPEMD160_PER_WORD = Uint(120)
-    PRECOMPILE_IDENTITY_BASE = Uint(15)
-    PRECOMPILE_IDENTITY_PER_WORD = Uint(3)
-    PRECOMPILE_BLAKE2F_PER_ROUND = Uint(1)
-    PRECOMPILE_POINT_EVALUATION = Uint(50000)
-    PRECOMPILE_BLS_G1ADD = Uint(375)
-    PRECOMPILE_BLS_G1MUL = Uint(12000)
-    PRECOMPILE_BLS_G1MAP = Uint(5500)
-    PRECOMPILE_BLS_G2ADD = Uint(600)
-    PRECOMPILE_BLS_G2MUL = Uint(22500)
-    PRECOMPILE_BLS_G2MAP = Uint(23800)
-    PRECOMPILE_ECADD = Uint(150)
-    PRECOMPILE_ECMUL = Uint(6000)
-    PRECOMPILE_ECPAIRING_BASE = Uint(45000)
-    PRECOMPILE_ECPAIRING_PER_POINT = Uint(34000)
+    PRECOMPILE_ECRECOVER: Final[Uint] = Uint(3000)
+    PRECOMPILE_P256VERIFY: Final[Uint] = Uint(6900)
+    PRECOMPILE_SHA256_BASE: Final[Uint] = Uint(60)
+    PRECOMPILE_SHA256_PER_WORD: Final[Uint] = Uint(12)
+    PRECOMPILE_RIPEMD160_BASE: Final[Uint] = Uint(600)
+    PRECOMPILE_RIPEMD160_PER_WORD: Final[Uint] = Uint(120)
+    PRECOMPILE_IDENTITY_BASE: Final[Uint] = Uint(15)
+    PRECOMPILE_IDENTITY_PER_WORD: Final[Uint] = Uint(3)
+    PRECOMPILE_BLAKE2F_PER_ROUND: Final[Uint] = Uint(1)
+    PRECOMPILE_POINT_EVALUATION: Final[Uint] = Uint(50000)
+    PRECOMPILE_BLS_G1ADD: Final[Uint] = Uint(375)
+    PRECOMPILE_BLS_G1MUL: Final[Uint] = Uint(12000)
+    PRECOMPILE_BLS_G1MAP: Final[Uint] = Uint(5500)
+    PRECOMPILE_BLS_G2ADD: Final[Uint] = Uint(600)
+    PRECOMPILE_BLS_G2MUL: Final[Uint] = Uint(22500)
+    PRECOMPILE_BLS_G2MAP: Final[Uint] = Uint(23800)
+    PRECOMPILE_ECADD: Final[Uint] = Uint(150)
+    PRECOMPILE_ECMUL: Final[Uint] = Uint(6000)
+    PRECOMPILE_ECPAIRING_BASE: Final[Uint] = Uint(45000)
+    PRECOMPILE_ECPAIRING_PER_POINT: Final[Uint] = Uint(34000)
 
     # Blobs
-    PER_BLOB = U64(2**17)
-    BLOB_SCHEDULE_TARGET = U64(10)
-    BLOB_TARGET_GAS_PER_BLOCK = PER_BLOB * BLOB_SCHEDULE_TARGET
-    BLOB_BASE_COST = Uint(2**13)
-    BLOB_SCHEDULE_MAX = U64(15)
-    BLOB_MIN_GASPRICE = Uint(1)
-    BLOB_BASE_FEE_UPDATE_FRACTION = Uint(8346193)
+    PER_BLOB: Final[U64] = U64(2**17)
+    BLOB_SCHEDULE_TARGET: Final[U64] = U64(10)
+    BLOB_TARGET_GAS_PER_BLOCK: Final[U64] = PER_BLOB * BLOB_SCHEDULE_TARGET
+    BLOB_BASE_COST: Final[Uint] = Uint(2**13)
+    BLOB_SCHEDULE_MAX: Final[U64] = U64(15)
+    BLOB_MIN_GASPRICE: Final[Uint] = Uint(1)
+    BLOB_BASE_FEE_UPDATE_FRACTION: Final[Uint] = Uint(8346193)
 
     # Transactions
-    TX_BASE = Uint(21000)
-    TX_CREATE = Uint(32000)
-    TX_DATA_TOKEN_STANDARD = Uint(4)
-    TX_DATA_TOKEN_FLOOR = Uint(10)
-    TX_ACCESS_LIST_ADDRESS = Uint(2400)
-    TX_ACCESS_LIST_STORAGE_KEY = Uint(1900)
+    TX_BASE: Final[Uint] = Uint(21000)
+    TX_CREATE: Final[Uint] = Uint(32000)
+    TX_DATA_TOKEN_STANDARD: Final[Uint] = Uint(4)
+    TX_DATA_TOKEN_FLOOR: Final[Uint] = Uint(10)
+    TX_ACCESS_LIST_ADDRESS: Final[Uint] = Uint(2400)
+    TX_ACCESS_LIST_STORAGE_KEY: Final[Uint] = Uint(1900)
 
     # Block
-    LIMIT_ADJUSTMENT_FACTOR = Uint(1024)
-    LIMIT_MINIMUM = Uint(5000)
+    LIMIT_ADJUSTMENT_FACTOR: Final[Uint] = Uint(1024)
+    LIMIT_MINIMUM: Final[Uint] = Uint(5000)
 
     # Static Opcodes
-    OPCODE_ADD = VERY_LOW
-    OPCODE_SUB = VERY_LOW
-    OPCODE_MUL = LOW
-    OPCODE_DIV = LOW
-    OPCODE_SDIV = LOW
-    OPCODE_MOD = LOW
-    OPCODE_SMOD = LOW
-    OPCODE_ADDMOD = MID
-    OPCODE_MULMOD = MID
-    OPCODE_SIGNEXTEND = LOW
-    OPCODE_LT = VERY_LOW
-    OPCODE_GT = VERY_LOW
-    OPCODE_SLT = VERY_LOW
-    OPCODE_SGT = VERY_LOW
-    OPCODE_EQ = VERY_LOW
-    OPCODE_ISZERO = VERY_LOW
-    OPCODE_AND = VERY_LOW
-    OPCODE_OR = VERY_LOW
-    OPCODE_XOR = VERY_LOW
-    OPCODE_NOT = VERY_LOW
-    OPCODE_BYTE = VERY_LOW
-    OPCODE_SHL = VERY_LOW
-    OPCODE_SHR = VERY_LOW
-    OPCODE_SAR = VERY_LOW
-    OPCODE_CLZ = LOW
-    OPCODE_JUMP = MID
-    OPCODE_JUMPI = HIGH
-    OPCODE_JUMPDEST = Uint(1)
-    OPCODE_CALLDATALOAD = VERY_LOW
-    OPCODE_BLOCKHASH = Uint(20)
-    OPCODE_COINBASE = BASE
-    OPCODE_POP = BASE
-    OPCODE_MSIZE = BASE
-    OPCODE_PC = BASE
-    OPCODE_GAS = BASE
-    OPCODE_ADDRESS = BASE
-    OPCODE_ORIGIN = BASE
-    OPCODE_CALLER = BASE
-    OPCODE_CALLVALUE = BASE
-    OPCODE_CALLDATASIZE = BASE
-    OPCODE_CODESIZE = BASE
-    OPCODE_GASPRICE = BASE
-    OPCODE_TIMESTAMP = BASE
-    OPCODE_NUMBER = BASE
-    OPCODE_GASLIMIT = BASE
-    OPCODE_PREVRANDAO = BASE
-    OPCODE_RETURNDATASIZE = BASE
-    OPCODE_CHAINID = BASE
-    OPCODE_BASEFEE = BASE
-    OPCODE_BLOBBASEFEE = BASE
-    OPCODE_BLOBHASH = Uint(3)
-    OPCODE_PUSH = VERY_LOW
-    OPCODE_PUSH0 = BASE
-    OPCODE_DUP = VERY_LOW
-    OPCODE_SWAP = VERY_LOW
+    OPCODE_ADD: Final[Uint] = VERY_LOW
+    OPCODE_SUB: Final[Uint] = VERY_LOW
+    OPCODE_MUL: Final[Uint] = LOW
+    OPCODE_DIV: Final[Uint] = LOW
+    OPCODE_SDIV: Final[Uint] = LOW
+    OPCODE_MOD: Final[Uint] = LOW
+    OPCODE_SMOD: Final[Uint] = LOW
+    OPCODE_ADDMOD: Final[Uint] = MID
+    OPCODE_MULMOD: Final[Uint] = MID
+    OPCODE_SIGNEXTEND: Final[Uint] = LOW
+    OPCODE_LT: Final[Uint] = VERY_LOW
+    OPCODE_GT: Final[Uint] = VERY_LOW
+    OPCODE_SLT: Final[Uint] = VERY_LOW
+    OPCODE_SGT: Final[Uint] = VERY_LOW
+    OPCODE_EQ: Final[Uint] = VERY_LOW
+    OPCODE_ISZERO: Final[Uint] = VERY_LOW
+    OPCODE_AND: Final[Uint] = VERY_LOW
+    OPCODE_OR: Final[Uint] = VERY_LOW
+    OPCODE_XOR: Final[Uint] = VERY_LOW
+    OPCODE_NOT: Final[Uint] = VERY_LOW
+    OPCODE_BYTE: Final[Uint] = VERY_LOW
+    OPCODE_SHL: Final[Uint] = VERY_LOW
+    OPCODE_SHR: Final[Uint] = VERY_LOW
+    OPCODE_SAR: Final[Uint] = VERY_LOW
+    OPCODE_CLZ: Final[Uint] = LOW
+    OPCODE_JUMP: Final[Uint] = MID
+    OPCODE_JUMPI: Final[Uint] = HIGH
+    OPCODE_JUMPDEST: Final[Uint] = Uint(1)
+    OPCODE_CALLDATALOAD: Final[Uint] = VERY_LOW
+    OPCODE_BLOCKHASH: Final[Uint] = Uint(20)
+    OPCODE_COINBASE: Final[Uint] = BASE
+    OPCODE_POP: Final[Uint] = BASE
+    OPCODE_MSIZE: Final[Uint] = BASE
+    OPCODE_PC: Final[Uint] = BASE
+    OPCODE_GAS: Final[Uint] = BASE
+    OPCODE_ADDRESS: Final[Uint] = BASE
+    OPCODE_ORIGIN: Final[Uint] = BASE
+    OPCODE_CALLER: Final[Uint] = BASE
+    OPCODE_CALLVALUE: Final[Uint] = BASE
+    OPCODE_CALLDATASIZE: Final[Uint] = BASE
+    OPCODE_CODESIZE: Final[Uint] = BASE
+    OPCODE_GASPRICE: Final[Uint] = BASE
+    OPCODE_TIMESTAMP: Final[Uint] = BASE
+    OPCODE_NUMBER: Final[Uint] = BASE
+    OPCODE_GASLIMIT: Final[Uint] = BASE
+    OPCODE_PREVRANDAO: Final[Uint] = BASE
+    OPCODE_RETURNDATASIZE: Final[Uint] = BASE
+    OPCODE_CHAINID: Final[Uint] = BASE
+    OPCODE_BASEFEE: Final[Uint] = BASE
+    OPCODE_BLOBBASEFEE: Final[Uint] = BASE
+    OPCODE_BLOBHASH: Final[Uint] = Uint(3)
+    OPCODE_PUSH: Final[Uint] = VERY_LOW
+    OPCODE_PUSH0: Final[Uint] = BASE
+    OPCODE_DUP: Final[Uint] = VERY_LOW
+    OPCODE_SWAP: Final[Uint] = VERY_LOW
 
     # Dynamic Opcodes
-    OPCODE_RETURNDATACOPY_BASE = VERY_LOW
-    OPCODE_RETURNDATACOPY_PER_WORD = Uint(3)
-    OPCODE_CALLDATACOPY_BASE = VERY_LOW
-    OPCODE_CODECOPY_BASE = VERY_LOW
-    OPCODE_MCOPY_BASE = VERY_LOW
-    OPCODE_MLOAD_BASE = VERY_LOW
-    OPCODE_MSTORE_BASE = VERY_LOW
-    OPCODE_MSTORE8_BASE = VERY_LOW
-    OPCODE_COPY_PER_WORD = Uint(3)
-    OPCODE_CREATE_BASE = Uint(32000)
-    OPCODE_EXP_BASE = Uint(10)
-    OPCODE_EXP_PER_BYTE = Uint(50)
-    OPCODE_KECCAK256_BASE = Uint(30)
-    OPCODE_KECCACK256_PER_WORD = Uint(6)
-    OPCODE_LOG_BASE = Uint(375)
-    OPCODE_LOG_DATA_PER_BYTE = Uint(8)
-    OPCODE_LOG_TOPIC = Uint(375)
-    OPCODE_SELFDESTRUCT_BASE = Uint(5000)
-    OPCODE_SELFDESTRUCT_NEW_ACCOUNT = Uint(25000)
+    OPCODE_RETURNDATACOPY_BASE: Final[Uint] = VERY_LOW
+    OPCODE_RETURNDATACOPY_PER_WORD: Final[Uint] = Uint(3)
+    OPCODE_CALLDATACOPY_BASE: Final[Uint] = VERY_LOW
+    OPCODE_CODECOPY_BASE: Final[Uint] = VERY_LOW
+    OPCODE_MCOPY_BASE: Final[Uint] = VERY_LOW
+    OPCODE_MLOAD_BASE: Final[Uint] = VERY_LOW
+    OPCODE_MSTORE_BASE: Final[Uint] = VERY_LOW
+    OPCODE_MSTORE8_BASE: Final[Uint] = VERY_LOW
+    OPCODE_COPY_PER_WORD: Final[Uint] = Uint(3)
+    OPCODE_CREATE_BASE: Final[Uint] = Uint(32000)
+    OPCODE_EXP_BASE: Final[Uint] = Uint(10)
+    OPCODE_EXP_PER_BYTE: Final[Uint] = Uint(50)
+    OPCODE_KECCAK256_BASE: Final[Uint] = Uint(30)
+    OPCODE_KECCACK256_PER_WORD: Final[Uint] = Uint(6)
+    OPCODE_LOG_BASE: Final[Uint] = Uint(375)
+    OPCODE_LOG_DATA_PER_BYTE: Final[Uint] = Uint(8)
+    OPCODE_LOG_TOPIC: Final[Uint] = Uint(375)
+    OPCODE_SELFDESTRUCT_BASE: Final[Uint] = Uint(5000)
+    OPCODE_SELFDESTRUCT_NEW_ACCOUNT: Final[Uint] = Uint(25000)
 
 
 @dataclass

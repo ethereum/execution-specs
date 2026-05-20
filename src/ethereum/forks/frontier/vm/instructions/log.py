@@ -12,6 +12,7 @@ Implementations of the EVM logging instructions.
 """
 
 from functools import partial
+from typing import Callable
 
 from ethereum_types.numeric import Uint
 
@@ -76,8 +77,8 @@ def log_n(evm: Evm, num_topics: int) -> None:
     evm.pc += Uint(1)
 
 
-log0 = partial(log_n, num_topics=0)
-log1 = partial(log_n, num_topics=1)
-log2 = partial(log_n, num_topics=2)
-log3 = partial(log_n, num_topics=3)
-log4 = partial(log_n, num_topics=4)
+log0: Callable[[Evm], None] = partial(log_n, num_topics=0)
+log1: Callable[[Evm], None] = partial(log_n, num_topics=1)
+log2: Callable[[Evm], None] = partial(log_n, num_topics=2)
+log3: Callable[[Evm], None] = partial(log_n, num_topics=3)
+log4: Callable[[Evm], None] = partial(log_n, num_topics=4)
