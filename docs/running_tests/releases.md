@@ -97,6 +97,20 @@ On success the workflow:
 
 The release is created as a draft; review and publish it from the GitHub releases page.
 
+### Tagging A Release
+
+To cut a new release:
+
+1. **Pick the next version** per the [Versioning Scheme](#versioning-scheme) for the track you're releasing on (e.g. the next consensus release after `consensus@v20.3.0` is `consensus@v20.3.1` for a tests-only bump, or `consensus@v20.4.0` for a behaviour change).
+2. **Dispatch the workflow** from the [Actions tab](https://github.com/ethereum/execution-specs/actions/workflows/release_fixtures.yaml) or via the CLI:
+   ```bash
+   gh workflow run release_fixtures.yaml -f feature=consensus@v20.3.1
+   # devnet releases additionally require the branch to release from:
+   gh workflow run release_fixtures.yaml -f feature=bal-devnet@v1.0.0 -f branch=bal-devnet-7
+   ```
+3. **Wait for the build to succeed.** On success the workflow creates the `tests-<feature>@vX.Y.Z` tag on the target commit and drafts the GitHub release with the fixture tarball attached. If any job fails, no tag or release is created — fix the cause and re-dispatch.
+4. **Review and publish the draft.** Open the draft on the [releases page](https://github.com/ethereum/execution-specs/releases), check the auto-generated notes (anchored at the prior release on the same track via `--notes-start-tag`), and click *Publish release* when ready.
+
 !!! tip "Release features opt into all fixture formats via `feature.yaml`"
     Tarball output (`.tar.gz`) does not by itself include the pre-allocation group formats (`BlockchainEngineXFixture`, `BlockchainEngineStatefulFixture`). A release feature requests them by adding `--generate-all-formats` to its `fill-params` in `.github/configs/feature.yaml`:
     ```console
