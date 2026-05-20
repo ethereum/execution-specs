@@ -9,7 +9,7 @@ abstract: BloatNet single-opcode benchmark cases for state-related operations.
 
 from enum import Enum, auto
 from functools import partial
-from typing import Any, Generator, List
+from typing import Any, Callable, Generator, List
 
 import pytest
 from execution_testing import (
