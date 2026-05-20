@@ -372,6 +372,249 @@ def verify_stateless_input_public_keys(
             )
 
 
+def _decode_amsterdam_header_bytes(header_rlp: Bytes) -> Any | None:
+    """
+    Decode an Amsterdam or immediate pre-Amsterdam RLP header.
+    """
+    from ethereum.forks.amsterdam.stateless import _decode_header
+    from ethereum_types.bytes import Bytes as AmsterdamBytes
+
+    try:
+        return _decode_header(AmsterdamBytes(bytes(header_rlp)))
+    except Exception:
+        return None
+
+
+def _convert_amsterdam_execution_witness(
+    execution_witness: ExecutionWitness,
+) -> Any:
+    """
+    Convert fixture execution witness data to Amsterdam fork types.
+    """
+    from ethereum.forks.amsterdam.stateless import (
+        ExecutionWitness as AmsterdamExecutionWitness,
+    )
+    from ethereum_types.bytes import Bytes as AmsterdamBytes
+
+    return AmsterdamExecutionWitness(
+        state=tuple(
+            AmsterdamBytes(bytes(node)) for node in execution_witness.state
+        ),
+        codes=tuple(
+            AmsterdamBytes(bytes(code)) for code in execution_witness.codes
+        ),
+        headers=tuple(
+            AmsterdamBytes(bytes(header))
+            for header in execution_witness.headers
+        ),
+    )
+
+
+def _convert_amsterdam_withdrawals(
+    withdrawals: List[Withdrawal] | None,
+) -> Any:
+    """
+    Convert fixture withdrawals to Amsterdam fork withdrawals.
+    """
+    from ethereum.forks.amsterdam.blocks import (
+        Withdrawal as AmsterdamWithdrawal,
+    )
+    from ethereum.state import Address as AmsterdamAddress
+    from ethereum_types.numeric import U64, U256
+
+    if withdrawals is None:
+        return ()
+    return tuple(
+        AmsterdamWithdrawal(
+            index=U64(int(withdrawal.index)),
+            validator_index=U64(int(withdrawal.validator_index)),
+            address=AmsterdamAddress(bytes(withdrawal.address)),
+            amount=U256(int(withdrawal.amount)),
+        )
+        for withdrawal in withdrawals
+    )
+
+
+def _convert_amsterdam_block_access_list(
+    block_access_list: BlockAccessList,
+) -> Any:
+    """
+    Convert fixture BAL data to Amsterdam fork BAL data.
+    """
+    from ethereum.forks.amsterdam.block_access_lists import (
+        AccountChanges,
+        BalanceChange,
+        CodeChange,
+        NonceChange,
+        SlotChanges,
+        StorageChange,
+    )
+    from ethereum.state import Address as AmsterdamAddress
+    from ethereum_types.bytes import Bytes as AmsterdamBytes
+    from ethereum_types.numeric import U32, U64, U256
+
+    return [
+        AccountChanges(
+            address=AmsterdamAddress(bytes(account.address)),
+            storage_changes=tuple(
+                SlotChanges(
+                    slot=U256(int(slot.slot)),
+                    changes=tuple(
+                        StorageChange(
+                            block_access_index=U32(
+                                int(change.block_access_index)
+                            ),
+                            new_value=U256(int(change.post_value)),
+                        )
+                        for change in slot.slot_changes
+                    ),
+                )
+                for slot in account.storage_changes
+            ),
+            storage_reads=tuple(
+                U256(int(slot)) for slot in account.storage_reads
+            ),
+            balance_changes=tuple(
+                BalanceChange(
+                    block_access_index=U32(int(change.block_access_index)),
+                    post_balance=U256(int(change.post_balance)),
+                )
+                for change in account.balance_changes
+            ),
+            nonce_changes=tuple(
+                NonceChange(
+                    block_access_index=U32(int(change.block_access_index)),
+                    new_nonce=U64(int(change.post_nonce)),
+                )
+                for change in account.nonce_changes
+            ),
+            code_changes=tuple(
+                CodeChange(
+                    block_access_index=U32(int(change.block_access_index)),
+                    new_code=AmsterdamBytes(bytes(change.new_code)),
+                )
+                for change in account.code_changes
+            ),
+        )
+        for account in block_access_list.root
+    ]
+
+
+def build_amsterdam_stateless_artifacts_from_t8n(
+    *,
+    fork: Fork,
+    block_number: int,
+    timestamp: int,
+    header: FixtureHeader,
+    previous_env: Environment,
+    txs: List[Transaction],
+    result: Result,
+    withdrawals: List[Withdrawal] | None,
+    requests_list: List[Bytes] | None,
+    execution_witness: ExecutionWitness,
+    block_access_list: BlockAccessList,
+    chain_id: int,
+) -> tuple[Bytes, Bytes] | None:
+    """
+    Build Amsterdam stateless input/output bytes from t8n witness artifacts.
+
+    Returns ``None`` when the finalized request list cannot be decoded into
+    the Amsterdam request container, matching the existing EELS t8n behavior.
+    """
+    active_fork = fork.fork_at(block_number=block_number, timestamp=timestamp)
+    if active_fork.name() != "Amsterdam" or block_number == 0:
+        return None
+
+    from ethereum.forks.amsterdam.blocks import (
+        Block as AmsterdamBlock,
+    )
+    from ethereum.forks.amsterdam.blocks import (
+        Header as AmsterdamHeader,
+    )
+    from ethereum.forks.amsterdam.execution_engine.requests import (
+        decode_execution_requests,
+    )
+    from ethereum.forks.amsterdam.stateless import (
+        StatelessValidationResult,
+        compute_new_payload_request_root,
+    )
+    from ethereum.forks.amsterdam.stateless_guest import (
+        serialize_stateless_output,
+    )
+    from ethereum.forks.amsterdam.stateless_host import (
+        build_chain_config,
+        build_stateless_input,
+        serialize_stateless_input,
+    )
+    from ethereum_types.bytes import Bytes as AmsterdamBytes
+    from ethereum_types.numeric import U64
+
+    parent_number = ZeroPaddedHexNumber(block_number - 1)
+    parent_header_rlp = previous_env.block_headers.get(parent_number)
+    if parent_header_rlp is None:
+        return None
+    parent_header = _decode_amsterdam_header_bytes(parent_header_rlp)
+    if parent_header is None:
+        return None
+    if Hash(parent_header_rlp.keccak256()) != header.parent_hash:
+        return None
+
+    current_header = _decode_amsterdam_header_bytes(header.rlp)
+    if not isinstance(current_header, AmsterdamHeader):
+        return None
+
+    try:
+        execution_requests = decode_execution_requests(
+            tuple(
+                AmsterdamBytes(bytes(request))
+                for request in requests_list or []
+            )
+        )
+    except Exception:
+        return None
+
+    rejected_indices = {
+        int(rejected.index) for rejected in result.rejected_transactions
+    }
+    accepted_txs = tuple(
+        AmsterdamBytes(bytes(tx.rlp()))
+        for index, tx in enumerate(txs)
+        if index not in rejected_indices
+    )
+    block = AmsterdamBlock(
+        header=current_header,
+        transactions=accepted_txs,
+        ommers=(),
+        withdrawals=_convert_amsterdam_withdrawals(withdrawals),
+    )
+    stateless_input = build_stateless_input(
+        block,
+        execution_witness=_convert_amsterdam_execution_witness(
+            execution_witness
+        ),
+        execution_requests=execution_requests,
+        block_access_list=_convert_amsterdam_block_access_list(
+            block_access_list
+        ),
+        chain_id=U64(chain_id),
+    )
+    stateless_input_bytes = serialize_stateless_input(stateless_input)
+    # TODO: Replace this shortcut with a client-provided validation result
+    # or a real stateless guest run once Geth witness generation is complete.
+    stateless_output = StatelessValidationResult(
+        new_payload_request_root=compute_new_payload_request_root(
+            stateless_input
+        ),
+        successful_validation=True,
+        chain_config=build_chain_config(U64(chain_id)),
+    )
+    stateless_output_bytes = serialize_stateless_output(stateless_output)
+    return (
+        Bytes(bytes(stateless_input_bytes)),
+        Bytes(bytes(stateless_output_bytes)),
+    )
+
+
 def decode_amsterdam_stateless_output(
     *,
     fork: Fork,
@@ -1281,6 +1524,32 @@ class BlockchainTest(BaseTest):
         stateless_output_bytes = (
             transition_tool_output.result.stateless_output_bytes
         )
+        if (
+            not skip_stateless_for_block
+            and t8n_witness is not None
+            and bal is not None
+            and (
+                stateless_input_bytes is None or stateless_output_bytes is None
+            )
+        ):
+            stateless_artifacts = build_amsterdam_stateless_artifacts_from_t8n(
+                fork=fork,
+                block_number=int(env.number),
+                timestamp=int(env.timestamp),
+                header=header,
+                previous_env=previous_env,
+                txs=txs,
+                result=transition_tool_output.result,
+                withdrawals=env.withdrawals,
+                requests_list=requests_list,
+                execution_witness=t8n_witness,
+                block_access_list=bal,
+                chain_id=self.chain_id,
+            )
+            if stateless_artifacts is not None:
+                stateless_input_bytes, stateless_output_bytes = (
+                    stateless_artifacts
+                )
         stateless_output = decode_amsterdam_stateless_output(
             fork=fork,
             block_number=int(env.number),
