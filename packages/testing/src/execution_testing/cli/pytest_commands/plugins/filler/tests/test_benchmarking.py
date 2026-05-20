@@ -193,7 +193,7 @@ def test_benchmarking_mode_configured_with_option(
     )
 
     assert result.ret == 0
-    assert any("6 tests collected" in line for line in result.outlines)
+    assert any("3 tests collected" in line for line in result.outlines)
     # Check that the test names include the benchmark gas values
     assert any("benchmark-gas-value_10M" in line for line in result.outlines)
     assert any("benchmark-gas-value_20M" in line for line in result.outlines)
@@ -379,8 +379,8 @@ def test_benchmarking_mode_not_configured_without_option(
     )
 
     assert result.ret == 0
-    # Should generate normal test variants (2) without parametrization
-    assert any("2 tests collected" in line for line in result.outlines)
+    # Should generate normal test variants (1) without parametrization
+    assert any("1 test collected" in line for line in result.outlines)
     assert not any(
         "benchmark-gas-value_10M" in line for line in result.outlines
     )
@@ -863,29 +863,29 @@ def test_fixed_opcode_count_invalid_regex_raises_error() -> None:
 @pytest.mark.parametrize(
     "config_counts,expected_tests,expected_ids",
     [
-        pytest.param([1], 2, ["opcount_1"], id="single_int"),
+        pytest.param([1], 1, ["opcount_1"], id="single_int"),
         pytest.param(
             [1, 2, 3],
-            6,
+            3,
             ["opcount_1", "opcount_2", "opcount_3"],
             id="multiple_ints",
         ),
-        pytest.param([0.5], 2, ["opcount_0.5"], id="single_float"),
+        pytest.param([0.5], 1, ["opcount_0.5"], id="single_float"),
         pytest.param(
             [0.5, 1, 2],
-            6,
+            3,
             ["opcount_0.5", "opcount_1", "opcount_2"],
             id="multiple_floats",
         ),
         pytest.param(
             [1, 0.5, 2],
-            6,
+            3,
             ["opcount_1", "opcount_0.5", "opcount_2"],
             id="mixed_int_float",
         ),
         pytest.param(
             [1, 2, 3, 5],
-            8,
+            4,
             ["opcount_1", "opcount_2", "opcount_3", "opcount_5"],
             id="four_ints",
         ),
@@ -943,7 +943,7 @@ def test_fixed_opcode_count_config_file_parametrized(
     )
 
     assert result.ret == 0
-    # Check expected number of tests (2 test types * len(counts))
+    # Check expected number of tests (1 test type * len(counts))
     assert any(f"{expected_tests} passed" in line for line in result.outlines)
     # Check opcode count IDs are present
     for expected_id in expected_ids:
