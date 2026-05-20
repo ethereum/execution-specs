@@ -28,11 +28,13 @@ from execution_testing import (
     Header,
     Initcode,
     Op,
+    StateTestFiller,
     Transaction,
     TransactionException,
     add_kzg_version,
     compute_create_address,
 )
+from execution_testing import Macros as Om
 
 from .spec import ref_spec_7928
 
@@ -578,6 +580,118 @@ def test_bal_block_rewards(
         blocks=[block],
         post={},
         genesis_environment=genesis_env,
+    )
+
+
+@pytest.mark.parametrize(
+    "same_tx", [False, True], ids=["pre_deploy", "same_tx"]
+)
+def test_bal_selfdestruct_to_coinbase(
+    pre: Alloc,
+    state_test: StateTestFiller,
+    fork: Fork,
+    same_tx: bool,
+) -> None:
+    """
+    Ensure BAL records SELFDESTRUCT when the beneficiary is the coinbase.
+
+    Post-Cancun (EIP-6780) the contract is only actually destroyed when
+    created in the same tx; the pre-deployed path only transfers balance
+    and preserves the contract. Both shapes must appear in BAL.
+    """
+    alice = pre.fund_eoa()
+    coinbase = pre.fund_eoa(amount=0)
+    victim_balance = 100
+    victim_code = Op.SELFDESTRUCT(Op.COINBASE)
+
+    # Match gas_price to base_fee so the priority-fee tip is zero;
+    # coinbase's BAL entry then carries only the SELFDESTRUCT transfer.
+    base_fee_per_gas = 7
+    env = Environment(
+        base_fee_per_gas=base_fee_per_gas, fee_recipient=coinbase
+    )
+
+    tx_gas_limit = fork.transaction_gas_limit_cap()
+    account_expectations: dict[Address, BalAccountExpectation]
+
+    if same_tx:
+        initcode = Initcode(deploy_code=victim_code)
+        factory_code = Om.MSTORE(initcode, 0) + Op.CALL(
+            gas=Op.GAS,
+            address=Op.CREATE(
+                value=victim_balance, offset=0, size=len(initcode)
+            ),
+        )
+        factory = pre.deploy_contract(
+            code=factory_code, balance=victim_balance
+        )
+        victim = compute_create_address(address=factory, nonce=1)
+        tx_target = factory
+        post = {
+            factory: Account(balance=0),
+            victim: Account.NONEXISTENT,
+            coinbase: Account(balance=victim_balance),
+        }
+        account_expectations = {
+            factory: BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=2)
+                ],
+                balance_changes=[
+                    BalBalanceChange(block_access_index=1, post_balance=0)
+                ],
+            ),
+            # Created and destroyed in the same tx — empty changes.
+            victim: BalAccountExpectation.empty(),
+            coinbase: BalAccountExpectation(
+                balance_changes=[
+                    BalBalanceChange(
+                        block_access_index=1, post_balance=victim_balance
+                    )
+                ],
+            ),
+        }
+    else:
+        victim = pre.deploy_contract(code=victim_code, balance=victim_balance)
+        tx_target = victim
+        # Pre-deployed and not same-tx: post-Cancun preserves the contract.
+        post = {
+            victim: Account(balance=0, code=victim_code),
+            coinbase: Account(balance=victim_balance),
+        }
+        account_expectations = {
+            victim: BalAccountExpectation(
+                balance_changes=[
+                    BalBalanceChange(block_access_index=1, post_balance=0)
+                ],
+            ),
+            coinbase: BalAccountExpectation(
+                balance_changes=[
+                    BalBalanceChange(
+                        block_access_index=1, post_balance=victim_balance
+                    )
+                ],
+            ),
+        }
+
+    tx = Transaction(
+        sender=alice,
+        to=tx_target,
+        gas_limit=tx_gas_limit,
+        gas_price=base_fee_per_gas,
+    )
+
+    state_test(
+        env=env,
+        pre=pre,
+        post=post,
+        tx=tx,
+        blockchain_test_header_verify=Header(
+            base_fee_per_gas=base_fee_per_gas
+        ),
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations=account_expectations,
+        ),
     )
 
 
@@ -1236,6 +1350,188 @@ def test_bal_aborted_account_access(
         pre=pre,
         blocks=[block],
         post={},
+    )
+
+
+@pytest.mark.parametrize(
+    "inner_action",
+    ["sstore", "sload", "balance", "extcodesize"],
+)
+@pytest.mark.parametrize(
+    "outer_abort",
+    [
+        pytest.param(Op.REVERT(0, 0), id="outer_revert"),
+        pytest.param(Op.INVALID, id="outer_invalid"),
+    ],
+)
+def test_bal_parent_revert_state_access(
+    pre: Alloc,
+    state_test: StateTestFiller,
+    fork: Fork,
+    inner_action: str,
+    outer_abort: Op,
+) -> None:
+    """Ensure BAL captures child-frame state access when the parent reverts."""
+    alice = pre.fund_eoa()
+    extra_target = pre.deploy_contract(code=Op.STOP)
+
+    if inner_action == "sstore":
+        # Write demoted to read by parent revert; pre-set 0xDEAD so the
+        # post-state confirms the slot was unchanged.
+        inner = pre.deploy_contract(
+            code=Op.SSTORE(1, 0x42) + Op.STOP,
+            storage={1: 0xDEAD},
+        )
+    elif inner_action == "sload":
+        inner = pre.deploy_contract(
+            code=Op.POP(Op.SLOAD(1)) + Op.STOP,
+            storage={1: 0xDEAD},
+        )
+    elif inner_action == "balance":
+        inner = pre.deploy_contract(
+            code=Op.POP(Op.BALANCE(extra_target)) + Op.STOP
+        )
+    elif inner_action == "extcodesize":
+        inner = pre.deploy_contract(
+            code=Op.POP(Op.EXTCODESIZE(extra_target)) + Op.STOP
+        )
+    else:
+        raise ValueError(f"unknown inner_action: {inner_action}")
+    outer = pre.deploy_contract(
+        code=Op.CALL(gas=Op.GAS, address=inner) + outer_abort
+    )
+
+    tx = Transaction(
+        sender=alice, to=outer, gas_limit=fork.transaction_gas_limit_cap()
+    )
+
+    account_expectations: dict[Address, BalAccountExpectation]
+    if inner_action in ("sstore", "sload"):
+        account_expectations = {
+            inner: BalAccountExpectation(storage_reads=[1]),
+        }
+    elif inner_action in ("balance", "extcodesize"):
+        account_expectations = {
+            inner: BalAccountExpectation.empty(),
+            extra_target: BalAccountExpectation.empty(),
+        }
+    else:
+        raise ValueError(f"unknown inner_action: {inner_action}")
+
+    post: dict = {alice: Account(nonce=1)}
+    if inner_action in ("sstore", "sload"):
+        # Slot 1 stays at its pre-state value: SSTORE demoted to read,
+        # SLOAD never mutates.
+        post[inner] = Account(storage={1: 0xDEAD})
+
+    state_test(
+        pre=pre,
+        post=post,
+        tx=tx,
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations=account_expectations,
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    "inner_op",
+    [pytest.param("call", id="call"), pytest.param("create", id="create")],
+)
+def test_bal_outer_revert_with_inner_insufficient_funds(
+    pre: Alloc,
+    state_test: StateTestFiller,
+    fork: Fork,
+    inner_op: str,
+) -> None:
+    """
+    Outer REVERT + inner CALL/CREATE that fails on insufficient funds.
+
+    Inner writes two slots and then attempts a value-bearing CALL or
+    CREATE that fails (balance=0 < value). The opcode's state-touching
+    costs are charged before the balance check, so the failed CALL's
+    target stays in BAL with empty changes, while CREATE fails before
+    `track_address` and the would-be address does not appear at all.
+    Inner's writes demote to reads under outer's REVERT; the post-state
+    checks confirm none of the rolled-back state leaked through.
+    """
+    alice = pre.fund_eoa()
+    slot_a, slot_b = 1, 2
+    insufficient_value = 100
+
+    if inner_op == "call":
+        target = pre.deploy_contract(code=Op.STOP)
+        inner = pre.deploy_contract(
+            code=(
+                Op.SSTORE(slot_a, 0x42)
+                + Op.SSTORE(
+                    slot_b,
+                    Op.CALL(
+                        gas=100_000,
+                        address=target,
+                        value=insufficient_value,
+                    ),
+                )
+                + Op.STOP
+            ),
+            balance=0,
+        )
+        extra_account = target
+        extra_bal: BalAccountExpectation | None = BalAccountExpectation.empty()
+        extra_post: Account | None = Account(balance=0)
+    elif inner_op == "create":
+        initcode_bytes = bytes(Initcode(deploy_code=Op.STOP))
+        inner = pre.deploy_contract(
+            code=(
+                Op.MSTORE(0, Op.PUSH32(initcode_bytes))
+                + Op.SSTORE(slot_a, 0x42)
+                + Op.SSTORE(
+                    slot_b,
+                    Op.CREATE(
+                        value=insufficient_value,
+                        offset=32 - len(initcode_bytes),
+                        size=len(initcode_bytes),
+                    ),
+                )
+                + Op.STOP
+            ),
+            balance=0,
+        )
+        extra_account = compute_create_address(address=inner, nonce=1)
+        extra_bal = None
+        extra_post = Account.NONEXISTENT
+    else:
+        raise ValueError(f"unknown inner_op: {inner_op}")
+
+    outer = pre.deploy_contract(
+        code=Op.CALL(gas=Op.GAS, address=inner) + Op.REVERT(0, 0)
+    )
+
+    tx = Transaction(
+        sender=alice, to=outer, gas_limit=fork.transaction_gas_limit_cap()
+    )
+
+    state_test(
+        pre=pre,
+        post={
+            alice: Account(nonce=1),
+            outer: Account(balance=0, storage={}),
+            inner: Account(balance=0, storage={}),
+            extra_account: extra_post,
+        },
+        tx=tx,
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                outer: BalAccountExpectation.empty(),
+                inner: BalAccountExpectation(storage_reads=[slot_a, slot_b]),
+                extra_account: extra_bal,
+            },
+        ),
     )
 
 
@@ -2376,6 +2672,168 @@ def test_bal_cross_tx_deploy_then_call(
             ),
             factory: Account(nonce=2, storage={0: target}),
         },
+    )
+
+
+@pytest.mark.parametrize(
+    "failure_mode",
+    [
+        pytest.param("none", id="no_failure"),
+        pytest.param("collision", id="mid_chain_collision"),
+        pytest.param("oog", id="mid_chain_oog"),
+    ],
+)
+@pytest.mark.pre_alloc_mutable()
+def test_bal_cross_tx_factory_nonce_create_chain(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    fork: Fork,
+    failure_mode: str,
+) -> None:
+    """
+    Cross-tx CREATE chain: 8 senders share a factory whose CREATE
+    address derives solely from `factory.nonce`. `collision` and `oog`
+    test opposite parallelization hazards mid-chain — collision still
+    bumps factory.nonce (later txs slide forward), OOG does not (later
+    txs slide backward, reusing the OOG'd slot).
+    """
+    chain_length = 8
+    failure_index = 3 if failure_mode in ("collision", "oog") else None
+
+    factory_code = (
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.CREATE(0, 0, Op.CALLDATASIZE)
+        + Op.STOP
+    )
+    factory = pre.deploy_contract(code=factory_code)
+    factory_pre_nonce = 1
+
+    deploy_code = Op.STOP
+    initcode = Initcode(deploy_code=deploy_code)
+    collision_code = Op.PUSH1(0x42) + Op.STOP
+
+    targets = [
+        compute_create_address(address=factory, nonce=factory_pre_nonce + k)
+        for k in range(chain_length)
+    ]
+
+    if failure_mode == "collision":
+        assert failure_index is not None
+        pre[targets[failure_index]] = Account(code=collision_code)
+
+    sequence: list[dict] = []
+    factory_nonce = factory_pre_nonce
+    for i in range(chain_length):
+        block_idx = i + 1
+        if failure_mode == "oog" and i == failure_index:
+            sequence.append(
+                {"block_idx": block_idx, "target_idx": None, "deployed": False}
+            )
+        else:
+            target_idx = factory_nonce - factory_pre_nonce
+            factory_nonce += 1
+            deployed = not (failure_mode == "collision" and i == failure_index)
+            sequence.append(
+                {
+                    "block_idx": block_idx,
+                    "factory_post_nonce": factory_nonce,
+                    "target_idx": target_idx,
+                    "deployed": deployed,
+                }
+            )
+
+    senders = [pre.fund_eoa() for _ in range(chain_length)]
+    # OOG tx: intrinsic + 1 — valid to include but no gas to run CREATE.
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        calldata=bytes(initcode), contract_creation=False, access_list=[]
+    )
+    txs = [
+        Transaction(
+            sender=senders[i],
+            to=factory,
+            data=initcode,
+            gas_limit=(
+                intrinsic + 1
+                if failure_mode == "oog" and i == failure_index
+                else fork.transaction_gas_limit_cap()
+            ),
+        )
+        for i in range(chain_length)
+    ]
+
+    account_expectations: dict = {
+        senders[i]: BalAccountExpectation(
+            nonce_changes=[
+                BalNonceChange(block_access_index=i + 1, post_nonce=1)
+            ],
+        )
+        for i in range(chain_length)
+    }
+    # Factory: only txs that bumped its nonce contribute entries.
+    account_expectations[factory] = BalAccountExpectation(
+        nonce_changes=[
+            BalNonceChange(
+                block_access_index=s["block_idx"],
+                post_nonce=s["factory_post_nonce"],
+            )
+            for s in sequence
+            if s["target_idx"] is not None
+        ],
+    )
+    for s in sequence:
+        if s["target_idx"] is None:
+            continue
+        target = targets[s["target_idx"]]
+        if s["deployed"]:
+            account_expectations[target] = BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(
+                        block_access_index=s["block_idx"], post_nonce=1
+                    )
+                ],
+                code_changes=[
+                    BalCodeChange(
+                        block_access_index=s["block_idx"],
+                        new_code=deploy_code,
+                    )
+                ],
+            )
+        else:
+            # Collision: accessed during EIP-684 check, no state change.
+            account_expectations[target] = BalAccountExpectation.empty()
+
+    touched_target_idxs = {
+        s["target_idx"] for s in sequence if s["target_idx"] is not None
+    }
+    final_factory_nonce = factory_pre_nonce + len(touched_target_idxs)
+    post: dict = {
+        factory: Account(nonce=final_factory_nonce),
+        **{sender: Account(nonce=1) for sender in senders},
+    }
+    for s in sequence:
+        if s["target_idx"] is None:
+            continue
+        target = targets[s["target_idx"]]
+        post[target] = (
+            Account(nonce=1, code=deploy_code)
+            if s["deployed"]
+            else Account(code=collision_code)
+        )
+    for k, target in enumerate(targets):
+        if k not in touched_target_idxs:
+            post[target] = Account.NONEXISTENT
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=txs,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations=account_expectations
+                ),
+            )
+        ],
+        post=post,
     )
 
 

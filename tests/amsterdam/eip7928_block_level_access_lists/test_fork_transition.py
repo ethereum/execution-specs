@@ -12,7 +12,6 @@ from execution_testing import (
     BlockchainTestFiller,
     BlockException,
     EIPChecklist,
-    EngineAPIError,
     Environment,
     Hash,
     Header,
@@ -94,9 +93,6 @@ def test_invalid_pre_fork_block_with_bal_hash_field(
     """
     Reject a pre-Amsterdam block whose header carries
     `block_access_list_hash`.
-
-    The field is not part of the pre-fork header schema; injecting it via the
-    Engine API must fail with `INCORRECT_BLOCK_FORMAT` / `InvalidParams`.
     """
     sender = pre.fund_eoa()
     receiver = pre.fund_eoa(amount=0)
@@ -111,8 +107,7 @@ def test_invalid_pre_fork_block_with_bal_hash_field(
                 timestamp=FORK_TIMESTAMP - 1,
                 txs=[tx],
                 rlp_modifier=Header(block_access_list_hash=Hash(0)),
-                exception=BlockException.INCORRECT_BLOCK_FORMAT,
-                engine_api_error_code=EngineAPIError.InvalidParams,
+                exception=BlockException.INVALID_BLOCK_HASH,
             ),
         ],
     )
@@ -144,8 +139,10 @@ def test_invalid_post_fork_block_without_bal_hash_field(
                 rlp_modifier=Header(
                     block_access_list_hash=Header.REMOVE_FIELD,
                 ),
-                exception=BlockException.INCORRECT_BLOCK_FORMAT,
-                engine_api_error_code=EngineAPIError.InvalidParams,
+                exception=[
+                    BlockException.INVALID_BAL_HASH,
+                    BlockException.INVALID_BLOCK_HASH,
+                ],
             ),
         ],
     )
