@@ -141,6 +141,29 @@ class ForkchoiceUpdateTimeoutError(Exception):
         super().__init__(msg)
 
 
+class NewPayloadTimeoutError(Exception):
+    """Raised when ``engine_newPayload`` stays SYNCING past the retry limit."""
+
+    def __init__(
+        self,
+        attempts: int,
+        elapsed: float,
+        interval: float,
+        final_status: PayloadStatusEnum,
+    ):
+        """Initialize with retry statistics and final status."""
+        self.attempts = attempts
+        self.elapsed = elapsed
+        self.interval = interval
+        self.final_status = final_status
+        msg = (
+            f"new_payload stayed SYNCING after {attempts} attempts over "
+            f"{elapsed:.1f}s (interval: {interval}s), final status: "
+            f"{final_status}"
+        )
+        super().__init__(msg)
+
+
 class PeerConnectionTimeoutError(Exception):
     """Raised when peer connection is not established within retry limits."""
 
@@ -1195,6 +1218,53 @@ class EngineRPC(BaseJwtRPC):
             context=self.response_validation_context,
         )
 
+    def new_payload_with_retry(
+        self,
+        *params: Any,
+        version: int,
+        max_attempts: int = 10,
+        wait_fixed: float = 1.0,
+    ) -> PayloadStatus:
+        """
+        Send ``engine_newPayloadVX``, retrying while SYNCING.
+
+        Mirrors :meth:`forkchoice_updated_with_retry`: returns immediately on
+        any terminal status (VALID / INVALID / ACCEPTED / INVALID_BLOCK_HASH);
+        only loops while the client returns SYNCING. Raises
+        :class:`NewPayloadTimeoutError` if the budget runs out.
+        """
+        attempts = 0
+        start_time = time.time()
+        last_status: PayloadStatusEnum | None = None
+
+        def _on_retry(retry_state: RetryCallState) -> None:
+            logger.debug(
+                f"newPayload attempt {retry_state.attempt_number}: "
+                f"status={last_status}, retrying in {wait_fixed}s..."
+            )
+
+        @retry(
+            stop=stop_after_attempt(max_attempts),
+            wait=wait_fixed_tenacity(wait_fixed),
+            before_sleep=_on_retry,
+            reraise=True,
+        )
+        def _do() -> PayloadStatus:
+            nonlocal attempts, last_status
+            attempts += 1
+            response = self.new_payload(*params, version=version)
+            last_status = response.status
+            if response.status == PayloadStatusEnum.SYNCING:
+                raise NewPayloadTimeoutError(
+                    attempts=attempts,
+                    elapsed=time.time() - start_time,
+                    interval=wait_fixed,
+                    final_status=response.status,
+                )
+            return response
+
+        return _do()
+
     def forkchoice_updated(
         self,
         forkchoice_state: ForkchoiceState,
@@ -1470,4 +1540,14 @@ class AdminRPC(BaseRPC):
         """`admin_addPeer`: Add a peer by enode URL."""
         return self.post_request(
             request=RPCCall(method="addPeer", params=[enode])
+        ).result_or_raise()
+
+
+class Web3RPC(BaseRPC, namespace="web3"):
+    """Represents the web3 namespace RPC class."""
+
+    def client_version(self) -> str:
+        """`web3_clientVersion`: Return the client's version identifier."""
+        return self.post_request(
+            request=RPCCall(method="clientVersion", params=[])
         ).result_or_raise()

@@ -55,7 +55,7 @@ def test_passthrough_all_untagged() -> None:
 
 
 def test_split_setup_then_execution() -> None:
-    """[S, S, E, E] splits into a pure-SETUP block followed by pure-EXECUTION."""
+    """[S, S, E, E] splits into pure-SETUP then pure-EXECUTION blocks."""
     block = Block(
         txs=[
             _tx(TestPhase.SETUP),

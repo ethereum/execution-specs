@@ -28,6 +28,7 @@ from execution_testing.exceptions import (
 from execution_testing.fixtures.blockchain import (
     FixtureExecutionPayload,
 )
+from execution_testing.forks import Fork
 from execution_testing.test_types import EOA, Transaction, Withdrawal
 
 
@@ -213,6 +214,58 @@ class PayloadAttributes(CamelModel):
     target_blobs_per_block: HexNumber | None = None
     max_blobs_per_block: HexNumber | None = None
     slot_number: HexNumber | None = None
+
+    @classmethod
+    def for_fork(
+        cls,
+        fork: Fork,
+        *,
+        timestamp: int,
+        prev_randao: Hash | None = None,
+        suggested_fee_recipient: Address | None = None,
+        withdrawals: List[Withdrawal] | None = None,
+        parent_beacon_block_root: Hash | None = None,
+    ) -> "PayloadAttributes":
+        """
+        Build PayloadAttributes with fork-aware optional fields filled in.
+
+        ``withdrawals`` and ``parent_beacon_block_root`` default to
+        fork-appropriate empty values; blob and slot fields are populated
+        when the fork's engine API requires them.
+        """
+        if withdrawals is None and fork.header_withdrawals_required():
+            withdrawals = []
+        if (
+            parent_beacon_block_root is None
+            and fork.header_beacon_root_required()
+        ):
+            parent_beacon_block_root = Hash(0)
+        return cls(
+            timestamp=HexNumber(timestamp),
+            prev_randao=prev_randao if prev_randao is not None else Hash(0),
+            suggested_fee_recipient=(
+                suggested_fee_recipient
+                if suggested_fee_recipient is not None
+                else Address(0)
+            ),
+            withdrawals=withdrawals,
+            parent_beacon_block_root=parent_beacon_block_root,
+            target_blobs_per_block=(
+                HexNumber(fork.target_blobs_per_block())
+                if fork.engine_payload_attribute_target_blobs_per_block()
+                else None
+            ),
+            max_blobs_per_block=(
+                HexNumber(fork.max_blobs_per_block())
+                if fork.engine_payload_attribute_max_blobs_per_block()
+                else None
+            ),
+            slot_number=(
+                HexNumber(0)
+                if fork.engine_payload_attribute_slot_number()
+                else None
+            ),
+        )
 
 
 class BlobsBundle(CamelModel):

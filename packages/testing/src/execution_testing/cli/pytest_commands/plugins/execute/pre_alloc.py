@@ -36,6 +36,7 @@ from execution_testing.test_types import (
     EOA,
     AuthorizationTuple,
     ChainConfig,
+    TestPhase,
     Transaction,
     TransactionTestMetadata,
     compute_deterministic_create2_address,
@@ -157,7 +158,6 @@ def execute_required_contracts(
         logger.info(
             "Checking if deterministic factory contract is already deployed"
         )
-        tx_index = 0
         if (
             check_deterministic_factory_deployment(
                 eth_rpc=eth_rpc, fork=session_fork
@@ -165,11 +165,10 @@ def execute_required_contracts(
             is None
         ):
             try:
-                tx_index = deploy_deterministic_factory_contract(
+                deploy_deterministic_factory_contract(
                     eth_rpc=eth_rpc,
                     seed_key=session_worker_key,
                     gas_price=sender_funding_transactions_gas_price,
-                    tx_index=tx_index,
                 )
             except Exception as e:
                 raise RuntimeError(
@@ -290,6 +289,11 @@ class Alloc(SharedAlloc):
         pending_tx = PendingTransaction(
             **kwargs,
         )
+        # Pending txs are setup by definition; override Transaction's
+        # test_phase default (sourced from TestPhaseManager) so a
+        # ``pre.fund_eoa`` call inside ``TestPhaseManager.execution()``
+        # doesn't bleed an EXECUTION phase onto a setup tx.
+        pending_tx.test_phase = TestPhase.SETUP
         pending_tx.metadata = TransactionTestMetadata(
             test_id=self._node_id,
             phase="setup",
@@ -955,20 +959,12 @@ class Alloc(SharedAlloc):
 
     def pending_transactions(self) -> List[Transaction]:
         """
-        Return the queued setup transactions, signed and consumed.
+        Return the queued setup transactions, signed; clears the queue.
 
-        Used by fill-native stateful filling to materialise ``pre.fund_eoa``
-        and ``pre.deploy_contract`` calls into a synthetic setup block
-        instead of sending them via ``send_pending_transactions``.
-
-        Transactions carry ``metadata.phase = "setup"`` (set at queue time),
-        so downstream phase derivation routes them to ``setup_payloads``.
-        After this call the internal queue is cleared — callers are expected
-        to own the returned list.
-
-        Unset transaction ``value`` is coerced to ``0`` because some pending
-        txs (e.g. contract deploys with no ether attached) leave the field
-        unset where the live-send path would default it before broadcast.
+        Used by fill-stateful to materialise ``pre.fund_eoa`` /
+        ``pre.deploy_contract`` calls into a synthetic setup block.
+        Unset ``value`` is coerced to ``0`` (live-send path would default
+        it before broadcast).
         """
         txs: List[Transaction] = []
         for tx in self._pending_txs:

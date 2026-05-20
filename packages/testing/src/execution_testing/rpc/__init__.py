@@ -11,9 +11,11 @@ from .rpc import (
     EthRPC,
     ForkchoiceUpdateTimeoutError,
     NetRPC,
+    NewPayloadTimeoutError,
     PeerConnectionTimeoutError,
     SendTransactionExceptionError,
     TestingRPC,
+    Web3RPC,
 )
 from .rpc_types import (
     BlobAndProofV1,
@@ -43,9 +45,11 @@ __all__ = [
     "JSONRPCRequest",
     "JSONRPCResponse",
     "NetRPC",
+    "NewPayloadTimeoutError",
     "RPCCall",
     "PeerConnectionTimeoutError",
     "SendTransactionExceptionError",
     "TestingRPC",
     "TransactionProtocol",
+    "Web3RPC",
 ]

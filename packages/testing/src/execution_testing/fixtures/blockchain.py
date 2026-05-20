@@ -967,6 +967,16 @@ class BlockchainEngineStatefulFixture(BlockchainEngineFixtureCommon):
     payloads: List[FixtureEngineNewPayload] = Field(
         ..., alias="engineNewPayloads"
     )
+    benchmark_gas_used: HexNumber | None = Field(
+        None,
+        alias="benchmarkGasUsed",
+        description=(
+            "Total gas consumed by the execution payloads when this fixture "
+            "was filled, as reported by the live client. Populated for "
+            "``BENCHMARKING`` operation mode; ``None`` otherwise. Lets "
+            "consumers compare expected vs. observed gas without replay."
+        ),
+    )
 
 
 class StatefulPreRunFixture(CamelModel):

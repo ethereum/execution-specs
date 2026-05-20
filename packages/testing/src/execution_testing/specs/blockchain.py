@@ -34,12 +34,16 @@ from execution_testing.base_types import (
 )
 from execution_testing.client_clis import (
     BlockExceptionWithMessage,
+    ClientBackend,
     FillerBackend,
     LazyAlloc,
     Result,
     TransitionTool,
 )
-from execution_testing.client_clis.cli_types import OpcodeCount
+from execution_testing.client_clis.cli_types import (
+    EnginePayloadMetadata,
+    OpcodeCount,
+)
 from execution_testing.exceptions import (
     BlockException,
     EngineAPIError,
@@ -145,26 +149,20 @@ def count_blobs(txs: List[Transaction]) -> int:
     )
 
 
-def _fixture_payload_from_client_response(
+def payload_metadata_to_fixture(
+    meta: EnginePayloadMetadata,
     *,
-    response: Any,
-    new_payload_version: int,
-    forkchoice_updated_version: int,
-    parent_beacon_block_root: Hash | None,
-    phase: TestPhase | None,
+    phase: TestPhase | None = None,
 ) -> FixtureEngineNewPayload:
     """
-    Build a ``FixtureEngineNewPayload`` directly from the client's
-    ``GetPayloadResponse``.
+    Materialise an ``EnginePayloadMetadata`` into a fixture payload.
 
-    Used by ``make_stateful_fixture``: ClientBackend returns a response
-    whose ``execution_payload`` is authoritative (the client picked
-    fields like ``gas_limit`` itself, and its block_hash is the keccak
-    of the real header RLP). Rebuilding from fill's ``FixtureHeader``
-    would disagree on those fields and produce a mismatched block_hash,
-    so we forward the response verbatim.
+    The client's ``execution_payload`` is forwarded verbatim — rebuilding
+    from fill's ``FixtureHeader`` would disagree on client-chosen fields
+    (``gas_limit``, etc.) and produce a mismatched ``block_hash``.
     """
-    version = new_payload_version
+    version = meta.new_payload_version
+    response = meta.payload_response
     params: List[Any] = [response.execution_payload]
     if version >= 3:
         blob_hashes = (
@@ -173,13 +171,13 @@ def _fixture_payload_from_client_response(
             else []
         )
         params.append(blob_hashes)
-        params.append(parent_beacon_block_root)
+        params.append(meta.parent_beacon_block_root)
     if version >= 4 and response.execution_requests is not None:
         params.append(response.execution_requests)
     return FixtureEngineNewPayload(
         params=tuple(params),
         new_payload_version=version,
-        forkchoice_updated_version=forkchoice_updated_version,
+        forkchoice_updated_version=meta.forkchoice_updated_version,
         phase=phase,
     )
 
@@ -350,6 +348,27 @@ class Block(Header):
     """EIP-7928: Block-level access lists (serialized)."""
     expected_gas_used: int | None = None
     """Expected gas used for the block."""
+
+    @property
+    def phase(self) -> TestPhase | None:
+        """
+        Return the single phase shared by all txs, or ``None`` when the
+        block has no phase-tagged txs.
+
+        Mixed-phase blocks must be split via ``_split_blocks_by_phase``
+        before this property is read — they would otherwise need an
+        arbitrary tiebreaker, which is a bug, not a default.
+        """
+        phases = {_tx_phase(tx) for tx in self.txs}
+        phases.discard(None)
+        if not phases:
+            return None
+        if len(phases) == 1:
+            return next(iter(phases))
+        raise AssertionError(
+            f"Block.phase called on mixed-phase block (phases={phases}); "
+            "split via _split_blocks_by_phase first."
+        )
 
     def set_environment(self, env: Environment) -> Environment:
         """
@@ -578,6 +597,17 @@ class BuiltBlock(CamelModel):
         )
 
 
+class TestingBuildBlock(BuiltBlock):
+    """
+    ``BuiltBlock`` from a live-client backend; carries the engine payload
+    so ``make_stateful_fixture`` can record what the client built.
+    """
+
+    model_config = CamelModel.model_config | {"arbitrary_types_allowed": True}
+
+    engine_payload: EnginePayloadMetadata
+
+
 GENESIS_ENVIRONMENT_DEFAULTS: Dict[str, Any] = {
     "fee_recipient": 0,
     "number": 0,
@@ -604,21 +634,15 @@ def _tx_phase(tx: Transaction) -> TestPhase | None:
 
 def _split_blocks_by_phase(blocks: List[Block]) -> List[Block]:
     """
-    Split each block by contiguous phase runs of its transactions.
+    Split each block into contiguous phase runs.
 
-    A block whose transactions interleave phases (e.g. an EIP-7702
-    authorization tagged SETUP followed by benchmark TEST transactions)
-    becomes multiple back-to-back blocks, one per contiguous phase run.
-    Without the split, ``FixtureEngineNewPayload.derive_phase`` returns
-    SETUP whenever any setup tx is present and the entire payload is
-    swallowed into ``setupEngineNewPayloads`` — benchmark gas would
-    never be measured.
+    A mixed-phase block (e.g. EIP-7702 authorization tagged SETUP
+    followed by benchmark TEST txs) becomes multiple back-to-back
+    blocks, one per run; ``Block.phase`` asserts on mixed input.
 
-    Block-level fields that describe the block's final state
-    (``expected_post_state``, ``header_verify``, etc.) only apply to
-    the original whole block, so they stay on the LAST sub-block;
-    earlier sub-blocks get those fields cleared. Untagged
-    transactions (phase ``None``) run in their own contiguous group.
+    Block-level fields describing final state (``expected_post_state``,
+    ``header_verify``, ...) stay on the LAST sub-block; earlier
+    sub-blocks get them cleared.
     """
     out: List[Block] = []
     for block in blocks:
@@ -685,12 +709,14 @@ class BlockchainTest(BaseTest):
     Include transaction receipts in the fixture output.
     """
 
+    # ``BlockchainEngineStatefulFixture`` is patched in by the
+    # ``fill_stateful`` plugin at import time; it requires a live
+    # ``ClientBackend`` so it must not be in the default list.
     supported_fixture_formats: ClassVar[
         Sequence[FixtureFormat | LabeledFixtureFormat]
     ] = [
         BlockchainFixture,
         BlockchainEngineFixture,
-        BlockchainEngineStatefulFixture,
         BlockchainEngineSyncFixture,
         BlockchainEngineXFixture,
     ]
@@ -956,7 +982,7 @@ class BlockchainTest(BaseTest):
                 # header hash
                 header.block_access_list_hash = Hash(bal.rlp.keccak256())
 
-        built_block = BuiltBlock(
+        built_block_kwargs: Dict[str, Any] = dict(
             header=header,
             alloc=transition_tool_output.alloc,
             state_root=transition_tool_output.result.state_root,
@@ -972,6 +998,14 @@ class BlockchainTest(BaseTest):
             fork=fork,
             block_access_list=bal,
         )
+        built_block: BuiltBlock
+        if transition_tool_output.engine_payload is not None:
+            built_block = TestingBuildBlock(
+                **built_block_kwargs,
+                engine_payload=transition_tool_output.engine_payload,
+            )
+        else:
+            built_block = BuiltBlock(**built_block_kwargs)
 
         try:
             rejected_txs = built_block.verify_transactions(
@@ -1299,26 +1333,24 @@ class BlockchainTest(BaseTest):
           (execution-phase txs).
         - ``verify_post_state`` is skipped: the client is the oracle.
         """
-        snapshot_block = getattr(t8n, "snapshot_block", None)
-        start_block = getattr(t8n, "start_block", None)
-        if snapshot_block is None or start_block is None:
+        if not isinstance(t8n, ClientBackend):
             raise RuntimeError(
-                "make_stateful_fixture requires a backend with "
-                "`snapshot_block` and `start_block` captured before fill; "
-                "got backend of type "
+                "make_stateful_fixture requires a ClientBackend; got "
                 f"{type(t8n).__name__}."
             )
+        if t8n.snapshot_block is None or t8n.start_block is None:
+            raise RuntimeError(
+                "ClientBackend.snapshot_block / .start_block must be "
+                "captured by the fill-stateful pre-run before fill."
+            )
+        snapshot_block = t8n.snapshot_block
+        start_block = t8n.start_block
 
-        # Resolve execute.pre_alloc's deferred machinery so pending-tx
-        # funding amounts get materialised before we pull the queue.
-        # Mirrors execute.py's pre-send flow:
-        #   1. ask the test for its required sender balances
-        #   2. resolve deferred deploys / stubs / fund_addresses
-        #   3. run minimum_balance_for_pending_transactions so that
-        #      deferred ``fund_eoa()`` calls get real values.
-        # Tests that use the fill-native Alloc subclass (which exposes
-        # ``pending_transactions``) go through this path; other tests
-        # are no-ops.
+        # Mirror execute.py's pre-send flow so pending-tx funding amounts
+        # materialise before we drain the queue: required-balances →
+        # resolve deferred deploys/stubs/fund_addresses → run
+        # minimum_balance_for_pending_transactions. Tests whose Alloc
+        # does not expose ``pending_transactions`` skip this entirely.
         pending_getter = getattr(self.pre, "pending_transactions", None)
         resolve_deferred = getattr(self.pre, "resolve_deferred_checks", None)
         min_balance = getattr(
@@ -1329,53 +1361,43 @@ class BlockchainTest(BaseTest):
             and callable(resolve_deferred)
             and callable(min_balance)
         ):
-            try:
-                execute_plan = self.execute(execute_format=TransactionPost)
-            except Exception:
-                # Non-TransactionPost-capable test spec; skip.
-                execute_plan = None
-            if execute_plan is not None:
-                session_fork = self.fork.fork_at(block_number=0, timestamp=0)
-                # Pinned live fees flow in via the backend (populated by the
-                # fill-stateful plugin from ``eth_rpc`` + CLI defaults).
-                gas_price = getattr(t8n, "gas_price", 0)
-                max_fee_per_gas = getattr(t8n, "max_fee_per_gas", 0)
-                max_priority_fee_per_gas = getattr(
-                    t8n, "max_priority_fee_per_gas", 0
+            execute_plan = self.execute(execute_format=TransactionPost)
+            session_fork = self.fork.fork_at(block_number=0, timestamp=0)
+            # Session fees pinned on the backend by the fill-stateful plugin.
+            gas_price = t8n.gas_price
+            max_fee_per_gas = t8n.max_fee_per_gas
+            max_priority_fee_per_gas = t8n.max_priority_fee_per_gas
+            max_fee_per_blob_gas = t8n.max_fee_per_blob_gas
+            if not all(
+                [
+                    gas_price,
+                    max_fee_per_gas,
+                    max_priority_fee_per_gas,
+                    max_fee_per_blob_gas,
+                ]
+            ):
+                raise RuntimeError(
+                    "make_stateful_fixture requires the backend to carry "
+                    f"non-zero session fees; got gas_price={gas_price}, "
+                    f"max_fee_per_gas={max_fee_per_gas}, "
+                    f"max_priority_fee_per_gas={max_priority_fee_per_gas}, "
+                    f"max_fee_per_blob_gas={max_fee_per_blob_gas}."
                 )
-                max_fee_per_blob_gas = getattr(t8n, "max_fee_per_blob_gas", 0)
-                if not all(
-                    [
-                        gas_price,
-                        max_fee_per_gas,
-                        max_priority_fee_per_gas,
-                        max_fee_per_blob_gas,
-                    ]
-                ):
-                    raise RuntimeError(
-                        "make_stateful_fixture requires the backend to "
-                        "carry non-zero session fees; got "
-                        f"gas_price={gas_price}, "
-                        f"max_fee_per_gas={max_fee_per_gas}, "
-                        f"max_priority_fee_per_gas="
-                        f"{max_priority_fee_per_gas}, "
-                        f"max_fee_per_blob_gas={max_fee_per_blob_gas}."
-                    )
-                required_balances = execute_plan.get_required_sender_balances(
-                    gas_price=gas_price,
-                    max_fee_per_gas=max_fee_per_gas,
-                    max_priority_fee_per_gas=max_priority_fee_per_gas,
-                    max_fee_per_blob_gas=max_fee_per_blob_gas,
-                    fork=session_fork,
-                )
-                resolve_deferred()
-                min_balance(
-                    required_balances,
-                    gas_price=gas_price,
-                    max_fee_per_gas=max_fee_per_gas,
-                    max_priority_fee_per_gas=max_priority_fee_per_gas,
-                    max_fee_per_blob_gas=max_fee_per_blob_gas,
-                )
+            required_balances = execute_plan.get_required_sender_balances(
+                gas_price=gas_price,
+                max_fee_per_gas=max_fee_per_gas,
+                max_priority_fee_per_gas=max_priority_fee_per_gas,
+                max_fee_per_blob_gas=max_fee_per_blob_gas,
+                fork=session_fork,
+            )
+            resolve_deferred()
+            min_balance(
+                required_balances,
+                gas_price=gas_price,
+                max_fee_per_gas=max_fee_per_gas,
+                max_priority_fee_per_gas=max_priority_fee_per_gas,
+                max_fee_per_blob_gas=max_fee_per_blob_gas,
+            )
 
         # Materialise queued pre-alloc txs into a synthetic setup block.
         blocks_to_process: List[Block] = []
@@ -1383,25 +1405,20 @@ class BlockchainTest(BaseTest):
             setup_txs = pending_getter()
             if setup_txs:
                 blocks_to_process.append(Block(txs=setup_txs))
-        # Split each user-declared block by contiguous phase runs. A
-        # block holding both SETUP (e.g. an EIP-7702 authorization) and
-        # TEST (the benchmark exec) transactions would otherwise have
-        # its entire payload routed to ``setupEngineNewPayloads`` —
-        # ``derive_phase`` returns SETUP whenever any setup tx is
-        # present — so benchmark gas would never be measured.
+        # Each block must be single-phase (Block.phase asserts otherwise);
+        # mixed blocks (e.g. EIP-7702 authorization + benchmark exec) are
+        # split into contiguous phase runs so benchmark gas isn't
+        # swallowed into ``setupEngineNewPayloads``.
         blocks_to_process.extend(_split_blocks_by_phase(self.blocks))
 
-        # Chain blocks off the session's start_block (client head after
-        # global pre-run). Each built block updates env.parent_hash.
+        # Chain off the session start_block. We pull parent_* from a
+        # FixtureHeader-validated copy of the client's block dict, but
+        # seed block_hashes with the client's hash directly — FixtureHeader
+        # recomputes block_hash from RLP and that diverges from the
+        # client's authoritative hash unless every header byte is
+        # reproduced exactly.
         start_block_number = int(HexNumber(start_block["number"]))
         start_block_hash = Hash(start_block["hash"])
-        # Derive a FixtureHeader from the client's block dict for the
-        # parent_* fields (timestamp, base_fee, gas_limit, ...).
-        # FixtureHeader recomputes ``block_hash`` from its RLP, which
-        # will not match the client's authoritative hash unless every
-        # header byte is reproduced exactly — so we build the
-        # Environment manually using ``start_block["hash"]`` directly
-        # for block_hashes.
         parent_header = FixtureHeader.model_validate(start_block)
         env = Environment(
             parent_difficulty=parent_header.difficulty,
@@ -1425,16 +1442,6 @@ class BlockchainTest(BaseTest):
         # Alloc is not authoritative in stateful mode; pass self.pre as a
         # placeholder — ClientBackend ignores it.
         alloc: Alloc | LazyAlloc = self.pre
-        # After each block, pull the client's authoritative payload
-        # directly from the backend so the fixture records what the
-        # client actually built (gas_limit picked by the client, etc.),
-        # not the FixtureHeader-recomputed variant whose RLP/hash would
-        # diverge. This is essential: downstream consumers
-        # (benchmarkoor) replay these payloads via engine_newPayload,
-        # and geth only accepts them if the payload fields hash to the
-        # expected block_hash — which only happens when we forward the
-        # client's real payload verbatim.
-        client_eth_rpc = getattr(t8n, "eth_rpc", None)
         for block in blocks_to_process:
             built_block = self.generate_block_data(
                 t8n=t8n,
@@ -1442,23 +1449,13 @@ class BlockchainTest(BaseTest):
                 previous_env=env,
                 previous_alloc=alloc,
             )
-            client_payload: Any = getattr(t8n, "last_payload_response", None)
-            if client_payload is not None:
-                payload = _fixture_payload_from_client_response(
-                    response=client_payload,
-                    new_payload_version=int(
-                        getattr(t8n, "last_new_payload_version", 1)
-                    ),
-                    forkchoice_updated_version=int(
-                        getattr(t8n, "last_forkchoice_updated_version", 1)
-                    ),
-                    parent_beacon_block_root=getattr(
-                        t8n, "last_parent_beacon_block_root", None
-                    ),
-                    phase=FixtureEngineNewPayload.derive_phase(block.txs),
-                )
-            else:
-                payload = built_block.get_fixture_engine_new_payload()
+            assert isinstance(built_block, TestingBuildBlock), (
+                "ClientBackend must return TestingBuildBlock; got "
+                f"{type(built_block).__name__}"
+            )
+            payload = payload_metadata_to_fixture(
+                built_block.engine_payload, phase=block.phase
+            )
             if payload.phase == TestPhase.SETUP:
                 setup_payloads.append(payload)
             else:
@@ -1466,21 +1463,22 @@ class BlockchainTest(BaseTest):
                 if self.operation_mode == OpMode.BENCHMARKING:
                     benchmark_gas_used = int(built_block.result.gas_used)
                     benchmark_opcode_count = built_block.result.opcode_count
+            # Overwrite the block_hash apply_new_parent just recorded —
+            # it's the FixtureHeader-recomputed RLP hash, which diverges
+            # from the client's authoritative hash (client picks fields
+            # like gas_limit). The next block's parent_hash must point at
+            # what the client actually built.
+            client_hash = Hash(
+                built_block.engine_payload.payload_response.execution_payload.block_hash
+            )
             env = apply_new_parent(built_block.env, built_block.header)
-            head_hash = built_block.header.block_hash
-            if client_eth_rpc is not None:
-                client_head = client_eth_rpc.get_block_by_number("latest")
-                if client_head is not None:
-                    actual_hash = Hash(client_head["hash"])
-                    env = env.copy(
-                        block_hashes={
-                            **env.block_hashes,
-                            HexNumber(
-                                int(HexNumber(client_head["number"]))
-                            ): actual_hash,
-                        },
-                    )
-                    head_hash = actual_hash
+            env = env.copy(
+                block_hashes={
+                    **env.block_hashes,
+                    HexNumber(int(env.number)): client_hash,
+                },
+            )
+            head_hash = client_hash
 
         fixture = BlockchainEngineStatefulFixture(
             fork=self.fork,
@@ -1492,6 +1490,11 @@ class BlockchainTest(BaseTest):
             start_block_hash=start_block_hash,
             setup_payloads=setup_payloads,
             payloads=execution_payloads,
+            benchmark_gas_used=(
+                HexNumber(benchmark_gas_used)
+                if benchmark_gas_used is not None
+                else None
+            ),
         )
         return FillResult(
             fixture=fixture,

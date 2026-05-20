@@ -17,9 +17,10 @@ from typing import Any, ClassVar, Dict, List, Optional
 from execution_testing.base_types import Bytes, Hash
 from execution_testing.exceptions import ExceptionBase, ExceptionMapper
 from execution_testing.forks import Fork, TransitionFork
-from execution_testing.rpc import EngineRPC, EthRPC, TestingRPC
+from execution_testing.rpc import EngineRPC, EthRPC, TestingRPC, Web3RPC
 from execution_testing.rpc.rpc_types import (
     ForkchoiceState,
+    GetPayloadResponse,
     PayloadAttributes,
     PayloadStatusEnum,
 )
@@ -28,6 +29,7 @@ from execution_testing.test_types.block_access_list import BlockAccessList
 from execution_testing.test_types.receipt_types import TransactionReceipt
 
 from .cli_types import (
+    EnginePayloadMetadata,
     LazyAllocJson,
     OpcodeCount,
     Result,
@@ -62,42 +64,19 @@ class ClientBackend:
 
     exception_mapper: ExceptionMapper
     snapshot_block: Dict[str, Any] | None
-    """
-    Raw datadir head (block dict from ``eth_getBlockByNumber``) captured
-    before any session setup. Populated by the fill-stateful plugin at
-    session start; read by ``make_stateful_fixture`` to emit
-    ``snapshot_block_number`` / ``snapshot_block_hash``.
-    """
+    """Raw datadir head, set by the fill-stateful plugin pre-session."""
     start_block: Dict[str, Any] | None
-    """
-    Client head after global pre-run setup (factory deploy, seed funding).
-    Populated by the fill-stateful plugin after global setup; each test's
-    block sequence chains off this.
-    """
+    """Client head after global pre-run setup; per-test chains off this."""
 
-    # t8n-compatibility stubs — fill's filler plugin reads these on the
-    # backend for book-keeping that has no analog for a live client.
+    # t8n-compatibility stubs — fill's filler reads these on the backend.
     opcode_count: OpcodeCount | None = None
     output_cache: Any = None
     debug_dump_dir: Path | None = None
     call_counter: int = 0
     _info_metadata: Dict[str, Any]
 
-    # Latest GetPayloadResponse from ``testing_buildBlockV1`` + the
-    # version numbers to use for engine_newPayloadVX / FCU. Populated
-    # each ``evaluate`` call; ``make_stateful_fixture`` reads it to
-    # record the client's authoritative payload in the fixture instead
-    # of the FixtureHeader-recomputed variant (which would disagree on
-    # gas_limit etc. and produce a mismatched block hash).
-    last_payload_response: Any = None
-    last_new_payload_version: int = 0
-    last_forkchoice_updated_version: int = 0
-    last_parent_beacon_block_root: Hash | None = None
-
-    # Live-network fee values pinned for this session. Populated by the
-    # fill-stateful plugin from ``eth_rpc`` + CLI defaults
-    # (``shared.live_client_flags``) and read by ``make_stateful_fixture``
-    # to size pre-alloc funding without mutating ``TransactionDefaults``.
+    # Session fees pinned by the fill-stateful plugin; read by
+    # ``make_stateful_fixture`` to size pre-alloc funding.
     gas_price: int = 0
     max_fee_per_gas: int = 0
     max_priority_fee_per_gas: int = 0
@@ -124,9 +103,18 @@ class ClientBackend:
         self.max_fee_per_gas = 0
         self.max_priority_fee_per_gas = 0
         self.max_fee_per_blob_gas = 0
+        # Captured for the fixture's ``_info.filling-transition-tool``.
+        try:
+            self._client_version: str | None = Web3RPC(
+                eth_rpc.url
+            ).client_version()
+        except Exception:  # pragma: no cover — no web3 namespace
+            self._client_version = None
 
     def version(self) -> str:
-        """Return an identifier for this backend."""
+        """Return an identifier for this backend (used in fixture _info)."""
+        if self._client_version:
+            return f"ClientBackend[{self._client_version}; fork={self.fork}]"
         return f"ClientBackend[fork={self.fork}]"
 
     def shutdown(self) -> None:
@@ -194,17 +182,10 @@ class ClientBackend:
             ),
             block_fork=block_fork,
         )
-        # Stash the client-authoritative payload for fill to pick up.
-        self.last_payload_response = get_payload_response
         np_version = block_fork.engine_new_payload_version()
         fcu_version = block_fork.engine_forkchoice_updated_version()
         assert np_version is not None
         assert fcu_version is not None
-        self.last_new_payload_version = np_version
-        self.last_forkchoice_updated_version = fcu_version
-        self.last_parent_beacon_block_root = (
-            payload_attributes.parent_beacon_block_root
-        )
 
         receipts = self._fetch_receipts(txs)
         result = self._build_result(
@@ -215,7 +196,18 @@ class ClientBackend:
             block_fork=block_fork,
         )
         alloc = LazyAllocJson(raw={}, _state_root=result.state_root)
-        return TransitionToolOutput(alloc=alloc, result=result)
+        return TransitionToolOutput(
+            alloc=alloc,
+            result=result,
+            engine_payload=EnginePayloadMetadata(
+                payload_response=get_payload_response,
+                new_payload_version=np_version,
+                forkchoice_updated_version=fcu_version,
+                parent_beacon_block_root=(
+                    payload_attributes.parent_beacon_block_root
+                ),
+            ),
+        )
 
     def _payload_attributes(
         self,
@@ -223,36 +215,35 @@ class ClientBackend:
         block_fork: Fork,
     ) -> PayloadAttributes:
         """Build ``PayloadAttributes`` from the test's environment."""
-        withdrawals = None
+        withdrawals: List[Withdrawal] | None = None
         if block_fork.header_withdrawals_required():
             withdrawals = list(env.withdrawals or [])
-        parent_beacon_block_root = None
+        parent_beacon_block_root: Hash | None = None
         if block_fork.header_beacon_root_required():
             parent_beacon_block_root = Hash(env.parent_beacon_block_root or 0)
-        target_blobs_per_block = None
-        max_blobs_per_block = None
-        if block_fork.engine_payload_attribute_target_blobs_per_block():
-            target_blobs_per_block = block_fork.target_blobs_per_block()
-        if block_fork.engine_payload_attribute_max_blobs_per_block():
-            max_blobs_per_block = block_fork.max_blobs_per_block()
-        return PayloadAttributes(
+        return PayloadAttributes.for_fork(
+            block_fork,
             timestamp=int(env.timestamp),
             prev_randao=Hash(env.prev_randao or 0),
             suggested_fee_recipient=env.fee_recipient,
             withdrawals=withdrawals,
             parent_beacon_block_root=parent_beacon_block_root,
-            target_blobs_per_block=target_blobs_per_block,
-            max_blobs_per_block=max_blobs_per_block,
         )
 
     def _finalize(
         self,
-        payload_response: Any,
+        payload_response: GetPayloadResponse,
         *,
         parent_beacon_block_root: Hash | None,
         block_fork: Fork,
     ) -> None:
-        """Advance the chain with engine_newPayload + forkchoiceUpdated."""
+        """
+        Advance the chain with engine_newPayload + forkchoiceUpdated.
+
+        Both calls retry past transient ``SYNCING`` (geth returns it
+        under back-to-back chain-advance load); a stuck-SYNCING client
+        surfaces as a ``*TimeoutError``.
+        """
         new_payload_version = block_fork.engine_new_payload_version()
         fcu_version = block_fork.engine_forkchoice_updated_version()
         assert new_payload_version is not None
@@ -268,7 +259,7 @@ class ClientBackend:
         if payload_response.execution_requests is not None:
             new_payload_args.append(payload_response.execution_requests)
 
-        new_payload_response = self.engine_rpc.new_payload(
+        new_payload_response = self.engine_rpc.new_payload_with_retry(
             *new_payload_args, version=new_payload_version
         )
         assert new_payload_response.status == PayloadStatusEnum.VALID, (
@@ -276,12 +267,11 @@ class ClientBackend:
             f"{new_payload_response.status}"
         )
 
-        fcu_response = self.engine_rpc.forkchoice_updated(
-            ForkchoiceState(
+        fcu_response = self.engine_rpc.forkchoice_updated_with_retry(
+            forkchoice_state=ForkchoiceState(
                 head_block_hash=payload_response.execution_payload.block_hash
             ),
-            None,
-            version=fcu_version,
+            forkchoice_version=fcu_version,
         )
         assert fcu_response.payload_status.status == PayloadStatusEnum.VALID, (
             "engine_forkchoiceUpdated rejected the built payload: "
