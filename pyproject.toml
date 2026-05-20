@@ -298,8 +298,9 @@ markers = [
 
 [tool.coverage.run]
 omit = [
-    "*/ethereum/*_glacier/*",
-    "*/ethereum/dao_fork/*",
+    "*/ethereum/forks/*_glacier/*",
+    "*/ethereum/forks/dao_fork/*",
+    "*/ethereum/forks/bpo*/*",
 ]
 
 [tool.docc]
