@@ -24,8 +24,10 @@ from execution_testing import (
 from execution_testing.base_types import HashInt
 from execution_testing.vm import Op
 
-REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7778.md"
-REFERENCE_SPEC_VERSION = "ce17d00b8341032a946301944124c4a6013032d6"
+from .spec import ref_spec_7778
+
+REFERENCE_SPEC_GIT_PATH = ref_spec_7778.git_path
+REFERENCE_SPEC_VERSION = ref_spec_7778.version
 
 
 def build_refund_tx(
