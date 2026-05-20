@@ -142,14 +142,22 @@ def main() -> None:
     fork_ranges = load_config(FORK_RANGES_CONFIG) or []
     name = sys.argv[1]
 
-    if name not in config or not isinstance(config[name], dict):
+    # `<feat>-devnet` releases (e.g. bal-devnet) share the `devnet` entry,
+    # while keeping their friendly name in the matrix and artifact outputs.
+    lookup = (
+        "devnet"
+        if name.endswith("-devnet") and "devnet" in config
+        else name
+    )
+
+    if lookup not in config or not isinstance(config[lookup], dict):
         print(
-            f"Error: feature '{name}' not found in {FEATURE_CONFIG}.",
+            f"Error: feature '{lookup}' not found in {FEATURE_CONFIG}.",
             file=sys.stderr,
         )
         sys.exit(1)
 
-    build, labels = build_matrix(config[name], name, fork_ranges)
+    build, labels = build_matrix(config[lookup], name, fork_ranges)
 
     print(f"build_matrix={json.dumps(build)}")
     print(f"feature_name={name}")

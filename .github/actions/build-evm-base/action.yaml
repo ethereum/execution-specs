@@ -2,13 +2,12 @@ name: 'Build EVM'
 description: 'Resolves and builds the requested EVM binary by name'
 inputs:
   type:
-    description: 'Type of EVM binary to build'
+    description: 'Type of EVM binary to build (key in .github/configs/evm.yaml)'
     required: true
-    default: 'main'
 outputs:
   impl:
     description: "Implementation of EVM binary to build"
-    value: ${{ steps.config-evm-reader.outputs.impl }}
+    value: ${{ inputs.type }}
   repo:
     description: "Repository to use to build the EVM binary"
     value: ${{ steps.config-evm-reader.outputs.repo }}
@@ -17,60 +16,48 @@ outputs:
     value: ${{ steps.config-evm-reader.outputs.ref }}
   evm-bin:
     description: "Binary name of the evm tool to use"
-    value: ${{ steps.config-evm-impl-config-reader.outputs.evm-bin }}
+    value: ${{ steps.config-evm-reader.outputs.evm-bin }}
   x-dist:
-    description: "Binary name of the evm tool to use"
-    value: ${{ steps.config-evm-impl-config-reader.outputs.x-dist }}
+    description: "Number of parallel pytest-xdist workers to use"
+    value: ${{ steps.config-evm-reader.outputs.x-dist }}
 runs:
   using: "composite"
   steps:
-    - name: Get the selected EVM version from the .github/configs/evm.yaml
+    - name: Get the selected EVM configuration from .github/configs/evm.yaml
       id: config-evm-reader
       shell: bash
       run: |
         awk "/^${{ inputs.type }}:/{flag=1; next} /^[[:alnum:]]/{flag=0} flag" ./.github/configs/evm.yaml \
         | sed 's/ //g' | sed 's/:/=/g' >> "$GITHUB_OUTPUT"
-    - name: Get the EVM implementation configuration from .github/configs/evm-impl-config.yaml
-      id: config-evm-impl-config-reader
-      shell: bash
-      run: |
-        awk "/^${{ steps.config-evm-reader.outputs.impl }}:/{flag=1; next} /^[[:alnum:]]/{flag=0} flag" ./.github/configs/evm-impl.yaml \
-        | sed 's/ //g' | sed 's/:/=/g' >> "$GITHUB_OUTPUT"
     - name: Print Variables for the selected EVM type
       shell: bash
       run: |
-        echo "Implementation: ${{ steps.config-evm-reader.outputs.impl }}"
+        echo "Implementation: ${{ inputs.type }}"
         echo "Repository: ${{ steps.config-evm-reader.outputs.repo }}"
         echo "Reference: ${{ steps.config-evm-reader.outputs.ref }}"
-        echo "EVM Binary: ${{ steps.config-evm-impl-config-reader.outputs.evm-bin }}"
-        echo "X-Dist parameter: ${{ steps.config-evm-impl-config-reader.outputs.x-dist }}"
+        echo "EVM Binary: ${{ steps.config-evm-reader.outputs.evm-bin }}"
+        echo "X-Dist parameter: ${{ steps.config-evm-reader.outputs.x-dist }}"
     - name: Skip building for EELS
-      if: steps.config-evm-reader.outputs.impl == 'eels'
+      if: inputs.type == 'eels'
       shell: bash
       run: echo "Skipping build for EELS"
     - name: Build the EVM using Geth action
-      if: steps.config-evm-reader.outputs.impl == 'geth'
+      if: inputs.type == 'geth'
       uses: ./.github/actions/build-evm-client/geth
       with:
         repo: ${{ steps.config-evm-reader.outputs.repo }}
         ref: ${{ steps.config-evm-reader.outputs.ref }}
     - name: Build the EVM using EVMONE action
-      if: steps.config-evm-reader.outputs.impl == 'evmone'
+      if: inputs.type == 'evmone'
       uses: ./.github/actions/build-evm-client/evmone
       with:
         repo: ${{ steps.config-evm-reader.outputs.repo }}
         ref: ${{ steps.config-evm-reader.outputs.ref }}
-        # `targets` in the evm.yaml must be an inline array to not interfere with `config-evm-reader`'s parsing
+        # `targets` in evm.yaml must be an inline array to not interfere with `config-evm-reader`'s parsing
         targets: ${{ join(fromJSON(steps.config-evm-reader.outputs.targets), ' ') }}
     - name: Build the EVM using Besu action
-      if: steps.config-evm-reader.outputs.impl == 'besu'
+      if: inputs.type == 'besu'
       uses: ./.github/actions/build-evm-client/besu
-      with:
-        repo: ${{ steps.config-evm-reader.outputs.repo }}
-        ref: ${{ steps.config-evm-reader.outputs.ref }}
-    - name: Build the EVM using EthJS action
-      if: steps.config-evm-reader.outputs.impl == 'ethjs'
-      uses: ./.github/actions/build-evm-client/ethjs
       with:
         repo: ${{ steps.config-evm-reader.outputs.repo }}
         ref: ${{ steps.config-evm-reader.outputs.ref }}

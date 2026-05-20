@@ -1,10 +1,16 @@
 name: Create Fixture Release
 
 on:
-  push:
-    tags:
-      - "tests-*@v*"
   workflow_dispatch:
+    inputs:
+      feature:
+        description: "Feature release, e.g. consensus@v1.2.3 or bal-devnet@v1.0.0 (tests- prefix optional)"
+        required: true
+        type: string
+      branch:
+        description: "Branch to release from (required for *-devnet features)"
+        required: false
+        type: string
 
 jobs:
   setup:
@@ -17,14 +23,31 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           submodules: false
+          ref: ${{ inputs.branch }}
       - uses: ./.github/actions/setup-uv
 
-      - name: Generate build matrix
+      - name: Validate input and generate build matrix
         id: matrix
         shell: bash
+        env:
+          INPUT_FEATURE: ${{ inputs.feature }}
+          INPUT_BRANCH: ${{ inputs.branch }}
         run: |
-          FEATURE_PREFIX="${GITHUB_REF_NAME//@*/}"
-          FEATURE_NAME="${FEATURE_PREFIX#tests-}"
+          RELEASE_NAME="${INPUT_FEATURE#tests-}"
+          FEATURE_NAME="${RELEASE_NAME%%@*}"
+
+          # `<feat>-devnet` releases (e.g. bal-devnet) resolve to the shared
+          # `devnet` feature but keep their friendly name, and must specify
+          # the branch to release from.
+          if [ "$FEATURE_NAME" = "devnet" ] || [ "$FEATURE_NAME" = "-devnet" ]; then
+            echo "::error::devnet releases require a <feat>- prefix, e.g. bal-devnet@v1.0.0"
+            exit 1
+          fi
+          if [[ "$FEATURE_NAME" == *-devnet && -z "$INPUT_BRANCH" ]]; then
+            echo "::error::devnet releases require a 'branch' input, e.g. branch=bal-devnet-7"
+            exit 1
+          fi
+
           uv run -q .github/scripts/generate_build_matrix.py "$FEATURE_NAME" >> "$GITHUB_OUTPUT"
 
   build:
@@ -40,26 +63,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           submodules: true
-
-      - name: Fetch lllc
-        uses: ./.github/actions/fetch-binary
-        with:
-          version: v1.0.0
-          repo_owner: felix314159
-          repo_name: lllc-custom
-          remote_name: lllc
-          binary_name: lllc
-          expected_sha256: 865a0d5379acb3b5471337b5dcf686a2dd71587c6b65b9da6c963de627e0b300
-
-      - name: Fetch Solidity
-        uses: ./.github/actions/fetch-binary
-        with:
-          version: v0.8.24
-          repo_owner: ethereum
-          repo_name: solidity
-          remote_name: solc-static-linux
-          binary_name: solc
-          expected_sha256: fb03a29a517452b9f12bcf459ef37d0a543765bb3bbc911e70a87d6a37c30d5f
+          ref: ${{ inputs.branch }}
 
       - uses: ./.github/actions/build-fixtures
         with:
@@ -77,6 +81,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           submodules: false
+          ref: ${{ inputs.branch }}
       - uses: ./.github/actions/setup-uv
       - name: Install pigz
         run: sudo apt-get install -y pigz
@@ -124,7 +129,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     needs: [setup, build, combine]
-    if: always() && needs.build.result == 'success' && (needs.combine.result == 'success' || needs.combine.result == 'skipped') && startsWith(github.ref, 'refs/tags/tests-')
+    if: always() && needs.build.result == 'success' && (needs.combine.result == 'success' || needs.combine.result == 'skipped')
     permissions:
       contents: write
     steps:
@@ -132,6 +137,7 @@ jobs:
         with:
           submodules: false
           fetch-depth: 0
+          ref: ${{ inputs.branch }}
 
       - name: Download release artifacts
         shell: bash
@@ -142,38 +148,42 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - name: Draft release on EELS (canonical)
+      - name: Draft release
+        shell: bash
+        env:
+          INPUT_FEATURE: ${{ inputs.feature }}
+          INPUT_BRANCH: ${{ inputs.branch }}
+          FEATURE_NAME: ${{ needs.setup.outputs.feature_name }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          FEATURE_PREFIX="${TAG_NAME%%@*}"
+          # Release title has no "tests-" prefix; the git tag always does.
+          RELEASE_NAME="${INPUT_FEATURE#tests-}"
+          TAG_NAME="tests-${RELEASE_NAME}"
+          FEATURE_PREFIX="${RELEASE_NAME%%@*}"
+
+          # Use the prior release of the same feature as the notes baseline.
           PREV_TAG=$(
-            git tag --list "${FEATURE_PREFIX}@v*" --sort=-v:refname \
+            git tag --list "tests-${FEATURE_PREFIX}@v*" --sort=-v:refname \
               | grep -v "^${TAG_NAME}$" \
               | head -n 1 \
             || true
           )
-          RELEASE_ARGS=(--draft --generate-notes)
-          if [ "$FEATURE_NAME" != "mainnet" ]; then
+
+          # Tag the released branch when given, else the run commit.
+          TARGET="${INPUT_BRANCH:-$GITHUB_SHA}"
+
+          RELEASE_ARGS=(
+            --draft
+            --generate-notes
+            --target "$TARGET"
+            --title "$RELEASE_NAME"
+          )
+          if [ "$FEATURE_NAME" != "consensus" ]; then
             RELEASE_ARGS+=(--prerelease)
           fi
           if [ -n "$PREV_TAG" ]; then
             RELEASE_ARGS+=(--notes-start-tag "$PREV_TAG")
           fi
-          gh release create "$TAG_NAME" "${RELEASE_ARGS[@]}" ./artifacts/**/*.tar.gz
-        env:
-          TAG_NAME: ${{ github.ref_name }}
-          FEATURE_NAME: ${{ needs.setup.outputs.feature_name }}
-          GH_TOKEN: ${{ github.token }}
 
-      - name: Draft release on EEST (mirror)
-        run: |
-          EEST_TAG="${TAG_NAME#tests-}"
-          RELEASE_ARGS=(--repo ethereum/execution-spec-tests --draft)
-          if [ "$FEATURE_NAME" != "mainnet" ]; then
-            RELEASE_ARGS+=(--prerelease)
-          fi
-          RELEASE_ARGS+=(--notes "This release is mirrored from [ethereum/execution-specs ${TAG_NAME}](https://github.com/ethereum/execution-specs/releases/tag/${TAG_NAME}).")
-          gh release create "$EEST_TAG" "${RELEASE_ARGS[@]}" ./artifacts/**/*.tar.gz
-        env:
-          TAG_NAME: ${{ github.ref_name }}
-          FEATURE_NAME: ${{ needs.setup.outputs.feature_name }}
-          GH_TOKEN: ${{ secrets.EEST_RELEASE_TOKEN }}
+          # Creates the tag on the target commit and the release on success.
+          gh release create "$TAG_NAME" "${RELEASE_ARGS[@]}" ./artifacts/**/*.tar.gz
