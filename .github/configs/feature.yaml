@@ -1,19 +1,12 @@
 # Unless filling for special features, all features should fill for previous forks (starting from Frontier) too
-mainnet:
+consensus:
   evm-type: eels
-  fill-params: --until=BPO2 --generate-all-formats
+  fill-params: --until=BPO4
 
 benchmark:
-  evm-type: benchmark
-  fill-params: --fork=Osaka --generate-all-formats --gas-benchmark-values 1,5,10,30,60,100,150 ./tests/benchmark/compute --maxprocesses=30 --dist=worksteal
-  feature_only: true
+  evm-type: evmone
+  fill-params: --fork=Amsterdam --gas-benchmark-values 1,10,30,60,100,150 -m "benchmark and not state_test" ./tests/benchmark
 
-benchmark_fast:
-  evm-type: benchmark
-  fill-params: --fork=Osaka --generate-all-formats --gas-benchmark-values 100 ./tests/benchmark/compute
-  feature_only: true
-
-glamsterdam-devnet:
+devnet:
   evm-type: eels
-  fill-params: --fork=Amsterdam
-  feature_only: true
+  fill-params: --until=Amsterdam
