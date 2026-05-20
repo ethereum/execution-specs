@@ -143,8 +143,7 @@ def test_unchunkified_bytecode(
         infeasible = "Single iteration gas cost is greater than gas limit"
         try:
             deployment_txs = list(
-                custom_sized_contract_factory.
-                transactions_by_total_contract_count(
+                custom_sized_contract_factory.transactions_by_total_contract_count(
                     fork=fork,
                     sender=setup_sender,
                     contract_count=num_contracts,
