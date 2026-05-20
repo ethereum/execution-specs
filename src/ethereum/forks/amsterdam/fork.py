@@ -41,7 +41,6 @@ from ethereum.utils.byte import left_pad_zero_bytes
 
 from . import vm
 from .block_access_lists import (
-    BlockAccessIndex,
     BlockAccessListBuilder,
     build_block_access_list,
     hash_block_access_list,
@@ -60,7 +59,7 @@ from .exceptions import (
     PriorityFeeGreaterThanMaxFeeError,
     TransactionTypeContractCreationError,
 )
-from .fork_types import Authorization, VersionedHash
+from .fork_types import Authorization, BlockAccessIndex, VersionedHash
 from .requests import (
     CONSOLIDATION_REQUEST_TYPE,
     DEPOSIT_REQUEST_TYPE,
