@@ -60,9 +60,16 @@ def test_precompile_absence(
         call_code, storage=storage.canary()
     )
 
+    # Osaka (EIP-7825) caps tx gas at 16,777,216. Amsterdam (EIP-8037)
+    # lifts the cap and increases SSTORE state gas; the 30M budget
+    # comfortably covers ~498 cold zero-to-nonzero SSTOREs.
+    gas_limit = 16_000_000
+    if fork.is_eip_enabled(8037):
+        gas_limit = 30_000_000
+
     tx = Transaction(
         to=entry_point_address,
-        gas_limit=10_000_000,
+        gas_limit=gas_limit,
         sender=pre.fund_eoa(),
         protected=True,
     )

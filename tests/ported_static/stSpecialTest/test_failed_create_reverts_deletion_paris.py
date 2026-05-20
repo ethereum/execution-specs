@@ -12,9 +12,11 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Amsterdam
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -28,6 +30,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.pre_alloc_mutable
 def test_failed_create_reverts_deletion_paris(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
 ) -> None:
     """A modification of stRevertTests/RevertInCreateInInit."""
@@ -43,7 +46,6 @@ def test_failed_create_reverts_deletion_paris(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=43218108416,
     )
 
     pre[addr] = Account(balance=10, storage={0: 1})
@@ -63,7 +65,7 @@ def test_failed_create_reverts_deletion_paris(
         + Op.MSTORE(offset=0x0, value=0x112233)
         + Op.REVERT(offset=0x0, size=0x20)
         + Op.STOP,
-        gas_limit=100000,
+        gas_limit=2100000 if fork >= Amsterdam else 100000,
     )
 
     post = {addr: Account(storage={0: 1}, balance=10)}

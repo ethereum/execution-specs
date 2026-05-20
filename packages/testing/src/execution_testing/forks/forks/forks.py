@@ -552,6 +552,33 @@ class Frontier(
         return fn
 
     @classmethod
+    def opcode_state_map(
+        cls,
+    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
+        """
+        Return a mapping of opcodes to their state gas costs.
+
+        Each entry is either:
+        - Constants (int): Multiplier of the cost_per_state_byte
+        - Callables: Functions that take the opcode instance with metadata and
+                     return the full state gas cost.
+        """
+        # At Frontier, state costs do not apply.
+        return {}
+
+    @classmethod
+    def opcode_state_calculator(cls) -> OpcodeGasCalculator:
+        """
+        Return callable that calculates the state gas of a single opcode.
+        """
+
+        def fn(opcode: OpcodeBase) -> int:
+            del opcode
+            return 0
+
+        return fn
+
+    @classmethod
     def opcode_refund_map(
         cls,
     ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
@@ -592,6 +619,33 @@ class Frontier(
 
             # Otherwise it's a constant
             return refund_or_calculator
+
+        return fn
+
+    @classmethod
+    def opcode_state_refund_map(
+        cls,
+    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
+        """
+        Return a mapping of opcodes to their state refunds.
+
+        Each entry is either:
+        - Constants (int): Multiplier of the cost_per_state_byte
+        - Callables: Functions that take the opcode instance with metadata and
+                     return the state refund
+        """
+        # At Frontier, state refunds do not apply.
+        return {}
+
+    @classmethod
+    def opcode_state_refund_calculator(cls) -> OpcodeGasCalculator:
+        """
+        Return callable that calculates the state refund of a single opcode.
+        """
+
+        def fn(opcode: OpcodeBase) -> int:
+            del opcode
+            return 0
 
         return fn
 
@@ -791,6 +845,13 @@ class Frontier(
         raise NotImplementedError(
             f"Base fee change calculator is not supported in {cls.name()}"
         )
+
+    @classmethod
+    def cost_per_state_byte(cls) -> int:
+        """
+        Calculate the state gas cost per byte based on `cls._env_gas_limit`.
+        """
+        return 0
 
     @classmethod
     def base_fee_max_change_denominator(cls) -> int:
@@ -1008,6 +1069,23 @@ class Frontier(
     def transaction_gas_limit_cap(cls) -> int | None:
         """At Genesis, no transaction gas limit cap is imposed."""
         return None
+
+    @classmethod
+    def sstore_state_gas(cls) -> int:
+        """Return the state gas for a zero-to-nonzero SSTORE."""
+        return 0
+
+    @classmethod
+    def code_deposit_state_gas(cls, *, code_size: int) -> int:
+        """Return the state gas for code deposit of the given size."""
+        del code_size
+        return 0
+
+    @classmethod
+    def create_state_gas(cls, *, code_size: int = 0) -> int:
+        """Return total state gas for CREATE (new account + code deposit)."""
+        del code_size
+        return 0
 
     @classmethod
     def block_rlp_size_limit(cls) -> int | None:

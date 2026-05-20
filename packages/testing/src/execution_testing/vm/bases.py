@@ -41,7 +41,23 @@ class ForkOpcodeInterface(ABC):
 
     @classmethod
     @abstractmethod
+    def opcode_state_calculator(cls) -> OpcodeGasCalculator:
+        """
+        Return callable that calculates the state gas cost of a single opcode.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
     def opcode_refund_calculator(cls) -> OpcodeGasCalculator:
+        """
+        Return callable that calculates the gas refund of a single opcode.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def opcode_state_refund_calculator(cls) -> OpcodeGasCalculator:
         """
         Return callable that calculates the gas refund of a single opcode.
         """

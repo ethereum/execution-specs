@@ -121,9 +121,14 @@ def test_create_code_size_limit(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    # Initcode: PUSH2 <size> PUSH1 0 RETURN. Sizes scale with
+    # fork.max_code_size() so pre-7954 forks get 0x6000 / 0x6001 and
+    # Amsterdam+ gets 0x8000 / 0x8001. CREATE address is
+    # nonce-derived and unaffected by the initcode bytes.
+    max_code_size = fork.max_code_size()
     tx_data = [
-        Bytes("6160006000f3"),
-        Bytes("6160016000f3"),
+        Bytes(b"\x61" + max_code_size.to_bytes(2) + b"\x60\x00\xf3"),
+        Bytes(b"\x61" + (max_code_size + 1).to_bytes(2) + b"\x60\x00\xf3"),
     ]
     tx_gas = [15000000]
 

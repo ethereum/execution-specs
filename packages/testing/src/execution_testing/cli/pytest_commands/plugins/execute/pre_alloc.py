@@ -221,6 +221,55 @@ class _DeferredFundAddress:
     minimum_balance: bool
 
 
+def _compute_deploy_gas_limit(
+    fork: Fork,
+    *,
+    deploy_code_size: int,
+    initcode: Bytes | Initcode,
+    storage_slots: int = 0,
+) -> Tuple[int, int]:
+    """
+    Compute the gas_limit for a contract-deploy transaction, split
+    into the EIP-7825 cap-bound regular portion and the total
+    (regular + state) deploy gas.
+
+    Per EIP-8037, the per-tx 2^24 cap binds only the regular-gas
+    portion of intrinsic gas; state gas is drawn from the per-block
+    reservoir and may push tx.gas above the cap. We therefore return
+    both values: callers compare ``regular_gas`` against
+    ``transaction_gas_limit_cap()`` and use ``deploy_gas_limit`` as
+    the actual ``tx.gas`` field. Pre-Amsterdam, the state-gas helpers
+    return 0 and ``deploy_gas_limit == regular_gas``.
+
+    The regular portion is doubled as a safety buffer (gas estimation
+    is approximate); the state portion is exact and is not doubled.
+    """
+    gas_costs = fork.gas_costs()
+    memory_expansion_gas_calculator = fork.memory_expansion_gas_calculator()
+    calldata_gas_calculator = fork.calldata_gas_calculator()
+
+    # Regular-gas portion (subject to EIP-7825 cap). On EIP-8037 forks
+    # `TX_CREATE` folds in the new-account state gas; back that out so
+    # we only count regular gas here.
+    regular_gas = gas_costs.TX_BASE + gas_costs.TX_CREATE
+    regular_gas -= fork.transaction_intrinsic_state_gas(contract_creation=True)
+    regular_gas += storage_slots * 22_600
+    regular_gas += deploy_code_size * gas_costs.CODE_DEPOSIT_PER_BYTE
+    regular_gas += memory_expansion_gas_calculator(
+        new_bytes=len(bytes(initcode))
+    )
+    regular_gas += calldata_gas_calculator(data=initcode)
+    regular_gas = regular_gas * 2
+
+    # State-gas portion (drawn from block reservoir, not capped).
+    state_gas = fork.transaction_intrinsic_state_gas(contract_creation=True)
+    state_gas += fork.code_deposit_state_gas(code_size=deploy_code_size)
+    state_gas += storage_slots * fork.sstore_state_gas()
+
+    deploy_gas_limit = regular_gas + state_gas
+    return regular_gas, deploy_gas_limit
+
+
 class Alloc(SharedAlloc):
     """A custom class that inherits from the original Alloc class."""
 
@@ -257,6 +306,7 @@ class Alloc(SharedAlloc):
         address_stubs: AddressStubs | None = None,
         block_number: int = 0,
         timestamp: int = 0,
+        funding_gas_limit: int = 200_000,
         **kwargs: Any,
     ) -> None:
         """Initialize the pre-alloc with the given parameters."""
@@ -269,6 +319,7 @@ class Alloc(SharedAlloc):
         self._address_stubs = address_stubs or AddressStubs(root={})
         self._block_number = block_number
         self._timestamp = timestamp
+        self._funding_gas_limit = funding_gas_limit
 
     def code_pre_processor(self, code: Bytecode) -> Bytecode:
         """Pre-processes the code before setting it."""
@@ -321,11 +372,6 @@ class Alloc(SharedAlloc):
         fork = self._fork.fork_at(
             block_number=self._block_number, timestamp=self._timestamp
         )
-        gas_costs = fork.gas_costs()
-        memory_expansion_gas_calculator = (
-            fork.memory_expansion_gas_calculator()
-        )
-        calldata_gas_calculator = fork.calldata_gas_calculator()
         if not isinstance(deploy_code, Bytes):
             deploy_code = Bytes(deploy_code)
         if initcode is None:
@@ -348,18 +394,18 @@ class Alloc(SharedAlloc):
             raise ValueError(
                 f"initcode too large {len(initcode)} > {max_initcode_size}"
             )
-        deploy_gas_limit = gas_costs.TX_BASE + gas_costs.TX_CREATE
-        deploy_gas_limit += len(deploy_code) * gas_costs.CODE_DEPOSIT_PER_BYTE
-        deploy_gas_limit += memory_expansion_gas_calculator(
-            new_bytes=len(initcode)
+        regular_gas, deploy_gas_limit = _compute_deploy_gas_limit(
+            fork,
+            deploy_code_size=len(deploy_code),
+            initcode=initcode,
         )
-        deploy_gas_limit += calldata_gas_calculator(data=initcode)
-        deploy_gas_limit = deploy_gas_limit * 2
+        # Per EIP-8037, the per-tx 2^24 cap (EIP-7825) binds only the
+        # regular-gas portion; state gas is drawn from the block reservoir.
         tx_gas_limit_cap = fork.transaction_gas_limit_cap()
-        if tx_gas_limit_cap and deploy_gas_limit > tx_gas_limit_cap:
+        if tx_gas_limit_cap and regular_gas > tx_gas_limit_cap:
             raise ValueError(
-                f"deterministic deploy gas limit exceeds the transaction "
-                f"gas limit cap: {deploy_gas_limit} > {tx_gas_limit_cap}"
+                f"deterministic deploy regular gas exceeds the transaction "
+                f"gas limit cap: {regular_gas} > {tx_gas_limit_cap}"
             )
 
         # Defer the on-chain check; the deploy tx (if needed) and the
@@ -403,11 +449,6 @@ class Alloc(SharedAlloc):
         fork = self._fork.fork_at(
             block_number=self._block_number, timestamp=self._timestamp
         )
-        gas_costs = fork.gas_costs()
-        memory_expansion_gas_calculator = (
-            fork.memory_expansion_gas_calculator()
-        )
-        calldata_gas_calculator = fork.calldata_gas_calculator()
 
         if not isinstance(storage, Storage):
             storage = Storage(storage)  # type: ignore
@@ -443,13 +484,10 @@ class Alloc(SharedAlloc):
 
         initcode_prefix = Bytecode()
 
-        deploy_gas_limit = gas_costs.TX_BASE + gas_costs.TX_CREATE
-
         if len(storage.root) > 0:
             initcode_prefix += sum(
                 Op.SSTORE(key, value) for key, value in storage.root.items()
             )
-            deploy_gas_limit += len(storage.root) * 22_600
 
         assert isinstance(code, Bytecode), (
             f"incompatible code type: {type(code)}"
@@ -460,13 +498,8 @@ class Alloc(SharedAlloc):
         if len(code) > max_code_size:
             raise ValueError(f"code too large: {len(code)} > {max_code_size}")
 
-        deploy_gas_limit += len(code) * gas_costs.CODE_DEPOSIT_PER_BYTE
-
         prepared_initcode = Initcode(
             deploy_code=code, initcode_prefix=initcode_prefix
-        )
-        deploy_gas_limit += memory_expansion_gas_calculator(
-            new_bytes=len(bytes(prepared_initcode))
         )
 
         max_initcode_size = fork.max_initcode_size()
@@ -476,14 +509,19 @@ class Alloc(SharedAlloc):
                 f"initcode too large {initcode_len} > {max_initcode_size}"
             )
 
-        deploy_gas_limit += calldata_gas_calculator(data=prepared_initcode)
-
-        deploy_gas_limit = deploy_gas_limit * 2
+        regular_gas, deploy_gas_limit = _compute_deploy_gas_limit(
+            fork,
+            deploy_code_size=len(code),
+            initcode=prepared_initcode,
+            storage_slots=len(storage.root),
+        )
+        # Per EIP-8037, the per-tx 2^24 cap (EIP-7825) binds only the
+        # regular-gas portion; state gas is drawn from the block reservoir.
         tx_gas_limit_cap = fork.transaction_gas_limit_cap()
-        if tx_gas_limit_cap and deploy_gas_limit > tx_gas_limit_cap:
+        if tx_gas_limit_cap and regular_gas > tx_gas_limit_cap:
             raise ValueError(
-                f"deploy gas limit exceeds the transaction gas limit cap: "
-                f"{deploy_gas_limit} > {tx_gas_limit_cap}"
+                f"deploy regular gas exceeds the transaction gas limit cap: "
+                f"{regular_gas} > {tx_gas_limit_cap}"
             )
 
         deploy_tx = self._add_pending_tx(
@@ -645,6 +683,7 @@ class Alloc(SharedAlloc):
                     target=label,
                     to=eoa,
                     value=amount,
+                    gas_limit=self._funding_gas_limit,
                 )
 
         if fund_tx is not None:
@@ -862,6 +901,7 @@ class Alloc(SharedAlloc):
                     target=d.address.label,
                     to=d.address,
                     value=d.amount - current_balance,
+                    gas_limit=self._funding_gas_limit,
                 )
                 new_balance = d.amount
             else:
@@ -876,6 +916,7 @@ class Alloc(SharedAlloc):
                     target=d.address.label,
                     to=d.address,
                     value=d.amount,
+                    gas_limit=self._funding_gas_limit,
                 )
                 new_balance = current_balance + d.amount
 
@@ -985,6 +1026,7 @@ def pre(
     max_fee_per_gas: int,
     max_priority_fee_per_gas: int,
     dry_run: bool,
+    sender_fund_refund_gas_limit: int,
     request: pytest.FixtureRequest,
 ) -> Generator[Alloc, None, None]:
     """Return default pre allocation for all tests (Empty alloc)."""
@@ -1009,6 +1051,7 @@ def pre(
         chain_id=chain_config.chain_id,
         node_id=request.node.nodeid,
         address_stubs=address_stubs,
+        funding_gas_limit=sender_fund_refund_gas_limit,
     )
 
     # Yield the pre-alloc for usage during the test
@@ -1034,7 +1077,7 @@ def pre(
     # Build refund transactions
     refund_txs: List[Transaction] = []
     skipped_refunds = 0
-    refund_gas_limit = 21_000
+    refund_gas_limit = sender_fund_refund_gas_limit
     tx_cost = refund_gas_limit * max_fee_per_gas
     for idx, eoa in enumerate(funded_eoas):
         account = eth_rpc.get_account(eoa, skip_code=True)

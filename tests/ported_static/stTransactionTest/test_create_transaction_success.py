@@ -11,10 +11,12 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
+from execution_testing.forks import Amsterdam
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -27,6 +29,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.valid_from("Cancun")
 def test_create_transaction_success(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
 ) -> None:
     """Test_create_transaction_success."""
@@ -39,7 +42,6 @@ def test_create_transaction_success(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=1000000000000,
     )
 
     tx = Transaction(
@@ -60,7 +62,7 @@ def test_create_transaction_success(
         + Op.RETURN(offset=0x0, size=0x0)
         + Op.JUMPDEST
         + Op.JUMP,
-        gas_limit=70000,
+        gas_limit=2070000 if fork >= Amsterdam else 70000,
         value=100,
     )
 

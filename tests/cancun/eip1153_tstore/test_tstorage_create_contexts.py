@@ -11,6 +11,7 @@ from execution_testing import (
     Address,
     Alloc,
     Bytecode,
+    Fork,
     Initcode,
     Op,
     StateTestFiller,
@@ -18,7 +19,6 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing import Macros as Om
-from execution_testing.forks.helpers import Fork
 
 from . import CreateOpcodeParams, PytestParameterEnum
 from .spec import ref_spec_1153
@@ -271,8 +271,8 @@ class TestTransientStorageInContractCreation:
 def test_tstore_rollback_on_failed_create(
     state_test: StateTestFiller,
     pre: Alloc,
-    create_opcode: Op,
     fork: Fork,
+    create_opcode: Op,
 ) -> None:
     """
     Test TSTORE is rolled back after failed CREATE/CREATE2 initcode.
@@ -292,17 +292,20 @@ def test_tstore_rollback_on_failed_create(
     creation succeeds.
     """
     # Initcode:
-    #   return_size = 0x600a - TLOAD(1)
-    #   TSTORE(1, 0x6000)
+    #   return_size = over_limit - TLOAD(1)
+    #   TSTORE(1, max_code_size)
     #   RETURN(offset=0, size=return_size)
     #
-    # TLOAD(1)==0:     return_size = 0x600a > max code size -> fail
-    # TLOAD(1)==0x6000: return_size = 0x0a <= max code size -> succeed
+    # TLOAD(1)==0:                return_size > max code size -> fail
+    # TLOAD(1)==max_code_size:    return_size <= max code size -> succeed
+    #
+    # Sizes scale with fork.max_code_size() so pre-7954 forks get the
+    # original 0x600A / 0x6000 and Amsterdam+ gets 0x800A / 0x8000.
     max_code_size = fork.max_code_size()
-
+    over_limit = max_code_size + 10
     initcode = (
         Op.TLOAD(1)
-        + Op.PUSH4(max_code_size + 0x0A)
+        + Op.PUSH2(over_limit)
         + Op.SUB
         + Op.TSTORE(1, max_code_size)
         + Op.PUSH1(0)
@@ -328,11 +331,22 @@ def test_tstore_rollback_on_failed_create(
     )
     caller_address = pre.deploy_contract(caller_code, storage={0: 1, 1: 1})
 
+    # Amsterdam EIP-8037 charges state gas for CREATE (new account +
+    # code deposit). Each CREATE here deploys ~24K bytes, so state gas
+    # alone exceeds the regular gas cap. Supply extra via reservoir.
+    gas_limit = 16_000_000
+    if fork.code_deposit_state_gas(code_size=1) > 0:
+        gas_limit_cap = fork.transaction_gas_limit_cap() or gas_limit
+        code_deposit_state = fork.code_deposit_state_gas(code_size=0x600A)
+        new_account_state = fork.gas_costs().NEW_ACCOUNT
+        state_gas = 2 * (code_deposit_state + new_account_state)
+        gas_limit = gas_limit_cap + state_gas
+
     sender = pre.fund_eoa()
     tx = Transaction(
         sender=sender,
         to=caller_address,
-        gas_limit=16_000_000,
+        gas_limit=gas_limit,
         access_list=[
             AccessList(address=caller_address, storage_keys=[0, 1]),
         ],

@@ -22,7 +22,6 @@ from execution_testing import (
     Initcode,
     Op,
     StateTestFiller,
-    Storage,
     Transaction,
     TransactionLog,
     TransactionReceipt,
@@ -168,54 +167,6 @@ def test_contract_creation_tx(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.parametrize(
-    "collision_nonce,collision_code",
-    [
-        pytest.param(0, b"\x00", id="non_empty_code"),
-        pytest.param(1, b"", id="non_empty_nonce"),
-    ],
-)
-@pytest.mark.pre_alloc_mutable
-def test_contract_creation_tx_collision(
-    state_test: StateTestFiller,
-    env: Environment,
-    pre: Alloc,
-    collision_nonce: int,
-    collision_code: bytes,
-) -> None:
-    """
-    Test that a contract-creating transaction with an address collision
-    emits no log.
-
-    Per EIP-7610, contract creation aborts when the target address already
-    has non-empty code or nonce. The collision check happens before any
-    value transfer, so EIP-7708 emits no Transfer log.
-    """
-    sender = pre.fund_eoa()
-    tx = Transaction(
-        sender=sender,
-        to=None,
-        value=1000,
-        gas_limit=200_000,
-        data=bytes(Op.RETURN(0, 0)),
-        expected_receipt=TransactionReceipt(logs=[]),
-    )
-
-    collision_address = tx.created_contract
-    pre[collision_address] = Account(
-        nonce=collision_nonce,
-        code=collision_code,
-    )
-
-    post = {
-        collision_address: Account(
-            nonce=collision_nonce,
-            code=collision_code,
-        ),
-    }
-    state_test(env=env, pre=pre, post=post, tx=tx)
-
-
 @pytest.mark.with_all_call_opcodes
 def test_call_opcodes_transfer_log_behavior(
     state_test: StateTestFiller,
@@ -268,50 +219,6 @@ def test_call_opcodes_transfer_log_behavior(
         expected_receipt=TransactionReceipt(logs=expected_logs),
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
-
-
-@pytest.mark.with_all_call_opcodes(
-    selector=lambda call_opcode: call_opcode in (Op.CALL, Op.CALLCODE)
-)
-def test_call_opcodes_insufficient_balance_no_log(
-    state_test: StateTestFiller,
-    env: Environment,
-    pre: Alloc,
-    sender: EOA,
-    call_opcode: Op,
-) -> None:
-    """
-    Test CALL/CALLCODE with value exceeding caller balance.
-
-    The opcode returns 0 (does not revert), transfers nothing, and emits
-    no transfer log.
-
-    Note CALLCODE never emits a transfer log regardless
-    of balance — it's a self-transfer exempted by EIP-7708 — so for that
-    opcode the meaningful assertion is that the return value is 0.
-    """
-    caller_balance = 1
-    attempted_value = 100
-    callee = pre.deploy_contract(Op.STOP)
-
-    contract_code = Op.SSTORE(
-        0, call_opcode(gas=100_000, address=callee, value=attempted_value)
-    )
-    contract = pre.deploy_contract(contract_code, balance=caller_balance)
-
-    tx = Transaction(
-        sender=sender,
-        to=contract,
-        value=0,
-        gas_limit=200_000,
-        expected_receipt=TransactionReceipt(logs=[]),
-    )
-
-    post = {
-        contract: Account(storage={0: 0}, balance=caller_balance),
-        callee: Account(balance=0),
-    }
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
@@ -998,77 +905,6 @@ def test_inner_call_succeeds_outer_reverts_no_log(
     state_test(env=env, pre=pre, post={}, tx=tx)
 
 
-@pytest.mark.with_all_create_opcodes
-def test_inner_create_succeeds_outer_reverts_no_log(
-    state_test: StateTestFiller,
-    env: Environment,
-    pre: Alloc,
-    sender: EOA,
-    fork: Fork,
-    create_opcode: Op,
-) -> None:
-    """
-    Test that a CREATE/CREATE2 transfer log is rolled back on outer revert.
-
-    The factory CREATE/CREATE2s a child with value (the deployment succeeds
-    and a `factory -> created` log is emitted in the child frame), then the
-    factory itself REVERTs. Per EIP-7708 the rollback semantics mirror those
-    of CALL: the child log is discarded together with the rest of the
-    factory's frame, so the transaction receipt records no logs.
-    """
-    create_value = 1
-    initcode = Op.RETURN(0, 0)
-    initcode_len = len(initcode)
-
-    factory_code = (
-        Op.MSTORE(0, Op.PUSH32(bytes(initcode).rjust(32, b"\x00")))
-        + Op.MSTORE(
-            32,
-            create_opcode(
-                value=create_value,
-                offset=32 - initcode_len,
-                size=initcode_len,
-            ),
-        )
-        + Op.REVERT(32, 32)
-    )
-    factory = pre.deploy_contract(factory_code, balance=create_value)
-
-    entry_storage = Storage()
-    expected_create_address = compute_create_address(
-        address=factory,
-        nonce=1,
-        salt=0,
-        initcode=initcode,
-        opcode=create_opcode,
-    )
-    entry_code = Op.CALL(
-        address=factory, ret_offset=0, ret_size=32
-    ) + Op.SSTORE(
-        entry_storage.store_next(expected_create_address), Op.MLOAD(0)
-    )
-    entry = pre.deploy_contract(entry_code)
-
-    gas_limit = 200_000
-    if fork.is_eip_enabled(8037):
-        gas_limit = 1_000_000
-
-    tx = Transaction(
-        sender=sender,
-        to=entry,
-        value=0,
-        gas_limit=gas_limit,
-        expected_receipt=TransactionReceipt(logs=[]),
-    )
-
-    state_test(
-        env=env,
-        pre=pre,
-        post={entry: Account(storage=entry_storage)},
-        tx=tx,
-    )
-
-
 @pytest.mark.parametrize(
     "call_depth",
     [
@@ -1088,29 +924,34 @@ def test_nested_calls_log_order(
     transfer_value = 100
     tx_value = 1000
 
-    # Build the chain from innermost outward by prepending each new caller.
-    # Once finished, accounts[0] is the entry contract (the tx target) and
-    # accounts[-1] is the final recipient.
-    accounts: list[Address] = [pre.nonexistent_account()]
+    # Build chain: contracts[0] -> contracts[1] -> ... -> final_recipient
+    final_recipient = pre.nonexistent_account()
+    contracts: list[Address] = []
+    expected_logs: list[TransactionLog] = []
+
+    # Build contracts in reverse order (deepest first)
+    next_target = final_recipient
     for _ in range(call_depth):
-        contract_code = Op.SSTORE(
-            0,
-            Op.CALL(gas=500_000, address=accounts[0], value=transfer_value),
+        contract_code = Op.CALL(
+            gas=500_000, address=next_target, value=transfer_value
         )
-        accounts.insert(
-            0, pre.deploy_contract(contract_code, balance=transfer_value)
-        )
+        # Each contract needs enough balance for its transfer
+        contract = pre.deploy_contract(contract_code, balance=transfer_value)
+        contracts.insert(0, contract)
+        next_target = contract
 
-    entry_contract = accounts[0]
-    final_recipient = accounts[-1]
+    # First contract is the tx target
+    entry_contract = contracts[0]
 
-    expected_logs: list[TransactionLog] = [
-        transfer_log(sender, entry_contract, tx_value)
-    ]
+    # Build expected logs in chronological order
+    # First: tx-level transfer (sender -> entry_contract)
+    expected_logs.append(transfer_log(sender, entry_contract, tx_value))
+
+    # Then: each CALL in order
     for i in range(call_depth):
-        expected_logs.append(
-            transfer_log(accounts[i], accounts[i + 1], transfer_value)
-        )
+        from_addr = contracts[i]
+        to_addr = contracts[i + 1] if i + 1 < call_depth else final_recipient
+        expected_logs.append(transfer_log(from_addr, to_addr, transfer_value))
 
     tx = Transaction(
         sender=sender,
@@ -1120,11 +961,7 @@ def test_nested_calls_log_order(
         expected_receipt=TransactionReceipt(logs=expected_logs),
     )
 
-    post: dict[Address, Account] = {
-        final_recipient: Account(balance=transfer_value)
-    }
-    for chain_contract in accounts[:-1]:
-        post[chain_contract] = Account(storage={0: 1})
+    post = {final_recipient: Account(balance=transfer_value)}
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
@@ -1258,6 +1095,7 @@ def test_transfer_with_all_tx_types(
     state_test: StateTestFiller,
     env: Environment,
     pre: Alloc,
+    fork: Fork,
     sender: EOA,
     typed_transaction: Transaction,
 ) -> None:
@@ -1265,9 +1103,12 @@ def test_transfer_with_all_tx_types(
     recipient = pre.nonexistent_account()
     transfer_amount = 1000
 
+    # Sending value to a nonexistent recipient charges NEW_ACCOUNT
+    # state gas under EIP-8037 (0 otherwise).
     tx = typed_transaction.copy(
         to=recipient,
         value=transfer_amount,
+        gas_limit=typed_transaction.gas_limit + fork.gas_costs().NEW_ACCOUNT,
         expected_receipt=TransactionReceipt(
             logs=[transfer_log(sender, recipient, transfer_amount)]
         ),

@@ -3,6 +3,10 @@ CREATE2 suicide with/without value, CREATE2 suicide to itself   +  this...
 
 Ported from:
 state_tests/stCreate2/CREATE2_SuicideFiller.json
+@manually-enhanced: Do not overwrite. Gas bumped fork-conditionally
+to cover EIP-8037 state-gas spill into regular gas; pre-EIP-8037
+behavior unchanged.
+
 """
 
 import pytest
@@ -117,6 +121,13 @@ def test_create2_suicide(
     v: int,
 ) -> None:
     """CREATE2 suicide with/without value, CREATE2 suicide to itself   + ..."""
+    # EIP-8037 gas bumps: original values for pre-EIP-8037 forks.
+    outer_tx_gas = 600000
+    inner_call_gas = 150000
+    if fork.is_eip_enabled(8037):
+        outer_tx_gas = 3000000
+        inner_call_gas = 1000000
+
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
@@ -223,7 +234,7 @@ def test_create2_suicide(
         Op.MSTORE(offset=0x0, value=0x626001FF6000526003601DF3)
         + Op.POP(Op.CREATE2(value=0x0, offset=0x14, size=0xC, salt=0x0))
         + Op.CALL(
-            gas=0x249F0,
+            gas=inner_call_gas,
             address=0x5649527A8464A86CAE579719D347065F6EB27279,
             value=0x0,
             args_offset=0x0,
@@ -238,7 +249,7 @@ def test_create2_suicide(
         Op.MSTORE(offset=0x0, value=0x626001FF6000526003601DF3)
         + Op.POP(Op.CREATE2(value=0x1, offset=0x14, size=0xC, salt=0x0))
         + Op.CALL(
-            gas=0x249F0,
+            gas=inner_call_gas,
             address=0x5649527A8464A86CAE579719D347065F6EB27279,
             value=0x0,
             args_offset=0x0,
@@ -253,7 +264,7 @@ def test_create2_suicide(
         Op.MSTORE(offset=0x0, value=0x6130FF6000526002601EF3)
         + Op.POP(Op.CREATE2(value=0x0, offset=0x15, size=0xB, salt=0x0))
         + Op.CALL(
-            gas=0x249F0,
+            gas=inner_call_gas,
             address=0x6CD0E5133771823DA00D4CB545EC8CDAB0E38203,
             value=0x0,
             args_offset=0x0,
@@ -268,7 +279,7 @@ def test_create2_suicide(
         Op.MSTORE(offset=0x0, value=0x6130FF6000526002601EF3)
         + Op.POP(Op.CREATE2(value=0x1, offset=0x15, size=0xB, salt=0x0))
         + Op.CALL(
-            gas=0x249F0,
+            gas=inner_call_gas,
             address=0x6CD0E5133771823DA00D4CB545EC8CDAB0E38203,
             value=0x0,
             args_offset=0x0,
@@ -280,7 +291,7 @@ def test_create2_suicide(
         Op.MSTORE(offset=0x0, value=0x626001FF6000526003601DF3)
         + Op.POP(Op.CREATE2(value=0x0, offset=0x14, size=0xC, salt=0x0))
         + Op.STATICCALL(
-            gas=0x249F0,
+            gas=inner_call_gas,
             address=0x5649527A8464A86CAE579719D347065F6EB27279,
             args_offset=0x0,
             args_size=0x0,
@@ -291,7 +302,7 @@ def test_create2_suicide(
         Op.MSTORE(offset=0x0, value=0x626001FF6000526003601DF3)
         + Op.POP(Op.CREATE2(value=0x1, offset=0x14, size=0xC, salt=0x0))
         + Op.STATICCALL(
-            gas=0x249F0,
+            gas=inner_call_gas,
             address=0x5649527A8464A86CAE579719D347065F6EB27279,
             args_offset=0x0,
             args_size=0x0,
@@ -302,7 +313,7 @@ def test_create2_suicide(
         Op.MSTORE(offset=0x0, value=0x6130FF6000526002601EF3)
         + Op.POP(Op.CREATE2(value=0x0, offset=0x15, size=0xB, salt=0x0))
         + Op.STATICCALL(
-            gas=0x249F0,
+            gas=inner_call_gas,
             address=0x6CD0E5133771823DA00D4CB545EC8CDAB0E38203,
             args_offset=0x0,
             args_size=0x0,
@@ -313,7 +324,7 @@ def test_create2_suicide(
         Op.MSTORE(offset=0x0, value=0x6130FF6000526002601EF3)
         + Op.POP(Op.CREATE2(value=0x1, offset=0x15, size=0xB, salt=0x0))
         + Op.STATICCALL(
-            gas=0x249F0,
+            gas=inner_call_gas,
             address=0x6CD0E5133771823DA00D4CB545EC8CDAB0E38203,
             args_offset=0x0,
             args_size=0x0,
@@ -322,7 +333,7 @@ def test_create2_suicide(
         )
         + Op.STOP,
     ]
-    tx_gas = [600000]
+    tx_gas = [outer_tx_gas]
     tx_value = [10]
 
     tx = Transaction(

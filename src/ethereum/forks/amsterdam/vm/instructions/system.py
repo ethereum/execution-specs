@@ -39,6 +39,7 @@ from .. import (
     CALL_SUCCESS,
     Evm,
     Message,
+    credit_state_gas_refund,
     emit_burn_log,
     emit_transfer_log,
     incorporate_child_on_error,
@@ -46,10 +47,14 @@ from .. import (
 )
 from ..exceptions import OutOfGasError, Revert, WriteInStaticContext
 from ..gas import (
+    COST_PER_STATE_BYTE,
+    REGULAR_GAS_CREATE,
+    STATE_BYTES_PER_NEW_ACCOUNT,
     GasCosts,
     calculate_gas_extend_memory,
     calculate_message_call_gas,
     charge_gas,
+    charge_state_gas,
     check_gas,
     init_code_cost,
     max_message_call_gas,
@@ -76,13 +81,16 @@ def generic_create(
         process_create_message,
     )
 
-    # Check static context first
-    if evm.message.is_static:
-        raise WriteInStaticContext
-
     # Check max init code size early before memory read
     if memory_size > U256(MAX_INIT_CODE_SIZE):
         raise OutOfGasError
+
+    # Charge state gas for account creation (pay-before-execute).
+    # Refunded to the reservoir on any failure path below.
+    create_account_state_gas = (
+        STATE_BYTES_PER_NEW_ACCOUNT * COST_PER_STATE_BYTE
+    )
+    charge_state_gas(evm, create_account_state_gas)
 
     tx_state = evm.message.tx_env.state
 
@@ -92,6 +100,11 @@ def generic_create(
 
     create_message_gas = max_message_call_gas(Uint(evm.gas_left))
     evm.gas_left -= create_message_gas
+
+    # Pass full reservoir to child (no 63/64 rule for state gas)
+    create_message_state_gas_reservoir = evm.state_gas_left
+    evm.state_gas_left = Uint(0)
+
     evm.return_data = b""
 
     sender_address = evm.message.current_target
@@ -103,6 +116,9 @@ def generic_create(
         or evm.message.depth + Uint(1) > STACK_DEPTH_LIMIT
     ):
         evm.gas_left += create_message_gas
+        evm.state_gas_left += create_message_state_gas_reservoir
+        # No account created — refund state gas to reservoir.
+        credit_state_gas_refund(evm, create_account_state_gas)
         push(evm.stack, U256(0))
         return
 
@@ -112,6 +128,10 @@ def generic_create(
         tx_state, contract_address
     ) or account_has_storage(tx_state, contract_address):
         increment_nonce(tx_state, evm.message.current_target)
+        evm.regular_gas_used += create_message_gas
+        evm.state_gas_left += create_message_state_gas_reservoir
+        # Address collision — no account created, refund state gas.
+        credit_state_gas_refund(evm, create_account_state_gas)
         push(evm.stack, U256(0))
         return
 
@@ -123,6 +143,7 @@ def generic_create(
         caller=evm.message.current_target,
         target=Bytes0(),
         gas=create_message_gas,
+        state_gas_reservoir=create_message_state_gas_reservoir,
         value=endowment,
         data=b"",
         code=call_data,
@@ -140,6 +161,8 @@ def generic_create(
 
     if child_evm.error:
         incorporate_child_on_error(evm, child_evm)
+        # No account created, refund parent's CREATE state gas.
+        credit_state_gas_refund(evm, create_account_state_gas)
         evm.return_data = child_evm.output
         push(evm.stack, U256(0))
     else:
@@ -158,6 +181,9 @@ def create(evm: Evm) -> None:
         The current EVM frame.
 
     """
+    if evm.message.is_static:
+        raise WriteInStaticContext
+
     # STACK
     endowment = pop(evm.stack)
     memory_start_position = pop(evm.stack)
@@ -168,10 +194,7 @@ def create(evm: Evm) -> None:
         evm.memory, [(memory_start_position, memory_size)]
     )
     init_code_gas = init_code_cost(Uint(memory_size))
-
-    charge_gas(
-        evm, GasCosts.OPCODE_CREATE_BASE + extend_memory.cost + init_code_gas
-    )
+    charge_gas(evm, REGULAR_GAS_CREATE + extend_memory.cost + init_code_gas)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -207,6 +230,9 @@ def create2(evm: Evm) -> None:
         The current EVM frame.
 
     """
+    if evm.message.is_static:
+        raise WriteInStaticContext
+
     # STACK
     endowment = pop(evm.stack)
     memory_start_position = pop(evm.stack)
@@ -221,7 +247,7 @@ def create2(evm: Evm) -> None:
     init_code_gas = init_code_cost(Uint(memory_size))
     charge_gas(
         evm,
-        GasCosts.OPCODE_CREATE_BASE
+        REGULAR_GAS_CREATE
         + GasCosts.OPCODE_KECCACK256_PER_WORD * call_data_words
         + extend_memory.cost
         + init_code_gas,
@@ -283,6 +309,7 @@ def return_(evm: Evm) -> None:
 def generic_call(
     evm: Evm,
     gas: Uint,
+    state_gas_reservoir: Uint,
     value: U256,
     caller: Address,
     to: Address,
@@ -293,6 +320,7 @@ def generic_call(
     memory_input_size: U256,
     memory_output_start_position: U256,
     memory_output_size: U256,
+    code: Bytes,
     disable_precompiles: bool,
 ) -> None:
     """
@@ -304,12 +332,9 @@ def generic_call(
 
     if evm.message.depth + Uint(1) > STACK_DEPTH_LIMIT:
         evm.gas_left += gas
+        evm.state_gas_left += state_gas_reservoir
         push(evm.stack, U256(0))
         return
-
-    tx_state = evm.message.tx_env.state
-    code_hash = get_account(tx_state, code_address).code_hash
-    code = get_code(tx_state, code_hash)
 
     call_data = memory_read_bytes(
         evm.memory, memory_input_start_position, memory_input_size
@@ -321,6 +346,7 @@ def generic_call(
         caller=caller,
         target=to,
         gas=gas,
+        state_gas_reservoir=state_gas_reservoir,
         value=value,
         data=call_data,
         code=code,
@@ -352,6 +378,17 @@ def generic_call(
         memory_output_start_position,
         child_evm.output[:actual_output_size],
     )
+
+
+def escrow_subcall_regular_gas(evm: Evm, sub_call_gas: Uint) -> None:
+    """
+    Remove forwarded CALL* gas from the caller's regular gas usage.
+
+    CALL* forwards `sub_call_gas` to the child frame as temporary escrow.
+    Only gas actually burned by the child should be reintroduced via
+    `incorporate_child_*` child gas accounting.
+    """
+    evm.regular_gas_used -= sub_call_gas
 
 
 def call(evm: Evm) -> None:
@@ -404,11 +441,7 @@ def call(evm: Evm) -> None:
     if is_cold_access:
         evm.accessed_addresses.add(to)
 
-    create_gas_cost = GasCosts.NEW_ACCOUNT
-    if value == 0 or is_account_alive(tx_state, to):
-        create_gas_cost = Uint(0)
-
-    extra_gas = access_gas_cost + transfer_gas_cost + create_gas_cost
+    extra_gas = access_gas_cost + transfer_gas_cost
     (
         is_delegated,
         code_address,
@@ -422,26 +455,46 @@ def call(evm: Evm) -> None:
         if code_address not in evm.accessed_addresses:
             evm.accessed_addresses.add(code_address)
 
+    code_hash = get_account(tx_state, code_address).code_hash
+    code = get_code(tx_state, code_hash)
+
+    # TODO: Consider consolidating charge_gas + charge_state_gas into
+    # a single gas charge to avoid duplicate EVM trace entries.
+    # Applies here and in create, create2, selfdestruct. See #2526.
+    charge_gas(evm, extra_gas + extend_memory.cost)
+    if value != 0 and not is_account_alive(tx_state, to):
+        charge_state_gas(
+            evm, STATE_BYTES_PER_NEW_ACCOUNT * COST_PER_STATE_BYTE
+        )
+
     message_call_gas = calculate_message_call_gas(
         value,
         gas,
         Uint(evm.gas_left),
-        extend_memory.cost,
-        extra_gas,
+        memory_cost=Uint(0),
+        extra_gas=Uint(0),
     )
-    charge_gas(evm, message_call_gas.cost + extend_memory.cost)
+    charge_gas(evm, message_call_gas.cost)
+    escrow_subcall_regular_gas(evm, message_call_gas.sub_call)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
+
+    # Pass full reservoir to child (no 63/64 rule for state gas)
+    call_state_gas_reservoir = evm.state_gas_left
+    evm.state_gas_left = Uint(0)
+
     sender_balance = get_account(tx_state, evm.message.current_target).balance
     if sender_balance < value:
         push(evm.stack, U256(0))
         evm.return_data = b""
         evm.gas_left += message_call_gas.sub_call
+        evm.state_gas_left += call_state_gas_reservoir
     else:
         generic_call(
             evm,
             message_call_gas.sub_call,
+            call_state_gas_reservoir,
             value,
             evm.message.current_target,
             to,
@@ -452,6 +505,7 @@ def call(evm: Evm) -> None:
             memory_input_size,
             memory_output_start_position,
             memory_output_size,
+            code,
             is_delegated,
         )
 
@@ -522,6 +576,9 @@ def callcode(evm: Evm) -> None:
         if code_address not in evm.accessed_addresses:
             evm.accessed_addresses.add(code_address)
 
+    code_hash = get_account(tx_state, code_address).code_hash
+    code = get_code(tx_state, code_hash)
+
     message_call_gas = calculate_message_call_gas(
         value,
         gas,
@@ -530,19 +587,27 @@ def callcode(evm: Evm) -> None:
         extra_gas,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
+    escrow_subcall_regular_gas(evm, message_call_gas.sub_call)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
+
+    # Pass full reservoir to child (no 63/64 rule for state gas)
+    call_state_gas_reservoir = evm.state_gas_left
+    evm.state_gas_left = Uint(0)
+
     sender_balance = get_account(tx_state, evm.message.current_target).balance
 
     if sender_balance < value:
         push(evm.stack, U256(0))
         evm.return_data = b""
         evm.gas_left += message_call_gas.sub_call
+        evm.state_gas_left += call_state_gas_reservoir
     else:
         generic_call(
             evm,
             message_call_gas.sub_call,
+            call_state_gas_reservoir,
             value,
             evm.message.current_target,
             to,
@@ -553,6 +618,7 @@ def callcode(evm: Evm) -> None:
             memory_input_size,
             memory_output_start_position,
             memory_output_size,
+            code,
             is_delegated,
         )
 
@@ -591,13 +657,19 @@ def selfdestruct(evm: Evm) -> None:
     if is_cold_access:
         evm.accessed_addresses.add(beneficiary)
 
-    if (
+    needs_state_gas = (
         not is_account_alive(tx_state, beneficiary)
         and get_account(tx_state, evm.message.current_target).balance != 0
-    ):
-        gas_cost += GasCosts.OPCODE_SELFDESTRUCT_NEW_ACCOUNT
+    )
 
+    # Charge regular gas before state gas so that a regular-gas OOG
+    # does not consume state gas that would inflate the parent's
+    # reservoir on frame failure.
     charge_gas(evm, gas_cost)
+    if needs_state_gas:
+        charge_state_gas(
+            evm, STATE_BYTES_PER_NEW_ACCOUNT * COST_PER_STATE_BYTE
+        )
 
     originator = evm.message.current_target
     originator_balance = get_account(tx_state, originator).balance
@@ -605,15 +677,20 @@ def selfdestruct(evm: Evm) -> None:
     # Transfer balance
     move_ether(tx_state, originator, beneficiary, originator_balance)
 
-    # Emit transfer or burn log
+    # EIP-7708: Emit appropriate log based on whether ETH is burned
+    # or transferred to a different account
     if originator in tx_state.created_accounts and beneficiary == originator:
+        # Self-destruct to self in same tx burns the balance
         emit_burn_log(evm, originator, originator_balance)
     elif beneficiary != originator:
+        # Transfer to different beneficiary
         emit_transfer_log(evm, originator, beneficiary, originator_balance)
 
-    # Register account for deletion iff created in same transaction
+    # register account for deletion only if it was created
+    # in the same transaction
     if originator in tx_state.created_accounts:
-        # If beneficiary and originator are the same then the ether is burnt.
+        # If beneficiary is the same as originator, then
+        # the ether is burnt.
         set_account_balance(tx_state, originator, U256(0))
         evm.accounts_to_delete.add(originator)
 
@@ -661,6 +738,7 @@ def delegatecall(evm: Evm) -> None:
     check_gas(evm, access_gas_cost + extend_memory.cost)
 
     # STATE ACCESS
+    tx_state = evm.message.tx_env.state
     if is_cold_access:
         evm.accessed_addresses.add(code_address)
 
@@ -678,6 +756,9 @@ def delegatecall(evm: Evm) -> None:
         if code_address not in evm.accessed_addresses:
             evm.accessed_addresses.add(code_address)
 
+    code_hash = get_account(tx_state, code_address).code_hash
+    code = get_code(tx_state, code_hash)
+
     message_call_gas = calculate_message_call_gas(
         U256(0),
         gas,
@@ -686,12 +767,19 @@ def delegatecall(evm: Evm) -> None:
         extra_gas,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
+    escrow_subcall_regular_gas(evm, message_call_gas.sub_call)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
+
+    # Pass full reservoir to child (no 63/64 rule for state gas)
+    call_state_gas_reservoir = evm.state_gas_left
+    evm.state_gas_left = Uint(0)
+
     generic_call(
         evm,
         message_call_gas.sub_call,
+        call_state_gas_reservoir,
         evm.message.value,
         evm.message.caller,
         evm.message.current_target,
@@ -702,6 +790,7 @@ def delegatecall(evm: Evm) -> None:
         memory_input_size,
         memory_output_start_position,
         memory_output_size,
+        code,
         is_delegated,
     )
 
@@ -746,6 +835,7 @@ def staticcall(evm: Evm) -> None:
     check_gas(evm, access_gas_cost + extend_memory.cost)
 
     # STATE ACCESS
+    tx_state = evm.message.tx_env.state
     if is_cold_access:
         evm.accessed_addresses.add(to)
 
@@ -763,6 +853,9 @@ def staticcall(evm: Evm) -> None:
         if code_address not in evm.accessed_addresses:
             evm.accessed_addresses.add(code_address)
 
+    code_hash = get_account(tx_state, code_address).code_hash
+    code = get_code(tx_state, code_hash)
+
     message_call_gas = calculate_message_call_gas(
         U256(0),
         gas,
@@ -771,12 +864,19 @@ def staticcall(evm: Evm) -> None:
         extra_gas,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
+    escrow_subcall_regular_gas(evm, message_call_gas.sub_call)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
+
+    # Pass full reservoir to child (no 63/64 rule for state gas)
+    call_state_gas_reservoir = evm.state_gas_left
+    evm.state_gas_left = Uint(0)
+
     generic_call(
         evm,
         message_call_gas.sub_call,
+        call_state_gas_reservoir,
         U256(0),
         evm.message.current_target,
         to,
@@ -787,6 +887,7 @@ def staticcall(evm: Evm) -> None:
         memory_input_size,
         memory_output_start_position,
         memory_output_size,
+        code,
         is_delegated,
     )
 

@@ -11,6 +11,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Fork,
     Op,
     StateTestFiller,
     Transaction,
@@ -488,6 +489,7 @@ def test_modexp(
     mod_exp_input: ModExpInput | Bytes,
     output: ModExpOutput,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test the MODEXP precompile."""
     env = Environment()

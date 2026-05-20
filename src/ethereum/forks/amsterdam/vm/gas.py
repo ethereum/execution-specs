@@ -17,13 +17,24 @@ from typing import Final, List, Tuple
 from ethereum_types.numeric import U64, U256, Uint, ulen
 
 from ethereum.forks.bpo5.blocks import Header as PreviousHeader
-from ethereum.trace import GasAndRefund, evm_trace
+from ethereum.trace import GasAndRefund, StateGasAndRefund, evm_trace
 from ethereum.utils.numeric import ceil32, taylor_exponential
 
 from ..blocks import Header
 from ..transactions import BlobTransaction, Transaction
 from . import Evm
 from .exceptions import OutOfGasError
+
+# EIP-8037 state gas accounting constants
+COST_PER_STATE_BYTE = Uint(1530)
+
+STATE_BYTES_PER_NEW_ACCOUNT = Uint(120)
+STATE_BYTES_PER_STORAGE_SET = Uint(64)
+STATE_BYTES_PER_AUTH_BASE = Uint(23)
+
+PER_AUTH_BASE_COST = Uint(7500)
+
+REGULAR_GAS_CREATE = Uint(9000)
 
 
 # These values may be patched at runtime by a future gas repricing utility
@@ -114,7 +125,6 @@ class GasCosts:
     LIMIT_ADJUSTMENT_FACTOR: Final[Uint] = Uint(1024)
     LIMIT_MINIMUM: Final[Uint] = Uint(5000)
 
-    # Static Opcodes
     OPCODE_ADD: Final[Uint] = VERY_LOW
     OPCODE_SUB: Final[Uint] = VERY_LOW
     OPCODE_MUL: Final[Uint] = LOW
@@ -249,22 +259,50 @@ def check_gas(evm: Evm, amount: Uint) -> None:
 
 def charge_gas(evm: Evm, amount: Uint) -> None:
     """
-    Subtracts `amount` from `evm.gas_left`.
+    Subtracts `amount` from `evm.gas_left` (regular gas) and records usage.
 
     Parameters
     ----------
     evm :
         The current EVM.
     amount :
-        The amount of gas the current operation requires.
+        The amount of regular gas the current operation requires.
 
     """
     evm_trace(evm, GasAndRefund(int(amount)))
 
     if evm.gas_left < amount:
         raise OutOfGasError
+    evm.gas_left -= amount
+
+    evm.regular_gas_used += amount
+
+
+def charge_state_gas(evm: Evm, amount: Uint) -> None:
+    """
+    Subtracts `amount` from the state gas reservoir, then from
+    `evm.gas_left` when the reservoir is empty. Records state gas usage.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM.
+    amount :
+        The amount of state gas the current operation requires.
+
+    """
+    evm_trace(evm, StateGasAndRefund(int(amount)))
+
+    if evm.state_gas_left >= amount:
+        evm.state_gas_left -= amount
+    elif evm.state_gas_left + evm.gas_left >= amount:
+        remainder = amount - evm.state_gas_left
+        evm.state_gas_left = Uint(0)
+        evm.gas_left -= remainder
     else:
-        evm.gas_left -= amount
+        raise OutOfGasError
+
+    evm.state_gas_used += int(amount)
 
 
 def calculate_memory_gas_cost(size_in_bytes: Uint) -> Uint:

@@ -29,6 +29,7 @@ from ethereum.trace import (
     TransactionEnd,
     evm_trace,
 )
+from ethereum.utils.numeric import ceil32
 
 from ..blocks import Log
 from ..state_tracker import (
@@ -46,7 +47,12 @@ from ..state_tracker import (
 )
 from ..vm import Message
 from ..vm.eoa_delegation import get_delegated_code_address, set_delegation
-from ..vm.gas import GasCosts, charge_gas
+from ..vm.gas import (
+    COST_PER_STATE_BYTE,
+    GasCosts,
+    charge_gas,
+    charge_state_gas,
+)
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import Evm, emit_transfer_log
 from .exceptions import (
@@ -79,14 +85,24 @@ class MessageCallOutput:
           4. `accounts_to_delete`: Contracts which have self-destructed.
           5. `error`: The error from the execution if any.
           6. `return_data`: The output of the execution.
+          7. `regular_gas_used`: Regular gas used during execution.
+          8. `state_gas_used`: State gas used during execution.
+          9. `state_refund`: State gas refunded by `set_delegation` for
+             authorities that already existed in state. Subtracted from
+             `tx_state_gas` in block accounting so `block.gas_used`
+             matches the receipt `cumulative_gas_used`.
     """
 
     gas_left: Uint
+    state_gas_left: Uint
     refund_counter: U256
     logs: Tuple[Log, ...]
     accounts_to_delete: Set[Address]
     error: Optional[EthereumException]
     return_data: Bytes
+    regular_gas_used: Uint
+    state_gas_used: int
+    state_refund: Uint
 
 
 def process_message_call(message: Message) -> MessageCallOutput:
@@ -107,24 +123,29 @@ def process_message_call(message: Message) -> MessageCallOutput:
     """
     tx_state = message.tx_env.state
     refund_counter = U256(0)
+    state_refund = Uint(0)
     if message.target == Bytes0(b""):
         is_collision = account_has_code_or_nonce(
             tx_state, message.current_target
         ) or account_has_storage(tx_state, message.current_target)
         if is_collision:
             return MessageCallOutput(
-                Uint(0),
-                U256(0),
-                tuple(),
-                set(),
-                AddressCollision(),
-                Bytes(b""),
+                gas_left=Uint(0),
+                state_gas_left=message.state_gas_reservoir,
+                refund_counter=U256(0),
+                logs=tuple(),
+                accounts_to_delete=set(),
+                error=AddressCollision(),
+                return_data=Bytes(b""),
+                regular_gas_used=message.gas,
+                state_gas_used=0,
+                state_refund=Uint(0),
             )
         else:
             evm = process_create_message(message)
     else:
         if message.tx_env.authorizations != ():
-            refund_counter += set_delegation(message)
+            state_refund += set_delegation(message)
 
         delegated_address = get_delegated_code_address(message.code)
         if delegated_address is not None:
@@ -153,11 +174,15 @@ def process_message_call(message: Message) -> MessageCallOutput:
 
     return MessageCallOutput(
         gas_left=evm.gas_left,
+        state_gas_left=evm.state_gas_left,
         refund_counter=refund_counter,
         logs=logs,
         accounts_to_delete=accounts_to_delete,
         error=evm.error,
         return_data=evm.output,
+        regular_gas_used=evm.regular_gas_used,
+        state_gas_used=evm.state_gas_used,
+        state_refund=state_refund,
     )
 
 
@@ -200,18 +225,24 @@ def process_create_message(message: Message) -> Evm:
     evm = process_message(message)
     if not evm.error:
         contract_code = evm.output
-        contract_code_gas = (
-            ulen(contract_code) * GasCosts.CODE_DEPOSIT_PER_BYTE
-        )
         try:
             if len(contract_code) > 0:
                 if contract_code[0] == 0xEF:
                     raise InvalidContractPrefix
-            charge_gas(evm, contract_code_gas)
             if len(contract_code) > MAX_CODE_SIZE:
                 raise OutOfGasError
+            # Hash cost for computing keccak256 of deployed bytecode
+            code_hash_gas = (
+                GasCosts.OPCODE_KECCACK256_PER_WORD
+                * ceil32(ulen(contract_code))
+                // Uint(32)
+            )
+            charge_gas(evm, code_hash_gas)
+            code_deposit_state_gas = ulen(contract_code) * COST_PER_STATE_BYTE
+            charge_state_gas(evm, code_deposit_state_gas)
         except ExceptionalHalt as error:
             restore_tx_state(tx_state, snapshot)
+            evm.regular_gas_used += evm.gas_left
             evm.gas_left = Uint(0)
             evm.output = b""
             evm.error = error
@@ -243,12 +274,14 @@ def process_message(message: Message) -> Evm:
 
     code = message.code
     valid_jump_destinations = get_valid_jump_destinations(code)
+
     evm = Evm(
         pc=Uint(0),
         stack=[],
         memory=bytearray(),
         code=code,
         gas_left=message.gas,
+        state_gas_left=message.state_gas_reservoir,
         valid_jump_destinations=valid_jump_destinations,
         logs=(),
         refund_counter=0,
@@ -262,6 +295,7 @@ def process_message(message: Message) -> Evm:
         accessed_storage_keys=message.accessed_storage_keys,
     )
 
+    # take snapshot of state before processing the message
     snapshot = copy_tx_state(tx_state)
 
     if message.should_transfer_value and message.value != 0:
@@ -271,6 +305,7 @@ def process_message(message: Message) -> Evm:
             message.current_target,
             message.value,
         )
+        # EIP-7708: Only emit transfer log to a different account
         if message.caller != message.current_target:
             emit_transfer_log(
                 evm, message.caller, message.current_target, message.value
@@ -298,6 +333,7 @@ def process_message(message: Message) -> Evm:
 
     except ExceptionalHalt as error:
         evm_trace(evm, OpException(error))
+        evm.regular_gas_used += evm.gas_left
         evm.gas_left = Uint(0)
         evm.output = b""
         evm.error = error

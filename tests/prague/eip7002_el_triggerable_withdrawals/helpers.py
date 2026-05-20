@@ -10,6 +10,7 @@ from execution_testing import (
     Address,
     Alloc,
     Bytecode,
+    Fork,
     Op,
     Transaction,
 )
@@ -80,7 +81,7 @@ class WithdrawalRequestInteractionBase:
     requests: List[WithdrawalRequest]
     """Withdrawal request to be included in the block."""
 
-    def transactions(self) -> List[Transaction]:
+    def transactions(self, fork: Fork | None = None) -> List[Transaction]:
         """Return a transaction for the withdrawal request."""
         raise NotImplementedError
 
@@ -109,8 +110,9 @@ class WithdrawalRequestTransaction(WithdrawalRequestInteractionBase):
     owned account.
     """
 
-    def transactions(self) -> List[Transaction]:
+    def transactions(self, fork: Fork | None = None) -> List[Transaction]:
         """Return a transaction for the withdrawal request."""
+        del fork
         assert self.sender_account is not None, (
             "Sender account not initialized"
         )
@@ -148,8 +150,12 @@ class WithdrawalRequestTransaction(WithdrawalRequestInteractionBase):
 class WithdrawalRequestContract(WithdrawalRequestInteractionBase):
     """Class used to describe a withdrawal originated from a contract."""
 
-    tx_gas_limit: int = 1_000_000
-    """Gas limit for the transaction."""
+    tx_gas_limit: int = 3_000_000
+    """
+    Gas limit for the transaction. Sized to comfortably cover
+    `MAX_WITHDRAWAL_REQUESTS_PER_BLOCK` zero-to-nonzero state-set
+    charges per tx under EIP-8037 plus regular dispatch overhead.
+    """
 
     contract_balance: int = 1_000_000_000_000_000_000
     """
@@ -168,6 +174,13 @@ class WithdrawalRequestContract(WithdrawalRequestInteractionBase):
     """Frame depth of the pre-deploy contract when it executes the call."""
     extra_code: Bytecode = field(default_factory=Bytecode)
     """Extra code to be added to the contract code."""
+    fund_state_reservoir: bool = False
+    """
+    When True (and EIP-8037 is active), pad `tx_gas_limit` by exactly the
+    per-request state-set work so the excess funds the EIP-8037 reservoir.
+    Use only when `tx_gas_limit` is held at the cap (reservoir would
+    otherwise be empty) and state work must not drain the regular pool.
+    """
 
     @property
     def contract_code(self) -> Bytecode:
@@ -194,12 +207,24 @@ class WithdrawalRequestContract(WithdrawalRequestInteractionBase):
             current_offset += len(r.calldata)
         return code + self.extra_code
 
-    def transactions(self) -> List[Transaction]:
+    def transactions(self, fork: Fork | None = None) -> List[Transaction]:
         """Return a transaction for the withdrawal request."""
         assert self.entry_address is not None, "Entry address not initialized"
+        gas_limit = self.tx_gas_limit
+        if fork is not None and fork.is_eip_enabled(8037):
+            # Per request the system contract writes 3 entry slots
+            # (source, pubkey, amount); plus a queue-tail bump and
+            # one slot of headroom per tx.
+            sstores_per_request = 3
+            queue_tail_and_slack_sstores = 2
+            sstores = (
+                len(self.requests) * sstores_per_request
+                + queue_tail_and_slack_sstores
+            )
+            gas_limit += sstores * fork.sstore_state_gas()
         return [
             Transaction(
-                gas_limit=self.tx_gas_limit,
+                gas_limit=gas_limit,
                 gas_price=1_000_000_000,
                 to=self.entry_address,
                 value=0,

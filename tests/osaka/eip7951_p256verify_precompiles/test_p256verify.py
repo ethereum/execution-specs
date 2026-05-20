@@ -1345,7 +1345,7 @@ def test_contract_initcode(
 
     tx = Transaction(
         sender=sender,
-        gas_limit=200_000,
+        gas_limit=(1_000_000 if fork.is_eip_enabled(8037) else 200_000),
         to=factory_contract_address,
         value=0,
         data=call_256verify_bytecode + input_data,

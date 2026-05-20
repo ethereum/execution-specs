@@ -3,6 +3,11 @@ Test_random_statetest386.
 
 Ported from:
 state_tests/stRandom2/randomStatetest386Filler.json
+
+@manually-enhanced: Do not overwrite. `gas_limit` raised on Amsterdam
+to cover EIP-8037 state-gas spill. Pre-EIP-8037 keeps the original
+100 000.
+
 """
 
 import pytest
@@ -15,6 +20,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,8 +35,14 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_random_statetest386(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_random_statetest386."""
+    # EIP-8037 state-gas spill on Amsterdam exceeds 100k tx_gas.
+    tx_gas_limit = 100000
+    if fork.is_eip_enabled(8037):
+        tx_gas_limit = 500_000
+
     coinbase = Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
@@ -40,7 +52,6 @@ def test_random_statetest386(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
     )
 
     # Source: raw
@@ -92,7 +103,7 @@ def test_random_statetest386(
         data=Bytes(
             "7f00000000000000000000000000000000000000000000000000000000000000007f00000000000000000000000000000000000000000000000000000000000000007f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7f00000000000000000000000000000000000000000000000000000000000000007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff047f000000000000000000000000000000000000000000000000000000000000000105133641010b8111"  # noqa: E501
         ),
-        gas_limit=100000,
+        gas_limit=tx_gas_limit,
         value=0x19D7AC44,
     )
 

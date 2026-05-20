@@ -158,6 +158,8 @@ def tx_gas_limit(fork: Fork, input_data: bytes, precompile_gas: int) -> int:
     )
     memory_expansion_gas_calculator = fork.memory_expansion_gas_calculator()
     extra_gas = 100_000
+    if fork.is_eip_enabled(8037):
+        extra_gas = 500_000
     return (
         extra_gas
         + intrinsic_gas_cost_calculator(calldata=input_data)

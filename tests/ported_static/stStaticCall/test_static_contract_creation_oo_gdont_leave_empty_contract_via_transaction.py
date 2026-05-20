@@ -15,6 +15,7 @@ from execution_testing import (
     Transaction,
     compute_create_address,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,13 +33,17 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_static_contract_creation_oo_gdont_leave_empty_contract_via_transaction(  # noqa: E501
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_static_contract_creation_oo_gdont_leave_empty_contract_via_tra..."""  # noqa: E501
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_1 = Address(0x1000000000000000000000000000000000000001)
     contract_2 = Address(0x2000000000000000000000000000000000000001)
-    sender = pre.fund_eoa(amount=0x10C8E0)
+    sender_amount = 0x10C8E0
+    if fork.is_eip_enabled(8037):
+        sender_amount += fork.gas_costs().NEW_ACCOUNT * 10
+    sender = pre.fund_eoa(amount=sender_amount)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -96,7 +101,11 @@ def test_static_contract_creation_oo_gdont_leave_empty_contract_via_transaction(
             ret_offset=0x0,
             ret_size=0x40,
         ),
-        gas_limit=96000,
+        gas_limit=(
+            96000 + fork.gas_costs().NEW_ACCOUNT
+            if fork.is_eip_enabled(8037)
+            else 96000
+        ),
     )
 
     post = {compute_create_address(address=sender, nonce=0): Account(nonce=1)}

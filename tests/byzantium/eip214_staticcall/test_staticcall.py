@@ -143,10 +143,21 @@ def test_staticcall_reentrant_call_to_precompile(
     target = pre.deploy_contract(code=target_code, balance=target_balance)
 
     tx_value = 100
+    # The outer SSTORE (slot 0 = STATICCALL result) needs state work even
+    # though STATICCALL forwards 63/64 of remaining gas to the reentrant
+    # frame. Lift past the EIP-7825 cap so the EIP-8037 reservoir hosts
+    # the SSTORE state.
+    gas_cap = fork.transaction_gas_limit_cap()
+    sstore_state_gas = fork.sstore_state_gas()
+    if gas_cap is not None and sstore_state_gas > 0:
+        gas_limit = gas_cap + sstore_state_gas
+    else:
+        gas_limit = 1_000_000
+
     tx = Transaction(
         sender=alice,
         to=target,
-        gas_limit=1_000_000,
+        gas_limit=gas_limit,
         value=tx_value,
         protected=True,
     )
@@ -442,12 +453,22 @@ def test_staticcall_nested_call_to_precompile(
             account_expectations=account_expectations
         )
 
+    # Six SSTOREs across A and B, plus CALL/STATICCALL forwarding 63/64
+    # at each frame. Lift past the EIP-7825 cap so the EIP-8037 reservoir
+    # holds the SSTORE state work for both contracts.
+    gas_cap = fork.transaction_gas_limit_cap()
+    sstore_state_gas = fork.sstore_state_gas()
+    if gas_cap is not None and sstore_state_gas > 0:
+        gas_limit = gas_cap + 6 * sstore_state_gas
+    else:
+        gas_limit = 500_000
+
     state_test(
         pre=pre,
         tx=Transaction(
             sender=alice,
             to=contract_b,
-            gas_limit=500_000,
+            gas_limit=gas_limit,
             value=tx_value,
             protected=True,
         ),

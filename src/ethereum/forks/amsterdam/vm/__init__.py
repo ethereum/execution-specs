@@ -69,6 +69,10 @@ class BlockOutput:
 
     block_gas_used : `ethereum.base_types.Uint`
         Gas used for executing all transactions.
+    block_state_gas_used : `ethereum.base_types.Uint`
+        State gas used for executing all transactions.
+    cumulative_gas_used : `ethereum.base_types.Uint`
+        Cumulative gas paid by users (post-refund, post-floor).
     transactions_trie : `ethereum.fork_types.Root`
         Trie of all the transactions in the block.
     receipts_trie : `ethereum.fork_types.Root`
@@ -89,6 +93,7 @@ class BlockOutput:
     """
 
     block_gas_used: Uint = Uint(0)
+    block_state_gas_used: Uint = Uint(0)
     cumulative_gas_used: Uint = Uint(0)
     transactions_trie: Trie[Bytes, Optional[Bytes | LegacyTransaction]] = (
         field(default_factory=lambda: Trie(secured=False, default=None))
@@ -115,6 +120,7 @@ class TransactionEnvironment:
     origin: Address
     gas_price: Uint
     gas: Uint
+    state_gas_reservoir: Uint
     access_list_addresses: Set[Address]
     access_list_storage_keys: Set[Tuple[Address, Bytes32]]
     state: TransactionState
@@ -122,6 +128,8 @@ class TransactionEnvironment:
     authorizations: Tuple[Authorization, ...]
     index_in_block: Optional[Uint]
     tx_hash: Optional[Hash32]
+    intrinsic_regular_gas: Uint
+    intrinsic_state_gas: Uint
 
 
 @dataclass
@@ -136,6 +144,7 @@ class Message:
     target: Bytes0 | Address
     current_target: Address
     gas: Uint
+    state_gas_reservoir: Uint
     value: U256
     data: Bytes
     code_address: Optional[Address]
@@ -158,6 +167,7 @@ class Evm:
     memory: bytearray
     code: Bytes
     gas_left: Uint
+    state_gas_left: Uint
     valid_jump_destinations: Set[Uint]
     logs: Tuple[Log, ...]
     refund_counter: int
@@ -169,6 +179,27 @@ class Evm:
     error: Optional[EthereumException]
     accessed_addresses: Set[Address]
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
+    regular_gas_used: Uint = Uint(0)
+    state_gas_used: int = 0
+
+
+def credit_state_gas_refund(evm: Evm, amount: Uint) -> None:
+    """
+    Credit an inline state gas refund to the local frame's reservoir.
+
+    `state_gas_used` may go negative when the refund matches an
+    ancestor's charge (e.g. an `SSTORE` clearing a slot a parent set).
+
+    Parameters
+    ----------
+    evm :
+        The frame crediting the refund.
+    amount :
+        The refund amount to credit.
+
+    """
+    evm.state_gas_left += amount
+    evm.state_gas_used -= int(amount)
 
 
 def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
@@ -184,16 +215,27 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
 
     """
     evm.gas_left += child_evm.gas_left
+    evm.state_gas_left += child_evm.state_gas_left
     evm.logs += child_evm.logs
     evm.refund_counter += child_evm.refund_counter
     evm.accounts_to_delete.update(child_evm.accounts_to_delete)
     evm.accessed_addresses.update(child_evm.accessed_addresses)
     evm.accessed_storage_keys.update(child_evm.accessed_storage_keys)
+    evm.regular_gas_used += child_evm.regular_gas_used
+    evm.state_gas_used += child_evm.state_gas_used
 
 
-def incorporate_child_on_error(evm: Evm, child_evm: Evm) -> None:
+def incorporate_child_on_error(
+    evm: Evm,
+    child_evm: Evm,
+) -> None:
     """
     Incorporate the state of an unsuccessful `child_evm` into the parent `evm`.
+
+    State is rolled back, so all state gas is restored to the parent's
+    reservoir via the `state_gas_left + state_gas_used` invariant. Any
+    inline refunds the child credited net out automatically — their
+    matching charges are rolled back too.
 
     Parameters
     ----------
@@ -204,6 +246,12 @@ def incorporate_child_on_error(evm: Evm, child_evm: Evm) -> None:
 
     """
     evm.gas_left += child_evm.gas_left
+    evm.state_gas_left = Uint(
+        int(evm.state_gas_left)
+        + child_evm.state_gas_used
+        + int(child_evm.state_gas_left)
+    )
+    evm.regular_gas_used += child_evm.regular_gas_used
 
 
 def emit_transfer_log(

@@ -3,6 +3,10 @@ Test_call_the_contract_to_create_empty_contract.
 
 Ported from:
 state_tests/stInitCodeTest/CallTheContractToCreateEmptyContractFiller.json
+
+@manually-enhanced: Do not overwrite. tx gas budget bumped
+for EIP-8037 NEW_ACCOUNT state-gas headroom on Amsterdam (post-state
+expectations are unchanged on all forks).
 """
 
 import pytest
@@ -16,6 +20,7 @@ from execution_testing import (
     Transaction,
     compute_create_address,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +37,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_call_the_contract_to_create_empty_contract(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_call_the_contract_to_create_empty_contract."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
@@ -54,11 +60,16 @@ def test_call_the_contract_to_create_empty_contract(
         nonce=0,
     )
 
+    # EIP-8037 NEW_ACCOUNT state-gas spill on Amsterdam; pre-EIP-8037
+    # keeps the original 100 000 budget.
+    tx_gas_limit = 100_000
+    if fork.is_eip_enabled(8037):
+        tx_gas_limit = 500_000
     tx = Transaction(
         sender=sender,
         to=contract_0,
         data=Bytes("00"),
-        gas_limit=100000,
+        gas_limit=tx_gas_limit,
         value=1,
     )
 

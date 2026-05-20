@@ -15,6 +15,7 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
+    Fork,
     Op,
     Transaction,
 )
@@ -176,6 +177,7 @@ def _build_incremental_changes(
 def test_bal_7002_clean_sweep(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    fork: Fork,
     pubkey: bytes,
     amount: int,
 ) -> None:
@@ -195,13 +197,18 @@ def test_bal_7002_clean_sweep(
         fee=Spec7002.get_fee(0),
     )
 
+    # Predeploy sweep performs first-time SSTOREs for queue, count, and
+    # tail slots. `sstore_state_gas()` is 0 pre-EIP-8037 and scales with
+    # cpsb on Amsterdam, keeping this budget CPSB-agnostic.
+    gas_limit = 200_000 + 5 * fork.sstore_state_gas()
+
     # Transaction to system contract
     tx = Transaction(
         sender=alice,
         to=Address(Spec7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS),
         value=withdrawal_request.fee,
         data=withdrawal_request.calldata,
-        gas_limit=200_000,
+        gas_limit=gas_limit,
     )
 
     # Build queue writes and reads based on pubkey
@@ -283,6 +290,7 @@ def test_bal_7002_clean_sweep(
 def test_bal_7002_partial_sweep(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    fork: Fork,
 ) -> None:
     """
     Ensure BAL correctly tracks queue overflow when requests exceed MAX.
@@ -292,6 +300,11 @@ def test_bal_7002_partial_sweep(
     num_requests = 20
     fee = Spec7002.get_fee(0)
     senders = [pre.fund_eoa() for _ in range(num_requests)]
+
+    # Predeploy sweep performs first-time SSTOREs for queue, count, and
+    # tail slots. `sstore_state_gas()` is 0 pre-EIP-8037 and scales with
+    # cpsb on Amsterdam, keeping this budget CPSB-agnostic.
+    gas_limit = 200_000 + 5 * fork.sstore_state_gas()
 
     # Block 1: 20 withdrawal requests
     withdrawal_requests = [
@@ -307,7 +320,7 @@ def test_bal_7002_partial_sweep(
             to=eip7002_address,
             value=withdrawal_request.fee,
             data=withdrawal_request.calldata,
-            gas_limit=200_000,
+            gas_limit=gas_limit,
         )
         for sender, withdrawal_request in zip(
             senders, withdrawal_requests, strict=True
@@ -455,6 +468,7 @@ def test_bal_7002_partial_sweep(
 def test_bal_7002_no_withdrawal_requests(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    fork: Fork,
 ) -> None:
     """
     Ensure BAL captures EIP-7002 system contract dequeue operation even
@@ -469,11 +483,16 @@ def test_bal_7002_no_withdrawal_requests(
 
     value = 10
 
+    # Predeploy sweep performs first-time SSTOREs for queue, count, and
+    # tail slots. `sstore_state_gas()` is 0 pre-EIP-8037 and scales with
+    # cpsb on Amsterdam, keeping this budget CPSB-agnostic.
+    gas_limit = 200_000 + 5 * fork.sstore_state_gas()
+
     tx = Transaction(
         sender=alice,
         to=bob,
         value=value,
-        gas_limit=200_000,
+        gas_limit=gas_limit,
     )
 
     block = Block(

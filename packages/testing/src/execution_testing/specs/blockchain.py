@@ -473,10 +473,6 @@ class BuiltBlock(CamelModel):
                     FixtureExecutionPayloadModifier.REMOVE_FIELD
                 ),
             )
-        # The user injected a header BAL hash; mirror that on the engine
-        # payload by forcing a body to be present. Its exact value is
-        # irrelevant for negative tests — a non-``None`` value is enough to
-        # make a payload-version mismatch detectable.
         if block_access_list is None:
             return FixtureExecutionPayloadModifier(
                 block_access_list=Bytes(b""),
@@ -735,12 +731,16 @@ class BlockchainTest(BaseTest):
             ),
             blob_gas_used=blob_gas_used,
             transactions_trie=Transaction.list_root(txs),
-            extra_data=(
-                block.extra_data if block.extra_data is not None else b""
-            ),
+            extra_data=block.extra_data
+            if block.extra_data is not None
+            else b"",
             slot_number=slot_number_value,
             fork=fork,
         )
+
+        # Clear block_access_list_hash if the fork doesn't require it
+        if not fork.header_bal_hash_required():
+            header.block_access_list_hash = None
 
         if block.header_verify is not None:
             # Verify the header after transition tool processing.
@@ -830,7 +830,7 @@ class BlockchainTest(BaseTest):
             bal = block.expected_block_access_list.modify_if_invalid_test(
                 t8n_bal
             )
-            if bal != t8n_bal:
+            if bal != t8n_bal and fork.header_bal_hash_required():
                 # If the BAL was modified and the fork requires it, update the
                 # header hash
                 header.block_access_list_hash = Hash(bal.rlp.keccak256())

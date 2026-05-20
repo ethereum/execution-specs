@@ -66,10 +66,13 @@ def test_dup(
 
     account = pre.deploy_contract(account_code)
 
+    intrinsic = fork.transaction_intrinsic_cost_calculator()
     tx = Transaction(
         ty=0x0,
         to=account,
-        gas_limit=500000,
+        gas_limit=(
+            intrinsic() + account_code.gas_cost(fork) + fork.sstore_state_gas()
+        ),
         gas_price=10,
         protected=fork.supports_protected_txs(),
         data="",

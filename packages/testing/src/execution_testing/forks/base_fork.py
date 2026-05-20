@@ -470,6 +470,51 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """
         pass
 
+    @classmethod
+    @abstractmethod
+    def opcode_state_map(
+        cls,
+    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
+        """
+        Return a mapping of opcodes to their state gas costs.
+
+        Each entry is either:
+        - Constants (int): Multiplier of the cost_per_state_byte
+        - Callables: Functions that take the opcode instance with metadata and
+                     return the full state gas cost
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def opcode_refund_map(
+        cls,
+    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
+        """
+        Return a mapping of opcodes to their gas refunds.
+
+        Each entry is either:
+        - Constants (int): Direct gas refund values
+        - Callables: Functions that take the opcode instance with metadata and
+                     return gas refund
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def opcode_state_refund_map(
+        cls,
+    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
+        """
+        Return a mapping of opcodes to their state refunds.
+
+        Each entry is either:
+        - Constants (int): Multiplier of the cost_per_state_byte
+        - Callables: Functions that take the opcode instance with metadata and
+                     return the state refund
+        """
+        pass
+
     # Gas calculation helpers
     @classmethod
     @abstractmethod
@@ -597,6 +642,14 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """
         pass
 
+    @classmethod
+    @abstractmethod
+    def cost_per_state_byte(cls) -> int:
+        """
+        Calculate the state gas cost per byte based on `cls._env_gas_limit`.
+        """
+        pass
+
     # Fee helpers
     @classmethod
     @abstractmethod
@@ -638,6 +691,24 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         for the fork.
         """
         pass
+
+    @classmethod
+    def transaction_intrinsic_state_gas(
+        cls,
+        *,
+        contract_creation: bool = False,  # noqa: ARG003
+        authorization_count: int = 0,  # noqa: ARG003
+    ) -> int:
+        """Return intrinsic state gas (zero pre-Amsterdam)."""
+        return 0
+
+    @classmethod
+    def system_call_gas_limit(cls) -> int:
+        """
+        Return the total gas budget the system transaction grants the
+        target contract.
+        """
+        return 0
 
     @classmethod
     @abstractmethod
@@ -772,6 +843,24 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """
         Return the transaction gas limit cap, or None if no limit is imposed.
         """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def sstore_state_gas(cls) -> int:
+        """Return state gas for a zero-to-nonzero SSTORE."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def code_deposit_state_gas(cls, *, code_size: int) -> int:
+        """Return state gas for code deposit of the given size."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def create_state_gas(cls, *, code_size: int = 0) -> int:
+        """Return total state gas for CREATE."""
         pass
 
     @classmethod
