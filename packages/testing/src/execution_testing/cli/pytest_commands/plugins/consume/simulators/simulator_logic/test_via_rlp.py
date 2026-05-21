@@ -7,18 +7,39 @@ start-up.
 """
 
 import logging
+from typing import Any, Dict
+
+from pydantic import ValidationError
 
 from execution_testing.fixtures import BlockchainFixture
 from execution_testing.fixtures.blockchain import (
     FixtureBlock,
     FixtureHeader,
 )
+from execution_testing.forks import Fork, TransitionFork
 from execution_testing.rpc import EthRPC
 
 from ..helpers.exceptions import GenesisBlockMismatchExceptionError
 from ..helpers.timing import TimingData
 
 logger = logging.getLogger(__name__)
+
+
+def _validate_rpc_header_fields(
+    block: Dict[str, Any],
+    fixture_fork: Fork | TransitionFork,
+) -> None:
+    applicable_fork = fixture_fork.fork_at(
+        block_number=int(block["number"], 16),
+        timestamp=int(block["timestamp"], 16),
+    )
+    try:
+        FixtureHeader.model_validate({**block, "fork": applicable_fork})
+    except ValidationError as e:
+        raise AssertionError(
+            f"RPC response missing required header field for "
+            f"block {block['number']}: {e}"
+        ) from e
 
 
 def test_via_rlp(
@@ -44,6 +65,7 @@ def test_via_rlp(
         logger.info("Calling getBlockByNumber to get latest block...")
         block = eth_rpc.get_block_by_number("latest")
         assert block, "`getBlockByNumber` didn't return a block."
+        _validate_rpc_header_fields(block, fixture.fork)
         if block["hash"] != str(fixture.last_block_hash):
             try:
                 block_header = FixtureHeader.model_validate(block).model_dump()
