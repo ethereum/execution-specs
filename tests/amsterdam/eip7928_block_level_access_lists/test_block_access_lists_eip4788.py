@@ -17,6 +17,7 @@ from execution_testing import (
     Hash,
     Op,
     Transaction,
+    compute_create_address,
 )
 
 from tests.cancun.eip4788_beacon_root.spec import Spec, SpecHelpers
@@ -571,5 +572,66 @@ def test_bal_4788_selfdestruct_to_beacon_root(
         post={
             alice: Account(nonce=1),
             BEACON_ROOTS_ADDRESS: Account(balance=contract_balance),
+        },
+    )
+
+
+def test_bal_selfdestruct_to_system_address_zero_balance(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Ensure BAL records the SYSTEM_ADDRESS beneficiary when a SELFDESTRUCT
+    targets it with the destructing contract at zero balance.
+
+    Per EIP-7928 scope: "the system caller address, SYSTEM_ADDRESS
+    (0xff...fffe), MUST NOT be included unless it experiences state
+    access itself". A SELFDESTRUCT to SYSTEM_ADDRESS is itself a state
+    access on the beneficiary, so the exception fires and the
+    SYSTEM_ADDRESS entry MUST appear in the BAL — even when no value is
+    transferred (zero contract balance).
+
+    The scenario: a CREATE transaction whose init code immediately
+    SELFDESTRUCTs to SYSTEM_ADDRESS, with the new contract's balance
+    still zero (the CREATE tx carries no value). Per EIP-6780 the
+    contract is actually deleted because creation and destruction
+    happen in the same transaction. The resulting BAL must contain the
+    SYSTEM_ADDRESS entry with every change-set empty — the
+    SELFDESTRUCT is the only access on SYSTEM_ADDRESS in this block.
+    """
+    alice = pre.fund_eoa()
+
+    init_code = Op.SELFDESTRUCT(SYSTEM_ADDRESS)
+    new_contract = compute_create_address(address=alice, nonce=0)
+
+    tx = Transaction(
+        sender=alice,
+        to=None,  # CREATE
+        value=0,  # zero contract balance at SELFDESTRUCT time
+        data=init_code,
+        gas_limit=1_000_000,
+        gas_price=0xA,
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
+                ),
+                # SELFDESTRUCT-to-SYSTEM_ADDRESS records an access on the
+                # beneficiary without any value/nonce/code/storage change.
+                SYSTEM_ADDRESS: BalAccountExpectation.empty(),
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1),
+            new_contract: Account.NONEXISTENT,  # type: ignore
         },
     )
