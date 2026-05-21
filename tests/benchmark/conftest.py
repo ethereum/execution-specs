@@ -38,6 +38,7 @@ def pytest_generate_tests(metafunc: Any) -> None:
 
     # Inject parametrization from AddressStubs for stub_parametrize markers
     address_stubs = metafunc.config.getoption("address_stubs", default=None)
+    require_stub_match = getattr(metafunc.config, "require_stub_match", False)
     for marker in metafunc.definition.iter_markers("stub_parametrize"):
         param_name, prefix = marker.args
         kwargs = dict(marker.kwargs)
@@ -45,6 +46,17 @@ def pytest_generate_tests(metafunc: Any) -> None:
         values, ids = stubs.parametrize_args(
             prefix, caller=metafunc.function.__name__
         )
+        if not values and require_stub_match:
+            # Sentinel + marker: plugin's pytest_runtest_call fails this
+            # FAILED (not session-aborting ERROR) so the run continues.
+            msg = (
+                f"stub_parametrize: no stubs matched prefix {prefix!r} "
+                f"for {metafunc.definition.nodeid}. Pass --address-stubs "
+                "pointing at a snapshot (bloatnet, perfnet, ...) that has "
+                "these addresses pre-populated, or deselect the test."
+            )
+            values = [pytest.param(None, marks=pytest.mark.missing_stubs(msg))]
+            ids = ["MISSING_STUBS"]
         kwargs.setdefault("ids", ids)
         metafunc.parametrize(param_name, values, **kwargs)
 

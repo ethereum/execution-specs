@@ -116,6 +116,7 @@ Optional:
 - `--chain-id INT` — auto-detected from the client.
 - `--snapshot-block HASH_OR_NUMBER` — anchor to a specific block; accepts a 32-byte hash (recommended) or an integer block number (hex `0x...` or decimal). Defaults to the client's `latest`, recorded by hash.
 - `--rpc-seed-key 0x<64hex>` — pin the seed account for reproducible fills. When omitted, a random key is generated and funded via CL withdrawal each session.
+- `--address-stubs PATH` — JSON map of label → on-chain address (and optional pkey). Required by stub-dependent tests; see [Stub-dependent tests](#stub-dependent-tests) below.
 - `--max-gas-per-test INT` — overrides the fork's `transaction_gas_limit_cap()` (EIP-7825).
 - `--gas-benchmark-values 10,30,...` — gas budgets in millions to parametrize against.
 - `--default-{gas-price,max-fee-per-gas,max-priority-fee-per-gas,max-fee-per-blob-gas}` — pin per-session fees; defaults bump live-query values by `1.5×`.
@@ -145,6 +146,17 @@ Optional:
 !!! note "Single-worker"
     `fill-stateful` forces `-n 0` — pytest-xdist is not used; the chain advances sequentially.
 
+## Stub-dependent tests
+
+Some stateful tests (e.g. `test_single_opcode.py`, `test_multi_opcode.py`) target on-chain accounts the snapshot already contains. They reach them two ways:
+
+- `@pytest.mark.stub_parametrize("name", "prefix_")` — parametrize values pulled from `--address-stubs` matching `prefix_`.
+- `pre.deploy_contract(stub="<label>", ...)` — direct runtime lookup.
+
+Without a matching `--address-stubs` entry, both paths fail loudly: the marker path with `FAILED ... MISSING_STUBS` carrying the missing prefix; the runtime path with `ValueError("Stub '<label>' not found...")`. Stock pytest's silent skip on empty parametrize is overridden — running a bloatnet test with no stubs is a misconfiguration, not a valid outcome.
+
+Stubs must point at addresses already on the live client; fill-stateful validates each at session start. The kurtosis devnet recipe above does **not** include them — use a bloatnet / perfnet snapshot (or a custom snapshot generator) for these tests.
+
 ## Architecture
 
 `fill-stateful` reuses fill's standard spec loop and swaps the *backend*. Two
@@ -165,12 +177,7 @@ backends now exist behind a common protocol; the rest of fill is unchanged.
        BlockchainEngineFixture
 ```
 
-Both backends satisfy `FillerBackend`
-(`client_clis/filler_backend.py`) and return a `TransitionToolOutput`.
-`ClientBackend.evaluate(...)` attaches an `EnginePayloadMetadata` carrying
-the client's `GetPayloadResponse` + engine API versions; the spec receives
-it as `TestingBuildBlock(BuiltBlock)` and forwards the payload verbatim
-into the fixture — no header rebuild, no separate capture step.
+Both backends satisfy `FillerBackend` (`client_clis/filler_backend.py`). `ClientBackend.evaluate(...)` returns a `TransitionToolOutput` with an `EnginePayloadMetadata` attached (`GetPayloadResponse` + engine API versions); the spec receives it as `TestingBuildBlock(BuiltBlock)` and forwards the payload verbatim — no header rebuild, no side-channel capture.
 
 ### Plugins and shared code
 
@@ -178,10 +185,10 @@ into the fixture — no header rebuild, no separate capture step.
 |---|---|
 | `cli/pytest_commands/fill_stateful.py` | CLI entry — `fill-stateful` Click command. |
 | `plugins/fill_stateful/fill_stateful.py` | Session pre-run + `t8n`/`session_t8n` overrides; CLI options. |
-| `plugins/shared/live_client_flags.py` | Live-client flags + fee fixtures factored out of `execute/execute.py` so any command targeting a live client can opt in. |
-| `plugins/execute/pre_alloc.py` | Reused `Alloc` (the `pre.fund_eoa` / `pre.deploy_contract` machinery); `pending_transactions()` drains the queue without sending. |
-| `plugins/execute/rpc/chain_builder_eth_rpc.py` | Adds `fund_via_withdrawals`, `build_block_with_transactions` — both return `EnginePayloadMetadata` so callers can record what was built without wrapping the RPC. |
-| `client_clis/client_backend.py` | The `ClientBackend`: builds blocks via `testing_buildBlockV1`, advances via `engine_newPayload` + `forkchoiceUpdated` (with SYNCING retry), assembles a `Result`. |
+| `plugins/shared/live_client_flags.py` | Live-client flags + fee fixtures factored out of `execute/execute.py`. |
+| `plugins/execute/pre_alloc.py` | Reused `Alloc`; `pending_transactions()` drains the queue without sending. |
+| `plugins/execute/rpc/chain_builder_eth_rpc.py` | `fund_via_withdrawals` + `build_block_with_transactions` — return `EnginePayloadMetadata`. |
+| `client_clis/client_backend.py` | `ClientBackend`: builds via `testing_buildBlockV1`, advances via `engine_newPayload` + `forkchoiceUpdated` (SYNCING-retry). |
 | `specs/blockchain.py` | `make_stateful_fixture`, `payload_metadata_to_fixture`, `Block.phase`, `_split_blocks_by_phase`, `TestingBuildBlock`. |
 
 ### Flags introduced
@@ -218,7 +225,7 @@ into the fixture — no header rebuild, no separate capture step.
 
 ### What's captured in each payload
 
-The `GetPayloadResponse` from `testing_buildBlockV1` is recorded **verbatim**: rebuilding from fill's `FixtureHeader` would diverge from the client's authoritative `block_hash` (the client picks `gas_limit`, etc.). The fixture's `block_hash` is what the next block's `parent_hash` must point at — only the client's real value survives `engine_newPayload` validation on replay.
+The client's `GetPayloadResponse` is recorded **verbatim**. Rebuilding from `FixtureHeader` would diverge on client-picked fields (e.g. `gas_limit`) and break `engine_newPayload` hash validation on replay.
 
 ### Replay (benchmarkoor)
 
@@ -235,4 +242,4 @@ pristine snapshot ───copy──▶ datadir ───▶ geth ───▶ 
                                                             └── re-fetch latest, verify hash
 ```
 
-Cross-check: every test fixture's `benchmarkGasUsed` (recorded at fill) equals benchmarkoor's measured `gas_used_total` for that test — confirms the same payloads execute identically against the snapshot.
+Sanity check: each fixture's `benchmarkGasUsed` (recorded at fill) should equal benchmarkoor's measured `gas_used_total` for that test.

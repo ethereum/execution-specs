@@ -118,6 +118,14 @@ def pytest_configure(config: pytest.Config) -> None:
     config.engine_rpc_supported = True  # type: ignore[attr-defined]
     config.skip_transition_forks = True  # type: ignore[attr-defined]
     config.single_fork_mode = True  # type: ignore[attr-defined]
+    # Fail loudly on stub_parametrize with no matching --address-stubs
+    # instead of pytest's default silent skip on empty parametrize.
+    config.require_stub_match = True  # type: ignore[attr-defined]
+    config.addinivalue_line(
+        "markers",
+        "missing_stubs(message): fill-stateful policy marker; "
+        "pytest_runtest_call fails the test with ``message``.",
+    )
 
     # Help/collect-only never talks to a client; skip endpoint defaulting.
     if is_help_or_collectonly_mode(config):
@@ -135,6 +143,12 @@ def pytest_configure(config: pytest.Config) -> None:
         rpc = EthRPC(config.getoption("rpc_endpoint"))
         config.option.chain_id = rpc.chain_id()
         logger.info(f"Auto-detected chain ID: {config.option.chain_id}")
+
+
+def pytest_runtest_call(item: pytest.Item) -> None:
+    """Fail in the call phase (→ FAILED, not ERROR) on ``missing_stubs``."""
+    for marker in item.iter_markers("missing_stubs"):
+        pytest.fail(marker.args[0], pytrace=False)
 
 
 # ---------------------------------------------------------------------------
@@ -488,6 +502,10 @@ def _reset_chain_between_tests(
         return
     start_hex = client_backend.start_block["number"]
     expected_hash = client_backend.start_block["hash"]
+    # Skip when head already at start (geth rejects same-block setHead).
+    current_head = eth_rpc.get_block_by_number("latest")
+    if current_head is not None and current_head["hash"] == expected_hash:
+        return
     try:
         debug_rpc.set_head(start_hex)
     except Exception as e:
