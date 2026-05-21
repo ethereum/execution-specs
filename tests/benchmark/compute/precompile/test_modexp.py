@@ -23,9 +23,58 @@ from tests.osaka.eip7883_modexp_gas_increase.spec import Spec, Spec7883
 from ..helpers import Precompile
 
 
+def create_random_modexp_test_case(
+    test_id: str,
+    rng: random.Random,
+    *,
+    modulus_length: int,
+    exponent_length: int,
+    base_length: int | None = None,
+    modulus_2arity: int | None = None,
+) -> tuple[str, str, str, str]:
+    """
+    Build a random MODEXP test case with exactly the prescribed bit lengths.
+    base_length defaults to modulus_length. If modulus_2arity is specified, the
+    returned modulus will have exactly this number of least significant 0 bits,
+    followed by a 1 bit.
+    """
+    if base_length is None:
+        base_length = modulus_length
+    if base_length < 1 or exponent_length < 1 or modulus_length < 1:
+        raise ValueError("bit lengths must be >= 1")
+    if modulus_2arity is not None:
+        if modulus_2arity < 0:
+            raise ValueError("modulus_2arity must be >= 0")
+        if modulus_2arity >= modulus_length:
+            raise ValueError(
+                "modulus_2arity must be < modulus_length so the leading "
+                "bit can still be set"
+            )
+
+    def random_bits(n: int) -> int:
+        return (1 << (n - 1)) | rng.getrandbits(n - 1)
+
+    def to_hex(value: int, bit_length: int) -> str:
+        return value.to_bytes((bit_length + 7) // 8, "big").hex()
+
+    base = random_bits(base_length)
+    exponent = random_bits(exponent_length)
+    modulus = random_bits(modulus_length)
+    if modulus_2arity is not None:
+        modulus &= ~((1 << modulus_2arity) - 1)
+        modulus |= 1 << modulus_2arity
+
+    return (
+        to_hex(base, base_length),
+        to_hex(exponent, exponent_length),
+        to_hex(modulus, modulus_length),
+        test_id,
+    )
+
+
 def create_modexp_test_cases() -> list[ParameterSet]:
     """Create test cases for the MODEXP precompile."""
-    test_cases = [
+    explicit_test_cases = [
         # (base, exponent, modulus, test_id)
         (8 * "ff", 112 * "ff", 7 * "ff" + "00", "mod_even_8b_exp_896"),
         (16 * "ff", 40 * "ff", 15 * "ff" + "00", "mod_even_16b_exp_320"),
@@ -378,6 +427,69 @@ def create_modexp_test_cases() -> list[ParameterSet]:
         ),
     ]
 
+    # These cases seem (partially) redundant to the explicit cases above.
+    # The main difference is that we (hopefully) avoid bases / moduli with
+    # very special bit patterns.
+    # Indeed, for base bit patterns such as "fffff...ff"
+    # and moduli such as "ffff...ff00" resp. "ffff...ff01" as used above with
+    # the same length, the value
+    # base mod modulus only has 8 bit.
+    # Furthermore, if using Montgomery multiplication, in many cases
+    # the montgomery_factor = 2**R mod modulus will also be very small.
+    # This means that the number that appear in a precomputation table for
+    # a windowed exponentation are unusually small.
+    # Thus, for some implementations, the above choices might cause a
+    # misleadingly fast running time.
+    # Also, the gas formula looks at the exponent length with a bit-level
+    # granularity. We thereby choose exponent lengths such as 33 rather than 32
+    # to catch potential worst-cases, if the implementation depends on the
+    # length at word-level or byte-level granularity.
+
+    rng = random.Random(0xC0FFEE)
+
+    # Note: Extensive benchmarking on the Go standard library revealed
+    # that this particular implementation as of early 2026 had worst cases at
+    # ca. 33-bit exponents with moduli lengths between 196 and 256.
+    # These are covered here.
+    random_cases = [
+        create_random_modexp_test_case(
+            f"mod_{'even' if m2arity == 0 else 'odd'}_random_"
+            "{modulus_length}b_exp_{exponent_length}",
+            rng,
+            modulus_length=modulus_length,
+            exponent_length=exponent_length,
+            modulus_2arity=m2arity,
+        )
+        for modulus_length in (32, 64, 196, 256)
+        for exponent_length in (17, 33, 65)
+        for m2arity in (0, 8)
+    ]
+
+    # These should be fast, but we want to cover these special cases as well.
+    random_cases_pow2 = [
+        create_random_modexp_test_case(
+            "mod_pow2_64_exp_33",
+            rng,
+            modulus_length=64,
+            exponent_length=33,
+            modulus_2arity=63,
+        ),
+        create_random_modexp_test_case(
+            "mod_pow2_128_exp_33",
+            rng,
+            modulus_length=128,
+            exponent_length=33,
+            modulus_2arity=127,
+        ),
+        create_random_modexp_test_case(
+            "mod_pow2_256_exp_65",
+            rng,
+            modulus_length=256,
+            exponent_length=65,
+            modulus_2arity=255,
+        ),
+    ]
+
     special_cases = [
         pytest.param(
             ModExpInput.from_bytes(
@@ -396,11 +508,11 @@ def create_modexp_test_cases() -> list[ParameterSet]:
             ),
             id=test_id,
         )
-        for base, exponent, modulus, test_id in test_cases
+        for base, exponent, modulus, test_id in explicit_test_cases
+        + random_cases
+        + random_cases_pow2
     ]
-
     return regular_cases + special_cases
-
 
 @pytest.mark.parametrize(
     ["mod_exp_input"],
