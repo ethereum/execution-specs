@@ -69,6 +69,7 @@ pip-delete-this-directory.txt
 
 .tox/
 .just/
+tests/json_loader/bench_gas_fixtures
 
 /doc/_autosummary
 
