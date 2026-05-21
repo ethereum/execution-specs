@@ -146,6 +146,7 @@ def test_slotnum_gas_cost(
 def test_slotnum_distinct_per_block(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test that SLOTNUM returns each block's own slot number.
@@ -157,15 +158,36 @@ def test_slotnum_distinct_per_block(
     in the final post-state.
     """
     sender = pre.fund_eoa()
-    contract = pre.deploy_contract(Op.SSTORE(Op.NUMBER, Op.SLOTNUM) + Op.STOP)
+    # Pin SSTORE metadata so code.gas_cost(fork) picks the
+    # 0->non-zero branch (the storage slot is fresh each block under a
+    # distinct NUMBER key).
+    code = (
+        Op.SSTORE(
+            Op.NUMBER,
+            Op.SLOTNUM,
+            key_warm=False,
+            original_value=0,
+            current_value=0,
+            new_value=1,
+        )
+        + Op.STOP
+    )
+    contract = pre.deploy_contract(code)
 
     # Non-monotonic on purpose: decrease, increase, jump to large value.
     slot_numbers = [100, 42, 7, 2**32]
 
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+    code_state = code.state_cost(fork)
+    code_regular = code.gas_cost(fork) - code_state
+    tx_gas_limit = intrinsic_cost + code_regular + code_state
+
     blocks = [
         Block(
             slot_number=slot,
-            txs=[Transaction(sender=sender, to=contract, gas_limit=100_000)],
+            txs=[
+                Transaction(sender=sender, to=contract, gas_limit=tx_gas_limit)
+            ],
         )
         for slot in slot_numbers
     ]

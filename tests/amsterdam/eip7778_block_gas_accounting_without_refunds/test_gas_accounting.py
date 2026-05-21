@@ -646,16 +646,23 @@ def test_mixed_gas_regimes(
     tx1_target = pre.deploy_contract(code=tx1_code)
     tx1_sender = pre.fund_eoa(initial_fund)
     tx1_data = b""
-    tx1_pre_refund = intrinsic_cost_calc(
+    # EIP-8037: `code.gas_cost(fork)` is combined regular+state; the
+    # block-level pre-refund accounting only counts regular gas. Subtract
+    # state to get the regular-only pre-refund (matches build_refund_tx).
+    tx1_combined = intrinsic_cost_calc(
         calldata=tx1_data,
         return_cost_deducted_prior_execution=True,
     ) + tx1_code.gas_cost(fork)
+    tx1_state = tx1_code.state_cost(fork)
+    tx1_pre_refund = tx1_combined - tx1_state
     tx1_floor = data_floor_calc(data=tx1_data)
     assert tx1_pre_refund > tx1_floor, "tx1: pre_refund must exceed floor"
+    # The tx must still be funded for combined regular+state.
+    tx1_gas_limit = tx1_combined
     tx1_contribution = max(tx1_pre_refund, tx1_floor)
     tx1 = Transaction(
         to=tx1_target,
-        gas_limit=tx1_contribution,
+        gas_limit=tx1_gas_limit,
         sender=tx1_sender,
         data=tx1_data,
         # TODO: gas_used in expected_receipt is ignored by
@@ -666,8 +673,10 @@ def test_mixed_gas_regimes(
     tx1_gas_price = tx1.gas_price if tx1.gas_price else tx1.max_fee_per_gas
     assert tx1_gas_price is not None
     post[tx1_target] = Account(storage={0: 1})
+    # Sender is charged for combined gas (no refund here); only the
+    # regular portion contributes to block.gas_used.
     post[tx1_sender] = Account(
-        balance=initial_fund - tx1_contribution * tx1_gas_price
+        balance=initial_fund - tx1_gas_limit * tx1_gas_price
     )
 
     # tx2: SSTORE-clear with normal refund, refund not clipped to floor.

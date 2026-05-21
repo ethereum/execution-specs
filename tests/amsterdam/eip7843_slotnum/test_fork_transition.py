@@ -6,6 +6,7 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    Fork,
     Op,
     Transaction,
 )
@@ -20,6 +21,7 @@ REFERENCE_SPEC_VERSION = ref_spec_7843.version
 def test_slotnum_at_fork_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test SLOTNUM behavior across the EIP-7843 fork transition.
@@ -38,16 +40,41 @@ def test_slotnum_at_fork_transition(
     * block 3 (post-fork): slot 3 == ``post_fork_slot``.
     """
     sender = pre.fund_eoa()
-    contract = pre.deploy_contract(Op.SSTORE(Op.NUMBER, Op.SLOTNUM) + Op.STOP)
+    # Pin SSTORE metadata so code.gas_cost(fork) covers EIP-8037 state
+    # gas in post-fork blocks (the key is fresh per block because NUMBER
+    # differs).
+    code = (
+        Op.SSTORE(
+            Op.NUMBER,
+            Op.SLOTNUM,
+            key_warm=False,
+            original_value=0,
+            current_value=0,
+            new_value=1,
+        )
+        + Op.STOP
+    )
+    contract = pre.deploy_contract(code)
 
     at_fork_slot = 200
     post_fork_slot = 201
+
+    # `fork` is the transitioning class; the SSTORE state-gas budget
+    # under EIP-8037 only applies after the transition, so size the
+    # gas_limit against the destination fork.
+    post_fork = fork.fork_at(timestamp=15_000)
+    intrinsic_cost = post_fork.transaction_intrinsic_cost_calculator()()
+    code_state = code.state_cost(post_fork)
+    code_regular = code.gas_cost(post_fork) - code_state
+    tx_gas_limit = intrinsic_cost + code_regular + code_state
 
     blocks = [
         Block(
             timestamp=ts,
             slot_number=slot,
-            txs=[Transaction(sender=sender, to=contract, gas_limit=100_000)],
+            txs=[
+                Transaction(sender=sender, to=contract, gas_limit=tx_gas_limit)
+            ],
         )
         for ts, slot in [
             (14_999, None),
