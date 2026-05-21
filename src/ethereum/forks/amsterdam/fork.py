@@ -83,7 +83,6 @@ from .transactions import (
     TX_MAX_GAS_LIMIT,
     BlobTransaction,
     FeeMarketCapableTransaction,
-    IntrinsicGasCost,
     LegacyTransaction,
     SetCodeTransaction,
     Transaction,
@@ -496,7 +495,6 @@ def check_transaction(
     block_output: vm.BlockOutput,
     tx: Transaction,
     tx_state: TransactionState,
-    intrinsic: IntrinsicGasCost,
 ) -> Tuple[Address, Uint, Tuple[VersionedHash, ...], U64]:
     """
     Check if the transaction is includable in the block.
@@ -511,9 +509,6 @@ def check_transaction(
         The transaction.
     tx_state :
         The transaction state tracker.
-    intrinsic :
-        The transaction's intrinsic gas cost, split into regular and
-        state components.
 
     Returns
     -------
@@ -569,17 +564,12 @@ def check_transaction(
     )
     blob_gas_available = MAX_BLOB_GAS_PER_BLOCK - block_output.blob_gas_used
 
-    # Worst-case regular contribution: tx.gas minus the portion that
-    # must go to intrinsic state gas, capped at TX_MAX_GAS_LIMIT.
-    worst_case_regular = min(TX_MAX_GAS_LIMIT, tx.gas - intrinsic.state)
-    if worst_case_regular > regular_gas_available:
-        raise GasUsedExceedsLimitError("regular gas used exceeds limit")
+    # EIP-8037 per-dimension inclusion check.
+    if min(TX_MAX_GAS_LIMIT, tx.gas) > regular_gas_available:
+        raise GasUsedExceedsLimitError("gas used exceeds limit")
 
-    # Worst-case state contribution: tx.gas minus the portion that
-    # must go to intrinsic regular gas.
-    worst_case_state = tx.gas - intrinsic.regular
-    if worst_case_state > state_gas_available:
-        raise GasUsedExceedsLimitError("state gas used exceeds limit")
+    if tx.gas > state_gas_available:
+        raise GasUsedExceedsLimitError("gas used exceeds limit")
 
     tx_blob_gas_used = calculate_total_blob_gas(tx)
     if tx_blob_gas_used > blob_gas_available:
@@ -1014,7 +1004,6 @@ def process_transaction(
         block_output=block_output,
         tx=tx,
         tx_state=tx_state,
-        intrinsic=intrinsic,
     )
 
     sender_account = get_account(tx_state, sender)

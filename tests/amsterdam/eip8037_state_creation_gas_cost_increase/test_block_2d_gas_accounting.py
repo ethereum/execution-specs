@@ -11,21 +11,27 @@ Tests for [EIP-8037: State Creation Gas Cost Increase]
 
 import pytest
 from execution_testing import (
+    AccessList,
     Account,
+    Address,
     Alloc,
+    AuthorizationTuple,
     Block,
     BlockchainTestFiller,
     Bytecode,
     Environment,
     Fork,
+    Hash,
     Header,
     Op,
     Storage,
     Transaction,
     TransactionException,
     TransactionReceipt,
+    add_kzg_version,
 )
 
+from ...cancun.eip4844_blobs.spec import Spec as EIP4844_Spec
 from .spec import ref_spec_8037
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
@@ -474,6 +480,121 @@ def test_multi_block_dimension_flip(
             ),
         ],
         post=post_2,
+    )
+
+
+@pytest.mark.parametrize(
+    "tx_gas_delta, expected_exception",
+    [
+        pytest.param(0, None, id="gas_equal"),
+        pytest.param(
+            1,
+            TransactionException.GAS_ALLOWANCE_EXCEEDED,
+            id="gas_one_above",
+            marks=pytest.mark.exception_test,
+        ),
+        pytest.param(
+            2,
+            TransactionException.GAS_ALLOWANCE_EXCEEDED,
+            id="gas_two_above",
+            marks=pytest.mark.exception_test,
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "block_gas_limit",
+    [
+        pytest.param(0x0FFFFFD, id="bgl_0x0fffffd"),
+        pytest.param(0x01FFFFE, id="bgl_0x01ffffe"),
+    ],
+)
+@pytest.mark.parametrize(
+    "tx_type, contract_creation",
+    [
+        pytest.param(0, False, id="type_0_call"),
+        pytest.param(0, True, id="type_0_create"),
+        pytest.param(1, False, id="type_1_call"),
+        pytest.param(1, True, id="type_1_create"),
+        pytest.param(2, False, id="type_2_call"),
+        pytest.param(2, True, id="type_2_create"),
+        pytest.param(3, False, id="type_3_blob"),
+        pytest.param(4, False, id="type_4_set_code"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_tx_gas_limit_block_boundary(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    tx_type: int,
+    contract_creation: bool,
+    block_gas_limit: int,
+    tx_gas_delta: int,
+    expected_exception: TransactionException | None,
+) -> None:
+    """
+    Reject tx whose ``gas_limit`` exceeds the block ``gas_limit``.
+
+    EIP-8037 inclusion rule: ``min(TX_MAX_GAS_LIMIT, tx.gas) <=
+    regular_gas_available`` and ``tx.gas <= state_gas_available``.
+    At block start both budgets equal ``block_gas_limit``.
+    """
+    gas_limit = block_gas_limit + tx_gas_delta
+    gas_price = 10
+    sender = pre.fund_eoa(amount=gas_limit * gas_price + 10**18)
+
+    to = None if contract_creation else pre.fund_eoa(amount=0)
+    access_list = None
+    authorization_list = None
+    blob_versioned_hashes = None
+    extra_fee_args: dict = {}
+    if tx_type == 1:
+        access_list = [AccessList(address=Address(1), storage_keys=[Hash(0)])]
+    elif tx_type == 2:
+        access_list = []
+    elif tx_type == 3:
+        blob_versioned_hashes = add_kzg_version(
+            [Hash(1)], EIP4844_Spec.BLOB_COMMITMENT_VERSION_KZG
+        )
+        extra_fee_args["max_fee_per_blob_gas"] = 1
+    elif tx_type == 4:
+        authorization_list = [
+            AuthorizationTuple(
+                signer=pre.fund_eoa(amount=0), address=Address(1)
+            )
+        ]
+
+    if tx_type in (0, 1):
+        fee_args: dict = {"gas_price": gas_price}
+    else:
+        fee_args = {
+            "max_fee_per_gas": gas_price,
+            "max_priority_fee_per_gas": 0,
+        }
+    fee_args.update(extra_fee_args)
+
+    tx = Transaction(
+        ty=tx_type,
+        sender=sender,
+        to=to,
+        gas_limit=gas_limit,
+        access_list=access_list,
+        authorization_list=authorization_list,
+        blob_versioned_hashes=blob_versioned_hashes,
+        error=expected_exception,
+        **fee_args,
+    )
+
+    blockchain_test(
+        genesis_environment=Environment(gas_limit=block_gas_limit),
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                gas_limit=block_gas_limit,
+                exception=expected_exception,
+            )
+        ],
+        post={},
     )
 
 
