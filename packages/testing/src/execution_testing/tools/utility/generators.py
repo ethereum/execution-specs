@@ -621,6 +621,7 @@ def gas_test(
             LEGACY_CALL_SUCCESS
         )
 
+    gas_sstore = Op.SSTORE(1, 1).gas_cost(fork=fork)
     if tx_gas is None:
         tx_gas = (
             5 * gas_single_gas_run

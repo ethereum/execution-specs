@@ -40,7 +40,7 @@ def build_refund_tx(
     call_data: bytes = b"",
     refund_tx_has_extra_gas_limit: bool = False,
     exceed_block_gas_limit: bool = False,
-) -> Tuple[int, int, int, Transaction]:
+) -> Tuple[int, int, int, int, Transaction]:
     """Build a transaction that has different refund types from a fork."""
     # All essential calc functions
     intrinsic_cost_calc = fork.transaction_intrinsic_cost_calculator()
@@ -61,7 +61,12 @@ def build_refund_tx(
     empty_storage_on_success = False
     refund_tx_extra_gas = 1 if refund_tx_has_extra_gas_limit else 0
 
-    for refund_type in sorted(refund_types, key=lambda r: r.value):
+    # EIP-8037: existing authority "refund" adjusts intrinsic_state_gas,
+    # not the standard refund counter.
+    auth_state_gas = 0
+    auth_state_refund = 0
+
+    for refund_type in refund_types:
         match refund_type:
             case RefundTypes.STORAGE_CLEAR:
                 for slot in storage_slots:
@@ -77,15 +82,24 @@ def build_refund_tx(
             case RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY:
                 code += Op.PUSH0
                 delegated_contract = pre.deploy_contract(code=Bytecode())
+                authority_signers = [
+                    pre.fund_eoa(amount=1) for _ in range(refunds_count)
+                ]
                 authorization_list = [
                     AuthorizationTuple(
                         address=delegated_contract,
                         nonce=0,
-                        signer=pre.fund_eoa(amount=1),
+                        signer=signer,
                     )
-                    for _ in range(refunds_count)
+                    for signer in authority_signers
                 ]
-                refund_counter += (
+                post[delegated_contract] = Account(code=Bytecode())
+                for signer in authority_signers:
+                    post[signer] = Account(balance=1)
+                auth_state_gas = fork.transaction_intrinsic_state_gas(
+                    authorization_count=refunds_count,
+                )
+                auth_state_refund = (
                     gsc.REFUND_AUTH_PER_EXISTING_ACCOUNT * refunds_count
                 )
             case _:
@@ -101,30 +115,50 @@ def build_refund_tx(
         storage=dict.fromkeys(storage_slots, 1),
     )
 
-    gas_used_pre_refund = intrinsic_cost_calc(
+    # Combined gas (regular + state) from intrinsic cost calculator
+    combined_gas_used = intrinsic_cost_calc(
         calldata=call_data,
         return_cost_deducted_prior_execution=True,
         authorization_list_or_count=authorization_list,
     ) + code.gas_cost(fork)
 
+    # EIP-8037: block gas_used only counts regular gas
+    gas_used_pre_refund = combined_gas_used - auth_state_gas
+
     # Calculate refund (still applied to user's balance)
     if not refund_tx_reverts:
         refund_counter += code.refund(fork)
 
+    # EIP-8037: remaining state gas = intrinsic state gas - state gas
+    # returned to reservoir for existing authorities
+    remaining_state_gas = auth_state_gas - auth_state_refund
+
+    # In the spec, the refund cap uses tx_gas_used_before_refund which is
+    # tx.gas - gas_left - state_gas_left (combined regular + remaining
+    # state).
+    combined_before_refund = gas_used_pre_refund + remaining_state_gas
+
     effective_refund = min(
-        refund_counter, gas_used_pre_refund // max_refund_quotient
+        refund_counter, combined_before_refund // max_refund_quotient
     )
-    gas_used_post_refund = gas_used_pre_refund - effective_refund
+    receipt_gas_used = combined_before_refund - effective_refund
     call_data_floor_cost = data_floor_calc(data=call_data)
 
-    refund_tx_block_gas_used = max(call_data_floor_cost, gas_used_pre_refund)
+    # gas_used_post_refund is the "combined after refund" value used for
+    # calldata floor comparisons and balance computation
+    gas_used_post_refund = receipt_gas_used
     refund_tx_gas_used = max(call_data_floor_cost, gas_used_post_refund)
+
+    # gas_limit must cover combined gas (regular + state)
+    refund_tx_gas_limit = (
+        max(call_data_floor_cost, combined_gas_used) + refund_tx_extra_gas
+    )
 
     # Build refund transaction
     refund_tx = Transaction(
         to=contract_address,
         data=call_data,
-        gas_limit=refund_tx_block_gas_used + refund_tx_extra_gas,
+        gas_limit=refund_tx_gas_limit,
         sender=refund_tx_sender,
         authorization_list=authorization_list,
         expected_receipt={
@@ -160,9 +194,14 @@ def build_refund_tx(
     if not exceed_block_gas_limit:
         post[refund_tx_sender] = Account(balance=expected_balance)
 
+    # block_state_gas_used reflects intrinsic_state minus the
+    # existing-authority auth refund (state_refund), since
+    # `process_transaction` deducts it from `tx_state_gas` before
+    # accumulating into `block_state_gas_used`.
     return (
-        gas_used_post_refund,
+        receipt_gas_used,
         gas_used_pre_refund,
+        remaining_state_gas,
         call_data_floor_cost,
         refund_tx,
     )
@@ -177,7 +216,7 @@ def build_refund_tx(
 )
 @pytest.mark.with_all_refund_types()
 @pytest.mark.execute(pytest.mark.skip(reason="Requires specific gas price"))
-@pytest.mark.valid_from("EIP7778")
+@pytest.mark.valid_from("Amsterdam")
 def test_simple_gas_accounting(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -190,18 +229,24 @@ def test_simple_gas_accounting(
 
     post = Alloc()
 
-    (_, gas_used_pre_refund, call_data_floor_cost, refund_tx) = (
-        build_refund_tx(
-            fork=fork,
-            pre=pre,
-            post=post,
-            refund_types={refund_type},
-            refunds_count=refunds_count,
-            refund_tx_reverts=refund_tx_reverts,
-        )
+    (
+        _,
+        gas_used_pre_refund,
+        tx_state_gas,
+        call_data_floor_cost,
+        refund_tx,
+    ) = build_refund_tx(
+        fork=fork,
+        pre=pre,
+        post=post,
+        refund_types={refund_type},
+        refunds_count=refunds_count,
+        refund_tx_reverts=refund_tx_reverts,
     )
 
-    refund_tx_block_gas_used = max(gas_used_pre_refund, call_data_floor_cost)
+    # EIP-8037: block gas_used = max(block_regular_gas, block_state_gas)
+    block_regular = max(gas_used_pre_refund, call_data_floor_cost)
+    refund_tx_block_gas_used = max(block_regular, tx_state_gas)
 
     blockchain_test(
         pre=pre,
@@ -245,7 +290,7 @@ def test_simple_gas_accounting(
 )
 @pytest.mark.with_all_refund_types()
 @pytest.mark.execute(pytest.mark.skip(reason="Requires specific gas price"))
-@pytest.mark.valid_from("EIP7778")
+@pytest.mark.valid_from("Amsterdam")
 def test_multi_transaction_gas_accounting(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -267,12 +312,16 @@ def test_multi_transaction_gas_accounting(
 
     This tests that clients correctly use pre-refund gas for block accounting.
     """
-    # Skipped on snøbal -- see test_state_gas_snobal_quirks.py.
+    # TODO[EIP-8037]: this test's exceed_block_gas_limit branch builds
+    # `environment_gas_limit = total - 1` from a single combined
+    # `total_block_gas_used`, but post-fix the auth refund splits the
+    # regular vs state dimensions further. Reworking the per-dimension
+    # budget math is out of scope for the auth-refund spec fix; until
+    # then, skip the AUTHORIZATION_EXISTING_AUTHORITY case here.
     if refund_type == RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY:
         pytest.skip(
-            "snøbal spec quirk: EIP-7702 auth refund not deducted from "
-            "block_state_gas_used; behavior pinned by "
-            "test_state_gas_snobal_quirks.py"
+            "AUTHORIZATION_EXISTING_AUTHORITY not yet adapted to the "
+            "two-dimensional block budget post EIP-8037 auth-refund fix"
         )
 
     intrinsic_cost_calc = fork.transaction_intrinsic_cost_calculator()
@@ -285,6 +334,7 @@ def test_multi_transaction_gas_accounting(
     (
         gas_used_post_refund,
         gas_used_pre_refund,
+        tx_state_gas,
         call_data_floor_cost,
         refund_tx,
     ) = build_refund_tx(
@@ -299,7 +349,7 @@ def test_multi_transaction_gas_accounting(
         exceed_block_gas_limit=exceed_block_gas_limit,
     )
     refund_tx_gas_used = max(gas_used_post_refund, call_data_floor_cost)
-    refund_tx_block_gas_used = max(gas_used_pre_refund, call_data_floor_cost)
+    refund_tx_block_regular = max(gas_used_pre_refund, call_data_floor_cost)
 
     extra_tx_sender = pre.fund_eoa()
     extra_tx_calldata = b"\xff" if extra_tx_data_floor else b""
@@ -320,9 +370,11 @@ def test_multi_transaction_gas_accounting(
         else None,
     )
 
-    total_block_gas_used = (
-        refund_tx_block_gas_used + extra_tx_intrinsic_gas_cost
-    )
+    # EIP-8037: block_gas_used = max(sum_regular, sum_state)
+    # Extra tx has no state gas, so its state gas contribution = 0
+    block_regular = refund_tx_block_regular + extra_tx_intrinsic_gas_cost
+    block_state = tx_state_gas
+    total_block_gas_used = max(block_regular, block_state)
     if exceed_block_gas_limit:
         environment_gas_limit = total_block_gas_used - 1
     else:
@@ -380,19 +432,7 @@ class CallDataTestType(Enum):
     ],
 )
 @pytest.mark.with_all_refund_types()
-@pytest.mark.filter_combinations(
-    lambda refund_type, refund_tx_reverts, calldata_test_type, **_: not (
-        refund_type == RefundTypes.STORAGE_CLEAR
-        and refund_tx_reverts
-        and calldata_test_type
-        == CallDataTestType.DATA_FLOOR_BETWEEN_TX_GAS_BEFORE_AND_AFTER
-    ),
-    reason=(
-        "STORAGE_CLEAR refund is zero on revert, so the (post, pre) "
-        "interval that DATA_FLOOR_BETWEEN needs is empty"
-    ),
-)
-@pytest.mark.valid_from("EIP7778")
+@pytest.mark.valid_from("Amsterdam")
 def test_varying_calldata_costs(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -421,15 +461,16 @@ def test_varying_calldata_costs(
                 "since refund is zero when execution reverts"
             )
 
-    # Skipped on snøbal -- see test_state_gas_snobal_quirks.py.
     if refund_type == RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY:
         if calldata_test_type == (
             CallDataTestType.DATA_FLOOR_BETWEEN_TX_GAS_BEFORE_AND_AFTER
         ):
             pytest.skip(
-                "snøbal spec quirk: EIP-7702 auth refund routes to "
-                "state reservoir, collapsing pre/post-refund range "
-                "(see test_state_gas_snobal_quirks.py)"
+                "EIP-7702 auth refund routes through state_gas_reservoir "
+                "and state_refund (deducted from tx_state_gas); it does "
+                "not feed refund_counter, so receipt gas_used_pre_refund "
+                "== gas_used_post_refund and no calldata floor can land "
+                "strictly between them"
             )
 
     match refund_type:
@@ -446,7 +487,7 @@ def test_varying_calldata_costs(
 
     # Time to start searching for appropriate call data for each scenario
     num_iterations = 200
-    # Currently in EIP-7778, the optimal call data is found in about
+    # Currently in Amsterdam, the optimal call data is found in about
     # 30 iterations for CallDataTestType.DATA_FLOOR_GT_TX_GAS_BEFORE_REFUND.
     # Setting this higher just to make it
     # a bit more future proof if the gas calc logic changes
@@ -457,6 +498,7 @@ def test_varying_calldata_costs(
         (
             gas_used_post_refund,
             gas_used_pre_refund,
+            tx_state_gas,
             call_data_floor_cost,
             refund_tx,
         ) = build_refund_tx(
@@ -503,7 +545,9 @@ def test_varying_calldata_costs(
             f"Could not find the call_data with {num_iterations} iterations."
         )
 
-    refund_tx_block_gas_used = max(call_data_floor_cost, gas_used_pre_refund)
+    # EIP-8037: block gas_used = max(block_regular_gas, block_state_gas)
+    block_regular = max(call_data_floor_cost, gas_used_pre_refund)
+    refund_tx_block_gas_used = max(block_regular, tx_state_gas)
 
     blockchain_test(
         pre=pre,
@@ -524,6 +568,7 @@ def test_varying_calldata_costs(
         pytest.param(False, id=""),
     ],
 )
+@pytest.mark.pre_alloc_mutable
 @pytest.mark.execute(pytest.mark.skip(reason="Requires specific gas price"))
 @pytest.mark.valid_from("Amsterdam")
 def test_multiple_refund_types_in_one_tx(
@@ -538,18 +583,24 @@ def test_multiple_refund_types_in_one_tx(
     post = Alloc()
     refund_types = set(fork.refund_types())
 
-    (_, gas_used_pre_refund, call_data_floor_cost, refund_tx) = (
-        build_refund_tx(
-            fork=fork,
-            pre=pre,
-            post=post,
-            refund_types=refund_types,
-            refunds_count=refunds_count,
-            refund_tx_reverts=refund_tx_reverts,
-        )
+    (
+        _,
+        gas_used_pre_refund,
+        tx_state_gas,
+        call_data_floor_cost,
+        refund_tx,
+    ) = build_refund_tx(
+        fork=fork,
+        pre=pre,
+        post=post,
+        refund_types=refund_types,
+        refunds_count=refunds_count,
+        refund_tx_reverts=refund_tx_reverts,
     )
 
-    refund_tx_block_gas_used = max(gas_used_pre_refund, call_data_floor_cost)
+    # EIP-8037: block gas_used = max(block_regular_gas, block_state_gas)
+    block_regular = max(gas_used_pre_refund, call_data_floor_cost)
+    refund_tx_block_gas_used = max(block_regular, tx_state_gas)
 
     blockchain_test(
         pre=pre,
@@ -595,6 +646,8 @@ def test_mixed_gas_regimes(
     tx1_target = pre.deploy_contract(code=tx1_code)
     tx1_sender = pre.fund_eoa(initial_fund)
     tx1_data = b""
+    # Full intrinsic + execution gas (regular + state) sizes the gas limit
+    # and the balance charged to the sender.
     tx1_pre_refund = intrinsic_cost_calc(
         calldata=tx1_data,
         return_cost_deducted_prior_execution=True,
@@ -602,6 +655,12 @@ def test_mixed_gas_regimes(
     tx1_floor = data_floor_calc(data=tx1_data)
     assert tx1_pre_refund > tx1_floor, "tx1: pre_refund must exceed floor"
     tx1_contribution = max(tx1_pre_refund, tx1_floor)
+    # EIP-8037: block gas_used counts only regular gas; the SSTORE-set
+    # state gas lives in the separate state dimension, so the block-level
+    # contribution excludes it.
+    tx1_block_contribution = max(
+        tx1_pre_refund - fork.sstore_state_gas(), tx1_floor
+    )
     tx1 = Transaction(
         to=tx1_target,
         gas_limit=tx1_contribution,
@@ -623,6 +682,7 @@ def test_mixed_gas_regimes(
     (
         tx2_post_refund,
         tx2_pre_refund,
+        _,
         tx2_floor,
         tx2,
     ) = build_refund_tx(
@@ -665,7 +725,9 @@ def test_mixed_gas_regimes(
         balance=initial_fund - tx3_contribution * tx3_gas_price
     )
 
-    total_gas_used = tx1_contribution + tx2_contribution + tx3_contribution
+    total_gas_used = (
+        tx1_block_contribution + tx2_contribution + tx3_contribution
+    )
 
     blockchain_test(
         pre=pre,

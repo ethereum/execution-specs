@@ -146,6 +146,7 @@ def test_slotnum_gas_cost(
 def test_slotnum_distinct_per_block(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test that SLOTNUM returns each block's own slot number.
@@ -162,10 +163,14 @@ def test_slotnum_distinct_per_block(
     # Non-monotonic on purpose: decrease, increase, jump to large value.
     slot_numbers = [100, 42, 7, 2**32]
 
+    # EIP-8037: the SSTORE-set to a fresh slot also charges state gas, so
+    # the gas limit must cover it on top of the regular execution cost.
+    gas_limit = 100_000 + fork.sstore_state_gas()
+
     blocks = [
         Block(
             slot_number=slot,
-            txs=[Transaction(sender=sender, to=contract, gas_limit=100_000)],
+            txs=[Transaction(sender=sender, to=contract, gas_limit=gas_limit)],
         )
         for slot in slot_numbers
     ]

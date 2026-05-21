@@ -1107,9 +1107,7 @@ def process_transaction(
 
     # Transactions with less execution_gas_used than the floor pay at the
     # floor cost.
-    tx_gas_used_after_refund = max(
-        tx_gas_used_after_refund, intrinsic.calldata_floor
-    )
+    tx_gas_used = max(tx_gas_used_after_refund, intrinsic.calldata_floor)
 
     tx_gas_left = tx.gas - tx_gas_used
     gas_refund_amount = tx_gas_left * effective_gas_price
@@ -1170,7 +1168,7 @@ def process_transaction(
     block_output.block_state_gas_used += Uint(max(0, tx_state_gas))
     block_output.blob_gas_used += tx_blob_gas_used
 
-    block_output.cumulative_gas_used += tx_gas_used_after_refund
+    block_output.cumulative_gas_used += tx_gas_used
     receipt = make_receipt(
         tx,
         tx_output.error,

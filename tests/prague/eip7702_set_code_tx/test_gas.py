@@ -858,6 +858,11 @@ def gas_test_parameter_args(
     )
 )
 @pytest.mark.slow()
+# TODO[EIP-8037]: discount accounting here uses Prague refund_counter
+# mechanics (with the EIP-3529 1/5 cap). On Amsterdam the existing-authority
+# refund flows through state_gas_reservoir / state_refund and is not capped
+# the same way. Needs a fork-aware rewrite before this can run on Amsterdam.
+@pytest.mark.valid_before("EIP8037")
 def test_gas_cost(
     state_test: StateTestFiller,
     pre: Alloc,

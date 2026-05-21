@@ -42,7 +42,7 @@ class TestTokenCalculation:
     @pytest.fixture
     def sender(self, pre: Alloc) -> Address:
         """Create sender account."""
-        return pre.fund_eoa()
+        return pre.fund_eoa(10**21)
 
     @pytest.fixture
     def to(self, pre: Alloc) -> Address:
@@ -126,12 +126,12 @@ class TestTokenCalculation:
         floor_cost = floor_cost_calculator(data=calldata)
 
         # Verify floor token calculation:
-        # floor_cost = TX_BASE + (floor_tokens * floor_token_cost)
+        # floor_cost = 21000 + (floor_tokens * floor_token_cost)
         # where floor_tokens = 4 * calldata_bytes
         gas_costs = fork.gas_costs()
         floor_token_cost = gas_costs.TX_DATA_TOKEN_FLOOR
         expected_floor_tokens = len(calldata) * 4
-        expected_floor_cost = gas_costs.TX_BASE + (
+        expected_floor_cost = 21000 + (
             expected_floor_tokens * floor_token_cost
         )
         assert floor_cost == expected_floor_cost, (
@@ -141,7 +141,7 @@ class TestTokenCalculation:
             f"floor_cost_per_token={floor_token_cost})"
         )
 
-        expected_intrinsic_cost = gas_costs.TX_BASE + (
+        expected_intrinsic_cost = 21000 + (
             expected_standard_tokens * gas_costs.TX_DATA_TOKEN_STANDARD
         )
         assert intrinsic_cost_before_execution == expected_intrinsic_cost, (
@@ -178,7 +178,7 @@ class TestMaximumCalldata:
     @pytest.fixture
     def sender(self, pre: Alloc) -> Address:
         """Create sender account with massive balance."""
-        return pre.fund_eoa()
+        return pre.fund_eoa(10**25)
 
     @pytest.fixture
     def to(self, pre: Alloc) -> Address:
@@ -202,12 +202,12 @@ class TestMaximumCalldata:
         # Calculate calldata size that would cost approximately 10M gas
         # (below the default block gas limit to avoid EIP-7825 cap issues)
         # Using all non-zero bytes for maximum density
-        # floor_cost = TX_BASE + (TX_DATA_TOKEN_FLOOR * tokens)
+        # floor_cost = 21000 + (GAS_TX_DATA_TOKEN_FLOOR * tokens)
         # For non-zero bytes: tokens = bytes * 4
         gas_costs = fork.gas_costs()
         target_gas = 10_000_000
         floor_token_cost = gas_costs.TX_DATA_TOKEN_FLOOR
-        target_tokens = (target_gas - gas_costs.TX_BASE) // floor_token_cost
+        target_tokens = (target_gas - 21000) // floor_token_cost
         # Use all non-zero bytes for maximum token density
         num_bytes = target_tokens // 4
 
@@ -260,7 +260,7 @@ class TestMemoryExpansion:
     @pytest.fixture
     def sender(self, pre: Alloc) -> Address:
         """Create sender account."""
-        return pre.fund_eoa()
+        return pre.fund_eoa(10**21)
 
     @pytest.fixture
     def to(self, pre: Alloc) -> Address:
@@ -322,17 +322,21 @@ class TestMemoryExpansion:
         floor_cost_calculator = fork.transaction_data_floor_cost_calculator()
         floor_cost = floor_cost_calculator(data=calldata)
 
-        code = (
-            Op.CALLDATASIZE
-            + Op.PUSH1(0)
-            + Op.PUSH1(0)
-            + Op.CALLDATACOPY(
-                data_size=calldata_size,
-                new_memory_size=calldata_size,
-            )
-            + Op.STOP
+        # Memory expansion cost for copying calldata_size bytes
+        # memory_cost = (words^2)/512 + (3*words) where words = (size+31)//32
+        words = (calldata_size + 31) // 32
+        memory_expansion_cost = (words * words) // 512 + (3 * words)
+
+        # Execution gas includes CALLDATASIZE, PUSH1*2, CALLDATACOPY base,
+        # and memory expansion
+        gas_costs = fork.gas_costs()
+        execution_gas = (
+            gas_costs.BASE  # CALLDATASIZE
+            + gas_costs.VERY_LOW * 2  # PUSH1 * 2
+            + gas_costs.VERY_LOW  # CALLDATACOPY base
+            + memory_expansion_cost  # Memory expansion
+            + 3 * calldata_size  # CALLDATACOPY per-byte cost
         )
-        execution_gas = code.gas_cost(fork)
 
         # Total gas is intrinsic + execution
         total_with_execution = intrinsic_cost_before_execution + execution_gas
@@ -361,7 +365,7 @@ class TestNestedContractCalls:
     @pytest.fixture
     def sender(self, pre: Alloc) -> Address:
         """Create sender account."""
-        return pre.fund_eoa()
+        return pre.fund_eoa(10**21)
 
     @pytest.fixture
     def contract_b(self, pre: Alloc) -> Address:
@@ -439,7 +443,7 @@ class TestNestedContractCalls:
         # not the calldata passed in the internal CALL
         tokens_tx = len(tx_calldata) * 4  # All non-zero bytes
         gas_costs = fork.gas_costs()
-        expected_floor_cost = gas_costs.TX_BASE + (
+        expected_floor_cost = 21000 + (
             tokens_tx * gas_costs.TX_DATA_TOKEN_FLOOR
         )
         assert floor_cost == expected_floor_cost
@@ -528,7 +532,7 @@ class TestExactThresholdBoundary:
     @pytest.fixture
     def sender(self, pre: Alloc) -> Address:
         """Create sender account."""
-        return pre.fund_eoa()
+        return pre.fund_eoa(10**21)
 
     @pytest.fixture
     def to(self, pre: Alloc) -> Address:
@@ -660,7 +664,7 @@ class TestAuthorizationListGasCost:
     @pytest.fixture
     def sender(self, pre: Alloc) -> Address:
         """Create sender account."""
-        return pre.fund_eoa()
+        return pre.fund_eoa(10**21)
 
     @pytest.fixture
     def to(self, pre: Alloc) -> Address:
@@ -765,7 +769,96 @@ class TestRefundCapInteraction:
     @pytest.fixture
     def sender(self, pre: Alloc) -> Address:
         """Create sender account."""
-        return pre.fund_eoa()
+        return pre.fund_eoa(10**21)
+
+    @pytest.fixture
+    def calldata_for_floor(self) -> Bytes:
+        """Calldata that triggers floor cost."""
+        return Bytes(b"\x01" * 500)
+
+    def test_refund_calculated_from_execution_not_floor(
+        self,
+        state_test: StateTestFiller,
+        pre: Alloc,
+        sender: Address,
+        fork: Fork,
+        calldata_for_floor: Bytes,
+    ) -> None:
+        """
+        Verify refunds are calculated from execution gas, not floor cost.
+
+        The refund is calculated as min(refund_counter, gas_used // 5) where
+        gas_used is the actual execution gas before refund, not the floor cost.
+        """
+        # Deploy contract that clears storage (generates refund)
+        # Pre-set storage slot 0 to 1, then clear it
+        contract = pre.deploy_contract(
+            Op.SSTORE(0, 0) + Op.STOP,
+            storage={0: 1},
+        )
+
+        # Calculate costs
+        intrinsic_cost_calculator = (
+            fork.transaction_intrinsic_cost_calculator()
+        )
+        intrinsic_cost_before_execution = intrinsic_cost_calculator(
+            calldata=calldata_for_floor,
+            contract_creation=False,
+            access_list=None,
+            authorization_list_or_count=None,
+            return_cost_deducted_prior_execution=True,
+        )
+
+        floor_cost_calculator = fork.transaction_data_floor_cost_calculator()
+        floor_cost = floor_cost_calculator(data=calldata_for_floor)
+
+        # Calculate execution gas for SSTORE clearing
+        gas_costs = fork.gas_costs()
+        # Op.SSTORE(0, 0) generates: PUSH1(0) PUSH1(0) SSTORE
+        execution_gas = (
+            gas_costs.COLD_STORAGE_ACCESS  # First access to storage slot
+            + gas_costs.STORAGE_RESET  # SSTORE reset cost
+            + gas_costs.VERY_LOW * 2  # PUSH1 * 2 for Op.SSTORE helper
+        )
+
+        # Total gas before refund
+        total_gas_before_refund = (
+            intrinsic_cost_before_execution + execution_gas
+        )
+
+        # Refund for clearing storage
+        max_refund = gas_costs.REFUND_STORAGE_CLEAR
+        actual_refund = min(max_refund, total_gas_before_refund // 5)
+
+        # Gas after refund
+        gas_after_refund = total_gas_before_refund - actual_refund
+
+        # Final gas is max(gas_after_refund, floor_cost)
+        expected_gas = max(gas_after_refund, floor_cost)
+
+        # Gas limit must satisfy both execution needs and floor cost
+        gas_limit = max(total_gas_before_refund, floor_cost)
+
+        tx = Transaction(
+            sender=sender,
+            to=contract,
+            data=calldata_for_floor,
+            gas_limit=gas_limit,
+        )
+
+        tx.expected_receipt = TransactionReceipt(
+            cumulative_gas_used=expected_gas
+        )
+
+        state_test(
+            pre=pre,
+            post={
+                contract: {
+                    "storage": {0: 0},  # Storage cleared
+                }
+            },
+            tx=tx,
+        )
 
     def test_refund_cap_at_one_fifth(
         self,
@@ -775,10 +868,10 @@ class TestRefundCapInteraction:
         fork: Fork,
     ) -> None:
         """
-        Test that refunds are capped at the fork max refund quotient.
+        Test that refunds are capped at 1/5 of gas used.
 
         Even if the refund counter is high, the actual refund cannot exceed
-        the fork cap. Use minimal calldata to avoid floor cost interference.
+        gas_used // 5. Use minimal calldata to avoid floor cost interference.
         """
         # Use minimal calldata so floor cost doesn't dominate
         calldata = Bytes(b"")
@@ -790,7 +883,7 @@ class TestRefundCapInteraction:
         storage = {i: 1 for i in range(num_slots)}  # noqa: C420
 
         for i in range(num_slots):
-            code += Op.SSTORE(i, 0, original_value=1, new_value=0)
+            code += Op.SSTORE(i, 0)
 
         code += Op.STOP
         contract = pre.deploy_contract(
@@ -810,21 +903,31 @@ class TestRefundCapInteraction:
             return_cost_deducted_prior_execution=True,
         )
 
-        execution_gas = code.gas_cost(fork)
+        # Calculate execution gas
+        gas_costs = fork.gas_costs()
+        # Note: The contract (to) address is pre-warmed per EIP-2929,
+        # so no G_COLD_ACCOUNT_ACCESS is charged.
+        execution_gas = 0
+        for _ in range(num_slots):
+            # Each storage slot is accessed cold (different slots)
+            execution_gas += gas_costs.COLD_STORAGE_ACCESS
+            execution_gas += gas_costs.STORAGE_RESET
+            execution_gas += gas_costs.VERY_LOW * 2  # PUSH1 * 2
 
         total_gas_before_refund = (
             intrinsic_cost_before_execution + execution_gas
         )
 
-        refund_counter = code.refund(fork)
+        # Refund counter (clearing 10 slots)
+        refund_counter = gas_costs.REFUND_STORAGE_CLEAR * num_slots
 
-        # Actual refund is capped by the fork max refund quotient.
-        refund_cap = total_gas_before_refund // fork.max_refund_quotient()
+        # Actual refund is capped at 1/5
+        refund_cap = total_gas_before_refund // 5
         actual_refund = min(refund_counter, refund_cap)
 
         # Verify that refund counter exceeds cap
         assert refund_counter > refund_cap, (
-            "Test requires refund_counter > refund cap"
+            "Test requires refund_counter > gas_used // 5"
         )
 
         # Gas after refund (floor cost is minimal with empty calldata)
@@ -871,9 +974,8 @@ class TestRefundCapInteraction:
         calldata = Bytes(b"\x01" * 1000)
 
         # Deploy contract that clears storage
-        code = Op.SSTORE(0, 0, original_value=1, new_value=0) + Op.STOP
         contract = pre.deploy_contract(
-            code,
+            Op.SSTORE(0, 0) + Op.STOP,
             storage={0: 1},
         )
 
@@ -892,14 +994,19 @@ class TestRefundCapInteraction:
             return_cost_deducted_prior_execution=True,
         )
 
-        execution_gas = code.gas_cost(fork)
+        # Minimal execution gas
+        gas_costs = fork.gas_costs()
+        execution_gas = (
+            gas_costs.COLD_STORAGE_ACCESS
+            + gas_costs.STORAGE_RESET
+            + gas_costs.VERY_LOW * 2
+        )
 
         total_gas_before_refund = (
             intrinsic_cost_before_execution + execution_gas
         )
         refund = min(
-            code.refund(fork),
-            total_gas_before_refund // fork.max_refund_quotient(),
+            gas_costs.REFUND_STORAGE_CLEAR, total_gas_before_refund // 5
         )
         gas_after_refund = total_gas_before_refund - refund
 

@@ -6,6 +6,7 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    Fork,
     Op,
     Transaction,
 )
@@ -20,6 +21,7 @@ REFERENCE_SPEC_VERSION = ref_spec_7843.version
 def test_slotnum_at_fork_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test SLOTNUM behavior across the EIP-7843 fork transition.
@@ -43,11 +45,18 @@ def test_slotnum_at_fork_transition(
     at_fork_slot = 200
     post_fork_slot = 201
 
+    # EIP-8037: post-fork blocks charge state gas for the SSTORE-set on top
+    # of regular execution gas. The pre-fork block halts on the undefined
+    # opcode and consumes all gas regardless, so a uniform bump is safe.
+    # `fork` is a transition fork, so read the cost from the fork it
+    # transitions to (where EIP-8037 is active).
+    gas_limit = 100_000 + fork.transitions_to().sstore_state_gas()
+
     blocks = [
         Block(
             timestamp=ts,
             slot_number=slot,
-            txs=[Transaction(sender=sender, to=contract, gas_limit=100_000)],
+            txs=[Transaction(sender=sender, to=contract, gas_limit=gas_limit)],
         )
         for ts, slot in [
             (14_999, None),
