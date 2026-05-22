@@ -27,6 +27,8 @@ from execution_testing import (
     Transaction,
 )
 
+from ...prague.eip7002_el_triggerable_withdrawals.spec import Spec as Spec7002
+from ...prague.eip7251_consolidations.spec import Spec as Spec7251
 from .spec import ref_spec_7928
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7928.git_path
@@ -35,10 +37,10 @@ REFERENCE_SPEC_VERSION = ref_spec_7928.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 WITHDRAWAL_REQUEST_ADDRESS = Address(
-    0x00000961EF480EB55E80D19AD83579A64C007002
+    Spec7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS
 )
 CONSOLIDATION_REQUEST_ADDRESS = Address(
-    0x0000BBDDC7CE488642FB579F8B00F3A590007251
+    Spec7251.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS
 )
 
 
