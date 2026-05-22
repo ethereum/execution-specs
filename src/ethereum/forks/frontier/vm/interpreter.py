@@ -32,8 +32,7 @@ from ethereum.trace import (
 
 from ..blocks import Log
 from ..state_tracker import (
-    account_has_code_or_nonce,
-    account_has_storage,
+    account_deployable,
     copy_tx_state,
     destroy_storage,
     move_ether,
@@ -98,10 +97,9 @@ def process_message_call(message: Message) -> MessageCallOutput:
     tx_state = message.tx_env.state
     refund_counter = U256(0)
     if message.target == Bytes0(b""):
-        is_collision = account_has_code_or_nonce(
-            tx_state, message.current_target
-        ) or account_has_storage(tx_state, message.current_target)
-        if is_collision:
+        if account_deployable(tx_state, message.current_target):
+            evm = process_create_message(message)
+        else:
             return MessageCallOutput(
                 gas_left=Uint(0),
                 refund_counter=U256(0),
@@ -109,8 +107,6 @@ def process_message_call(message: Message) -> MessageCallOutput:
                 accounts_to_delete=set(),
                 error=AddressCollision(),
             )
-        else:
-            evm = process_create_message(message)
     else:
         evm = process_message(message)
 

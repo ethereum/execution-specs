@@ -21,9 +21,8 @@ from ethereum.state import Address
 from ethereum.utils.numeric import ceil32
 
 from ...state_tracker import (
+    account_deployable,
     account_exists_and_is_empty,
-    account_has_code_or_nonce,
-    account_has_storage,
     get_account,
     get_code,
     increment_nonce,
@@ -89,9 +88,7 @@ def generic_create(
         push(evm.stack, U256(0))
         return
 
-    if account_has_code_or_nonce(
-        evm.message.tx_env.state, contract_address
-    ) or account_has_storage(evm.message.tx_env.state, contract_address):
+    if not account_deployable(evm.message.tx_env.state, contract_address):
         increment_nonce(evm.message.tx_env.state, evm.message.current_target)
         push(evm.stack, U256(0))
         return
