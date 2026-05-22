@@ -1,20 +1,38 @@
+# Client aliases
+benchmark:
+  impl: geth
+  repo: ethereum/go-ethereum
+  ref: master
+  evm-bin: evm
+  x-dist: auto
+consensus:
+  impl: eels
+  repo: null
+  ref: null
+  evm-bin: null
+  x-dist: auto
+
 eels:
+  impl: eels
   repo: null
   ref: null
   evm-bin: null
   x-dist: auto
 evmone:
+  impl: evmone
   repo: ethereum/evmone
   ref: master
   targets: ["evmone-t8n"]
   evm-bin: evmone-t8n
   x-dist: auto
 geth:
+  impl: geth
   repo: ethereum/go-ethereum
   ref: master
   evm-bin: evm
   x-dist: auto
 besu:
+  impl: besu
   repo: hyperledger/besu
   ref: main
   evm-bin: evmtool

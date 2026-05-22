@@ -4,11 +4,27 @@ on:
   workflow_dispatch:
     inputs:
       feature:
-        description: "Feature release, e.g. consensus@v1.2.3 or bal-devnet@v1.0.0 (tests- prefix optional)"
+        description: "Feature name, e.g. consensus, benchmark, bal-devnet"
+        required: true
+        type: string
+      version:
+        description: "Release version, e.g. v20.0.0"
         required: true
         type: string
       branch:
         description: "Branch to release from (required for *-devnet features)"
+        required: false
+        type: string
+      evm:
+        description: "Override the evm impl (e.g. geth, evmone). Defaults to the feature's evm-type."
+        required: false
+        type: string
+      evm_repo:
+        description: "Override the t8n tool repo (e.g. ethereum/go-ethereum)"
+        required: false
+        type: string
+      evm_ref:
+        description: "Override the t8n tool branch / tag / commit"
         required: false
         type: string
 
@@ -31,16 +47,31 @@ jobs:
         shell: bash
         env:
           INPUT_FEATURE: ${{ inputs.feature }}
+          INPUT_VERSION: ${{ inputs.version }}
           INPUT_BRANCH: ${{ inputs.branch }}
+          INPUT_EVM: ${{ inputs.evm }}
         run: |
-          RELEASE_NAME="${INPUT_FEATURE#tests-}"
-          FEATURE_NAME="${RELEASE_NAME%%@*}"
+          FEATURE_NAME="$INPUT_FEATURE"
+          VERSION="$INPUT_VERSION"
+
+          if [ -z "$FEATURE_NAME" ]; then
+            echo "::error::feature name is empty"
+            exit 1
+          fi
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::version '$VERSION' must match vX.Y.Z (e.g. v20.0.0)"
+            exit 1
+          fi
+          if [ -n "$INPUT_EVM" ] && ! grep -qE "^${INPUT_EVM}:" .github/configs/evm.yaml; then
+            echo "::error::evm '$INPUT_EVM' is not a key in .github/configs/evm.yaml"
+            exit 1
+          fi
 
           # `<feat>-devnet` releases (e.g. bal-devnet) resolve to the shared
           # `devnet` feature but keep their friendly name, and must specify
           # the branch to release from.
           if [ "$FEATURE_NAME" = "devnet" ] || [ "$FEATURE_NAME" = "-devnet" ]; then
-            echo "::error::devnet releases require a <feat>- prefix, e.g. bal-devnet@v1.0.0"
+            echo "::error::devnet releases require a <feat>- prefix, e.g. bal-devnet"
             exit 1
           fi
           if [[ "$FEATURE_NAME" == *-devnet && -z "$INPUT_BRANCH" ]]; then
@@ -71,6 +102,9 @@ jobs:
           from_fork: ${{ matrix.from_fork }}
           until_fork: ${{ matrix.until_fork }}
           split_label: ${{ matrix.label }}
+          evm: ${{ inputs.evm }}
+          evm_repo: ${{ inputs.evm_repo }}
+          evm_ref: ${{ inputs.evm_ref }}
 
   combine:
     name: combine (${{ needs.setup.outputs.feature_name }})
@@ -152,18 +186,17 @@ jobs:
         shell: bash
         env:
           INPUT_FEATURE: ${{ inputs.feature }}
+          INPUT_VERSION: ${{ inputs.version }}
           INPUT_BRANCH: ${{ inputs.branch }}
-          FEATURE_NAME: ${{ needs.setup.outputs.feature_name }}
           GH_TOKEN: ${{ github.token }}
         run: |
           # Release title has no "tests-" prefix; the git tag always does.
-          RELEASE_NAME="${INPUT_FEATURE#tests-}"
+          RELEASE_NAME="${INPUT_FEATURE}@${INPUT_VERSION}"
           TAG_NAME="tests-${RELEASE_NAME}"
-          FEATURE_PREFIX="${RELEASE_NAME%%@*}"
 
           # Use the prior release of the same feature as the notes baseline.
           PREV_TAG=$(
-            git tag --list "tests-${FEATURE_PREFIX}@v*" --sort=-v:refname \
+            git tag --list "tests-${INPUT_FEATURE}@v*" --sort=-v:refname \
               | grep -v "^${TAG_NAME}$" \
               | head -n 1 \
             || true
@@ -172,15 +205,14 @@ jobs:
           # Tag the released branch when given, else the run commit.
           TARGET="${INPUT_BRANCH:-$GITHUB_SHA}"
 
+          # All fixture releases are drafted as prereleases; publish manually.
           RELEASE_ARGS=(
             --draft
+            --prerelease
             --generate-notes
             --target "$TARGET"
             --title "$RELEASE_NAME"
           )
-          if [ "$FEATURE_NAME" != "consensus" ]; then
-            RELEASE_ARGS+=(--prerelease)
-          fi
           if [ -n "$PREV_TAG" ]; then
             RELEASE_ARGS+=(--notes-start-tag "$PREV_TAG")
           fi
