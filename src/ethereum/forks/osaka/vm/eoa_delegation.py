@@ -5,7 +5,6 @@ Set EOA account code.
 from typing import Optional, Tuple
 
 from ethereum_rlp import rlp
-from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
@@ -120,40 +119,40 @@ def recover_authority(authorization: Authorization) -> Address:
     return Address(keccak256(public_key)[12:32])
 
 
-def access_delegation(
+def calculate_delegation_cost(
     evm: Evm, address: Address
-) -> Tuple[bool, Address, Bytes, Uint]:
+) -> Tuple[bool, Address, Uint]:
     """
-    Get the delegation address, code, and the cost of access from the address.
+    Get the delegation address and the cost of access from the address.
 
     Parameters
     ----------
     evm : `Evm`
         The execution frame.
     address : `Address`
-        The address to get the delegation from.
+        The address to check for delegation.
 
     Returns
     -------
-    delegation : `Tuple[bool, Address, Bytes, Uint]`
-        The delegation address, code, and access gas cost.
+    delegation : `Tuple[bool, Address, Uint]`
+        The delegation address and access gas cost.
 
     """
     tx_state = evm.message.tx_env.state
 
     code = get_code(tx_state, get_account(tx_state, address).code_hash)
+
     if not is_valid_delegation(code):
-        return False, address, code, Uint(0)
+        return False, address, Uint(0)
 
-    address = Address(code[EOA_DELEGATION_MARKER_LENGTH:])
-    if address in evm.accessed_addresses:
-        access_gas_cost = GasCosts.WARM_ACCESS
+    delegated_address = Address(code[EOA_DELEGATION_MARKER_LENGTH:])
+
+    if delegated_address in evm.accessed_addresses:
+        delegation_gas_cost = GasCosts.WARM_ACCESS
     else:
-        evm.accessed_addresses.add(address)
-        access_gas_cost = GasCosts.COLD_ACCOUNT_ACCESS
-    code = get_code(tx_state, get_account(tx_state, address).code_hash)
+        delegation_gas_cost = GasCosts.COLD_ACCOUNT_ACCESS
 
-    return True, address, code, access_gas_cost
+    return True, delegated_address, delegation_gas_cost
 
 
 def set_delegation(message: Message) -> U256:

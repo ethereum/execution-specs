@@ -64,14 +64,15 @@ def generic_create(
     # if it's not moved inside this method
     from ...vm.interpreter import STACK_DEPTH_LIMIT, process_create_message
 
+    if evm.message.is_static:
+        raise WriteInStaticContext
+
     call_data = memory_read_bytes(
         evm.memory, memory_start_position, memory_size
     )
 
     create_message_gas = max_message_call_gas(Uint(evm.gas_left))
     evm.gas_left -= create_message_gas
-    if evm.message.is_static:
-        raise WriteInStaticContext
     evm.return_data = b""
 
     sender_address = evm.message.current_target
@@ -331,6 +332,9 @@ def call(evm: Evm) -> None:
     memory_output_start_position = pop(evm.stack)
     memory_output_size = pop(evm.stack)
 
+    if evm.message.is_static and value != U256(0):
+        raise WriteInStaticContext
+
     # GAS
     extend_memory = calculate_gas_extend_memory(
         evm.memory,
@@ -354,8 +358,6 @@ def call(evm: Evm) -> None:
         GasCosts.OPCODE_CALL_BASE + create_gas_cost + transfer_gas_cost,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
-    if evm.message.is_static and value != U256(0):
-        raise WriteInStaticContext
     evm.memory += b"\x00" * extend_memory.expand_by
     sender_balance = get_account(
         evm.message.tx_env.state, evm.message.current_target
@@ -462,6 +464,9 @@ def selfdestruct(evm: Evm) -> None:
         The current EVM frame.
 
     """
+    if evm.message.is_static:
+        raise WriteInStaticContext
+
     # STACK
     beneficiary = to_address_masked(pop(evm.stack))
 
@@ -488,8 +493,6 @@ def selfdestruct(evm: Evm) -> None:
         evm.refund_counter += GasCosts.REFUND_SELF_DESTRUCT
 
     charge_gas(evm, gas_cost)
-    if evm.message.is_static:
-        raise WriteInStaticContext
 
     originator = evm.message.current_target
     beneficiary_balance = get_account(

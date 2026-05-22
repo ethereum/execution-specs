@@ -21,10 +21,11 @@ from ...state_tracker import (
     set_transient_storage,
 )
 from .. import Evm
-from ..exceptions import OutOfGasError, WriteInStaticContext
+from ..exceptions import WriteInStaticContext
 from ..gas import (
     GasCosts,
     charge_gas,
+    check_gas,
 )
 from ..stack import pop, push
 
@@ -70,11 +71,15 @@ def sstore(evm: Evm) -> None:
         The current EVM frame.
 
     """
+    if evm.message.is_static:
+        raise WriteInStaticContext
+
     # STACK
     key = pop(evm.stack).to_be_bytes32()
     new_value = pop(evm.stack)
-    if evm.gas_left <= GasCosts.CALL_STIPEND:
-        raise OutOfGasError
+
+    # check we have at least the stipend gas
+    check_gas(evm, GasCosts.CALL_STIPEND + Uint(1))
 
     tx_state = evm.message.tx_env.state
     original_value = get_storage_original(
@@ -124,8 +129,6 @@ def sstore(evm: Evm) -> None:
                 )
 
     charge_gas(evm, gas_cost)
-    if evm.message.is_static:
-        raise WriteInStaticContext
     set_storage(tx_state, evm.message.current_target, key, new_value)
 
     # PROGRAM COUNTER
@@ -169,14 +172,15 @@ def tstore(evm: Evm) -> None:
         The current EVM frame.
 
     """
+    if evm.message.is_static:
+        raise WriteInStaticContext
+
     # STACK
     key = pop(evm.stack).to_be_bytes32()
     new_value = pop(evm.stack)
 
     # GAS
     charge_gas(evm, GasCosts.WARM_ACCESS)
-    if evm.message.is_static:
-        raise WriteInStaticContext
     set_transient_storage(
         evm.message.tx_env.state,
         evm.message.current_target,
