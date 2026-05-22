@@ -20,9 +20,8 @@ from ethereum_types.numeric import U256, Uint
 from ethereum.state import Address
 
 from ...state_tracker import (
+    account_deployable,
     account_exists,
-    account_has_code_or_nonce,
-    account_has_storage,
     get_account,
     get_code,
     increment_nonce,
@@ -94,9 +93,7 @@ def create(evm: Evm) -> None:
     ):
         push(evm.stack, U256(0))
         evm.gas_left += create_message_gas
-    elif account_has_code_or_nonce(
-        evm.message.tx_env.state, contract_address
-    ) or account_has_storage(evm.message.tx_env.state, contract_address):
+    elif not account_deployable(evm.message.tx_env.state, contract_address):
         increment_nonce(evm.message.tx_env.state, evm.message.current_target)
         push(evm.stack, U256(0))
     else:

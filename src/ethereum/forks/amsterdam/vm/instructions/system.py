@@ -21,8 +21,7 @@ from ethereum.state import Address
 from ethereum.utils.numeric import ceil32
 
 from ...state_tracker import (
-    account_has_code_or_nonce,
-    account_has_storage,
+    account_deployable,
     get_account,
     get_code,
     increment_nonce,
@@ -122,9 +121,7 @@ def generic_create(
 
     evm.accessed_addresses.add(contract_address)
 
-    if account_has_code_or_nonce(
-        tx_state, contract_address
-    ) or account_has_storage(tx_state, contract_address):
+    if not account_deployable(tx_state, contract_address):
         increment_nonce(tx_state, evm.message.current_target)
         evm.regular_gas_used += create_message_gas
         evm.state_gas_left += create_message_state_gas_reservoir
