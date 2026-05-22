@@ -437,7 +437,7 @@ def create_modexp_test_cases() -> list[ParameterSet]:
     # Furthermore, if using Montgomery multiplication, in many cases
     # the montgomery_factor = 2**R mod modulus will also be very small.
     # This means that the number that appear in a precomputation table for
-    # a windowed exponentation are unusually small.
+    # a windowed exponentiation are unusually small.
     # Thus, for some implementations, the above choices might cause a
     # misleadingly fast running time.
     # Also, the gas formula looks at the exponent length with a bit-level
