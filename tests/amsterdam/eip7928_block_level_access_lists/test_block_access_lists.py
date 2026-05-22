@@ -2414,39 +2414,52 @@ def test_bal_create_transaction_empty_code(
     )
 
 
-def test_bal_cross_tx_storage_revert_to_zero(
+@pytest.mark.parametrize(
+    "tx2_value",
+    [
+        pytest.param(0x0, id="tx2_reverts_to_zero"),
+        pytest.param(0xABCD, id="tx2_rewrites_same_value"),
+    ],
+)
+def test_bal_cross_tx_storage_write(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    tx2_value: int,
 ) -> None:
     """
-    Ensure BAL captures storage changes when tx1 writes a non-zero value
-    and tx2 reverts it back to zero. This is a regression test for the
-    blobhash scenario where slot changes were being incorrectly filtered
-    as net-zero across transaction boundaries.
+    Tx1's storage_change must be preserved regardless of tx2's write.
 
-    Tx1: slot 0 = 0x0 -> 0xABCD (change at block_access_index=1)
-    Tx2: slot 0 = 0xABCD -> 0x0 (change MUST be at block_access_index=2)
+    Regression for the blobhash scenario where back-to-pre writes were
+    filtered as net-zero across tx boundaries. The same-value case
+    additionally exercises the uniqueness rule: a slot in storage_changes
+    MUST NOT also appear in storage_reads.
     """
     alice = pre.fund_eoa()
+    tx1_value = 0xABCD
 
-    # Contract that writes to slot 0 based on calldata
     contract = pre.deploy_contract(code=Op.SSTORE(0, Op.CALLDATALOAD(0)))
 
-    # Tx1: Write slot 0 = 0xABCD
     tx1 = Transaction(
         sender=alice,
         to=contract,
-        data=Hash(0xABCD),
+        data=Hash(tx1_value),
         gas_limit=100_000,
     )
 
-    # Tx2: Write slot 0 = 0x0 (revert to zero)
     tx2 = Transaction(
         sender=alice,
         to=contract,
-        data=Hash(0x0),
+        data=Hash(tx2_value),
         gas_limit=100_000,
     )
+
+    slot_changes = [
+        BalStorageChange(block_access_index=1, post_value=tx1_value),
+    ]
+    if tx2_value != tx1_value:
+        slot_changes.append(
+            BalStorageChange(block_access_index=2, post_value=tx2_value)
+        )
 
     account_expectations = {
         alice: BalAccountExpectation(
@@ -2457,18 +2470,9 @@ def test_bal_cross_tx_storage_revert_to_zero(
         ),
         contract: BalAccountExpectation(
             storage_changes=[
-                BalStorageSlot(
-                    slot=0,
-                    slot_changes=[
-                        BalStorageChange(
-                            block_access_index=1, post_value=0xABCD
-                        ),
-                        # CRITICAL: tx2's write to 0x0 MUST appear
-                        # even though it returns slot to original value
-                        BalStorageChange(block_access_index=2, post_value=0x0),
-                    ],
-                ),
+                BalStorageSlot(slot=0, slot_changes=slot_changes),
             ],
+            storage_reads=[],
         ),
     }
 
@@ -2484,7 +2488,7 @@ def test_bal_cross_tx_storage_revert_to_zero(
         ],
         post={
             alice: Account(nonce=2),
-            contract: Account(storage={0: 0x0}),
+            contract: Account(storage={0: tx2_value}),
         },
     )
 
