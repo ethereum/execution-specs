@@ -579,6 +579,7 @@ def test_bal_4788_selfdestruct_to_beacon_root(
 def test_bal_selfdestruct_to_system_address_zero_balance(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    fork: Fork,
 ) -> None:
     """
     Ensure BAL records the SYSTEM_ADDRESS beneficiary when a SELFDESTRUCT
@@ -609,8 +610,8 @@ def test_bal_selfdestruct_to_system_address_zero_balance(
         to=None,  # CREATE
         value=0,  # zero contract balance at SELFDESTRUCT time
         data=init_code,
-        gas_limit=1_000_000,
-        gas_price=0xA,
+        gas_limit=fork.transaction_gas_limit_cap(),
+        gas_price=10,
     )
 
     block = Block(
@@ -618,7 +619,9 @@ def test_bal_selfdestruct_to_system_address_zero_balance(
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
                 alice: BalAccountExpectation(
-                    nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1),
+                    ],
                 ),
                 # SELFDESTRUCT-to-SYSTEM_ADDRESS records an access on the
                 # beneficiary without any value/nonce/code/storage change.
@@ -632,6 +635,6 @@ def test_bal_selfdestruct_to_system_address_zero_balance(
         blocks=[block],
         post={
             alice: Account(nonce=1),
-            new_contract: Account.NONEXISTENT,  # type: ignore
+            new_contract: Account.NONEXISTENT,
         },
     )
