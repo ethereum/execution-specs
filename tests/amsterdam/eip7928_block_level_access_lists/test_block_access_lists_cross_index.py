@@ -15,6 +15,8 @@ from execution_testing import (
     Address,
     Alloc,
     BalAccountExpectation,
+    BalBalanceChange,
+    BalNonceChange,
     BalStorageChange,
     BalStorageSlot,
     Block,
@@ -25,6 +27,8 @@ from execution_testing import (
     Transaction,
 )
 
+from ...prague.eip7002_el_triggerable_withdrawals.spec import Spec as Spec7002
+from ...prague.eip7251_consolidations.spec import Spec as Spec7251
 from .spec import ref_spec_7928
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7928.git_path
@@ -33,10 +37,10 @@ REFERENCE_SPEC_VERSION = ref_spec_7928.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 WITHDRAWAL_REQUEST_ADDRESS = Address(
-    0x00000961EF480EB55E80D19AD83579A64C007002
+    Spec7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS
 )
 CONSOLIDATION_REQUEST_ADDRESS = Address(
-    0x0000BBDDC7CE488642FB579F8B00F3A590007251
+    Spec7251.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS
 )
 
 
@@ -314,5 +318,118 @@ def test_bal_system_contract_noop_filtering(
         ],
         post={
             receiver: Account(balance=100),
+        },
+    )
+
+
+def test_bal_withdrawal_predeploy_balance_observed_cross_tx(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Test that a subsequent transaction observes the post-state balance of the
+    withdrawal predeploy after a prior transaction in the same block paid the
+    withdrawal fee.
+
+    Within one block:
+      - tx 0: EOA sends `fee` wei to WITHDRAWAL_REQUEST_PREDEPLOY with a valid
+        withdrawal-request calldata. The predeploy retains the fee, so its
+        balance transitions 0 -> fee (BAL balance_change at index 1).
+      - tx 1: calls a reader contract that performs
+        `SSTORE(0, BALANCE(WITHDRAWAL_REQUEST_PREDEPLOY))`.
+
+    Per EIP-7928, the BAL prefix consumed by tx 1's execution must include
+    tx 0's balance change for the predeploy, so the BALANCE opcode returns
+    `fee` and slot 0 of the reader ends at `fee`. The predeploy is also
+    touched by the prepare-block system call (storage reads at slots 0-3),
+    making its address one whose pre-block snapshot would otherwise mask the
+    BAL overlay if consulted ahead of the BAL prefix.
+    """
+    fee = 1  # Spec7002.get_fee(0) is 1 when excess == 0; one request fits.
+    withdrawal_calldata = (
+        (b"\x01" + b"\x00" * 47)  # 48-byte validator pubkey
+        + (b"\x00" * 8)  # 8-byte amount
+    )
+
+    sender_0 = pre.fund_eoa()
+    sender_1 = pre.fund_eoa()
+
+    reader = pre.deploy_contract(
+        code=Bytecode(
+            Op.SSTORE(
+                0,
+                Op.BALANCE(WITHDRAWAL_REQUEST_ADDRESS),
+            )
+            + Op.STOP
+        ),
+    )
+
+    tx_pay_fee = Transaction(
+        sender=sender_0,
+        to=WITHDRAWAL_REQUEST_ADDRESS,
+        value=fee,
+        data=withdrawal_calldata,
+        gas_limit=1_000_000,
+    )
+
+    tx_read_balance = Transaction(
+        sender=sender_1,
+        to=reader,
+        gas_limit=100_000,
+    )
+
+    expected_block_access_list = BlockAccessListExpectation(
+        account_expectations={
+            # Predeploy: tx 0 records the fee as a BAL balance_change at
+            # index 1; the framework also verifies the system-call storage
+            # behaviour through its own post-execution invariants.
+            WITHDRAWAL_REQUEST_ADDRESS: BalAccountExpectation(
+                balance_changes=[
+                    BalBalanceChange(
+                        block_access_index=1,
+                        post_balance=fee,
+                    ),
+                ],
+            ),
+            # Reader: tx 1 stores the predeploy balance at slot 0.
+            # If the consumed BAL prefix did not surface tx 0's balance
+            # change to BALANCE, post_value would be 0 and the assertion
+            # below would fail.
+            reader: BalAccountExpectation(
+                storage_changes=[
+                    BalStorageSlot(
+                        slot=0,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=2,
+                                post_value=fee,
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+            sender_0: BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1),
+                ],
+            ),
+            sender_1: BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(block_access_index=2, post_nonce=1),
+                ],
+            ),
+        }
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx_pay_fee, tx_read_balance],
+                expected_block_access_list=expected_block_access_list,
+            ),
+        ],
+        post={
+            reader: Account(storage={0: fee}),
         },
     )
