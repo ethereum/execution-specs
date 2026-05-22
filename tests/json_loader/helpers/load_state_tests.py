@@ -151,7 +151,9 @@ class StateTest(FixtureTestItem):
             t8n.run_state_test()
 
             if "expectException" in post:
-                assert 0 in t8n.txs.rejected_txs
+                assert any(
+                    int(rej.index) == 0 for rej in t8n.rejected_transactions
+                )
                 return
 
             assert hex_to_bytes(post_hash) == t8n.result.state_root

@@ -14,7 +14,6 @@ from typing import Any, Dict, Generator, Iterable, List, Optional, TextIO
 from ethereum.utils.hexadecimal import hex_to_bytes
 
 from ..t8n import T8N, ForkCache
-from ..t8n.t8n_types import Result
 from ..utils import get_supported_forks
 
 
@@ -87,7 +86,7 @@ def run_test_case(
     fork_cache: ForkCache,
     t8n_extra: Optional[List[str]] = None,
     output_basedir: Optional[str | TextIO] = None,
-) -> Result:
+) -> Any:
     """
     Runs a single general state test.
     """

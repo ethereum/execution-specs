@@ -1,333 +1,240 @@
 """
-Define t8n Env class.
+Build the spec's per-fork ``BlockEnvironment`` from a testing-package
+``Environment``.
 """
 
-import json
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple
 
-from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes8, Bytes20, Bytes32, Bytes256
 from ethereum_types.numeric import U64, U256, Uint
 
-from ethereum.crypto.hash import Hash32, keccak256
-from ethereum.utils.byte import left_pad_zero_bytes
-from ethereum.utils.hexadecimal import hex_to_bytes
-
-from ..utils import parse_hex_or_int
+from ethereum.crypto.hash import Hash32
 
 if TYPE_CHECKING:
-    from ethereum_spec_tools.evm_tools.t8n import T8N
+    from execution_testing.test_types import Environment as TestingEnvironment
+
+    from ..loaders.fork_loader import ForkLoad
 
 
 @dataclass
 class Ommer:
-    """The Ommer type for the t8n tool."""
+    """
+    Pre-PoS ommer header summary consumed by `pay_block_rewards`.
+
+    Carries the two fields needed for ommer-reward arithmetic
+    (`block_number - delta` and the ommer coinbase). The testing
+    `Environment.ommers` field is `List[Hash]` and cannot represent
+    these — the JSON CLI fallback populates this from the raw env JSON
+    instead, and the in-process path leaves it empty (PoS has no ommers).
+    """
 
     delta: str
-    address: Any
+    address: Bytes20
 
 
-class Env:
+def build_block_environment(
+    fork: "ForkLoad",
+    env: "TestingEnvironment",
+    pre_state: Any,
+    chain_id: U64,
+    ommers: Tuple[Ommer, ...] = (),
+    state_test: bool = False,
+) -> Any:
     """
-    The environment for the transition tool.
+    Build the fork's `BlockEnvironment` from a testing `Environment`.
+
+    `pre_state` must satisfy the spec's `PreState` protocol (in
+    practice, a testing `Alloc`). `ommers` is only consumed by
+    `pay_block_rewards`, not by `BlockEnvironment` itself.
     """
+    del ommers  # Stored on the T8N instance; not a BlockEnvironment arg.
 
-    coinbase: Any
-    block_gas_limit: Uint
-    block_number: Uint
-    block_timestamp: U256
-    withdrawals: Any
-    block_difficulty: Optional[Uint]
-    prev_randao: Optional[Bytes32]
-    parent_difficulty: Optional[Uint]
-    parent_timestamp: Optional[U256]
-    base_fee_per_gas: Optional[Uint]
-    parent_gas_used: Optional[Uint]
-    parent_gas_limit: Optional[Uint]
-    parent_base_fee_per_gas: Optional[Uint]
-    block_hashes: Optional[List[Any]]
-    parent_ommers_hash: Optional[Hash32]
-    ommers: Any
-    parent_beacon_block_root: Optional[Hash32]
-    parent_excess_blob_gas: Optional[U64]
-    parent_blob_gas_used: Optional[U64]
-    excess_blob_gas: Optional[U64]
-    slot_number: Optional[U64]
-    requests: Any
+    block_state = fork.BlockState(pre_state=pre_state)
 
-    def __init__(self, t8n: "T8N", stdin: Optional[Dict] = None):
-        if t8n.options.input_env == "stdin":
-            assert stdin is not None
-            data = stdin["env"]
-        else:
-            with open(t8n.options.input_env, "r") as f:
-                data = json.load(f)
+    block_number = Uint(int(env.number))
+    block_gas_limit = Uint(int(env.gas_limit))
+    block_timestamp = U256(int(env.timestamp))
+    coinbase = Bytes20(env.fee_recipient)
 
-        self.coinbase = t8n.fork.hex_to_address(data["currentCoinbase"])
-        self.block_gas_limit = parse_hex_or_int(data["currentGasLimit"], Uint)
-        self.block_number = parse_hex_or_int(data["currentNumber"], Uint)
-        self.block_timestamp = parse_hex_or_int(data["currentTimestamp"], U256)
+    base_fee_per_gas = _resolve_base_fee_per_gas(env, fork, block_gas_limit)
 
-        self.read_block_difficulty(data, t8n)
-        self.read_base_fee_per_gas(data, t8n)
-        self.read_randao(data, t8n)
-        self.read_block_hashes(data)
-        self.read_ommers(data, t8n)
-        self.read_withdrawals(data, t8n)
+    kw_arguments: dict[str, Any] = {
+        "block_hashes": _resolve_block_hashes(env.block_hashes, block_number),
+        "coinbase": coinbase,
+        "number": block_number,
+        "time": block_timestamp,
+        "block_gas_limit": block_gas_limit,
+        "chain_id": chain_id,
+        "state": block_state,
+    }
 
-        self.parent_beacon_block_root = None
-        if t8n.fork.has_beacon_roots_address:
-            if not t8n.options.state_test:
-                parent_beacon_block_root_hex = data["parentBeaconBlockRoot"]
-                self.parent_beacon_block_root = (
-                    Bytes32(hex_to_bytes(parent_beacon_block_root_hex))
-                    if parent_beacon_block_root_hex is not None
-                    else None
-                )
-            self.read_excess_blob_gas(data, t8n)
+    if fork.has_calculate_base_fee_per_gas:
+        assert base_fee_per_gas is not None
+        kw_arguments["base_fee_per_gas"] = base_fee_per_gas
 
-        self.read_slot_number(data, t8n)
-
-    def read_excess_blob_gas(self, data: Any, t8n: "T8N") -> None:
-        """
-        Read the excess_blob_gas from the data. If the excess blob gas is
-        not present, it is calculated from the parent block parameters.
-        """
-        self.parent_blob_gas_used = U64(0)
-        self.parent_excess_blob_gas = U64(0)
-        self.excess_blob_gas = None
-
-        if not t8n.fork.has_beacon_roots_address:
-            return
-
-        if "parentExcessBlobGas" in data:
-            self.parent_excess_blob_gas = parse_hex_or_int(
-                data["parentExcessBlobGas"], U64
-            )
-
-        if "parentBlobGasUsed" in data:
-            self.parent_blob_gas_used = parse_hex_or_int(
-                data["parentBlobGasUsed"], U64
-            )
-
-        if "currentExcessBlobGas" in data:
-            self.excess_blob_gas = parse_hex_or_int(
-                data["currentExcessBlobGas"], U64
-            )
-            return
-
-        assert self.parent_excess_blob_gas is not None
-        assert self.parent_blob_gas_used is not None
-
-        arguments = {
-            # Useless as far as calculate_excess_blob_gas is concerned.
-            "parent_hash": Hash32(b"\0" * 32),
-            "ommers_hash": Hash32(b"\0" * 32),
-            "coinbase": Bytes20(b"\0" * 20),
-            "state_root": Hash32(b"\0" * 32),
-            "transactions_root": Hash32(b"\0" * 32),
-            "receipt_root": Hash32(b"\0" * 32),
-            "bloom": Bytes256(b"\0" * 256),
-            "difficulty": Uint(0),
-            "number": Uint(0),
-            "gas_limit": Uint(0),
-            "gas_used": Uint(0),
-            "timestamp": U256(0),
-            "extra_data": b"",
-            "prev_randao": Bytes32(b"\0" * 32),
-            "nonce": Bytes8(b"\0" * 8),
-            "withdrawals_root": Hash32(b"\0" * 32),
-            "parent_beacon_block_root": Hash32(b"\0" * 32),
-            # Used for calculating excess_blob_gas.
-            "base_fee_per_gas": self.parent_base_fee_per_gas,
-            "blob_gas_used": self.parent_blob_gas_used,
-            "excess_blob_gas": self.parent_excess_blob_gas,
-        }
-
-        if t8n.fork.has_compute_requests_hash:
-            arguments["requests_hash"] = Hash32(b"\0" * 32)
-
-        if t8n.fork.has_hash_block_access_list:
-            arguments["block_access_list_hash"] = Hash32(b"\0" * 32)
-        if t8n.fork.has_slot_number:
-            arguments["slot_number"] = U64(0)
-
-        parent_header = t8n.fork.Header(**arguments)
-
-        self.excess_blob_gas = t8n.fork.calculate_excess_blob_gas(
-            parent_header
+    if fork.hardfork.consensus.is_pos():
+        kw_arguments["prev_randao"] = _resolve_prev_randao(env)
+    else:
+        kw_arguments["difficulty"] = _resolve_block_difficulty(
+            env, fork, block_number, block_timestamp
         )
 
-    def read_base_fee_per_gas(self, data: Any, t8n: "T8N") -> None:
-        """
-        Read the base_fee_per_gas from the data. If the base fee is
-        not present, it is calculated from the parent block parameters.
-        """
-        self.parent_gas_used = None
-        self.parent_gas_limit = None
-        self.parent_base_fee_per_gas = None
-        self.base_fee_per_gas = None
+    if fork.has_beacon_roots_address:
+        kw_arguments["parent_beacon_block_root"] = (
+            None if state_test else _resolve_parent_beacon_block_root(env)
+        )
+        kw_arguments["excess_blob_gas"] = _resolve_excess_blob_gas(env, fork)
 
-        if t8n.fork.has_calculate_base_fee_per_gas:
-            if "currentBaseFee" in data:
-                self.base_fee_per_gas = parse_hex_or_int(
-                    data["currentBaseFee"], Uint
-                )
+    if fork.has_hash_block_access_list:
+        kw_arguments["block_access_list_builder"] = (
+            fork.BlockAccessListBuilder()
+        )
 
-            if "parentGasUsed" in data:
-                self.parent_gas_used = parse_hex_or_int(
-                    data["parentGasUsed"], Uint
-                )
+    if fork.has_slot_number:
+        slot_number = env.slot_number
+        kw_arguments["slot_number"] = (
+            U64(int(slot_number)) if slot_number is not None else None
+        )
 
-            if "parentGasLimit" in data:
-                self.parent_gas_limit = parse_hex_or_int(
-                    data["parentGasLimit"], Uint
-                )
+    return fork.BlockEnvironment(**kw_arguments)
 
-            if "parentBaseFee" in data:
-                self.parent_base_fee_per_gas = parse_hex_or_int(
-                    data["parentBaseFee"], Uint
-                )
 
-            if self.base_fee_per_gas is None:
-                assert self.parent_gas_limit is not None
-                assert self.parent_gas_used is not None
-                assert self.parent_base_fee_per_gas is not None
+def _resolve_base_fee_per_gas(
+    env: "TestingEnvironment", fork: "ForkLoad", block_gas_limit: Uint
+) -> Optional[Uint]:
+    """Use ``currentBaseFee`` if present; otherwise derive from parent."""
+    if not fork.has_calculate_base_fee_per_gas:
+        return None
+    if env.base_fee_per_gas is not None:
+        return Uint(int(env.base_fee_per_gas))
+    assert env.parent_gas_limit is not None
+    assert env.parent_gas_used is not None
+    assert env.parent_base_fee_per_gas is not None
+    return fork.calculate_base_fee_per_gas(
+        block_gas_limit,
+        Uint(int(env.parent_gas_limit)),
+        Uint(int(env.parent_gas_used)),
+        Uint(int(env.parent_base_fee_per_gas)),
+    )
 
-                parameters: List[object] = [
-                    self.block_gas_limit,
-                    self.parent_gas_limit,
-                    self.parent_gas_used,
-                    self.parent_base_fee_per_gas,
-                ]
 
-                self.base_fee_per_gas = t8n.fork.calculate_base_fee_per_gas(
-                    *parameters
-                )
+def _resolve_excess_blob_gas(
+    env: "TestingEnvironment",
+    fork: "ForkLoad",
+) -> Optional[U64]:
+    """Use ``currentExcessBlobGas`` if present; else derive from parent."""
+    if env.excess_blob_gas is not None:
+        return U64(int(env.excess_blob_gas))
 
-    def read_randao(self, data: Any, t8n: "T8N") -> None:
-        """
-        Read the randao from the data.
-        """
-        self.prev_randao = None
-        if t8n.fork.proof_of_stake:
-            # tf tool might not always provide an
-            # even number of nibbles in the randao
-            # This could create issues in the
-            # hex_to_bytes function
-            current_random = data["currentRandom"]
-            if current_random.startswith("0x"):
-                current_random = current_random[2:]
+    parent_blob_gas_used = U64(
+        int(env.parent_blob_gas_used) if env.parent_blob_gas_used else 0
+    )
+    parent_excess_blob_gas = U64(
+        int(env.parent_excess_blob_gas) if env.parent_excess_blob_gas else 0
+    )
+    # EIP-7918 reads ``parent.base_fee_per_gas`` from the parent header.
+    parent_base_fee_per_gas = Uint(
+        int(env.parent_base_fee_per_gas)
+        if env.parent_base_fee_per_gas is not None
+        else 0
+    )
 
-            if len(current_random) % 2 == 1:
-                current_random = "0" + current_random
+    arguments: dict[str, Any] = {
+        "parent_hash": Hash32(b"\0" * 32),
+        "ommers_hash": Hash32(b"\0" * 32),
+        "coinbase": Bytes20(b"\0" * 20),
+        "state_root": Hash32(b"\0" * 32),
+        "transactions_root": Hash32(b"\0" * 32),
+        "receipt_root": Hash32(b"\0" * 32),
+        "bloom": Bytes256(b"\0" * 256),
+        "difficulty": Uint(0),
+        "number": Uint(0),
+        "gas_limit": Uint(0),
+        "gas_used": Uint(0),
+        "timestamp": U256(0),
+        "extra_data": b"",
+        "prev_randao": Bytes32(b"\0" * 32),
+        "nonce": Bytes8(b"\0" * 8),
+        "withdrawals_root": Hash32(b"\0" * 32),
+        "parent_beacon_block_root": Hash32(b"\0" * 32),
+        "base_fee_per_gas": parent_base_fee_per_gas,
+        "blob_gas_used": parent_blob_gas_used,
+        "excess_blob_gas": parent_excess_blob_gas,
+    }
+    if fork.has_compute_requests_hash:
+        arguments["requests_hash"] = Hash32(b"\0" * 32)
+    if fork.has_hash_block_access_list:
+        arguments["block_access_list_hash"] = Hash32(b"\0" * 32)
+    if fork.has_slot_number:
+        arguments["slot_number"] = U64(0)
 
-            self.prev_randao = Bytes32(
-                left_pad_zero_bytes(hex_to_bytes(current_random), 32)
-            )
+    parent_header = fork.Header(**arguments)
+    return fork.calculate_excess_blob_gas(parent_header)
 
-    def read_slot_number(self, data: Any, t8n: "T8N") -> None:
-        """
-        Read the slot number from the data.
-        The slot number is provided by the consensus layer.
-        """
-        self.slot_number = None
-        if t8n.fork.has_slot_number:
-            if "slotNumber" in data:
-                self.slot_number = parse_hex_or_int(data["slotNumber"], U64)
 
-    def read_withdrawals(self, data: Any, t8n: "T8N") -> None:
-        """
-        Read the withdrawals from the data.
-        """
-        self.withdrawals = None
-        if t8n.fork.has_withdrawal:
-            self.withdrawals = tuple(
-                t8n.json_to_withdrawals(wd) for wd in data["withdrawals"]
-            )
+def _resolve_block_difficulty(
+    env: "TestingEnvironment",
+    fork: "ForkLoad",
+    block_number: Uint,
+    block_timestamp: U256,
+) -> Optional[Uint]:
+    """Use ``currentDifficulty`` if present; otherwise derive from parent."""
+    if env.difficulty is not None:
+        return Uint(int(env.difficulty))
 
-    def read_block_difficulty(self, data: Any, t8n: "T8N") -> None:
-        """
-        Read the block difficulty from the data.
-        If `currentDifficulty` is present, it is used. Otherwise,
-        the difficulty is calculated from the parent block.
-        """
-        self.block_difficulty = None
-        self.parent_timestamp = None
-        self.parent_difficulty = None
-        self.parent_ommers_hash = None
-        if t8n.fork.proof_of_stake:
-            return
-        elif "currentDifficulty" in data:
-            self.block_difficulty = parse_hex_or_int(
-                data["currentDifficulty"], Uint
-            )
-        else:
-            self.parent_timestamp = parse_hex_or_int(
-                data["parentTimestamp"], U256
-            )
-            self.parent_difficulty = parse_hex_or_int(
-                data["parentDifficulty"], Uint
-            )
-            args: List[object] = [
-                self.block_number,
-                self.block_timestamp,
-                self.parent_timestamp,
-                self.parent_difficulty,
-            ]
-            if t8n.fork.calculate_block_difficulty_arity > 4:
-                if "parentUncleHash" in data:
-                    EMPTY_OMMER_HASH = keccak256(rlp.encode([]))  # noqa N806
-                    self.parent_ommers_hash = Hash32(
-                        hex_to_bytes(data["parentUncleHash"])
-                    )
-                    parent_has_ommers = (
-                        self.parent_ommers_hash != EMPTY_OMMER_HASH
-                    )
-                    args.append(parent_has_ommers)
-                else:
-                    args.append(False)
-            self.block_difficulty = t8n.fork.calculate_block_difficulty(*args)
+    assert env.parent_timestamp is not None
+    assert env.parent_difficulty is not None
+    args: List[Any] = [
+        block_number,
+        block_timestamp,
+        U256(int(env.parent_timestamp)),
+        Uint(int(env.parent_difficulty)),
+    ]
+    if fork.calculate_block_difficulty_arity > 4:
+        from ethereum_rlp import rlp
 
-    def read_block_hashes(self, data: Any) -> None:
-        """
-        Read the block hashes. Returns a maximum of 256 block hashes.
-        """
-        # Read the block hashes
-        block_hashes: List[Any] = []
+        from ethereum.crypto.hash import keccak256
 
-        # The hex key strings provided might not have standard formatting
-        clean_block_hashes: Dict[int, Hash32] = {}
-        if "blockHashes" in data:
-            for key, value in data["blockHashes"].items():
-                int_key = int(key, 16)
-                clean_block_hashes[int_key] = Hash32(hex_to_bytes(value))
+        empty_ommers_hash = keccak256(rlp.encode([]))
+        parent_ommers_hash = Hash32(env.parent_ommers_hash)
+        args.append(parent_ommers_hash != empty_ommers_hash)
+    return fork.calculate_block_difficulty(*args)
 
-        # Store a maximum of 256 block hashes.
-        max_blockhash_count = min(Uint(256), self.block_number)
-        for number in range(
-            self.block_number - max_blockhash_count, self.block_number
-        ):
-            if number in clean_block_hashes.keys():
-                block_hashes.append(clean_block_hashes[number])
-            else:
-                block_hashes.append(None)
 
-        self.block_hashes = block_hashes
+def _resolve_prev_randao(env: "TestingEnvironment") -> Bytes32:
+    """Pad the (numeric) ``prev_randao`` field to 32 bytes."""
+    value = env.prev_randao
+    if value is None:
+        return Bytes32(b"\0" * 32)
+    return Bytes32(int(value).to_bytes(32, "big"))
 
-    def read_ommers(self, data: Any, t8n: "T8N") -> None:
-        """
-        Read the ommers. The ommers data might not have all the details
-        needed to obtain the Header.
-        """
-        ommers = []
-        if "ommers" in data:
-            for ommer in data["ommers"]:
-                ommers.append(
-                    Ommer(
-                        ommer["delta"],
-                        t8n.fork.hex_to_address(ommer["address"]),
-                    )
-                )
-        self.ommers = ommers
+
+def _resolve_block_hashes(
+    block_hashes: Any, block_number: Uint
+) -> List[Optional[Hash32]]:
+    """
+    Return up to the last 256 block hashes preceding ``block_number``.
+
+    `block_hashes` is the testing `Environment.block_hashes` dict keyed by
+    block number; missing entries become `None` placeholders.
+    """
+    result: List[Optional[Hash32]] = []
+    if not block_hashes:
+        return result
+    normalized = {int(k): Hash32(v) for k, v in block_hashes.items()}
+    max_blockhash_count = min(Uint(256), block_number)
+    for number in range(
+        int(block_number) - int(max_blockhash_count), int(block_number)
+    ):
+        result.append(normalized.get(number))
+    return result
+
+
+def _resolve_parent_beacon_block_root(
+    env: "TestingEnvironment",
+) -> Optional[Hash32]:
+    """Return the parent beacon block root, or ``None`` if absent."""
+    if env.parent_beacon_block_root is None:
+        return None
+    return Hash32(env.parent_beacon_block_root)

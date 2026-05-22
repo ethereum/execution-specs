@@ -7,16 +7,26 @@ import fnmatch
 import json
 import os
 from contextlib import AbstractContextManager
-from typing import Any, Final, TextIO, Type, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Final,
+    List,
+    Optional,
+    TextIO,
+    Type,
+    TypeVar,
+)
 
 from ethereum_rlp import rlp
+from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U64, U256, Uint
 from typing_extensions import override
 
 from ethereum import trace
 from ethereum.exceptions import EthereumException, InvalidBlock
 from ethereum.fork_criteria import ByBlockNumber, ByTimestamp, Unscheduled
-from ethereum.merkle_patricia_trie import copy_trie
 from ethereum_spec_tools.forks import (
     ForkOverrides,
     Hardfork,
@@ -24,17 +34,30 @@ from ethereum_spec_tools.forks import (
 )
 
 from ..loaders.fixture_loader import Load
+from ..loaders.transaction_loader import TransactionLoad, UnsupportedTxError
 from ..utils import (
     FatalError,
     find_fork,
     get_stream_logger,
     parse_hex_or_int,
 )
-from .env import Env
+from .env import Ommer, build_block_environment
 from .evm_trace.count import CountTracer
 from .evm_trace.eip3155 import Eip3155Tracer
 from .evm_trace.group import GroupTracer
-from .t8n_types import Alloc, Result, Txs
+from .result import build_result
+
+if TYPE_CHECKING:
+    from execution_testing.exceptions import ExceptionMapper
+    from execution_testing.test_types import (
+        Alloc as TestingAlloc,
+    )
+    from execution_testing.test_types import (
+        Environment as TestingEnvironment,
+    )
+    from execution_testing.test_types import (
+        Transaction as TestingTransaction,
+    )
 
 T = TypeVar("T")
 
@@ -150,10 +173,41 @@ class ForkCache(AbstractContextManager):
         return clone
 
 
+def _read_json_input(
+    path_or_stdin: str, stdin: Optional[Dict], key: str
+) -> Any:
+    """Read one of the t8n JSON inputs (alloc/env/txs) per the CLI flags."""
+    if path_or_stdin == "stdin":
+        assert stdin is not None
+        return stdin[key]
+    with open(path_or_stdin, "r") as f:
+        return json.load(f)
+
+
+def _parse_ommers_from_env_json(env_json: Any, fork: Any) -> List[Ommer]:
+    """Parse the pre-PoS ``ommers`` block from a raw env JSON dict."""
+    ommers: List[Ommer] = []
+    for raw in env_json.get("ommers", []):
+        ommers.append(
+            Ommer(
+                delta=raw["delta"],
+                address=fork.hex_to_address(raw["address"]),
+            )
+        )
+    return ommers
+
+
 class T8N(Load):
     """The class that carries out the transition."""
 
     tracers: Final[GroupTracer | None]
+    alloc: "TestingAlloc"
+    env: "TestingEnvironment"
+    txs: List["TestingTransaction"]
+    ommers: List[Ommer]
+    rejected_transactions: List[Any]
+    body: Bytes
+    _block_exception: Optional[str]
 
     def __init__(
         self,
@@ -161,10 +215,26 @@ class T8N(Load):
         out_file: TextIO,
         in_file: TextIO,
         cache: ForkCache,
+        *,
+        t8n_data: Any = None,
+        exception_mapper: Optional["ExceptionMapper"] = None,
     ) -> None:
+        # Lazy testing-package imports avoid a top-level cycle with
+        # `execution_testing.client_clis`.
+        from execution_testing.test_types import (
+            Alloc as TestingAlloc,
+        )
+        from execution_testing.test_types import (
+            Environment as TestingEnvironment,
+        )
+        from execution_testing.test_types import (
+            Transaction as TestingTransaction,
+        )
+
         self.out_file = out_file
         self.in_file = in_file
         self.options = options
+        self.exception_mapper = exception_mapper
         forks = Hardfork.discover()
 
         if "stdin" in (
@@ -253,12 +323,116 @@ class T8N(Load):
         super().__init__(fork)
 
         self.chain_id = parse_hex_or_int(self.options.state_chainid, U64)
-        self.alloc = Alloc(self, stdin)
-        self.env = Env(self, stdin)
-        self.txs = Txs(self, stdin)
-        self.result = Result(
-            self.env.block_difficulty, self.env.base_fee_per_gas
+
+        if t8n_data is not None:
+            # In-process path: caller hands the testing pydantic types
+            # directly. Resolve a `LazyAlloc` if applicable.
+            raw_alloc = t8n_data.alloc
+            self.alloc = (
+                raw_alloc.get() if hasattr(raw_alloc, "get") else raw_alloc
+            )
+            self.env = t8n_data.env
+            self.txs = list(t8n_data.txs)
+            self.ommers = []
+            self.body = rlp.encode([tx.rlp() for tx in self.txs])
+        else:
+            # CLI / JSON path: parse the JSON inputs and validate into
+            # testing pydantic types.
+            raw_alloc_json = _read_json_input(
+                self.options.input_alloc, stdin, "alloc"
+            )
+            raw_env_json = _read_json_input(
+                self.options.input_env, stdin, "env"
+            )
+            raw_txs_json = _read_json_input(
+                self.options.input_txs, stdin, "txs"
+            )
+
+            self.alloc = TestingAlloc.model_validate(raw_alloc_json)
+            self.env = TestingEnvironment.model_validate(raw_env_json)
+            self.txs, self.body = self._parse_txs_input(
+                raw_txs_json, TestingTransaction
+            )
+            self.ommers = _parse_ommers_from_env_json(raw_env_json, self.fork)
+
+        self.rejected_transactions = []
+
+    def _parse_txs_input(
+        self,
+        raw_txs_json: Any,
+        transaction_cls: Type["TestingTransaction"],
+    ) -> tuple[List["TestingTransaction"], Bytes]:
+        """
+        Parse the `txs` input into testing `Transaction`s and an RLP body.
+
+        Supports the JSON-array shape used by the CLI fixtures and the
+        testing in-process caller. RLP-string input (a single hex string)
+        is not supported via this path — surface a clear error rather
+        than silently dropping txs.
+        """
+        if raw_txs_json is None:
+            return [], Bytes(b"")
+        if isinstance(raw_txs_json, str):
+            raise NotImplementedError(
+                "RLP-encoded `txs` input is not supported by the testing "
+                "T8N entry point; provide a JSON array instead."
+            )
+
+        # EIP-155 ("protected") signatures only exist from Spurious Dragon
+        # onwards; pre-EIP-155 forks must sign with v ∈ {27, 28}. The
+        # testing ``Transaction`` model defaults ``protected=True`` and
+        # would otherwise produce ``v ≥ 35`` even on Homestead.
+        fork_supports_eip155 = hasattr(
+            self.fork._module("transactions"), "signing_hash_155"
         )
+
+        normalized = [T8N._normalize_tx_json(dict(tx)) for tx in raw_txs_json]
+        txs: List["TestingTransaction"] = []
+        for tx_dict in normalized:
+            tx = transaction_cls.model_validate(tx_dict)
+            # A JSON tx that carries ``secretKey`` but no ``v``/``r``/``s``
+            # is unsigned; the testing model does not auto-sign in
+            # ``model_post_init`` (only ``AuthorizationTuple`` does). Sign
+            # it here so downstream signature recovery succeeds.
+            if "v" not in tx.model_fields_set and tx.secret_key is not None:
+                if not fork_supports_eip155 and int(tx.ty) == 0:
+                    tx.protected = False
+                tx.sign()
+            txs.append(tx)
+        body = rlp.encode([tx.rlp() for tx in txs])
+        return txs, body
+
+    @staticmethod
+    def _normalize_tx_json(tx: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Drop fields that the testing ``Transaction`` model rejects.
+
+        Two boundary mismatches to smooth over:
+
+        1. ``yParity`` on authorization tuples. The testing
+           ``AuthorizationTuple`` serializer emits both ``v`` and
+           ``yParity`` (they are guaranteed equal — see the model's
+           ``duplicate_v_as_y_parity``), but its validator binds only
+           ``v`` and treats ``yParity`` as an extra-forbidden field.
+        2. ``secretKey`` on an already-signed tx. The testing
+           ``Transaction`` retains the private key after auto-signing in
+           ``model_post_init``, so the dump still carries ``secretKey``
+           alongside the populated ``v``/``r``/``s``. On re-validation
+           the model rejects the pair with ``InvalidSignaturePrivateKeyError``.
+           Strip ``secretKey`` whenever ``v`` is set (i.e. the tx is
+           already signed).
+        """
+        auth_list = tx.get("authorizationList")
+        if isinstance(auth_list, list):
+            tx["authorizationList"] = [
+                {k: v for k, v in entry.items() if k != "yParity"}
+                if isinstance(entry, dict)
+                else entry
+                for entry in auth_list
+            ]
+        if "secretKey" in tx and tx.get("v") is not None:
+            tx = {k: v for k, v in tx.items() if k != "secretKey"}
+        return tx
 
     def _tracer(self, type_: Type[T]) -> T:
         group = self.tracers
@@ -271,70 +445,58 @@ class T8N(Load):
 
     def block_environment(self) -> Any:
         """
-        Create the environment for the transaction. The keyword
-        arguments are adjusted according to the fork.
+        Build the fork's ``BlockEnvironment`` for the current block.
+
+        Side effect: stores the resulting ``BlockState`` on ``self`` so
+        ``extract_block_diff`` can be called after execution.
         """
-        kw_arguments = {
-            "block_hashes": self.env.block_hashes,
-            "coinbase": self.env.coinbase,
-            "number": self.env.block_number,
-            "time": self.env.block_timestamp,
-            "block_gas_limit": self.env.block_gas_limit,
-            "chain_id": self.chain_id,
-        }
-
-        block_state = self.fork.BlockState(pre_state=self.alloc.state)
-        kw_arguments["state"] = block_state
-        self._block_state = block_state
-
-        block_environment = self.fork.BlockEnvironment
-
-        if self.fork.has_calculate_base_fee_per_gas:
-            kw_arguments["base_fee_per_gas"] = self.env.base_fee_per_gas
-
-        if self.fork.hardfork.consensus.is_pos():
-            kw_arguments["prev_randao"] = self.env.prev_randao
-        else:
-            kw_arguments["difficulty"] = self.env.block_difficulty
-
-        if self.fork.has_beacon_roots_address:
-            kw_arguments["parent_beacon_block_root"] = (
-                self.env.parent_beacon_block_root
-            )
-            kw_arguments["excess_blob_gas"] = self.env.excess_blob_gas
-
-        if self.fork.has_hash_block_access_list:
-            kw_arguments["block_access_list_builder"] = (
-                self.fork.BlockAccessListBuilder()
-            )
-        if self.fork.has_slot_number:
-            kw_arguments["slot_number"] = self.env.slot_number
-
-        return block_environment(**kw_arguments)
-
-    def backup_state(self) -> None:
-        """Back up the state in order to restore in case of an error."""
-        state = self.alloc.state
-        main_trie = copy_trie(state._main_trie)
-        storage_tries = {
-            k: copy_trie(t) for (k, t) in state._storage_tries.items()
-        }
-        self.alloc.state_backup = (
-            main_trie,
-            storage_tries,
-            dict(state._code_store),
+        block_env = build_block_environment(
+            fork=self.fork,
+            env=self.env,
+            pre_state=self.alloc,
+            chain_id=self.chain_id,
+            ommers=tuple(self.ommers),
+            state_test=self.options.state_test,
         )
+        self._block_state = block_env.state
+        return block_env
 
-    def restore_state(self) -> None:
-        """Restore the state from the backup."""
-        state = self.alloc.state
-        state._main_trie = self.alloc.state_backup[0]
-        state._storage_tries = self.alloc.state_backup[1]
-        state._code_store = self.alloc.state_backup[2]
+    def convert_transaction(self, tx: "TestingTransaction") -> Any:
+        """
+        Convert a testing ``Transaction`` into the fork's tx object.
+
+        Goes via ``TransactionLoad`` (the JSON loader) rather than
+        ``rlp.decode_to``: typed transactions that are structurally
+        valid at the JSON level but invalid for the fork's tx type —
+        e.g. a contract-creating ``BlobTransaction`` (``to=None``) —
+        must still be constructed so that ``check_transaction`` inside
+        ``process_transaction`` can raise the canonical
+        ``TransactionTypeContractCreationError``. The RLP path rejects
+        them up front with a structural ``DecodingError``, which the
+        testing exception mapper has no entry for.
+        """
+        raw: Dict[str, Any] = tx.model_dump(
+            mode="json", by_alias=True, exclude_none=True
+        )
+        # Bridge testing-side aliases (geth-compatible) to the names
+        # ``TransactionLoad`` expects.
+        if "input" in raw:
+            raw.setdefault("data", raw["input"])
+        if "gas" in raw:
+            raw.setdefault("gasLimit", raw["gas"])
+        # ``to == None`` is dumped as JSON ``null``; ``TransactionLoad``
+        # treats the empty string as the contract-creation sentinel.
+        if raw.get("to") in (None, "0x"):
+            raw["to"] = ""
+        # Ensure the ``type`` field is set so ``TransactionLoad``
+        # dispatches to the right tx class (testing's dump uses ``ty``
+        # which serializes to ``type`` only on some fork variants).
+        raw.setdefault("type", "0x" + format(int(tx.ty), "02x"))
+        return TransactionLoad(raw, self.fork).read()
 
     def pay_block_rewards(self, block_reward: U256, block_env: Any) -> None:
         """Apply the block rewards to the block coinbase."""
-        ommer_count = U256(len(self.env.ommers))
+        ommer_count = U256(len(self.ommers))
         miner_reward = block_reward + (
             ommer_count * (block_reward // U256(32))
         )
@@ -343,42 +505,81 @@ class T8N(Load):
 
         self.fork.create_ether(rewards_state, block_env.coinbase, miner_reward)
 
-        for ommer in self.env.ommers:
-            # Ommer age with respect to the current block.
-            ommer_age = U256(block_env.number - ommer.number)
+        for ommer in self.ommers:
+            # ``delta`` is the age of the ommer relative to the current block.
+            ommer_age = U256(int(ommer.delta, 16))
             ommer_miner_reward = (
                 (U256(8) - ommer_age) * block_reward
             ) // U256(8)
             self.fork.create_ether(
-                rewards_state, ommer.coinbase, ommer_miner_reward
+                rewards_state, ommer.address, ommer_miner_reward
             )
 
         self.fork.incorporate_tx_into_block(rewards_state)
 
-    def run_state_test(self) -> Any:
+    def _process_txs(self, block_env: Any, block_output: Any) -> None:
+        """Execute every transaction in ``self.txs`` against ``block_env``."""
+        from execution_testing.client_clis.cli_types import (
+            RejectedTransaction,
+        )
+
+        for tx_index, testing_tx in enumerate(self.txs):
+            try:
+                fork_tx = self.convert_transaction(testing_tx)
+                self.fork.process_transaction(
+                    block_env, block_output, fork_tx, Uint(tx_index)
+                )
+            except (EthereumException, UnsupportedTxError) as e:
+                # `RLPException` here is from `convert_transaction` when a
+                # typed envelope (Blob / SetCode / …) cannot be decoded
+                # — e.g. an invalid contract-creating BlobTransaction.
+                # The tx was structurally malformed for this fork; record
+                # it as rejected and continue with the next.
+                self.rejected_transactions.append(
+                    RejectedTransaction(
+                        index=tx_index, error=f"Failed transaction: {e!r}"
+                    )
+                )
+                self.logger.warning(f"Transaction {tx_index} failed: {e!r}")
+
+    def run_state_test(self) -> None:
         """
         Apply a single transaction on pre-state. No system operations
         are performed.
         """
-        block_env = self.block_environment()
-        block_output = self.fork.BlockOutput()
-        self.backup_state()
-        if len(self.txs.transactions) > 0:
-            tx = self.txs.transactions[0]
+        from execution_testing.client_clis.cli_types import (
+            RejectedTransaction,
+        )
+
+        self._block_env = self.block_environment()
+        self._block_output = self.fork.BlockOutput()
+
+        if len(self.txs) > 0:
+            testing_tx = self.txs[0]
             try:
+                fork_tx = self.convert_transaction(testing_tx)
                 self.fork.process_transaction(
-                    block_env=block_env,
-                    block_output=block_output,
-                    tx=tx,
+                    block_env=self._block_env,
+                    block_output=self._block_output,
+                    tx=fork_tx,
                     index=Uint(0),
                 )
-            except EthereumException as e:
-                self.txs.rejected_txs[0] = f"Failed transaction: {e!r}"
-                self.restore_state()
-                self.logger.warning(f"Transaction {0} failed: {str(e)}")
+            except (EthereumException, UnsupportedTxError) as e:
+                self.rejected_transactions.append(
+                    RejectedTransaction(
+                        index=0, error=f"Failed transaction: {e!r}"
+                    )
+                )
+                self.logger.warning(f"Transaction 0 failed: {e!r}")
 
-        self.result.update(self, block_env, block_output)
-        self.result.rejected = self.txs.rejected_txs
+        self._block_exception = None
+        self.result = build_result(
+            self,
+            self._block_env,
+            self._block_output,
+            self._block_exception,
+            self.rejected_transactions,
+        )
 
     def _run_blockchain_test(self, block_env: Any, block_output: Any) -> None:
         if self.fork.has_compute_requests_hash:
@@ -395,32 +596,12 @@ class T8N(Load):
                 data=block_env.parent_beacon_block_root,
             )
 
-        for tx_index, (original_idx, tx) in enumerate(
-            zip(
-                self.txs.successfully_parsed,
-                self.txs.transactions,
-                strict=True,
-            )
-        ):
-            self.backup_state()
-            try:
-                self.fork.process_transaction(
-                    block_env, block_output, tx, Uint(tx_index)
-                )
-            except EthereumException as e:
-                self.txs.rejected_txs[original_idx] = (
-                    f"Failed transaction: {e!r}"
-                )
-                self.restore_state()
-                self.logger.warning(
-                    f"Transaction {original_idx} failed: {e!r}"
-                )
+        self._process_txs(block_env, block_output)
 
         # EIP-7928: Post-execution operations use index N+1
-        num_txs = len(self.txs.transactions)
         if self.fork.has_hash_block_access_list:
             block_env.block_access_list_builder.block_access_index = (
-                self.fork.BlockAccessIndex(Uint(num_txs) + Uint(1))
+                self.fork.BlockAccessIndex(Uint(len(self.txs)) + Uint(1))
             )
 
         if not self.fork.proof_of_stake:
@@ -432,8 +613,18 @@ class T8N(Load):
                 )
 
         if self.fork.has_withdrawal:
+            withdrawals = self.env.withdrawals or []
+            fork_withdrawals = tuple(
+                self.fork.Withdrawal(
+                    Uint(int(w.index)),
+                    Uint(int(w.validator_index)),
+                    self.fork.hex_to_address(w.address.hex()),
+                    U256(int(w.amount)),
+                )
+                for w in withdrawals
+            )
             self.fork.process_withdrawals(
-                block_env, block_output, self.env.withdrawals
+                block_env, block_output, fork_withdrawals
             )
 
         if self.fork.has_compute_requests_hash:
@@ -454,16 +645,22 @@ class T8N(Load):
         """
         Apply a block on the pre-state. Also includes system operations.
         """
-        block_env = self.block_environment()
-        block_output = self.fork.BlockOutput()
+        self._block_env = self.block_environment()
+        self._block_output = self.fork.BlockOutput()
+        self._block_exception = None
 
         try:
-            self._run_blockchain_test(block_env, block_output)
+            self._run_blockchain_test(self._block_env, self._block_output)
         except InvalidBlock as e:
-            self.result.block_exception = f"{e}"
+            self._block_exception = f"{e}"
 
-        self.result.update(self, block_env, block_output)
-        self.result.rejected = self.txs.rejected_txs
+        self.result = build_result(
+            self,
+            self._block_env,
+            self._block_output,
+            self._block_exception,
+            self.rejected_transactions,
+        )
 
     def run(self) -> int:
         """Run the transition and provide the relevant outputs."""
@@ -496,22 +693,26 @@ class T8N(Load):
             self.logger.error(str(e))
             return 1
 
-        json_state = self.alloc.to_json()
-        json_result = self.result.to_json()
+        # Mutate the alloc into the post-state for output.
+        diff = self.fork.extract_block_diff(self._block_state)
+        self.alloc.apply_diff(diff)
+
+        json_state = self.alloc.model_dump(mode="json", by_alias=True)
+        json_result = self.result.model_dump(
+            mode="json", by_alias=True, exclude_none=True
+        )
 
         json_output: dict[str, object] = {}
 
         if self.options.output_body == "stdout":
-            txs_rlp = "0x" + rlp.encode(self.txs.all_txs).hex()
-            json_output["body"] = txs_rlp
+            json_output["body"] = "0x" + self.body.hex()
         elif self.options.output_body is not None:
             txs_rlp_path = os.path.join(
                 self.options.output_basedir,
                 self.options.output_body,
             )
-            txs_rlp = "0x" + rlp.encode(self.txs.all_txs).hex()
             with open(txs_rlp_path, "w") as f:
-                json.dump(txs_rlp, f)
+                json.dump("0x" + self.body.hex(), f)
             self.logger.info(f"Wrote transaction rlp to {txs_rlp_path}")
 
         if self.options.output_alloc == "stdout":
