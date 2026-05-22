@@ -455,7 +455,7 @@ def call(evm: Evm) -> None:
 
 def callcode(evm: Evm) -> None:
     """
-    Message-call into this account with alternative account's code.
+    Message-call into this account with alternative account’s code.
 
     Parameters
     ----------
