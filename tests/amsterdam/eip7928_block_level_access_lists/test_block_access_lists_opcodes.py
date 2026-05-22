@@ -386,6 +386,55 @@ def test_bal_account_touch_system_address(
     )
 
 
+def test_bal_selfdestruct_to_system_address_zero_balance(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    fork: Fork,
+) -> None:
+    """
+    Ensure `SYSTEM_ADDRESS` is in BAL when accessed via `SELFDESTRUCT`,
+    even with zero balance transferred. Companion to
+    `test_bal_account_touch_system_address`, which covers the
+    `BALANCE`/`EXTCODE*`/`CALL`/`STATICCALL` opcodes.
+    """
+    alice = pre.fund_eoa()
+
+    init_code = Op.SELFDESTRUCT(SYSTEM_ADDRESS)
+    new_contract = compute_create_address(address=alice, nonce=0)
+
+    tx = Transaction(
+        sender=alice,
+        to=None,  # CREATE
+        value=0,  # zero contract balance at SELFDESTRUCT time
+        data=init_code,
+        gas_limit=fork.transaction_gas_limit_cap(),
+        gas_price=10,
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1),
+                    ],
+                ),
+                SYSTEM_ADDRESS: BalAccountExpectation.empty(),
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1),
+            new_contract: Account.NONEXISTENT,
+        },
+    )
+
+
 @pytest.mark.parametrize(
     "fails_at_extcodesize",
     [True, False],
