@@ -3148,14 +3148,14 @@ def test_bal_create_and_oog(
     )
 
 
+@pytest.mark.with_all_create_opcodes
 def test_bal_create_early_failure(
-    pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
+    pre: Alloc, blockchain_test: BlockchainTestFiller, create_opcode: Op
 ) -> None:
     """
-    Test BAL with CREATE failure due to insufficient endowment.
+    Test BAL with CREATE/CREATE2 failure due to insufficient endowment.
 
-    Factory (balance=50) attempts CREATE(value=100).
+    Factory (balance=50) attempts CREATE/CREATE2(value=100).
     Fails before nonce increment (before track_address).
     Distinct from collision where address IS accessed.
 
@@ -3167,21 +3167,17 @@ def test_bal_create_early_failure(
     alice = pre.fund_eoa()
 
     factory_balance = 50
-    endowment = 100  # More than factory has
+    endowment = 100
 
-    # Simple init code that deploys STOP
     init_code = Initcode(deploy_code=Op.STOP)
     init_code_bytes = bytes(init_code)
 
-    # Factory code: CREATE(value=endowment) and store result in slot 0
     factory_code = (
-        # Push init code to memory
         Op.MSTORE(0, Op.PUSH32(init_code_bytes))
-        # SSTORE(0, CREATE(value, offset, size))
         + Op.SSTORE(
             0x00,
-            Op.CREATE(
-                value=endowment,  # 100 > 50, will fail
+            create_opcode(
+                value=endowment,
                 offset=32 - len(init_code_bytes),
                 size=len(init_code_bytes),
             ),
@@ -3189,16 +3185,18 @@ def test_bal_create_early_failure(
         + Op.STOP
     )
 
-    # Deploy factory with insufficient balance for the CREATE endowment
     factory = pre.deploy_contract(
         code=factory_code,
         balance=factory_balance,
-        storage={0x00: 0xDEAD},  # Initial value to prove SSTORE works
+        storage={0x00: 0xDEAD},
     )
 
-    # Calculate what the contract address WOULD be (but it won't be created)
     would_be_contract_address = compute_create_address(
-        address=factory, nonce=1
+        address=factory,
+        nonce=1,
+        salt=0,
+        initcode=init_code_bytes,
+        opcode=create_opcode,
     )
 
     tx = Transaction(
@@ -3217,9 +3215,7 @@ def test_bal_create_early_failure(
                     ],
                 ),
                 factory: BalAccountExpectation(
-                    # NO nonce_changes - CREATE failed before increment_nonce
                     nonce_changes=[],
-                    # Storage changes: slot 0 = 0xDEAD → 0 (CREATE returned 0)
                     storage_changes=[
                         BalStorageSlot(
                             slot=0x00,
@@ -3231,8 +3227,6 @@ def test_bal_create_early_failure(
                         )
                     ],
                 ),
-                # Contract address MUST NOT appear in BAL - never accessed
-                # (CREATE failed before track_address was called)
                 would_be_contract_address: None,
             }
         ),
@@ -3243,11 +3237,9 @@ def test_bal_create_early_failure(
         blocks=[block],
         post={
             alice: Account(nonce=1),
-            # Factory nonce unchanged (still 1), balance unchanged
             factory: Account(
                 nonce=1, balance=factory_balance, storage={0x00: 0}
             ),
-            # Contract was never created
             would_be_contract_address: Account.NONEXISTENT,
         },
     )
