@@ -515,6 +515,30 @@ class LazyAllocFile(LazyAlloc[Path]):
         return Alloc.model_validate(accumulated)
 
 
+@dataclass(kw_only=True)
+class MaterializedAlloc(LazyAlloc[None]):
+    """
+    Allocation already materialized in memory; ``get()`` is a no-op.
+
+    Used by in-process transition tools (EELS) whose ``Alloc`` never
+    exists in a serialized form — hence ``raw`` is ``None``. The
+    ``alloc`` field must be provided at construction, so ``get()``
+    always short-circuits and ``validate()`` is unreachable.
+    """
+
+    raw: None = None
+
+    def __post_init__(self) -> None:
+        """Require the materialized alloc at construction."""
+        assert self.alloc is not None, (
+            "MaterializedAlloc requires `alloc` at construction"
+        )
+
+    def validate(self) -> Alloc:
+        """Unreachable: ``alloc`` is always set at construction."""
+        raise AssertionError("unreachable: alloc is set at construction")
+
+
 @dataclass
 class TransitionToolInput:
     """Transition tool input."""

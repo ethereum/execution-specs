@@ -45,7 +45,7 @@ from .env import Ommer, build_block_environment
 from .evm_trace.count import CountTracer
 from .evm_trace.eip3155 import Eip3155Tracer
 from .evm_trace.group import GroupTracer
-from .result import build_result
+from .result import build_result, record_rejected_tx
 
 if TYPE_CHECKING:
     from execution_testing.exceptions import ExceptionMapper
@@ -247,6 +247,16 @@ class T8N(Load):
         else:
             stdin = None
 
+        if t8n_data is not None:
+            # ``find_fork`` reads the env block number when resolving an
+            # exception fork alias (``Paris``, ``ConstantinopleFix``,
+            # …); in-process callers do not pass JSON inputs through
+            # stdin, so synthesize the minimal stdin dict from t8n_data.
+            options.input_env = "stdin"
+            stdin = {
+                "env": t8n_data.env.model_dump(mode="json", by_alias=True),
+            }
+
         fork_module, self.fork_block = find_fork(forks, self.options, stdin)
 
         fork_criteria = None
@@ -261,8 +271,27 @@ class T8N(Load):
         max_blobs_per_block = None
         base_fee_update_fraction = None
 
-        blob_parameters = None
-        if options.blob_parameters == "stdin":
+        blob_parameters: Optional[Dict[str, Any]] = None
+        if (
+            t8n_data is not None
+            and t8n_data.blob_params is not None
+            and t8n_data.fork.bpo_fork()
+            and t8n_data.fork != t8n_data.fork.non_bpo_ancestor()
+        ):
+            # In-process path: blob params come from the testing
+            # ``ForkBlobSchedule``. Only BPO forks need the override —
+            # they share their non-BPO ancestor's spec module. Non-BPO
+            # forks (Cancun, Prague, Amsterdam, …) already carry the
+            # correct schedule in their own module; forwarding the
+            # override would force ``ForkCache`` to clone the fork into
+            # a temp directory whenever the override values don't
+            # byte-match the constants, attributing opcode coverage to
+            # the clone's ``/tmp/...`` paths instead of the original
+            # ``src/ethereum/forks/<fork>/`` source.
+            blob_parameters = t8n_data.blob_params.model_dump(
+                mode="json", by_alias=True
+            )
+        elif options.blob_parameters == "stdin":
             assert stdin is not None
             blob_parameters = stdin["blobParams"]
         elif options.blob_parameters is not None:
@@ -326,15 +355,24 @@ class T8N(Load):
 
         if t8n_data is not None:
             # In-process path: caller hands the testing pydantic types
-            # directly. Resolve a `LazyAlloc` if applicable.
+            # directly. Take a defensive copy of the input alloc so
+            # ``apply_diff`` (and any other in-place mutation) never
+            # escapes into the caller's Python object — multi-block
+            # tests rely on the previous block's alloc staying intact
+            # when the current block is invalid.
+            from execution_testing.client_clis.cli_types import LazyAlloc
+
             raw_alloc = t8n_data.alloc
-            self.alloc = (
-                raw_alloc.get() if hasattr(raw_alloc, "get") else raw_alloc
+            input_alloc = (
+                raw_alloc.get()
+                if isinstance(raw_alloc, LazyAlloc)
+                else raw_alloc
             )
+            self.alloc = input_alloc.model_copy(deep=True)
             self.env = t8n_data.env
             self.txs = list(t8n_data.txs)
             self.ommers = []
-            self.body = rlp.encode([tx.rlp() for tx in self.txs])
+            self.body = Bytes(rlp.encode([tx.rlp() for tx in self.txs]))
         else:
             # CLI / JSON path: parse the JSON inputs and validate into
             # testing pydantic types.
@@ -399,7 +437,7 @@ class T8N(Load):
                     tx.protected = False
                 tx.sign()
             txs.append(tx)
-        body = rlp.encode([tx.rlp() for tx in txs])
+        body = Bytes(rlp.encode([tx.rlp() for tx in txs]))
         return txs, body
 
     @staticmethod
@@ -517,12 +555,8 @@ class T8N(Load):
 
         self.fork.incorporate_tx_into_block(rewards_state)
 
-    def _process_txs(self, block_env: Any, block_output: Any) -> None:
+def _process_txs(self, block_env: Any, block_output: Any) -> None:
         """Execute every transaction in ``self.txs`` against ``block_env``."""
-        from execution_testing.client_clis.cli_types import (
-            RejectedTransaction,
-        )
-
         for tx_index, testing_tx in enumerate(self.txs):
             try:
                 fork_tx = self.convert_transaction(testing_tx)
@@ -530,16 +564,10 @@ class T8N(Load):
                     block_env, block_output, fork_tx, Uint(tx_index)
                 )
             except (EthereumException, UnsupportedTxError) as e:
-                # `RLPException` here is from `convert_transaction` when a
-                # typed envelope (Blob / SetCode / …) cannot be decoded
-                # — e.g. an invalid contract-creating BlobTransaction.
-                # The tx was structurally malformed for this fork; record
-                # it as rejected and continue with the next.
-                self.rejected_transactions.append(
-                    RejectedTransaction(
-                        index=tx_index, error=f"Failed transaction: {e!r}"
-                    )
-                )
+                # `UnsupportedTxError` covers ``convert_transaction``
+                # failures when a typed tx is structurally malformed for
+                # this fork (e.g. a contract-creating BlobTransaction).
+                record_rejected_tx(self, tx_index, e)
                 self.logger.warning(f"Transaction {tx_index} failed: {e!r}")
 
     def run_state_test(self) -> None:
@@ -547,10 +575,6 @@ class T8N(Load):
         Apply a single transaction on pre-state. No system operations
         are performed.
         """
-        from execution_testing.client_clis.cli_types import (
-            RejectedTransaction,
-        )
-
         self._block_env = self.block_environment()
         self._block_output = self.fork.BlockOutput()
 
@@ -565,11 +589,7 @@ class T8N(Load):
                     index=Uint(0),
                 )
             except (EthereumException, UnsupportedTxError) as e:
-                self.rejected_transactions.append(
-                    RejectedTransaction(
-                        index=0, error=f"Failed transaction: {e!r}"
-                    )
-                )
+                record_rejected_tx(self, 0, e)
                 self.logger.warning(f"Transaction 0 failed: {e!r}")
 
         self._block_exception = None
@@ -740,6 +760,16 @@ class T8N(Load):
         if self.options.opcode_count == "stdout":
             opcode_count_results = self._tracer(CountTracer).results()
             json_output["opcodeCount"] = opcode_count_results
+
+            # Also attach the counts to the in-memory result for the
+            # in-process caller. ``json_result`` was rendered above, so
+            # the CLI JSON contract keeps ``opcodeCount`` at the top
+            # level only.
+            from execution_testing.client_clis.cli_types import OpcodeCount
+
+            self.result.opcode_count = OpcodeCount.model_validate(
+                opcode_count_results
+            )
         elif self.options.opcode_count is not None:
             opcode_count_results = self._tracer(CountTracer).results()
             result_output_path = os.path.join(

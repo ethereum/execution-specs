@@ -120,10 +120,30 @@ def build_result(
             block_output.block_access_list
         )
 
-    return TestingResult.model_validate(arguments)
+    context: Optional[Dict[str, Any]] = None
+    if t8n.exception_mapper is not None:
+        context = {"exception_mapper": t8n.exception_mapper}
+    return TestingResult.model_validate(arguments, context=context)
+
+
+def record_rejected_tx(t8n: "T8N", index: int, error: Exception) -> None:
+    """Append a ``RejectedTransaction`` to ``t8n.rejected_transactions``."""
+    # Function-scoped: see import-cycle note in ``get_receipts_from_output``.
+    from execution_testing.client_clis.cli_types import RejectedTransaction
+
+    context: Optional[Dict[str, Any]] = None
+    if t8n.exception_mapper is not None:
+        context = {"exception_mapper": t8n.exception_mapper}
+    t8n.rejected_transactions.append(
+        RejectedTransaction.model_validate(
+            {"index": index, "error": f"Failed transaction: {error!r}"},
+            context=context,
+        )
+    )
 
 
 __all__ = [
     "build_result",
     "get_receipts_from_output",
+    "record_rejected_tx",
 ]

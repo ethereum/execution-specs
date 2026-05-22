@@ -450,7 +450,7 @@ class BuiltBlock(CamelModel):
 
     header: FixtureHeader
     env: Environment
-    alloc: LazyAlloc
+    alloc: LazyAlloc | Alloc
     state_root: Hash
     txs: List[Transaction]
     ommers: List[FixtureHeader]

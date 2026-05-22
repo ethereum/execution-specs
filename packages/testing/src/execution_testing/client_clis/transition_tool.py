@@ -671,7 +671,7 @@ class TransitionTool(EthereumCLI):
                 dump_files_to_directory(
                     debug_output_path,
                     {
-                        "output/alloc.json": output.alloc.raw,
+                        "output/alloc.json": output.alloc,
                         "output/result.json": output.result,
                         "output/txs.rlp": str(output.body),
                         "response_info.txt": response_info,
