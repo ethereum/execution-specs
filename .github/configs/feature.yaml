@@ -1,11 +1,11 @@
 # Unless filling for special features, all features should fill for previous forks (starting from Frontier) too
 consensus:
-  evm-type: eels
+  evm-type: consensus
   fill-params: --until=BPO4
 
 benchmark:
-  evm-type: evmone
-  fill-params: --fork=Amsterdam --gas-benchmark-values 1,10,30,60,100,150 -m "benchmark and not state_test" ./tests/benchmark
+  evm-type: benchmark
+  fill-params: --fork=Amsterdam --gas-benchmark-values 1,10,30,60,100,150 ./tests/benchmark
 
 devnet:
   evm-type: eels

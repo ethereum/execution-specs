@@ -49,6 +49,9 @@ FORK_ORDER = [
     "Osaka",
     "BPO1",
     "BPO2",
+    "BPO3",
+    "BPO4",
+    "BPO5",
     "Amsterdam",
 ]
 
@@ -145,9 +148,7 @@ def main() -> None:
     # `<feat>-devnet` releases (e.g. bal-devnet) share the `devnet` entry,
     # while keeping their friendly name in the matrix and artifact outputs.
     lookup = (
-        "devnet"
-        if name.endswith("-devnet") and "devnet" in config
-        else name
+        "devnet" if name.endswith("-devnet") and "devnet" in config else name
     )
 
     if lookup not in config or not isinstance(config[lookup], dict):

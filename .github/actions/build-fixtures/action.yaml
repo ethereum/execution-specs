@@ -13,6 +13,15 @@ inputs:
   split_label:
     description: "Label for this fork-range split. Empty for unsplit builds."
     default: ""
+  evm:
+    description: "Override the evm impl. Defaults to the feature's evm-type."
+    default: ""
+  evm_repo:
+    description: "Override the t8n tool repo (e.g. ethereum/go-ethereum)"
+    default: ""
+  evm_ref:
+    description: "Override the t8n tool branch / tag / commit"
+    default: ""
 runs:
   using: "composite"
   steps:
@@ -32,7 +41,9 @@ runs:
     - uses: ./.github/actions/build-evm-base
       id: evm-builder
       with:
-        type: ${{ steps.properties.outputs.evm-type }}
+        type: ${{ inputs.evm != '' && inputs.evm || steps.properties.outputs.evm-type }}
+        repo_override: ${{ inputs.evm_repo }}
+        ref_override: ${{ inputs.evm_ref }}
     - name: Install pigz for parallel tarball compression
       if: inputs.split_label == ''
       shell: bash

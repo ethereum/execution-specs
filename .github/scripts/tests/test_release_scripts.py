@@ -43,12 +43,12 @@ class TestGenerateBuildMatrix:
 
     def test_split_feature_produces_entries_per_range(self):
         """Verify a split feature expands into one entry per range."""
-        result = run_script(BUILD_MATRIX_SCRIPT, "mainnet")
+        result = run_script(BUILD_MATRIX_SCRIPT, "consensus")
         assert result.returncode == 0
         out = parse_matrix_output(result.stdout)
         matrix = json.loads(out["build_matrix"])
         assert len(matrix) > 1
-        assert out["feature_name"] == "mainnet"
+        assert out["feature_name"] == "consensus"
         assert out["combine_labels"] != ""
         labels = [e["label"] for e in matrix]
         assert all(lbl != "" for lbl in labels)
@@ -68,15 +68,15 @@ class TestGenerateBuildMatrix:
         assert matrix[0]["from_fork"] == ""
         assert matrix[0]["until_fork"] == ""
 
-    def test_feature_only_can_be_requested_explicitly(self):
-        """Verify feature_only entries work when named directly."""
-        result = run_script(BUILD_MATRIX_SCRIPT, "glamsterdam-devnet")
+    def test_devnet_name_resolves_to_shared_feature(self):
+        """Verify a <feat>-devnet name resolves to the devnet feature."""
+        result = run_script(BUILD_MATRIX_SCRIPT, "bal-devnet")
         assert result.returncode == 0
         out = parse_matrix_output(result.stdout)
         matrix = json.loads(out["build_matrix"])
-        assert len(matrix) == 1
-        assert matrix[0]["feature"] == "glamsterdam-devnet"
-        assert out["combine_labels"] == ""
+        assert out["feature_name"] == "bal-devnet"
+        # Entries keep the friendly name, not the shared "devnet" key.
+        assert all(e["feature"] == "bal-devnet" for e in matrix)
 
     def test_unknown_feature_fails(self):
         """Verify error exit for unknown feature name."""
@@ -92,7 +92,7 @@ class TestGenerateBuildMatrix:
 
     def test_output_is_valid_github_actions_format(self):
         """Verify output lines are key=value for GITHUB_OUTPUT."""
-        result = run_script(BUILD_MATRIX_SCRIPT, "mainnet")
+        result = run_script(BUILD_MATRIX_SCRIPT, "consensus")
         assert result.returncode == 0
         lines = result.stdout.strip().splitlines()
         assert len(lines) == 3
