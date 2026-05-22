@@ -514,6 +514,7 @@ def create_modexp_test_cases() -> list[ParameterSet]:
     ]
     return regular_cases + special_cases
 
+
 @pytest.mark.parametrize(
     ["mod_exp_input"],
     create_modexp_test_cases(),
