@@ -1,11 +1,10 @@
 """
 Create a transition tool for the given fork.
+
+The ``T8N`` class consumes testing-package pydantic types directly; the
+JSON CLI surface lives in :mod:`.cli`.
 """
 
-import argparse
-import fnmatch
-import json
-import os
 from contextlib import AbstractContextManager
 from typing import (
     TYPE_CHECKING,
@@ -14,7 +13,7 @@ from typing import (
     Final,
     List,
     Optional,
-    TextIO,
+    Sequence,
     Type,
     TypeVar,
 )
@@ -35,23 +34,19 @@ from ethereum_spec_tools.forks import (
 
 from ..loaders.fixture_loader import Load
 from ..loaders.transaction_loader import TransactionLoad, UnsupportedTxError
-from ..utils import (
-    FatalError,
-    find_fork,
-    get_stream_logger,
-    parse_hex_or_int,
-)
+from ..utils import get_stream_logger, resolve_fork
 from .env import Ommer, build_block_environment
-from .evm_trace.count import CountTracer
-from .evm_trace.eip3155 import Eip3155Tracer
 from .evm_trace.group import GroupTracer
 from .result import build_result, record_rejected_tx
 
 if TYPE_CHECKING:
-    from execution_testing.exceptions import ExceptionMapper
-    from execution_testing.test_types import (
-        Alloc as TestingAlloc,
+    from execution_testing.client_clis.cli_types import (
+        TransitionToolOutput,
     )
+    from execution_testing.client_clis.transition_tool import (
+        TransitionTool,
+    )
+    from execution_testing.exceptions import ExceptionMapper
     from execution_testing.test_types import (
         Environment as TestingEnvironment,
     )
@@ -59,62 +54,11 @@ if TYPE_CHECKING:
         Transaction as TestingTransaction,
     )
 
+    TransitionToolData = TransitionTool.TransitionToolData
+
 T = TypeVar("T")
 
 
-def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
-    """
-    Adds the arguments for the t8n tool subparser.
-    """
-    t8n_parser = subparsers.add_parser("t8n", help="This is the t8n tool.")
-
-    t8n_parser.add_argument(
-        "--input.alloc", dest="input_alloc", type=str, default="alloc.json"
-    )
-    t8n_parser.add_argument(
-        "--input.env", dest="input_env", type=str, default="env.json"
-    )
-    t8n_parser.add_argument(
-        "--input.txs", dest="input_txs", type=str, default="txs.json"
-    )
-    t8n_parser.add_argument(
-        "--input.blobParams",
-        dest="blob_parameters",
-        type=str,
-        default=None,
-    )
-    t8n_parser.add_argument(
-        "--output.alloc", dest="output_alloc", type=str, default="alloc.json"
-    )
-    t8n_parser.add_argument(
-        "--output.basedir", dest="output_basedir", type=str, default="."
-    )
-    t8n_parser.add_argument("--output.body", dest="output_body", type=str)
-    t8n_parser.add_argument(
-        "--output.result",
-        dest="output_result",
-        type=str,
-        default="result.json",
-    )
-    t8n_parser.add_argument(
-        "--state.chainid", dest="state_chainid", type=int, default=1
-    )
-    t8n_parser.add_argument(
-        "--state.fork", dest="state_fork", type=str, default="Frontier"
-    )
-    t8n_parser.add_argument(
-        "--state.reward", dest="state_reward", type=int, default=None
-    )
-    t8n_parser.add_argument("--trace", action="store_true")
-    t8n_parser.add_argument("--trace.memory", action="store_true")
-    t8n_parser.add_argument("--trace.nomemory", action="store_true")
-    t8n_parser.add_argument("--trace.noreturndata", action="store_true")
-    t8n_parser.add_argument("--trace.nostack", action="store_true")
-    t8n_parser.add_argument("--trace.returndata", action="store_true")
-
-    t8n_parser.add_argument("--opcode.count", dest="opcode_count", type=str)
-
-    t8n_parser.add_argument("--state-test", action="store_true")
 
 
 class ForkCache(AbstractContextManager):
@@ -173,143 +117,81 @@ class ForkCache(AbstractContextManager):
         return clone
 
 
-def _read_json_input(
-    path_or_stdin: str, stdin: Optional[Dict], key: str
-) -> Any:
-    """Read one of the t8n JSON inputs (alloc/env/txs) per the CLI flags."""
-    if path_or_stdin == "stdin":
-        assert stdin is not None
-        return stdin[key]
-    with open(path_or_stdin, "r") as f:
-        return json.load(f)
-
-
-def _parse_ommers_from_env_json(env_json: Any, fork: Any) -> List[Ommer]:
-    """Parse the pre-PoS ``ommers`` block from a raw env JSON dict."""
-    ommers: List[Ommer] = []
-    for raw in env_json.get("ommers", []):
-        ommers.append(
-            Ommer(
-                delta=raw["delta"],
-                address=fork.hex_to_address(raw["address"]),
-            )
-        )
-    return ommers
-
-
 class T8N(Load):
-    """The class that carries out the transition."""
+    """
+    Execute the transition function on already-parsed inputs.
+
+    ``T8N`` is JSON-free: callers hand in a testing
+    ``TransitionTool.TransitionToolData`` (alloc / env / txs /
+    blob_schedule / fork / chain_id / reward / state_test) plus any
+    pre-PoS ommer data, and ``run()`` returns a
+    :class:`~execution_testing.client_clis.cli_types.TransitionToolOutput`.
+    See :mod:`.cli` for the JSON wrapper used by the
+    ``ethereum-spec-evm t8n`` entry point.
+    """
 
     tracers: Final[GroupTracer | None]
-    alloc: "TestingAlloc"
+    alloc: Any
     env: "TestingEnvironment"
     txs: List["TestingTransaction"]
     ommers: List[Ommer]
     rejected_transactions: List[Any]
     body: Bytes
+    state_test: bool
+    state_reward: int
+    exception_mapper: Optional["ExceptionMapper"]
     _block_exception: Optional[str]
 
     def __init__(
         self,
-        options: Any,
-        out_file: TextIO,
-        in_file: TextIO,
-        cache: ForkCache,
+        t8n_data: "TransitionToolData",
         *,
-        t8n_data: Any = None,
+        cache: ForkCache,
+        fork_block: Optional[int] = None,
+        ommers: Sequence[Ommer] = (),
+        tracers: Optional[GroupTracer] = None,
         exception_mapper: Optional["ExceptionMapper"] = None,
     ) -> None:
-        # Lazy testing-package imports avoid a top-level cycle with
-        # `execution_testing.client_clis`.
-        from execution_testing.test_types import (
-            Alloc as TestingAlloc,
-        )
-        from execution_testing.test_types import (
-            Environment as TestingEnvironment,
-        )
-        from execution_testing.test_types import (
-            Transaction as TestingTransaction,
-        )
+        # ``resolve_fork`` only maps the testing fork name to a spec
+        # ``Hardfork`` module — CLI exception aliases like
+        # ``HomesteadToDaoAt5`` are unfolded by ``find_fork`` in
+        # :mod:`.cli` before the testing ``Fork`` is constructed. For
+        # those transition-fork tests the CLI also reports the block
+        # number at which the resolved fork activates via
+        # ``fork_block``; the in-process path leaves it ``None``.
+        fork_module = resolve_fork(t8n_data.fork_name)
+        fork_criteria: Optional[ByBlockNumber] = None
+        if fork_block is not None and fork_block != 0:
+            fork_criteria = ByBlockNumber(fork_block)
 
-        self.out_file = out_file
-        self.in_file = in_file
-        self.options = options
-        self.exception_mapper = exception_mapper
-        forks = Hardfork.discover()
-
-        if "stdin" in (
-            options.input_env,
-            options.input_alloc,
-            options.input_txs,
-            options.blob_parameters,
-        ):
-            stdin = json.load(in_file)
-        else:
-            stdin = None
-
-        if t8n_data is not None:
-            # ``find_fork`` reads the env block number when resolving an
-            # exception fork alias (``Paris``, ``ConstantinopleFix``,
-            # …); in-process callers do not pass JSON inputs through
-            # stdin, so synthesize the minimal stdin dict from t8n_data.
-            options.input_env = "stdin"
-            stdin = {
-                "env": t8n_data.env.model_dump(mode="json", by_alias=True),
-            }
-
-        fork_module, self.fork_block = find_fork(forks, self.options, stdin)
-
-        fork_criteria = None
-        if self.fork_block is not None and self.fork_block != 0:
-            # I can't find where `self.fork_block` is even used, and the vast
-            # majority of the time it's zero anyway. Not changing the fork
-            # criteria doesn't seem to break the tests, but changing it
-            # introduces cloning overhead, so... pretend it didn't happen.
-            fork_criteria = ByBlockNumber(self.fork_block)
-
-        target_blobs_per_block = None
-        max_blobs_per_block = None
-        base_fee_update_fraction = None
-
-        blob_parameters: Optional[Dict[str, Any]] = None
+        # Translate ``t8n_data.blob_params`` (testing ``ForkBlobSchedule``)
+        # into the override arguments ``ForkCache.get`` consumes.
+        #
+        # Only forward overrides for BPO forks. BPO forks share their
+        # non-BPO ancestor's spec module and rely on the override to
+        # differentiate their blob schedule. Non-BPO forks (Cancun,
+        # Prague, Amsterdam, …) carry the correct schedule built into
+        # their spec module — overriding here would force ``ForkCache``
+        # to clone the fork into a temporary directory whenever the
+        # override values don't byte-match the constants, attributing
+        # all opcode coverage to the clone's ``/tmp/...`` paths instead
+        # of the original ``src/ethereum/forks/<fork>/`` source.
+        target_blobs_per_block: Optional[U64] = None
+        max_blobs_per_block: Optional[U64] = None
+        base_fee_update_fraction: Optional[Uint] = None
         if (
-            t8n_data is not None
-            and t8n_data.blob_params is not None
+            t8n_data.blob_params is not None
             and t8n_data.fork.bpo_fork()
             and t8n_data.fork != t8n_data.fork.non_bpo_ancestor()
         ):
-            # In-process path: blob params come from the testing
-            # ``ForkBlobSchedule``. Only BPO forks need the override —
-            # they share their non-BPO ancestor's spec module. Non-BPO
-            # forks (Cancun, Prague, Amsterdam, …) already carry the
-            # correct schedule in their own module; forwarding the
-            # override would force ``ForkCache`` to clone the fork into
-            # a temp directory whenever the override values don't
-            # byte-match the constants, attributing opcode coverage to
-            # the clone's ``/tmp/...`` paths instead of the original
-            # ``src/ethereum/forks/<fork>/`` source.
-            blob_parameters = t8n_data.blob_params.model_dump(
-                mode="json", by_alias=True
+            target_blobs_per_block = U64(
+                int(t8n_data.blob_params.target_blobs_per_block)
             )
-        elif options.blob_parameters == "stdin":
-            assert stdin is not None
-            blob_parameters = stdin["blobParams"]
-        elif options.blob_parameters is not None:
-            with open(options.blob_parameters, "r") as f:
-                blob_parameters = json.load(f)
-
-        if blob_parameters is not None:
-            target_blobs_per_block = parse_hex_or_int(
-                blob_parameters["target"],
-                U64,
+            max_blobs_per_block = U64(
+                int(t8n_data.blob_params.max_blobs_per_block)
             )
-            max_blobs_per_block = parse_hex_or_int(
-                blob_parameters["max"],
-                U64,
-            )
-            base_fee_update_fraction = parse_hex_or_int(
-                blob_parameters["baseFeeUpdateFraction"],
-                Uint,
+            base_fee_update_fraction = Uint(
+                int(t8n_data.blob_params.base_fee_update_fraction)
             )
 
         fork = cache.get(
@@ -320,157 +202,36 @@ class T8N(Load):
             blob_base_fee_update_fraction=base_fee_update_fraction,
         )
 
-        tracers = GroupTracer()
-
-        if self.options.trace:
-            trace_memory = getattr(self.options, "trace.memory", False)
-            trace_stack = not getattr(self.options, "trace.nostack", False)
-            trace_return_data = getattr(self.options, "trace.returndata")
-            tracers.add(
-                Eip3155Tracer(
-                    trace_memory=trace_memory,
-                    trace_stack=trace_stack,
-                    trace_return_data=trace_return_data,
-                    output_basedir=self.options.output_basedir,
-                )
-            )
-
-        if self.options.opcode_count is not None:
-            tracers.add(CountTracer())
-
-        maybe_tracers: GroupTracer | None
-        if tracers.tracers:
+        if tracers is not None:
             trace.set_evm_trace(tracers)
-            maybe_tracers = tracers
-        else:
-            maybe_tracers = None
-
-        self.tracers = maybe_tracers
+        self.tracers = tracers
 
         self.logger = get_stream_logger("T8N")
-
         super().__init__(fork)
 
-        self.chain_id = parse_hex_or_int(self.options.state_chainid, U64)
+        self.chain_id = U64(int(t8n_data.chain_id))
+        self.state_test = t8n_data.state_test
+        self.state_reward = int(t8n_data.reward)
+        self.exception_mapper = exception_mapper
 
-        if t8n_data is not None:
-            # In-process path: caller hands the testing pydantic types
-            # directly. Take a defensive copy of the input alloc so
-            # ``apply_diff`` (and any other in-place mutation) never
-            # escapes into the caller's Python object — multi-block
-            # tests rely on the previous block's alloc staying intact
-            # when the current block is invalid.
-            from execution_testing.client_clis.cli_types import LazyAlloc
+        # Take a defensive copy of the input alloc so ``apply_diff``
+        # (and any other in-place mutation T8N does) never escapes
+        # into the caller's Python object. Without this, multi-block
+        # tests that contain an invalid block would observe a mutated
+        # pre-state — the testing framework expects ``previous_alloc``
+        # to remain unchanged when ``block.exception`` is set.
+        from execution_testing.client_clis.cli_types import LazyAlloc
 
-            raw_alloc = t8n_data.alloc
-            input_alloc = (
-                raw_alloc.get()
-                if isinstance(raw_alloc, LazyAlloc)
-                else raw_alloc
-            )
-            self.alloc = input_alloc.model_copy(deep=True)
-            self.env = t8n_data.env
-            self.txs = list(t8n_data.txs)
-            self.ommers = []
-            self.body = Bytes(rlp.encode([tx.rlp() for tx in self.txs]))
-        else:
-            # CLI / JSON path: parse the JSON inputs and validate into
-            # testing pydantic types.
-            raw_alloc_json = _read_json_input(
-                self.options.input_alloc, stdin, "alloc"
-            )
-            raw_env_json = _read_json_input(
-                self.options.input_env, stdin, "env"
-            )
-            raw_txs_json = _read_json_input(
-                self.options.input_txs, stdin, "txs"
-            )
-
-            self.alloc = TestingAlloc.model_validate(raw_alloc_json)
-            self.env = TestingEnvironment.model_validate(raw_env_json)
-            self.txs, self.body = self._parse_txs_input(
-                raw_txs_json, TestingTransaction
-            )
-            self.ommers = _parse_ommers_from_env_json(raw_env_json, self.fork)
-
-        self.rejected_transactions = []
-
-    def _parse_txs_input(
-        self,
-        raw_txs_json: Any,
-        transaction_cls: Type["TestingTransaction"],
-    ) -> tuple[List["TestingTransaction"], Bytes]:
-        """
-        Parse the `txs` input into testing `Transaction`s and an RLP body.
-
-        Supports the JSON-array shape used by the CLI fixtures and the
-        testing in-process caller. RLP-string input (a single hex string)
-        is not supported via this path — surface a clear error rather
-        than silently dropping txs.
-        """
-        if raw_txs_json is None:
-            return [], Bytes(b"")
-        if isinstance(raw_txs_json, str):
-            raise NotImplementedError(
-                "RLP-encoded `txs` input is not supported by the testing "
-                "T8N entry point; provide a JSON array instead."
-            )
-
-        # EIP-155 ("protected") signatures only exist from Spurious Dragon
-        # onwards; pre-EIP-155 forks must sign with v ∈ {27, 28}. The
-        # testing ``Transaction`` model defaults ``protected=True`` and
-        # would otherwise produce ``v ≥ 35`` even on Homestead.
-        fork_supports_eip155 = hasattr(
-            self.fork._module("transactions"), "signing_hash_155"
+        raw_alloc = t8n_data.alloc
+        input_alloc = (
+            raw_alloc.get() if isinstance(raw_alloc, LazyAlloc) else raw_alloc
         )
-
-        normalized = [T8N._normalize_tx_json(dict(tx)) for tx in raw_txs_json]
-        txs: List["TestingTransaction"] = []
-        for tx_dict in normalized:
-            tx = transaction_cls.model_validate(tx_dict)
-            # A JSON tx that carries ``secretKey`` but no ``v``/``r``/``s``
-            # is unsigned; the testing model does not auto-sign in
-            # ``model_post_init`` (only ``AuthorizationTuple`` does). Sign
-            # it here so downstream signature recovery succeeds.
-            if "v" not in tx.model_fields_set and tx.secret_key is not None:
-                if not fork_supports_eip155 and int(tx.ty) == 0:
-                    tx.protected = False
-                tx.sign()
-            txs.append(tx)
-        body = Bytes(rlp.encode([tx.rlp() for tx in txs]))
-        return txs, body
-
-    @staticmethod
-    def _normalize_tx_json(tx: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Drop fields that the testing ``Transaction`` model rejects.
-
-        Two boundary mismatches to smooth over:
-
-        1. ``yParity`` on authorization tuples. The testing
-           ``AuthorizationTuple`` serializer emits both ``v`` and
-           ``yParity`` (they are guaranteed equal — see the model's
-           ``duplicate_v_as_y_parity``), but its validator binds only
-           ``v`` and treats ``yParity`` as an extra-forbidden field.
-        2. ``secretKey`` on an already-signed tx. The testing
-           ``Transaction`` retains the private key after auto-signing in
-           ``model_post_init``, so the dump still carries ``secretKey``
-           alongside the populated ``v``/``r``/``s``. On re-validation
-           the model rejects the pair with ``InvalidSignaturePrivateKeyError``.
-           Strip ``secretKey`` whenever ``v`` is set (i.e. the tx is
-           already signed).
-        """
-        auth_list = tx.get("authorizationList")
-        if isinstance(auth_list, list):
-            tx["authorizationList"] = [
-                {k: v for k, v in entry.items() if k != "yParity"}
-                if isinstance(entry, dict)
-                else entry
-                for entry in auth_list
-            ]
-        if "secretKey" in tx and tx.get("v") is not None:
-            tx = {k: v for k, v in tx.items() if k != "secretKey"}
-        return tx
+        self.alloc = input_alloc.model_copy(deep=True)
+        self.env = t8n_data.env
+        self.txs = list(t8n_data.txs)
+        self.ommers = list(ommers)
+        self.body = Bytes(rlp.encode([tx.rlp() for tx in self.txs]))
+        self.rejected_transactions = []
 
     def _tracer(self, type_: Type[T]) -> T:
         group = self.tracers
@@ -494,7 +255,7 @@ class T8N(Load):
             pre_state=self.alloc,
             chain_id=self.chain_id,
             ommers=tuple(self.ommers),
-            state_test=self.options.state_test,
+            state_test=self.state_test,
         )
         self._block_state = block_env.state
         return block_env
@@ -555,7 +316,7 @@ class T8N(Load):
 
         self.fork.incorporate_tx_into_block(rewards_state)
 
-def _process_txs(self, block_env: Any, block_output: Any) -> None:
+    def _process_txs(self, block_env: Any, block_output: Any) -> None:
         """Execute every transaction in ``self.txs`` against ``block_env``."""
         for tx_index, testing_tx in enumerate(self.txs):
             try:
@@ -624,13 +385,13 @@ def _process_txs(self, block_env: Any, block_output: Any) -> None:
                 self.fork.BlockAccessIndex(Uint(len(self.txs)) + Uint(1))
             )
 
-        if not self.fork.proof_of_stake:
-            if self.options.state_reward is None:
-                self.pay_block_rewards(self.fork.BLOCK_REWARD, block_env)
-            elif self.options.state_reward != -1:
-                self.pay_block_rewards(
-                    U256(self.options.state_reward), block_env
-                )
+        if not self.fork.proof_of_stake and self.state_reward != -1:
+            # ``-1`` is the sentinel for "skip block rewards entirely"
+            # (testing-side ``TransitionToolData.__post_init__`` sets
+            # this for genesis blocks; the CLI wrapper resolves a
+            # ``--state.reward=None`` to the fork's ``BLOCK_REWARD``
+            # before constructing the data).
+            self.pay_block_rewards(U256(self.state_reward), block_env)
 
         if self.fork.has_withdrawal:
             withdrawals = self.env.withdrawals or []
@@ -682,105 +443,40 @@ def _process_txs(self, block_env: Any, block_output: Any) -> None:
             self.rejected_transactions,
         )
 
-    def run(self) -> int:
-        """Run the transition and provide the relevant outputs."""
-        # Clear files that may have been created in a previous
-        # run of the t8n tool.
-        # Define the specific files and pattern to delete
-        files_to_delete = [
-            self.options.output_result,
-            self.options.output_alloc,
-            self.options.output_body,
-        ]
-        pattern_to_delete = "trace-*.jsonl"
+    def run(self) -> "TransitionToolOutput":
+        """
+        Execute the transition; return the in-memory result.
 
-        # Iterate through the directory
-        for file in os.listdir(self.options.output_basedir):
-            file_path = os.path.join(self.options.output_basedir, file)
+        The returned ``TransitionToolOutput`` carries the post-state
+        ``Alloc`` as a ``MaterializedAlloc`` (already in memory, so
+        ``get()`` is a no-op), the ``Result`` (state root, receipts,
+        rejected txs, block exception, …), and the encoded transaction
+        body as raw RLP bytes. The JSON CLI surface lives in
+        :func:`.cli.write_t8n_outputs`.
+        """
+        from execution_testing.base_types import Bytes as TestingBytes
+        from execution_testing.client_clis.cli_types import (
+            MaterializedAlloc,
+            TransitionToolOutput,
+        )
 
-            # Check if the file matches the specific names or the pattern
-            if file in files_to_delete or fnmatch.fnmatch(
-                file, pattern_to_delete
-            ):
-                os.remove(file_path)
+        if self.state_test:
+            self.run_state_test()
+        else:
+            self.run_blockchain_test()
 
-        try:
-            if self.options.state_test:
-                self.run_state_test()
-            else:
-                self.run_blockchain_test()
-        except FatalError as e:
-            self.logger.error(str(e))
-            return 1
-
-        # Mutate the alloc into the post-state for output.
+        # Apply the block diff in place so ``self.alloc`` is the
+        # post-state when the caller reads it. Safe to do
+        # unconditionally — ``self.alloc`` is a defensive copy taken
+        # in ``__init__``, so mutating it never escapes to the caller.
         diff = self.fork.extract_block_diff(self._block_state)
         self.alloc.apply_diff(diff)
 
-        json_state = self.alloc.model_dump(mode="json", by_alias=True)
-        json_result = self.result.model_dump(
-            mode="json", by_alias=True, exclude_none=True
+        return TransitionToolOutput(
+            alloc=MaterializedAlloc(
+                alloc=self.alloc,
+                _state_root=self.result.state_root,
+            ),
+            result=self.result,
+            body=TestingBytes(self.body),
         )
-
-        json_output: dict[str, object] = {}
-
-        if self.options.output_body == "stdout":
-            json_output["body"] = "0x" + self.body.hex()
-        elif self.options.output_body is not None:
-            txs_rlp_path = os.path.join(
-                self.options.output_basedir,
-                self.options.output_body,
-            )
-            with open(txs_rlp_path, "w") as f:
-                json.dump("0x" + self.body.hex(), f)
-            self.logger.info(f"Wrote transaction rlp to {txs_rlp_path}")
-
-        if self.options.output_alloc == "stdout":
-            json_output["alloc"] = json_state
-        else:
-            alloc_output_path = os.path.join(
-                self.options.output_basedir,
-                self.options.output_alloc,
-            )
-            with open(alloc_output_path, "w") as f:
-                json.dump(json_state, f, indent=4)
-            self.logger.info(f"Wrote alloc to {alloc_output_path}")
-
-        if self.options.output_result == "stdout":
-            json_output["result"] = json_result
-        else:
-            result_output_path = os.path.join(
-                self.options.output_basedir,
-                self.options.output_result,
-            )
-            with open(result_output_path, "w") as f:
-                json.dump(json_result, f, indent=4)
-            self.logger.info(f"Wrote result to {result_output_path}")
-
-        if self.options.opcode_count == "stdout":
-            opcode_count_results = self._tracer(CountTracer).results()
-            json_output["opcodeCount"] = opcode_count_results
-
-            # Also attach the counts to the in-memory result for the
-            # in-process caller. ``json_result`` was rendered above, so
-            # the CLI JSON contract keeps ``opcodeCount`` at the top
-            # level only.
-            from execution_testing.client_clis.cli_types import OpcodeCount
-
-            self.result.opcode_count = OpcodeCount.model_validate(
-                opcode_count_results
-            )
-        elif self.options.opcode_count is not None:
-            opcode_count_results = self._tracer(CountTracer).results()
-            result_output_path = os.path.join(
-                self.options.output_basedir,
-                self.options.opcode_count,
-            )
-            with open(result_output_path, "w") as f:
-                json.dump(opcode_count_results, f, indent=4)
-            self.logger.info(f"Wrote opcode counts to {result_output_path}")
-
-        if json_output:
-            json.dump(json_output, self.out_file, indent=4)
-
-        return 0
