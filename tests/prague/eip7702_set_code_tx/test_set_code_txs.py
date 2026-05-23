@@ -3077,6 +3077,7 @@ def test_set_code_to_precompile(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.with_all_precompiles
 @pytest.mark.valid_before("EIP8037")
 def test_set_code_to_precompile_not_enough_gas_for_precompile_execution(

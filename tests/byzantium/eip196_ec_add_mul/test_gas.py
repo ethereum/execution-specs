@@ -65,6 +65,7 @@ def test_gas_costs(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("Byzantium")
 @pytest.mark.parametrize(
     "precompile_address, invalid_input",

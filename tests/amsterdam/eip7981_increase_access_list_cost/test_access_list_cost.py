@@ -134,6 +134,7 @@ def test_access_list_token_calculation(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type >= 1)
 @pytest.mark.parametrize(
     "access_list,tx_data",

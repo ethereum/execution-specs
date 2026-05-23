@@ -326,6 +326,7 @@ def tx_gas_limit(
     return tx_gas_limit
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "refund_test_type",
     [

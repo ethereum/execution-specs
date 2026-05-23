@@ -194,6 +194,7 @@ class GasMeasureTestCases(PytestParameterEnum):
     }
 
 
+@pytest.mark.gas_check
 @pytest.mark.ported_from(
     [
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP1153-transientStorage/17_tstoreGasFiller.yml",  # noqa: E501

@@ -15,6 +15,7 @@ REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("Berlin")
 @pytest.mark.parametrize(
     "a", [0, 1, pytest.param(2**256 - 1, id="a2to256minus1")]

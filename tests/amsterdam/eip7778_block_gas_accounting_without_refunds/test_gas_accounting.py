@@ -214,6 +214,7 @@ def build_refund_tx(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "refund_tx_reverts",
     [
@@ -267,6 +268,7 @@ def test_simple_gas_accounting(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "refund_tx_reverts",
     [
@@ -438,6 +440,7 @@ class CallDataTestType(Enum):
     """calldata_floor > tx_gas_before_refund."""
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "refund_tx_reverts",
     [
@@ -584,6 +587,7 @@ def test_varying_calldata_costs(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "refund_tx_reverts",
     [
@@ -636,6 +640,7 @@ def test_multiple_refund_types_in_one_tx(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.execute(pytest.mark.skip(reason="Requires specific gas price"))
 @pytest.mark.valid_from("EIP8037")
 def test_mixed_gas_regimes(

@@ -49,6 +49,7 @@ class TestTokenCalculation:
         """Deploy a simple contract that does nothing."""
         return pre.deploy_contract(Op.STOP)
 
+    @pytest.mark.gas_check
     @pytest.mark.parametrize(
         "calldata,expected_standard_tokens,description",
         [
@@ -190,6 +191,7 @@ class TestMaximumCalldata:
         """Deploy a simple contract."""
         return pre.deploy_contract(Op.STOP)
 
+    @pytest.mark.gas_check
     def test_maximum_calldata_size(
         self,
         state_test: StateTestFiller,
@@ -540,6 +542,7 @@ class TestExactThresholdBoundary:
         """Deploy a simple contract."""
         return pre.deploy_contract(Op.STOP)
 
+    @pytest.mark.gas_check
     @pytest.mark.parametrize(
         "access_list,authorization_list",
         [
@@ -672,6 +675,7 @@ class TestAuthorizationListGasCost:
         """Deploy a simple contract."""
         return pre.deploy_contract(Op.STOP)
 
+    @pytest.mark.gas_check
     @pytest.mark.parametrize(
         "num_authorizations",
         [
@@ -772,6 +776,7 @@ class TestRefundCapInteraction:
         """Create sender account."""
         return pre.fund_eoa()
 
+    @pytest.mark.gas_check
     def test_refund_cap_at_one_fifth(
         self,
         state_test: StateTestFiller,
@@ -859,6 +864,7 @@ class TestRefundCapInteraction:
             tx=tx,
         )
 
+    @pytest.mark.gas_check
     def test_floor_cost_not_reduced_by_refunds(
         self,
         state_test: StateTestFiller,
