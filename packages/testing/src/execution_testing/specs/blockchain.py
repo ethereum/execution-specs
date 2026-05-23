@@ -348,7 +348,7 @@ class Block(Header):
     """EIP-7928: Block-level access lists (serialized)."""
     engine_new_payload_block_access_list: Bytes | None = None
     """EIP-7928: override only the engine newPayload blockAccessList field."""
-    expected_gas_used: int | None = None
+    expected_gas_used: HexNumber | None = None
     """Expected gas used for the block."""
 
     @property

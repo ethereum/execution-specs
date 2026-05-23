@@ -301,7 +301,7 @@ class BenchmarkTest(BaseTest):
         | None
     ) = None
     env: Environment = Field(default_factory=Environment)
-    expected_benchmark_gas_used: int | None = None
+    expected_benchmark_gas_used: HexNumber | None = None
     gas_benchmark_value: int = Field(
         default_factory=lambda: int(Environment().gas_limit)
     )
