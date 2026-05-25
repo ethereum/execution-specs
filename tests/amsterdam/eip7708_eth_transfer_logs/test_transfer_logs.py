@@ -168,6 +168,61 @@ def test_contract_creation_tx(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.parametrize(
+    "collision_nonce,collision_code",
+    [
+        pytest.param(0, b"\x00", id="non_empty_code"),
+        pytest.param(1, b"", id="non_empty_nonce"),
+    ],
+)
+@pytest.mark.pre_alloc_mutable
+def test_contract_creation_tx_collision(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Alloc,
+    fork: Fork,
+    collision_nonce: int,
+    collision_code: bytes,
+) -> None:
+    """
+    Test that a contract-creating transaction with an address collision
+    emits no log.
+
+    Per EIP-7610, contract creation aborts when the target address already
+    has non-empty code or nonce. The collision check happens before any
+    value transfer, so EIP-7708 emits no Transfer log.
+    """
+    sender = pre.fund_eoa()
+    # EIP-8037: a contract-creating tx charges intrinsic state gas for the
+    # new account, so the gas limit must cover it on top of the regular
+    # intrinsic cost.
+    gas_limit = 200_000
+    if fork.is_eip_enabled(8037):
+        gas_limit += fork.create_state_gas()
+    tx = Transaction(
+        sender=sender,
+        to=None,
+        value=1000,
+        gas_limit=gas_limit,
+        data=bytes(Op.RETURN(0, 0)),
+        expected_receipt=TransactionReceipt(logs=[]),
+    )
+
+    collision_address = tx.created_contract
+    pre[collision_address] = Account(
+        nonce=collision_nonce,
+        code=collision_code,
+    )
+
+    post = {
+        collision_address: Account(
+            nonce=collision_nonce,
+            code=collision_code,
+        ),
+    }
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
 @pytest.mark.with_all_call_opcodes
 def test_call_opcodes_transfer_log_behavior(
     state_test: StateTestFiller,
@@ -220,6 +275,50 @@ def test_call_opcodes_transfer_log_behavior(
         expected_receipt=TransactionReceipt(logs=expected_logs),
     )
 
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.with_all_call_opcodes(
+    selector=lambda call_opcode: call_opcode in (Op.CALL, Op.CALLCODE)
+)
+def test_call_opcodes_insufficient_balance_no_log(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Alloc,
+    sender: EOA,
+    call_opcode: Op,
+) -> None:
+    """
+    Test CALL/CALLCODE with value exceeding caller balance.
+
+    The opcode returns 0 (does not revert), transfers nothing, and emits
+    no transfer log.
+
+    Note CALLCODE never emits a transfer log regardless
+    of balance — it's a self-transfer exempted by EIP-7708 — so for that
+    opcode the meaningful assertion is that the return value is 0.
+    """
+    caller_balance = 1
+    attempted_value = 100
+    callee = pre.deploy_contract(Op.STOP)
+
+    contract_code = Op.SSTORE(
+        0, call_opcode(gas=100_000, address=callee, value=attempted_value)
+    )
+    contract = pre.deploy_contract(contract_code, balance=caller_balance)
+
+    tx = Transaction(
+        sender=sender,
+        to=contract,
+        value=0,
+        gas_limit=200_000,
+        expected_receipt=TransactionReceipt(logs=[]),
+    )
+
+    post = {
+        contract: Account(storage={0: 0}, balance=caller_balance),
+        callee: Account(balance=0),
+    }
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
@@ -906,6 +1005,77 @@ def test_inner_call_succeeds_outer_reverts_no_log(
     state_test(env=env, pre=pre, post={}, tx=tx)
 
 
+@pytest.mark.with_all_create_opcodes
+def test_inner_create_succeeds_outer_reverts_no_log(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Alloc,
+    sender: EOA,
+    fork: Fork,
+    create_opcode: Op,
+) -> None:
+    """
+    Test that a CREATE/CREATE2 transfer log is rolled back on outer revert.
+
+    The factory CREATE/CREATE2s a child with value (the deployment succeeds
+    and a `factory -> created` log is emitted in the child frame), then the
+    factory itself REVERTs. Per EIP-7708 the rollback semantics mirror those
+    of CALL: the child log is discarded together with the rest of the
+    factory's frame, so the transaction receipt records no logs.
+    """
+    create_value = 1
+    initcode = Op.RETURN(0, 0)
+    initcode_len = len(initcode)
+
+    factory_code = (
+        Op.MSTORE(0, Op.PUSH32(bytes(initcode).rjust(32, b"\x00")))
+        + Op.MSTORE(
+            32,
+            create_opcode(
+                value=create_value,
+                offset=32 - initcode_len,
+                size=initcode_len,
+            ),
+        )
+        + Op.REVERT(32, 32)
+    )
+    factory = pre.deploy_contract(factory_code, balance=create_value)
+
+    entry_storage = Storage()
+    expected_create_address = compute_create_address(
+        address=factory,
+        nonce=1,
+        salt=0,
+        initcode=initcode,
+        opcode=create_opcode,
+    )
+    entry_code = Op.CALL(
+        address=factory, ret_offset=0, ret_size=32
+    ) + Op.SSTORE(
+        entry_storage.store_next(expected_create_address), Op.MLOAD(0)
+    )
+    entry = pre.deploy_contract(entry_code)
+
+    gas_limit = 200_000
+    if fork.is_eip_enabled(8037):
+        gas_limit = 1_000_000
+
+    tx = Transaction(
+        sender=sender,
+        to=entry,
+        value=0,
+        gas_limit=gas_limit,
+        expected_receipt=TransactionReceipt(logs=[]),
+    )
+
+    state_test(
+        env=env,
+        pre=pre,
+        post={entry: Account(storage=entry_storage)},
+        tx=tx,
+    )
+
+
 @pytest.mark.parametrize(
     "call_depth",
     [
@@ -1373,174 +1543,3 @@ def test_call_with_value_to_coinbase_no_priority_fee_log(
     )
 
     state_test(env=env, pre=pre, post={}, tx=tx)
-
-
-@pytest.mark.parametrize(
-    "collision_nonce,collision_code",
-    [
-        pytest.param(0, b"\x00", id="non_empty_code"),
-        pytest.param(1, b"", id="non_empty_nonce"),
-    ],
-)
-@pytest.mark.pre_alloc_mutable
-def test_contract_creation_tx_collision(
-    state_test: StateTestFiller,
-    env: Environment,
-    pre: Alloc,
-    fork: Fork,
-    collision_nonce: int,
-    collision_code: bytes,
-) -> None:
-    """
-    Test that a contract-creating transaction with an address collision
-    emits no log.
-
-    Per EIP-7610, contract creation aborts when the target address already
-    has non-empty code or nonce. The collision check happens before any
-    value transfer, so EIP-7708 emits no Transfer log.
-    """
-    sender = pre.fund_eoa()
-    # EIP-8037: a contract-creating tx charges intrinsic state gas for the
-    # new account, so the gas limit must cover it on top of the regular
-    # intrinsic cost.
-    gas_limit = 200_000
-    if fork.is_eip_enabled(8037):
-        gas_limit += fork.create_state_gas()
-    tx = Transaction(
-        sender=sender,
-        to=None,
-        value=1000,
-        gas_limit=gas_limit,
-        data=bytes(Op.RETURN(0, 0)),
-        expected_receipt=TransactionReceipt(logs=[]),
-    )
-
-    collision_address = tx.created_contract
-    pre[collision_address] = Account(
-        nonce=collision_nonce,
-        code=collision_code,
-    )
-
-    post = {
-        collision_address: Account(
-            nonce=collision_nonce,
-            code=collision_code,
-        ),
-    }
-    state_test(env=env, pre=pre, post=post, tx=tx)
-
-
-@pytest.mark.with_all_call_opcodes(
-    selector=lambda call_opcode: call_opcode in (Op.CALL, Op.CALLCODE)
-)
-def test_call_opcodes_insufficient_balance_no_log(
-    state_test: StateTestFiller,
-    env: Environment,
-    pre: Alloc,
-    sender: EOA,
-    call_opcode: Op,
-) -> None:
-    """
-    Test CALL/CALLCODE with value exceeding caller balance.
-
-    The opcode returns 0 (does not revert), transfers nothing, and emits
-    no transfer log.
-
-    Note CALLCODE never emits a transfer log regardless
-    of balance — it's a self-transfer exempted by EIP-7708 — so for that
-    opcode the meaningful assertion is that the return value is 0.
-    """
-    caller_balance = 1
-    attempted_value = 100
-    callee = pre.deploy_contract(Op.STOP)
-
-    contract_code = Op.SSTORE(
-        0, call_opcode(gas=100_000, address=callee, value=attempted_value)
-    )
-    contract = pre.deploy_contract(contract_code, balance=caller_balance)
-
-    tx = Transaction(
-        sender=sender,
-        to=contract,
-        value=0,
-        gas_limit=200_000,
-        expected_receipt=TransactionReceipt(logs=[]),
-    )
-
-    post = {
-        contract: Account(storage={0: 0}, balance=caller_balance),
-        callee: Account(balance=0),
-    }
-    state_test(env=env, pre=pre, post=post, tx=tx)
-
-
-
-@pytest.mark.with_all_create_opcodes
-def test_inner_create_succeeds_outer_reverts_no_log(
-    state_test: StateTestFiller,
-    env: Environment,
-    pre: Alloc,
-    sender: EOA,
-    fork: Fork,
-    create_opcode: Op,
-) -> None:
-    """
-    Test that a CREATE/CREATE2 transfer log is rolled back on outer revert.
-
-    The factory CREATE/CREATE2s a child with value (the deployment succeeds
-    and a `factory -> created` log is emitted in the child frame), then the
-    factory itself REVERTs. Per EIP-7708 the rollback semantics mirror those
-    of CALL: the child log is discarded together with the rest of the
-    factory's frame, so the transaction receipt records no logs.
-    """
-    create_value = 1
-    initcode = Op.RETURN(0, 0)
-    initcode_len = len(initcode)
-
-    factory_code = (
-        Op.MSTORE(0, Op.PUSH32(bytes(initcode).rjust(32, b"\x00")))
-        + Op.MSTORE(
-            32,
-            create_opcode(
-                value=create_value,
-                offset=32 - initcode_len,
-                size=initcode_len,
-            ),
-        )
-        + Op.REVERT(32, 32)
-    )
-    factory = pre.deploy_contract(factory_code, balance=create_value)
-
-    entry_storage = Storage()
-    expected_create_address = compute_create_address(
-        address=factory,
-        nonce=1,
-        salt=0,
-        initcode=initcode,
-        opcode=create_opcode,
-    )
-    entry_code = Op.CALL(
-        address=factory, ret_offset=0, ret_size=32
-    ) + Op.SSTORE(
-        entry_storage.store_next(expected_create_address), Op.MLOAD(0)
-    )
-    entry = pre.deploy_contract(entry_code)
-
-    gas_limit = 200_000
-    if fork.is_eip_enabled(8037):
-        gas_limit = 1_000_000
-
-    tx = Transaction(
-        sender=sender,
-        to=entry,
-        value=0,
-        gas_limit=gas_limit,
-        expected_receipt=TransactionReceipt(logs=[]),
-    )
-
-    state_test(
-        env=env,
-        pre=pre,
-        post={entry: Account(storage=entry_storage)},
-        tx=tx,
-    )

@@ -40,17 +40,13 @@ def test_slotnum_at_fork_transition(
     * block 3 (post-fork): slot 3 == ``post_fork_slot``.
     """
     sender = pre.fund_eoa()
-    contract = pre.deploy_contract(Op.SSTORE(Op.NUMBER, Op.SLOTNUM) + Op.STOP)
+    code = Op.SSTORE(Op.NUMBER, Op.SLOTNUM, new_value=1) + Op.STOP
+    contract = pre.deploy_contract(code)
 
     at_fork_slot = 200
     post_fork_slot = 201
 
-    # EIP-8037: post-fork blocks charge state gas for the SSTORE-set on top
-    # of regular execution gas. The pre-fork block halts on the undefined
-    # opcode and consumes all gas regardless, so a uniform bump is safe.
-    # `fork` is a transition fork, so read the cost from the fork it
-    # transitions to (where EIP-8037 is active).
-    gas_limit = 100_000 + fork.transitions_to().sstore_state_gas()
+    gas_limit = 100_000 + code.gas_cost(fork.transitions_to())
 
     blocks = [
         Block(

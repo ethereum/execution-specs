@@ -3,7 +3,7 @@ Fork transition tests for
 [EIP-7954: Increase Maximum Contract Size](https://eips.ethereum.org/EIPS/eip-7954).
 
 Tests that the new max code size and initcode size limits activate
-exactly at the Amsterdam fork boundary (timestamp 15,000).
+exactly at the EIP7954 fork boundary (timestamp 15,000).
 """
 
 from typing import Any
@@ -27,7 +27,7 @@ from .spec import ref_spec_7954
 REFERENCE_SPEC_GIT_PATH = ref_spec_7954.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7954.version
 
-pytestmark = pytest.mark.valid_at_transition_to("Amsterdam")
+pytestmark = pytest.mark.valid_at_transition_to("EIP7954")
 
 CREATE2_SALT = 0xC0FFEE
 

@@ -201,9 +201,9 @@ def selfdestruct_code(
 @pytest.mark.valid_from("Shanghai")
 def test_create_selfdestruct_same_tx(
     state_test: StateTestFiller,
-    fork: Fork,
     pre: Alloc,
     sender: EOA,
+    fork: Fork,
     selfdestruct_code: Bytecode,
     sendall_recipient_addresses: List[Address],
     create_opcode: Op,
@@ -420,9 +420,9 @@ def test_create_selfdestruct_same_tx(
 @pytest.mark.valid_from("Shanghai")
 def test_self_destructing_initcode(
     state_test: StateTestFiller,
-    fork: Fork,
     pre: Alloc,
     sender: EOA,
+    fork: Fork,
     selfdestruct_code: Bytecode,
     sendall_recipient_addresses: List[Address],
     create_opcode: Op,
@@ -588,9 +588,9 @@ def test_self_destructing_initcode(
 @pytest.mark.valid_from("Shanghai")
 def test_self_destructing_initcode_create_tx(
     state_test: StateTestFiller,
-    fork: Fork,
     pre: Alloc,
     sender: EOA,
+    fork: Fork,
     tx_value: int,
     selfdestruct_code: Bytecode,
     sendall_recipient_addresses: List[Address],
@@ -677,9 +677,9 @@ def test_self_destructing_initcode_create_tx(
 @pytest.mark.valid_from("Shanghai")
 def test_recreate_self_destructed_contract_different_txs(
     blockchain_test: BlockchainTestFiller,
-    fork: Fork,
     pre: Alloc,
     sender: EOA,
+    fork: Fork,
     selfdestruct_code: Bytecode,
     selfdestruct_contract_initial_balance: int,
     sendall_recipient_addresses: List[Address],
@@ -874,10 +874,10 @@ def test_recreate_self_destructed_contract_different_txs(
 @pytest.mark.valid_from("Shanghai")
 def test_selfdestruct_pre_existing(
     state_test: StateTestFiller,
-    fork: Fork,
     eip_enabled: bool,
     pre: Alloc,
     sender: EOA,
+    fork: Fork,
     selfdestruct_code: Bytecode,
     selfdestruct_contract_initial_balance: int,
     sendall_recipient_addresses: List[Address],
@@ -1059,10 +1059,10 @@ def test_selfdestruct_pre_existing(
 @pytest.mark.valid_from("Shanghai")
 def test_selfdestruct_created_same_block_different_tx(
     blockchain_test: BlockchainTestFiller,
-    fork: Fork,
     eip_enabled: bool,
     pre: Alloc,
     sender: EOA,
+    fork: Fork,
     selfdestruct_contract_initial_balance: int,
     sendall_recipient_addresses: List[Address],
     call_times: int,
@@ -1213,9 +1213,9 @@ def test_selfdestruct_created_same_block_different_tx(
 @pytest.mark.valid_from("Shanghai")
 def test_calling_from_new_contract_to_pre_existing_contract(
     state_test: StateTestFiller,
-    fork: Fork,
     pre: Alloc,
     sender: EOA,
+    fork: Fork,
     sendall_recipient_addresses: List[Address],
     create_opcode: Op,
     call_opcode: Op,
@@ -1392,10 +1392,10 @@ def test_calling_from_new_contract_to_pre_existing_contract(
 @pytest.mark.valid_from("Shanghai")
 def test_calling_from_pre_existing_contract_to_new_contract(
     state_test: StateTestFiller,
-    fork: Fork,
     eip_enabled: bool,
     pre: Alloc,
     sender: EOA,
+    fork: Fork,
     selfdestruct_code: Bytecode,
     sendall_recipient_addresses: List[Address],
     call_opcode: Op,
@@ -1595,9 +1595,9 @@ def test_calling_from_pre_existing_contract_to_new_contract(
 @pytest.mark.valid_from("Shanghai")
 def test_create_selfdestruct_same_tx_increased_nonce(
     state_test: StateTestFiller,
-    fork: Fork,
     pre: Alloc,
     sender: EOA,
+    fork: Fork,
     selfdestruct_code: Bytecode,
     sendall_recipient_addresses: List[Address],
     create_opcode: Op,
@@ -1814,9 +1814,9 @@ def test_create_selfdestruct_same_tx_increased_nonce(
 @pytest.mark.valid_from("Shanghai")
 def test_create_and_destroy_multiple_contracts_same_tx(
     state_test: StateTestFiller,
-    fork: Fork,
     pre: Alloc,
     sender: EOA,
+    fork: Fork,
     num_contracts: int,
     selfdestruct_contract_initial_balance: int,
 ) -> None:
@@ -2088,7 +2088,7 @@ def test_create_multiple_contracts_destroy_one_then_destroy_other_next_tx(
     # SSTOREs across entry/init code; tx2 does one SSTORE call.
     # Bump scales with cpsb on Amsterdam.
     new_account = fork.gas_costs().NEW_ACCOUNT
-    sstore_state = fork.sstore_state_gas()
+    sstore_state = Op.SSTORE(new_value=1).gas_cost(fork)
     txs = [
         Transaction(
             sender=sender,
@@ -2230,8 +2230,8 @@ def test_parent_creates_child_selfdestruct_one(
     #      by parent)
     # Each CREATE incurs NEW_ACCOUNT state once. SSTORE regular costs
     # are picked up by each bytecode's `gas_cost(fork)`; the trailing
-    # `sstore_state_gas()` covers the EIP-8037 state-gas charge for the
-    # 0->nonzero SSTORE that `gas_cost(fork)` cannot infer statically.
+    # SSTORE `gas_cost(fork)` adds headroom for the EIP-8037 state-gas
+    # charge on the 0->nonzero SSTORE the static calc cannot infer.
     tx = Transaction(
         value=0,
         data=entry_code,
@@ -2243,7 +2243,7 @@ def test_parent_creates_child_selfdestruct_one(
             + parent_code.gas_cost(fork)
             + child_code.gas_cost(fork)
             + 2 * fork.gas_costs().NEW_ACCOUNT
-            + fork.sstore_state_gas()
+            + Op.SSTORE(new_value=1).gas_cost(fork)
         ),
     )
 

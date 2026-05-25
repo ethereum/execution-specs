@@ -11,7 +11,6 @@ from execution_testing import (
     Address,
     Alloc,
     Bytecode,
-    Fork,
     Initcode,
     Op,
     StateTestFiller,
@@ -19,6 +18,7 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing import Macros as Om
+from execution_testing.forks.helpers import Fork
 
 from . import CreateOpcodeParams, PytestParameterEnum
 from .spec import ref_spec_1153
@@ -271,8 +271,8 @@ class TestTransientStorageInContractCreation:
 def test_tstore_rollback_on_failed_create(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
     create_opcode: Op,
+    fork: Fork,
 ) -> None:
     """
     Test TSTORE is rolled back after failed CREATE/CREATE2 initcode.
@@ -328,13 +328,12 @@ def test_tstore_rollback_on_failed_create(
     )
     caller_address = pre.deploy_contract(caller_code, storage={0: 1, 1: 1})
 
-    # Amsterdam EIP-8037 charges state gas for CREATE (new account +
-    # code deposit). Each CREATE here deploys ~24K bytes, so state gas
-    # alone exceeds the regular gas cap. Supply extra via reservoir.
     gas_limit = 16_000_000
-    if fork.code_deposit_state_gas(code_size=1) > 0:
+    if fork.is_eip_enabled(8037):
         gas_limit_cap = fork.transaction_gas_limit_cap() or gas_limit
-        code_deposit_state = fork.code_deposit_state_gas(code_size=0x600A)
+        code_deposit_state = fork.code_deposit_state_gas(
+            code_size=max_code_size + 0x0A
+        )
         new_account_state = fork.gas_costs().NEW_ACCOUNT
         state_gas = 2 * (code_deposit_state + new_account_state)
         gas_limit = gas_limit_cap + state_gas

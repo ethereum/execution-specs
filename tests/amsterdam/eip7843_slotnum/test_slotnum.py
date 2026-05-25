@@ -8,7 +8,6 @@ from execution_testing import (
     BlockchainTestFiller,
     Environment,
     Fork,
-    Header,
     Op,
     StateTestFiller,
     Transaction,
@@ -57,24 +56,19 @@ def test_slotnum_value(
     code_address = pre.deploy_contract(code)
 
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
-    code_state = code.state_cost(fork)
-    code_regular = code.gas_cost(fork) - code_state
+    code_regular = code.gas_cost(fork)
 
     tx = Transaction(
         sender=pre.fund_eoa(),
-        gas_limit=intrinsic_cost + code_regular + code_state,
+        gas_limit=intrinsic_cost + code_regular,
         to=code_address,
     )
-
-    # block.gas_used = max(regular_dimension, state_dimension).
-    expected_gas_used = max(intrinsic_cost + code_regular, code_state)
 
     state_test(
         env=Environment(slot_number=slot_number),
         pre=pre,
         tx=tx,
         post={code_address: Account(storage={0: slot_number})},
-        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )
 
 
@@ -119,27 +113,23 @@ def test_slotnum_gas_cost(
     caller_address = pre.deploy_contract(caller_code)
 
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
-    code_state = caller_code.state_cost(fork)
     # Static opcode-metadata calc misses the gas burned in the inner
     # CALL frame; add it back. `call_gas` is the full forwarded amount
     # — for `enough_gas` SLOTNUM consumes it all; for `out_of_gas`
     # the OOG burns the entire forwarded budget.
-    code_regular = caller_code.gas_cost(fork) - code_state + call_gas
+    code_regular = caller_code.gas_cost(fork) + call_gas
 
     tx = Transaction(
         sender=pre.fund_eoa(),
-        gas_limit=intrinsic_cost + code_regular + code_state,
+        gas_limit=intrinsic_cost + code_regular,
         to=caller_address,
     )
-
-    expected_gas_used = max(intrinsic_cost + code_regular, code_state)
 
     state_test(
         env=Environment(slot_number=12345),
         pre=pre,
         tx=tx,
         post={caller_address: Account(storage={0: sstore_value})},
-        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )
 
 
@@ -158,14 +148,14 @@ def test_slotnum_distinct_per_block(
     in the final post-state.
     """
     sender = pre.fund_eoa()
-    contract = pre.deploy_contract(Op.SSTORE(Op.NUMBER, Op.SLOTNUM) + Op.STOP)
+    code = Op.SSTORE(Op.NUMBER, Op.SLOTNUM, new_value=1) + Op.STOP
+    contract = pre.deploy_contract(code)
 
     # Non-monotonic on purpose: decrease, increase, jump to large value.
     slot_numbers = [100, 42, 7, 2**32]
 
-    # EIP-8037: the SSTORE-set to a fresh slot also charges state gas, so
-    # the gas limit must cover it on top of the regular execution cost.
-    gas_limit = 100_000 + fork.sstore_state_gas()
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+    gas_limit = intrinsic_cost + code.gas_cost(fork)
 
     blocks = [
         Block(

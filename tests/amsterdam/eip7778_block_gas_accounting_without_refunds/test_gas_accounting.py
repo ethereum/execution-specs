@@ -216,7 +216,7 @@ def build_refund_tx(
 )
 @pytest.mark.with_all_refund_types()
 @pytest.mark.execute(pytest.mark.skip(reason="Requires specific gas price"))
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP7778")
 def test_simple_gas_accounting(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -290,7 +290,7 @@ def test_simple_gas_accounting(
 )
 @pytest.mark.with_all_refund_types()
 @pytest.mark.execute(pytest.mark.skip(reason="Requires specific gas price"))
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.valid_from("EIP7778")
 def test_multi_transaction_gas_accounting(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -432,7 +432,19 @@ class CallDataTestType(Enum):
     ],
 )
 @pytest.mark.with_all_refund_types()
-@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.filter_combinations(
+    lambda refund_type, refund_tx_reverts, calldata_test_type, **_: not (
+        refund_type == RefundTypes.STORAGE_CLEAR
+        and refund_tx_reverts
+        and calldata_test_type
+        == CallDataTestType.DATA_FLOOR_BETWEEN_TX_GAS_BEFORE_AND_AFTER
+    ),
+    reason=(
+        "STORAGE_CLEAR refund is zero on revert, so the (post, pre) "
+        "interval that DATA_FLOOR_BETWEEN needs is empty"
+    ),
+)
+@pytest.mark.valid_from("EIP7778")
 def test_varying_calldata_costs(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -450,17 +462,6 @@ def test_varying_calldata_costs(
     2. tx_gas_after_refund < calldata_floor < tx_gas_before_refund
     3. calldata_floor > tx_gas_before_refund
     """
-    if refund_type == RefundTypes.STORAGE_CLEAR:
-        if (
-            refund_tx_reverts
-            and calldata_test_type
-            == CallDataTestType.DATA_FLOOR_BETWEEN_TX_GAS_BEFORE_AND_AFTER
-        ):
-            pytest.skip(
-                "calldata_cost cannot be between pre and post refund gas"
-                "since refund is zero when execution reverts"
-            )
-
     if refund_type == RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY:
         if calldata_test_type == (
             CallDataTestType.DATA_FLOOR_BETWEEN_TX_GAS_BEFORE_AND_AFTER

@@ -22,10 +22,8 @@ from ..state_tracker import (
 )
 from ..utils.hexadecimal import hex_to_address
 from ..vm.gas import (
-    COST_PER_STATE_BYTE,
-    STATE_BYTES_PER_AUTH_BASE,
-    STATE_BYTES_PER_NEW_ACCOUNT,
     GasCosts,
+    StateGasCosts,
 )
 from . import Evm, Message
 
@@ -207,7 +205,10 @@ def set_delegation(message: Message) -> Uint:
             continue
 
         if account_exists(tx_state, authority):
-            refund = STATE_BYTES_PER_NEW_ACCOUNT * COST_PER_STATE_BYTE
+            refund = (
+                StateGasCosts.STATE_BYTES_PER_NEW_ACCOUNT
+                * StateGasCosts.COST_PER_STATE_BYTE
+            )
             message.state_gas_reservoir += refund
             auth_state_refund += refund
 
@@ -218,7 +219,10 @@ def set_delegation(message: Message) -> Uint:
             authority_account.code_hash != EMPTY_CODE_HASH
             or auth.address == NULL_ADDRESS
         ):
-            refund = STATE_BYTES_PER_AUTH_BASE * COST_PER_STATE_BYTE
+            refund = (
+                StateGasCosts.STATE_BYTES_PER_AUTH_BASE
+                * StateGasCosts.COST_PER_STATE_BYTE
+            )
             message.state_gas_reservoir += refund
             auth_state_refund += refund
 

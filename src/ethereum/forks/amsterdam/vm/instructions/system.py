@@ -47,10 +47,8 @@ from .. import (
 )
 from ..exceptions import OutOfGasError, Revert, WriteInStaticContext
 from ..gas import (
-    COST_PER_STATE_BYTE,
-    REGULAR_GAS_CREATE,
-    STATE_BYTES_PER_NEW_ACCOUNT,
     GasCosts,
+    StateGasCosts,
     calculate_gas_extend_memory,
     calculate_message_call_gas,
     charge_gas,
@@ -88,7 +86,8 @@ def generic_create(
     # Charge state gas for account creation (pay-before-execute).
     # Refunded to the reservoir on any failure path below.
     create_account_state_gas = (
-        STATE_BYTES_PER_NEW_ACCOUNT * COST_PER_STATE_BYTE
+        StateGasCosts.STATE_BYTES_PER_NEW_ACCOUNT
+        * StateGasCosts.COST_PER_STATE_BYTE
     )
     charge_state_gas(evm, create_account_state_gas)
 
@@ -117,7 +116,6 @@ def generic_create(
     ):
         evm.gas_left += create_message_gas
         evm.state_gas_left += create_message_state_gas_reservoir
-        # No account created — refund state gas to reservoir.
         credit_state_gas_refund(evm, create_account_state_gas)
         push(evm.stack, U256(0))
         return
@@ -194,7 +192,10 @@ def create(evm: Evm) -> None:
         evm.memory, [(memory_start_position, memory_size)]
     )
     init_code_gas = init_code_cost(Uint(memory_size))
-    charge_gas(evm, REGULAR_GAS_CREATE + extend_memory.cost + init_code_gas)
+    charge_gas(
+        evm,
+        GasCosts.REGULAR_GAS_CREATE + extend_memory.cost + init_code_gas,
+    )
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -247,7 +248,7 @@ def create2(evm: Evm) -> None:
     init_code_gas = init_code_cost(Uint(memory_size))
     charge_gas(
         evm,
-        REGULAR_GAS_CREATE
+        GasCosts.REGULAR_GAS_CREATE
         + GasCosts.OPCODE_KECCACK256_PER_WORD * call_data_words
         + extend_memory.cost
         + init_code_gas,
@@ -464,7 +465,9 @@ def call(evm: Evm) -> None:
     charge_gas(evm, extra_gas + extend_memory.cost)
     if value != 0 and not is_account_alive(tx_state, to):
         charge_state_gas(
-            evm, STATE_BYTES_PER_NEW_ACCOUNT * COST_PER_STATE_BYTE
+            evm,
+            StateGasCosts.STATE_BYTES_PER_NEW_ACCOUNT
+            * StateGasCosts.COST_PER_STATE_BYTE,
         )
 
     message_call_gas = calculate_message_call_gas(
@@ -668,7 +671,9 @@ def selfdestruct(evm: Evm) -> None:
     charge_gas(evm, gas_cost)
     if needs_state_gas:
         charge_state_gas(
-            evm, STATE_BYTES_PER_NEW_ACCOUNT * COST_PER_STATE_BYTE
+            evm,
+            StateGasCosts.STATE_BYTES_PER_NEW_ACCOUNT
+            * StateGasCosts.COST_PER_STATE_BYTE,
         )
 
     originator = evm.message.current_target

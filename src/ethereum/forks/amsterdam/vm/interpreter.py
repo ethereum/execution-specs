@@ -48,8 +48,8 @@ from ..state_tracker import (
 from ..vm import Message
 from ..vm.eoa_delegation import get_delegated_code_address, set_delegation
 from ..vm.gas import (
-    COST_PER_STATE_BYTE,
     GasCosts,
+    StateGasCosts,
     charge_gas,
     charge_state_gas,
 )
@@ -238,7 +238,9 @@ def process_create_message(message: Message) -> Evm:
                 // Uint(32)
             )
             charge_gas(evm, code_hash_gas)
-            code_deposit_state_gas = ulen(contract_code) * COST_PER_STATE_BYTE
+            code_deposit_state_gas = (
+                ulen(contract_code) * StateGasCosts.COST_PER_STATE_BYTE
+            )
             charge_state_gas(evm, code_deposit_state_gas)
         except ExceptionalHalt as error:
             restore_tx_state(tx_state, snapshot)

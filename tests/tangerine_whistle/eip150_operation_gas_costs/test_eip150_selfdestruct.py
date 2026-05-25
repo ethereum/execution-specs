@@ -3,11 +3,6 @@ Tests for EIP-150 SELFDESTRUCT operation gas costs.
 
 EIP-150 introduced a gas cost for the SELFDESTRUCT opcode and precise gas
 boundaries for state access during the operation.
-
-TODO[EIP-8037]: Fix selfdestruct gas tests for Amsterdam. Under EIP-8037,
-G_NEW_ACCOUNT becomes state gas (charged separately from regular gas), which
-changes the gas boundaries and BAL expectations. Tests are marked --until Osaka
-until the fixes are applied.
 """
 
 from typing import Dict

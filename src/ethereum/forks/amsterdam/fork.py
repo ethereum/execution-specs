@@ -101,10 +101,8 @@ from .utils.message import prepare_message
 from .vm import Message
 from .vm.eoa_delegation import is_valid_delegation
 from .vm.gas import (
-    COST_PER_STATE_BYTE,
-    STATE_BYTES_PER_NEW_ACCOUNT,
-    STATE_BYTES_PER_STORAGE_SET,
     GasCosts,
+    StateGasCosts,
     calculate_blob_gas_price,
     calculate_data_fee,
     calculate_excess_blob_gas,
@@ -801,8 +799,8 @@ def process_unchecked_system_transaction(
         gas_price=block_env.base_fee_per_gas,
         gas=SYSTEM_TRANSACTION_GAS,
         state_gas_reservoir=(
-            STATE_BYTES_PER_STORAGE_SET
-            * COST_PER_STATE_BYTE
+            StateGasCosts.STATE_BYTES_PER_STORAGE_SET
+            * StateGasCosts.COST_PER_STATE_BYTE
             * SYSTEM_MAX_SSTORES_PER_CALL
         ),
         access_list_addresses=set(),
@@ -823,8 +821,8 @@ def process_unchecked_system_transaction(
         target=target_address,
         gas=SYSTEM_TRANSACTION_GAS,
         state_gas_reservoir=(
-            STATE_BYTES_PER_STORAGE_SET
-            * COST_PER_STATE_BYTE
+            StateGasCosts.STATE_BYTES_PER_STORAGE_SET
+            * StateGasCosts.COST_PER_STATE_BYTE
             * SYSTEM_MAX_SSTORES_PER_CALL
         ),
         value=U256(0),
@@ -1092,7 +1090,8 @@ def process_transaction(
         tx_output.state_gas_used = 0
         if isinstance(tx.to, Bytes0):
             new_account_refund = (
-                STATE_BYTES_PER_NEW_ACCOUNT * COST_PER_STATE_BYTE
+                StateGasCosts.STATE_BYTES_PER_NEW_ACCOUNT
+                * StateGasCosts.COST_PER_STATE_BYTE
             )
             tx_output.state_gas_left += new_account_refund
             tx_output.state_refund += new_account_refund

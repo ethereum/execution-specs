@@ -621,12 +621,8 @@ def calculate_intrinsic_cost(tx: Transaction) -> IntrinsicGasCost:
     minimum gas cost used by the transaction based on the calldata size.
     """
     from .vm.gas import (
-        COST_PER_STATE_BYTE,
-        PER_AUTH_BASE_COST,
-        REGULAR_GAS_CREATE,
-        STATE_BYTES_PER_AUTH_BASE,
-        STATE_BYTES_PER_NEW_ACCOUNT,
         GasCosts,
+        StateGasCosts,
         init_code_cost,
     )
 
@@ -637,8 +633,13 @@ def calculate_intrinsic_cost(tx: Transaction) -> IntrinsicGasCost:
     create_regular_gas = Uint(0)
     create_state_gas = Uint(0)
     if tx.to == Bytes0(b""):
-        create_state_gas = STATE_BYTES_PER_NEW_ACCOUNT * COST_PER_STATE_BYTE
-        create_regular_gas = REGULAR_GAS_CREATE + init_code_cost(ulen(tx.data))
+        create_state_gas = (
+            StateGasCosts.STATE_BYTES_PER_NEW_ACCOUNT
+            * StateGasCosts.COST_PER_STATE_BYTE
+        )
+        create_regular_gas = GasCosts.REGULAR_GAS_CREATE + init_code_cost(
+            ulen(tx.data)
+        )
 
     access_list_gas = Uint(0)
     tokens_in_access_list = Uint(0)
@@ -659,10 +660,15 @@ def calculate_intrinsic_cost(tx: Transaction) -> IntrinsicGasCost:
     auth_regular_gas = Uint(0)
     auth_state_gas = Uint(0)
     if isinstance(tx, SetCodeTransaction):
-        auth_regular_gas = PER_AUTH_BASE_COST * ulen(tx.authorizations)
+        auth_regular_gas = GasCosts.PER_AUTH_BASE_COST * ulen(
+            tx.authorizations
+        )
         auth_state_gas = (
-            (STATE_BYTES_PER_NEW_ACCOUNT + STATE_BYTES_PER_AUTH_BASE)
-            * COST_PER_STATE_BYTE
+            (
+                StateGasCosts.STATE_BYTES_PER_NEW_ACCOUNT
+                + StateGasCosts.STATE_BYTES_PER_AUTH_BASE
+            )
+            * StateGasCosts.COST_PER_STATE_BYTE
             * ulen(tx.authorizations)
         )
 
