@@ -1,7 +1,7 @@
 """Account-related types for Ethereum tests."""
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum, auto
 from typing import (
     AbstractSet,
@@ -41,14 +41,6 @@ from execution_testing.base_types.conversions import (
     NumberConvertible,
 )
 
-from .trie import (
-    EMPTY_TRIE_ROOT,
-    FrontierAccount,
-    Trie,
-    root,
-    trie_get,
-    trie_set,
-)
 from .utils import keccak256
 
 
@@ -65,74 +57,6 @@ class _Phase(Enum):
     """Cache built; only `apply_diff` may mutate."""
     FROZEN = auto()
     """No mutations are allowed."""
-
-
-FrontierAddress = Bytes20
-
-
-@dataclass
-class State:
-    """Contains all information that is preserved between transactions."""
-
-    _main_trie: Trie[Bytes20, Optional[FrontierAccount]] = field(
-        default_factory=lambda: Trie(secured=True, default=None)
-    )
-    _storage_tries: Dict[Bytes20, Trie[Bytes32, U256]] = field(
-        default_factory=dict
-    )
-    _snapshots: List[
-        Tuple[
-            Trie[Bytes20, Optional[FrontierAccount]],
-            Dict[Bytes20, Trie[Bytes32, U256]],
-        ]
-    ] = field(default_factory=list)
-
-
-def set_account(
-    state: State, address: Bytes20, account: Optional[FrontierAccount]
-) -> None:
-    """
-    Set the `Account` object at an address. Setting to `None` deletes the
-    account (but not its storage, see `destroy_account()`).
-    """
-    trie_set(state._main_trie, address, account)
-
-
-def set_storage(
-    state: State, address: Bytes20, key: Bytes32, value: U256
-) -> None:
-    """
-    Set a value at a storage key on an account. Setting to `U256(0)` deletes
-    the key.
-    """
-    assert trie_get(state._main_trie, address) is not None
-
-    trie = state._storage_tries.get(address)
-    if trie is None:
-        trie = Trie(secured=True, default=U256(0))
-        state._storage_tries[address] = trie
-    trie_set(trie, key, value)
-    if trie._data == {}:
-        del state._storage_tries[address]
-
-
-def storage_root(state: State, address: Bytes20) -> Bytes32:
-    """Calculate the storage root of an account."""
-    assert not state._snapshots
-    if address in state._storage_tries:
-        return root(state._storage_tries[address])
-    else:
-        return EMPTY_TRIE_ROOT
-
-
-def state_root(state: State) -> Bytes32:
-    """Calculate the state root."""
-    assert not state._snapshots
-
-    def get_storage_root(address: Bytes20) -> Bytes32:
-        return storage_root(state, address)
-
-    return root(state._main_trie, get_storage_root=get_storage_root)
 
 
 class EOA(Address):
@@ -377,34 +301,7 @@ class Alloc(BaseAlloc):
 
     def state_root(self) -> Hash:
         """Return state root of the allocation."""
-        state = State()
-        for address, account in self.root.items():
-            if account is None:
-                continue
-            set_account(
-                state=state,
-                address=FrontierAddress(address),
-                account=FrontierAccount(
-                    nonce=Uint(account.nonce)
-                    if account.nonce is not None
-                    else Uint(0),
-                    balance=(
-                        U256(account.balance)
-                        if account.balance is not None
-                        else U256(0)
-                    ),
-                    code=account.code if account.code is not None else b"",
-                ),
-            )
-            if account.storage is not None:
-                for key, value in account.storage.root.items():
-                    set_storage(
-                        state=state,
-                        address=FrontierAddress(address),
-                        key=Bytes32(Hash(key)),
-                        value=U256(value),
-                    )
-        return Hash(state_root(state))
+        return Hash(spec_state.state_root(self._materialize_state()))
 
     def verify_post_alloc(self, got_alloc: "Alloc") -> None:
         """
