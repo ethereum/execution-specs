@@ -261,6 +261,8 @@ def post(
 @pytest.mark.parametrize(
     "z,y,kzg_commitment,kzg_proof,versioned_hash",
     [
+        # Commitment and proof at infinity represent the polynomial p == 0,
+        # so p(z) == 0 for any z and the call succeeds with y == 0.
         pytest.param(
             Spec.BLS_MODULUS - 1,
             0,
@@ -269,9 +271,9 @@ def post(
             None,
             id="in_bounds_z",
         ),
+        # Example valid input from a Mainnet transaction:
+        # https://etherscan.io/tx/0xcb3dc8f3b14f1cda0c16a619a112102a8ec70dce1b3f1b28272227cf8d5fbb0e
         pytest.param(
-            # Example valid input from a Mainnet transaction
-            # https://etherscan.io/tx/0xcb3dc8f3b14f1cda0c16a619a112102a8ec70dce1b3f1b28272227cf8d5fbb0e
             0x019123BCB9D06356701F7BE08B4494625B87A7B02EDC566126FB81F6306E915F,
             0x6C2EB1E94C2532935B8465351BA1BD88EABE2B3FA1AADFF7D1CD816E8315BD38,
             0xA9546D41993E10DF2A7429B8490394EA9EE62807BAE6F326D1044A51581306F58D4B9DFD5931E044688855280FF3799E,
@@ -289,13 +291,7 @@ def test_valid_inputs(
     tx: Transaction,
     post: Dict,
 ) -> None:
-    """
-    Test valid sanity precompile calls that are expected to succeed.
-
-    - `kzg_commitment` and `kzg_proof` are set to values such that `p(z)==0`
-        for all values of `z`, hence `y` is tested to be zero, and call to be
-        successful.
-    """
+    """Test valid sanity precompile calls that are expected to succeed."""
     state_test(
         env=Environment(),
         pre=pre,
@@ -307,50 +303,109 @@ def test_valid_inputs(
 @pytest.mark.parametrize(
     "z,y,kzg_commitment,kzg_proof,versioned_hash",
     [
-        (Spec.BLS_MODULUS, 0, INF_POINT, INF_POINT, None),
-        (0, Spec.BLS_MODULUS, INF_POINT, INF_POINT, None),
-        (Z, 0, INF_POINT, INF_POINT[:-1], None),
-        (Z, 0, INF_POINT, INF_POINT[0:1], None),
-        (Z, 0, INF_POINT, INF_POINT + bytes([0]), None),
-        (Z, 0, INF_POINT, INF_POINT + bytes([0] * 1023), None),
-        (bytes(), bytes(), bytes(), bytes(), bytes()),
-        (0, 0, 0, 0, 0),
-        (0, 0, 0, 0, None),
-        (
+        # Out of bounds z and y.
+        pytest.param(
+            Spec.BLS_MODULUS,
+            0,
+            INF_POINT,
+            INF_POINT,
+            None,
+            id="out_of_bounds_z",
+        ),
+        pytest.param(
+            0,
+            Spec.BLS_MODULUS,
+            INF_POINT,
+            INF_POINT,
+            None,
+            id="out_of_bounds_y",
+        ),
+        # Correct proof and commitment but incorrect input lengths.
+        pytest.param(
+            Z,
+            0,
+            INF_POINT,
+            INF_POINT[:-1],
+            None,
+            id="correct_proof_1_input_too_short",
+        ),
+        pytest.param(
+            Z,
+            0,
+            INF_POINT,
+            INF_POINT[0:1],
+            None,
+            id="correct_proof_1_input_too_short_2",
+        ),
+        pytest.param(
+            Z,
+            0,
+            INF_POINT,
+            INF_POINT + b"\x00",
+            None,
+            id="correct_proof_1_input_too_long",
+        ),
+        pytest.param(
+            Z,
+            0,
+            INF_POINT,
+            INF_POINT + b"\x00" * 1023,
+            None,
+            id="correct_proof_1_input_extra_long",
+        ),
+        # Empty calldata.
+        pytest.param(
+            b"",
+            b"",
+            b"",
+            b"",
+            b"",
+            id="null_inputs",
+        ),
+        # Zero commitment is not a valid compressed BLS12-381 point;
+        # the two cases differ only in whether the versioned hash matches
+        # the one derived from the zero commitment.
+        pytest.param(
+            0,
+            0,
+            0,
+            0,
+            0,
+            id="zeros_inputs",
+        ),
+        pytest.param(
+            0,
+            0,
+            0,
+            0,
+            None,
+            id="zeros_inputs_correct_versioned_hash",
+        ),
+        # Correct proof and commitment but incorrect versioned-hash version.
+        pytest.param(
             Z,
             0,
             INF_POINT,
             INF_POINT,
-            Spec.kzg_to_versioned_hash(0xC0 << 376, 0x00),
+            Spec.kzg_to_versioned_hash(INF_POINT, 0x00),
+            id="correct_proof_1_incorrect_versioned_hash_version_0x00",
         ),
-        (
+        pytest.param(
             Z,
             0,
             INF_POINT,
             INF_POINT,
-            Spec.kzg_to_versioned_hash(0xC0 << 376, 0x02),
+            Spec.kzg_to_versioned_hash(INF_POINT, 0x02),
+            id="correct_proof_1_incorrect_versioned_hash_version_0x02",
         ),
-        (
+        pytest.param(
             Z,
             0,
             INF_POINT,
             INF_POINT,
-            Spec.kzg_to_versioned_hash(0xC0 << 376, 0xFF),
+            Spec.kzg_to_versioned_hash(INF_POINT, 0xFF),
+            id="correct_proof_1_incorrect_versioned_hash_version_0xff",
         ),
-    ],
-    ids=[
-        "out_of_bounds_z",
-        "out_of_bounds_y",
-        "correct_proof_1_input_too_short",
-        "correct_proof_1_input_too_short_2",
-        "correct_proof_1_input_too_long",
-        "correct_proof_1_input_extra_long",
-        "null_inputs",
-        "zeros_inputs",
-        "zeros_inputs_correct_versioned_hash",
-        "correct_proof_1_incorrect_versioned_hash_version_0x00",
-        "correct_proof_1_incorrect_versioned_hash_version_0x02",
-        "correct_proof_1_incorrect_versioned_hash_version_0xff",
     ],
 )
 @pytest.mark.parametrize("result", [Result.FAILURE])
@@ -362,16 +417,7 @@ def test_invalid_inputs(
     tx: Transaction,
     post: Dict,
 ) -> None:
-    """
-    Test invalid precompile calls.
-
-    - Out of bounds inputs `z` and `y`
-    - Correct proof, commitment, z and y, but incorrect lengths
-    - Null inputs
-    - Zero inputs
-    - Correct proof, commitment, z and y, but incorrect version versioned
-       hash
-    """
+    """Test invalid precompile calls; verification expected to fail."""
     state_test(
         env=Environment(),
         pre=pre,
