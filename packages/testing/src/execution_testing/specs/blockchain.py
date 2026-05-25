@@ -709,9 +709,6 @@ class BlockchainTest(BaseTest):
     Include transaction receipts in the fixture output.
     """
 
-    # ``BlockchainEngineStatefulFixture`` is patched in by the
-    # ``fill_stateful`` plugin at import time; it requires a live
-    # ``ClientBackend`` so it must not be in the default list.
     supported_fixture_formats: ClassVar[
         Sequence[FixtureFormat | LabeledFixtureFormat]
     ] = [
@@ -719,6 +716,7 @@ class BlockchainTest(BaseTest):
         BlockchainEngineFixture,
         BlockchainEngineSyncFixture,
         BlockchainEngineXFixture,
+        BlockchainEngineStatefulFixture,
     ]
     supported_execute_formats: ClassVar[Sequence[LabeledExecuteFormat]] = [
         LabeledExecuteFormat(

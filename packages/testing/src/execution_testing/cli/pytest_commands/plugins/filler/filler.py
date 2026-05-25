@@ -307,15 +307,22 @@ class FillingSession:
     pre_alloc_group_builders: PreAllocGroupBuilders | None = None
 
     @classmethod
-    def from_config(cls, config: pytest.Config) -> "Self":
+    def from_config(
+        cls, config: pytest.Config, phase_manager: PhaseManager | None = None
+    ) -> "Self":
         """
         Initialize a filling session from pytest configuration.
 
         Args:
             config: The pytest configuration object.
+            phase_manager: Override the phase manager from the config.
 
         """
-        phase_manager = PhaseManager.from_config(config)
+        phase_manager = (
+            PhaseManager.from_config(config)
+            if phase_manager is None
+            else phase_manager
+        )
         instance = cls(
             fixture_output=FixtureOutput.from_config(config),
             phase_manager=phase_manager,
@@ -837,8 +844,10 @@ def pytest_configure(config: pytest.Config) -> None:
     )
 
     # Initialize filling session
+    phase_manager: PhaseManager | None = getattr(config, "phase_manager", None)
     config.filling_session = FillingSession.from_config(  # type: ignore[attr-defined]
-        config
+        config,
+        phase_manager=phase_manager,
     )
 
     if is_help_or_collectonly_mode(config):

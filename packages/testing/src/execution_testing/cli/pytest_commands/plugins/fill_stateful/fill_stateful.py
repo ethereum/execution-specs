@@ -29,8 +29,8 @@ from execution_testing.base_types import (
 )
 from execution_testing.client_clis import ClientBackend
 from execution_testing.client_clis.cli_types import EnginePayloadMetadata
+from execution_testing.fixtures import FixtureFillingPhase
 from execution_testing.fixtures.blockchain import (
-    BlockchainEngineStatefulFixture,
     StatefulPreRunFixture,
 )
 from execution_testing.forks import Fork, TransitionFork
@@ -45,6 +45,7 @@ from execution_testing.test_types import EOA
 
 from ..execute import contracts
 from ..execute.rpc.chain_builder_eth_rpc import ChainBuilderEthRPC
+from ..filler.filler import PhaseManager
 from ..shared.helpers import is_help_or_collectonly_mode
 from ..shared.live_client_flags import FEE_BUMP_MULTIPLIER
 
@@ -53,13 +54,6 @@ from ..shared.live_client_flags import FEE_BUMP_MULTIPLIER
 SEED_FUNDING_WEI = 10**9 * 10**18
 
 logger = get_logger(__name__)
-
-
-# Restrict to stateful-engine fixtures only. Filler reads
-# ``supported_fixture_formats`` at collection time, so module load is the
-# earliest hook. BenchmarkTest overrides the ClassVar so both need patching.
-BlockchainTest.supported_fixture_formats = [BlockchainEngineStatefulFixture]
-BenchmarkTest.supported_fixture_formats = [BlockchainEngineStatefulFixture]
 
 
 # ---------------------------------------------------------------------------
@@ -125,6 +119,9 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "missing_stubs(message): fill-stateful policy marker; "
         "pytest_runtest_call fails the test with ``message``.",
+    )
+    config.phase_manager = PhaseManager(
+        current_phase=FixtureFillingPhase.FILL_STATEFUL
     )
 
     # Help/collect-only never talks to a client; skip endpoint defaulting.

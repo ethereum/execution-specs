@@ -62,6 +62,8 @@ class FixtureFillingPhase(Enum):
 
     PRE_ALLOC_GENERATION = auto()
     FILL = auto()
+    PRE_ALLOC_GENERATION_STATEFUL = auto()
+    FILL_STATEFUL = auto()
 
 
 class BaseFixture(CamelModel):
