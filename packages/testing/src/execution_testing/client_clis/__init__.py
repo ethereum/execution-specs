@@ -12,6 +12,7 @@ from .cli_types import (
     TransactionExceptionWithMessage,
     TransitionToolOutput,
 )
+from .client_backend import ClientBackend, ClientBackendExceptionMapper
 from .clis.besu import BesuFixtureConsumer, BesuTransitionTool
 from .clis.ethereumjs import EthereumJSTransitionTool
 from .clis.evmone import (
@@ -25,6 +26,7 @@ from .clis.geth import GethFixtureConsumer, GethTransitionTool
 from .clis.nethermind import Nethtest, NethtestFixtureConsumer
 from .clis.nimbus import NimbusTransitionTool
 from .ethereum_cli import CLINotFoundInPathError, UnknownCLIError
+from .filler_backend import FillerBackend
 from .fixture_consumer_tool import FixtureConsumerTool
 from .trace_comparators import (
     FieldExclusionTraceComparator,
@@ -46,6 +48,8 @@ __all__ = (
     "BesuTransitionTool",
     "BlockExceptionWithMessage",
     "CLINotFoundInPathError",
+    "ClientBackend",
+    "ClientBackendExceptionMapper",
     "EthereumJSTransitionTool",
     "EvmoneExceptionMapper",
     "EvmOneTransitionTool",
@@ -53,6 +57,7 @@ __all__ = (
     "EvmOneBlockchainFixtureConsumer",
     "ExecutionSpecsTransitionTool",
     "FieldExclusionTraceComparator",
+    "FillerBackend",
     "FixtureConsumerTool",
     "GasExhaustionTraceComparator",
     "GethFixtureConsumer",

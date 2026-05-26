@@ -68,6 +68,8 @@ def test_json_dict() -> None:
                 config=FixtureConfig(fork=Prague),
                 snapshot_block_number=0,
                 snapshot_block_hash=Hash(0),
+                start_block_number=0,
+                start_block_hash=Hash(0),
                 setup_payloads=[
                     FixtureEngineNewPayload.from_fixture_header(
                         fork=Prague,

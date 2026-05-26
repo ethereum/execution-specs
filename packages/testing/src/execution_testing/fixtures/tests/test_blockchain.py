@@ -997,6 +997,8 @@ fixture_header_ones = FixtureHeader(
                 config=FixtureConfig(fork=Prague),
                 snapshot_block_number=100,
                 snapshot_block_hash=Hash(99),
+                start_block_number=100,
+                start_block_hash=Hash(99),
                 setup_payloads=[
                     FixtureEngineNewPayload.from_fixture_header(
                         fork=Prague,
@@ -1073,6 +1075,8 @@ fixture_header_ones = FixtureHeader(
                 },
                 "snapshotBlockNumber": "0x64",
                 "snapshotBlockHash": Hash(99).hex(),
+                "startBlockNumber": "0x64",
+                "startBlockHash": Hash(99).hex(),
                 "setupEngineNewPayloads": [
                     to_json(
                         FixtureEngineNewPayload.from_fixture_header(
