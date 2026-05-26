@@ -1418,7 +1418,7 @@ class TestingRPC(BaseRPC):
         self,
         parent_block_hash: Hash,
         payload_attributes: PayloadAttributes,
-        transactions: Sequence[TransactionProtocol] | None,
+        transactions: Sequence[TransactionProtocol | Bytes] | None,
         extra_data: Bytes | None = None,
         *,
         version: int = 1,
@@ -1428,6 +1428,9 @@ class TestingRPC(BaseRPC):
         provided *payload_attributes* and *transactions*.
 
         Calls ``testing_buildBlockVX``.
+
+        Transactions can be either ``TransactionProtocol`` objects (with
+        an ``rlp()`` method) or raw ``Bytes`` (already RLP-encoded).
         """
         method = f"buildBlockV{version}"
         params: List[Any] = [
@@ -1435,7 +1438,12 @@ class TestingRPC(BaseRPC):
             to_json(payload_attributes),
         ]
         if transactions is not None:
-            params.append([tx.rlp().hex() for tx in transactions])
+            params.append(
+                [
+                    tx.hex() if isinstance(tx, bytes) else tx.rlp().hex()
+                    for tx in transactions
+                ]
+            )
         else:
             params.append(None)
         if extra_data is not None:

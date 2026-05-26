@@ -101,7 +101,7 @@ class MessageCallOutput:
     error: Optional[EthereumException]
     return_data: Bytes
     regular_gas_used: Uint
-    state_gas_used: Uint
+    state_gas_used: int
     state_refund: Uint
 
 
@@ -138,7 +138,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
                 error=AddressCollision(),
                 return_data=Bytes(b""),
                 regular_gas_used=message.gas,
-                state_gas_used=Uint(0),
+                state_gas_used=0,
                 state_refund=Uint(0),
             )
         else:
@@ -244,11 +244,6 @@ def process_create_message(message: Message) -> Evm:
             restore_tx_state(tx_state, snapshot)
             evm.regular_gas_used += evm.gas_left
             evm.gas_left = Uint(0)
-            # State-gas counters preserved: parent's
-            # incorporate_child_on_error (or tx-level error handler at
-            # top) folds the full state-gas charge — including any
-            # spilled portion — back into the reservoir, since no
-            # state was actually grown.
             evm.output = b""
             evm.error = error
         else:
@@ -340,11 +335,6 @@ def process_message(message: Message) -> Evm:
         evm_trace(evm, OpException(error))
         evm.regular_gas_used += evm.gas_left
         evm.gas_left = Uint(0)
-        # State-gas counters preserved: parent's
-        # incorporate_child_on_error (or tx-level error handler at
-        # top) folds the full state-gas charge — including any
-        # spilled portion — back into the reservoir, since no
-        # state was actually grown.
         evm.output = b""
         evm.error = error
     except Revert as error:
