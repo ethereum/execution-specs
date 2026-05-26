@@ -295,6 +295,39 @@ def rerun_amsterdam_stateless_guest_with_overrides(
     )
 
 
+def rerun_amsterdam_stateless_guest_with_input_bytes(
+    *,
+    fork: Fork,
+    block_number: int,
+    timestamp: int,
+    stateless_input_bytes: Bytes,
+) -> tuple[Bytes, Bytes, bool]:
+    """
+    Rerun the Amsterdam stateless guest with raw stateless input bytes.
+    """
+    active_fork = fork.fork_at(block_number=block_number, timestamp=timestamp)
+    if active_fork.name() != "Amsterdam":
+        raise Exception(
+            "Stateless guest raw input rerun is only supported for Amsterdam"
+        )
+
+    from ethereum.forks.amsterdam.stateless_guest import run_stateless_guest
+    from ethereum.forks.amsterdam.stateless_host import (
+        deserialize_stateless_output,
+    )
+    from ethereum_types.bytes import Bytes as AmsterdamBytes
+
+    guest_input_bytes = AmsterdamBytes(bytes(stateless_input_bytes))
+    stateless_output_bytes = run_stateless_guest(guest_input_bytes)
+    stateless_output = deserialize_stateless_output(stateless_output_bytes)
+
+    return (
+        Bytes(bytes(guest_input_bytes)),
+        Bytes(bytes(stateless_output_bytes)),
+        stateless_output.successful_validation,
+    )
+
+
 def get_amsterdam_stateless_input_public_key_data(
     *,
     fork: Fork,
@@ -666,6 +699,27 @@ def assert_amsterdam_stateless_output_chain_config(
         )
 
 
+def is_invalid_stateless_input_sentinel(stateless_output: Any) -> bool:
+    """
+    Return whether output is the invalid stateless input sentinel.
+    """
+    from ethereum.forks.amsterdam.stateless import ProtocolFork
+    from ethereum_types.numeric import U64
+
+    chain_config = stateless_output.chain_config
+    active_fork = chain_config.active_fork
+    activation = active_fork.activation
+    return (
+        not stateless_output.successful_validation
+        and bytes(stateless_output.new_payload_request_root) == b"\0" * 32
+        and chain_config.chain_id == U64(0)
+        and active_fork.fork == ProtocolFork.Frontier
+        and activation.block_number is None
+        and activation.timestamp is None
+        and active_fork.blob_schedule is None
+    )
+
+
 class Header(CamelModel):
     """Header type used to describe block header properties in test specs."""
 
@@ -828,6 +882,14 @@ class Block(Header):
     """
     If set, mutate the stateless input transaction public keys before rerunning
     the guest for invalid tests.
+    """
+    stateless_input_bytes_modifier: Callable[[Bytes], Bytes] | None = Field(
+        default=None,
+        exclude=True,
+    )
+    """
+    If set, mutate the serialized stateless input bytes before rerunning the
+    guest for invalid tests.
     """
     expected_stateless_validation_success: bool | None = None
     """
@@ -994,10 +1056,10 @@ class BuiltBlock(CamelModel):
             if self.execution_witness
             else None,
             stateless_input_bytes=self.stateless_input_bytes
-            if self.stateless_input_bytes
+            if self.stateless_input_bytes is not None
             else None,
             stateless_output_bytes=self.stateless_output_bytes
-            if self.stateless_output_bytes
+            if self.stateless_output_bytes is not None
             else None,
             fork=self.fork,
         ).with_rlp(txs=self.txs)
@@ -1286,11 +1348,16 @@ class BlockchainTest(BaseTest):
         )
         public_keys_modifier = block.stateless_input_public_keys_modifier
         has_public_keys_modifier = public_keys_modifier is not None
+        stateless_input_bytes_modifier = block.stateless_input_bytes_modifier
+        has_stateless_input_bytes_modifier = (
+            stateless_input_bytes_modifier is not None
+        )
         expected_success = block.expected_stateless_validation_success
         omit_stateless_artifacts = block.rlp_modifier is not None
         if omit_stateless_artifacts and (
             has_witness_expectation
             or has_public_keys_modifier
+            or has_stateless_input_bytes_modifier
             or expected_success is not None
         ):
             raise AssertionError(
@@ -1301,12 +1368,13 @@ class BlockchainTest(BaseTest):
         if self.skip_stateless_validation and (
             has_witness_expectation
             or has_public_keys_modifier
+            or has_stateless_input_bytes_modifier
             or expected_success is not None
         ):
             raise AssertionError(
                 "skip_stateless_validation cannot be combined with "
                 "execution witness expectations, stateless input public-key "
-                "modifiers, or "
+                "modifiers, stateless input byte modifiers, or "
                 "expected_stateless_validation_success"
             )
         skip_stateless_for_block = (
@@ -1566,6 +1634,11 @@ class BlockchainTest(BaseTest):
                 "Mutated stateless input public-key tests must set "
                 "expected_stateless_validation_success explicitly"
             )
+        if has_stateless_input_bytes_modifier and expected_success is None:
+            raise AssertionError(
+                "Mutated stateless input byte tests must set "
+                "expected_stateless_validation_success explicitly"
+            )
         public_keys: Tuple[Bytes, ...] | None = None
         should_verify_stateless_input_public_keys = (
             stateless_input_bytes is not None
@@ -1618,10 +1691,11 @@ class BlockchainTest(BaseTest):
                 stateless_output.successful_validation
             )
 
-        should_rerun_stateless_guest = (
+        should_rerun_structured_stateless_guest = (
             has_witness_modifier or has_public_keys_modifier
         )
-        if should_rerun_stateless_guest:
+        final_successful_validation = canonical_successful_validation
+        if should_rerun_structured_stateless_guest:
             if stateless_input_bytes is None:
                 raise Exception(
                     "Stateless guest rerun requires stateless input bytes"
@@ -1658,30 +1732,58 @@ class BlockchainTest(BaseTest):
                 timestamp=int(env.timestamp),
                 stateless_output_bytes=stateless_output_bytes,
             )
-            if (
-                expected_success is not None
-                and successful_validation != expected_success
-            ):
-                raise AssertionError(
-                    "Stateless guest validation result mismatch: "
-                    f"got {successful_validation}, "
-                    f"want {expected_success}"
+            final_successful_validation = successful_validation
+
+        if has_stateless_input_bytes_modifier:
+            if stateless_input_bytes is None:
+                raise Exception(
+                    "Stateless guest raw input rerun requires stateless "
+                    "input bytes"
                 )
-        elif (
+            if stateless_input_bytes_modifier is None:
+                raise Exception("Stateless input bytes modifier is required")
+            stateless_input_bytes = stateless_input_bytes_modifier(
+                stateless_input_bytes
+            )
+            (
+                stateless_input_bytes,
+                stateless_output_bytes,
+                successful_validation,
+            ) = rerun_amsterdam_stateless_guest_with_input_bytes(
+                fork=fork,
+                block_number=int(env.number),
+                timestamp=int(env.timestamp),
+                stateless_input_bytes=stateless_input_bytes,
+            )
+            stateless_output = decode_amsterdam_stateless_output(
+                fork=fork,
+                block_number=int(env.number),
+                timestamp=int(env.timestamp),
+                stateless_output_bytes=stateless_output_bytes,
+            )
+            final_successful_validation = successful_validation
+
+        if (
             expected_success is not None
-            and canonical_successful_validation != expected_success
+            and final_successful_validation != expected_success
         ):
             raise AssertionError(
-                "Canonical stateless guest validation result mismatch: "
-                f"got {canonical_successful_validation}, "
+                "Stateless guest validation result mismatch: "
+                f"got {final_successful_validation}, "
                 f"want {expected_success}"
             )
 
-        assert_amsterdam_stateless_output_chain_config(
-            block_number=int(env.number),
-            chain_id=self.chain_id,
-            stateless_output=stateless_output,
+        skip_chain_config_assertion = (
+            has_stateless_input_bytes_modifier
+            and stateless_output is not None
+            and is_invalid_stateless_input_sentinel(stateless_output)
         )
+        if not skip_chain_config_assertion:
+            assert_amsterdam_stateless_output_chain_config(
+                block_number=int(env.number),
+                chain_id=self.chain_id,
+                stateless_output=stateless_output,
+            )
 
         built_block = BuiltBlock(
             header=header,

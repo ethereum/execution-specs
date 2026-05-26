@@ -3,8 +3,15 @@ Stateless guest interfaces.
 """
 
 from ethereum_types.bytes import Bytes
+from ethereum_types.numeric import U64
+
+from ethereum.crypto.hash import Hash32
 
 from .stateless import (
+    ChainConfig,
+    ForkActivation,
+    ForkConfig,
+    ProtocolFork,
     StatelessInput,
     StatelessValidationResult,
     verify_stateless_new_payload,
@@ -44,12 +51,37 @@ def deserialize_stateless_input(data: Bytes) -> StatelessInput:
     return ssz_to_stateless_input(ssz_obj)
 
 
+def _default_failed_stateless_output() -> StatelessValidationResult:
+    """
+    Return the sentinel result used when stateless input cannot be decoded.
+    """
+    return StatelessValidationResult(
+        new_payload_request_root=Hash32(b"\0" * 32),
+        successful_validation=False,
+        chain_config=ChainConfig(
+            chain_id=U64(0),
+            active_fork=ForkConfig(
+                fork=ProtocolFork.Frontier,
+                activation=ForkActivation(
+                    block_number=None,
+                    timestamp=None,
+                ),
+                blob_schedule=None,
+            ),
+        ),
+    )
+
+
 def run_stateless_guest(input_bytes: Bytes) -> Bytes:
     """
     Run the stateless guest with serialized input, return serialized output.
     """
-    stateless_input = deserialize_stateless_input(input_bytes)
-    stateless_output = verify_stateless_new_payload(stateless_input)
+    try:
+        stateless_input = deserialize_stateless_input(input_bytes)
+    except Exception:
+        stateless_output = _default_failed_stateless_output()
+    else:
+        stateless_output = verify_stateless_new_payload(stateless_input)
 
     output_bytes = serialize_stateless_output(stateless_output)
     return output_bytes

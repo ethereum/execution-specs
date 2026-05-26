@@ -33,6 +33,7 @@ from ethereum.forks.amsterdam.stateless import (
 )
 from ethereum.forks.amsterdam.stateless_guest import (
     deserialize_stateless_input,
+    run_stateless_guest,
     serialize_stateless_output,
 )
 from ethereum.forks.amsterdam.stateless_host import (
@@ -340,6 +341,23 @@ class TestSerializeStatelessOutput:
         encoded = serialize_stateless_output(original)
         recovered = deserialize_stateless_output(encoded)
         assert recovered == original
+
+
+class TestRunStatelessGuest:
+    """Test stateless guest input and output handling."""
+
+    def test_invalid_input_bytes_return_failed_validation(self) -> None:
+        """Malformed input returns a failed result with sentinel fields."""
+        encoded = run_stateless_guest(Bytes(b""))
+        result = deserialize_stateless_output(encoded)
+
+        assert result.new_payload_request_root == Hash32(b"\0" * 32)
+        assert not result.successful_validation
+        assert result.chain_config.chain_id == U64(0)
+        assert result.chain_config.active_fork.fork == ProtocolFork.Frontier
+        assert result.chain_config.active_fork.activation.block_number is None
+        assert result.chain_config.active_fork.activation.timestamp is None
+        assert result.chain_config.active_fork.blob_schedule is None
 
 
 class TestComputeNewPayloadRequestRoot:
