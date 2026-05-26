@@ -129,13 +129,13 @@ Optional:
 <output>/
 └── blockchain_tests_stateful_engine/
     ├── pre_run/
-    │   └── global_setup.json       # session bootstrap (factory deploy + seed funding)
+    │   └── <start_block_hash>.json # session bootstrap (factory deploy + seed funding)
     └── for_<fork>_at_<gas>M/
         └── <test_path>/
             └── <test>.json         # per-test setup + execution payloads
 ```
 
-`pre_run/global_setup.json` (a `StatefulPreRunFixture`) is replayed once per `benchmarkoor` run. Per-test fixtures (`BlockchainEngineStatefulFixture`) chain off the pre-run's `startBlockHash`; each carries `snapshotBlockNumber`/`Hash`, `startBlockNumber`/`Hash`, `setupEngineNewPayloads`, `engineNewPayloads`, plus a `benchmarkGasUsed` field and the EL build in `_info.filling-transition-tool`.
+Each `pre_run/<start_block_hash>.json` (a `StatefulPreRunFixture`) is replayed once per `benchmarkoor` run. Per-test fixtures (`BlockchainEngineStatefulFixture`) reference their setup file by hash: a fixture with `startBlockHash = 0xabc...` is preceded by `pre_run/0xabc....json`. Each per-test fixture carries `snapshotBlockNumber`/`Hash`, `startBlockNumber`/`Hash`, `setupEngineNewPayloads`, `engineNewPayloads`, plus a `benchmarkGasUsed` field and the EL build in `_info.filling-transition-tool`. The hash-based filename leaves room for multiple pre-run files (e.g. different setup variants off one snapshot) without coordinating names.
 
 !!! warning "Snapshot anchoring"
     `--snapshot-block` accepts a hash on purpose. Anchoring to `latest` works against a quiescent client, but a live reorg between session start and fixture write would silently re-anchor the fixture to a different block. The hash form rejects that.
@@ -207,7 +207,7 @@ Both backends satisfy `FillerBackend` (`client_clis/filler_backend.py`). `Client
     2. Fund the seed EOA via CL withdrawal (`ChainBuilderEthRPC.fund_via_withdrawals`).
     3. Deploy the deterministic factory if missing (`contracts.deploy_deterministic_factory_contract`).
     4. Capture `latest` as the `start_block` anchor on the backend.
-    5. Write `pre_run/global_setup.json` (a `StatefulPreRunFixture`).
+    5. Write `pre_run/<start_block_hash>.json` (a `StatefulPreRunFixture`).
 2. **Per-test fill** (`make_stateful_fixture`):
     1. Materialise `pre.fund_eoa` / `pre.deploy_contract` queue into a synthetic setup block prepended to `self.blocks`.
     2. `_split_blocks_by_phase` splits any mixed-phase blocks (e.g. EIP-7702 SETUP + benchmark TEST).
@@ -232,8 +232,9 @@ The client's `GetPayloadResponse` is recorded **verbatim**. Rebuilding from `Fix
 ```text
 pristine snapshot ───copy──▶ datadir ───▶ geth ───▶ benchmarkoor
                                                        │
-                                                       ├── replay pre_run/global_setup.json
-                                                       │   (1 client, 1 time per run)
+                                                       ├── replay pre_run/<startBlockHash>.json
+                                                       │   for each fixture's startBlockHash
+                                                       │   (1 client, 1 time per hash per run)
                                                        │
                                                        └── for each test fixture:
                                                             ├── replay setupEngineNewPayloads

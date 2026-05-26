@@ -569,7 +569,13 @@ def _session_pre_run(
 ) -> None:
     """
     Session pre-run: capture snapshot, fund seed, deploy factory, capture
-    start block, write ``pre_run/global_setup.json``.
+    start block, write ``pre_run/<start_block_hash>.json``.
+
+    The file is named after the start block hash so per-test
+    ``BlockchainEngineStatefulFixture`` instances reference their setup
+    file implicitly via their own ``start_block_hash`` field — leaves
+    room for multiple pre-run files (e.g. different setup variants off
+    one snapshot) without coordinating filenames.
 
     Pre-run helpers return their built ``EnginePayloadMetadata`` directly;
     we collect them into ``captured`` and serialise via
@@ -623,7 +629,9 @@ def _session_pre_run(
         f"hash={start_block['hash'][:20]}..."
     )
 
-    # 5. Persist captured payloads to pre_run/global_setup.json.
+    # 5. Persist captured payloads to pre_run/<start_block_hash>.json.
+    #    Per-test fixtures already carry start_block_hash; naming the
+    #    pre-run file after that hash makes lookup a direct path build.
     if captured:
         output_dir = Path(request.config.getoption("output"))
         pre_run_dir = (
@@ -632,20 +640,21 @@ def _session_pre_run(
         pre_run_dir.mkdir(parents=True, exist_ok=True)
         fork_at_genesis = session_fork.fork_at(block_number=0, timestamp=0)
         payloads = [payload_metadata_to_fixture(p) for p in captured]
+        start_block_hash = Hash(start_block["hash"])
         fixture = StatefulPreRunFixture(
             network=str(fork_at_genesis),
             snapshot_block_number=HexNumber(snapshot_block["number"]),
             snapshot_block_hash=Hash(snapshot_block["hash"]),
             start_block_number=HexNumber(start_block["number"]),
-            start_block_hash=Hash(start_block["hash"]),
+            start_block_hash=start_block_hash,
             payloads=payloads,
         )
-        (pre_run_dir / "global_setup.json").write_text(
+        pre_run_file = pre_run_dir / f"{start_block_hash}.json"
+        pre_run_file.write_text(
             fixture.model_dump_json(by_alias=True, indent=2, exclude_none=True)
         )
         logger.info(
-            f"Wrote {len(payloads)} pre-run payloads to "
-            f"{pre_run_dir / 'global_setup.json'}"
+            f"Wrote {len(payloads)} pre-run payloads to {pre_run_file}"
         )
 
 

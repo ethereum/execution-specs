@@ -70,7 +70,7 @@ def deploy_deterministic_factory_contract(
     Returns ``(next_tx_index, captured_payloads)``; the captured list is
     only populated on the fill-stateful path (``ChainBuilderEthRPC`` with
     ``testing_rpc``) so callers can write payloads into
-    ``pre_run/global_setup.json``.
+    ``pre_run/<start_block_hash>.json``.
     """
     captured: List[EnginePayloadMetadata] = []
     deploy_tx_gas_price = 0x174876E800
