@@ -31,6 +31,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
     TransactionException,
+    Withdrawal,
     add_kzg_version,
     compute_create_address,
 )
@@ -3633,13 +3634,22 @@ def test_bal_lexicographic_address_ordering(
 @EIPChecklist.BlockLevelConstraint.Test.Boundary.Exact()
 @EIPChecklist.BlockLevelConstraint.Test.Boundary.Over()
 @pytest.mark.parametrize(
+    "with_cl_withdrawal",
+    [
+        pytest.param(False, id="no_cl_withdrawal"),
+        pytest.param(True, id="with_cl_withdrawal"),
+    ],
+)
+@pytest.mark.parametrize(
+    "with_tx",
+    [pytest.param(False, id="no_tx"), pytest.param(True, id="with_tx")],
+)
+@pytest.mark.parametrize(
     "boundary_offset",
     [
         pytest.param(0, id="at_boundary"),
         pytest.param(
-            -1,
-            marks=pytest.mark.exception_test,
-            id="below_boundary",
+            -1, marks=pytest.mark.exception_test, id="below_boundary"
         ),
     ],
 )
@@ -3648,28 +3658,94 @@ def test_bal_gas_limit_boundary(
     pre: Alloc,
     fork: Fork,
     boundary_offset: int,
+    with_tx: bool,
+    with_cl_withdrawal: bool,
 ) -> None:
     """
-    Test the BAL max items gas limit boundary for an empty block.
+    BAL max-items cap (``bal_items <= block_gas_limit //
+    BLOCK_ACCESS_LIST_ITEM``) must be enforced on the **final** BAL —
+    including pre-tx system work (beacon root, history), user txs, and
+    post-tx system work (CL withdrawals, queue processing).
 
-    The consensus rule requires
-    ``bal_items <= block_gas_limit // BLOCK_ACCESS_LIST_ITEM``.
-    The boundary gas limit is derived from the fork's system-contract
-    BAL footprint.  At the boundary the check passes; one below it fails.
+    Orthogonal axes:
+    - `with_tx`: alice → bob transfer adds 3 items (alice + bob +
+      coinbase warmed via EIP-3651).
+    - `with_cl_withdrawal`: EIP-4895 withdrawal to a recipient adds 1
+      item, processed between txs and the rest of the post-tx system
+      work. Together they catch clients that validate the cap before
+      `process_withdrawals` runs.
     """
-    # EIP-7928
-    # bal_items <= block_gas_limit // ITEM_COST
-    min_gas_limit = (
-        fork.empty_block_bal_item_count()
-        * fork.gas_costs().BLOCK_ACCESS_LIST_ITEM
-    )
-    gas_limit = min_gas_limit + boundary_offset
+    # Match framework's DEFAULT_BASE_FEE so gas_price == base_fee
+    # cancels the priority fee (no coinbase balance_change to absorb
+    # into the expected counts).
+    base_fee_per_gas = 7
 
+    extra_items = 0
+    txs: list = []
+    withdrawals: list = []
+    expected_accounts: dict = {}
+    post: dict = {}
+
+    if with_tx:
+        alice = pre.fund_eoa()
+        bob = pre.fund_eoa(amount=0)
+        # alice (sender) + bob (recipient) + coinbase (EIP-3651 warm).
+        extra_items += 3
+        txs.append(
+            Transaction(
+                sender=alice,
+                to=bob,
+                value=1,
+                gas_limit=21_000,
+                gas_price=base_fee_per_gas,
+            )
+        )
+        expected_accounts[alice] = BalAccountExpectation(
+            nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
+        )
+        expected_accounts[bob] = BalAccountExpectation(
+            balance_changes=[
+                BalBalanceChange(block_access_index=1, post_balance=1)
+            ],
+        )
+        post[bob] = Account(balance=1)
+
+    if with_cl_withdrawal:
+        charlie = pre.fund_eoa(amount=0)
+        withdrawal_amount_wei = 10**9  # 1 gwei
+        # CL withdrawal recipient adds 1 item; processed at
+        # block_access_index = len(txs) + 1 (post-tx).
+        extra_items += 1
+        withdrawals.append(
+            Withdrawal(index=0, validator_index=0, address=charlie, amount=1)
+        )
+        expected_accounts[charlie] = BalAccountExpectation(
+            balance_changes=[
+                BalBalanceChange(
+                    block_access_index=len(txs) + 1,
+                    post_balance=withdrawal_amount_wei,
+                )
+            ],
+        )
+        post[charlie] = Account(balance=withdrawal_amount_wei)
+
+    total_items = fork.empty_block_bal_item_count() + extra_items
+    gas_limit = (
+        total_items * fork.gas_costs().BLOCK_ACCESS_LIST_ITEM + boundary_offset
+    )
+
+    at_boundary = boundary_offset == 0
     block = Block(
-        txs=[],
+        txs=txs,
+        withdrawals=withdrawals,
         exception=(
-            BlockException.BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED
-            if boundary_offset < 0
+            None
+            if at_boundary
+            else BlockException.BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED
+        ),
+        expected_block_access_list=(
+            BlockAccessListExpectation(account_expectations=expected_accounts)
+            if at_boundary and expected_accounts
             else None
         ),
     )
@@ -3677,8 +3753,10 @@ def test_bal_gas_limit_boundary(
     blockchain_test(
         pre=pre,
         blocks=[block],
-        post={},
-        genesis_environment=Environment(gas_limit=gas_limit),
+        post=post if at_boundary else {},
+        genesis_environment=Environment(
+            base_fee_per_gas=base_fee_per_gas, gas_limit=gas_limit
+        ),
     )
 
 
