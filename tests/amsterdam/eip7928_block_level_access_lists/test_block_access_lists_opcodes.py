@@ -2854,7 +2854,12 @@ def test_bal_create_collision(
     alice = pre.fund_eoa()
     bob = pre.fund_eoa()
 
-    init_code = Initcode(deploy_code=Op.STOP)
+    # Storage-touching init: a client that wrongly runs init on the
+    # collision leaks a slot-0 access into X's BAL.
+    init_code = Initcode(
+        deploy_code=Op.STOP,
+        initcode_prefix=Op.SSTORE(0, Op.ADD(Op.SLOAD(0), 1)),
+    )
     init_code_bytes = bytes(init_code)
 
     factory_code = (
@@ -3096,12 +3101,19 @@ def test_bal_create2_deploy_then_collision(
     `code_changes` axis of #2914 (forward order would need 7702 +
     signable EOA at a deterministic CREATE address, infeasible).
 
+    Init increments X's slot 0, so post-state slot 0 == 1 proves it ran
+    once (tx1); the tx2 collision must not re-run it (else a demoted
+    read leaks into X's `storage_reads`).
+
     CREATE2-only: CREATE auto-increments factory.nonce between txs, so
     the second attempt targets a different address.
     """
     alice = pre.fund_eoa()
 
-    init_code = Initcode(deploy_code=Op.STOP)
+    init_code = Initcode(
+        deploy_code=Op.STOP,
+        initcode_prefix=Op.SSTORE(0, Op.ADD(Op.SLOAD(0), 1)),
+    )
     init_code_bytes = bytes(init_code)
 
     factory_code = (
@@ -3163,9 +3175,11 @@ def test_bal_create2_deploy_then_collision(
                     ],
                 ),
                 # Index-1 deployment entries must survive the
-                # index-2 collision touch (the core invariant).
-                # Strict: assert no spurious balance/storage/reads
-                # were added by the second tx's collision touch.
+                # index-2 collision touch. Init ran once (tx1), writing
+                # slot 0 = 1. The tx2 collision must add nothing — in
+                # particular `storage_reads` MUST stay empty (a client
+                # that runs init then reverts on collision would leak
+                # slot 0 here as a demoted read).
                 target: BalAccountExpectation(
                     nonce_changes=[
                         BalNonceChange(block_access_index=1, post_nonce=1),
@@ -3175,8 +3189,17 @@ def test_bal_create2_deploy_then_collision(
                             block_access_index=1, new_code=bytes(Op.STOP)
                         ),
                     ],
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0x00,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=1, post_value=1
+                                )
+                            ],
+                        )
+                    ],
                     balance_changes=[],
-                    storage_changes=[],
                     storage_reads=[],
                 ),
             }
@@ -3189,8 +3212,9 @@ def test_bal_create2_deploy_then_collision(
         post={
             alice: Account(nonce=2),
             factory: Account(nonce=3, storage={0x00: 0}),
+            # slot 0 == 1 proves init ran exactly once (tx2 collided).
             target: Account(
-                nonce=1, code=bytes(Op.STOP), balance=0, storage={}
+                nonce=1, code=bytes(Op.STOP), balance=0, storage={0x00: 1}
             ),
         },
     )
