@@ -1,7 +1,7 @@
 ---
-name: Devnet Tracker
+name: Devnet Test Release Tracker
 about: Track EL test release readiness for a devnet (tests-<feat>-devnet@vX.Y.Z)
-title: '<feat>-devnet@vX.Y.Z Tracker'
+title: '<feat>-devnet@vX.Y.Z Test Release Tracker'
 labels: C-tracker, P-high
 assignees: ''
 
@@ -34,8 +34,8 @@ assignees: ''
 > **Versioning** (`vX.Y.Z`): `X` is the devnet number (e.g. `5` for
 > `glamsterdam-devnet-5`), making the targeted devnet explicit. `Y`/`Z` follow
 > the same semantics as the consensus test releases: `Y` (minor) is bumped for
-> new or changed tests that add/modify fixtures, and `Z` (patch) is bumped for
-> backward-compatible fixes that do not change existing fixtures.
+> a change in behaviour (a spec/test change that alters existing fixtures), and
+> `Z` (patch) is bumped for new test additions only.
 
 > [!NOTE]
 > Aim to cut the test (fixture) release **at least 5 days before** the devnet
@@ -71,7 +71,6 @@ added, dropped, or deferred as decisions land in ACD and during implementation.
 
 ### Instructions
 
-- [ ] Assign issue to the devnet coordination owner(s).
 - [ ] Add the issue to the target fork milestone if applicable.
 - [ ] Link each included EIP's [EIP Implementation Tracker](https://github.com/ethereum/execution-specs/issues/new?template=eip-tracker.md) below.
 
@@ -84,24 +83,32 @@ added, dropped, or deferred as decisions land in ACD and during implementation.
 <!--
     Group EIPs by confidence. Move EIPs between groups as decisions are made,
     and check an EIP off in "Confirmed" once its tracker issue is stable.
+
+    Always pin the exact spec version each devnet targets — `eips.ethereum.org`
+    renders the latest EIP, but a devnet freezes a specific version, and that
+    skew is a common source of cross-client divergence. Pin via a commit
+    permalink to the EIP markdown (github.com/ethereum/EIPs/blob/<sha>/EIPS/eip-<n>.md)
+    and/or the open EIP PR(s) — a SHA and PR(s) ideally, but either works.
+    Devnets routinely run ahead of the merged EIP, and a single EIP may have
+    several relevant PRs — list them all.
 -->
 
 #### Confirmed
 
-- [ ] [EIP-<eip-number>](https://eips.ethereum.org/EIPS/eip-<eip-number>) — #<tracker-issue>
-- [ ] [EIP-<eip-number>](https://eips.ethereum.org/EIPS/eip-<eip-number>) — #<tracker-issue>
+- [ ] [EIP-<eip-number>](https://eips.ethereum.org/EIPS/eip-<eip-number>) ([ethereum/EIPs#<pr>](https://github.com/ethereum/EIPs/pull/<pr>), [#<pr>](https://github.com/ethereum/EIPs/pull/<pr>)) — #<tracker-issue>
+- [ ] [EIP-<eip-number>](https://eips.ethereum.org/EIPS/eip-<eip-number>) ([ethereum/EIPs#<pr>](https://github.com/ethereum/EIPs/pull/<pr>)) — #<tracker-issue>
 
 #### To Be Discussed
 
-<!-- Items pending an ACD / owner decision. Link the relevant EIP PR. -->
+<!-- Items pending an ACD / owner decision. Link the relevant EIP PR(s). -->
 
-- [ ] [EIP-<eip-number>](https://eips.ethereum.org/EIPS/eip-<eip-number>) — <reason / link to discussion PR>
+- [ ] [EIP-<eip-number>](https://eips.ethereum.org/EIPS/eip-<eip-number>) ([ethereum/EIPs#<pr>](https://github.com/ethereum/EIPs/pull/<pr>)) — <reason / link to discussion PR>
 
 #### At Risk / Likely Dropped
 
 <!-- EIPs that may not make this devnet. -->
 
-- [ ] [EIP-<eip-number>](https://eips.ethereum.org/EIPS/eip-<eip-number>) — <reason>
+- [ ] [EIP-<eip-number>](https://eips.ethereum.org/EIPS/eip-<eip-number>) ([ethereum/EIPs#<pr>](https://github.com/ethereum/EIPs/pull/<pr>)) — <reason>
 
 ### Notes & Risks
 
@@ -119,26 +126,11 @@ release here.
 - [ ] All included EIP specifications merged to the corresponding `feat-devnet-N` branch.
 - [ ] Devnet branch (`feat-devnet-N`) created and rebased on the target `forks/<fork>` branch.
 - [ ] Required testing framework modifications implemented.
-- [ ] Test suites for all included EIPs implemented.
+- [ ] Sufficient test suites for the included EIPs implemented.
 - [ ] No regressions or failures in tests from prior forks (including static tests).
 - [ ] Fixtures generated and released for the devnet.
 - [ ] [`hive-tests`](https://github.com/ethpandaops/hive-tests/tree/master/.github/workflows) repo checked/updated to run the latest set of fixtures.
 - [ ] [`hive-ui`](https://github.com/ethpandaops/hive-ui/blob/master/public/discovery.json) discovery checked/updated to the latest devnet workflow file within the `hive-tests` repo.
-
-### Client Readiness
-
-<!--
-    Track which client implementations are ready for the devnet. Link each
-    client's devnet branch / PR in the parentheses.
--->
-
-- [ ] [geth]()
-- [ ] [erigon]()
-- [ ] [besu]()
-- [ ] [nethermind]()
-- [ ] [reth]()
-- [ ] [ethrex]()
-- [ ] [nimbus-el]()
 
 ### Process Status
 
@@ -154,7 +146,7 @@ release here.
     for this devnet.
 -->
 
-- [ ] Linked the test fixture release tag used for this devnet: <!-- e.g. https://github.com/ethereum/execution-spec-tests/releases/tag/<tag> -->
+- [ ] Linked the test fixture release tag used for this devnet: <!-- e.g. https://github.com/ethereum/execution-specs/releases/tag/<tag> -->
 
 > [!IMPORTANT]
 > After tagging, any future changes must be added to a newly created devnet
