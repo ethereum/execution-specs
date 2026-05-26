@@ -219,13 +219,32 @@ class StatelessValidationResult:
     """
     Result returned by stateless validation.
 
-    Note: We use return values to denote "public inputs"
+    Note: We use return values to denote "public inputs".
+
+    If ``successful_validation`` is ``False``, the remaining fields are
+    only meaningful when the input bytes were decoded successfully. If
+    decoding failed before a ``StatelessInput`` existed,
+    ``run_stateless_guest`` returns a failed result with sentinel defaults.
 
     """
 
     new_payload_request_root: Hash32
+    """
+    SSZ root of the decoded ``NewPayloadRequest``. This is zero when
+    ``run_stateless_guest`` cannot decode the input bytes.
+    """
+
     successful_validation: bool
+    """
+    Whether the decoded stateless input validated successfully. ``False``
+    means validation failed or the guest input bytes could not be decoded.
+    """
+
     chain_config: ChainConfig
+    """
+    Chain configuration decoded from the input. This is a sentinel default
+    when ``run_stateless_guest`` cannot decode the input bytes.
+    """
 
 
 def compute_new_payload_request_root(
