@@ -2846,8 +2846,10 @@ def test_bal_create_collision(
     """
     BAL with CREATE/CREATE2 collision against pre-existing contract X,
     optionally followed by a tx that modifies X via call (closes #2914
-    nonce/storage axes). The `code_changes` axis isn't reachable in
-    forward order — see `test_bal_create2_deploy_then_collision`.
+    nonce/storage axes). Balance axis is already covered by the suite's
+    existing collision-then-value-transfer tests. The `code_changes`
+    axis isn't reachable in forward order — see
+    `test_bal_create2_deploy_then_collision`.
     """
     alice = pre.fund_eoa()
     bob = pre.fund_eoa()
