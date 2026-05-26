@@ -43,6 +43,9 @@ def log_n(evm: Evm, num_topics: int) -> None:
         The number of topics to be included in the log entry.
 
     """
+    if evm.message.is_static:
+        raise WriteInStaticContext
+
     # STACK
     memory_start_index = pop(evm.stack)
     size = pop(evm.stack)
@@ -66,8 +69,6 @@ def log_n(evm: Evm, num_topics: int) -> None:
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
-    if evm.message.is_static:
-        raise WriteInStaticContext
     log_entry = Log(
         address=evm.message.current_target,
         topics=tuple(topics),

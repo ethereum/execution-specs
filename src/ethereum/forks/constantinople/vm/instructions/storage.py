@@ -60,6 +60,9 @@ def sstore(evm: Evm) -> None:
         The current EVM frame.
 
     """
+    if evm.message.is_static:
+        raise WriteInStaticContext
+
     # STACK
     key = pop(evm.stack).to_be_bytes32()
     new_value = pop(evm.stack)
@@ -76,8 +79,6 @@ def sstore(evm: Evm) -> None:
         evm.refund_counter += GasCosts.REFUND_STORAGE_CLEAR
 
     charge_gas(evm, gas_cost)
-    if evm.message.is_static:
-        raise WriteInStaticContext
     set_storage(tx_state, evm.message.current_target, key, new_value)
 
     # PROGRAM COUNTER
