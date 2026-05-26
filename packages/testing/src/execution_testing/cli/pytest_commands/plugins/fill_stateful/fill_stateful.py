@@ -270,7 +270,7 @@ def pytest_configure(config: pytest.Config) -> None:
         "missing_stubs(message): fill-stateful policy marker; "
         "pytest_runtest_call fails the test with ``message``.",
     )
-    config.filling_phase = FixtureFillingPhase.FILL_STATEFUL
+    config.filling_phase = FixtureFillingPhase.FILL_STATEFUL  # type: ignore[attr-defined]
 
     # Help/collect-only never talks to a client; skip endpoint defaulting.
     if is_help_or_collectonly_mode(config):

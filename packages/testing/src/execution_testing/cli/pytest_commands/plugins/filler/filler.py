@@ -185,8 +185,9 @@ class FillingSession:
         Infer current phase from the pytest configuration.
 
         Flag logic:
-        - use_pre_alloc_groups: We're in phase 2 (FILL) after phase
-                                1 (PRE_ALLOC_GENERATION).
+        - use_pre_alloc_groups: We're in phase 2,
+                                FILL_AFTER_PRE_ALLOC_GENERATION,
+                                after phase 1, PRE_ALLOC_GENERATION.
         - generate_pre_alloc_groups or generate_all_formats:
                                 We're in phase 1 (PRE_ALLOC_GENERATION). -
         Otherwise: Normal single-phase filling (FILL).
