@@ -63,6 +63,37 @@ GAS_CHECK_TEST_MODULE = textwrap.dedent(
 )
 
 
+# A plain non-gas test: deploys a tiny contract, asserts a literal
+# storage value (``1`` — not derived from any gas constant), and sets no
+# expected receipt or header field. The walker should produce no hits.
+PLAIN_TEST_MODULE = textwrap.dedent(
+    """\
+    import pytest
+    from execution_testing import (
+        Account,
+        Alloc,
+        Environment,
+        Op,
+        StateTestFiller,
+        Transaction,
+    )
+
+    @pytest.mark.valid_at("Cancun")
+    def test_dummy_non_gas(
+        state_test: StateTestFiller, pre: Alloc
+    ) -> None:
+        contract = pre.deploy_contract(code=Op.SSTORE(0, 1) + Op.STOP)
+        sender = pre.fund_eoa()
+        state_test(
+            env=Environment(),
+            pre=pre,
+            post={contract: Account(storage={0: 1})},
+            tx=Transaction(sender=sender, to=contract, gas_limit=100_000),
+        )
+    """
+)
+
+
 # A synthetic OOG-style test marked with ``exception_test``. The walker
 # must skip it even though it ends up running through the same hook.
 OOG_TEST_MODULE = textwrap.dedent(
@@ -200,6 +231,39 @@ def test_gas_check_report_excludes_oog_test(
     # No entry should reference the OOG test.
     assert not any("test_dummy_oog" in nodeid for nodeid in report), (
         f"OOG test should be excluded; got report keys: {list(report)!r}"
+    )
+
+
+def test_gas_check_report_excludes_non_gas_test(
+    pytester: pytest.Pytester, tmp_path: Path
+) -> None:
+    """A passing test that doesn't assert any gas value isn't flagged."""
+    _setup_pytester(pytester, PLAIN_TEST_MODULE, "test_dummy_plain.py")
+    report_path = tmp_path / "gas_check_report.json"
+    output_dir = tmp_path / "fixtures"
+
+    result = pytester.runpytest(
+        "-c",
+        "pytest-fill.ini",
+        "--fork",
+        "Cancun",
+        "--detect-gas-checks",
+        f"--gas-check-report={report_path}",
+        "--no-html",
+        "--skip-index",
+        f"--output={output_dir}",
+        "tests/dummy_module/",
+        "-q",
+    )
+    assert result.ret == 0, f"fill failed:\n{result.outlines}"
+    assert report_path.exists()
+
+    report = json.loads(report_path.read_text())
+    # The synthetic test stores a literal 1 with no expected_receipt /
+    # header_verify / expected_gas_used — none of the detector's
+    # triggers should fire.
+    assert report == {}, (
+        f"plain test must produce empty report; got {report!r}"
     )
 
 
