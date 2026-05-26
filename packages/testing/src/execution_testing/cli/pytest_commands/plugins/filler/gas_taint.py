@@ -35,9 +35,30 @@ from __future__ import annotations
 import json
 from dataclasses import fields, replace
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Set, Tuple
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    List,
+    Set,
+    Tuple,
+)
 
 import pytest
+
+from execution_testing.specs.base import BaseTest
+from execution_testing.specs.benchmark import BenchmarkTest
+from execution_testing.specs.blockchain import Block, BlockchainTest
+from execution_testing.specs.state import StateTest
+from execution_testing.test_types.account_types import Alloc
+from execution_testing.test_types.transaction_types import Transaction
+from execution_testing.test_types.utils import Removable
+from execution_testing.vm.bases import OpcodeBase
+
+if TYPE_CHECKING:
+    from xdist.workermanage import WorkerController
 
 # ---------------------------------------------------------------------------
 # Taint carrier
@@ -168,7 +189,7 @@ def _wrap_intrinsic(c: type, fn: Callable, args: tuple, kwargs: dict) -> Any:
 def _wrap_opcode_calc(c: type, fn: Callable, args: tuple, kwargs: dict) -> Any:
     inner = fn(c, *args, **kwargs)
 
-    def calc(opcode: Any) -> Any:
+    def calc(opcode: OpcodeBase) -> int:
         result = inner(opcode)
         if isinstance(result, int) and not _is_tainted(result):
             name = getattr(opcode, "_name_", None) or str(opcode)
@@ -260,9 +281,11 @@ def uninstall_taint() -> None:
 
 
 def _record_tainted(
-    hits: List[dict], kind: str, location: str, value: Any
+    hits: List[dict], kind: str, location: str, value: int | None
 ) -> None:
     """Record only if value carries gas-source taint (used for storage)."""
+    if value is None:
+        return
     origins = _origins_of(value)
     if origins is None:
         return
@@ -277,12 +300,12 @@ def _record_tainted(
 
 
 def _record_present(
-    hits: List[dict], kind: str, location: str, value: Any
+    hits: List[dict], kind: str, location: str, value: int | None
 ) -> None:
     """Record if value is set (field-name-implies-gas-assertion sinks)."""
     if value is None:
         return
-    hit: Dict[str, Any] = {
+    hit: Dict[str, object] = {
         "kind": kind,
         "location": location,
         "value": int(value),
@@ -293,21 +316,14 @@ def _record_present(
     hits.append(hit)
 
 
-def _walk_storage(hits: List[dict], post: Any) -> None:
+def _walk_storage(hits: List[dict], post: Alloc | None) -> None:
     """Storage slots are general-purpose; only flag tainted values."""
     if post is None:
         return
-    try:
-        items = post.items()
-    except AttributeError:
-        return
-    for address, account in items:
+    for address, account in post.items():
         if account is None:
             continue
-        storage = getattr(account, "storage", None)
-        if storage is None:
-            continue
-        for slot, value in dict(storage.root).items():
+        for slot, value in account.storage.root.items():
             _record_tainted(
                 hits,
                 "storage",
@@ -316,41 +332,56 @@ def _walk_storage(hits: List[dict], post: Any) -> None:
             )
 
 
-def _walk_receipt(hits: List[dict], tx: Any) -> None:
+def _walk_receipt(hits: List[dict], tx: Transaction | None) -> None:
     """Receipt gas fields are self-identifying — flag on presence."""
     if tx is None:
         return
-    receipt = getattr(tx, "expected_receipt", None)
+    receipt = tx.expected_receipt
     if receipt is None:
         return
-    for field in ("cumulative_gas_used", "gas_used", "blob_gas_used"):
-        _record_present(hits, "receipt", field, getattr(receipt, field, None))
+    _record_present(
+        hits, "receipt", "cumulative_gas_used", receipt.cumulative_gas_used
+    )
+    _record_present(hits, "receipt", "gas_used", receipt.gas_used)
+    _record_present(hits, "receipt", "blob_gas_used", receipt.blob_gas_used)
 
 
-def _walk_header_and_block(hits: List[dict], block: Any, i: int) -> None:
+def _walk_header_and_block(hits: List[dict], block: Block, i: int) -> None:
     """Header gas fields and expected_gas_used are self-identifying."""
-    header_verify = getattr(block, "header_verify", None)
+    header_verify = block.header_verify
     if header_verify is not None:
-        for field in ("gas_used", "blob_gas_used"):
+        _record_present(
+            hits, "header", f"block[{i}].gas_used", header_verify.gas_used
+        )
+        # blob_gas_used is ``Removable | HexNumber | None`` — the
+        # ``Removable`` sentinel means "delete this from the verified
+        # header" and is not a gas assertion.
+        blob_gas_used = header_verify.blob_gas_used
+        if not isinstance(blob_gas_used, Removable):
             _record_present(
                 hits,
                 "header",
-                f"block[{i}].{field}",
-                getattr(header_verify, field, None),
+                f"block[{i}].blob_gas_used",
+                blob_gas_used,
             )
     _record_present(
         hits,
         "block_expected_gas_used",
         f"block[{i}].expected_gas_used",
-        getattr(block, "expected_gas_used", None),
+        block.expected_gas_used,
     )
 
 
-def _is_oog_test(test: Any, node: pytest.Item | None) -> bool:
-    tx = getattr(test, "tx", None)
-    if tx is not None and getattr(tx, "error", None) is not None:
+def _is_oog_test(test: BaseTest, node: pytest.Item | None) -> bool:
+    if (
+        isinstance(test, StateTest)
+        and test.tx.error is not None
+    ):
         return True
-    if getattr(test, "block_exception", None):
+    if (
+        isinstance(test, StateTest)
+        and test.block_exception is not None
+    ):
         return True
     if (
         node is not None
@@ -360,28 +391,33 @@ def _is_oog_test(test: Any, node: pytest.Item | None) -> bool:
     return False
 
 
-def collect_taint_hits(test: Any, node: pytest.Item | None) -> List[dict]:
+def collect_taint_hits(
+    test: BaseTest, node: pytest.Item | None
+) -> List[dict]:
     """Walk all known gas-assertion sinks on the test object."""
     if _is_oog_test(test, node):
         return []
 
     hits: List[dict] = []
-    _walk_storage(hits, getattr(test, "post", None))
-    _walk_receipt(hits, getattr(test, "tx", None))
-
-    blocks = getattr(test, "blocks", None)
-    if blocks is not None:
-        for i, block in enumerate(blocks):
+    if isinstance(test, StateTest):
+        _walk_storage(hits, test.post)
+        _walk_receipt(hits, test.tx)
+    elif isinstance(test, BlockchainTest):
+        _walk_storage(hits, test.post)
+        for i, block in enumerate(test.blocks):
             _walk_header_and_block(hits, block, i)
+            for tx in block.txs:
+                _walk_receipt(hits, tx)
 
-    # expected_benchmark_gas_used is auto-defaulted on every test by the
-    # filler, so only treat it as a sink on actual BenchmarkTest instances.
-    if any(c.__name__ == "BenchmarkTest" for c in type(test).__mro__):
+    # ``expected_benchmark_gas_used`` is auto-defaulted on every test by
+    # the filler, so only treat it as a sink on actual BenchmarkTest
+    # instances.
+    if isinstance(test, BenchmarkTest):
         _record_present(
             hits,
             "benchmark",
             "expected_benchmark_gas_used",
-            getattr(test, "expected_benchmark_gas_used", None),
+            test.expected_benchmark_gas_used,
         )
 
     return hits
@@ -436,16 +472,17 @@ def pytest_configure(config: pytest.Config) -> None:
 
 
 @pytest.hookimpl(hookwrapper=True)
-def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo) -> Any:
+def pytest_runtest_makereport(
+    item: pytest.Item, call: pytest.CallInfo
+) -> Generator[None, None, None]:
     """Attach a ``gas_check`` marker if the item has taint hits."""
-    outcome = yield
+    yield
     if call.when != "call":
-        return outcome
+        return
     for key, value in item.user_properties:
         if key == "gas_taint_hits" and value:
             item.add_marker(pytest.mark.gas_check)
             break
-    return outcome
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
@@ -472,7 +509,9 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     path.write_text(json.dumps(results, indent=2, sort_keys=True))
 
 
-def pytest_testnodedown(node: Any, error: Any) -> None:
+def pytest_testnodedown(
+    node: "WorkerController", error: object | None
+) -> None:
     """Aggregate worker results into the master's results dict."""
     del error
     config = node.config
