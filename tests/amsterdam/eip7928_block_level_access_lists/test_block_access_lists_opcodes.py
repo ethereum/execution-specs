@@ -2898,12 +2898,6 @@ def test_bal_create_collision(
 
     tx_gas_limit = fork.transaction_gas_limit_cap()
     txs = [Transaction(sender=alice, to=factory, gas_limit=tx_gas_limit)]
-    if modification != "none":
-        txs.append(
-            Transaction(
-                sender=bob, to=collision_address, gas_limit=tx_gas_limit
-            )
-        )
 
     account_expectations: dict = {
         alice: BalAccountExpectation(
@@ -2929,18 +2923,20 @@ def test_bal_create_collision(
         factory: Account(nonce=2, storage={0x00: 0}),
     }
 
-    if modification != "none":
-        account_expectations[bob] = BalAccountExpectation(
-            nonce_changes=[BalNonceChange(block_access_index=2, post_nonce=1)],
-        )
-        post[bob] = Account(nonce=1)
-
-    if modification == "none":
+    if modification == "collision_only":
         account_expectations[collision_address] = BalAccountExpectation.empty()
         post[collision_address] = Account(
             code=x_code, nonce=1, balance=0, storage={}
         )
-    elif modification == "nonce_via_inner_create":
+    elif modification == "then_nonce_change":
+        txs.append(
+            Transaction(
+                sender=bob, to=collision_address, gas_limit=tx_gas_limit
+            )
+        )
+        account_expectations[bob] = BalAccountExpectation(
+            nonce_changes=[BalNonceChange(block_access_index=2, post_nonce=1)],
+        )
         # Strict: only the inner-CREATE nonce bump appears; no spurious
         # code/storage/balance entries from the index-1 collision touch.
         account_expectations[collision_address] = BalAccountExpectation(
@@ -2963,6 +2959,7 @@ def test_bal_create_collision(
             storage_changes=[],
             storage_reads=[],
         )
+        post[bob] = Account(nonce=1)
         post[collision_address] = Account(
             code=x_code, nonce=2, balance=0, storage={}
         )
@@ -2970,6 +2967,14 @@ def test_bal_create_collision(
             nonce=1, code=bytes(Op.STOP), balance=0, storage={}
         )
     elif modification == "then_storage_change":
+        txs.append(
+            Transaction(
+                sender=bob, to=collision_address, gas_limit=tx_gas_limit
+            )
+        )
+        account_expectations[bob] = BalAccountExpectation(
+            nonce_changes=[BalNonceChange(block_access_index=2, post_nonce=1)],
+        )
         # Strict: only the SSTORE slot appears; no spurious other entries.
         account_expectations[collision_address] = BalAccountExpectation(
             storage_changes=[
@@ -2987,9 +2992,12 @@ def test_bal_create_collision(
             code_changes=[],
             storage_reads=[],
         )
+        post[bob] = Account(nonce=1)
         post[collision_address] = Account(
             code=x_code, nonce=1, balance=0, storage={0x01: 0xCAFE}
         )
+    else:
+        raise ValueError(f"unknown modification: {modification}")
 
     block = Block(
         txs=txs,
