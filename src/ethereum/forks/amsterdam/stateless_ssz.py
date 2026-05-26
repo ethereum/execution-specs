@@ -40,6 +40,9 @@ from .stateless import (
 
 # --- SSZ max-length constants ---
 
+# Consensus-spec bounds mirrored by NewPayloadRequest and its nested
+# containers.  These should track the corresponding consensus-spec values.
+
 MAX_EXTRA_DATA_BYTES = 32
 MAX_BYTES_PER_TRANSACTION = 2**30
 MAX_TRANSACTIONS_PER_PAYLOAD = 2**20
@@ -48,16 +51,37 @@ MAX_BLOB_COMMITMENTS_PER_BLOCK = 4096
 MAX_DEPOSIT_REQUESTS_PER_PAYLOAD = 2**13
 MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD = 2**4
 MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD = 2**1
-MAX_BLOCK_ACCESS_LIST_BYTES = 2**24
-MAX_WITNESS_NODES = 2**20
-MAX_WITNESS_CODES = 2**16
+
+# Stateless witness resource bounds.  These are local limits chosen for this
+# schema, not consensus-spec SSZ constants.
+
+# BAL permits block_gas_limit // 2_000 items. At 500M gas, that is
+# 250_000 account accesses; budgeting 16 witness nodes per account gives
+# 4_000_000 nodes, rounded up to 2**22. This targets an account-heavy
+# witness, since deep storage tries are harder to construct. Depth of
+# 16 is around double the depth of mainnet account trie.
+MAX_WITNESS_NODES = 2**22
+
+# Enough room for one pre-state bytecode read per BAL item at 500M gas:
+# 500_000_000 // 2_000 = 250_000, rounded up to 2**18.
+MAX_WITNESS_CODES = 2**18
+
+# Execution only exposes the previous 256 block hashes.
 MAX_WITNESS_HEADERS = 256
-MAX_BYTES_PER_WITNESS_NODE = 2**20
-MAX_BYTES_PER_CODE = 2**24
+# As defined in EIP-7954.
+MAX_BYTES_PER_CODE = 2**16
 MAX_BYTES_PER_HEADER = 2**10
+# Full secured-trie branch nodes are 532 bytes when all 16 children are
+# represented by hashes, which is the largest normal state witness node.
+# 2**10 is the next power of two, with almost twice the needed capacity.
+MAX_BYTES_PER_WITNESS_NODE = 2**10
+
 MAX_OPTIONAL_FORK_ACTIVATION_VALUES = 1
 MAX_BLOB_SCHEDULES_PER_FORK = 1
-MAX_PUBLIC_KEYS = 2**20
+# One public key is supplied per transaction. Every valid transaction consumes
+# at least 21_000 gas, so a 500M gas block can contain at most
+# 500_000_000 // 21_000 = 23_809 transactions, rounded up to next power of 2.
+MAX_PUBLIC_KEYS = 2**15
 PUBLIC_KEY_BYTES = 65
 
 # Amsterdam SSZ stateless input schema identifier.
@@ -108,7 +132,7 @@ class SszExecutionPayload(Container):
     withdrawals: SszList[SszWithdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]
     blob_gas_used: uint64
     excess_blob_gas: uint64
-    block_access_list: ByteList[MAX_BLOCK_ACCESS_LIST_BYTES]
+    block_access_list: ByteList[MAX_BYTES_PER_TRANSACTION]
     slot_number: uint64
 
 
@@ -289,7 +313,7 @@ def _payload_to_ssz(
         ),
         blob_gas_used=uint64(int(p.blob_gas_used)),
         excess_blob_gas=uint64(int(p.excess_blob_gas)),
-        block_access_list=ByteList[MAX_BLOCK_ACCESS_LIST_BYTES](
+        block_access_list=ByteList[MAX_BYTES_PER_TRANSACTION](
             bytes(p.block_access_list)
         ),
         slot_number=uint64(int(p.slot_number)),
