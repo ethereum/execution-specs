@@ -120,7 +120,7 @@ def pytest_configure(config: pytest.Config) -> None:
         "missing_stubs(message): fill-stateful policy marker; "
         "pytest_runtest_call fails the test with ``message``.",
     )
-    config.phase_manager = PhaseManager(
+    config.phase_manager = PhaseManager(  # type: ignore[attr-defined]
         current_phase=FixtureFillingPhase.FILL_STATEFUL
     )
 

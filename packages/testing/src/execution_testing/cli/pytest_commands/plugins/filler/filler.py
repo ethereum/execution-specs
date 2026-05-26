@@ -248,7 +248,12 @@ class FormatSelector:
         """
         format_phases = fixture_format.format_phases
 
-        if self.phase_manager.is_pre_alloc_generation:
+        if (
+            self.phase_manager.current_phase
+            == FixtureFillingPhase.FILL_STATEFUL
+        ):
+            return FixtureFillingPhase.FILL_STATEFUL in format_phases
+        elif self.phase_manager.is_pre_alloc_generation:
             return self._should_generate_pre_alloc(format_phases)
         else:  # FILL phase
             return self._should_generate_fill(format_phases)

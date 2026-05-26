@@ -62,7 +62,7 @@ class FixtureFillingPhase(Enum):
 
     PRE_ALLOC_GENERATION = auto()
     FILL = auto()
-    PRE_ALLOC_GENERATION_STATEFUL = auto()
+    PRE_ALLOC_SETUP_STATEFUL = auto()
     FILL_STATEFUL = auto()
 
 
