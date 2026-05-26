@@ -3,7 +3,7 @@
 The `fill-stateful` command produces `BlockchainEngineStatefulFixture` JSON for benchmark tests by driving block construction on a live EL client via `testing_buildBlockV1` against a pre-loaded network snapshot. The fixtures are replayed by [`benchmarkoor`](https://github.com/ethpandaops/benchmarkoor) against the same snapshot on any EL client. This replaces the gas-benchmarks MITMProxy approach.
 
 !!! note "When to use `fill-stateful`"
-    Use the standard `fill` for t8n-based fixture generation. Use `fill-stateful` only for benchmark tests under `tests/benchmark/stateful/` that need a warm network state (perfnet / bloatnet / kurtosis snapshot) too large to bake into genesis.
+    Use the standard `fill` for t8n-based fixture generation. Use `fill-stateful` to run benchmarks in a stateful environment (e.g., perfnet, Kurtosis, or other snapshots) to observe how state size affects performance. Any test can be run using this command, but some benchmarks – like the ones under `tests/benchmark/stateful/` – only produce meaningful results in such environments.
 
 `fill-stateful` does not manage datadirs — it expects the target client to already be running with the snapshot mounted. Snapshot management (overlayfs / ZFS / copy) is `benchmarkoor`'s responsibility on the replay side.
 

@@ -372,15 +372,13 @@ def seed_key(eth_rpc: EthRPC, request: pytest.FixtureRequest) -> EOA:
     """Load or generate the seed key used for all session funding."""
     key_str = request.config.getoption("rpc_seed_key")
     if key_str:
-        clean = key_str.removeprefix("0x").removeprefix("0X")
-        if len(clean) != 64 or not all(
-            c in "0123456789abcdefABCDEF" for c in clean
-        ):
+        try:
+            eoa = EOA(key=key_str, nonce=0)
+        except Exception:
             pytest.fail(
                 f"--rpc-seed-key must be a 32-byte hex string, "
                 f"got: {key_str!r}"
             )
-        eoa = EOA(key=int(clean, 16), nonce=0)
         account = eth_rpc.get_account(eoa, skip_code=True)
         eoa.nonce = Number(account.nonce)
     else:
@@ -513,9 +511,9 @@ def client_backend(
     return backend
 
 
-def _resolve_snapshot_block(
-    eth_rpc: "ChainBuilderEthRPC",
-    arg: str | None,
+@pytest.fixture(scope="session")
+def snapshot_block(
+    request: pytest.FixtureRequest, eth_rpc: "ChainBuilderEthRPC"
 ) -> Any:
     """
     Resolve the snapshot anchor to a client block dict.
@@ -524,21 +522,21 @@ def _resolve_snapshot_block(
     block number (hex/dec), or ``None`` for ``latest``. The returned
     block's ``hash`` is what we record as the fixture anchor.
     """
-    if arg is None or arg == "":
+    snapshot_arg = request.config.getoption("snapshot_block", default=None)
+    if not snapshot_arg:
         block = eth_rpc.get_block_by_number("latest")
         if block is None:
             pytest.exit("Failed to fetch 'latest' block as snapshot anchor")
         return block
 
-    stripped = arg.strip()
-    lower = stripped.lower()
-    is_hash = (
-        lower.startswith("0x")
-        and len(lower) == 66
-        and all(c in "0123456789abcdef" for c in lower[2:])
-    )
-    if is_hash:
-        block = eth_rpc.get_block_by_hash(Hash(stripped))
+    stripped = snapshot_arg.strip()
+    block_hash: Hash | None = None
+    try:
+        block_hash = Hash(stripped)
+    except Exception:
+        pass
+    if block_hash:
+        block = eth_rpc.get_block_by_hash(block_hash)
         if block is None:
             pytest.exit(
                 f"--snapshot-block hash {stripped} not found on client"
@@ -550,7 +548,7 @@ def _resolve_snapshot_block(
     except ValueError:
         pytest.exit(
             f"--snapshot-block must be a 0x-prefixed 32-byte hash or an "
-            f"integer block number; got {arg!r}"
+            f"integer block number; got {snapshot_arg!r}"
         )
     block = eth_rpc.get_block_by_number(number)
     if block is None:
@@ -564,6 +562,7 @@ def _session_pre_run(
     eth_rpc: ChainBuilderEthRPC,
     session_worker_key: EOA,
     session_fork: Fork | TransitionFork,
+    snapshot_block: Any,
     sender_funding_transactions_gas_price: int,
     session_temp_folder: Path,
     request: pytest.FixtureRequest,
@@ -581,8 +580,6 @@ def _session_pre_run(
 
     # 1. Snapshot anchor. Either way, the client-returned hash is what we
     #    record — a later reorg can't silently re-anchor by block number.
-    snapshot_arg = request.config.getoption("snapshot_block", default=None)
-    snapshot_block = _resolve_snapshot_block(eth_rpc, snapshot_arg)
     client_backend.snapshot_block = snapshot_block
     logger.info(
         f"Snapshot block {snapshot_block['number']} "
