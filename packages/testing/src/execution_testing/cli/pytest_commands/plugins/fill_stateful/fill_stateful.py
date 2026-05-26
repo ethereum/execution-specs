@@ -58,7 +58,6 @@ from ..execute.rpc.hive import (
     build_genesis_header,
     build_hive_environment,
 )
-from ..filler.filler import PhaseManager
 from ..shared.helpers import is_help_or_collectonly_mode
 from ..shared.live_client_flags import FEE_BUMP_MULTIPLIER
 
@@ -271,9 +270,7 @@ def pytest_configure(config: pytest.Config) -> None:
         "missing_stubs(message): fill-stateful policy marker; "
         "pytest_runtest_call fails the test with ``message``.",
     )
-    config.phase_manager = PhaseManager(  # type: ignore[attr-defined]
-        current_phase=FixtureFillingPhase.FILL_STATEFUL
-    )
+    config.filling_phase = FixtureFillingPhase.FILL_STATEFUL
 
     # Help/collect-only never talks to a client; skip endpoint defaulting.
     if is_help_or_collectonly_mode(config):

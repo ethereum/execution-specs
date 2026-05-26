@@ -910,7 +910,7 @@ class BlockchainEngineXFixture(BlockchainEngineFixtureCommon):
         "Tests that generate a Blockchain Test Engine X fixture."
     )
     format_phases: ClassVar[Set[FixtureFillingPhase]] = {
-        FixtureFillingPhase.FILL,
+        FixtureFillingPhase.FILL_AFTER_PRE_ALLOC_GENERATION,
         FixtureFillingPhase.PRE_ALLOC_GENERATION,
     }
     transition_tool_cache_key: ClassVar[str] = ""
