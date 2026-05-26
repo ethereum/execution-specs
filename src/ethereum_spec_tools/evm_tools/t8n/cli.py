@@ -27,9 +27,10 @@ from ethereum_types.numeric import U64
 
 from ethereum_spec_tools.forks import Hardfork
 
+from ..loaders.fork_loader import ForkLoad
 from ..utils import FatalError, find_fork, parse_hex_or_int
 from . import T8N, ForkCache
-from .env import Ommer
+from .block_environment import Ommer
 from .evm_trace.count import CountTracer
 from .evm_trace.eip3155 import Eip3155Tracer
 from .evm_trace.group import GroupTracer
@@ -195,6 +196,7 @@ def _parse_blob_params_from_options(
     Returns ``None`` when the flag is unset. Reads from ``stdin``
     (``"blobParams"`` key) or a file path depending on the flag value.
     """
+    # Function-scoped: see import-cycle note in ``build_t8n_from_cli_options``.
     from execution_testing.base_types.composite_types import (
         ForkBlobSchedule,
     )
@@ -246,6 +248,7 @@ _TESTING_FORK_NAME_OVERRIDES = {
 
 def _testing_fork_from_spec_hardfork(hardfork: Hardfork) -> Any:
     """Map a spec ``Hardfork`` to the matching testing ``Fork`` class."""
+    # Function-scoped: see import-cycle note in ``build_t8n_from_cli_options``.
     from execution_testing.forks import get_fork_by_name
 
     name = hardfork.title_case_name.replace(" ", "")
@@ -271,8 +274,6 @@ def _resolve_state_reward(
     sentinel); any other int passes through unchanged.
     """
     if state_reward is None:
-        from ..loaders.fork_loader import ForkLoad
-
         fork_load = ForkLoad(fork_module)
         if fork_load.proof_of_stake:
             return -1
@@ -292,12 +293,12 @@ def build_t8n_from_cli_options(
     testing pydantic types, bundles them into a ``TransitionToolData``,
     builds the tracer group, and hands them to ``T8N``.
     """
-    from execution_testing.base_types.composite_types import (
-        BlobSchedule,
-    )
-    from execution_testing.client_clis.transition_tool import (
-        TransitionTool,
-    )
+    # Function-scoped imports: ``execution_testing/__init__`` eagerly
+    # imports ``.specs`` which transitively imports ``client_clis``,
+    # which imports ``ExecutionSpecsTransitionTool`` — top-level imports
+    # from ``execution_testing`` would cycle back into spec-tools.
+    from execution_testing.base_types.composite_types import BlobSchedule
+    from execution_testing.client_clis.transition_tool import TransitionTool
     from execution_testing.test_types import (
         Alloc as TestingAlloc,
     )
@@ -356,8 +357,6 @@ def build_t8n_from_cli_options(
     # ``Ommer.address`` is parsed via the per-fork ``hex_to_address``
     # helper; construct a temporary ``ForkLoad`` from the resolved
     # module just to get the conversion.
-    from ..loaders.fork_loader import ForkLoad
-
     fork_load = ForkLoad(fork_module)
     ommers = _parse_ommers_from_env_json(raw_env_json, fork_load)
 

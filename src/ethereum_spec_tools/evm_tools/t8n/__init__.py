@@ -35,7 +35,7 @@ from ethereum_spec_tools.forks import (
 from ..loaders.fixture_loader import Load
 from ..loaders.transaction_loader import TransactionLoad, UnsupportedTxError
 from ..utils import get_stream_logger, resolve_fork
-from .env import Ommer, build_block_environment
+from .block_environment import Ommer, build_block_environment
 from .evm_trace.group import GroupTracer
 from .result import build_result, record_rejected_tx
 
@@ -264,15 +264,25 @@ class T8N(Load):
         """
         Convert a testing ``Transaction`` into the fork's tx object.
 
-        Goes via ``TransactionLoad`` (the JSON loader) rather than
-        ``rlp.decode_to``: typed transactions that are structurally
-        valid at the JSON level but invalid for the fork's tx type —
-        e.g. a contract-creating ``BlobTransaction`` (``to=None``) —
-        must still be constructed so that ``check_transaction`` inside
-        ``process_transaction`` can raise the canonical
-        ``TransactionTypeContractCreationError``. The RLP path rejects
-        them up front with a structural ``DecodingError``, which the
-        testing exception mapper has no entry for.
+        TODO: Replace with ``self.fork.decode_transaction(tx.rlp())``
+        once two pieces land in a follow-up PR:
+
+        1. Pre-Berlin forks gain a ``decode_transaction`` (or T8N
+           branches on ``has_decode_transaction`` and falls back to
+           ``rlp.decode_to(LegacyTransaction, ...)``). Pre-Berlin forks
+           predate typed txs and currently expose no decode entry
+           point — block decoding produces the legacy class directly.
+        2. The testing exception_mapper learns to surface
+           ``DecodingError`` (raised when a contract-creating typed tx
+           like ``BlobTransaction`` (``to=None``) reaches
+           ``decode_transaction``) as the canonical
+           ``TransactionTypeContractCreationError``. Today
+           ``TransactionLoad`` constructs the tx object even when its
+           shape is illegal for the fork, so ``check_transaction``
+           inside ``process_transaction`` raises the canonical error.
+
+        Until both are in place, we go through ``TransactionLoad``
+        (the JSON loader) which handles both concerns.
         """
         raw: Dict[str, Any] = tx.model_dump(
             mode="json", by_alias=True, exclude_none=True

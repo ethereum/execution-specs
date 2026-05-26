@@ -6,10 +6,11 @@ Build the spec's per-fork ``BlockEnvironment`` from a testing-package
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, List, Optional, Tuple
 
+from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes8, Bytes20, Bytes32, Bytes256
 from ethereum_types.numeric import U64, U256, Uint
 
-from ethereum.crypto.hash import Hash32
+from ethereum.crypto.hash import Hash32, keccak256
 
 if TYPE_CHECKING:
     from execution_testing.test_types import Environment as TestingEnvironment
@@ -192,10 +193,6 @@ def _resolve_block_difficulty(
         Uint(int(env.parent_difficulty)),
     ]
     if fork.calculate_block_difficulty_arity > 4:
-        from ethereum_rlp import rlp
-
-        from ethereum.crypto.hash import keccak256
-
         empty_ommers_hash = keccak256(rlp.encode([]))
         parent_ommers_hash = Hash32(env.parent_ommers_hash)
         args.append(parent_ommers_hash != empty_ommers_hash)
