@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 from typing import Any, Callable, Iterator, cast
+from unittest.mock import MagicMock
 
 import pytest
 
+from execution_testing.base_types import Account, Address
 from execution_testing.base_types.base_types import (
     HashInt,
     HexNumber,
@@ -21,6 +22,16 @@ from execution_testing.cli.pytest_commands.plugins.filler.gas_taint import (
     install_taint,
     uninstall_taint,
 )
+from execution_testing.exceptions.exceptions.transaction import (
+    TransactionException,
+)
+from execution_testing.forks.forks.forks import Cancun
+from execution_testing.specs.benchmark import BenchmarkTest
+from execution_testing.specs.blockchain import Block, BlockchainTest, Header
+from execution_testing.specs.state import StateTest
+from execution_testing.test_types.account_types import Alloc
+from execution_testing.test_types.receipt_types import TransactionReceipt
+from execution_testing.test_types.transaction_types import Transaction
 
 # ---------------------------------------------------------------------------
 # GasTainted carrier
@@ -234,105 +245,93 @@ class TestTaintInstallation:
 
 # ---------------------------------------------------------------------------
 # collect_taint_hits walker
+#
+# These tests instantiate real ``StateTest`` / ``BlockchainTest`` /
+# ``BenchmarkTest`` Pydantic models so that the walker's typed signature
+# guards the field surface. Renaming or retyping a sink field becomes a
+# compile-time error rather than a silent miss.
 # ---------------------------------------------------------------------------
 
 
-def _make_account(storage_dict: dict | None) -> SimpleNamespace:
-    return SimpleNamespace(
-        storage=SimpleNamespace(root=storage_dict) if storage_dict else None
+_ADDR = Address(0x1234)
+
+
+def _state_test_with_storage(value: int | None) -> StateTest:
+    storage = (
+        Storage(cast(Any, {0: value})) if value is not None else Storage()
+    )
+    return StateTest(
+        fork=Cancun,
+        pre=Alloc(),
+        post=Alloc(cast(Any, {_ADDR: Account(storage=storage)})),
+        tx=Transaction(),
     )
 
 
-def _make_post(accounts: dict) -> dict:
-    """Return a dict that quacks like ``Alloc`` (provides ``.items()``)."""
-    return accounts
-
-
-def _make_test(
-    *,
-    post: Any = None,
-    tx: Any = None,
-    blocks: Any = None,
-    block_exception: Any = None,
-    expected_benchmark_gas_used: Any = None,
-) -> SimpleNamespace:
-    """
-    Build a minimal test object with the attributes the walker reads.
-
-    The benchmark sink gates on the class MRO containing a class named
-    ``BenchmarkTest``; SimpleNamespace doesn't satisfy that, so the
-    benchmark tests build a separate real subclass below.
-    """
-    return SimpleNamespace(
-        post=post,
-        tx=tx,
-        blocks=blocks,
-        block_exception=block_exception,
-        expected_benchmark_gas_used=expected_benchmark_gas_used,
+def _node_with_marker(name: str | None) -> pytest.Item:
+    """Mock ``pytest.Item`` whose ``get_closest_marker`` returns truthy."""
+    node = MagicMock(spec=pytest.Item)
+    node.get_closest_marker.side_effect = lambda n: (
+        object() if name is not None and n == name else None
     )
+    return cast(pytest.Item, node)
 
 
-def _make_node(has_exception_marker: bool = False) -> Any:
-    # Returned as Any so test sites can pass the duck-typed namespace
-    # to ``collect_taint_hits`` (which is typed ``pytest.Item | None``).
-    return SimpleNamespace(
-        get_closest_marker=lambda name: (
-            object()
-            if name == "exception_test" and has_exception_marker
-            else None
-        )
-    )
-
-
+@pytest.mark.usefixtures("taint_installed")
 class TestStorageSink:
-    """post[addr].storage[slot] requires taint to flag."""
+    """
+    ``post[addr].storage[slot]`` requires taint to flag.
+
+    The ``taint_installed`` fixture is needed so that ``GasTainted``
+    values survive the ``Storage`` Pydantic validator (which constructs
+    a ``HashInt`` for each value); the walker itself doesn't depend on
+    installation.
+    """
 
     def test_tainted_storage_value_is_recorded(self) -> None:
         """Test tainted storage value is recorded."""
-        post = _make_post(
-            {"0xabc": _make_account({0: GasTainted(42, ("Y",))})}
-        )
-        hits = collect_taint_hits(_make_test(post=post), _make_node())
+        test = _state_test_with_storage(GasTainted(42, ("Y",)))
+        hits = collect_taint_hits(test, None)
         assert len(hits) == 1
         assert hits[0]["kind"] == "storage"
         assert hits[0]["value"] == 42
         assert hits[0]["origins"] == ["Y"]
-        assert "0xabc" in hits[0]["location"]
+        assert str(_ADDR) in hits[0]["location"]
 
     def test_untainted_storage_value_is_skipped(self) -> None:
         """Test untainted storage value is skipped."""
         # A plain int in storage — the whole point of using taint here is
         # that storage slots can hold anything.
-        post = _make_post({"0xabc": _make_account({0: 42})})
-        hits = collect_taint_hits(_make_test(post=post), _make_node())
-        assert hits == []
+        test = _state_test_with_storage(42)
+        assert collect_taint_hits(test, None) == []
 
     def test_account_with_no_storage_is_skipped(self) -> None:
         """Test account with no storage is skipped."""
-        post = _make_post({"0xabc": _make_account(None)})
-        hits = collect_taint_hits(_make_test(post=post), _make_node())
-        assert hits == []
+        test = StateTest(
+            fork=Cancun,
+            pre=Alloc(),
+            post=Alloc(cast(Any, {_ADDR: Account()})),
+            tx=Transaction(),
+        )
+        assert collect_taint_hits(test, None) == []
 
-    def test_none_post_is_skipped(self) -> None:
-        """Test none post is skipped."""
-        hits = collect_taint_hits(_make_test(post=None), _make_node())
-        assert hits == []
+    def test_empty_post_is_skipped(self) -> None:
+        """Test empty post is skipped."""
+        test = StateTest(
+            fork=Cancun, pre=Alloc(), post=Alloc(), tx=Transaction()
+        )
+        assert collect_taint_hits(test, None) == []
 
 
 class TestReceiptSink:
-    """expected_receipt fields are flagged on presence, not taint."""
+    """``expected_receipt`` fields are flagged on presence, not taint."""
 
     def test_cumulative_gas_used_recorded(self) -> None:
         """Test cumulative gas used recorded."""
-        tx = SimpleNamespace(
-            error=None,
-            expected_receipt=SimpleNamespace(
-                cumulative_gas_used=21000,
-                gas_used=None,
-                blob_gas_used=None,
-            ),
-        )
-        hits = collect_taint_hits(_make_test(tx=tx), _make_node())
+        tx = Transaction()
+        tx.expected_receipt = TransactionReceipt(cumulative_gas_used=21000)
+        test = StateTest(fork=Cancun, pre=Alloc(), post=Alloc(), tx=tx)
+        hits = collect_taint_hits(test, None)
         assert len(hits) == 1
         assert hits[0]["kind"] == "receipt"
         assert hits[0]["location"] == "cumulative_gas_used"
@@ -342,15 +341,12 @@ class TestReceiptSink:
 
     def test_all_three_receipt_fields(self) -> None:
         """Test all three receipt fields."""
-        tx = SimpleNamespace(
-            error=None,
-            expected_receipt=SimpleNamespace(
-                cumulative_gas_used=100,
-                gas_used=200,
-                blob_gas_used=300,
-            ),
+        tx = Transaction()
+        tx.expected_receipt = TransactionReceipt(
+            cumulative_gas_used=100, gas_used=200, blob_gas_used=300
         )
-        hits = collect_taint_hits(_make_test(tx=tx), _make_node())
+        test = StateTest(fork=Cancun, pre=Alloc(), post=Alloc(), tx=tx)
+        hits = collect_taint_hits(test, None)
         locations = {h["location"] for h in hits}
         assert locations == {
             "cumulative_gas_used",
@@ -360,20 +356,22 @@ class TestReceiptSink:
 
     def test_no_expected_receipt_skipped(self) -> None:
         """Test no expected receipt skipped."""
-        tx = SimpleNamespace(error=None, expected_receipt=None)
-        assert collect_taint_hits(_make_test(tx=tx), _make_node()) == []
+        test = StateTest(
+            fork=Cancun, pre=Alloc(), post=Alloc(), tx=Transaction()
+        )
+        assert collect_taint_hits(test, None) == []
 
 
 class TestHeaderAndBlockSinks:
-    """block.header_verify and block.expected_gas_used flagged on presence."""
+    """``header_verify`` and ``expected_gas_used`` flagged on presence."""
 
     def test_header_verify_blob_gas_used(self) -> None:
         """Test header verify blob gas used."""
-        block = SimpleNamespace(
-            header_verify=SimpleNamespace(gas_used=None, blob_gas_used=131072),
-            expected_gas_used=None,
+        block = Block(header_verify=Header(blob_gas_used=131072))
+        test = BlockchainTest(
+            fork=Cancun, pre=Alloc(), post=Alloc(), blocks=[block]
         )
-        hits = collect_taint_hits(_make_test(blocks=[block]), _make_node())
+        hits = collect_taint_hits(test, None)
         assert len(hits) == 1
         assert hits[0]["kind"] == "header"
         assert hits[0]["location"] == "block[0].blob_gas_used"
@@ -381,8 +379,14 @@ class TestHeaderAndBlockSinks:
 
     def test_block_expected_gas_used(self) -> None:
         """Test block expected gas used."""
-        block = SimpleNamespace(header_verify=None, expected_gas_used=199_156)
-        hits = collect_taint_hits(_make_test(blocks=[block]), _make_node())
+        block = Block(expected_gas_used=HexNumber(199_156))
+        test = BlockchainTest(
+            fork=Cancun, pre=Alloc(), post=Alloc(), blocks=[block]
+        )
+        hits = collect_taint_hits(test, None)
+        # Block inherits gas_used / blob_gas_used from Header (both
+        # default None), so only the explicit expected_gas_used is
+        # recorded.
         assert len(hits) == 1
         assert hits[0]["kind"] == "block_expected_gas_used"
         assert hits[0]["value"] == 199_156
@@ -390,101 +394,131 @@ class TestHeaderAndBlockSinks:
     def test_multiple_blocks_indexed(self) -> None:
         """Test multiple blocks indexed."""
         blocks = [
-            SimpleNamespace(header_verify=None, expected_gas_used=100),
-            SimpleNamespace(header_verify=None, expected_gas_used=200),
+            Block(expected_gas_used=HexNumber(100)),
+            Block(expected_gas_used=HexNumber(200)),
         ]
-        hits = collect_taint_hits(_make_test(blocks=blocks), _make_node())
+        test = BlockchainTest(
+            fork=Cancun, pre=Alloc(), post=Alloc(), blocks=blocks
+        )
+        hits = collect_taint_hits(test, None)
         assert {h["location"] for h in hits} == {
             "block[0].expected_gas_used",
             "block[1].expected_gas_used",
         }
 
 
-class _FakeBenchmarkTest:
-    """Stand-in for ``BenchmarkTest`` so the MRO name check fires."""
-
-    # The walker checks ``c.__name__ == "BenchmarkTest"`` in mro; faking
-    # the class name is enough to exercise the gate.
-
-
-_FakeBenchmarkTest.__name__ = "BenchmarkTest"
-
-
 class TestBenchmarkSink:
-    """expected_benchmark_gas_used requires the BenchmarkTest MRO gate."""
+    """``expected_benchmark_gas_used`` is recorded only on BenchmarkTest."""
 
     def test_skipped_on_non_benchmark_test(self) -> None:
         """Test skipped on non benchmark test."""
-        # SimpleNamespace's MRO doesn't include BenchmarkTest.
-        test = _make_test(expected_benchmark_gas_used=120_000_000)
-        assert collect_taint_hits(test, _make_node()) == []
+        # The filler auto-defaults expected_benchmark_gas_used on every
+        # test; without the isinstance(test, BenchmarkTest) gate, this
+        # would emit a benchmark hit even on a plain StateTest.
+        test = StateTest(
+            fork=Cancun, pre=Alloc(), post=Alloc(), tx=Transaction()
+        )
+        # Sanity: set it just like the filler would for non-benchmark
+        # tests.
+        test.expected_benchmark_gas_used = HexNumber(120_000_000)
+        assert collect_taint_hits(test, None) == []
 
     def test_recorded_on_benchmark_test(self) -> None:
         """Test recorded on benchmark test."""
-        # Build a real subclass whose MRO contains a class named
-        # "BenchmarkTest". The walker scans names, not identity.
-        bt = _FakeBenchmarkTest()
-        bt.post = None  # type: ignore[attr-defined]
-        bt.tx = None  # type: ignore[attr-defined]
-        bt.blocks = None  # type: ignore[attr-defined]
-        bt.block_exception = None  # type: ignore[attr-defined]
-        bt.expected_benchmark_gas_used = 99_999_999  # type: ignore[attr-defined]
-        hits = collect_taint_hits(bt, _make_node())
+        bench = BenchmarkTest(
+            fork=Cancun,
+            pre=Alloc(),
+            tx=Transaction(),
+            expected_benchmark_gas_used=HexNumber(99_999_999),
+        )
+        hits = collect_taint_hits(bench, None)
         assert len(hits) == 1
         assert hits[0]["kind"] == "benchmark"
         assert hits[0]["value"] == 99_999_999
 
 
+@pytest.mark.usefixtures("taint_installed")
 class TestOOGExclusion:
     """OOG-style tests are excluded — they don't write to positive sinks."""
 
     def test_tx_error_set_excludes_test(self) -> None:
         """Test tx error set excludes test."""
-        # Even with a tainted storage value, an error on tx means the
-        # test expects rejection — drop it.
-        post = _make_post({"0xa": _make_account({0: GasTainted(1, ("X",))})})
-        tx = SimpleNamespace(error="some_error", expected_receipt=None)
-        assert (
-            collect_taint_hits(_make_test(post=post, tx=tx), _make_node())
-            == []
+        # Even with a tainted storage value, a tx.error means the test
+        # expects rejection — drop it.
+        tx = Transaction(error=TransactionException.INTRINSIC_GAS_TOO_LOW)
+        test = StateTest(
+            fork=Cancun,
+            pre=Alloc(),
+            post=Alloc(
+                cast(
+                    Any,
+                    {
+                        _ADDR: Account(
+                            storage=Storage(
+                                cast(Any, {0: GasTainted(1, ("X",))})
+                            )
+                        )
+                    },
+                )
+            ),
+            tx=tx,
         )
+        assert collect_taint_hits(test, None) == []
 
     def test_block_exception_excludes_test(self) -> None:
         """Test block exception excludes test."""
-        post = _make_post({"0xa": _make_account({0: GasTainted(1, ("X",))})})
-        assert (
-            collect_taint_hits(
-                _make_test(post=post, block_exception="boom"),
-                _make_node(),
-            )
-            == []
+        test = StateTest(
+            fork=Cancun,
+            pre=Alloc(),
+            post=Alloc(
+                cast(
+                    Any,
+                    {
+                        _ADDR: Account(
+                            storage=Storage(
+                                cast(Any, {0: GasTainted(1, ("X",))})
+                            )
+                        )
+                    },
+                )
+            ),
+            tx=Transaction(),
+            block_exception=TransactionException.INTRINSIC_GAS_TOO_LOW,
         )
+        assert collect_taint_hits(test, None) == []
 
     def test_exception_test_marker_excludes_test(self) -> None:
         """Test exception test marker excludes test."""
-        post = _make_post({"0xa": _make_account({0: GasTainted(1, ("X",))})})
-        assert (
-            collect_taint_hits(
-                _make_test(post=post), _make_node(has_exception_marker=True)
-            )
-            == []
-        )
+        test = _state_test_with_storage(GasTainted(1, ("X",)))
+        node = _node_with_marker("exception_test")
+        assert collect_taint_hits(test, node) == []
 
 
+@pytest.mark.usefixtures("taint_installed")
 class TestMixedSinks:
     """Multiple sinks can fire for the same test."""
 
     def test_storage_and_receipt(self) -> None:
         """Test storage and receipt."""
-        post = _make_post({"0xa": _make_account({0: GasTainted(50, ("X",))})})
-        tx = SimpleNamespace(
-            error=None,
-            expected_receipt=SimpleNamespace(
-                cumulative_gas_used=21000,
-                gas_used=None,
-                blob_gas_used=None,
+        tx = Transaction()
+        tx.expected_receipt = TransactionReceipt(cumulative_gas_used=21000)
+        test = StateTest(
+            fork=Cancun,
+            pre=Alloc(),
+            post=Alloc(
+                cast(
+                    Any,
+                    {
+                        _ADDR: Account(
+                            storage=Storage(
+                                cast(Any, {0: GasTainted(50, ("X",))})
+                            )
+                        )
+                    },
+                )
             ),
+            tx=tx,
         )
-        hits = collect_taint_hits(_make_test(post=post, tx=tx), _make_node())
+        hits = collect_taint_hits(test, None)
         kinds = {h["kind"] for h in hits}
         assert kinds == {"storage", "receipt"}

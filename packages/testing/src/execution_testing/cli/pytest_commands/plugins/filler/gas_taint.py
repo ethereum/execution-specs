@@ -373,15 +373,9 @@ def _walk_header_and_block(hits: List[dict], block: Block, i: int) -> None:
 
 
 def _is_oog_test(test: BaseTest, node: pytest.Item | None) -> bool:
-    if (
-        isinstance(test, StateTest)
-        and test.tx.error is not None
-    ):
+    if isinstance(test, StateTest) and test.tx.error is not None:
         return True
-    if (
-        isinstance(test, StateTest)
-        and test.block_exception is not None
-    ):
+    if isinstance(test, StateTest) and test.block_exception is not None:
         return True
     if (
         node is not None
@@ -391,9 +385,7 @@ def _is_oog_test(test: BaseTest, node: pytest.Item | None) -> bool:
     return False
 
 
-def collect_taint_hits(
-    test: BaseTest, node: pytest.Item | None
-) -> List[dict]:
+def collect_taint_hits(test: BaseTest, node: pytest.Item | None) -> List[dict]:
     """Walk all known gas-assertion sinks on the test object."""
     if _is_oog_test(test, node):
         return []
