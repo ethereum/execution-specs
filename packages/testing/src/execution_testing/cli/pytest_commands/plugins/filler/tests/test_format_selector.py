@@ -178,6 +178,64 @@ class TestFormatSelector:
         assert format_selector.should_generate(fill_only_format)
         assert format_selector.should_generate(format_with_pre_alloc)
 
+    def test_fill_stateful_only_format_excluded_from_fill(self) -> None:
+        """
+        A format with format_phases == {FILL_STATEFUL} (e.g.
+        BlockchainEngineStatefulFixture) requires ClientBackend and must
+        never be selected by the `fill` command, even under
+        --generate-all-formats in phase 2.
+        """
+        stateful_only_format = type(
+            "MockStatefulFixtureFormat",
+            (BaseFixture,),
+            {"format_phases": {FixtureFillingPhase.FILL_STATEFUL}},
+        )
+
+        # Single-phase fill
+        selector_single = FormatSelector(
+            phase_manager=PhaseManager(current_phase=FixtureFillingPhase.FILL),
+            generate_all_formats=False,
+        )
+        assert not selector_single.should_generate(stateful_only_format)
+
+        # Phase 2 fill without generate-all
+        selector_phase2 = FormatSelector(
+            phase_manager=PhaseManager(
+                current_phase=FixtureFillingPhase.FILL,
+                previous_phases={FixtureFillingPhase.PRE_ALLOC_GENERATION},
+            ),
+            generate_all_formats=False,
+        )
+        assert not selector_phase2.should_generate(stateful_only_format)
+
+        # Phase 2 fill with generate-all
+        selector_phase2_all = FormatSelector(
+            phase_manager=PhaseManager(
+                current_phase=FixtureFillingPhase.FILL,
+                previous_phases={FixtureFillingPhase.PRE_ALLOC_GENERATION},
+            ),
+            generate_all_formats=True,
+        )
+        assert not selector_phase2_all.should_generate(stateful_only_format)
+
+        # Pre-alloc generation phase
+        selector_pre_alloc = FormatSelector(
+            phase_manager=PhaseManager(
+                current_phase=FixtureFillingPhase.PRE_ALLOC_GENERATION
+            ),
+            generate_all_formats=False,
+        )
+        assert not selector_pre_alloc.should_generate(stateful_only_format)
+
+        # Sanity check: under fill-stateful command, it is selected
+        selector_stateful = FormatSelector(
+            phase_manager=PhaseManager(
+                current_phase=FixtureFillingPhase.FILL_STATEFUL
+            ),
+            generate_all_formats=False,
+        )
+        assert selector_stateful.should_generate(stateful_only_format)
+
     def test_should_generate_labeled_format(self) -> None:
         """Test with LabeledFixtureFormat wrapper."""
         phase_manager = PhaseManager(current_phase=FixtureFillingPhase.FILL)

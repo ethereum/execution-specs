@@ -253,10 +253,11 @@ class FormatSelector:
             == FixtureFillingPhase.FILL_STATEFUL
         ):
             return FixtureFillingPhase.FILL_STATEFUL in format_phases
+        elif format_phases == {FixtureFillingPhase.FILL_STATEFUL}:
+            return False
         elif self.phase_manager.is_pre_alloc_generation:
             return self._should_generate_pre_alloc(format_phases)
-        else:  # FILL phase
-            return self._should_generate_fill(format_phases)
+        return self._should_generate_fill(format_phases)
 
     def _should_generate_pre_alloc(
         self, format_phases: Set[FixtureFillingPhase]
