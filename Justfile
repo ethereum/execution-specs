@@ -190,6 +190,7 @@ test-tests *args:
         -n {{ xdist_workers }} \
         --basetemp="{{ output_dir }}/test-tests/tmp" \
         --ignore=src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_benchmarking.py \
+        --ignore=src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_gas_taint_e2e.py \
         "$@" \
         src
 
@@ -201,6 +202,7 @@ test-tests-pypy *args:
         -n auto --maxprocesses 6 \
         --basetemp="{{ output_dir }}/test-tests-pypy/tmp" \
         --ignore=src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_benchmarking.py \
+        --ignore=src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_gas_taint_e2e.py \
         "$@" \
         src
 
@@ -212,7 +214,8 @@ test-tests-bench *args:
     uv run pytest \
         --basetemp="{{ output_dir }}/test-tests-bench/tmp" \
         "$@" \
-        packages/testing/src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_benchmarking.py
+        packages/testing/src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_benchmarking.py \
+        packages/testing/src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_gas_taint_e2e.py
 
 # Run CI release script integration tests
 [group('unit tests')]
