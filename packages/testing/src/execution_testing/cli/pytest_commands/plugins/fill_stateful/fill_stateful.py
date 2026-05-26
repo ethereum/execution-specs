@@ -282,7 +282,7 @@ def pytest_configure(config: pytest.Config) -> None:
     config.hive_test_suite = None  # type: ignore[attr-defined]
     config.hive_base_test = None  # type: ignore[attr-defined]
     config.hive_client = None  # type: ignore[attr-defined]
-    if config.getoption("hive_simulator", default=None):
+    if config.getoption("hive_mode", default=False):
         _configure_hive(config)
     else:
         if not config.getoption("rpc_endpoint", default=None):
