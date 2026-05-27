@@ -155,7 +155,7 @@ class GasCosts:
     OPCODE_EXP_BASE: Final[Uint] = Uint(10)
     OPCODE_EXP_PER_BYTE: Final[Uint] = Uint(50)
     OPCODE_KECCAK256_BASE: Final[Uint] = Uint(30)
-    OPCODE_KECCACK256_PER_WORD: Final[Uint] = Uint(6)
+    OPCODE_KECCAK256_PER_WORD: Final[Uint] = Uint(6)
     OPCODE_LOG_BASE: Final[Uint] = Uint(375)
     OPCODE_LOG_DATA_PER_BYTE: Final[Uint] = Uint(8)
     OPCODE_LOG_TOPIC: Final[Uint] = Uint(375)
