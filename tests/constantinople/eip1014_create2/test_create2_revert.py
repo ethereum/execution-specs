@@ -102,7 +102,7 @@ def test_create2_succeeds_after_reverted_create2(
     salt = 1
 
     new_account = fork.gas_costs().NEW_ACCOUNT
-    sstore_state = fork.sstore_state_gas()
+    sstore_state = Op.SSTORE(new_value=1).state_cost(fork)
 
     runtime_code = Op.SSTORE(0, 1) + Op.STOP
     initcode = Initcode(deploy_code=runtime_code)

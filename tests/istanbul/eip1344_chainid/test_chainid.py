@@ -62,7 +62,7 @@ def test_chainid(
         gas_limit=(
             intrinsic_calc(**intrinsic_kwargs)
             + contract_code.gas_cost(fork)
-            + fork.sstore_state_gas()
+            + Op.SSTORE(new_value=1).state_cost(fork)
         ),
     )
 

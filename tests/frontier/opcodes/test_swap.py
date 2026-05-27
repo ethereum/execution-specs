@@ -81,7 +81,7 @@ def test_swap(
         gas_limit=(
             intrinsic_calc()
             + contract_code.gas_cost(fork)
-            + fork.sstore_state_gas()
+            + Op.SSTORE(new_value=1).state_cost(fork)
         ),
         protected=fork.supports_protected_txs(),
     )

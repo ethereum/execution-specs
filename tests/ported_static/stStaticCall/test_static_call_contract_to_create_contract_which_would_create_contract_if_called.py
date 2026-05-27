@@ -76,7 +76,9 @@ def test_static_call_contract_to_create_contract_which_would_create_contract_if_
 
     gas_limit = 300000
     if fork.is_eip_enabled(8037):
-        gas_limit += fork.gas_costs().NEW_ACCOUNT + 3 * fork.sstore_state_gas()
+        gas_limit += fork.gas_costs().NEW_ACCOUNT + 3 * Op.SSTORE(
+            new_value=1
+        ).state_cost(fork)
     tx = Transaction(
         sender=sender,
         to=contract_0,

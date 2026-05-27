@@ -433,7 +433,9 @@ def test_extcodehash_codeless_with_storage(
         # `code.gas_cost(fork)` covers both SSTOREs (regular + state under
         # EIP-8037); EIP-1706 slack for the trailing SSTORE.
         gas_limit=(
-            intrinsic_calc() + code.gas_cost(fork) + fork.sstore_state_gas()
+            intrinsic_calc()
+            + code.gas_cost(fork)
+            + Op.SSTORE(new_value=1).state_cost(fork)
         ),
     )
 
@@ -567,7 +569,9 @@ def test_extcodehash_dynamic_account_overwrite(
     # in the caller. Both terms are 0 pre-EIP-8037 and scale with cpsb
     # on Amsterdam, keeping this CPSB-agnostic.
     gas_limit = (
-        400_000 + fork.gas_costs().NEW_ACCOUNT + 10 * fork.sstore_state_gas()
+        400_000
+        + fork.gas_costs().NEW_ACCOUNT
+        + 10 * Op.SSTORE(new_value=1).state_cost(fork)
     )
 
     tx = Transaction(
@@ -1359,7 +1363,7 @@ def test_extcodehash_call_to_selfdestruct(
     # whose state gas scales with cpsb on Amsterdam. Forward enough so
     # the inner CALL still completes when NEW_ACCOUNT grows.
     new_account = fork.gas_costs().NEW_ACCOUNT
-    sstore_state = fork.sstore_state_gas()
+    sstore_state = Op.SSTORE(new_value=1).state_cost(fork)
     code = Op.SSTORE(
         storage.store_next(int(call_succeeds)),
         call_opcode(address=target, gas=165_000 + new_account),
@@ -1587,7 +1591,9 @@ def test_extcodehash_created_and_deleted_recheck_outer(
     # Test does ~10 first-time SSTOREs (across inner and outer) plus a
     # CREATE2 (NEW_ACCOUNT). Both terms scale with cpsb on Amsterdam.
     gas_limit = (
-        400_000 + fork.gas_costs().NEW_ACCOUNT + 10 * fork.sstore_state_gas()
+        400_000
+        + fork.gas_costs().NEW_ACCOUNT
+        + 10 * Op.SSTORE(new_value=1).state_cost(fork)
     )
     tx = Transaction(
         sender=pre.fund_eoa(),
@@ -1650,7 +1656,7 @@ def test_extcodehash_subcall_selfdestruct(
     # SELFDESTRUCT to a nonexistent beneficiary creates a new account
     # whose state gas scales with cpsb on Amsterdam.
     new_account = fork.gas_costs().NEW_ACCOUNT
-    sstore_state = fork.sstore_state_gas()
+    sstore_state = Op.SSTORE(new_value=1).state_cost(fork)
 
     # A: executes C's code in A's context via CALLCODE/DELEGATECALL
     a_code = call_opcode(
@@ -1773,7 +1779,7 @@ def test_extcodehash_subcall_create2_oog(
     # also charges first-time SSTORE state gas. Both scale with cpsb
     # on Amsterdam.
     new_account = fork.gas_costs().NEW_ACCOUNT
-    sstore_state = fork.sstore_state_gas()
+    sstore_state = Op.SSTORE(new_value=1).state_cost(fork)
 
     # Factory: CREATE2, optionally consume all gas to trigger OOG.
     factory_code = Om.MSTORE(initcode, 0) + Op.MSTORE(

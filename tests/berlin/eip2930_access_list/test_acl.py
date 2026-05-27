@@ -99,7 +99,7 @@ def test_account_storage_warm_cold_state(
             access_list=access_lists,
         )
         + 100_000
-        + fork.sstore_state_gas()
+        + Op.SSTORE(new_value=1).state_cost(fork)
     )
 
     tx = Transaction(

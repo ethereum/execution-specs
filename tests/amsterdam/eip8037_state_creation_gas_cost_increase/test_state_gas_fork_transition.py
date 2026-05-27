@@ -198,7 +198,7 @@ def test_reservoir_available_after_transition(
     after_fork = fork.fork_at(timestamp=15_000)
     gas_limit_cap = after_fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = after_fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(after_fork)
 
     child_storage = Storage()
     child = pre.deploy_contract(

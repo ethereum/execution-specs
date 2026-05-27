@@ -175,7 +175,9 @@ def tx_gas_limit_calculator(
     extra_gas = 22_500 * len(precompile_gas_list)
     # Each SSTORE 0->non-zero contributes one state-set under EIP-8037
     # (returns 0 pre-fork).
-    sstore_state_gas = fork.sstore_state_gas() * len(precompile_gas_list)
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork) * len(
+        precompile_gas_list
+    )
     return (
         extra_gas
         + intrinsic_gas_cost_calculator()

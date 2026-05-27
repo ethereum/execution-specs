@@ -317,7 +317,9 @@ def test_blobhash_opcode_contexts(
     # initcode + deploy) plus per-blob SSTOREs whose state cost
     # scales with cpsb under EIP-8037 (`sstore_state_gas()` is 0
     # otherwise).
-    gas_limit = 500_000 + max_blobs_per_tx * fork.sstore_state_gas()
+    gas_limit = 500_000 + max_blobs_per_tx * Op.SSTORE(new_value=1).state_cost(
+        fork
+    )
     state_test(
         pre=pre,
         tx=Transaction(

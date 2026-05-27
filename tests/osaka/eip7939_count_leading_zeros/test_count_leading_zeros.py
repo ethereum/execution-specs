@@ -296,7 +296,10 @@ def test_clz_push_operation_same_value(
         to=code_address,
         sender=pre.fund_eoa(),
         gas_limit=(
-            intrinsic() + code_regular + code_state + fork.sstore_state_gas()
+            intrinsic()
+            + code_regular
+            + code_state
+            + Op.SSTORE(new_value=1).state_cost(fork)
         ),
     )
 
@@ -447,13 +450,15 @@ def test_clz_jump_operation(
     gas_cap = fork.transaction_gas_limit_cap()
     state_needed = caller_code.state_cost(fork) + callee_code.state_cost(fork)
     if gas_cap is not None and state_needed > 0:
-        gas_limit = gas_cap + state_needed + fork.sstore_state_gas()
+        gas_limit = (
+            gas_cap + state_needed + Op.SSTORE(new_value=1).state_cost(fork)
+        )
     else:
         gas_limit = (
             intrinsic()
             + caller_code.gas_cost(fork)
             + caller_forwarded_gas
-            + fork.sstore_state_gas()
+            + Op.SSTORE(new_value=1).state_cost(fork)
         )
     tx = Transaction(
         to=caller_address,
@@ -502,7 +507,7 @@ def test_clz_from_set_code(
     # 4 first-time SSTOREs in the delegated code each add
     # `sstore_state_gas` under EIP-8037 (0 otherwise).
     tx = Transaction(
-        gas_limit=200_000 + 4 * fork.sstore_state_gas(),
+        gas_limit=200_000 + 4 * Op.SSTORE(new_value=1).state_cost(fork),
         to=auth_signer,
         value=0,
         authorization_list=[
@@ -718,7 +723,7 @@ def test_clz_initcode_create(
         gas_limit=(
             200_000
             + fork.gas_costs().NEW_ACCOUNT
-            + 5 * fork.sstore_state_gas()
+            + 5 * Op.SSTORE(new_value=1).state_cost(fork)
         ),
         data=ext_code,
         sender=sender_address,
@@ -796,7 +801,7 @@ def test_clz_call_operation(
     # 3 first-time SSTOREs in the callee (when context != no_context)
     # and 3 more in the caller (when context == callee_context); each
     # adds `sstore_state_gas` under EIP-8037 (0 otherwise).
-    sstore_state = fork.sstore_state_gas()
+    sstore_state = Op.SSTORE(new_value=1).state_cost(fork)
     subcall_gas = 0xFFFF + 3 * sstore_state
     caller_code = opcode(
         gas=subcall_gas,

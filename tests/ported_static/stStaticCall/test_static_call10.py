@@ -171,7 +171,7 @@ def test_static_call10(
     ]
     tx_gas = [200000]
     if fork.is_eip_enabled(8037):
-        tx_gas[0] += 4 * fork.sstore_state_gas()
+        tx_gas[0] += 4 * Op.SSTORE(new_value=1).state_cost(fork)
     tx_value = [10]
 
     tx = Transaction(

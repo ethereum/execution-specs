@@ -275,7 +275,7 @@ def test_create_selfdestruct_no_refund_account_and_storage(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
 
     init_code = Bytecode()
@@ -482,7 +482,7 @@ def test_create_selfdestruct_sstore_restoration_refund(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
 
     init_code = (
@@ -609,7 +609,7 @@ def test_selfdestruct_via_delegatecall_chain_no_refund(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
 
     # Bottom of the chain does the SELFDESTRUCT; intermediate helpers

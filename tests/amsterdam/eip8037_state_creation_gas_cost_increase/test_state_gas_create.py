@@ -547,7 +547,7 @@ def test_code_deposit_oog_preserves_parent_reservoir(
     assert gas_limit_cap is not None
     gas_costs = fork.gas_costs()
     new_account_state_gas = gas_costs.NEW_ACCOUNT
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     # Small deploy size; code deposit state gas will exceed the
     # limited gas available in the CREATE child frame.
@@ -640,7 +640,7 @@ def test_parent_state_gas_after_child_failure(
     assert gas_limit_cap is not None
     gas_costs = fork.gas_costs()
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     new_account_state_gas = gas_costs.NEW_ACCOUNT
 
     initcode = Op.SSTORE(0, 1, original_value=0, new_value=1) + failure_op
@@ -1018,10 +1018,9 @@ def test_max_initcode_size_gas_metering_via_create(
         + initcode.execution_gas(fork)
         + initcode.deployment_gas(fork)
     )
-    factory_state_gas = (
-        fork.create_state_gas(code_size=len(initcode.deploy_code))
-        + fork.sstore_state_gas()
-    )
+    factory_state_gas = fork.create_state_gas(
+        code_size=len(initcode.deploy_code)
+    ) + Op.SSTORE(new_value=1).state_cost(fork)
     factory_regular_gas = factory_gas - factory_state_gas
 
     caller = pre.deploy_contract(
@@ -1305,7 +1304,7 @@ def test_state_gas_spill_header_gas_used(
     gas_costs = fork.gas_costs()
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     # SSTORE zero-to-nonzero with small reservoir
     sstore_code = Op.SSTORE(0, 1) + Op.STOP
@@ -1430,7 +1429,7 @@ def test_create_silent_failure_refunds_state_gas(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     gas_costs = fork.gas_costs()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
 
     mstore_value, size = init_code_at_high_bytes(Op.STOP)
@@ -1500,7 +1499,7 @@ def test_create_child_revert_refunds_state_gas(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     gas_costs = fork.gas_costs()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
 
     init_code = Op.REVERT(0, 0)
@@ -1581,7 +1580,7 @@ def test_create_child_halt_refunds_state_gas(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     gas_costs = fork.gas_costs()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     new_account_state_gas = gas_costs.NEW_ACCOUNT
 
     init_code: Op | Bytecode
@@ -1715,7 +1714,7 @@ def test_create_collision_refunds_state_gas(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     gas_costs = fork.gas_costs()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     new_account_state_gas = gas_costs.NEW_ACCOUNT
 
     init_code = Op.STOP
@@ -1790,7 +1789,7 @@ def test_create_code_deposit_oog_refunds_state_gas(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     gas_costs = fork.gas_costs()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     new_account_state_gas = gas_costs.NEW_ACCOUNT
     max_code_size = fork.max_code_size()
 
@@ -2311,7 +2310,7 @@ def test_create_stack_depth_state_gas_consumed(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     storage = Storage()
     recursive = pre.deploy_contract(

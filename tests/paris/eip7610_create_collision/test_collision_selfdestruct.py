@@ -80,7 +80,7 @@ def test_selfdestruct_after_create2_collision(
                 gas=(
                     500_000
                     + fork.gas_costs().NEW_ACCOUNT
-                    + fork.sstore_state_gas()
+                    + Op.SSTORE(new_value=1).state_cost(fork)
                 ),
                 address=deployer,
                 args_size=Op.CALLDATASIZE,
@@ -121,7 +121,7 @@ def test_selfdestruct_after_create2_collision(
         tx=Transaction(
             sender=sender,
             to=controller,
-            gas_limit=2_000_000 + 3 * fork.sstore_state_gas(),
+            gas_limit=2_000_000 + 3 * Op.SSTORE(new_value=1).state_cost(fork),
             data=initcode,
         ),
     )

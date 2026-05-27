@@ -133,7 +133,7 @@ def tx(  # noqa: D103
 ) -> Transaction:
     expected_gas = tx_gas_limit
     if not successful and fork.is_eip_enabled(8037):
-        expected_gas -= fork.sstore_state_gas()
+        expected_gas -= Op.SSTORE(new_value=1).state_cost(fork)
     return Transaction(
         sender=sender,
         to=caller_address,

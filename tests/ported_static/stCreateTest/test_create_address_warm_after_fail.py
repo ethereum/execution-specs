@@ -867,7 +867,7 @@ def test_create_address_warm_after_fail(
     # reservoir/`gas_left` (~37_500 gas/slot on Amsterdam). Add that
     # headroom — `sstore_state_gas` is 0 pre-EIP-8037, so the budget
     # is unchanged on older forks.
-    tx_gas = [16777216 + 14 * fork.sstore_state_gas()]
+    tx_gas = [16777216 + 14 * Op.SSTORE(new_value=1).state_cost(fork)]
     tx_value = [0, 1]
 
     tx = Transaction(

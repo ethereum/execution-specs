@@ -48,7 +48,7 @@ def test_sstore_via_delegation_pointer(
     auth_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     storage = Storage()
     contract = pre.deploy_contract(
@@ -92,7 +92,7 @@ def test_sstore_direct_call_same_contract(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     storage = Storage()
     contract = pre.deploy_contract(

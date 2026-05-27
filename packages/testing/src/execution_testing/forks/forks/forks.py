@@ -1071,11 +1071,6 @@ class Frontier(
         return None
 
     @classmethod
-    def sstore_state_gas(cls) -> int:
-        """Return the state gas for a zero-to-nonzero SSTORE."""
-        return 0
-
-    @classmethod
     def code_deposit_state_gas(cls, *, code_size: int) -> int:
         """Return the state gas for code deposit of the given size."""
         del code_size

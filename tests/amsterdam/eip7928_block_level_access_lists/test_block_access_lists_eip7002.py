@@ -200,7 +200,7 @@ def test_bal_7002_clean_sweep(
     # Predeploy sweep performs first-time SSTOREs for queue, count, and
     # tail slots. `sstore_state_gas()` is 0 pre-EIP-8037 and scales with
     # cpsb on Amsterdam, keeping this budget CPSB-agnostic.
-    gas_limit = 200_000 + 5 * fork.sstore_state_gas()
+    gas_limit = 200_000 + 5 * Op.SSTORE(new_value=1).state_cost(fork)
 
     # Transaction to system contract
     tx = Transaction(
@@ -304,7 +304,7 @@ def test_bal_7002_partial_sweep(
     # Predeploy sweep performs first-time SSTOREs for queue, count, and
     # tail slots. `sstore_state_gas()` is 0 pre-EIP-8037 and scales with
     # cpsb on Amsterdam, keeping this budget CPSB-agnostic.
-    gas_limit = 200_000 + 5 * fork.sstore_state_gas()
+    gas_limit = 200_000 + 5 * Op.SSTORE(new_value=1).state_cost(fork)
 
     # Block 1: 20 withdrawal requests
     withdrawal_requests = [
@@ -486,7 +486,7 @@ def test_bal_7002_no_withdrawal_requests(
     # Predeploy sweep performs first-time SSTOREs for queue, count, and
     # tail slots. `sstore_state_gas()` is 0 pre-EIP-8037 and scales with
     # cpsb on Amsterdam, keeping this budget CPSB-agnostic.
-    gas_limit = 200_000 + 5 * fork.sstore_state_gas()
+    gas_limit = 200_000 + 5 * Op.SSTORE(new_value=1).state_cost(fork)
 
     tx = Transaction(
         sender=alice,

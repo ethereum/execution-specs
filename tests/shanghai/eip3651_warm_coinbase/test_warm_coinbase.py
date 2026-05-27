@@ -98,7 +98,7 @@ def test_warm_coinbase_call_out_of_gas(
             intrinsic_calc()
             + caller_code.gas_cost(fork)
             + call_gas_exact
-            + fork.sstore_state_gas()
+            + Op.SSTORE(new_value=1).state_cost(fork)
         ),
         sender=sender,
     )
@@ -197,7 +197,7 @@ def test_warm_coinbase_gas_usage(
         gas_limit=(
             intrinsic_calc()
             + code_gas_measure.gas_cost(fork)
-            + fork.sstore_state_gas()
+            + Op.SSTORE(new_value=1).state_cost(fork)
         ),
         sender=sender,
     )

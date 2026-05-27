@@ -106,7 +106,7 @@ def test_calldataload(
                 + outer_call_reserve
                 + contract_code.gas_cost(fork)
                 + sstore_sentry_slack
-                + fork.sstore_state_gas()
+                + Op.SSTORE(new_value=1).state_cost(fork)
             ),
             protected=fork.supports_protected_txs(),
             sender=pre.fund_eoa(),
@@ -120,7 +120,7 @@ def test_calldataload(
                 intrinsic(calldata=calldata)
                 + contract_code.gas_cost(fork)
                 + sstore_sentry_slack
-                + fork.sstore_state_gas()
+                + Op.SSTORE(new_value=1).state_cost(fork)
             ),
             protected=fork.supports_protected_txs(),
             sender=pre.fund_eoa(),

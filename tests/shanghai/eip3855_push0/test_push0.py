@@ -99,7 +99,7 @@ def test_push0_contracts(
         gas_limit=(
             intrinsic_calc()
             + contract_code.gas_cost(fork)
-            + fork.sstore_state_gas()
+            + Op.SSTORE(new_value=1).state_cost(fork)
         ),
         sender=sender,
     )
@@ -193,7 +193,7 @@ class TestPush0CallContext:
                 intrinsic_calc()
                 + push0_contract_caller_code.gas_cost(fork)
                 + self.PUSH0_CALL_FORWARDED_GAS
-                + fork.sstore_state_gas()
+                + Op.SSTORE(new_value=1).state_cost(fork)
             ),
             sender=sender,
         )

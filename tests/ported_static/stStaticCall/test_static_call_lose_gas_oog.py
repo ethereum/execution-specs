@@ -73,7 +73,7 @@ def test_static_call_lose_gas_oog(
 
     gas_limit = 200000
     if fork.is_eip_enabled(8037):
-        gas_limit += 2 * fork.sstore_state_gas()
+        gas_limit += 2 * Op.SSTORE(new_value=1).state_cost(fork)
     tx = Transaction(
         sender=sender,
         to=target,

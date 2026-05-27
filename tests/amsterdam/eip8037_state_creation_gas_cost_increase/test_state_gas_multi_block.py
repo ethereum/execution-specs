@@ -55,7 +55,7 @@ def test_exact_coinbase_fee_simple_sstore(
     gas_costs = fork.gas_costs()
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     # Gas breakdown for tx 1 (SSTORE zero-to-nonzero, no calldata):
     # PUSH1(1) + PUSH1(0) + SSTORE(cold, zero-to-nonzero) + STOP
@@ -124,7 +124,7 @@ def test_multi_block_mixed_state_operations(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     reverting_child = pre.deploy_contract(
         code=(Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.REVERT(0, 0)),
@@ -246,7 +246,7 @@ def test_multi_block_observed_coinbase_balance(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     reporter1 = pre.deploy_contract(
         code=(Op.SSTORE(0, Op.BALANCE(Op.COINBASE))),

@@ -129,7 +129,7 @@ def tx(  # noqa: D103
         sender=pre.fund_eoa(),
         to=code_address,
         data=Hash(dest) + Hash(src) + Hash(length),
-        gas_limit=1_000_000 + 10 * fork.sstore_state_gas(),
+        gas_limit=1_000_000 + 10 * Op.SSTORE(new_value=1).state_cost(fork),
     )
 
 
@@ -303,7 +303,7 @@ def test_mcopy_repeated(
             sender=pre.fund_eoa(),
             to=contract,
             data=Hash(dest) + Hash(src) + Hash(length),
-            gas_limit=1_000_000 + 2 * fork.sstore_state_gas(),
+            gas_limit=1_000_000 + 2 * Op.SSTORE(new_value=1).state_cost(fork),
         ),
     )
 

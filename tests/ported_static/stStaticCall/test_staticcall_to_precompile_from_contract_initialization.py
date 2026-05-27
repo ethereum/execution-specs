@@ -86,7 +86,7 @@ def test_staticcall_to_precompile_from_contract_initialization(
         gas_limit=(
             1000000
             + fork.gas_costs().NEW_ACCOUNT
-            + 23 * fork.sstore_state_gas()
+            + 23 * Op.SSTORE(new_value=1).state_cost(fork)
             if fork.is_eip_enabled(8037)
             else 1000000
         ),

@@ -1347,7 +1347,9 @@ def test_varied_context(
     #                        per SELFDESTRUCT to non-alive beneficiary
     #   suicide-write spill: +126 956 = both deltas combined
     sstore_set_delta = (
-        (fork.sstore_state_gas() - 17100) if fork.is_eip_enabled(8037) else 0
+        (Op.SSTORE(new_value=1).state_cost(fork) - 17100)
+        if fork.is_eip_enabled(8037)
+        else 0
     )
     new_account_delta = (
         (fork.create_state_gas() - 25000) if fork.is_eip_enabled(8037) else 0

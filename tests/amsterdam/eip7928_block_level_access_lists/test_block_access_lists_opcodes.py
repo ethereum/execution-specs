@@ -2643,7 +2643,7 @@ def test_bal_create_selfdestruct_to_self_with_call(
     #
     # Forward enough gas for Oracle's first-time SSTORE
     # (regular base + state gas, CPSB-agnostic).
-    oracle_call_gas = 100_000 + fork.sstore_state_gas()
+    oracle_call_gas = 100_000 + Op.SSTORE(new_value=1).state_cost(fork)
     initcode_runtime = (
         Op.CALL(oracle_call_gas, oracle, 0, 0, 0, 0, 0)
         + Op.POP
@@ -2711,7 +2711,9 @@ def test_bal_create_selfdestruct_to_self_with_call(
     # `sstore_state_gas()` are 0 pre-EIP-8037 and scale with cpsb on
     # Amsterdam, keeping this budget CPSB-agnostic.
     gas_limit = (
-        1_000_000 + fork.gas_costs().NEW_ACCOUNT + 3 * fork.sstore_state_gas()
+        1_000_000
+        + fork.gas_costs().NEW_ACCOUNT
+        + 3 * Op.SSTORE(new_value=1).state_cost(fork)
     )
 
     tx = Transaction(

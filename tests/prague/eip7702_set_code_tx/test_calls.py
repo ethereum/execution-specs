@@ -117,9 +117,9 @@ def test_delegate_call_targets(
     # writes. Lift gas_limit past the EIP-7825 cap so the EIP-8037 reservoir
     # holds the SSTORE state work and the inner-call burn doesn't drain it.
     gas_cap = fork.transaction_gas_limit_cap()
-    state_needed = (
-        delegate_call_code.state_cost(fork) + 2 * fork.sstore_state_gas()
-    )
+    state_needed = delegate_call_code.state_cost(fork) + 2 * Op.SSTORE(
+        new_value=1
+    ).state_cost(fork)
     base_gas = (
         intrinsic(
             calldata=delegate_call_code,

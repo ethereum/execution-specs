@@ -186,7 +186,7 @@ def tx_gas_limit(fork: Fork, input_data: bytes, precompile_gas: int) -> int:
     # `call_contract_code` performs up to 3 SSTOREs per call
     # (succeeds-flag, output-length, output-hash); under EIP-8037
     # each adds `sstore_state_gas()` of state work (0 otherwise).
-    extra_gas = 100_000 + 3 * fork.sstore_state_gas()
+    extra_gas = 100_000 + 3 * Op.SSTORE(new_value=1).state_cost(fork)
     return (
         extra_gas
         + intrinsic_gas_cost_calculator(calldata=input_data)

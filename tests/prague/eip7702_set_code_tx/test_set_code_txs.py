@@ -198,7 +198,7 @@ def test_set_code_to_sstore(
         gas_limit=(
             500_000
             + fork.gas_costs().NEW_ACCOUNT
-            + 3 * fork.sstore_state_gas()
+            + 3 * Op.SSTORE(new_value=1).state_cost(fork)
         ),
         to=auth_signer,
         value=tx_value,
@@ -3385,7 +3385,7 @@ def test_set_code_to_system_contract(
     # request (4 and 5 slots respectively); pad gas_limit by that many
     # SSTORE state-set worths so the EIP-8037 reservoir absorbs the work
     # rather than draining the tx's regular pool through DELEGATECALL.
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     extra_state_slots = {
         Address(Spec7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS): 4,
         Address(Spec7251.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS): 5,

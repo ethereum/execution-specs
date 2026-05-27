@@ -51,7 +51,7 @@ def test_call_insufficient_balance(
         gas_limit=(
             intrinsic_calc()
             + contract_code.gas_cost(fork)
-            + fork.sstore_state_gas()
+            + Op.SSTORE(new_value=1).state_cost(fork)
         ),
         sender=pre.fund_eoa(),
     )

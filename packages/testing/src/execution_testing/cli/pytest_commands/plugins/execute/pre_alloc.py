@@ -264,7 +264,7 @@ def _compute_deploy_gas_limit(
     # State-gas portion (drawn from block reservoir, not capped).
     state_gas = fork.transaction_intrinsic_state_gas(contract_creation=True)
     state_gas += fork.code_deposit_state_gas(code_size=deploy_code_size)
-    state_gas += storage_slots * fork.sstore_state_gas()
+    state_gas += storage_slots * Op.SSTORE(new_value=1).state_cost(fork)
 
     deploy_gas_limit = regular_gas + state_gas
     return regular_gas, deploy_gas_limit

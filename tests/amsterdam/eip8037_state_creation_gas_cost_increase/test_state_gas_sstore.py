@@ -185,7 +185,7 @@ def test_sstore_restoration_refund_credits_local_reservoir(
     that frame is funded. Parametrized to pin the refund as necessary
     and sufficient.
     """
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     create_state_gas = fork.create_state_gas()
     # Premise: the two restoration refunds must be able to cover the
     # CREATE's new-account state gas for the funded path to exist.
@@ -392,7 +392,7 @@ def test_sstore_state_gas_drawn_from_reservoir(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     storage = Storage()
     contract = pre.deploy_contract(
@@ -468,7 +468,7 @@ def test_sstore_stipend_check_excludes_reservoir(
     """
     gas_costs = fork.gas_costs()
     stipend = gas_costs.CALL_STIPEND + 1
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     # Child: Op.SSTORE(0, 1) = 2 pushes + SSTORE opcode.
     child_code = Op.SSTORE(0, 1)
@@ -537,7 +537,7 @@ def test_sstore_restoration_block_state_gas_zero(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
 
     code = Bytecode()
@@ -589,7 +589,7 @@ def test_sstore_restoration_mixed_with_genuine_sstore(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
 
     code = Bytecode()
@@ -640,7 +640,7 @@ def test_sstore_restoration_intermediate_values(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
 
     code = (
@@ -689,7 +689,7 @@ def test_sstore_restoration_then_reset(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
 
     code = (
@@ -739,7 +739,7 @@ def test_sstore_restoration_reservoir_replenished_inline(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
 
     code = (
@@ -790,7 +790,7 @@ def test_sstore_restoration_cross_frame(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
 
     child_code = (
@@ -859,7 +859,7 @@ def test_sstore_restoration_charge_in_ancestor(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     gas_costs = fork.gas_costs()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     probe_gas = (
         2 * gas_costs.VERY_LOW
         + gas_costs.COLD_STORAGE_WRITE
@@ -937,7 +937,7 @@ def test_sstore_restoration_sub_frame_revert(
     probe_gas = (
         2 * gas_costs.VERY_LOW
         + gas_costs.COLD_STORAGE_WRITE
-        + fork.sstore_state_gas()
+        + Op.SSTORE(new_value=1).state_cost(fork)
         - 1
     )
 
@@ -993,7 +993,7 @@ def test_sstore_restoration_ancestor_revert(
     probe_gas = (
         2 * gas_costs.VERY_LOW
         + gas_costs.COLD_STORAGE_WRITE
-        + fork.sstore_state_gas()
+        + Op.SSTORE(new_value=1).state_cost(fork)
         - 1
     )
 
@@ -1035,7 +1035,7 @@ def test_sstore_restoration_ancestor_revert(
         + inner_code.regular_cost(fork)
         + probe_code.regular_cost(fork)
     )
-    expected_state = 2 * fork.sstore_state_gas()
+    expected_state = 2 * Op.SSTORE(new_value=1).state_cost(fork)
     expected_gas_used = max(expected_regular, expected_state)
 
     # gas_limit at the cap means the caller's reservoir starts at 0.
@@ -1074,7 +1074,7 @@ def test_sstore_restoration_charge_in_ancestor_intermediate_revert(
     A probe SSTORE sized to OOG by 1 detects loss.
     """
     gas_costs = fork.gas_costs()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
@@ -1180,7 +1180,7 @@ def test_sstore_restoration_create_init_revert(
     probe_gas = (
         2 * gas_costs.VERY_LOW
         + gas_costs.COLD_STORAGE_WRITE
-        + fork.sstore_state_gas()
+        + Op.SSTORE(new_value=1).state_cost(fork)
         - 1
     )
 
@@ -1245,7 +1245,7 @@ def test_sstore_restoration_create_init_success(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     create_state_gas = fork.create_state_gas(code_size=0)
 
     init_code = (
@@ -1305,7 +1305,7 @@ def test_sstore_restoration_reservoir_spillover(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
 
     code = Op.SSTORE(0, 1) + Op.SSTORE.with_metadata(

@@ -847,12 +847,6 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def sstore_state_gas(cls) -> int:
-        """Return state gas for a zero-to-nonzero SSTORE."""
-        pass
-
-    @classmethod
-    @abstractmethod
     def code_deposit_state_gas(cls, *, code_size: int) -> int:
         """Return state gas for code deposit of the given size."""
         pass

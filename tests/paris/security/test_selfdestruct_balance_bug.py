@@ -107,13 +107,13 @@ def test_tx_selfdestruct_balance_bug(
         + aa_code.gas_cost(fork)
         + fork.gas_costs().NEW_ACCOUNT
         + 2 * inner_call_gas
-        + fork.sstore_state_gas()
+        + Op.SSTORE(new_value=1).state_cost(fork)
     )
     # Balance-check tx: one zero->non-zero SSTORE.
     balance_tx_gas = (
         intrinsic_calc()
         + balance_code.gas_cost(fork)
-        + fork.sstore_state_gas()
+        + Op.SSTORE(new_value=1).state_cost(fork)
     )
     # Plain value transfer to a (post-EIP-6780) non-existent account.
     aa_value_tx_gas = intrinsic_calc()

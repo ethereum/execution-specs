@@ -36,7 +36,7 @@ def sstore_tx_gas(fork: Fork, num_sstores: int = 1) -> tuple[int, int]:
     """Return (regular, state) gas for a tx with N cold SSTOREs."""
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
     evm_total = num_sstores * Op.SSTORE(0, 1).gas_cost(fork)
-    state = num_sstores * fork.sstore_state_gas()
+    state = num_sstores * Op.SSTORE(new_value=1).state_cost(fork)
     return intrinsic_gas + evm_total - state, state
 
 
@@ -51,7 +51,9 @@ def sstore_txs(
     if tx_gas_limit is None:
         gas_limit_cap = fork.transaction_gas_limit_cap()
         assert gas_limit_cap is not None
-        tx_gas_limit = gas_limit_cap + num_sstores * fork.sstore_state_gas()
+        tx_gas_limit = gas_limit_cap + num_sstores * Op.SSTORE(
+            new_value=1
+        ).state_cost(fork)
     txs, post = [], {}
     for _ in range(n):
         storage = Storage()
@@ -237,7 +239,7 @@ def test_block_gas_refund_eip7778_no_block_reduction(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
 
     num_txs = 3
@@ -365,7 +367,7 @@ def test_block_gas_used_call_new_account(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     target = pre.fund_eoa(amount=0)
 
@@ -624,7 +626,7 @@ def test_receipt_cumulative_differs_from_header_gas_used(
 
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    tx_gas_limit = gas_limit_cap + fork.sstore_state_gas()
+    tx_gas_limit = gas_limit_cap + Op.SSTORE(new_value=1).state_cost(fork)
     per_tx_gas_used = tx_regular + tx_state
 
     txs: list[Transaction] = []

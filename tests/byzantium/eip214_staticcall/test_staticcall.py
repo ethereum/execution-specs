@@ -148,7 +148,7 @@ def test_staticcall_reentrant_call_to_precompile(
     # frame. Lift past the EIP-7825 cap so the EIP-8037 reservoir hosts
     # the SSTORE state.
     gas_cap = fork.transaction_gas_limit_cap()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     if gas_cap is not None and sstore_state_gas > 0:
         gas_limit = gas_cap + sstore_state_gas
     else:
@@ -457,7 +457,7 @@ def test_staticcall_nested_call_to_precompile(
     # at each frame. Lift past the EIP-7825 cap so the EIP-8037 reservoir
     # holds the SSTORE state work for both contracts.
     gas_cap = fork.transaction_gas_limit_cap()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     if gas_cap is not None and sstore_state_gas > 0:
         gas_limit = gas_cap + 6 * sstore_state_gas
     else:

@@ -42,11 +42,6 @@ class EIP8037(BaseFork):
         return 1530
 
     @classmethod
-    def sstore_state_gas(cls) -> int:
-        """Return state gas for a zero-to-nonzero SSTORE (EIP-8037)."""
-        return STATE_BYTES_PER_STORAGE_SET * cls.cost_per_state_byte()
-
-    @classmethod
     def system_call_gas_limit(cls) -> int:
         """
         Bump the inherited limit so state gas cost changes cannot
@@ -54,7 +49,10 @@ class EIP8037(BaseFork):
 
         TODO: consider moving this to EIP-8038.
         """
-        extra = cls.sstore_state_gas() * SYSTEM_MAX_SSTORES_PER_CALL
+        sstore_state_gas = (
+            STATE_BYTES_PER_STORAGE_SET * cls.cost_per_state_byte()
+        )
+        extra = sstore_state_gas * SYSTEM_MAX_SSTORES_PER_CALL
         return super(EIP8037, cls).system_call_gas_limit() + extra
 
     @classmethod

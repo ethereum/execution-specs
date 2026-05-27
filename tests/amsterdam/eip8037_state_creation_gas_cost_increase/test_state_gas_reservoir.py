@@ -116,7 +116,7 @@ def test_sstore_state_gas_source(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     storage = Storage()
     code = Bytecode()
@@ -288,7 +288,7 @@ def test_block_state_gas_limit_boundary(
     block_gas_limit = 100_000_000
 
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     num_sstores = 50
     tx1_code = Bytecode()
@@ -493,7 +493,7 @@ def test_creation_tx_state_check_exceeded(
     block_gas_limit = 100_000_000
 
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     create_intrinsic_total = intrinsic_cost(contract_creation=True)
     create_intrinsic_state = fork.transaction_intrinsic_state_gas(
         contract_creation=True,
@@ -626,7 +626,7 @@ def test_block_2d_gas_valid_when_cumulative_exceeds_limit(
     block_gas_limit = 100_000_000
 
     gas_costs = fork.gas_costs()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     tx_regular = (
         gas_costs.TX_BASE
@@ -751,7 +751,7 @@ def test_top_level_failure_refunds_execution_state_gas(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
 
     if failure_mode == "revert":
@@ -813,7 +813,7 @@ def test_top_level_failure_zeros_block_state_gas(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
 
     if failure_mode == "revert":
@@ -873,7 +873,7 @@ def test_creation_tx_failure_preserves_intrinsic_state_gas(
     create_intrinsic_state = fork.transaction_intrinsic_state_gas(
         contract_creation=True,
     )
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     tx_gas = gas_limit_cap + create_intrinsic_state + sstore_state_gas
 
     tx = Transaction(
@@ -915,7 +915,7 @@ def test_subcall_failure_does_not_zero_top_level_state_gas(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     child = pre.deploy_contract(code=Op.REVERT(0, 0))
     parent_storage = Storage()
@@ -978,7 +978,7 @@ def test_top_level_failure_spilled_state_gas(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
 
     if failure_mode == "revert":
@@ -1049,7 +1049,7 @@ def test_top_level_failure_propagated_state_gas(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
 
     child_code = Op.SSTORE(0, 1)
@@ -1311,7 +1311,7 @@ def test_nested_failure_resets_to_tx_reservoir(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
 
@@ -1431,7 +1431,7 @@ def test_nested_state_gas_refund_consumed_at_depth(
     gas_costs = fork.gas_costs()
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     is_auth_scenario = refund_scenario == "auth_existing_leaf"
 
@@ -1539,7 +1539,7 @@ def test_top_level_opcode_oog_before_frame_end_does_not_refund_state_gas(
     never contributes execution state gas to refund.
     """
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     code = Op.SSTORE(0, 1) + Op.MCOPY(
         0x1000,
@@ -1630,7 +1630,7 @@ def test_access_list_warm_savings_stay_regular(
     """Verify access-list warm savings stay in regular gas."""
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     contract = pre.deploy_contract(
         code=Op.SSTORE(0, Op.SLOAD(0)),
@@ -1710,7 +1710,7 @@ def test_subcall_revert_does_not_leak_grandchild_storage_clear_credit(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
 
     num_slots = 5
@@ -1815,7 +1815,7 @@ def test_revert_discards_descendant_storage_clear_credit_through_depth(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
 
     num_slots = 5
@@ -1977,7 +1977,7 @@ def test_subcall_set_clear_revert_pays_no_state_gas(
     spills into `gas_left` (`spill`, reservoir = 0).
     """
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
 

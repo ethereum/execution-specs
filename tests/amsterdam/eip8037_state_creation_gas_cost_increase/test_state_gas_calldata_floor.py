@@ -112,7 +112,7 @@ def test_calldata_floor_higher_than_execution_with_state_ops(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     storage = Storage()
     contract = pre.deploy_contract(

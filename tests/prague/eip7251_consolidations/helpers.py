@@ -217,7 +217,7 @@ class ConsolidationRequestContract(ConsolidationRequestInteractionBase):
                 len(self.requests) * sstores_per_request
                 + queue_tail_and_slack_sstores
             )
-            gas_limit += sstores * fork.sstore_state_gas()
+            gas_limit += sstores * Op.SSTORE(new_value=1).state_cost(fork)
         return [
             Transaction(
                 gas_limit=gas_limit,

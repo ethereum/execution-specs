@@ -215,7 +215,7 @@ def test_authorization_with_sstore(
     auth_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     storage = Storage()
     contract = pre.deploy_contract(
@@ -263,7 +263,7 @@ def test_existing_account_refund_enables_sstore(
     auth_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     storage = Storage()
     contract = pre.deploy_contract(
@@ -623,7 +623,7 @@ def test_auth_with_calldata_and_access_list(
     auth_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     storage = Storage()
     # Contract that reads calldata and stores it
@@ -786,7 +786,7 @@ def test_auth_with_multiple_sstores(
     auth_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     num_sstores = 5
 
     storage = Storage()
@@ -955,7 +955,7 @@ def test_multi_tx_block_auth_refund_and_sstore(
     auth_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     contract = pre.deploy_contract(code=Op.STOP)
 
@@ -1021,7 +1021,7 @@ def test_auth_refund_bypasses_one_fifth_cap(
     auth_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     # Auth refund for existing account = new-account state gas
     # (documents the expected value for reasoning about gas budgets).
 
@@ -1254,7 +1254,9 @@ def test_existing_auth_refund_survives_top_level_revert(
     # bytecode.gas_cost(fork) returns the combined (regular + state)
     # cost; subtract the SSTORE state portion to isolate the regular
     # gas burned before REVERT.
-    execution_regular = code.gas_cost(fork) - fork.sstore_state_gas()
+    execution_regular = code.gas_cost(fork) - Op.SSTORE(
+        new_value=1
+    ).state_cost(fork)
 
     signer = pre.fund_eoa()
     authorization_list = [

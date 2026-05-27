@@ -660,7 +660,7 @@ def test_mixed_gas_regimes(
     # state gas lives in the separate state dimension, so the block-level
     # contribution excludes it.
     tx1_block_contribution = max(
-        tx1_pre_refund - fork.sstore_state_gas(), tx1_floor
+        tx1_pre_refund - Op.SSTORE(new_value=1).state_cost(fork), tx1_floor
     )
     tx1 = Transaction(
         to=tx1_target,

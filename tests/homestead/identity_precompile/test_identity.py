@@ -48,7 +48,9 @@ def test_identity_return_overwrite(
         sender=pre.fund_eoa(),
         to=contract_address,
         gas_limit=(
-            intrinsic() + code.gas_cost(fork) + fork.sstore_state_gas()
+            intrinsic()
+            + code.gas_cost(fork)
+            + Op.SSTORE(new_value=1).state_cost(fork)
         ),
     )
 
@@ -100,7 +102,9 @@ def test_identity_return_buffer_modify(
         sender=pre.fund_eoa(),
         to=contract_address,
         gas_limit=(
-            intrinsic() + code.gas_cost(fork) + fork.sstore_state_gas()
+            intrinsic()
+            + code.gas_cost(fork)
+            + Op.SSTORE(new_value=1).state_cost(fork)
         ),
     )
 

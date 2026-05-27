@@ -399,7 +399,7 @@ def test_pointer_measurements(
     # The pointer-code measurement contract performs ~10 first-time
     # SSTOREs; each adds `sstore_state_gas` under EIP-8037 (0
     # otherwise). The non-pointer txs reuse the same headroom.
-    pointer_state = 10 * fork.sstore_state_gas()
+    pointer_state = 10 * Op.SSTORE(new_value=1).state_cost(fork)
     tx = Transaction(
         to=contract_measurements,
         gas_limit=1_000_000 + pointer_state,
@@ -1491,7 +1491,7 @@ def test_pointer_reentry(
     gas_cap = fork.transaction_gas_limit_cap()
     sstore_count = 10  # rough envelope across all frames
     tx_gas_limit = (
-        gas_cap + sstore_count * fork.sstore_state_gas()
+        gas_cap + sstore_count * Op.SSTORE(new_value=1).state_cost(fork)
         if gas_cap is not None and fork.is_eip_enabled(8037)
         else 2_000_000
     )
@@ -1951,7 +1951,7 @@ def test_pointer_resets_an_empty_code_account_with_storage(
     contract_1 = pre.deploy_contract(code=contract_1_code)
 
     intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     # The set-pointer-storage tx authorizes contract_1 then runs its two
     # SSTOREs at the pointer; pad gas_limit with the auth + 2 SSTORE state
     # work and EIP-1706 slack.

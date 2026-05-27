@@ -71,7 +71,9 @@ def test_dup(
         ty=0x0,
         to=account,
         gas_limit=(
-            intrinsic() + account_code.gas_cost(fork) + fork.sstore_state_gas()
+            intrinsic()
+            + account_code.gas_cost(fork)
+            + Op.SSTORE(new_value=1).state_cost(fork)
         ),
         gas_price=10,
         protected=fork.supports_protected_txs(),

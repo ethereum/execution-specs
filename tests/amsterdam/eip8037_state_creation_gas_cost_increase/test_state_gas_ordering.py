@@ -45,7 +45,7 @@ def _single_sstore_probe_gas(fork: Fork) -> int:
     """
     gas_costs = fork.gas_costs()
     sstore_regular = gas_costs.COLD_STORAGE_WRITE
-    sstore_state = fork.sstore_state_gas()
+    sstore_state = Op.SSTORE(new_value=1).state_cost(fork)
     push_gas = 2 * gas_costs.VERY_LOW
     return push_gas + sstore_regular + sstore_state - 1
 
@@ -106,7 +106,7 @@ def test_sstore_oog_reservoir_inflation_detection(
     # Compute probe gas: enough for 4 SSTOREs' regular gas + pushes,
     # but after 4th regular charge, gas_left < the state gas spill.
     sstore_regular = gas_costs.COLD_STORAGE_WRITE
-    sstore_state = fork.sstore_state_gas()
+    sstore_state = Op.SSTORE(new_value=1).state_cost(fork)
     push_per_sstore = 2 * gas_costs.VERY_LOW
     create_state_gas = fork.create_state_gas(
         code_size=len(initcode.deploy_code)

@@ -47,7 +47,7 @@ def test_deterministic_deployment(
     tx_gas = (
         intrinsic_calc(calldata=Hash(1))
         + deploy_code.gas_cost(fork)
-        + fork.sstore_state_gas()
+        + Op.SSTORE(new_value=1).state_cost(fork)
     )
     reset_tx = Transaction(
         sender=sender,

@@ -82,7 +82,8 @@ def test_static_contract_creation_make_call_that_ask_more_gas_then_transaction_p
     sender_amount = 0x10C8E0
     if fork.is_eip_enabled(8037):
         sender_amount += (
-            fork.gas_costs().NEW_ACCOUNT + fork.sstore_state_gas()
+            fork.gas_costs().NEW_ACCOUNT
+            + Op.SSTORE(new_value=1).state_cost(fork)
         ) * 10
     sender = pre.fund_eoa(amount=sender_amount)
 
@@ -256,7 +257,9 @@ def test_static_contract_creation_make_call_that_ask_more_gas_then_transaction_p
     ]
     tx_gas = [96000]
     if fork.is_eip_enabled(8037):
-        tx_gas[0] += fork.gas_costs().NEW_ACCOUNT + fork.sstore_state_gas()
+        tx_gas[0] += fork.gas_costs().NEW_ACCOUNT + Op.SSTORE(
+            new_value=1
+        ).state_cost(fork)
 
     tx = Transaction(
         sender=sender,

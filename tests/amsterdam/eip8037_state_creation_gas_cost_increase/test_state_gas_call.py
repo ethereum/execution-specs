@@ -56,7 +56,7 @@ def test_child_call_uses_reservoir(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     child_storage = Storage()
     child = pre.deploy_contract(
@@ -145,7 +145,7 @@ def test_reservoir_returned_on_revert(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     child = pre.deploy_contract(code=Op.REVERT(0, 0))
 
@@ -184,7 +184,7 @@ def test_reservoir_returned_on_oog(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     # Child that consumes all gas
     child = pre.deploy_contract(code=Op.INVALID)
@@ -228,7 +228,7 @@ def test_reservoir_restored_after_child_spill_and_revert(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     # Child does two SSTOREs then reverts — the second SSTORE's
     # state gas spills from the reservoir into `gas_left`
@@ -278,7 +278,7 @@ def test_reservoir_restored_after_child_spill_and_halt(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     # Child does two SSTOREs then halts
     child = pre.deploy_contract(
@@ -324,7 +324,7 @@ def test_reservoir_restored_after_child_full_drain_and_revert(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     child = pre.deploy_contract(
         code=(Op.SSTORE(0, 1) + Op.REVERT(0, 0)),
@@ -365,7 +365,7 @@ def test_sequential_calls_reservoir_restored_between_reverts(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     child = pre.deploy_contract(
         code=(Op.SSTORE(0, 1) + Op.REVERT(0, 0)),
@@ -409,7 +409,7 @@ def test_nested_calls_reservoir_passing(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     c_storage = Storage()
     c = pre.deploy_contract(
@@ -540,7 +540,7 @@ def test_child_state_gas_tracked_in_parent(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     child_storage = Storage()
     child = pre.deploy_contract(
@@ -590,7 +590,7 @@ def test_delegatecall_reservoir_passing(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     # Library code that writes to slot 0 — runs in parent's context
     library = pre.deploy_contract(
@@ -629,7 +629,7 @@ def test_staticcall_passes_reservoir(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     # Child does a read-only operation
     child = pre.deploy_contract(
@@ -671,7 +671,7 @@ def test_gas_opcode_excludes_reservoir(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     storage = Storage()
     contract = pre.deploy_contract(
@@ -726,7 +726,7 @@ def test_call_insufficient_balance_returns_reservoir(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     target: int | Address
     if target_exists:
@@ -776,7 +776,7 @@ def test_create_insufficient_balance_returns_reservoir(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     storage = Storage()
     contract = pre.deploy_contract(
@@ -818,7 +818,7 @@ def test_call_stack_depth_returns_reservoir(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     # Contract that recursively calls itself until depth exhausted,
     # then does an SSTORE using the reservoir
@@ -866,7 +866,7 @@ def test_call_pre_charged_costs_excluded_from_forwarding(
     gas_costs = fork.gas_costs()
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     # Child: SSTORE(0, 1) as proof of execution
     child_storage = Storage()
@@ -997,7 +997,7 @@ def test_call_value_to_self_destructed_same_tx_account(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     inner_code = Op.SELFDESTRUCT(Op.ADDRESS)
     mstore_value, size = init_code_at_high_bytes(inner_code)
@@ -1286,7 +1286,7 @@ def test_call_value_to_pre_existing_selfdestructed_account(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     # Enough probes that the combined probe state gas dominates the
     # transaction's regular gas component and the header reflects
@@ -1379,7 +1379,7 @@ def test_top_level_halt_refunds_total_state_gas(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     if child_termination == "revert":
         child_code: Bytecode = Op.SSTORE(0, 1) + Op.REVERT(0, 0)
@@ -1431,7 +1431,7 @@ def test_callcode_value_no_new_account_state_gas(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     target = pre.fund_eoa(amount=0)
 
@@ -1480,7 +1480,7 @@ def test_create_oog_during_state_gas_charge(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     gas_costs = fork.gas_costs()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     init_code = Op.STOP
     inner_create_call = (
@@ -1592,7 +1592,7 @@ def test_child_failure_refunds_state_gas_to_reservoir_not_gas_left(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     gas_costs = fork.gas_costs()
-    sstore_state_gas = fork.sstore_state_gas()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     probe = pre.deploy_contract(code=Op.SSTORE(0, 1))
 

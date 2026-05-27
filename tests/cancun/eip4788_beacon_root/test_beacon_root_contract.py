@@ -361,7 +361,7 @@ def test_beacon_root_selfdestruct(
                             intrinsic_calc()
                             + self_destruct_caller_code.gas_cost(fork)
                             + selfdestruct_call_forwarded_gas
-                            + fork.sstore_state_gas()
+                            + Op.SSTORE(new_value=1).state_cost(fork)
                         ),
                     )
                 ]
@@ -516,7 +516,7 @@ def test_multi_block_beacon_root_timestamp_calls(
             intrinsic_calc(calldata=Hash(timestamp))
             + current_call_account_code.gas_cost(fork)
             + len(all_timestamps) * call_gas
-            + fork.sstore_state_gas()
+            + Op.SSTORE(new_value=1).state_cost(fork)
         )
         blocks.append(
             Block(

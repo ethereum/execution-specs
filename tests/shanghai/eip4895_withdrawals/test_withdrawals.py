@@ -159,7 +159,7 @@ def test_use_value_in_contract(
         intrinsic_calc()
         + contract_code.gas_cost(fork)
         + fork.gas_costs().CALL_VALUE
-        + fork.sstore_state_gas()
+        + Op.SSTORE(new_value=1).state_cost(fork)
     )
     (tx_0, tx_1) = (
         Transaction(
@@ -219,7 +219,7 @@ def test_balance_within_block(
     tx_gas = (
         intrinsic_calc(calldata=Hash(recipient, left_padding=True))
         + save_balance_on_block_number.gas_cost(fork)
-        + fork.sstore_state_gas()
+        + Op.SSTORE(new_value=1).state_cost(fork)
     )
 
     blocks = [
@@ -540,7 +540,7 @@ def test_no_evm_execution(
     tx_gas = (
         intrinsic_calc()
         + contract_code.gas_cost(fork)
-        + fork.sstore_state_gas()
+        + Op.SSTORE(new_value=1).state_cost(fork)
     )
     blocks = [
         Block(

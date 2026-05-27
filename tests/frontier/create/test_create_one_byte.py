@@ -49,7 +49,7 @@ def test_create_one_byte(
     expect_post = Storage()
 
     new_account = fork.gas_costs().NEW_ACCOUNT
-    sstore_state = fork.sstore_state_gas()
+    sstore_state = Op.SSTORE(new_value=1).state_cost(fork)
     # Each call forwards gas to the create_contract that does CREATE;
     # forward base + NEW_ACCOUNT (cpsb-agnostic).
     call_gas = 50_000 + new_account

@@ -270,7 +270,7 @@ def test_static_check_opcodes(
     ]
     tx_gas = [50000, 335000]
     if fork.is_eip_enabled(8037):
-        tx_gas = [g + fork.sstore_state_gas() for g in tx_gas]
+        tx_gas = [g + Op.SSTORE(new_value=1).state_cost(fork) for g in tx_gas]
     tx_value = [0, 100]
 
     tx = Transaction(
