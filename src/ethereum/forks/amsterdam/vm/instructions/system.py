@@ -381,17 +381,6 @@ def generic_call(
     )
 
 
-def escrow_subcall_regular_gas(evm: Evm, sub_call_gas: Uint) -> None:
-    """
-    Remove forwarded CALL* gas from the caller's regular gas usage.
-
-    CALL* forwards `sub_call_gas` to the child frame as temporary escrow.
-    Only gas actually burned by the child should be reintroduced via
-    `incorporate_child_*` child gas accounting.
-    """
-    evm.regular_gas_used -= sub_call_gas
-
-
 def call(evm: Evm) -> None:
     """
     Message-call into an account.
@@ -459,9 +448,6 @@ def call(evm: Evm) -> None:
     code_hash = get_account(tx_state, code_address).code_hash
     code = get_code(tx_state, code_hash)
 
-    # TODO: Consider consolidating charge_gas + charge_state_gas into
-    # a single gas charge to avoid duplicate EVM trace entries.
-    # Applies here and in create, create2, selfdestruct. See #2526.
     charge_gas(evm, extra_gas + extend_memory.cost)
     if value != 0 and not is_account_alive(tx_state, to):
         charge_state_gas(
@@ -478,7 +464,7 @@ def call(evm: Evm) -> None:
         extra_gas=Uint(0),
     )
     charge_gas(evm, message_call_gas.cost)
-    escrow_subcall_regular_gas(evm, message_call_gas.sub_call)
+    evm.regular_gas_used -= message_call_gas.sub_call
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -590,7 +576,7 @@ def callcode(evm: Evm) -> None:
         extra_gas,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
-    escrow_subcall_regular_gas(evm, message_call_gas.sub_call)
+    evm.regular_gas_used -= message_call_gas.sub_call
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -767,7 +753,7 @@ def delegatecall(evm: Evm) -> None:
         extra_gas,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
-    escrow_subcall_regular_gas(evm, message_call_gas.sub_call)
+    evm.regular_gas_used -= message_call_gas.sub_call
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -864,7 +850,7 @@ def staticcall(evm: Evm) -> None:
         extra_gas,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
-    escrow_subcall_regular_gas(evm, message_call_gas.sub_call)
+    evm.regular_gas_used -= message_call_gas.sub_call
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
