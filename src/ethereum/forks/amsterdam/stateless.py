@@ -91,8 +91,7 @@ class ProtocolFork(StrEnum):
     TangerineWhistle = "TangerineWhistle"
     SpuriousDragon = "SpuriousDragon"
     Byzantium = "Byzantium"
-    Constantinople = "Constantinople"
-    ConstantinopleFix = "ConstantinopleFix"
+    StPetersburg = "StPetersburg"
     Istanbul = "Istanbul"
     MuirGlacier = "MuirGlacier"
     Berlin = "Berlin"
@@ -106,9 +105,6 @@ class ProtocolFork(StrEnum):
     Osaka = "Osaka"
     BPO1 = "BPO1"
     BPO2 = "BPO2"
-    BPO3 = "BPO3"
-    BPO4 = "BPO4"
-    BPO5 = "BPO5"
     Amsterdam = "Amsterdam"
 
 
