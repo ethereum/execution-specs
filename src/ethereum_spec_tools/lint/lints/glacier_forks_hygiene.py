@@ -231,6 +231,15 @@ class _Visitor(ast.NodeVisitor):
         ):
             return
 
+        # Ignore the module-level apply_spec_repricing() hook appended to
+        # each fork's gas.py; it is identical machinery across forks.
+        if (
+            isinstance(expr.value, ast.Call)
+            and isinstance(expr.value.func, ast.Name)
+            and expr.value.func.id == "apply_spec_repricing"
+        ):
+            return
+
         print(f"The expression {type(expr)} has been ignored.")
 
     def visit_AsyncFunctionDef(self, function: ast.AsyncFunctionDef) -> None:

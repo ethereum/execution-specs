@@ -20,10 +20,13 @@ class EIP7976(BaseFork):
     """EIP-7976 class."""
 
     @classmethod
-    def gas_costs(cls) -> GasCosts:
+    def _base_gas_costs(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> GasCosts:
         """Transaction data floor token cost is increased from 10 to 16."""
+        del block_number, timestamp
         return replace(
-            super(EIP7976, cls).gas_costs(),
+            super(EIP7976, cls)._base_gas_costs(),
             TX_DATA_TOKEN_FLOOR=16,
         )
 

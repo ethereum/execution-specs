@@ -16,11 +16,11 @@ Create a JSON file mapping fork names to `GasCosts` field overrides:
 ```json
 {
   "Osaka": {
-    "GAS_VERY_LOW": 4,
-    "GAS_COLD_SLOAD": 2200
+    "VERY_LOW": 4,
+    "COLD_STORAGE_ACCESS": 2200
   },
   "Prague": {
-    "GAS_WARM_SLOAD": 150
+    "WARM_SLOAD": 150
   }
 }
 ```
@@ -66,15 +66,15 @@ See [GasCosts Reference](reference.md) for a static reference table.
     uv run gas-map --opcode SLOAD
     ```
 
-    Output shows `GAS_WARM_SLOAD` and `GAS_COLD_SLOAD` are the relevant fields.
+    Output shows `WARM_SLOAD` and `COLD_STORAGE_ACCESS` are the relevant fields.
 
 2. Create a repricing config:
 
     ```json
     {
       "Osaka": {
-        "GAS_WARM_SLOAD": 150,
-        "GAS_COLD_SLOAD": 2500
+        "WARM_SLOAD": 150,
+        "COLD_STORAGE_ACCESS": 2500
       }
     }
     ```

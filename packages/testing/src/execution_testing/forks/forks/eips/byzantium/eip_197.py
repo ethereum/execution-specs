@@ -25,13 +25,13 @@ class EIP197(BaseFork):
         ] + super(EIP197, cls).precompiles()
 
     @classmethod
-    def gas_costs(
+    def _base_gas_costs(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> GasCosts:
         """Set gas costs for BN254 pairing check."""
         del block_number, timestamp
         return replace(
-            super(EIP197, cls).gas_costs(),
+            super(EIP197, cls)._base_gas_costs(),
             PRECOMPILE_ECPAIRING_BASE=100_000,
             PRECOMPILE_ECPAIRING_PER_POINT=80_000,
         )

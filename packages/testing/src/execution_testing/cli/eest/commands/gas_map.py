@@ -1,6 +1,7 @@
 """Display the mapping between EVM opcodes and GasCosts field names."""
 
 import inspect
+import json
 import re
 from collections import defaultdict
 from dataclasses import fields
@@ -12,14 +13,14 @@ from execution_testing.forks.gas_costs import GasCosts
 from execution_testing.forks.helpers import get_forks
 
 OPCODE_TIER_FIELDS = (
-    "GAS_JUMPDEST",
-    "GAS_BASE",
-    "GAS_VERY_LOW",
-    "GAS_LOW",
-    "GAS_MID",
-    "GAS_HIGH",
-    "GAS_BLOCK_HASH",
-    "GAS_WARM_SLOAD",
+    "OPCODE_JUMPDEST",
+    "BASE",
+    "VERY_LOW",
+    "LOW",
+    "MID",
+    "HIGH",
+    "OPCODE_BLOCKHASH",
+    "WARM_SLOAD",
 )
 
 
@@ -87,7 +88,7 @@ def _get_helper_method_fields(
                     if field_name in src:
                         found.add(field_name)
                 if name == "_with_memory_expansion":
-                    found.add("GAS_MEMORY")
+                    found.add("MEMORY_PER_WORD")
                 if found:
                     helper_fields[name] = found
     return helper_fields
@@ -226,8 +227,10 @@ def _format_single_opcode(fork_class: type[BaseFork], opcode_name: str) -> str:
         "\u2550" * 30,
     ]
 
+    gas_fields = source_fields.get(name, [])
+    repricing_fields: list[str] = []
     if callable(cost):
-        gas_fields = source_fields.get(name, [])
+        repricing_fields = gas_fields
         lines.append("Type:     dynamic")
         if gas_fields:
             parts = []
@@ -235,27 +238,11 @@ def _format_single_opcode(fork_class: type[BaseFork], opcode_name: str) -> str:
                 val = getattr(gas_costs, gf)
                 parts.append(f"{gf} ({val})")
             lines.append(f"GasCosts: {', '.join(parts)}")
-        lines.append("")
-        lines.append("To reprice in gas_repricing.json:")
-        lines.append("{")
-        lines.append(f'  "{fork_name}": {{')
-        for gf in gas_fields:
-            lines.append(f'    "{gf}": <new_value>,')
-        lines.append("  }")
-        lines.append("}")
     elif cost in tier_reverse:
-        field_names = tier_reverse[cost]
+        repricing_fields = tier_reverse[cost]
         lines.append("Type:     static")
-        parts = [f"{fn} ({cost})" for fn in field_names]
+        parts = [f"{fn} ({cost})" for fn in repricing_fields]
         lines.append(f"GasCosts: {', '.join(parts)}")
-        lines.append("")
-        lines.append("To reprice in gas_repricing.json:")
-        lines.append("{")
-        lines.append(f'  "{fork_name}": {{')
-        for fn in field_names:
-            lines.append(f'    "{fn}": <new_value>,')
-        lines.append("  }")
-        lines.append("}")
     else:
         lines.append("Type:     constant")
         lines.append(f"Value:    {cost}")
@@ -263,6 +250,12 @@ def _format_single_opcode(fork_class: type[BaseFork], opcode_name: str) -> str:
         lines.append(
             "This opcode has a fixed cost not tied to a GasCosts field."
         )
+
+    if repricing_fields:
+        snippet = {fork_name: dict.fromkeys(repricing_fields, 0)}
+        lines.append("")
+        lines.append("To reprice in gas_repricing.json:")
+        lines.extend(json.dumps(snippet, indent=2).splitlines())
 
     return "\n".join(lines)
 

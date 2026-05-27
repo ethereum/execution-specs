@@ -38,7 +38,7 @@ def test_some_feature(fork):
 
 ```python
 def test_transaction_gas(fork, state_test):
-    gas_cost = fork.gas_costs().GAS_TX_BASE
+    gas_cost = fork.gas_costs().TX_BASE
 
     # Create a transaction with the correct gas parameters for this fork
     tx = Transaction(
