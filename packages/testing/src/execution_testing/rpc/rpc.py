@@ -764,6 +764,30 @@ class EthRPC(BaseRPC):
             )
         ).result_or_raise()
 
+    def get_transaction_receipts(
+        self, transaction_hashes: Sequence[Hash]
+    ) -> List[dict[str, Any] | None]:
+        """
+        Get transaction receipts for a list of transaction hashes.
+        Use batch requests to avoid RPC overload.
+        """
+        if not transaction_hashes:
+            return []
+        receipts: List[dict[str, Any] | None] = []
+        batch_size = self.max_transactions_per_batch
+        for i in range(0, len(transaction_hashes), batch_size):
+            chunk = transaction_hashes[i : i + batch_size]
+            calls = [
+                RPCCall(
+                    method="getTransactionReceipt",
+                    params=[f"{tx_hash}"],
+                )
+                for tx_hash in chunk
+            ]
+            responses = self.post_batch_request(calls=calls)
+            receipts.extend(r.result_or_raise() for r in responses)
+        return receipts
+
     def get_storage_at(
         self,
         address: Address,
