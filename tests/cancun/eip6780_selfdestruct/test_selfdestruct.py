@@ -1951,8 +1951,8 @@ def test_create_multiple_contracts_destroy_one_then_destroy_other_next_tx(
     blockchain_test: BlockchainTestFiller,
     eip_enabled: bool,
     pre: Alloc,
-    fork: Fork,
     sender: EOA,
+    fork: Fork,
     selfdestruct_contract_initial_balance: int,
 ) -> None:
     """
@@ -2138,8 +2138,8 @@ def test_create_multiple_contracts_destroy_one_then_destroy_other_next_tx(
 def test_parent_creates_child_selfdestruct_one(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
     sender: EOA,
+    fork: Fork,
     destroy_parent: bool,
     selfdestruct_contract_initial_balance: int,
 ) -> None:
