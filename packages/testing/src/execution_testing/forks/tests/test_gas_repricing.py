@@ -12,6 +12,7 @@ from ethereum.utils.gas_repricing import (
     apply_spec_repricing,
     load_repricing_config,
 )
+from ethereum_types.numeric import U64, Uint
 
 from ..forks.forks import Osaka, Prague
 from ..forks.transition import PragueToOsakaAtTime15k
@@ -215,25 +216,32 @@ class TestIntegration:
         assert costs.TX_BASE == Prague._base_gas_costs().TX_BASE
 
 
+class _SpecGasCosts:
+    """Minimal stand-in for a fork's spec-side ``GasCosts`` class."""
+
+    BASE = Uint(2)
+    LOW = Uint(5)
+    BLOB_SCHEDULE_TARGET = U64(6)
+
+
 class TestSpecSideRepricing:
-    """Tests for apply_spec_repricing (module globals mutation)."""
+    """Tests for apply_spec_repricing (GasCosts class mutation)."""
 
-    def _make_globals(self) -> dict:
-        from ethereum_types.numeric import U64, Uint
+    @staticmethod
+    def _make_gas_costs() -> type[_SpecGasCosts]:
+        # Fresh subclass per call so setattr-based overrides don't leak
+        # between tests.
+        class GasCosts(_SpecGasCosts):
+            pass
 
-        return {
-            "BASE": Uint(2),
-            "LOW": Uint(5),
-            "BLOB_SCHEDULE_TARGET": U64(6),
-            "__name__": "test_module",
-        }
+        return GasCosts
 
     def test_no_config(self) -> None:
         """Test no-op when env var is unset."""
-        globs = self._make_globals()
-        original = dict(globs)
-        apply_spec_repricing("TestFork", globs)
-        assert globs == original
+        gc = self._make_gas_costs()
+        before = (gc.BASE, gc.LOW, gc.BLOB_SCHEDULE_TARGET)
+        apply_spec_repricing("TestFork", gc)
+        assert (gc.BASE, gc.LOW, gc.BLOB_SCHEDULE_TARGET) == before
 
     def test_fork_not_in_config(
         self,
@@ -244,11 +252,11 @@ class TestSpecSideRepricing:
         config_file = tmp_path / "other_fork.json"
         config_file.write_text(json.dumps({"OtherFork": {"BASE": 99}}))
         monkeypatch.setenv(_ENV_VAR, str(config_file))
-        globs = self._make_globals()
-        original = dict(globs)
+        gc = self._make_gas_costs()
+        before = (gc.BASE, gc.LOW, gc.BLOB_SCHEDULE_TARGET)
         with pytest.warns(UserWarning):
-            apply_spec_repricing("TestFork", globs)
-        assert globs == original
+            apply_spec_repricing("TestFork", gc)
+        assert (gc.BASE, gc.LOW, gc.BLOB_SCHEDULE_TARGET) == before
 
     def test_mutates_with_correct_type(
         self,
@@ -256,8 +264,6 @@ class TestSpecSideRepricing:
         tmp_path: Path,
     ) -> None:
         """Test that overrides preserve Uint/U64 type wrappers."""
-        from ethereum_types.numeric import U64, Uint
-
         config_file = tmp_path / "typed.json"
         config_file.write_text(
             json.dumps(
@@ -270,14 +276,14 @@ class TestSpecSideRepricing:
             )
         )
         monkeypatch.setenv(_ENV_VAR, str(config_file))
-        globs = self._make_globals()
+        gc = self._make_gas_costs()
         with pytest.warns(UserWarning):
-            apply_spec_repricing("TestFork", globs)
-        assert globs["BASE"] == Uint(99)
-        assert isinstance(globs["BASE"], Uint)
-        assert globs["BLOB_SCHEDULE_TARGET"] == U64(12)
-        assert isinstance(globs["BLOB_SCHEDULE_TARGET"], U64)
-        assert globs["LOW"] == Uint(5)
+            apply_spec_repricing("TestFork", gc)
+        assert gc.BASE == Uint(99)
+        assert isinstance(gc.BASE, Uint)
+        assert gc.BLOB_SCHEDULE_TARGET == U64(12)
+        assert isinstance(gc.BLOB_SCHEDULE_TARGET, U64)
+        assert gc.LOW == Uint(5)
 
     def test_unknown_field_raises(
         self,
@@ -290,19 +296,19 @@ class TestSpecSideRepricing:
             json.dumps({"TestFork": {"NOT_A_CONSTANT": 42}})
         )
         monkeypatch.setenv(_ENV_VAR, str(config_file))
-        globs = self._make_globals()
+        gc = self._make_gas_costs()
         with pytest.warns(UserWarning):
             with pytest.raises(ValueError, match="NOT_A_CONSTANT"):
-                apply_spec_repricing("TestFork", globs)
+                apply_spec_repricing("TestFork", gc)
 
     def test_nonexistent_file_raises(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Test that a missing config file raises FileNotFoundError."""
         monkeypatch.setenv(_ENV_VAR, "/nonexistent/config.json")
-        globs = self._make_globals()
+        gc = self._make_gas_costs()
         with pytest.raises(FileNotFoundError):
-            apply_spec_repricing("TestFork", globs)
+            apply_spec_repricing("TestFork", gc)
 
 
 class TestReferenceDocFreshness:

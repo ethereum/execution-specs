@@ -39,12 +39,12 @@ def load_repricing_config() -> Optional[Dict[str, Dict[str, Any]]]:
 
 def apply_spec_repricing(
     fork_name: str,
-    module_globals: dict,
+    gas_costs: type,
 ) -> None:
     """
-    Apply repricing overrides to module globals.
+    Apply repricing overrides to a fork's ``GasCosts`` class.
 
-    Mutates module_globals in place, preserving the
+    Mutate the class attributes in place, preserving the
     original type wrapper (Uint, U64, etc.).
     """
     config = load_repricing_config()
@@ -56,11 +56,11 @@ def apply_spec_repricing(
         return
 
     for name, value in overrides.items():
-        if name not in module_globals:
+        if not hasattr(gas_costs, name):
             raise ValueError(
                 f"Unknown gas constant '{name}' "
                 f"in repricing config for fork "
                 f"'{fork_name}'."
             )
-        original = module_globals[name]
-        module_globals[name] = type(original)(value)
+        original = getattr(gas_costs, name)
+        setattr(gas_costs, name, type(original)(value))

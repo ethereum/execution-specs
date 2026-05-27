@@ -301,4 +301,4 @@ def calculate_message_call_gas(
     return MessageCallGas(cost, stipend)
 
 
-apply_spec_repricing("DAOFork", globals())
+apply_spec_repricing("DAOFork", GasCosts)

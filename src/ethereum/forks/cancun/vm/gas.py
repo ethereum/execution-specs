@@ -474,4 +474,4 @@ def calculate_data_fee(excess_blob_gas: U64, tx: Transaction) -> Uint:
     )
 
 
-apply_spec_repricing("Cancun", globals())
+apply_spec_repricing("Cancun", GasCosts)

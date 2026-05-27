@@ -530,4 +530,4 @@ def calculate_data_fee(excess_blob_gas: U64, tx: Transaction) -> Uint:
     )
 
 
-apply_spec_repricing("Amsterdam", globals())
+apply_spec_repricing("Amsterdam", GasCosts)

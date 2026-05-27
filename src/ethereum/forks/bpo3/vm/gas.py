@@ -503,4 +503,4 @@ def calculate_data_fee(excess_blob_gas: U64, tx: Transaction) -> Uint:
     )
 
 
-apply_spec_repricing("BPO3", globals())
+apply_spec_repricing("BPO3", GasCosts)

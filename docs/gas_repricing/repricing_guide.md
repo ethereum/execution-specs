@@ -87,3 +87,53 @@ See [GasCosts Reference](reference.md) for a static reference table.
 
 4. Compare results against the baseline to see which tests break or change
    behavior under the new gas schedule.
+
+## Regenerating Fixtures Under a New Schedule
+
+A repricing config changes gas costs, so existing fixtures — which encode the
+default schedule — will fail once it is active. That is expected, not a bug.
+How you regenerate depends on your intent.
+
+!!! warning "Protect the canonical fixtures"
+    - Never run `fill --clean` over the canonical `fixtures/` directory with a
+      config active: it replaces mainnet-correct fixtures with "what-if" ones.
+      Always fill experiments into a separate `--output` directory.
+    - Unset `EELS_GAS_REPRICING_CONFIG` before normal test or fill runs, or
+      every run silently reprices.
+
+### What-if comparison (the intended use)
+
+Fill into a scratch directory with the config active, then diff against a
+baseline fill to see how gas usage shifts:
+
+```bash
+# Repriced
+EELS_GAS_REPRICING_CONFIG=./reprice.json \
+    uv run fill tests/amsterdam/ --fork Amsterdam --output /tmp/fx_repriced --clean
+
+# Baseline (config unset)
+uv run fill tests/amsterdam/ --fork Amsterdam --output /tmp/fx_baseline --clean
+
+diff -r /tmp/fx_baseline /tmp/fx_repriced
+```
+
+Differences in `cumulativeGasUsed`, balances, and state/block hashes confirm the
+new schedule took effect. Nothing here is committed.
+
+### Adopting the schedule permanently
+
+The config is for iteration, not a source of truth. To make a schedule
+permanent, bake the values into the spec (`src/ethereum/forks/<fork>/vm/gas.py`)
+and the testing framework (`forks/forks.py`), remove the config, then fill the
+canonical `fixtures/` directory without any config set.
+
+### Quick sanity check
+
+To confirm the pipeline works under repricing, scope a fill to a few
+gas-sensitive tests into a scratch directory:
+
+```bash
+EELS_GAS_REPRICING_CONFIG=./reprice.json uv run fill \
+    tests/berlin/eip2929_gas_cost_increases/test_warm_status_revert.py \
+    --fork Amsterdam --output /tmp/fx_check --clean
+```

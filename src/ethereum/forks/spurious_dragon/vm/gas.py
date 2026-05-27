@@ -329,4 +329,4 @@ def max_message_call_gas(gas: Uint) -> Uint:
     return gas - (gas // Uint(64))
 
 
-apply_spec_repricing("SpuriousDragon", globals())
+apply_spec_repricing("SpuriousDragon", GasCosts)
