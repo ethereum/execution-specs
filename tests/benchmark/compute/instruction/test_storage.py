@@ -373,7 +373,6 @@ def test_storage_access_cold(
     )
 
 
-@pytest.mark.repricing
 @pytest.mark.parametrize(
     "storage_action",
     [
@@ -480,7 +479,6 @@ def test_storage_access_warm(
     benchmark_test(blocks=blocks)
 
 
-@pytest.mark.repricing
 @pytest.mark.parametrize(
     "storage_action",
     [
