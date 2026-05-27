@@ -16,10 +16,11 @@ setup-phase block prepended to ``self.blocks``.
 import os
 import secrets
 from pathlib import Path
-from typing import Any, Generator, List
+from typing import Any, Generator, List, Tuple
 from urllib.parse import urlparse, urlunparse
 
 import pytest
+from ethereum.crypto.hash import keccak256
 from filelock import FileLock
 
 from execution_testing.base_types import (
@@ -61,9 +62,15 @@ from ..execute.rpc.hive import (
 from ..shared.helpers import is_help_or_collectonly_mode
 from ..shared.live_client_flags import FEE_BUMP_MULTIPLIER
 
-# 1 billion ETH. Withdrawals are Gwei (u64-capped); much higher risks
-# overflow on some clients, this is plenty for any single fill session.
+# 1B ETH for seed account
 SEED_FUNDING_WEI = 10**9 * 10**18
+
+# 1 ETH per deterministic sender-pool account.
+POOL_FUNDING_WEI = 10**18
+
+SENDER_BASE_KEY = int.from_bytes(
+    keccak256(b"gas-repricings-private-key"), "big"
+)
 
 logger = get_logger(__name__)
 
@@ -127,6 +134,17 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "Empty blocks at start to increase block gas limit."
             "Each block increase ≤ parent_gas_limit/1024."
             "Default: 5000 blocks."
+        ),
+    )
+    group.addoption(
+        "--sender-pool-size",
+        action="store",
+        dest="sender_pool_size",
+        default=15000,
+        type=int,
+        help=(
+            "Sender-pool accounts to fund via CL withdrawals for 1 ETH"
+            "Default: 15000."
         ),
     )
     group.addoption(
@@ -603,13 +621,19 @@ def _session_pre_run(
             f"Ramped block gas limit with {len(bump_payloads)} empty blocks"
         )
 
-    # 3. Fund seed key via CL withdrawal.
-    fund_payload = eth_rpc.fund_via_withdrawals(
-        [(Address(session_worker_key), SEED_FUNDING_WEI)]
-    )
+    # Fund the seed key and the deterministic sender pool
+    pool_size = request.config.getoption("sender_pool_size")
+    funding_targets: List[Tuple[Address, int]] = [
+        (Address(session_worker_key), SEED_FUNDING_WEI)
+    ]
+    funding_targets += [
+        (Address(EOA(key=SENDER_BASE_KEY + i)), POOL_FUNDING_WEI)
+        for i in range(pool_size)
+    ]
+    fund_payload = eth_rpc.fund_via_withdrawals(funding_targets)
     if fund_payload is not None:
         captured.append(fund_payload)
-    logger.info(f"Funded {Address(session_worker_key)} via withdrawal")
+    logger.info(f"Funded seed key and {pool_size} sender pool accounts")
 
     # 4. Deploy deterministic factory if needed.
     lock_file = session_temp_folder / "fill_stateful_setup.lock"
