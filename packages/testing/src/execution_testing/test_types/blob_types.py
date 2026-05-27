@@ -85,6 +85,8 @@ class Blob(CamelModel):
         return (
             "blob_"
             + str(seed)
+            + "_"
+            + fork.name().lower()
             + "_cell_proofs_"
             + str(amount_cell_proofs)
             + ".json"
@@ -96,11 +98,7 @@ class Blob(CamelModel):
         Return the Path to the blob that would be created with these
         parameters.
         """
-        # determine amount of cell proofs for this fork (0 or 128)
-        would_be_filename: str = Blob.get_filename(fork, seed)
-
-        # return path to blob
-        return CACHED_BLOBS_DIRECTORY / would_be_filename
+        return CACHED_BLOBS_DIRECTORY / Blob.get_filename(fork, seed)
 
     @staticmethod
     def from_fork(fork: Fork, seed: int = 0, timestamp: int = 0) -> "Blob":
