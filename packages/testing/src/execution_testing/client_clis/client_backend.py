@@ -281,10 +281,12 @@ class ClientBackend:
     def _fetch_receipts(
         self, txs: List[Transaction]
     ) -> List[TransactionReceipt]:
-        """Fetch receipts for each transaction. TODO: batch via JSON-RPC."""
+        """Fetch receipts for all block txs in one JSON-RPC batch."""
+        receipts_data = self.eth_rpc.get_transaction_receipts(
+            [tx.hash for tx in txs]
+        )
         receipts: List[TransactionReceipt] = []
-        for tx in txs:
-            receipt_data = self.eth_rpc.get_transaction_receipt(tx.hash)
+        for tx, receipt_data in zip(txs, receipts_data, strict=True):
             if receipt_data is None:
                 raise RuntimeError(
                     f"No receipt found for transaction {tx.hash}"
