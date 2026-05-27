@@ -212,8 +212,7 @@ ProtocolFork.DAOFork
 ProtocolFork.TangerineWhistle
 ProtocolFork.SpuriousDragon
 ProtocolFork.Byzantium
-ProtocolFork.Constantinople
-ProtocolFork.ConstantinopleFix
+ProtocolFork.StPetersburg
 ProtocolFork.Istanbul
 ProtocolFork.MuirGlacier
 ProtocolFork.Berlin
