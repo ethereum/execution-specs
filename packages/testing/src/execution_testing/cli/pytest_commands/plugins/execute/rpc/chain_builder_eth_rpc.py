@@ -348,6 +348,41 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
                 payload_attributes.parent_beacon_block_root,
             )
 
+    def bump_block_gas_limit(
+        self,
+        block_count: int,
+    ) -> List[EnginePayloadMetadata]:
+        """
+        Build empty block to increase the block gas limit to target.
+        """
+        if block_count <= 0:
+            return []
+        assert self.testing_rpc is not None, (
+            "bump_block_gas_limit requires testing_rpc"
+        )
+        captured: List[EnginePayloadMetadata] = []
+        with self.block_building_lock:
+            for _ in range(block_count):
+                head_block = self.get_block_by_number("latest")
+                assert head_block is not None
+                next_timestamp = int(HexNumber(head_block["timestamp"]) + 1)
+                payload_attributes = self._payload_attributes(
+                    next_timestamp=next_timestamp,
+                )
+                new_payload = self.testing_rpc.build_block(
+                    parent_block_hash=Hash(head_block["hash"]),
+                    payload_attributes=payload_attributes,
+                    transactions=[],
+                    extra_data=Bytes(b""),
+                )
+                captured.append(
+                    self._finalize_payload(
+                        new_payload,
+                        payload_attributes.parent_beacon_block_root,
+                    )
+                )
+        return captured
+
     def set_canonical_head(self, head_block_hash: Hash) -> None:
         """
         Reorg the canonical head to head_block_hash via
