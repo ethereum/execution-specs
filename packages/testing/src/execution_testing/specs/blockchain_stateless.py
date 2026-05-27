@@ -88,7 +88,6 @@ class StatelessBlockOptions:
     """Stateless options derived before transition-tool execution."""
 
     skip_validation: bool
-    has_witness_expectation: bool
     public_keys_modifier: PublicKeyModifier | None
     stateless_input_bytes_modifier: Callable[[Bytes], Bytes] | None
     expected_validation_success: bool | None
@@ -160,7 +159,6 @@ def stateless_options_for_block(
 
     return StatelessBlockOptions(
         skip_validation=skip_stateless_validation or omit_stateless_artifacts,
-        has_witness_expectation=has_witness_expectation,
         public_keys_modifier=public_keys_modifier,
         stateless_input_bytes_modifier=stateless_input_bytes_modifier,
         expected_validation_success=expected_success,
@@ -361,11 +359,11 @@ def finalize_stateless_artifacts(
             stateless_output.successful_validation
         )
 
-    should_rerun_structured_stateless_guest = (
+    has_structured_stateless_overrides = (
         has_witness_modifier or options.has_public_keys_modifier
     )
     final_successful_validation = canonical_successful_validation
-    if should_rerun_structured_stateless_guest:
+    if has_structured_stateless_overrides:
         if stateless_input_bytes is None:
             raise Exception(
                 "Stateless guest rerun requires stateless input bytes"
@@ -380,28 +378,25 @@ def finalize_stateless_artifacts(
             if public_keys is None:
                 raise Exception("Stateless guest rerun requires public keys")
             modified_public_keys = options.public_keys_modifier(public_keys)
-        (
-            stateless_input_bytes,
-            stateless_output_bytes,
-            successful_validation,
-        ) = rerun_amsterdam_stateless_guest_with_overrides(
-            fork=fork,
-            block_number=block_number,
-            timestamp=timestamp,
-            original_stateless_input_bytes=stateless_input_bytes,
-            execution_witness=(
-                artifacts.execution_witness if has_witness_modifier else None
-            ),
-            public_keys=modified_public_keys,
+        stateless_input_bytes = (
+            rebuild_amsterdam_stateless_input_with_overrides(
+                fork=fork,
+                block_number=block_number,
+                timestamp=timestamp,
+                original_stateless_input_bytes=stateless_input_bytes,
+                execution_witness=(
+                    artifacts.execution_witness
+                    if has_witness_modifier
+                    else None
+                ),
+                public_keys=modified_public_keys,
+            )
         )
-        stateless_output = decode_amsterdam_stateless_output(
-            fork=fork,
-            block_number=block_number,
-            timestamp=timestamp,
-            stateless_output_bytes=stateless_output_bytes,
-        )
-        final_successful_validation = successful_validation
 
+    should_rerun_stateless_guest = (
+        has_structured_stateless_overrides
+        or options.has_stateless_input_bytes_modifier
+    )
     if options.has_stateless_input_bytes_modifier:
         if stateless_input_bytes is None:
             raise Exception(
@@ -414,6 +409,12 @@ def finalize_stateless_artifacts(
         stateless_input_bytes = stateless_input_bytes_modifier(
             stateless_input_bytes
         )
+
+    if should_rerun_stateless_guest:
+        if stateless_input_bytes is None:
+            raise Exception(
+                "Stateless guest rerun requires stateless input bytes"
+            )
         (
             stateless_input_bytes,
             stateless_output_bytes,
@@ -526,7 +527,7 @@ def with_execution_witness_implicit_codes(
     return expectation.model_copy(update={"codes_present": codes_present})
 
 
-def rerun_amsterdam_stateless_guest_with_overrides(
+def rebuild_amsterdam_stateless_input_with_overrides(
     *,
     fork: Fork,
     block_number: int,
@@ -534,17 +535,17 @@ def rerun_amsterdam_stateless_guest_with_overrides(
     original_stateless_input_bytes: Bytes,
     execution_witness: ExecutionWitness | None = None,
     public_keys: Tuple[Bytes, ...] | None = None,
-) -> tuple[Bytes, Bytes, bool]:
+) -> Bytes:
     """
-    Rebuild the stateless input with test overrides and rerun the guest.
+    Rebuild the stateless input bytes with test overrides.
 
     Amsterdam is currently the only fork with stateless guest support in this
-    repository, so the rerun path is kept Amsterdam-specific.
+    repository, so the rebuild path is kept Amsterdam-specific.
     """
     active_fork = fork.fork_at(block_number=block_number, timestamp=timestamp)
     if active_fork.name() != "Amsterdam":
         raise Exception(
-            "Execution witness guest rerun is only supported for Amsterdam"
+            "Execution witness input rebuild is only supported for Amsterdam"
         )
 
     from ethereum.forks.amsterdam.stateless import (
@@ -555,10 +556,8 @@ def rerun_amsterdam_stateless_guest_with_overrides(
     )
     from ethereum.forks.amsterdam.stateless_guest import (
         deserialize_stateless_input,
-        run_stateless_guest,
     )
     from ethereum.forks.amsterdam.stateless_host import (
-        deserialize_stateless_output,
         serialize_stateless_input,
     )
     from ethereum_types.bytes import Bytes as AmsterdamBytes
@@ -591,14 +590,7 @@ def rerun_amsterdam_stateless_guest_with_overrides(
         ),
     )
     rebuilt_input_bytes = serialize_stateless_input(rebuilt_input)
-    rebuilt_output_bytes = run_stateless_guest(rebuilt_input_bytes)
-    rebuilt_output = deserialize_stateless_output(rebuilt_output_bytes)
-
-    return (
-        Bytes(bytes(rebuilt_input_bytes)),
-        Bytes(bytes(rebuilt_output_bytes)),
-        rebuilt_output.successful_validation,
-    )
+    return Bytes(bytes(rebuilt_input_bytes))
 
 
 def rerun_amsterdam_stateless_guest_with_input_bytes(
