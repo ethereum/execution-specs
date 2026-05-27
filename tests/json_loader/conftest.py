@@ -94,6 +94,20 @@ def pytest_addoption(parser: Parser) -> None:
         help="Path to a file containing test ids, one per line",
     )
 
+    parser.addoption(
+        "--allow-post-state-hash",
+        dest="allow_post_state_hash",
+        default=False,
+        action="store_const",
+        const=True,
+        help=(
+            "Verify blockchain fixtures that only include `postStateHash` "
+            "(not the full `postState` dict). The EELS state transition's "
+            "internal state-root check plus the `lastblockhash` assertion "
+            "are cryptographically sufficient."
+        ),
+    )
+
 
 def pytest_configure(config: Config) -> None:
     """
