@@ -118,6 +118,18 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         ),
     )
     group.addoption(
+        "--gas-bump-blocks",
+        action="store",
+        dest="gas_bump_blocks",
+        default=5000,
+        type=int,
+        help=(
+            "Empty blocks at start to increase block gas limit."
+            "Each block increase ≤ parent_gas_limit/1024."
+            "Default: 5000 blocks."
+        ),
+    )
+    group.addoption(
         "--snapshot-block",
         action="store",
         dest="snapshot_block",
@@ -562,32 +574,36 @@ def _session_pre_run(
     request: pytest.FixtureRequest,
 ) -> None:
     """
-    Session pre-run: capture snapshot, fund seed, deploy factory, capture
-    start block, write ``pre_run/<start_block_hash>.json``.
-
-    The file is named after the start block hash so per-test
-    ``BlockchainEngineStatefulFixture`` instances reference their setup
-    file implicitly via their own ``start_block_hash`` field — leaves
-    room for multiple pre-run files (e.g. different setup variants off
-    one snapshot) without coordinating filenames.
-
-    Pre-run helpers return their built ``EnginePayloadMetadata`` directly;
-    we collect them into ``captured`` and serialise via
-    ``payload_metadata_to_fixture``.
+    # 1. Snapshot anchor via client-returned hash (survives reorg).
+    # 2. Ramp gas limit with empty blocks before funding/setup.
+    # 3. Fund seed key via CL withdrawal.
+    # 4. Deploy deterministic factory if needed.
+    # 5. Capture start block (head after setup).
+    # 6. Write to pre_run/<start_block_hash>.json for implicit lookup.
     """
     if is_help_or_collectonly_mode(request.config):
         return
 
-    # 1. Snapshot anchor. Either way, the client-returned hash is what we
-    #    record — a later reorg can't silently re-anchor by block number.
+    # Anchor snapshot (client hash, reorg-safe).
     client_backend.snapshot_block = snapshot_block
     logger.info(
         f"Snapshot block {snapshot_block['number']} "
         f"hash={snapshot_block['hash'][:20]}..."
     )
 
-    # 2. Fund seed key via CL withdrawal; helper returns the built payload.
     captured: List[EnginePayloadMetadata] = []
+
+    # Ramp gas limit (empty blocks) via empty blocks.
+    bump_payloads = eth_rpc.bump_block_gas_limit(
+        request.config.getoption("gas_bump_blocks")
+    )
+    captured.extend(bump_payloads)
+    if bump_payloads:
+        logger.info(
+            f"Ramped block gas limit with {len(bump_payloads)} empty blocks"
+        )
+
+    # 3. Fund seed key via CL withdrawal.
     fund_payload = eth_rpc.fund_via_withdrawals(
         [(Address(session_worker_key), SEED_FUNDING_WEI)]
     )
@@ -595,7 +611,7 @@ def _session_pre_run(
         captured.append(fund_payload)
     logger.info(f"Funded {Address(session_worker_key)} via withdrawal")
 
-    # 3. Deploy deterministic factory if not already present.
+    # 4. Deploy deterministic factory if needed.
     lock_file = session_temp_folder / "fill_stateful_setup.lock"
     with FileLock(lock_file):
         if (
@@ -614,7 +630,7 @@ def _session_pre_run(
             )
             captured.extend(deploy_payloads)
 
-    # 4. Capture start block (head after global setup).
+    # 5. Capture start block.
     start_block = eth_rpc.get_block_by_number("latest")
     assert start_block is not None, "Failed to fetch start block"
     client_backend.start_block = start_block
@@ -623,9 +639,7 @@ def _session_pre_run(
         f"hash={start_block['hash'][:20]}..."
     )
 
-    # 5. Persist captured payloads to pre_run/<start_block_hash>.json.
-    #    Per-test fixtures already carry start_block_hash; naming the
-    #    pre-run file after that hash makes lookup a direct path build.
+    # Write pre_run/<start_block_hash>.json.
     if captured:
         output_dir = Path(request.config.getoption("output"))
         pre_run_dir = (
