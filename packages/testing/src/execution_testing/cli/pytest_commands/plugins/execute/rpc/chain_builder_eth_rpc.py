@@ -347,3 +347,30 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
                 new_payload,
                 payload_attributes.parent_beacon_block_root,
             )
+
+    def set_canonical_head(self, head_block_hash: Hash) -> None:
+        """
+        Reorg the canonical head to head_block_hash via
+        ``engine_forkchoiceUpdated``.
+        """
+        head_block = self.get_block_by_hash(head_block_hash)
+        assert head_block is not None, (
+            f"cannot reset head to unknown block {head_block_hash}"
+        )
+        head_fork = self.fork.fork_at(
+            block_number=HexNumber(head_block["number"]),
+            timestamp=HexNumber(head_block["timestamp"]),
+        )
+        fcu_version = head_fork.engine_forkchoice_updated_version()
+        assert fcu_version is not None, (
+            "Fork does not support engine forkchoice_updated"
+        )
+        response = self.engine_rpc.forkchoice_updated(
+            ForkchoiceState(head_block_hash=head_block_hash),
+            None,
+            version=fcu_version,
+        )
+        assert response.payload_status.status == PayloadStatusEnum.VALID, (
+            f"forkchoice_updated reset to {head_block_hash} was not VALID "
+            f"(got {response.payload_status.status})"
+        )
