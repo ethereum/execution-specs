@@ -41,7 +41,7 @@ from execution_testing.forks import (
     TransitionFork,
 )
 from execution_testing.logging import get_logger
-from execution_testing.rpc import DebugRPC, EngineRPC, EthRPC
+from execution_testing.rpc import EngineRPC, EthRPC
 from execution_testing.specs.blockchain import (
     payload_metadata_to_fixture,
 )
@@ -445,12 +445,6 @@ def max_gas_limit_per_test(
 
 
 @pytest.fixture(scope="session")
-def debug_rpc(eth_rpc: EthRPC) -> DebugRPC:
-    """DebugRPC on the same endpoint as eth_rpc (for debug_setHead)."""
-    return DebugRPC(eth_rpc.url)
-
-
-@pytest.fixture(scope="session")
 def client_backend(
     eth_rpc: ChainBuilderEthRPC,
     session_fork: Fork | TransitionFork,
@@ -693,35 +687,32 @@ def t8n(
 @pytest.fixture(autouse=True, scope="function")
 def _reset_chain_between_tests(
     client_backend: ClientBackend,
-    debug_rpc: DebugRPC,
     eth_rpc: "ChainBuilderEthRPC",
 ) -> Generator[None, None, None]:
     """
-    Rewind to start_block after each test so the chain is identical for
-    every fill. ``debug_setHead`` only takes a number, so after the
-    rewind we re-fetch ``latest`` and fail loudly if the hash drifted
-    (e.g. live reorg of a same-numbered block).
+    # Rewind to start_block after each test via engine_forkchoiceUpdated.
+    # Re-fetch latest and fail if hash drifted (detects live reorgs).
     """
     yield
     if client_backend.start_block is None:
         return
-    start_hex = client_backend.start_block["number"]
     expected_hash = client_backend.start_block["hash"]
-    # Skip when head already at start (geth rejects same-block setHead).
+
     current_head = eth_rpc.get_block_by_number("latest")
     if current_head is not None and current_head["hash"] == expected_hash:
         return
     try:
-        debug_rpc.set_head(start_hex)
+        eth_rpc.set_canonical_head(Hash(expected_hash))
     except Exception as e:
-        pytest.exit(f"debug_setHead failed — subsequent fixtures invalid: {e}")
+        pytest.exit(
+            f"forkchoice reset failed, subsequent fixtures invalid: {e}"
+        )
     head = eth_rpc.get_block_by_number("latest")
     if head is None or head["hash"] != expected_hash:
         observed = head["hash"] if head is not None else "<none>"
         pytest.exit(
-            f"debug_setHead landed on hash {observed} but expected "
-            f"{expected_hash} (start_block at number {start_hex}). The "
-            "live chain may have reorged out from under fill-stateful; "
-            "rerun against a quiescent client or use --snapshot-block "
-            "with an explicit hash."
+            f"forkchoice reset landed on hash {observed} but expected "
+            f"{expected_hash}. The live chain may have reorged out from "
+            "under fill-stateful; rerun against a quiescent client or use "
+            "--snapshot-block with an explicit hash."
         )
