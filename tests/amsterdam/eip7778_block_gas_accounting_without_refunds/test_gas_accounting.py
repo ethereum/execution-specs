@@ -537,6 +537,114 @@ def test_varying_calldata_costs(
         pytest.param(False, id=""),
     ],
 )
+@pytest.mark.with_all_refund_types()
+@pytest.mark.filter_combinations(
+    lambda refund_type, refund_tx_reverts, **_: not (
+        refund_type == RefundTypes.STORAGE_CLEAR and refund_tx_reverts
+    ),
+    reason=(
+        "STORAGE_CLEAR refund is zero on revert, so post_refund == "
+        "pre_refund and the admission bypass cannot manifest"
+    ),
+)
+@pytest.mark.exception_test
+@pytest.mark.execute(pytest.mark.skip(reason="Requires specific gas price"))
+@pytest.mark.valid_from("EIP7778")
+def test_extra_tx_admission_uses_pre_refund_gas(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    refund_type: RefundTypes,
+    refund_tx_reverts: bool,
+) -> None:
+    """
+    Test the EIP-7778 admission gate against the pre-refund accumulator
+    when the trailing tx has gas_limit above its actual gas usage.
+
+    Distinguishes a correct implementation from one that uses the
+    post-refund (receipt) accumulator at the admission gate but the
+    pre-refund accumulator for ``header.gas_used``. Without slack
+    between ``tx.gas_limit`` and the tx's actual gas usage, both
+    implementations end up rejecting the block (the buggy one via the
+    later ``header.gas_used > gas_limit`` check), so the bug is masked.
+    The slack here makes the buggy implementation accept the block,
+    which then mismatches the expected-invalid fixture.
+
+    See https://github.com/NethermindEth/nethermind/pull/11794.
+
+    Layout (``P`` = ``refund_tx`` pre-refund gas; ``R`` = refund applied;
+    ``G`` = ``extra_tx.gas_limit``; ``U`` = ``extra_tx`` actual usage):
+
+    - ``block.gas_limit = P + G - 1``
+    - Correct admission: ``P + G > L``  -> reject extra tx
+    - Buggy admission:   ``(P - R) + G <= L``  -> admit extra tx
+    - Block after buggy admit: ``P + U <= L`` (since ``U < G``) -> looks
+      valid to the buggy implementation
+    """
+    intrinsic_cost_calc = fork.transaction_intrinsic_cost_calculator()
+
+    refunds_count = 10
+    stop_address = pre.deterministic_deploy_contract(deploy_code=Op.STOP)
+
+    post = Alloc()
+    (
+        gas_used_post_refund,
+        gas_used_pre_refund,
+        call_data_floor_cost,
+        refund_tx,
+    ) = build_refund_tx(
+        fork=fork,
+        pre=pre,
+        post=post,
+        refund_types={refund_type},
+        refunds_count=refunds_count,
+        refund_tx_reverts=refund_tx_reverts,
+        exceed_block_gas_limit=True,
+    )
+
+    assert gas_used_pre_refund > gas_used_post_refund, (
+        "Parametrization must produce a refund; without one the admission "
+        "bypass cannot occur"
+    )
+
+    refund_tx_block_gas_used = max(gas_used_pre_refund, call_data_floor_cost)
+
+    extra_tx_sender = pre.fund_eoa()
+    extra_tx_intrinsic = intrinsic_cost_calc(calldata=b"")
+
+    # gas_limit must exceed actual usage so that under buggy admission the
+    # pre-refund cumulative after execution stays within gas_limit
+    extra_tx_gas_limit = 2 * extra_tx_intrinsic
+    extra_tx = Transaction(
+        to=stop_address,
+        gas_limit=extra_tx_gas_limit,
+        sender=extra_tx_sender,
+        error=TransactionException.GAS_ALLOWANCE_EXCEEDED,
+    )
+
+    environment_gas_limit = refund_tx_block_gas_used + extra_tx_gas_limit - 1
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[refund_tx, extra_tx],
+                exception=BlockException.GAS_USED_OVERFLOW,
+                gas_limit=environment_gas_limit,
+            )
+        ],
+        post=post,
+        genesis_environment=Environment(gas_limit=environment_gas_limit),
+    )
+
+
+@pytest.mark.parametrize(
+    "refund_tx_reverts",
+    [
+        pytest.param(True, id="refund_tx_reverts"),
+        pytest.param(False, id=""),
+    ],
+)
 @pytest.mark.execute(pytest.mark.skip(reason="Requires specific gas price"))
 @pytest.mark.valid_from("Amsterdam")
 def test_multiple_refund_types_in_one_tx(
