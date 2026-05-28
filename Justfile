@@ -69,7 +69,7 @@ typecheck *args:
 # Check EELS import isolation
 [group('static analysis')]
 lint-spec:
-    uv run ethereum-spec-lint
+    EELS_GAS_REPRICING_CONFIG= uv run ethereum-spec-lint
 
 # Verify uv.lock is up to date
 [group('static analysis')]
