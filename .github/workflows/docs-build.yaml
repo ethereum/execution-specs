@@ -6,10 +6,14 @@
 #     the aggregator workflow in steel-website for deployment
 #
 # Site structure at steel.ethereum.foundation/docs/execution-specs/:
-#   /docs/execution-specs/                         - Default branch docs (mirrored)
-#   /docs/execution-specs/specs/reference/         - Default branch spec reference (mirrored)
-#   /docs/execution-specs/<branch>/                - Branch-specific docs
-#   /docs/execution-specs/<branch>/specs/reference - Branch-specific spec reference (docc output)
+#   /docs/execution-specs/                         - Default branch docs (deployed at root)
+#   /docs/execution-specs/specs/reference/         - Default branch spec reference
+#   /docs/execution-specs/<branch>/                - Non-default branch docs
+#   /docs/execution-specs/<branch>/specs/reference - Non-default branch spec reference (docc output)
+#
+# The "default branch" is named in .github/configs/docs-branches.yaml. Its
+# SITE_URL is built without a `<branch>/` segment so canonical/OG/sitemap
+# URLs match where steel-website actually publishes the artifact.
 
 name: Build Docs
 
@@ -80,6 +84,7 @@ jobs:
       branch: ${{ steps.check.outputs.branch }}
       branch_artifact_name: ${{ steps.check.outputs.branch_artifact_name }}
       commit_sha: ${{ steps.check.outputs.commit_sha }}
+      default_branch: ${{ steps.check.outputs.default_branch }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -107,6 +112,19 @@ jobs:
             echo "ERROR: Could not read allowlist from .github/configs/docs-branches.yaml"
             exit 1
           fi
+
+          # The default branch is deployed at /docs/execution-specs/ (no branch
+          # segment) so its SITE_URL and the publish summary differ.
+          DEFAULT_BRANCH=$(yq '.default_branch' .github/configs/docs-branches.yaml 2>/dev/null || echo "")
+          if [ -z "$DEFAULT_BRANCH" ] || [ "$DEFAULT_BRANCH" = "null" ]; then
+            echo "ERROR: default_branch is missing from .github/configs/docs-branches.yaml"
+            exit 1
+          fi
+          if ! echo "$ALLOWLISTED_BRANCHES" | grep -qxF "$DEFAULT_BRANCH"; then
+            echo "ERROR: default_branch '$DEFAULT_BRANCH' is not present in branches[]"
+            exit 1
+          fi
+          echo "default_branch=$DEFAULT_BRANCH" >> "$GITHUB_OUTPUT"
 
           # Check if branch is in allowlist
           if echo "$ALLOWLISTED_BRANCHES" | grep -qxF "$BRANCH_INPUT"; then
@@ -159,7 +177,11 @@ jobs:
             if [ "$EVENT_NAME" = "pull_request" ]; then
               echo "-> **Build only** -- pull request; artifacts are not published."
             elif [ "$SHOULD_PUBLISH" = "true" ]; then
-              echo "-> **Will publish** at <https://steel.ethereum.foundation/docs/execution-specs/${BRANCH_INPUT}/>"
+              if [ "$BRANCH_INPUT" = "$DEFAULT_BRANCH" ]; then
+                echo "-> **Will publish** at <https://steel.ethereum.foundation/docs/execution-specs/> (default branch; deployed at root)"
+              else
+                echo "-> **Will publish** at <https://steel.ethereum.foundation/docs/execution-specs/${BRANCH_INPUT}/>"
+              fi
               echo ""
               echo "_Note: the URL only resolves if \`${BRANCH_INPUT}\` is also configured in steel-website's \`BRANCH_CONFIG\` (\`deploy.yml\`). If not, the aggregator will receive the dispatch but drop the artifact._"
             else
@@ -191,10 +213,17 @@ jobs:
       - name: Build MkDocs documentation
         env:
           BRANCH: ${{ needs.check-should-publish.outputs.branch }}
+          DEFAULT_BRANCH: ${{ needs.check-should-publish.outputs.default_branch }}
           SHOULD_PUBLISH: ${{ needs.check-should-publish.outputs.should_publish }}
         run: |
           if [ "$SHOULD_PUBLISH" = "true" ]; then
-            export SITE_URL="https://steel.ethereum.foundation/docs/execution-specs/${BRANCH}/"
+            if [ "$BRANCH" = "$DEFAULT_BRANCH" ]; then
+              # Default branch is deployed at /docs/execution-specs/ (no branch
+              # segment), so canonical/OG/sitemap URLs must omit it too.
+              export SITE_URL="https://steel.ethereum.foundation/docs/execution-specs/"
+            else
+              export SITE_URL="https://steel.ethereum.foundation/docs/execution-specs/${BRANCH}/"
+            fi
           else
             export SITE_URL="https://example.com/docs/${BRANCH}/"
           fi
