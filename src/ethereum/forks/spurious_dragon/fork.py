@@ -12,7 +12,7 @@ Entry point for the Ethereum specification.
 """
 
 from dataclasses import dataclass
-from typing import List, Set, Tuple
+from typing import List, Set, Tuple, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes32
@@ -66,6 +66,7 @@ MINIMUM_DIFFICULTY = Uint(131072)
 MAX_OMMER_DEPTH = Uint(6)
 
 
+@final
 @dataclass
 class BlockChain:
     """

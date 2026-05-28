@@ -29,6 +29,7 @@ from typing import (
     Tuple,
     TypeVar,
     cast,
+    final,
 )
 
 from ethereum_rlp import Extended, rlp
@@ -67,6 +68,7 @@ EMPTY_TRIE_ROOT = Hash32(
 )
 
 
+@final
 @slotted_freezable
 @dataclass
 class LeafNode:
@@ -76,6 +78,7 @@ class LeafNode:
     value: Extended
 
 
+@final
 @slotted_freezable
 @dataclass
 class ExtensionNode:
@@ -105,6 +108,7 @@ BranchSubnodes = Tuple[
 ]
 
 
+@final
 @slotted_freezable
 @dataclass
 class BranchNode:
@@ -198,6 +202,7 @@ def encode_node(node: Extended, storage_root: Bytes | None = None) -> Bytes:
         return rlp.encode(node)
 
 
+@final
 @dataclass
 class Trie(Generic[K, V]):
     """

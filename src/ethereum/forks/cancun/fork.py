@@ -12,7 +12,7 @@ Entry point for the Ethereum specification.
 """
 
 from dataclasses import dataclass
-from typing import Final, List, Optional, Tuple
+from typing import Final, List, Optional, Tuple, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
@@ -96,6 +96,7 @@ MAX_BLOB_GAS_PER_BLOCK: Final[U64] = U64(786432)
 VERSIONED_HASH_VERSION_KZG = b"\x01"
 
 
+@final
 @dataclass
 class BlockChain:
     """

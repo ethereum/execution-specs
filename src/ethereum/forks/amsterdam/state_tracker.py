@@ -19,7 +19,7 @@ within a single transaction and supports copy-on-write rollback.
 """
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable, Dict, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Callable, Dict, Optional, Set, Tuple, final
 
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.frozen import modify
@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     from .block_access_lists import BlockAccessListBuilder
 
 
+@final
 @dataclass
 class BlockState:
     """
@@ -62,6 +63,7 @@ class BlockState:
     code_writes: Dict[Hash32, Bytes] = field(default_factory=dict)
 
 
+@final
 @dataclass
 class TransactionState:
     """

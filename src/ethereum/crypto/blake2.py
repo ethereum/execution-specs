@@ -2,7 +2,7 @@
 
 import struct
 from dataclasses import dataclass
-from typing import Final, List, Tuple
+from typing import Final, List, Tuple, final
 
 from ethereum_types.numeric import Uint
 
@@ -248,6 +248,7 @@ class Blake2:
 
 
 # Parameters specific to the Blake2b implementation
+@final
 @dataclass
 class Blake2b(Blake2):
     """

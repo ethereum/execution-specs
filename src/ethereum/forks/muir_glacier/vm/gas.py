@@ -12,7 +12,7 @@ EVM gas constants and calculators.
 """
 
 from dataclasses import dataclass
-from typing import Final, List, Tuple
+from typing import Final, List, Tuple, final
 
 from ethereum_types.numeric import U256, Uint, ulen
 
@@ -161,6 +161,7 @@ class GasCosts:
     OPCODE_CALL_BASE: Final[Uint] = Uint(700)
 
 
+@final
 @dataclass
 class ExtendMemory:
     """
@@ -176,6 +177,7 @@ class ExtendMemory:
     expand_by: Uint
 
 
+@final
 @dataclass
 class MessageCallGas:
     """

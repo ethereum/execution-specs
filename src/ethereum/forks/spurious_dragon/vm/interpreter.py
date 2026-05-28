@@ -12,7 +12,7 @@ A straightforward interpreter that executes EVM code.
 """
 
 from dataclasses import dataclass
-from typing import Optional, Set, Tuple
+from typing import Optional, Set, Tuple, final
 
 from ethereum_types.bytes import Bytes0
 from ethereum_types.numeric import U256, Uint, ulen
@@ -61,6 +61,7 @@ STACK_DEPTH_LIMIT = Uint(1024)
 MAX_CODE_SIZE = 0x6000
 
 
+@final
 @dataclass
 class MessageCallOutput:
     """

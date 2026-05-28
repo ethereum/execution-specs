@@ -13,7 +13,7 @@ The abstract computer which runs the code stored in an
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Set, Tuple
+from typing import List, Optional, Set, Tuple, final
 
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
@@ -39,6 +39,7 @@ SYSTEM_ADDRESS = Address(
 CALL_SUCCESS = U256(1)
 
 
+@final
 @dataclass
 class BlockEnvironment:
     """
@@ -60,6 +61,7 @@ class BlockEnvironment:
     slot_number: U64
 
 
+@final
 @dataclass
 class BlockOutput:
     """
@@ -106,6 +108,7 @@ class BlockOutput:
     block_access_list: BlockAccessList = field(default_factory=list)
 
 
+@final
 @dataclass
 class TransactionEnvironment:
     """
@@ -124,6 +127,7 @@ class TransactionEnvironment:
     tx_hash: Optional[Hash32]
 
 
+@final
 @dataclass
 class Message:
     """
@@ -149,6 +153,7 @@ class Message:
     parent_evm: Optional["Evm"]
 
 
+@final
 @dataclass
 class Evm:
     """The internal state of the virtual machine."""

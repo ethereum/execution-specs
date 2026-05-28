@@ -18,13 +18,14 @@ See [EIP-3155] for more details on EVM traces.
 
 import enum
 from dataclasses import dataclass
-from typing import Optional, Protocol
+from typing import Optional, Protocol, final
 
 from ethereum_types.bytes import Bytes
 
 from ethereum.exceptions import EthereumException
 
 
+@final
 @dataclass
 class TransactionStart:
     """
@@ -32,6 +33,7 @@ class TransactionStart:
     """
 
 
+@final
 @dataclass
 class TransactionEnd:
     """
@@ -60,6 +62,7 @@ class TransactionEnd:
     """
 
 
+@final
 @dataclass
 class PrecompileStart:
     """
@@ -72,6 +75,7 @@ class PrecompileStart:
     """
 
 
+@final
 @dataclass
 class PrecompileEnd:
     """
@@ -79,6 +83,7 @@ class PrecompileEnd:
     """
 
 
+@final
 @dataclass
 class OpStart:
     """
@@ -96,6 +101,7 @@ class OpStart:
     """
 
 
+@final
 @dataclass
 class OpEnd:
     """
@@ -103,6 +109,7 @@ class OpEnd:
     """
 
 
+@final
 @dataclass
 class OpException:
     """
@@ -122,6 +129,7 @@ class OpException:
     """
 
 
+@final
 @dataclass
 class EvmStop:
     """
@@ -139,6 +147,7 @@ class EvmStop:
     """
 
 
+@final
 @dataclass
 class GasAndRefund:
     """

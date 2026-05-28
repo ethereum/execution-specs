@@ -10,7 +10,7 @@ chain.
 """
 
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Tuple, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes8, Bytes32
@@ -31,6 +31,7 @@ from .transactions import (
 )
 
 
+@final
 @slotted_freezable
 @dataclass
 class Withdrawal:
@@ -64,6 +65,7 @@ class Withdrawal:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class Header:
@@ -247,6 +249,7 @@ class Header:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class Block:
@@ -300,6 +303,7 @@ class Block:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class Log:
@@ -332,6 +336,7 @@ class Log:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class Receipt:
