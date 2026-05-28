@@ -97,3 +97,6 @@ site/
 
 # Temporary data; used for generated checklists
 tmp/
+
+# Gas Repricing
+gas_repricing.json

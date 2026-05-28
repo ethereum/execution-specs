@@ -24,9 +24,12 @@ class EIP152(BaseFork):
         ] + super(EIP152, cls).precompiles()
 
     @classmethod
-    def gas_costs(cls) -> GasCosts:
+    def _base_gas_costs(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> GasCosts:
         """Set BLAKE2F per-round gas cost."""
+        del block_number, timestamp
         return replace(
-            super(EIP152, cls).gas_costs(),
+            super(EIP152, cls)._base_gas_costs(),
             PRECOMPILE_BLAKE2F_PER_ROUND=1,
         )

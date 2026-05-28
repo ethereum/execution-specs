@@ -94,10 +94,13 @@ class Frontier(
         return False
 
     @classmethod
-    def gas_costs(cls) -> GasCosts:
+    def _base_gas_costs(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> GasCosts:
         """
         Return dataclass with the defined gas costs constants for genesis.
         """
+        del block_number, timestamp
         return GasCosts(
             # Tiers
             BASE=BASE,
@@ -190,6 +193,13 @@ class Frontier(
             OPCODE_LOG_TOPIC=375,
             OPCODE_KECCAK256_BASE=30,
             OPCODE_KECCACK256_PER_WORD=6,
+            OPCODE_SHL=VERY_LOW,
+            OPCODE_SHR=VERY_LOW,
+            OPCODE_SAR=VERY_LOW,
+            OPCODE_CLZ=LOW,
+            OPCODE_BLOBHASH=VERY_LOW,
+            OPCODE_MCOPY_BASE=VERY_LOW,
+            OPCODE_RETURNDATACOPY_BASE=VERY_LOW,
             # Zero-initialized: introduced in later forks, set via
             # replace() in the fork that activates them.
             TX_DATA_TOKEN_STANDARD=0,

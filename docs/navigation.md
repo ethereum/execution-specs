@@ -74,6 +74,9 @@
               * [Execute Eth Config](./running_tests/execute/eth_config.md)
               * [Transaction Metadata](./running_tests/execute/transaction_metadata.md)
           * [Useful Pytest Options](running_tests/useful_pytest_options.md)
+  * Gas Repricing
+      * [Repricing Guide](gas_repricing/repricing_guide.md)
+      * [GasCosts Reference](gas_repricing/reference.md)
   * [Developer Doc](dev/index.md)
       * [Managing Configurations](dev/configurations.md)
       * [Interactive Library Usage](dev/interactive_usage.md)

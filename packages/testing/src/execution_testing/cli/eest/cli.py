@@ -6,6 +6,7 @@ Invoke using `uv run eest`.
 import click
 
 from .commands import clean, info
+from .commands.gas_map import gas_map
 from .make.cli import make
 
 
@@ -33,3 +34,4 @@ https://click.palletsprojects.com/en/8.0.x/commands/#nested-handling-and-context
 eest.add_command(make)
 eest.add_command(clean)
 eest.add_command(info)
+eest.add_command(gas_map, name="gas-map")

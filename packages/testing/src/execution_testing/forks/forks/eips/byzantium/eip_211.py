@@ -26,7 +26,9 @@ class EIP211(BaseFork):
             **base_map,
             Opcodes.RETURNDATASIZE: gas_costs.BASE,
             Opcodes.RETURNDATACOPY: cls._with_memory_expansion(
-                cls._with_data_copy(gas_costs.VERY_LOW, gas_costs),
+                cls._with_data_copy(
+                    gas_costs.OPCODE_RETURNDATACOPY_BASE, gas_costs
+                ),
                 memory_expansion_calculator,
             ),
         }

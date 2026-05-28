@@ -17,6 +17,7 @@ from typing import Final, List, Tuple
 from ethereum_types.numeric import U256, Uint, ulen
 
 from ethereum.trace import GasAndRefund, evm_trace
+from ethereum.utils.gas_repricing import apply_spec_repricing
 from ethereum.utils.numeric import ceil32
 
 from . import Evm
@@ -362,3 +363,6 @@ def init_code_cost(init_code_length: Uint) -> Uint:
 
     """
     return GasCosts.CODE_INIT_PER_WORD * ceil32(init_code_length) // Uint(32)
+
+
+apply_spec_repricing("Shanghai", GasCosts)

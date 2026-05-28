@@ -14,10 +14,13 @@ class EIP1108(BaseFork):
     """EIP-1108 class."""
 
     @classmethod
-    def gas_costs(cls) -> GasCosts:
+    def _base_gas_costs(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> GasCosts:
         """Reduce BN254 precompile gas costs."""
+        del block_number, timestamp
         return replace(
-            super(EIP1108, cls).gas_costs(),
+            super(EIP1108, cls)._base_gas_costs(),
             PRECOMPILE_ECADD=150,
             PRECOMPILE_ECMUL=6000,
             PRECOMPILE_ECPAIRING_BASE=45_000,

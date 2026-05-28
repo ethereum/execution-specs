@@ -18,6 +18,7 @@ from ethereum_types.numeric import U256, Uint, ulen
 
 from ethereum.state import Address
 from ethereum.trace import GasAndRefund, evm_trace
+from ethereum.utils.gas_repricing import apply_spec_repricing
 from ethereum.utils.numeric import ceil32
 
 from ..state_tracker import TransactionState, account_exists
@@ -298,3 +299,6 @@ def calculate_message_call_gas(
     )
     stipend = gas if value == 0 else GasCosts.CALL_STIPEND + gas
     return MessageCallGas(cost, stipend)
+
+
+apply_spec_repricing("DAOFork", GasCosts)

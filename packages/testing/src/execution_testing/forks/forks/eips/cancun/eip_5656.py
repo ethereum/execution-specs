@@ -27,7 +27,7 @@ class EIP5656(BaseFork):
         return {
             **base_map,
             Opcodes.MCOPY: cls._with_memory_expansion(
-                cls._with_data_copy(gas_costs.VERY_LOW, gas_costs),
+                cls._with_data_copy(gas_costs.OPCODE_MCOPY_BASE, gas_costs),
                 memory_expansion_calculator,
             ),
         }

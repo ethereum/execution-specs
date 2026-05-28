@@ -17,6 +17,7 @@ from typing import Final, List, Tuple
 from ethereum_types.numeric import U256, Uint, ulen
 
 from ethereum.trace import GasAndRefund, evm_trace
+from ethereum.utils.gas_repricing import apply_spec_repricing
 from ethereum.utils.numeric import ceil32
 
 from . import Evm
@@ -340,3 +341,6 @@ def max_message_call_gas(gas: Uint) -> Uint:
 
     """
     return gas - (gas // Uint(64))
+
+
+apply_spec_repricing("ArrowGlacier", GasCosts)

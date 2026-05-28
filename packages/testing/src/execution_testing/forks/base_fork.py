@@ -450,9 +450,26 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     # Gas related abstract methods
 
     @classmethod
-    @abstractmethod
-    def gas_costs(cls) -> GasCosts:
+    def gas_costs(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> GasCosts:
         """Return dataclass with the gas costs constants for the fork."""
+        from .gas_repricing import apply_repricing
+
+        base = cls._base_gas_costs(
+            block_number=block_number, timestamp=timestamp
+        )
+        fork_name = cls.fork_at(
+            block_number=block_number, timestamp=timestamp
+        ).name()
+        return apply_repricing(fork_name, base)
+
+    @classmethod
+    @abstractmethod
+    def _base_gas_costs(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> GasCosts:
+        """Return base gas costs before repricing overrides."""
         pass
 
     @classmethod
