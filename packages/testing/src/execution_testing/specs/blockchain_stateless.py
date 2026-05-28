@@ -449,10 +449,26 @@ def finalize_stateless_artifacts(
         and is_invalid_stateless_input_sentinel(stateless_output)
     )
     if not skip_chain_config_assertion:
+        expected_chain_config = None
+        if options.has_stateless_input_bytes_modifier:
+            if stateless_input_bytes is None:
+                raise Exception(
+                    "Stateless output chain_config assertion requires "
+                    "stateless input bytes"
+                )
+            expected_chain_config = (
+                decode_amsterdam_stateless_input_chain_config(
+                    fork=fork,
+                    block_number=block_number,
+                    timestamp=timestamp,
+                    stateless_input_bytes=stateless_input_bytes,
+                )
+            )
         assert_amsterdam_stateless_output_chain_config(
             block_number=block_number,
             chain_id=chain_id,
             stateless_output=stateless_output,
+            expected_chain_config=expected_chain_config,
         )
 
     return replace(
@@ -981,22 +997,50 @@ def decode_amsterdam_stateless_output(
     )
 
 
+def decode_amsterdam_stateless_input_chain_config(
+    *,
+    fork: Fork,
+    block_number: int,
+    timestamp: int,
+    stateless_input_bytes: Bytes,
+) -> Any | None:
+    """
+    Decode the chain config from Amsterdam stateless input bytes.
+    """
+    active_fork = fork.fork_at(block_number=block_number, timestamp=timestamp)
+    if active_fork.name() != "Amsterdam":
+        return None
+
+    from ethereum.forks.amsterdam.stateless_guest import (
+        deserialize_stateless_input,
+    )
+    from ethereum_types.bytes import Bytes as AmsterdamBytes
+
+    stateless_input = deserialize_stateless_input(
+        AmsterdamBytes(bytes(stateless_input_bytes))
+    )
+    return stateless_input.chain_config
+
+
 def assert_amsterdam_stateless_output_chain_config(
     *,
     block_number: int,
     chain_id: int,
     stateless_output: Any | None,
+    expected_chain_config: Any | None = None,
 ) -> None:
     """
-    Assert the stateless output reports the fixed Amsterdam chain config.
+    Assert the stateless output reports the expected Amsterdam chain config.
     """
     if stateless_output is None:
         return
 
-    from ethereum.forks.amsterdam.stateless_host import build_chain_config
-    from ethereum_types.numeric import U64
+    if expected_chain_config is None:
+        from ethereum.forks.amsterdam.stateless_host import build_chain_config
+        from ethereum_types.numeric import U64
 
-    expected_chain_config = build_chain_config(U64(chain_id))
+        expected_chain_config = build_chain_config(U64(chain_id))
+
     if stateless_output.chain_config != expected_chain_config:
         raise AssertionError(
             "Stateless output chain_config mismatch for block "
