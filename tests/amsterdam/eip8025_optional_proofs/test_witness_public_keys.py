@@ -182,6 +182,7 @@ def _opposite_y_parity_public_key(tx: Transaction) -> Bytes:
         raise AssertionError("alternate public key does not verify signature")
     return alternate_public_key
 
+
 def _address_from_public_key(public_key: Bytes) -> Address:
     """Derive the sender address from an uncompressed SEC1 public key."""
     return Address(Bytes(public_key[1:]).keccak256()[12:])
@@ -204,4 +205,3 @@ def _signature_verifies(
         signing_hash,
         hasher=None,
     )
-
