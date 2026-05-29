@@ -241,6 +241,40 @@ mark_gas_tests_test *args:
         "$@" \
         packages/testing/src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_gas_taint_e2e.py
 
+# Apply @pytest.mark.out_of_gas to tests that ran out of gas by design.
+#
+# This scans EELS EIP-3155 traces you have produced beforehand and marks the
+# tests behind them. Producing the traces is a separate, heavy step (traces
+# are large and memory-hungry) and is deliberately NOT part of this recipe, so
+# you choose the fork, worker count and scope. Produce them with a traced
+# fill, e.g.:
+#
+#   TMPDIR=~/.tmp uv run fill tests/ported_static \
+#       --fork Osaka --traces --evm-dump-dir=~/.tmp/oog-traces \
+#       -m "not slow" -n 6 --dist=loadgroup --clean --skip-index \
+#       --output=~/.tmp/oog-fixtures
+#
+# or via the detached helper (same defaults):
+#
+#   scripts/fill_for_oog_detection.sh tests/ported_static
+#
+# A single fork is enough (OOG-by-design is fork-invariant in practice).
+# Then detect + mark (default trace dir: ~/.tmp/oog-traces):
+#
+#   just mark_oog_tests
+#   just mark_oog_tests /path/to/traces        # custom trace dir
+[group('oog check')]
+[doc('Detect + mark out-of-gas tests from pre-produced EELS traces')]
+mark_oog_tests evm_dump_dir="~/.tmp/oog-traces" *args:
+    @mkdir -p "{{ output_dir }}/mark-oog-tests"
+    uv run python scripts/detect_oog_by_design.py \
+        --evm-dump-dir="{{ evm_dump_dir }}" \
+        --repo-root="{{ root }}" \
+        {{ args }} \
+        --output="{{ output_dir }}/mark-oog-tests/oog_report.json"
+    uv run python scripts/mark_tests.py \
+        "{{ output_dir }}/mark-oog-tests/oog_report.json"
+
 # Run CI release script integration tests
 [group('unit tests')]
 test-ci-scripts *args:
