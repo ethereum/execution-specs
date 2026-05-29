@@ -27,7 +27,6 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
-    Fork,
     Hash,
     Op,
     Storage,
@@ -319,7 +318,6 @@ def test_beacon_root_selfdestruct(
     beacon_root: bytes,
     timestamp: int,
     pre: Alloc,
-    fork: Fork,
     tx: Transaction,
     post: Dict,
 ) -> None:
@@ -333,20 +331,15 @@ def test_beacon_root_selfdestruct(
         balance=0xBA1,
     )
     # self destruct caller
-    selfdestruct_call_forwarded_gas = 100_000
-    self_destruct_caller_code = Op.CALL(
-        gas=selfdestruct_call_forwarded_gas,
-        address=self_destruct_actor_address,
-    ) + Op.SSTORE(0, Op.BALANCE(Spec.BEACON_ROOTS_ADDRESS))
     self_destruct_caller_address = pre.deploy_contract(
-        self_destruct_caller_code
+        Op.CALL(gas=100_000, address=self_destruct_actor_address)
+        + Op.SSTORE(0, Op.BALANCE(Spec.BEACON_ROOTS_ADDRESS))
     )
     post = {
         self_destruct_caller_address: Account(
             storage=Storage({0: 0xBA1}),  # type: ignore
         )
     }
-    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
     blockchain_test(
         pre=pre,
         blocks=[
@@ -355,14 +348,6 @@ def test_beacon_root_selfdestruct(
                     Transaction(
                         sender=pre.fund_eoa(),
                         to=self_destruct_caller_address,
-                        # Caller's static cost + forwarded inner gas + EIP-1706
-                        # stipend slack on the trailing SSTORE.
-                        gas_limit=(
-                            intrinsic_calc()
-                            + self_destruct_caller_code.gas_cost(fork)
-                            + selfdestruct_call_forwarded_gas
-                            + Op.SSTORE(new_value=1).state_cost(fork)
-                        ),
                     )
                 ]
             )
@@ -416,7 +401,6 @@ def test_beacon_root_selfdestruct(
 def test_multi_block_beacon_root_timestamp_calls(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    fork: Fork,
     timestamps_factory: Callable[[], Iterator[int]],
     beacon_roots: Iterator[bytes],
     block_count: int,
@@ -451,7 +435,6 @@ def test_multi_block_beacon_root_timestamp_calls(
     all_timestamps: List[int] = []
 
     sender = pre.fund_eoa()
-    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
 
     for timestamp, beacon_root, _i in zip(
         timestamps,
@@ -510,14 +493,6 @@ def test_multi_block_beacon_root_timestamp_calls(
         post[current_call_account_address] = Account(
             storage=current_call_account_expected_storage,
         )
-        # Bytecode's regular+state cost + N forwarded call_gas envelopes
-        # (one per `t` in all_timestamps) + EIP-1706 stipend slack.
-        block_gas_limit = (
-            intrinsic_calc(calldata=Hash(timestamp))
-            + current_call_account_code.gas_cost(fork)
-            + len(all_timestamps) * call_gas
-            + Op.SSTORE(new_value=1).state_cost(fork)
-        )
         blocks.append(
             Block(
                 txs=[
@@ -525,7 +500,6 @@ def test_multi_block_beacon_root_timestamp_calls(
                         sender=sender,
                         to=current_call_account_address,
                         data=Hash(timestamp),
-                        gas_limit=block_gas_limit,
                     )
                 ],
                 parent_beacon_block_root=beacon_root,
@@ -661,7 +635,6 @@ def test_beacon_root_transition(
                         sender=sender,
                         to=current_call_account_address,
                         data=Hash(timestamp),
-                        gas_limit=1_000_000,
                     )
                 ],
                 parent_beacon_block_root=beacon_root if transitioned else None,

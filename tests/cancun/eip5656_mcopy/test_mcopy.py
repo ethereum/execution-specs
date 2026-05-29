@@ -11,7 +11,6 @@ from execution_testing import (
     Alloc,
     Bytecode,
     Environment,
-    Fork,
     Hash,
     Op,
     StateTestFiller,
@@ -116,20 +115,12 @@ def code_address(pre: Alloc, code_bytecode: Bytecode) -> Address:
 
 @pytest.fixture
 def tx(  # noqa: D103
-    pre: Alloc,
-    fork: Fork,
-    code_address: Address,
-    dest: int,
-    src: int,
-    length: int,
+    pre: Alloc, code_address: Address, dest: int, src: int, length: int
 ) -> Transaction:
-    # The test SSTOREs each memory word it reads, so budget for ~10
-    # first-time SSTOREs whose state gas scales with cpsb on Amsterdam.
     return Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
         data=Hash(dest) + Hash(src) + Hash(length),
-        gas_limit=1_000_000 + 10 * Op.SSTORE(new_value=1).state_cost(fork),
     )
 
 
@@ -239,7 +230,6 @@ PATTERN = bytes.fromhex(
 def test_mcopy_repeated(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
     dest: int,
     src: int,
     length: int,
@@ -303,7 +293,6 @@ def test_mcopy_repeated(
             sender=pre.fund_eoa(),
             to=contract,
             data=Hash(dest) + Hash(src) + Hash(length),
-            gas_limit=1_000_000 + 2 * Op.SSTORE(new_value=1).state_cost(fork),
         ),
     )
 
