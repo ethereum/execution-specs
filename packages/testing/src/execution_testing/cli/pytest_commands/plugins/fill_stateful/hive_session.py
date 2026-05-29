@@ -2,7 +2,9 @@
 Hive session bootstrap for the fill-stateful plugin.
 """
 
+import json
 import os
+import time
 
 import pytest
 
@@ -14,6 +16,7 @@ from execution_testing.forks import (
 )
 from execution_testing.logging import get_logger
 from execution_testing.rpc import EngineRPC
+from execution_testing.test_types.block_types import EnvironmentDefaults
 from execution_testing.test_types.chain_config_types import (
     ChainConfigDefaults,
 )
@@ -24,8 +27,14 @@ from ..execute.rpc.hive import (
     build_genesis_header,
     build_hive_environment,
 )
+from ..shared import profile
+from .stub_account import get_chainspec
 
 logger = get_logger(__name__)
+
+# Block gas limit baked into the hive-mode genesis header. 1 giga-gas is
+# enough for the current benchmark suite without an empty-block ramp.
+HIVE_GENESIS_GAS_LIMIT = 1_000_000_000
 
 
 def _resolve_session_fork(
@@ -105,18 +114,50 @@ def configure_hive(config: pytest.Config) -> None:
     )
     config.hive_base_test = base_test  # type: ignore[attr-defined]
 
-    # base_pre=None: seed key funded via CL withdrawal and deterministic
-    # factory deployed on-chain by ``_session_pre_run``, so genesis only
-    # needs the fork's required system contracts.
-    pre_alloc, genesis_header = build_genesis_header(session_fork, None)
-    genesis_dict = build_client_genesis_dict(pre_alloc, genesis_header)
+    profile.start_session()
+    profile_t0 = time.perf_counter()
+
+    # Bake a fixed 1 G gas limit into the hive genesis header so no
+    # post-genesis empty-block ramp is needed for normal benchmark sizes.
+    # Override only by editing here; the previous --genesis-gas-limit
+    # CLI knob was removed once 1 G proved sufficient end-to-end.
+    EnvironmentDefaults.gas_limit = HIVE_GENESIS_GAS_LIMIT
+    profile.write(
+        "genesis_gas_limit",
+        wei=HIVE_GENESIS_GAS_LIMIT,
+        giga_gas=f"{HIVE_GENESIS_GAS_LIMIT / 1_000_000_000:.2f}",
+    )
+
+    with profile.phase("chainspec load + Alloc build"):
+        base_pre = get_chainspec(config.getoption("chainspec"))
+    profile.write(
+        "chainspec accounts (pre-fork merge)",
+        count=len(base_pre.root),
+    )
+
+    with profile.phase("build_genesis_header (incl. state_root)"):
+        pre_alloc, genesis_header = build_genesis_header(
+            session_fork, base_pre
+        )
+
+    with profile.phase("build_client_genesis_dict (JSON serialise)"):
+        genesis_dict = build_client_genesis_dict(pre_alloc, genesis_header)
+    profile.write(
+        "genesis JSON",
+        size_kib=f"{len(json.dumps(genesis_dict)) / 1024:.1f}",
+        alloc_entries=len(genesis_dict.get("alloc", {})),
+    )
 
     client_type = simulator.client_types()[0]
-    client = base_test.start_client(
-        client_type=client_type,
-        environment=build_hive_environment(session_fork, chain_id),
-        files=build_client_files(genesis_dict),
-    )
+    with profile.phase(
+        "hive start_client (container boot + client genesis import)",
+        client=client_type.name,
+    ):
+        client = base_test.start_client(
+            client_type=client_type,
+            environment=build_hive_environment(session_fork, chain_id),
+            files=build_client_files(genesis_dict),
+        )
     if client is None:
         pytest.exit(
             f"Unable to start hive client {client_type.name}. Check the "
@@ -126,6 +167,10 @@ def configure_hive(config: pytest.Config) -> None:
     logger.info(
         f"Started hive client {client_type.name} at {client.ip} "
         f"(fork={session_fork.name()}, chain_id={chain_id})"
+    )
+    profile.write(
+        "configure_hive total",
+        elapsed_s=f"{time.perf_counter() - profile_t0:.3f}",
     )
 
     config.option.rpc_endpoint = f"http://{client.ip}:8545"

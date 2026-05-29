@@ -1,0 +1,17 @@
+{
+  "name": "perf-devnet-3",
+  "stubs": [
+    { "template": "create2_factory" },
+    {
+      "template": "funded_eoa",
+      "address":  "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "balance":  "0x33b2e3c91efc989409c0000"
+    },
+    {
+      "template": "sequential_balance_only_account",
+      "anchor":   "0x1000",
+      "count":    15000,
+      "balance":  "0x1"
+    }
+  ]
+}

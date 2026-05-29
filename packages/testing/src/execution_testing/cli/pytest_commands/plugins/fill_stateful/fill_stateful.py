@@ -15,6 +15,7 @@ setup-phase block prepended to ``self.blocks``.
 
 import os
 import secrets
+import time
 from pathlib import Path
 from typing import Any, Generator, List, Tuple
 from urllib.parse import urlparse, urlunparse
@@ -48,9 +49,11 @@ from execution_testing.test_types import EOA
 
 from ..execute import contracts
 from ..execute.rpc.chain_builder_eth_rpc import ChainBuilderEthRPC
+from ..shared import profile
 from ..shared.helpers import is_help_or_collectonly_mode
 from ..shared.live_client_flags import FEE_BUMP_MULTIPLIER
 from .hive_session import configure_hive, teardown_hive
+from .stub_account import DEFAULT_CHAINSPEC_PATH
 
 # 1B ETH for seed account
 SEED_FUNDING_WEI = 10**9 * 10**18
@@ -104,6 +107,18 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         ),
     )
     group.addoption(
+        "--chainspec",
+        action="store",
+        dest="chainspec",
+        default=str(DEFAULT_CHAINSPEC_PATH),
+        type=str,
+        help=(
+            "Path to a chainspec JSON file for --hive-mode; its stub "
+            "accounts are merged into the genesis pre-state. Defaults to "
+            f"the bundled {DEFAULT_CHAINSPEC_PATH.name}."
+        ),
+    )
+    group.addoption(
         "--rpc-seed-key",
         action="store",
         dest="rpc_seed_key",
@@ -118,12 +133,13 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "--gas-bump-blocks",
         action="store",
         dest="gas_bump_blocks",
-        default=5000,
+        default=0,
         type=int,
         help=(
-            "Empty blocks at start to increase block gas limit."
-            "Each block increase ≤ parent_gas_limit/1024."
-            "Default: 5000 blocks."
+            "Empty blocks at start to increase block gas limit "
+            "(parent_gas_limit/1024 per block). Default: 0 — hive-mode "
+            "bakes a 1 G genesis gas limit so no ramp is needed. Raise "
+            "this only if your tests need more than 1 G per block."
         ),
     )
     group.addoption(
@@ -212,10 +228,21 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         session.config._fill_stateful_session_failed = True  # type: ignore[attr-defined]
 
 
-def pytest_runtest_call(item: pytest.Item) -> None:
-    """Fail in the call phase (→ FAILED, not ERROR) on ``missing_stubs``."""
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_call(item: pytest.Item) -> Generator[None, None, None]:
+    """Fail on ``missing_stubs``; time each parametrization's call phase."""
     for marker in item.iter_markers("missing_stubs"):
         pytest.fail(marker.args[0], pytrace=False)
+    profile.write("test starting", nodeid=item.nodeid)
+    t0 = time.perf_counter()
+    outcome = yield
+    elapsed = time.perf_counter() - t0
+    profile.write(
+        "test done",
+        nodeid=item.nodeid,
+        elapsed_s=f"{elapsed:.3f}",
+        outcome="PASS" if outcome.excinfo is None else "FAIL",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -444,9 +471,11 @@ def _session_pre_run(
     captured: List[EnginePayloadMetadata] = []
 
     # Ramp gas limit (empty blocks) via empty blocks.
-    bump_payloads = eth_rpc.bump_block_gas_limit(
-        request.config.getoption("gas_bump_blocks")
-    )
+    gas_bump_blocks = request.config.getoption("gas_bump_blocks")
+    with profile.phase(
+        "empty-block gas-limit ramp", requested_blocks=gas_bump_blocks
+    ):
+        bump_payloads = eth_rpc.bump_block_gas_limit(gas_bump_blocks)
     captured.extend(bump_payloads)
     if bump_payloads:
         logger.info(
@@ -462,7 +491,10 @@ def _session_pre_run(
         (Address(EOA(key=SENDER_BASE_KEY + i)), POOL_FUNDING_WEI)
         for i in range(pool_size)
     ]
-    fund_payload = eth_rpc.fund_via_withdrawals(funding_targets)
+    with profile.phase(
+        "fund_via_withdrawals", recipients=len(funding_targets)
+    ):
+        fund_payload = eth_rpc.fund_via_withdrawals(funding_targets)
     if fund_payload is not None:
         captured.append(fund_payload)
     logger.info(f"Funded seed key and {pool_size} sender pool accounts")
@@ -476,14 +508,15 @@ def _session_pre_run(
             )
             is None
         ):
-            _, deploy_payloads = (
-                contracts.deploy_deterministic_factory_contract(
-                    eth_rpc=eth_rpc,
-                    seed_key=session_worker_key,
-                    gas_price=sender_funding_transactions_gas_price,
-                    tx_index=0,
+            with profile.phase("deploy_deterministic_factory"):
+                _, deploy_payloads = (
+                    contracts.deploy_deterministic_factory_contract(
+                        eth_rpc=eth_rpc,
+                        seed_key=session_worker_key,
+                        gas_price=sender_funding_transactions_gas_price,
+                        tx_index=0,
+                    )
                 )
-            )
             captured.extend(deploy_payloads)
 
     # 5. Capture start block.
