@@ -1,9 +1,11 @@
 """Stateless input transaction public-key tests."""
 
 import pytest
+from coincurve import ecdsa
 from coincurve.keys import PublicKey
 from execution_testing import (
     Account,
+    Address,
     Alloc,
     Block,
     BlockchainTestFiller,
@@ -172,5 +174,34 @@ def _opposite_y_parity_public_key(tx: Transaction) -> Bytes:
     )
     if alternate_public_key == canonical_public_key:
         raise AssertionError("alternate recovery id produced canonical key")
+    if _address_from_public_key(canonical_public_key) != signed_tx.sender:
+        raise AssertionError("canonical public key does not derive sender")
+    if _address_from_public_key(alternate_public_key) == signed_tx.sender:
+        raise AssertionError("alternate public key derives sender")
+    if not _signature_verifies(signed_tx, alternate_public_key, signing_hash):
+        raise AssertionError("alternate public key does not verify signature")
     return alternate_public_key
+
+def _address_from_public_key(public_key: Bytes) -> Address:
+    """Derive the sender address from an uncompressed SEC1 public key."""
+    return Address(Bytes(public_key[1:]).keccak256()[12:])
+
+
+def _signature_verifies(
+    tx: Transaction,
+    public_key: Bytes,
+    signing_hash: bytes,
+) -> bool:
+    """Return whether ``public_key`` verifies the transaction signature."""
+    compact_signature = int(tx.r).to_bytes(32, byteorder="big") + int(
+        tx.s
+    ).to_bytes(32, byteorder="big")
+    der_signature = ecdsa.cdata_to_der(
+        ecdsa.deserialize_compact(compact_signature)
+    )
+    return PublicKey(bytes(public_key)).verify(
+        der_signature,
+        signing_hash,
+        hasher=None,
+    )
 
