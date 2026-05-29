@@ -1,6 +1,7 @@
 """Stateless input transaction public-key tests."""
 
 import pytest
+from coincurve.keys import PublicKey
 from execution_testing import (
     Account,
     Alloc,
@@ -87,3 +88,89 @@ def test_stateless_input_invalid_public_key_is_rejected(
             sender: Account(nonce=1),
         },
     )
+
+
+def test_stateless_input_opposite_y_parity_public_key_is_rejected(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    An ECDSA-valid key from the other recovery candidate is rejected.
+
+    This catches implementations that only verify the supplied key against
+    ``(r, s, message_hash)`` without also binding it to the transaction's
+    y-parity bit.
+    """
+    recipient = pre.fund_eoa()
+    sender = pre.fund_eoa()
+    tx = Transaction(
+        sender=sender,
+        to=recipient,
+        value=0,
+        gas_limit=21_000,
+        max_fee_per_gas=10,
+        max_priority_fee_per_gas=0,
+    ).with_signature_and_sender()
+    invalid_public_key = _opposite_y_parity_public_key(tx)
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                stateless_input_public_keys_modifier=(
+                    replace_public_key_at(0, invalid_public_key)
+                ),
+                expected_stateless_validation_success=False,
+            )
+        ],
+        post={
+            sender: Account(nonce=1),
+        },
+    )
+
+
+def _recover_public_key(
+    tx: Transaction,
+    y_parity: int,
+    signing_hash: bytes,
+) -> Bytes:
+    """Recover an uncompressed SEC1 public key for ``y_parity``."""
+    signature = (
+        int(tx.r).to_bytes(32, byteorder="big")
+        + int(tx.s).to_bytes(32, byteorder="big")
+        + bytes([y_parity])
+    )
+    public_key = PublicKey.from_signature_and_message(
+        signature,
+        signing_hash,
+        hasher=None,
+    )
+    return Bytes(public_key.format(compressed=False))
+
+
+def _opposite_y_parity_public_key(tx: Transaction) -> Bytes:
+    """Recover the other ECDSA-valid public key for a typed transaction."""
+    signed_tx = tx.with_signature_and_sender()
+    if int(signed_tx.ty) == 0:
+        raise AssertionError("expected a typed transaction")
+
+    y_parity = int(signed_tx.v)
+    if y_parity not in (0, 1):
+        raise AssertionError(f"expected y_parity 0 or 1, got {y_parity}")
+
+    signing_hash = bytes(signed_tx.rlp_signing_bytes().keccak256())
+    canonical_public_key = _recover_public_key(
+        signed_tx,
+        y_parity,
+        signing_hash,
+    )
+    alternate_public_key = _recover_public_key(
+        signed_tx,
+        y_parity ^ 1,
+        signing_hash,
+    )
+    if alternate_public_key == canonical_public_key:
+        raise AssertionError("alternate recovery id produced canonical key")
+    return alternate_public_key
+
