@@ -4,7 +4,7 @@ Build the spec's per-fork ``BlockEnvironment`` from a testing-package
 """
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, List, Optional
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes8, Bytes20, Bytes32, Bytes256
@@ -39,18 +39,14 @@ def build_block_environment(
     env: "TestingEnvironment",
     pre_state: Any,
     chain_id: U64,
-    ommers: Tuple[Ommer, ...] = (),
     state_test: bool = False,
 ) -> Any:
     """
     Build the fork's `BlockEnvironment` from a testing `Environment`.
 
     `pre_state` must satisfy the spec's `PreState` protocol (in
-    practice, a testing `Alloc`). `ommers` is only consumed by
-    `pay_block_rewards`, not by `BlockEnvironment` itself.
+    practice, a testing `Alloc`).
     """
-    del ommers  # Stored on the T8N instance; not a BlockEnvironment arg.
-
     block_state = fork.BlockState(pre_state=pre_state)
 
     block_number = Uint(int(env.number))

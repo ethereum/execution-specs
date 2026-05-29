@@ -117,6 +117,13 @@ class ExecutionSpecsTransitionTool(TransitionTool):
 
         tracers = None
         if self.trace:
+            # TODO: Eip3155 traces still round-trip through tempfile
+            # JSON — the tracer writes one ``trace-<i>.jsonl`` per tx
+            # to ``output_basedir`` and ``collect_traces`` reads them
+            # back. Same JSON round-trip we eliminated for alloc /
+            # result / body; a follow-up should wire the tracer
+            # output through memory like the rest of the in-process
+            # path.
             tracers = GroupTracer()
             tracers.add(
                 Eip3155Tracer(

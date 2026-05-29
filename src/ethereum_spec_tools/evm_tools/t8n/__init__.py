@@ -59,8 +59,6 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 
 
-
-
 class ForkCache(AbstractContextManager):
     """
     Stores references to temporary hardforks and cleans them up when exited.
@@ -214,18 +212,17 @@ class T8N(Load):
         self.state_reward = int(t8n_data.reward)
         self.exception_mapper = exception_mapper
 
+        from execution_testing.client_clis.cli_types import LazyAlloc
+
         # Take a defensive copy of the input alloc so ``apply_diff``
         # (and any other in-place mutation T8N does) never escapes
         # into the caller's Python object. Without this, multi-block
         # tests that contain an invalid block would observe a mutated
         # pre-state — the testing framework expects ``previous_alloc``
         # to remain unchanged when ``block.exception`` is set.
-        from execution_testing.client_clis.cli_types import LazyAlloc
-
-        raw_alloc = t8n_data.alloc
-        input_alloc = (
-            raw_alloc.get() if isinstance(raw_alloc, LazyAlloc) else raw_alloc
-        )
+        input_alloc = t8n_data.alloc
+        if isinstance(input_alloc, LazyAlloc):
+            input_alloc = input_alloc.get()
         self.alloc = input_alloc.model_copy(deep=True)
         self.env = t8n_data.env
         self.txs = list(t8n_data.txs)
@@ -254,7 +251,6 @@ class T8N(Load):
             env=self.env,
             pre_state=self.alloc,
             chain_id=self.chain_id,
-            ommers=tuple(self.ommers),
             state_test=self.state_test,
         )
         self._block_state = block_env.state
