@@ -12,13 +12,12 @@ Root cause (nethermind, state-test only):
     number != 0 ? Keccak.Zero : Keccak.Compute(number.ToString())
 
 It performs no recency-window check, and the opcode handler
-``InstructionBlockHash`` (Nethermind.Evm/Instructions/EvmInstructions.Environment.cs)
-delegates that check to the provider -- it only rejects ``number >= current``.
-So ``BLOCKHASH(0)`` returns ``keccak256("0")`` regardless of how ancient block 0
-is. Nethermind's *production* ``BlockhashProvider``
-(Nethermind.Blockchain/BlockhashProvider.cs) does enforce the window, so this is
-a state-test tooling bug, not a mainnet consensus bug -- but it makes nethermind
-diverge under differential state-test fuzzing.
+``InstructionBlockHash`` (in ``EvmInstructions.Environment.cs``) delegates
+that check to the provider -- it only rejects ``number >= current``. So
+``BLOCKHASH(0)`` returns ``keccak256("0")`` regardless of how ancient block
+0 is. Nethermind's *production* ``BlockhashProvider`` does enforce the
+window, so this is a state-test tooling bug, not a mainnet consensus bug --
+but it makes nethermind diverge under differential state-test fuzzing.
 """
 
 import pytest
@@ -115,12 +114,13 @@ def test_blockhash_zero_in_window_control(
     In-window control: BLOCKHASH(0) returns the block-0 hash at block 1.
 
     This is the positive counterpart to the out-of-window test. With block 0
-    inside the recency window (current block == 1) and ``previousHash`` set to
-    the state-test convention value ``keccak256("0")``, all clients -- including
-    nethermind -- agree on the result, pinning the window boundary.
+    inside the recency window (current block == 1) and ``previousHash`` set
+    to the state-test convention value ``keccak256("0")``, all clients --
+    including nethermind -- agree on the result, pinning the window boundary.
 
-    Restricted to <= Cancun because EIP-2935 (Prague+) serves BLOCKHASH from the
-    history storage contract, which is not pre-populated in a bare state test.
+    Restricted to <= Cancun because EIP-2935 (Prague+) serves BLOCKHASH from
+    the history storage contract, which is not pre-populated in a bare state
+    test.
     Marked ``state_test_only``: the asserted non-zero hash would not match the
     real genesis hash of a derived blockchain-test fixture.
     """
