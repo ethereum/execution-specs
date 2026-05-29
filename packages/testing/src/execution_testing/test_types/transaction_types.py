@@ -310,8 +310,8 @@ class Transaction(
                 data.pop("hash", None)
         return data
 
-    gas_limit: HexNumber = Field(
-        HexNumber(21_000),
+    gas_limit: HexNumber | None = Field(
+        None,
         serialization_alias="gas",
         validation_alias=AliasChoices("gas_limit", "gasLimit", "gas"),
     )
@@ -571,6 +571,10 @@ class Transaction(
                 # Signer remains `None` in this case
                 pass
 
+    def with_gas_limit(self, gas_limit: int) -> Self:
+        """Return a new copy of the transaction with a defined gas limit."""
+        return self.model_copy(update={"gas_limit": HexNumber(gas_limit)})
+
     def with_signature_and_sender(
         self, *, keep_secret_key: bool = False
     ) -> Self:
@@ -598,6 +602,9 @@ class Transaction(
 
         if self.secret_key is None:
             raise ValueError("secret_key must be set to sign a transaction")
+
+        if self.gas_limit is None:
+            raise ValueError("gas_limit must be set to sign a transaction")
 
         # Get the signing bytes
         signing_hash = self.rlp_signing_bytes().keccak256()

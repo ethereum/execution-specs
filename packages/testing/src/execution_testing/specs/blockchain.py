@@ -823,7 +823,30 @@ class BlockchainTest(BaseTest):
             block_number=env.number, timestamp=env.timestamp
         )
         env = env.set_fork_requirements(fork)
-        txs = [tx.with_signature_and_sender() for tx in block.txs]
+        txs = block.txs[:]
+        if any(tx.gas_limit is None for tx in block.txs):
+            available_gas = env.gas_limit
+            tx_unset_gas_limit_count = 0
+            for tx in block.txs:
+                if tx.gas_limit is None:
+                    tx_unset_gas_limit_count += 1
+                else:
+                    available_gas -= tx.gas_limit
+            if available_gas <= 0:
+                raise Exception(
+                    "test correctness: unable to automatically calculate gas "
+                    "limit for transactions (No remaining gas)."
+                )
+            max_gas_limit = available_gas // tx_unset_gas_limit_count
+            tx_gas_limit_cap = fork.transaction_gas_limit_cap()
+            if fork.is_eip_enabled(8037):
+                tx_gas_limit_cap = None
+            if tx_gas_limit_cap:
+                max_gas_limit = min(max_gas_limit, tx_gas_limit_cap)
+            for i in range(len(txs)):
+                if txs[i].gas_limit is None:
+                    txs[i] = txs[i].with_gas_limit(max_gas_limit)
+        txs = [tx.with_signature_and_sender() for tx in txs]
 
         if failing_tx_count := len([tx for tx in txs if tx.error]) > 0:
             if failing_tx_count > 1:

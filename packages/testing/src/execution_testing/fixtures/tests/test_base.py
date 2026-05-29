@@ -98,6 +98,7 @@ def test_json_dict() -> None:
                         ),
                         transactions=[
                             Transaction(
+                                gas_limit=0x5208,
                                 max_fee_per_gas=7,
                             ).with_signature_and_sender(),
                         ],
@@ -133,6 +134,7 @@ def test_json_dict() -> None:
                         ),
                         transactions=[
                             Transaction(
+                                gas_limit=0x5208,
                                 max_fee_per_gas=7,
                             ).with_signature_and_sender(),
                         ],

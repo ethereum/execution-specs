@@ -20,6 +20,7 @@ from ..transaction_types import Transaction
         (
             Transaction(
                 ty=0,
+                gas_limit=21000,
                 nonce=0,
                 gas_price=1000000000,
                 protected=False,
@@ -37,6 +38,7 @@ from ..transaction_types import Transaction
         (
             Transaction(
                 ty=0,
+                gas_limit=21000,
                 nonce=0,
                 gas_price=1000000000,
                 protected=False,
@@ -55,6 +57,7 @@ from ..transaction_types import Transaction
         (
             Transaction(
                 ty=0,
+                gas_limit=21000,
                 nonce=0,
                 gas_price=1000000000,
                 protected=True,
@@ -72,6 +75,7 @@ from ..transaction_types import Transaction
         (
             Transaction(
                 ty=1,
+                gas_limit=21000,
                 nonce=0,
                 gas_price=1000000000,
             ),
@@ -88,6 +92,7 @@ from ..transaction_types import Transaction
         (
             Transaction(
                 ty=1,
+                gas_limit=21000,
                 nonce=0,
                 gas_price=1000000000,
                 access_list=[],
@@ -105,6 +110,7 @@ from ..transaction_types import Transaction
         (
             Transaction(
                 ty=1,
+                gas_limit=21000,
                 nonce=0,
                 gas_price=1000000000,
                 access_list=[
@@ -129,6 +135,7 @@ from ..transaction_types import Transaction
         (
             Transaction(
                 ty=1,
+                gas_limit=21000,
                 nonce=0,
                 gas_price=1000000000,
                 to=None,
@@ -151,6 +158,7 @@ from ..transaction_types import Transaction
         (
             Transaction(
                 ty=2,
+                gas_limit=21000,
                 nonce=0,
                 access_list=[
                     AccessList(address=0x123, storage_keys=[0x456, 0x789])
@@ -173,6 +181,7 @@ from ..transaction_types import Transaction
         (
             Transaction(
                 ty=2,
+                gas_limit=21000,
                 nonce=0,
                 to=None,
                 access_list=[
@@ -196,6 +205,7 @@ from ..transaction_types import Transaction
         (
             Transaction(
                 ty=3,
+                gas_limit=21000,
                 nonce=0,
                 access_list=[
                     AccessList(address=0x123, storage_keys=[0x456, 0x789])
@@ -220,6 +230,7 @@ from ..transaction_types import Transaction
         (
             Transaction(
                 ty=3,
+                gas_limit=21000,
                 nonce=0,
                 access_list=[
                     AccessList(address=0x123, storage_keys=[0x456, 0x789])
