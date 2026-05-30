@@ -634,6 +634,22 @@ class EthRPC(BaseRPC):
         responses = self.post_batch_request(calls=calls)
         return [int(r.result_or_raise(), 16) for r in responses]
 
+    def estimate_gas(
+        self,
+        transaction: Dict[str, Any],
+        block_number: BlockNumberType = "latest",
+    ) -> int:
+        """`eth_estimateGas`: Return the gas required to execute a tx."""
+        block = (
+            hex(block_number)
+            if isinstance(block_number, int)
+            else block_number
+        )
+        response = self.post_request(
+            request=RPCCall(method="estimateGas", params=[transaction, block])
+        ).result_or_raise()
+        return int(response, 16)
+
     def get_code(
         self, address: Address, block_number: BlockNumberType = "latest"
     ) -> Bytes:

@@ -152,6 +152,13 @@ def execute_required_contracts(
     Deploy required contracts for the execute command.
 
     - Deterministic deployment proxy
+
+    Best-effort: if the proxy is absent and cannot be deployed (e.g. the
+    keyless deployment transaction can no longer be mined because the fork's
+    contract-creation intrinsic gas exceeds the transaction's fixed gas limit),
+    the session is not aborted. Tests that do not need the proxy still run;
+    tests that request a deterministic deployment are skipped when they try to
+    use it (see ``Alloc._resolve_deterministic_deploys``).
     """
     base_lock_file = session_temp_folder / "execute_required_contracts.lock"
     with FileLock(base_lock_file):
@@ -171,12 +178,13 @@ def execute_required_contracts(
                     gas_price=sender_funding_transactions_gas_price,
                 )
             except Exception as e:
-                raise RuntimeError(
-                    f"Error deploying deterministic deployment contract:\n{e}"
-                    "\nTry deploying the contract manually using a different "
-                    "RPC endpoint with the following command:\n"
-                    "uv run execute deploy-required-contracts"
-                ) from e
+                logger.warning(
+                    "Could not deploy the deterministic deployment proxy; "
+                    "tests that require it will be skipped. To deploy it "
+                    "manually against a different RPC endpoint run "
+                    "`uv run execute deploy-required-contracts`. "
+                    f"Reason: {e}"
+                )
 
 
 class PendingTransaction(Transaction):
@@ -752,12 +760,17 @@ class Alloc(SharedAlloc):
                 )
             else:
                 if not factory_checked:
-                    assert (
+                    if (
                         check_deterministic_factory_deployment(
                             eth_rpc=self._eth_rpc, fork=fork
                         )
-                        is not None
-                    ), "Deployment contract code is not found"
+                        is None
+                    ):
+                        pytest.skip(
+                            "deterministic deployment proxy is not available "
+                            "on this network; skipping test that requires a "
+                            "deterministic contract deployment"
+                        )
                     factory_checked = True
 
                 logger.info(

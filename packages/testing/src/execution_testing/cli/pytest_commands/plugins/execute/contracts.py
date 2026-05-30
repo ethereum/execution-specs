@@ -20,6 +20,15 @@ from .rpc.chain_builder_eth_rpc import ChainBuilderEthRPC
 logger = get_logger(__name__)
 
 
+class DeterministicFactoryNotDeployableError(Exception):
+    """
+    Raised when the deterministic deployment proxy cannot be bootstrapped on
+    the connected network because its keyless deployment transaction would be
+    rejected (its fixed gas limit cannot cover the gas the network requires for
+    the creation, e.g. a higher contract-creation intrinsic gas cost).
+    """
+
+
 def check_deterministic_factory_deployment(
     *,
     eth_rpc: EthRPC,
@@ -96,6 +105,30 @@ def deploy_deterministic_factory_contract(
     ).with_signature_and_sender()
     deploy_tx_sender = deploy_tx.sender
     assert deploy_tx_sender is not None
+
+    # Pre-flight: don't even attempt the deploy if the network would reject the
+    # keyless transaction. Its gas limit is fixed (changing it would change the
+    # recovered sender and therefore the factory address), so if the network
+    # requires more gas for the creation than that limit, the transaction can
+    # never be included -- skip the funding tx, send and inclusion wait.
+    try:
+        required_gas = eth_rpc.estimate_gas(
+            transaction={
+                "from": f"{deploy_tx_sender}",
+                "input": f"{deploy_tx.data}",
+            }
+        )
+    except Exception:
+        # If the estimate itself is unavailable, fall through and attempt the
+        # deploy as before (failures are still handled by the caller).
+        required_gas = None
+    if required_gas is not None and required_gas > deploy_tx_gas_limit:
+        raise DeterministicFactoryNotDeployableError(
+            f"network requires {required_gas} gas to create the deterministic "
+            f"deployment proxy, exceeding the keyless transaction's fixed gas "
+            f"limit of {deploy_tx_gas_limit}"
+        )
+
     required_deployer_balance = deploy_tx_gas_price * deploy_tx_gas_limit
     current_balance = eth_rpc.get_balance(deploy_tx_sender)
     if current_balance < required_deployer_balance:
