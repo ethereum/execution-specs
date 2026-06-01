@@ -153,12 +153,9 @@ def execute_required_contracts(
 
     - Deterministic deployment proxy
 
-    Best-effort: if the proxy is absent and cannot be deployed (e.g. the
-    keyless deployment transaction can no longer be mined because the fork's
-    contract-creation intrinsic gas exceeds the transaction's fixed gas limit),
-    the session is not aborted. Tests that do not need the proxy still run;
-    tests that request a deterministic deployment are skipped when they try to
-    use it (see ``Alloc._resolve_deterministic_deploys``).
+    Proxy deploy failure doesn't abort the session.
+    Tests skip deterministic deploys on use.
+    Details check `(see Alloc._resolve_deterministic_deploys)`.
     """
     base_lock_file = session_temp_folder / "execute_required_contracts.lock"
     with FileLock(base_lock_file):

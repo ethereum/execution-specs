@@ -22,10 +22,8 @@ logger = get_logger(__name__)
 
 class DeterministicFactoryNotDeployableError(Exception):
     """
-    Raised when the deterministic deployment proxy cannot be bootstrapped on
-    the connected network because its keyless deployment transaction would be
-    rejected (its fixed gas limit cannot cover the gas the network requires for
-    the creation, e.g. a higher contract-creation intrinsic gas cost).
+    Raised when the deterministic proxy cannot deploy.
+    Example: fixed gas limit insufficient for network creation cost.
     """
 
 
@@ -106,11 +104,9 @@ def deploy_deterministic_factory_contract(
     deploy_tx_sender = deploy_tx.sender
     assert deploy_tx_sender is not None
 
-    # Pre-flight: don't even attempt the deploy if the network would reject the
-    # keyless transaction. Its gas limit is fixed (changing it would change the
-    # recovered sender and therefore the factory address), so if the network
-    # requires more gas for the creation than that limit, the transaction can
-    # never be included -- skip the funding tx, send and inclusion wait.
+    # Pre-flight: skip deploy if network gas > fixed limit.
+    # Gas limit is fixed as changing it alters sender/factory address.
+    # If network requires more gas, transaction can never be included.
     try:
         required_gas = eth_rpc.estimate_gas(
             transaction={
