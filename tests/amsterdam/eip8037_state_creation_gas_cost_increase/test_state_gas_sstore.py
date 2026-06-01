@@ -415,7 +415,6 @@ def test_sstore_state_gas_all_tx_types(
     state_test: StateTestFiller,
     pre: Alloc,
     typed_transaction: Transaction,
-    fork: Fork,
 ) -> None:
     """
     Test SSTORE state gas works across all transaction types.
@@ -425,17 +424,12 @@ def test_sstore_state_gas_all_tx_types(
     gas_left and state_gas_reservoir. Verify SSTORE succeeds with
     each type.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     storage = Storage()
     contract = pre.deploy_contract(
         code=Op.SSTORE(storage.store_next(1), 1),
     )
 
-    tx = typed_transaction.copy(
-        to=contract,
-        gas_limit=gas_limit_cap,
-    )
+    tx = typed_transaction.copy(to=contract)
 
     post = {contract: Account(storage=storage)}
     state_test(pre=pre, post=post, tx=tx)
