@@ -116,23 +116,26 @@ def test_bal_sstore_and_oog(
     4. exact gas (success) -> storage write in BAL
     """
     alice = pre.fund_eoa()
-    gas_costs = fork.gas_costs()
 
     # Create contract that attempts SSTORE to cold storage slot 0x01
-    storage_contract_code = Bytecode(Op.SSTORE(0x01, 0x42))
+    storage_contract_code = Op.SSTORE(
+        0x01, 0x42, key_warm=False, original_value=0, new_value=0x42
+    )
 
     storage_contract = pre.deploy_contract(code=storage_contract_code)
 
-    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-    intrinsic_gas_cost = intrinsic_gas_calculator()
+    intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()()
 
-    # Costs:
-    # - PUSH1 (value and slot) = G_VERY_LOW * 2
-    # - SSTORE cold (to zero slot) = G_STORAGE_SET + G_COLD_SLOAD
-    sload_cost = gas_costs.COLD_STORAGE_ACCESS
-    sstore_cold_cost = gas_costs.STORAGE_SET + sload_cost
-    push_cost = gas_costs.VERY_LOW * 2
-    stipend = gas_costs.CALL_STIPEND
+    # Full cost: PUSHes + SSTORE (COLD_STORAGE_ACCESS + STORAGE_SET)
+    full_cost = storage_contract_code.gas_cost(fork)
+
+    # Push cost for stipend boundary calculations
+    push_code = Op.PUSH1(0x42) + Op.PUSH1(0x01)
+    push_cost = push_code.gas_cost(fork)
+
+    # CALL_STIPEND is a threshold check, not a gas cost
+    # Keep from gas_costs
+    stipend = fork.gas_costs().CALL_STIPEND
 
     if out_of_gas_at == OutOfGasAt.EIP_2200_STIPEND:
         # 2300 after PUSHes (fails stipend check: 2300 <= 2300)
@@ -142,10 +145,10 @@ def test_bal_sstore_and_oog(
         tx_gas_limit = intrinsic_gas_cost + push_cost + stipend + 1
     elif out_of_gas_at == OutOfGasAt.EXACT_GAS_MINUS_1:
         # fail at charge_gas() at exact gas - 1 (boundary condition)
-        tx_gas_limit = intrinsic_gas_cost + push_cost + sstore_cold_cost - 1
+        tx_gas_limit = intrinsic_gas_cost + full_cost - 1
     else:
         # exact gas for successful SSTORE
-        tx_gas_limit = intrinsic_gas_cost + push_cost + sstore_cold_cost
+        tx_gas_limit = intrinsic_gas_cost + full_cost
 
     tx = Transaction(
         sender=alice,
@@ -211,26 +214,19 @@ def test_bal_sload_and_oog(
     Ensure BAL handles SLOAD and OOG during SLOAD appropriately.
     """
     alice = pre.fund_eoa()
-    gas_costs = fork.gas_costs()
 
     # Create contract that attempts SLOAD from cold storage slot 0x01
-    storage_contract_code = Bytecode(
+    storage_contract_code = (
         Op.PUSH1(0x01)  # Storage slot (cold)
-        + Op.SLOAD  # Load value from slot - this will OOG
+        + Op.SLOAD(key_warm=False)  # Load value from slot - this will OOG
         + Op.STOP
     )
 
     storage_contract = pre.deploy_contract(code=storage_contract_code)
 
-    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-    intrinsic_gas_cost = intrinsic_gas_calculator()
+    intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()()
 
-    # Costs:
-    # - PUSH1 (slot) = G_VERY_LOW
-    # - SLOAD cold = G_COLD_SLOAD
-    push_cost = gas_costs.VERY_LOW
-    sload_cold_cost = gas_costs.COLD_STORAGE_ACCESS
-    tx_gas_limit = intrinsic_gas_cost + push_cost + sload_cold_cost
+    tx_gas_limit = intrinsic_gas_cost + storage_contract_code.gas_cost(fork)
 
     if fails_at_sload:
         # subtract 1 gas to ensure OOG at SLOAD
@@ -277,26 +273,19 @@ def test_bal_balance_and_oog(
     """Ensure BAL handles BALANCE and OOG during BALANCE appropriately."""
     alice = pre.fund_eoa()
     bob = pre.fund_eoa()
-    gas_costs = fork.gas_costs()
 
     # Create contract that attempts to check Bob's balance
-    balance_checker_code = Bytecode(
+    balance_checker_code = (
         Op.PUSH20(bob)  # Bob's address
-        + Op.BALANCE  # Check balance (cold access)
+        + Op.BALANCE(address_warm=False)  # Check balance (cold access)
         + Op.STOP
     )
 
     balance_checker = pre.deploy_contract(code=balance_checker_code)
 
-    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-    intrinsic_gas_cost = intrinsic_gas_calculator()
+    intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()()
 
-    # Costs:
-    # - PUSH20 = G_VERY_LOW
-    # - BALANCE cold = G_COLD_ACCOUNT_ACCESS
-    push_cost = gas_costs.VERY_LOW
-    balance_cold_cost = gas_costs.COLD_ACCOUNT_ACCESS
-    tx_gas_limit = intrinsic_gas_cost + push_cost + balance_cold_cost
+    tx_gas_limit = intrinsic_gas_cost + balance_checker_code.gas_cost(fork)
 
     if fails_at_balance:
         # subtract 1 gas to ensure OOG at BALANCE
@@ -485,7 +474,13 @@ def test_bal_extcodesize_and_oog(
 )
 @pytest.mark.parametrize("value", [0, 1], ids=["no_value", "with_value"])
 @pytest.mark.parametrize(
-    "memory_expansion", [False, True], ids=["no_memory", "with_memory"]
+    "args_size,ret_size",
+    [
+        pytest.param(0, 0, id="no_memory"),
+        pytest.param(4096, 0, id="args_large"),
+        pytest.param(0, 4096, id="ret_large"),
+        pytest.param(32, 32, id="both_small"),
+    ],
 )
 def test_bal_call_no_delegation_and_oog_before_target_access(
     pre: Alloc,
@@ -495,15 +490,19 @@ def test_bal_call_no_delegation_and_oog_before_target_access(
     target_is_warm: bool,
     target_is_empty: bool,
     value: int,
-    memory_expansion: bool,
+    args_size: int,
+    ret_size: int,
 ) -> None:
     """
     CALL without 7702 delegation - test SUCCESS and OOG before target access.
 
     When target_is_warm=True, we use EIP-2930 tx access list to warm the
     target. Access list warming does NOT add to BAL - only EVM access does.
+
+    Memory expansion is parametrized independently for args (insize) and
+    ret (outsize) per #1910, surfacing client-impl asymmetry bugs in the
+    memory-cost calculator.
     """
-    gas_costs = fork.gas_costs()
     alice = pre.fund_eoa()
 
     target = (
@@ -512,10 +511,21 @@ def test_bal_call_no_delegation_and_oog_before_target_access(
         else pre.deploy_contract(code=Op.STOP)
     )
 
-    ret_size = 32 if memory_expansion else 0
+    new_memory_size = max(args_size, ret_size)
 
+    # Full gas metadata: includes create_cost when applicable
     call_code = Op.CALL(
-        gas=0, address=target, value=value, ret_size=ret_size, ret_offset=0
+        gas=0,
+        address=target,
+        value=value,
+        args_size=args_size,
+        args_offset=0,
+        ret_size=ret_size,
+        ret_offset=0,
+        address_warm=target_is_warm,
+        value_transfer=value > 0,
+        account_new=value > 0 and target_is_empty,
+        new_memory_size=new_memory_size,
     )
     caller = pre.deploy_contract(code=call_code, balance=value)
 
@@ -529,30 +539,24 @@ def test_bal_call_no_delegation_and_oog_before_target_access(
         access_list=access_list
     )
 
-    bytecode_cost = gas_costs.VERY_LOW * 7
-
-    access_cost = (
-        gas_costs.WARM_ACCESS
-        if target_is_warm
-        else gas_costs.COLD_ACCOUNT_ACCESS
-    )
-    transfer_cost = gas_costs.CALL_VALUE if value > 0 else 0
-    memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
-
-    # Create cost: only if value > 0 AND target is empty
-    create_cost = (
-        gas_costs.NEW_ACCOUNT if (value > 0 and target_is_empty) else 0
-    )
-
-    # static gas (before state access): access + transfer + memory
-    static_gas_cost = access_cost + transfer_cost + memory_cost
-    # second check includes create_cost
-    second_check_cost = static_gas_cost + create_cost
-
     if oog_boundary == OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS:
-        gas_limit = intrinsic_cost + bytecode_cost + static_gas_cost - 1
+        # Static gas (before state access): no create_cost
+        call_static = Op.CALL(
+            gas=0,
+            address=target,
+            value=value,
+            args_size=args_size,
+            args_offset=0,
+            ret_size=ret_size,
+            ret_offset=0,
+            address_warm=target_is_warm,
+            value_transfer=value > 0,
+            account_new=False,
+            new_memory_size=new_memory_size,
+        )
+        gas_limit = intrinsic_cost + call_static.gas_cost(fork) - 1
     else:  # SUCCESS
-        gas_limit = intrinsic_cost + bytecode_cost + second_check_cost
+        gas_limit = intrinsic_cost + call_code.gas_cost(fork)
 
     tx = Transaction(
         sender=alice,
@@ -621,7 +625,13 @@ def test_bal_call_no_delegation_and_oog_before_target_access(
     "target_is_warm", [False, True], ids=["cold_target", "warm_target"]
 )
 @pytest.mark.parametrize(
-    "memory_expansion", [False, True], ids=["no_memory", "with_memory"]
+    "args_size,ret_size",
+    [
+        pytest.param(0, 0, id="no_memory"),
+        pytest.param(4096, 0, id="args_large"),
+        pytest.param(0, 4096, id="ret_large"),
+        pytest.param(32, 32, id="both_small"),
+    ],
 )
 @pytest.mark.eels_base_coverage
 def test_bal_call_no_delegation_oog_after_target_access(
@@ -629,7 +639,8 @@ def test_bal_call_no_delegation_oog_after_target_access(
     blockchain_test: BlockchainTestFiller,
     fork: Fork,
     target_is_warm: bool,
-    memory_expansion: bool,
+    args_size: int,
+    ret_size: int,
 ) -> None:
     """
     CALL without 7702 delegation - OOG after state access.
@@ -645,18 +656,13 @@ def test_bal_call_no_delegation_oog_after_target_access(
         - target is always empty - required for create cost
         - value=1 (greater than 0) - required for create cost
 
-        Gas is set so the static check (access + transfer + memory) passes
-        but the new-account cost (G_NEW_ACCOUNT) causes OOG. Under EIP-8037,
-        G_NEW_ACCOUNT is state gas charged via charge_state_gas from the
-        reservoir (empty) then gas_left (near zero) — same OOG outcome.
-        The child frame is never created, so the target is not tracked in BAL.
+    The create_cost (NEW_ACCOUNT = 25000) is charged only for value
+    transfers to empty accounts, creating the gap tested here.
 
-        TODO[EIP-8037]: Verify this OOG boundary is correct under state gas
-        semantics — charge_state_gas for new-account creation should fail
-        before the child frame is entered.
+    Memory expansion is parametrized independently for args (insize) and
+    ret (outsize) per #1910.
 
     """
-    gas_costs = fork.gas_costs()
     alice = pre.fund_eoa()
 
     # empty target required for create_cost gap
@@ -664,12 +670,22 @@ def test_bal_call_no_delegation_oog_after_target_access(
     # value > 0 required for create_cost
     value = 1
 
-    # memory expansion / no expansion
-    ret_size = 32 if memory_expansion else 0
+    new_memory_size = max(args_size, ret_size)
 
-    # caller contract - no warmup code, we use tx access list instead
+    # Static gas (before state access): no create_cost
+    # Pass static check, fail at second check due to create cost
     call_code = Op.CALL(
-        gas=0, address=target, value=value, ret_size=ret_size, ret_offset=0
+        gas=0,
+        address=target,
+        value=value,
+        args_size=args_size,
+        args_offset=0,
+        ret_size=ret_size,
+        ret_offset=0,
+        address_warm=target_is_warm,
+        value_transfer=True,
+        account_new=False,
+        new_memory_size=new_memory_size,
     )
     caller = pre.deploy_contract(code=call_code, balance=value)
 
@@ -684,25 +700,7 @@ def test_bal_call_no_delegation_oog_after_target_access(
         access_list=access_list
     )
 
-    # Bytecode cost: 7 pushes for Op.CALL (no warmup code)
-    bytecode_cost = gas_costs.VERY_LOW * 7
-
-    # Access cost for CALL - warm if in tx access list
-    access_cost = (
-        gas_costs.WARM_ACCESS
-        if target_is_warm
-        else gas_costs.COLD_ACCOUNT_ACCESS
-    )
-    transfer_cost = gas_costs.CALL_VALUE  # value > 0, so always charged
-    memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
-
-    # static gas cost (before state access): access + transfer + memory
-    static_gas_cost = access_cost + transfer_cost + memory_cost
-
-    # Pass static check, fail at new-account cost (G_NEW_ACCOUNT).
-    # In EIP-8037 this is state gas; with no reservoir and near-zero
-    # gas_left, charge_state_gas OOGs before the child frame starts.
-    gas_limit = intrinsic_cost + bytecode_cost + static_gas_cost
+    gas_limit = intrinsic_cost + call_code.gas_cost(fork)
 
     tx = Transaction(
         sender=alice,
@@ -752,7 +750,13 @@ def test_bal_call_no_delegation_oog_after_target_access(
 )
 @pytest.mark.parametrize("value", [0, 1], ids=["no_value", "with_value"])
 @pytest.mark.parametrize(
-    "memory_expansion", [False, True], ids=["no_memory", "with_memory"]
+    "args_size,ret_size",
+    [
+        pytest.param(0, 0, id="no_memory"),
+        pytest.param(4096, 0, id="args_large"),
+        pytest.param(0, 4096, id="ret_large"),
+        pytest.param(32, 32, id="both_small"),
+    ],
 )
 def test_bal_call_7702_delegation_and_oog(
     pre: Alloc,
@@ -762,29 +766,39 @@ def test_bal_call_7702_delegation_and_oog(
     target_is_warm: bool,
     delegation_is_warm: bool,
     value: int,
-    memory_expansion: bool,
+    args_size: int,
+    ret_size: int,
 ) -> None:
     """
     CALL with 7702 delegation - test all OOG boundaries.
 
     When target_is_warm or delegation_is_warm, we use EIP-2930 tx access list.
     Access list warming does NOT add targets to BAL - only EVM access does.
+
+    Memory expansion is parametrized independently for args and ret per #1910.
     """
-    gas_costs = fork.gas_costs()
     alice = pre.fund_eoa()
 
     delegation_target = pre.deploy_contract(code=Op.STOP)
     target = pre.fund_eoa(amount=0, delegation=delegation_target)
 
-    # memory expansion / no expansion
-    ret_size = 32 if memory_expansion else 0
+    new_memory_size = max(args_size, ret_size)
 
+    # Full gas metadata: includes delegation cost
     call_code = Op.CALL(
         gas=0,
         address=target,
         value=value,
+        args_size=args_size,
+        args_offset=0,
         ret_size=ret_size,
         ret_offset=0,
+        address_warm=target_is_warm,
+        value_transfer=value > 0,
+        account_new=False,
+        new_memory_size=new_memory_size,
+        delegated_address=True,
+        delegated_address_warm=delegation_is_warm,
     )
     caller = pre.deploy_contract(code=call_code, balance=value)
 
@@ -801,36 +815,31 @@ def test_bal_call_7702_delegation_and_oog(
         access_list=access_list
     )
 
-    bytecode_cost = gas_costs.VERY_LOW * 7
-
-    access_cost = (
-        gas_costs.WARM_ACCESS
-        if target_is_warm
-        else gas_costs.COLD_ACCOUNT_ACCESS
+    # Static gas (before state access): no delegation
+    call_static = Op.CALL(
+        gas=0,
+        address=target,
+        value=value,
+        args_size=args_size,
+        args_offset=0,
+        ret_size=ret_size,
+        ret_offset=0,
+        address_warm=target_is_warm,
+        value_transfer=value > 0,
+        account_new=False,
+        new_memory_size=new_memory_size,
     )
-    transfer_cost = gas_costs.CALL_VALUE if value > 0 else 0
-    memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
-    delegation_cost = (
-        gas_costs.WARM_ACCESS
-        if delegation_is_warm
-        else gas_costs.COLD_ACCOUNT_ACCESS
-    )
-
-    static_gas_cost = access_cost + transfer_cost + memory_cost
-
-    # The EVM's second check cost is static_gas + delegation_cost.
-    second_check_cost = static_gas_cost + delegation_cost
 
     if oog_boundary == OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS:
-        gas_limit = intrinsic_cost + bytecode_cost + static_gas_cost - 1
+        gas_limit = intrinsic_cost + call_static.gas_cost(fork) - 1
     elif oog_boundary == OutOfGasBoundary.OOG_AFTER_TARGET_ACCESS:
         # Enough for static_gas only - not enough for delegation_cost
-        gas_limit = intrinsic_cost + bytecode_cost + static_gas_cost
+        gas_limit = intrinsic_cost + call_static.gas_cost(fork)
     elif oog_boundary == OutOfGasBoundary.OOG_SUCCESS_MINUS_1:
-        # One less than second_check_cost - not enough for full call
-        gas_limit = intrinsic_cost + bytecode_cost + second_check_cost - 1
+        # One less than full cost - not enough for full call
+        gas_limit = intrinsic_cost + call_code.gas_cost(fork) - 1
     else:
-        gas_limit = intrinsic_cost + bytecode_cost + second_check_cost
+        gas_limit = intrinsic_cost + call_code.gas_cost(fork)
 
     tx = Transaction(
         sender=alice,
@@ -913,7 +922,13 @@ def test_bal_call_7702_delegation_and_oog(
     "target_is_warm", [False, True], ids=["cold_target", "warm_target"]
 )
 @pytest.mark.parametrize(
-    "memory_expansion", [False, True], ids=["no_memory", "with_memory"]
+    "args_size,ret_size",
+    [
+        pytest.param(0, 0, id="no_memory"),
+        pytest.param(4096, 0, id="args_large"),
+        pytest.param(0, 4096, id="ret_large"),
+        pytest.param(32, 32, id="both_small"),
+    ],
 )
 def test_bal_delegatecall_no_delegation_and_oog_before_target_access(
     pre: Alloc,
@@ -921,27 +936,32 @@ def test_bal_delegatecall_no_delegation_and_oog_before_target_access(
     fork: Fork,
     oog_boundary: OutOfGasBoundary,
     target_is_warm: bool,
-    memory_expansion: bool,
+    args_size: int,
+    ret_size: int,
 ) -> None:
     """
     DELEGATECALL without 7702 delegation - test SUCCESS and OOG boundaries.
 
     When target_is_warm=True, we use EIP-2930 tx access list to warm the
     target. Access list warming does NOT add to BAL - only EVM access does.
+
+    Memory expansion is parametrized independently for args and ret per #1910.
     """
     alice = pre.fund_eoa()
-    gas_costs = fork.gas_costs()
 
     target = pre.deploy_contract(code=Op.STOP)
 
-    ret_size = 32 if memory_expansion else 0
-    ret_offset = 0
+    new_memory_size = max(args_size, ret_size)
 
     delegatecall_code = Op.DELEGATECALL(
         address=target,
         gas=0,
+        args_size=args_size,
+        args_offset=0,
         ret_size=ret_size,
-        ret_offset=ret_offset,
+        ret_offset=0,
+        address_warm=target_is_warm,
+        new_memory_size=new_memory_size,
     )
 
     caller = pre.deploy_contract(code=delegatecall_code)
@@ -956,24 +976,10 @@ def test_bal_delegatecall_no_delegation_and_oog_before_target_access(
         access_list=access_list
     )
 
-    # 6 pushes: retSize, retOffset, argsSize, argsOffset, address, gas
-    bytecode_cost = gas_costs.VERY_LOW * 6
-
-    access_cost = (
-        gas_costs.WARM_ACCESS
-        if target_is_warm
-        else gas_costs.COLD_ACCOUNT_ACCESS
-    )
-
-    memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
-
-    # static gas (before state access) == second check (no delegation cost)
-    static_gas_cost = access_cost + memory_cost
-
     if oog_boundary == OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS:
-        gas_limit = intrinsic_cost + bytecode_cost + static_gas_cost - 1
+        gas_limit = intrinsic_cost + delegatecall_code.gas_cost(fork) - 1
     else:  # SUCCESS
-        gas_limit = intrinsic_cost + bytecode_cost + static_gas_cost
+        gas_limit = intrinsic_cost + delegatecall_code.gas_cost(fork)
 
     tx = Transaction(
         sender=alice,
@@ -1024,7 +1030,13 @@ def test_bal_delegatecall_no_delegation_and_oog_before_target_access(
     ids=["cold_delegation", "warm_delegation"],
 )
 @pytest.mark.parametrize(
-    "memory_expansion", [False, True], ids=["no_memory", "with_memory"]
+    "args_size,ret_size",
+    [
+        pytest.param(0, 0, id="no_memory"),
+        pytest.param(4096, 0, id="args_large"),
+        pytest.param(0, 4096, id="ret_large"),
+        pytest.param(32, 32, id="both_small"),
+    ],
 )
 def test_bal_delegatecall_7702_delegation_and_oog(
     pre: Alloc,
@@ -1033,7 +1045,8 @@ def test_bal_delegatecall_7702_delegation_and_oog(
     oog_boundary: OutOfGasBoundary,
     target_is_warm: bool,
     delegation_is_warm: bool,
-    memory_expansion: bool,
+    args_size: int,
+    ret_size: int,
 ) -> None:
     """
     DELEGATECALL with 7702 delegation - test all OOG boundaries.
@@ -1044,22 +1057,28 @@ def test_bal_delegatecall_7702_delegation_and_oog(
     For 7702 delegation, there's ALWAYS a gap between static gas and
     second check (delegation_cost) - all 3 scenarios produce distinct
     behaviors.
+
+    Memory expansion is parametrized independently for args and ret per #1910.
     """
     alice = pre.fund_eoa()
-    gas_costs = fork.gas_costs()
 
     delegation_target = pre.deploy_contract(code=Op.STOP)
     target = pre.fund_eoa(amount=0, delegation=delegation_target)
 
-    # memory expansion / no expansion
-    ret_size = 32 if memory_expansion else 0
-    ret_offset = 0
+    new_memory_size = max(args_size, ret_size)
 
+    # Full gas metadata: includes delegation cost
     delegatecall_code = Op.DELEGATECALL(
         gas=0,
         address=target,
+        args_size=args_size,
+        args_offset=0,
         ret_size=ret_size,
-        ret_offset=ret_offset,
+        ret_offset=0,
+        address_warm=target_is_warm,
+        new_memory_size=new_memory_size,
+        delegated_address=True,
+        delegated_address_warm=delegation_is_warm,
     )
 
     caller = pre.deploy_contract(code=delegatecall_code)
@@ -1077,35 +1096,28 @@ def test_bal_delegatecall_7702_delegation_and_oog(
         access_list=access_list
     )
 
-    bytecode_cost = gas_costs.VERY_LOW * 6
-
-    access_cost = (
-        gas_costs.WARM_ACCESS
-        if target_is_warm
-        else gas_costs.COLD_ACCOUNT_ACCESS
+    # Static gas (before state access): no delegation
+    delegatecall_static = Op.DELEGATECALL(
+        gas=0,
+        address=target,
+        args_size=args_size,
+        args_offset=0,
+        ret_size=ret_size,
+        ret_offset=0,
+        address_warm=target_is_warm,
+        new_memory_size=new_memory_size,
     )
-    memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
-    delegation_cost = (
-        gas_costs.WARM_ACCESS
-        if delegation_is_warm
-        else gas_costs.COLD_ACCOUNT_ACCESS
-    )
-
-    static_gas_cost = access_cost + memory_cost
-
-    # The EVM's second check cost is static_gas + delegation_cost.
-    second_check_cost = static_gas_cost + delegation_cost
 
     if oog_boundary == OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS:
-        gas_limit = intrinsic_cost + bytecode_cost + static_gas_cost - 1
+        gas_limit = intrinsic_cost + delegatecall_static.gas_cost(fork) - 1
     elif oog_boundary == OutOfGasBoundary.OOG_AFTER_TARGET_ACCESS:
         # Enough for static_gas only - not enough for delegation_cost
-        gas_limit = intrinsic_cost + bytecode_cost + static_gas_cost
+        gas_limit = intrinsic_cost + delegatecall_static.gas_cost(fork)
     elif oog_boundary == OutOfGasBoundary.OOG_SUCCESS_MINUS_1:
-        # One less than second_check_cost - not enough for full call
-        gas_limit = intrinsic_cost + bytecode_cost + second_check_cost - 1
+        # One less than full cost - not enough for full call
+        gas_limit = intrinsic_cost + delegatecall_code.gas_cost(fork) - 1
     else:
-        gas_limit = intrinsic_cost + bytecode_cost + second_check_cost
+        gas_limit = intrinsic_cost + delegatecall_code.gas_cost(fork)
 
     tx = Transaction(
         sender=alice,
@@ -1166,7 +1178,13 @@ def test_bal_delegatecall_7702_delegation_and_oog(
 )
 @pytest.mark.parametrize("value", [0, 1], ids=["no_value", "with_value"])
 @pytest.mark.parametrize(
-    "memory_expansion", [False, True], ids=["no_memory", "with_memory"]
+    "args_size,ret_size",
+    [
+        pytest.param(0, 0, id="no_memory"),
+        pytest.param(4096, 0, id="args_large"),
+        pytest.param(0, 4096, id="ret_large"),
+        pytest.param(32, 32, id="both_small"),
+    ],
 )
 def test_bal_callcode_no_delegation_and_oog_before_target_access(
     pre: Alloc,
@@ -1175,7 +1193,8 @@ def test_bal_callcode_no_delegation_and_oog_before_target_access(
     oog_boundary: OutOfGasBoundary,
     target_is_warm: bool,
     value: int,
-    memory_expansion: bool,
+    args_size: int,
+    ret_size: int,
 ) -> None:
     """
     CALLCODE without 7702 delegation - test SUCCESS and OOG boundaries.
@@ -1183,16 +1202,27 @@ def test_bal_callcode_no_delegation_and_oog_before_target_access(
     When target_is_warm=True, we use EIP-2930 tx access list to warm the
     target. Access list warming does NOT add to BAL - only EVM access does.
     CALLCODE has no balance transfer to target (runs in caller's context).
+
+    Memory expansion is parametrized independently for args and ret per #1910.
     """
-    gas_costs = fork.gas_costs()
     alice = pre.fund_eoa()
 
     target = pre.deploy_contract(code=Op.STOP)
 
-    ret_size = 32 if memory_expansion else 0
+    new_memory_size = max(args_size, ret_size)
 
     callcode_code = Op.CALLCODE(
-        gas=0, address=target, value=value, ret_size=ret_size, ret_offset=0
+        gas=0,
+        address=target,
+        value=value,
+        args_size=args_size,
+        args_offset=0,
+        ret_size=ret_size,
+        ret_offset=0,
+        address_warm=target_is_warm,
+        value_transfer=value > 0,
+        account_new=False,
+        new_memory_size=new_memory_size,
     )
     caller = pre.deploy_contract(code=callcode_code, balance=value)
 
@@ -1206,23 +1236,10 @@ def test_bal_callcode_no_delegation_and_oog_before_target_access(
         access_list=access_list
     )
 
-    bytecode_cost = gas_costs.VERY_LOW * 7
-
-    access_cost = (
-        gas_costs.WARM_ACCESS
-        if target_is_warm
-        else gas_costs.COLD_ACCOUNT_ACCESS
-    )
-    transfer_cost = gas_costs.CALL_VALUE if value > 0 else 0
-    memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
-
-    # static gas: access + transfer + memory (== second check, no delegation)
-    static_gas_cost = access_cost + transfer_cost + memory_cost
-
     if oog_boundary == OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS:
-        gas_limit = intrinsic_cost + bytecode_cost + static_gas_cost - 1
+        gas_limit = intrinsic_cost + callcode_code.gas_cost(fork) - 1
     else:  # SUCCESS
-        gas_limit = intrinsic_cost + bytecode_cost + static_gas_cost
+        gas_limit = intrinsic_cost + callcode_code.gas_cost(fork)
 
     tx = Transaction(
         sender=alice,
@@ -1281,7 +1298,13 @@ def test_bal_callcode_no_delegation_and_oog_before_target_access(
 )
 @pytest.mark.parametrize("value", [0, 1], ids=["no_value", "with_value"])
 @pytest.mark.parametrize(
-    "memory_expansion", [False, True], ids=["no_memory", "with_memory"]
+    "args_size,ret_size",
+    [
+        pytest.param(0, 0, id="no_memory"),
+        pytest.param(4096, 0, id="args_large"),
+        pytest.param(0, 4096, id="ret_large"),
+        pytest.param(32, 32, id="both_small"),
+    ],
 )
 def test_bal_callcode_7702_delegation_and_oog(
     pre: Alloc,
@@ -1291,7 +1314,8 @@ def test_bal_callcode_7702_delegation_and_oog(
     target_is_warm: bool,
     delegation_is_warm: bool,
     value: int,
-    memory_expansion: bool,
+    args_size: int,
+    ret_size: int,
 ) -> None:
     """
     CALLCODE with 7702 delegation - test all OOG boundaries.
@@ -1302,22 +1326,31 @@ def test_bal_callcode_7702_delegation_and_oog(
     For 7702 delegation, there's ALWAYS a gap between static gas and
     second check (delegation_cost) - all 3 scenarios produce distinct
     behaviors.
+
+    Memory expansion is parametrized independently for args and ret per #1910.
     """
-    gas_costs = fork.gas_costs()
     alice = pre.fund_eoa()
 
     delegation_target = pre.deploy_contract(code=Op.STOP)
     target = pre.fund_eoa(amount=0, delegation=delegation_target)
 
-    # memory expansion / no expansion
-    ret_size = 32 if memory_expansion else 0
+    new_memory_size = max(args_size, ret_size)
 
+    # Full gas metadata: includes delegation cost
     callcode_code = Op.CALLCODE(
         gas=0,
         address=target,
         value=value,
+        args_size=args_size,
+        args_offset=0,
         ret_size=ret_size,
         ret_offset=0,
+        address_warm=target_is_warm,
+        value_transfer=value > 0,
+        account_new=False,
+        new_memory_size=new_memory_size,
+        delegated_address=True,
+        delegated_address_warm=delegation_is_warm,
     )
     caller = pre.deploy_contract(code=callcode_code, balance=value)
 
@@ -1334,36 +1367,31 @@ def test_bal_callcode_7702_delegation_and_oog(
         access_list=access_list
     )
 
-    bytecode_cost = gas_costs.VERY_LOW * 7
-
-    access_cost = (
-        gas_costs.WARM_ACCESS
-        if target_is_warm
-        else gas_costs.COLD_ACCOUNT_ACCESS
+    # Static gas (before state access): no delegation
+    callcode_static = Op.CALLCODE(
+        gas=0,
+        address=target,
+        value=value,
+        args_size=args_size,
+        args_offset=0,
+        ret_size=ret_size,
+        ret_offset=0,
+        address_warm=target_is_warm,
+        value_transfer=value > 0,
+        account_new=False,
+        new_memory_size=new_memory_size,
     )
-    transfer_cost = gas_costs.CALL_VALUE if value > 0 else 0
-    memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
-    delegation_cost = (
-        gas_costs.WARM_ACCESS
-        if delegation_is_warm
-        else gas_costs.COLD_ACCOUNT_ACCESS
-    )
-
-    static_gas_cost = access_cost + transfer_cost + memory_cost
-
-    # The EVM's second check cost is static_gas + delegation_cost.
-    second_check_cost = static_gas_cost + delegation_cost
 
     if oog_boundary == OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS:
-        gas_limit = intrinsic_cost + bytecode_cost + static_gas_cost - 1
+        gas_limit = intrinsic_cost + callcode_static.gas_cost(fork) - 1
     elif oog_boundary == OutOfGasBoundary.OOG_AFTER_TARGET_ACCESS:
         # Enough for static_gas only - not enough for delegation_cost
-        gas_limit = intrinsic_cost + bytecode_cost + static_gas_cost
+        gas_limit = intrinsic_cost + callcode_static.gas_cost(fork)
     elif oog_boundary == OutOfGasBoundary.OOG_SUCCESS_MINUS_1:
-        # One less than second_check_cost - not enough for full call
-        gas_limit = intrinsic_cost + bytecode_cost + second_check_cost - 1
+        # One less than full cost - not enough for full call
+        gas_limit = intrinsic_cost + callcode_code.gas_cost(fork) - 1
     else:
-        gas_limit = intrinsic_cost + bytecode_cost + second_check_cost
+        gas_limit = intrinsic_cost + callcode_code.gas_cost(fork)
 
     tx = Transaction(
         sender=alice,
@@ -1423,7 +1451,13 @@ def test_bal_callcode_7702_delegation_and_oog(
     "target_is_warm", [False, True], ids=["cold_target", "warm_target"]
 )
 @pytest.mark.parametrize(
-    "memory_expansion", [False, True], ids=["no_memory", "with_memory"]
+    "args_size,ret_size",
+    [
+        pytest.param(0, 0, id="no_memory"),
+        pytest.param(4096, 0, id="args_large"),
+        pytest.param(0, 4096, id="ret_large"),
+        pytest.param(32, 32, id="both_small"),
+    ],
 )
 def test_bal_staticcall_no_delegation_and_oog_before_target_access(
     pre: Alloc,
@@ -1431,27 +1465,32 @@ def test_bal_staticcall_no_delegation_and_oog_before_target_access(
     fork: Fork,
     oog_boundary: OutOfGasBoundary,
     target_is_warm: bool,
-    memory_expansion: bool,
+    args_size: int,
+    ret_size: int,
 ) -> None:
     """
     STATICCALL without 7702 delegation - test SUCCESS and OOG boundaries.
 
     When target_is_warm=True, we use EIP-2930 tx access list to warm the
     target. Access list warming does NOT add to BAL - only EVM access does.
+
+    Memory expansion is parametrized independently for args and ret per #1910.
     """
     alice = pre.fund_eoa()
-    gas_costs = fork.gas_costs()
 
     target = pre.deploy_contract(code=Op.STOP)
 
-    ret_size = 32 if memory_expansion else 0
-    ret_offset = 0
+    new_memory_size = max(args_size, ret_size)
 
     staticcall_code = Op.STATICCALL(
         address=target,
         gas=0,
+        args_size=args_size,
+        args_offset=0,
         ret_size=ret_size,
-        ret_offset=ret_offset,
+        ret_offset=0,
+        address_warm=target_is_warm,
+        new_memory_size=new_memory_size,
     )
 
     caller = pre.deploy_contract(code=staticcall_code)
@@ -1466,24 +1505,10 @@ def test_bal_staticcall_no_delegation_and_oog_before_target_access(
         access_list=access_list
     )
 
-    # 6 pushes: retSize, retOffset, argsSize, argsOffset, address, gas
-    bytecode_cost = gas_costs.VERY_LOW * 6
-
-    access_cost = (
-        gas_costs.WARM_ACCESS
-        if target_is_warm
-        else gas_costs.COLD_ACCOUNT_ACCESS
-    )
-
-    memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
-
-    # static gas (before state access) == second check (no delegation cost)
-    static_gas_cost = access_cost + memory_cost
-
     if oog_boundary == OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS:
-        gas_limit = intrinsic_cost + bytecode_cost + static_gas_cost - 1
+        gas_limit = intrinsic_cost + staticcall_code.gas_cost(fork) - 1
     else:  # SUCCESS
-        gas_limit = intrinsic_cost + bytecode_cost + static_gas_cost
+        gas_limit = intrinsic_cost + staticcall_code.gas_cost(fork)
 
     tx = Transaction(
         sender=alice,
@@ -1534,7 +1559,13 @@ def test_bal_staticcall_no_delegation_and_oog_before_target_access(
     ids=["cold_delegation", "warm_delegation"],
 )
 @pytest.mark.parametrize(
-    "memory_expansion", [False, True], ids=["no_memory", "with_memory"]
+    "args_size,ret_size",
+    [
+        pytest.param(0, 0, id="no_memory"),
+        pytest.param(4096, 0, id="args_large"),
+        pytest.param(0, 4096, id="ret_large"),
+        pytest.param(32, 32, id="both_small"),
+    ],
 )
 def test_bal_staticcall_7702_delegation_and_oog(
     pre: Alloc,
@@ -1543,7 +1574,8 @@ def test_bal_staticcall_7702_delegation_and_oog(
     oog_boundary: OutOfGasBoundary,
     target_is_warm: bool,
     delegation_is_warm: bool,
-    memory_expansion: bool,
+    args_size: int,
+    ret_size: int,
 ) -> None:
     """
     STATICCALL with 7702 delegation - test all OOG boundaries.
@@ -1556,25 +1588,27 @@ def test_bal_staticcall_7702_delegation_and_oog(
     behaviors.
     """
     alice = pre.fund_eoa()
-    gas_costs = fork.gas_costs()
 
     delegation_target = pre.deploy_contract(code=Op.STOP)
     target = pre.fund_eoa(amount=0, delegation=delegation_target)
 
-    # memory expansion / no expansion
-    ret_size = 32 if memory_expansion else 0
-    ret_offset = 0
+    new_memory_size = max(args_size, ret_size)
 
     staticcall_code = Op.STATICCALL(
         gas=0,
         address=target,
+        args_size=args_size,
+        args_offset=0,
         ret_size=ret_size,
-        ret_offset=ret_offset,
+        ret_offset=0,
+        address_warm=target_is_warm,
+        new_memory_size=new_memory_size,
+        delegated_address=True,
+        delegated_address_warm=delegation_is_warm,
     )
 
     caller = pre.deploy_contract(code=staticcall_code)
 
-    # Build access list for warming
     access_list: list[AccessList] = []
     if target_is_warm:
         access_list.append(AccessList(address=target, storage_keys=[]))
@@ -1587,35 +1621,27 @@ def test_bal_staticcall_7702_delegation_and_oog(
         access_list=access_list
     )
 
-    bytecode_cost = gas_costs.VERY_LOW * 6
-
-    access_cost = (
-        gas_costs.WARM_ACCESS
-        if target_is_warm
-        else gas_costs.COLD_ACCOUNT_ACCESS
+    staticcall_static = Op.STATICCALL(
+        gas=0,
+        address=target,
+        args_size=args_size,
+        args_offset=0,
+        ret_size=ret_size,
+        ret_offset=0,
+        address_warm=target_is_warm,
+        new_memory_size=new_memory_size,
     )
-    memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
-    delegation_cost = (
-        gas_costs.WARM_ACCESS
-        if delegation_is_warm
-        else gas_costs.COLD_ACCOUNT_ACCESS
-    )
-
-    static_gas_cost = access_cost + memory_cost
-
-    # The EVM's second check cost is static_gas + delegation_cost
-    second_check_cost = static_gas_cost + delegation_cost
 
     if oog_boundary == OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS:
-        gas_limit = intrinsic_cost + bytecode_cost + static_gas_cost - 1
+        gas_limit = intrinsic_cost + staticcall_static.gas_cost(fork) - 1
     elif oog_boundary == OutOfGasBoundary.OOG_AFTER_TARGET_ACCESS:
         # Enough for static_gas only - not enough for delegation_cost
-        gas_limit = intrinsic_cost + bytecode_cost + static_gas_cost
+        gas_limit = intrinsic_cost + staticcall_static.gas_cost(fork)
     elif oog_boundary == OutOfGasBoundary.OOG_SUCCESS_MINUS_1:
-        # One less than second_check_cost - not enough for full call
-        gas_limit = intrinsic_cost + bytecode_cost + second_check_cost - 1
+        # One less than full cost - not enough for full call
+        gas_limit = intrinsic_cost + staticcall_code.gas_cost(fork) - 1
     else:
-        gas_limit = intrinsic_cost + bytecode_cost + second_check_cost
+        gas_limit = intrinsic_cost + staticcall_code.gas_cost(fork)
 
     tx = Transaction(
         sender=alice,
