@@ -8,7 +8,7 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 554
+# Total entries: 480
 
 # stAttackTest (1)
 stAttackTest/test_crashing_transaction.py::test_crashing_transaction[fork_Amsterdam]
@@ -72,9 +72,7 @@ stCallDelegateCodesHomestead/test_callcodecallcodecallcode_111_suicide_end.py::t
 stCodeSizeLimit/test_create2_code_size_limit.py::test_create2_code_size_limit[fork_Amsterdam-valid]
 stCodeSizeLimit/test_create_code_size_limit.py::test_create_code_size_limit[fork_Amsterdam-valid]
 
-# stCreate2 (40)
-stCreate2/test_create2_oo_gafter_init_code.py::test_create2_oo_gafter_init_code[fork_Amsterdam--g1]
-stCreate2/test_create2_oo_gafter_init_code_returndata2.py::test_create2_oo_gafter_init_code_returndata2[fork_Amsterdam--g1]
+# stCreate2 (38)
 stCreate2/test_create2_oo_gafter_init_code_revert2.py::test_create2_oo_gafter_init_code_revert2[fork_Amsterdam]
 stCreate2/test_create2_oog_from_call_refunds.py::test_create2_oog_from_call_refunds[fork_Amsterdam-SStore_CallCode_Refund_NoOoG]
 stCreate2/test_create2_oog_from_call_refunds.py::test_create2_oog_from_call_refunds[fork_Amsterdam-SStore_Create2_Refund_NoOoG]
@@ -114,7 +112,7 @@ stCreate2/test_revert_depth_create_address_collision_berlin.py::test_revert_dept
 stCreate2/test_revert_depth_create_address_collision_berlin.py::test_revert_depth_create_address_collision_berlin[fork_Amsterdam-d1-g1-v0]
 stCreate2/test_revert_depth_create_address_collision_berlin.py::test_revert_depth_create_address_collision_berlin[fork_Amsterdam-d1-g1-v1]
 
-# stCreateTest (54)
+# stCreateTest (52)
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create-0xef-v1]
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create-code-too-big-v1]
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create-contructor-revert-v1]
@@ -149,8 +147,6 @@ stCreateTest/test_create_empty_contract_with_balance.py::test_create_empty_contr
 stCreateTest/test_create_empty_contract_with_storage.py::test_create_empty_contract_with_storage[fork_Amsterdam]
 stCreateTest/test_create_empty_contract_with_storage_and_call_it_0wei.py::test_create_empty_contract_with_storage_and_call_it_0wei[fork_Amsterdam]
 stCreateTest/test_create_empty_contract_with_storage_and_call_it_1wei.py::test_create_empty_contract_with_storage_and_call_it_1wei[fork_Amsterdam]
-stCreateTest/test_create_oo_gafter_init_code.py::test_create_oo_gafter_init_code[fork_Amsterdam--g1]
-stCreateTest/test_create_oo_gafter_init_code_returndata2.py::test_create_oo_gafter_init_code_returndata2[fork_Amsterdam--g1]
 stCreateTest/test_create_oo_gafter_init_code_returndata_size.py::test_create_oo_gafter_init_code_returndata_size[fork_Amsterdam]
 stCreateTest/test_create_oo_gafter_init_code_revert2.py::test_create_oo_gafter_init_code_revert2[fork_Amsterdam-d0]
 stCreateTest/test_create_oog_from_call_refunds.py::test_create_oog_from_call_refunds[fork_Amsterdam-SStore_Create2_Refund_NoOoG]
@@ -365,7 +361,7 @@ stRefundTest/test_refund_tx_to_suicide.py::test_refund_tx_to_suicide[fork_Amster
 stReturnDataTest/test_returndatasize_after_successful_callcode.py::test_returndatasize_after_successful_callcode[fork_Amsterdam]
 stReturnDataTest/test_subcall_return_more_then_expected.py::test_subcall_return_more_then_expected[fork_Amsterdam]
 
-# stRevertTest (30)
+# stRevertTest (28)
 stRevertTest/test_loop_calls_depth_then_revert.py::test_loop_calls_depth_then_revert[fork_Amsterdam]
 stRevertTest/test_loop_calls_then_revert.py::test_loop_calls_then_revert[fork_Amsterdam]
 stRevertTest/test_loop_delegate_calls_depth_then_revert.py::test_loop_delegate_calls_depth_then_revert[fork_Amsterdam]
@@ -394,34 +390,8 @@ stRevertTest/test_revert_opcode_multiple_sub_calls.py::test_revert_opcode_multip
 stRevertTest/test_revert_opcode_multiple_sub_calls.py::test_revert_opcode_multiple_sub_calls[fork_Amsterdam-d3-g0-v1]
 stRevertTest/test_revert_opcode_multiple_sub_calls.py::test_revert_opcode_multiple_sub_calls[fork_Amsterdam-d3-g2-v0]
 stRevertTest/test_revert_opcode_multiple_sub_calls.py::test_revert_opcode_multiple_sub_calls[fork_Amsterdam-d3-g2-v1]
-stRevertTest/test_revert_sub_call_storage_oog.py::test_revert_sub_call_storage_oog[fork_Amsterdam--g1-v0]
-stRevertTest/test_revert_sub_call_storage_oog2.py::test_revert_sub_call_storage_oog2[fork_Amsterdam--g1-v0]
 
-# stSStoreTest (76)
-stSStoreTest/test_sstore_0to0.py::test_sstore_0to0[fork_Amsterdam-d0-g1]
-stSStoreTest/test_sstore_0to0.py::test_sstore_0to0[fork_Amsterdam-d1-g1]
-stSStoreTest/test_sstore_0to0.py::test_sstore_0to0[fork_Amsterdam-d2-g1]
-stSStoreTest/test_sstore_0to0to0.py::test_sstore_0to0to0[fork_Amsterdam-d0-g1]
-stSStoreTest/test_sstore_0to0to0.py::test_sstore_0to0to0[fork_Amsterdam-d1-g1]
-stSStoreTest/test_sstore_0to0to0.py::test_sstore_0to0to0[fork_Amsterdam-d2-g1]
-stSStoreTest/test_sstore_0to0to_x.py::test_sstore_0to0to_x[fork_Amsterdam-d0-g1]
-stSStoreTest/test_sstore_0to0to_x.py::test_sstore_0to0to_x[fork_Amsterdam-d1-g1]
-stSStoreTest/test_sstore_0to0to_x.py::test_sstore_0to0to_x[fork_Amsterdam-d2-g1]
-stSStoreTest/test_sstore_0to_x.py::test_sstore_0to_x[fork_Amsterdam-d0-g1]
-stSStoreTest/test_sstore_0to_x.py::test_sstore_0to_x[fork_Amsterdam-d1-g1]
-stSStoreTest/test_sstore_0to_x.py::test_sstore_0to_x[fork_Amsterdam-d2-g1]
-stSStoreTest/test_sstore_0to_xto0.py::test_sstore_0to_xto0[fork_Amsterdam-d0-g1]
-stSStoreTest/test_sstore_0to_xto0.py::test_sstore_0to_xto0[fork_Amsterdam-d1-g1]
-stSStoreTest/test_sstore_0to_xto0.py::test_sstore_0to_xto0[fork_Amsterdam-d2-g1]
-stSStoreTest/test_sstore_0to_xto0to_x.py::test_sstore_0to_xto0to_x[fork_Amsterdam-d0-g1]
-stSStoreTest/test_sstore_0to_xto0to_x.py::test_sstore_0to_xto0to_x[fork_Amsterdam-d1-g1]
-stSStoreTest/test_sstore_0to_xto0to_x.py::test_sstore_0to_xto0to_x[fork_Amsterdam-d2-g1]
-stSStoreTest/test_sstore_0to_xto_x.py::test_sstore_0to_xto_x[fork_Amsterdam-d0-g1]
-stSStoreTest/test_sstore_0to_xto_x.py::test_sstore_0to_xto_x[fork_Amsterdam-d1-g1]
-stSStoreTest/test_sstore_0to_xto_x.py::test_sstore_0to_xto_x[fork_Amsterdam-d2-g1]
-stSStoreTest/test_sstore_0to_xto_y.py::test_sstore_0to_xto_y[fork_Amsterdam-d0-g1]
-stSStoreTest/test_sstore_0to_xto_y.py::test_sstore_0to_xto_y[fork_Amsterdam-d1-g1]
-stSStoreTest/test_sstore_0to_xto_y.py::test_sstore_0to_xto_y[fork_Amsterdam-d2-g1]
+# stSStoreTest (10)
 stSStoreTest/test_sstore_change_from_external_call_in_init_code.py::test_sstore_change_from_external_call_in_init_code[fork_Amsterdam-d0]
 stSStoreTest/test_sstore_change_from_external_call_in_init_code.py::test_sstore_change_from_external_call_in_init_code[fork_Amsterdam-d1]
 stSStoreTest/test_sstore_change_from_external_call_in_init_code.py::test_sstore_change_from_external_call_in_init_code[fork_Amsterdam-d3]
@@ -432,48 +402,6 @@ stSStoreTest/test_sstore_gas.py::test_sstore_gas[fork_Amsterdam]
 stSStoreTest/test_sstore_gas_left.py::test_sstore_gas_left[fork_Amsterdam-d2]
 stSStoreTest/test_sstore_gas_left.py::test_sstore_gas_left[fork_Amsterdam-d5]
 stSStoreTest/test_sstore_gas_left.py::test_sstore_gas_left[fork_Amsterdam-d8]
-stSStoreTest/test_sstore_xto0.py::test_sstore_xto0[fork_Amsterdam-d0-g1]
-stSStoreTest/test_sstore_xto0.py::test_sstore_xto0[fork_Amsterdam-d1-g1]
-stSStoreTest/test_sstore_xto0.py::test_sstore_xto0[fork_Amsterdam-d2-g1]
-stSStoreTest/test_sstore_xto0to0.py::test_sstore_xto0to0[fork_Amsterdam-d0-g1]
-stSStoreTest/test_sstore_xto0to0.py::test_sstore_xto0to0[fork_Amsterdam-d1-g1]
-stSStoreTest/test_sstore_xto0to0.py::test_sstore_xto0to0[fork_Amsterdam-d2-g1]
-stSStoreTest/test_sstore_xto0to_x.py::test_sstore_xto0to_x[fork_Amsterdam-d0-g1]
-stSStoreTest/test_sstore_xto0to_x.py::test_sstore_xto0to_x[fork_Amsterdam-d1-g1]
-stSStoreTest/test_sstore_xto0to_x.py::test_sstore_xto0to_x[fork_Amsterdam-d2-g1]
-stSStoreTest/test_sstore_xto0to_xto0.py::test_sstore_xto0to_xto0[fork_Amsterdam-d0-g1]
-stSStoreTest/test_sstore_xto0to_xto0.py::test_sstore_xto0to_xto0[fork_Amsterdam-d1-g1]
-stSStoreTest/test_sstore_xto0to_xto0.py::test_sstore_xto0to_xto0[fork_Amsterdam-d2-g1]
-stSStoreTest/test_sstore_xto0to_y.py::test_sstore_xto0to_y[fork_Amsterdam-d0-g1]
-stSStoreTest/test_sstore_xto0to_y.py::test_sstore_xto0to_y[fork_Amsterdam-d1-g1]
-stSStoreTest/test_sstore_xto0to_y.py::test_sstore_xto0to_y[fork_Amsterdam-d2-g1]
-stSStoreTest/test_sstore_xto_x.py::test_sstore_xto_x[fork_Amsterdam-d0-g1]
-stSStoreTest/test_sstore_xto_x.py::test_sstore_xto_x[fork_Amsterdam-d1-g1]
-stSStoreTest/test_sstore_xto_x.py::test_sstore_xto_x[fork_Amsterdam-d2-g1]
-stSStoreTest/test_sstore_xto_xto0.py::test_sstore_xto_xto0[fork_Amsterdam-d0-g1]
-stSStoreTest/test_sstore_xto_xto0.py::test_sstore_xto_xto0[fork_Amsterdam-d1-g1]
-stSStoreTest/test_sstore_xto_xto0.py::test_sstore_xto_xto0[fork_Amsterdam-d2-g1]
-stSStoreTest/test_sstore_xto_xto_x.py::test_sstore_xto_xto_x[fork_Amsterdam-d0-g1]
-stSStoreTest/test_sstore_xto_xto_x.py::test_sstore_xto_xto_x[fork_Amsterdam-d1-g1]
-stSStoreTest/test_sstore_xto_xto_x.py::test_sstore_xto_xto_x[fork_Amsterdam-d2-g1]
-stSStoreTest/test_sstore_xto_xto_y.py::test_sstore_xto_xto_y[fork_Amsterdam-d0-g1]
-stSStoreTest/test_sstore_xto_xto_y.py::test_sstore_xto_xto_y[fork_Amsterdam-d1-g1]
-stSStoreTest/test_sstore_xto_xto_y.py::test_sstore_xto_xto_y[fork_Amsterdam-d2-g1]
-stSStoreTest/test_sstore_xto_y.py::test_sstore_xto_y[fork_Amsterdam-d0-g1]
-stSStoreTest/test_sstore_xto_y.py::test_sstore_xto_y[fork_Amsterdam-d1-g1]
-stSStoreTest/test_sstore_xto_y.py::test_sstore_xto_y[fork_Amsterdam-d2-g1]
-stSStoreTest/test_sstore_xto_yto0.py::test_sstore_xto_yto0[fork_Amsterdam-d0-g1]
-stSStoreTest/test_sstore_xto_yto0.py::test_sstore_xto_yto0[fork_Amsterdam-d1-g1]
-stSStoreTest/test_sstore_xto_yto0.py::test_sstore_xto_yto0[fork_Amsterdam-d2-g1]
-stSStoreTest/test_sstore_xto_yto_x.py::test_sstore_xto_yto_x[fork_Amsterdam-d0-g1]
-stSStoreTest/test_sstore_xto_yto_x.py::test_sstore_xto_yto_x[fork_Amsterdam-d1-g1]
-stSStoreTest/test_sstore_xto_yto_x.py::test_sstore_xto_yto_x[fork_Amsterdam-d2-g1]
-stSStoreTest/test_sstore_xto_yto_y.py::test_sstore_xto_yto_y[fork_Amsterdam-d0-g1]
-stSStoreTest/test_sstore_xto_yto_y.py::test_sstore_xto_yto_y[fork_Amsterdam-d1-g1]
-stSStoreTest/test_sstore_xto_yto_y.py::test_sstore_xto_yto_y[fork_Amsterdam-d2-g1]
-stSStoreTest/test_sstore_xto_yto_z.py::test_sstore_xto_yto_z[fork_Amsterdam-d0-g1]
-stSStoreTest/test_sstore_xto_yto_z.py::test_sstore_xto_yto_z[fork_Amsterdam-d1-g1]
-stSStoreTest/test_sstore_xto_yto_z.py::test_sstore_xto_yto_z[fork_Amsterdam-d2-g1]
 
 # stSelfBalance (3)
 stSelfBalance/test_self_balance.py::test_self_balance[fork_Amsterdam]
@@ -614,10 +542,8 @@ stTransactionTest/test_store_gas_on_create.py::test_store_gas_on_create[fork_Ams
 stTransactionTest/test_suicides_and_internal_call_suicides_success.py::test_suicides_and_internal_call_suicides_success[fork_Amsterdam-d1]
 vmArithmeticTest/test_exp_power256_of256.py::test_exp_power256_of256[fork_Amsterdam]
 
-# stWalletTest (4)
+# stWalletTest (2)
 stWalletTest/test_day_limit_construction_partial.py::test_day_limit_construction_partial[fork_Amsterdam]
-stWalletTest/test_multi_owned_construction_not_enough_gas_partial.py::test_multi_owned_construction_not_enough_gas_partial[fork_Amsterdam--g1]
-stWalletTest/test_wallet_construction_oog.py::test_wallet_construction_oog[fork_Amsterdam--g1]
 stWalletTest/test_wallet_construction_partial.py::test_wallet_construction_partial[fork_Amsterdam]
 
 # stZeroKnowledge (20)
