@@ -24,16 +24,14 @@ from execution_testing import (
     Transaction,
     TransactionException,
     TransactionReceipt,
-    ceiling_division,
     compute_create_address,
 )
 
 from .helpers import (
     INITCODE_RESULTING_DEPLOYED_CODE,
     get_create_id,
-    get_initcode_name,
 )
-from .spec import Spec, ref_spec_3860
+from .spec import ref_spec_3860
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_3860.git_path
 REFERENCE_SPEC_VERSION = ref_spec_3860.version
@@ -41,98 +39,88 @@ REFERENCE_SPEC_VERSION = ref_spec_3860.version
 pytestmark = pytest.mark.valid_from("Shanghai")
 
 
-"""Initcode templates used throughout the tests"""
-INITCODE_ONES_MAX_LIMIT = Initcode(
-    deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
-    initcode_length=Spec.MAX_INITCODE_SIZE,
-    padding_byte=0x01,
-    name="max_size_ones",
-)
+@pytest.fixture
+def initcode(fork: Fork, initcode_name: str) -> Initcode:
+    """Create an Initcode object with fork-specific gas calculations."""
+    if initcode_name == "max_size_ones":
+        return Initcode(
+            name=initcode_name,
+            deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
+            initcode_length=fork.max_initcode_size(),
+            padding_byte=0x01,
+        )
+    elif initcode_name == "max_size_zeros":
+        return Initcode(
+            name=initcode_name,
+            deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
+            initcode_length=fork.max_initcode_size(),
+            padding_byte=0x00,
+        )
+    elif initcode_name == "over_limit_ones":
+        return Initcode(
+            name=initcode_name,
+            deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
+            initcode_length=fork.max_initcode_size() + 1,
+            padding_byte=0x01,
+        )
+    elif initcode_name == "over_limit_zeros":
+        return Initcode(
+            name=initcode_name,
+            deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
+            initcode_length=fork.max_initcode_size() + 1,
+            padding_byte=0x00,
+        )
+    elif initcode_name == "32_bytes":
+        return Initcode(
+            name=initcode_name,
+            deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
+            initcode_length=32,
+            padding_byte=0x00,
+        )
+    elif initcode_name == "33_bytes":
+        return Initcode(
+            name=initcode_name,
+            deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
+            initcode_length=33,
+            padding_byte=0x00,
+        )
+    elif initcode_name == "max_size_minus_word":
+        return Initcode(
+            name=initcode_name,
+            deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
+            initcode_length=fork.max_initcode_size() - 32,
+            padding_byte=0x00,
+        )
+    elif initcode_name == "max_size_minus_word_plus_byte":
+        return Initcode(
+            name=initcode_name,
+            deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
+            initcode_length=fork.max_initcode_size() - 32 + 1,
+            padding_byte=0x00,
+        )
+    elif initcode_name == "empty" or initcode_name == "single_byte":
+        ic_bytecode = Op.STOP if initcode_name == "single_byte" else Bytecode()
+        # We insist on using `Initcode` to preserve `initcode.deploy_code`
+        ic = Initcode(name=initcode_name)
+        ic._bytes_ = bytes(ic_bytecode)
+        ic.opcode_list = ic_bytecode.opcode_list
+        return ic
+    else:
+        raise ValueError(f"Unknown initcode_name: {initcode_name}")
 
-INITCODE_ZEROS_MAX_LIMIT = Initcode(
-    deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
-    initcode_length=Spec.MAX_INITCODE_SIZE,
-    padding_byte=0x00,
-    name="max_size_zeros",
-)
-
-INITCODE_ONES_OVER_LIMIT = Initcode(
-    deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
-    initcode_length=Spec.MAX_INITCODE_SIZE + 1,
-    padding_byte=0x01,
-    name="over_limit_ones",
-)
-
-INITCODE_ZEROS_OVER_LIMIT = Initcode(
-    deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
-    initcode_length=Spec.MAX_INITCODE_SIZE + 1,
-    padding_byte=0x00,
-    name="over_limit_zeros",
-)
-
-INITCODE_ZEROS_32_BYTES = Initcode(
-    deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
-    initcode_length=32,
-    padding_byte=0x00,
-    name="32_bytes",
-)
-
-INITCODE_ZEROS_33_BYTES = Initcode(
-    deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
-    initcode_length=33,
-    padding_byte=0x00,
-    name="33_bytes",
-)
-
-INITCODE_ZEROS_49120_BYTES = Initcode(
-    deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
-    initcode_length=49120,
-    padding_byte=0x00,
-    name="49120_bytes",
-)
-
-INITCODE_ZEROS_49121_BYTES = Initcode(
-    deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
-    initcode_length=49121,
-    padding_byte=0x00,
-    name="49121_bytes",
-)
-
-EMPTY_INITCODE = Initcode(name="empty")
-_empty_bytecode = Bytecode()
-EMPTY_INITCODE._bytes_ = bytes(_empty_bytecode)
-EMPTY_INITCODE.opcode_list = _empty_bytecode.opcode_list
-
-SINGLE_BYTE_INITCODE = Initcode(name="single_byte")
-_single_bytecode = Op.STOP
-SINGLE_BYTE_INITCODE._bytes_ = bytes(_single_bytecode)
-SINGLE_BYTE_INITCODE.opcode_list = _single_bytecode.opcode_list
 
 """Test cases using a contract creating transaction"""
 
 
 @pytest.mark.xdist_group(name="bigmem")
 @pytest.mark.parametrize(
-    "initcode",
+    "initcode_name",
     [
-        INITCODE_ZEROS_MAX_LIMIT,
-        INITCODE_ONES_MAX_LIMIT,
-        pytest.param(
-            INITCODE_ZEROS_OVER_LIMIT,
-            marks=[
-                pytest.mark.exception_test,
-                pytest.mark.valid_until("Osaka"),
-            ],
-        ),
-        pytest.param(
-            INITCODE_ONES_OVER_LIMIT,
-            marks=[
-                pytest.mark.exception_test,
-                pytest.mark.valid_until("Osaka"),
-            ],
-        ),
+        pytest.param("max_size_zeros"),
+        pytest.param("max_size_ones"),
+        pytest.param("over_limit_zeros", marks=pytest.mark.exception_test),
+        pytest.param("over_limit_ones", marks=pytest.mark.exception_test),
     ],
-    ids=get_initcode_name,
 )
 @pytest.mark.eels_base_coverage
 def test_contract_creating_tx(
@@ -142,12 +130,10 @@ def test_contract_creating_tx(
     post: Alloc,
     sender: EOA,
     initcode: Initcode,
+    fork: Fork,
 ) -> None:
     """
     Test creating a contract with initcode that is on/over the allowed limit.
-
-    Over-limit cases are valid until Osaka because EIP-7954 increases
-    the max initcode size in Amsterdam.
     """
     create_contract_address = compute_create_address(
         address=sender,
@@ -155,15 +141,13 @@ def test_contract_creating_tx(
     )
 
     tx = Transaction(
-        nonce=0,
         to=None,
         data=initcode,
-        gas_limit=10000000,
-        gas_price=10,
+        gas_limit=10_000_000,
         sender=sender,
     )
 
-    if len(initcode) > Spec.MAX_INITCODE_SIZE:
+    if len(initcode) > fork.max_initcode_size():
         # Initcode is above the max size, tx inclusion in the block makes
         # it invalid.
         post[create_contract_address] = Account.NONEXISTENT
@@ -184,15 +168,18 @@ def test_contract_creating_tx(
 ZERO_GAS_SPECS = {"empty", "single_byte"}
 
 
-def valid_gas_test_case(initcode: Initcode, gas_test_case: str) -> bool:
-    """Filter out invalid gas test case/initcode combinations."""
-    if gas_test_case == "too_little_execution_gas":
-        return initcode._name_ not in ZERO_GAS_SPECS
+def valid_gas_test_case(initcode_name: str, gas_case: str) -> bool:
+    """Filter invalid gas test case combinations."""
+    if (
+        gas_case == "too_little_execution_gas"
+        and initcode_name in ZERO_GAS_SPECS
+    ):
+        return False
     return True
 
 
 @pytest.mark.parametrize(
-    "initcode,gas_test_case",
+    "initcode_name,gas_test_case",
     [
         pytest.param(
             i,
@@ -204,14 +191,14 @@ def valid_gas_test_case(initcode: Initcode, gas_test_case: str) -> bool:
             ),
         )
         for i in [
-            INITCODE_ZEROS_MAX_LIMIT,
-            INITCODE_ONES_MAX_LIMIT,
-            EMPTY_INITCODE,
-            SINGLE_BYTE_INITCODE,
-            INITCODE_ZEROS_32_BYTES,
-            INITCODE_ZEROS_33_BYTES,
-            INITCODE_ZEROS_49120_BYTES,
-            INITCODE_ZEROS_49121_BYTES,
+            "max_size_zeros",
+            "max_size_ones",
+            "empty",
+            "single_byte",
+            "32_bytes",
+            "33_bytes",
+            "max_size_minus_word",
+            "max_size_minus_word_plus_byte",
         ]
         for g in [
             "too_little_intrinsic_gas",
@@ -221,9 +208,6 @@ def valid_gas_test_case(initcode: Initcode, gas_test_case: str) -> bool:
         ]
         if valid_gas_test_case(i, g)
     ],
-    ids=lambda x: f"{get_initcode_name(x[0])}-{x[1]}"
-    if isinstance(x, tuple)
-    else x,
 )
 class TestContractCreationGasUsage:
     """
@@ -284,30 +268,6 @@ class TestContractCreationGasUsage:
         )
 
     @pytest.fixture
-    def code_deposit_gas(self, fork: Fork, initcode: Initcode) -> int:
-        """
-        Calculate code deposit gas cost, accounting for Amsterdam's
-        EIP-8037 state gas for code storage.
-
-        Pre-Amsterdam: G_CODE_DEPOSIT_BYTE * code_size
-        (= initcode.deployment_gas).
-        Amsterdam+: cpsb * code_size + G_KECCAK_256_WORD *
-        ceil(code_size / 32), where the per-byte cost becomes
-        cost_per_state_byte and a code hash cost is added.
-        """
-        code_size = len(bytes(initcode.deploy_code))
-        if fork.is_eip_enabled(8037):
-            gas_costs = fork.gas_costs()
-            cpsb = fork.cost_per_state_byte()
-            return (
-                cpsb * code_size
-                + gas_costs.OPCODE_KECCACK256_PER_WORD
-                * ceiling_division(code_size, 32)
-            )
-        dep = initcode.deployment_gas
-        return dep(fork) if callable(dep) else dep
-
-    @pytest.fixture
     def exact_execution_gas(
         self, fork: Fork, exact_intrinsic_gas: int, initcode: Initcode
     ) -> int:
@@ -358,12 +318,10 @@ class TestContractCreationGasUsage:
             pytest.fail("Invalid gas test case provided.")
 
         return Transaction(
-            nonce=0,
             to=None,
             access_list=tx_access_list,
             data=initcode,
             gas_limit=gas_limit,
-            gas_price=10,
             error=tx_error,
             sender=sender,
             # The entire gas limit is expected to be consumed.
@@ -401,9 +359,12 @@ class TestContractCreationGasUsage:
             )
         return Alloc({create_contract_address: Account.NONEXISTENT})
 
-    # TODO[EIP-8037]: Code deposit and G_CREATE become
-    # state gas under Amsterdam.
-    # Gas calculations need updating for two-dimensional gas.
+    # Gated off under EIP-8037: state gas breaks the single-dimension
+    # intrinsic-gas equivalence asserted in `exact_intrinsic_gas`. The
+    # 2D-aware creation-gas metering is covered on Amsterdam by
+    # `test_create_tx_intrinsic_gas_boundary` and
+    # `test_max_initcode_size_gas_metering_via_create` in
+    # `eip8037_state_creation_gas_cost_increase/test_state_gas_create.py`.
     @pytest.mark.valid_before("EIP8037")
     @pytest.mark.slow()
     def test_gas_usage(
@@ -426,20 +387,19 @@ class TestContractCreationGasUsage:
 
 
 @pytest.mark.parametrize(
-    "initcode",
+    "initcode_name",
     [
-        INITCODE_ZEROS_MAX_LIMIT,
-        INITCODE_ONES_MAX_LIMIT,
-        INITCODE_ZEROS_OVER_LIMIT,
-        INITCODE_ONES_OVER_LIMIT,
-        EMPTY_INITCODE,
-        SINGLE_BYTE_INITCODE,
-        INITCODE_ZEROS_32_BYTES,
-        INITCODE_ZEROS_33_BYTES,
-        INITCODE_ZEROS_49120_BYTES,
-        INITCODE_ZEROS_49121_BYTES,
+        "max_size_zeros",
+        "max_size_ones",
+        "over_limit_zeros",
+        "over_limit_ones",
+        "empty",
+        "single_byte",
+        "32_bytes",
+        "33_bytes",
+        "max_size_minus_word",
+        "max_size_minus_word_plus_byte",
     ],
-    ids=get_initcode_name,
 )
 @pytest.mark.parametrize("opcode", [Op.CREATE, Op.CREATE2], ids=get_create_id)
 class TestCreateInitcode:
@@ -458,29 +418,52 @@ class TestCreateInitcode:
         return 0xDEADBEEF
 
     @pytest.fixture
-    def creator_code(self, opcode: Op, create2_salt: int) -> Bytecode:
+    def create_code(
+        self, opcode: Op, create2_salt: int, initcode: Initcode
+    ) -> Bytecode:
+        """
+        Generate the CREATE/CREATE2 bytecode.
+        """
+        return (
+            opcode(
+                size=Op.CALLDATASIZE,
+                salt=create2_salt,
+                init_code_size=len(initcode),
+            )
+            if opcode == Op.CREATE2
+            else opcode(size=Op.CALLDATASIZE, init_code_size=len(initcode))
+        )
+
+    @pytest.fixture
+    def creator_code(self, fork: Fork, create_code: Bytecode) -> Bytecode:
         """
         Generate code for the creator contract which calls CREATE/CREATE2.
         """
         return (
             Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
             + Op.GAS
-            + (
-                opcode(size=Op.CALLDATASIZE, salt=create2_salt)
-                if opcode == Op.CREATE2
-                else opcode(size=Op.CALLDATASIZE)
-            )
+            + create_code
             + Op.GAS
             # stack: [Gas 2, Call Result, Gas 1]
             + Op.SWAP1
             # stack: [Call Result, Gas 2, Gas 1]
-            + Op.SSTORE(0, unchecked=True)
+            + Op.PUSH1[0]
+            # stack: [0, Call Result, Gas 2, Gas 1]
+            + Op.SSTORE
             # stack: [Gas 2, Gas 1]
             + Op.SWAP1
             # stack: [Gas 1, Gas 2]
             + Op.SUB
             # stack: [Gas 1 - Gas 2]
-            + Op.SSTORE(1, unchecked=True)
+            + Op.PUSH1[Op.GAS.gas_cost(fork)]
+            # stack: [Op.GAS cost, Gas 1 - Gas 2]
+            + Op.SWAP1
+            # stack: [Gas 1 - Gas 2, Op.GAS cost]
+            + Op.SUB
+            # stack: [Gas 1 - Gas 2 - Op.GAS cost]
+            + Op.PUSH1[1]
+            # stack: [1, Gas 1 - Gas 2 - Op.GAS cost]
+            + Op.SSTORE
         )
 
     @pytest.fixture
@@ -534,90 +517,18 @@ class TestCreateInitcode:
     ) -> Transaction:
         """Generate transaction that executes the caller contract."""
         return Transaction(
-            nonce=0,
             to=caller_contract_address,
             data=initcode,
-            gas_limit=10000000,
-            gas_price=10,
+            gas_limit=10_000_000,
             sender=sender,
         )
 
-    @pytest.fixture
-    def contract_creation_gas_cost(self, fork: Fork, opcode: Op) -> int:
-        """Calculate gas cost of the contract creation operation."""
-        gas_costs = fork.gas_costs()
-
-        create_contract_base_gas = gas_costs.OPCODE_CREATE_BASE
-        gas_opcode_gas = gas_costs.BASE
-        push_dup_opcode_gas = gas_costs.VERY_LOW
-        calldatasize_opcode_gas = gas_costs.BASE
-        contract_creation_gas_usage = (
-            create_contract_base_gas
-            + gas_opcode_gas
-            + (2 * push_dup_opcode_gas)
-            + calldatasize_opcode_gas
-        )
-        if opcode == Op.CREATE2:  # Extra push operation
-            contract_creation_gas_usage += push_dup_opcode_gas
-        return contract_creation_gas_usage
-
-    @pytest.fixture
-    def initcode_word_cost(self, fork: Fork, initcode: Initcode) -> int:
-        """Calculate gas cost charged for the initcode length."""
-        gas_costs = fork.gas_costs()
-        return (
-            ceiling_division(len(initcode), 32) * gas_costs.CODE_INIT_PER_WORD
-        )
-
-    @pytest.fixture
-    def create2_word_cost(
-        self, opcode: Op, fork: Fork, initcode: Initcode
-    ) -> int:
-        """Calculate gas cost charged for the initcode length."""
-        if opcode == Op.CREATE:
-            return 0
-
-        gas_costs = fork.gas_costs()
-        return (
-            ceiling_division(len(initcode), 32)
-            * gas_costs.OPCODE_KECCACK256_PER_WORD
-        )
-
-    @pytest.fixture
-    def code_deposit_gas(self, fork: Fork, initcode: Initcode) -> int:
-        """
-        Calculate code deposit gas cost, accounting for Amsterdam's
-        EIP-8037 state gas for code storage.
-
-        Pre-Amsterdam: G_CODE_DEPOSIT_BYTE * code_size
-        (= initcode.deployment_gas).
-        Amsterdam+: cpsb * code_size + G_KECCAK_256_WORD *
-        ceil(code_size / 32), where the per-byte cost becomes
-        cost_per_state_byte and a code hash cost is added.
-        """
-        code_size = len(bytes(initcode.deploy_code))
-        if fork.is_eip_enabled(8037):
-            gas_costs = fork.gas_costs()
-            cpsb = fork.cost_per_state_byte()
-            return (
-                cpsb * code_size
-                + gas_costs.OPCODE_KECCACK256_PER_WORD
-                * ceiling_division(code_size, 32)
-            )
-        dep = initcode.deployment_gas
-        return dep(fork) if callable(dep) else dep
-
-    # TODO[EIP-8037]: Code deposit and G_CREATE become
-    # state gas under Amsterdam.
-    # Gas calculations need updating for two-dimensional gas.
-    @pytest.mark.valid_before("EIP8037")
     @pytest.mark.xdist_group(name="bigmem")
     @pytest.mark.slow()
     def test_create_opcode_initcode(
         self,
         state_test: StateTestFiller,
         env: Environment,
-        fork: Fork,
         pre: Alloc,
         post: Alloc,
         tx: Transaction,
@@ -625,10 +536,8 @@ class TestCreateInitcode:
         caller_contract_address: Address,
         creator_contract_address: Address,
         created_contract_address: Address,
-        contract_creation_gas_cost: int,
-        initcode_word_cost: int,
-        create2_word_cost: int,
-        code_deposit_gas: int,
+        create_code: Bytecode,
+        fork: Fork,
     ) -> None:
         """
         Test contract creation with valid and invalid initcode lengths.
@@ -636,7 +545,7 @@ class TestCreateInitcode:
         Test contract creation via CREATE/CREATE2, parametrized by initcode
         that is on/over the max allowed limit.
         """
-        if len(initcode) > Spec.MAX_INITCODE_SIZE:
+        if len(initcode) > fork.max_initcode_size():
             # Call returns 0 as out of gas s[0]==1
             post[caller_contract_address] = Account(
                 nonce=1,
@@ -656,20 +565,9 @@ class TestCreateInitcode:
             )
 
         else:
-            expected_gas_usage = contract_creation_gas_cost
+            expected_gas_usage = create_code.gas_cost(fork)
             # The initcode is only executed if the length check succeeds
-            exe = initcode.execution_gas
-            expected_gas_usage += exe(fork) if callable(exe) else exe
-            # The code is only deployed if the length check succeeds
-            expected_gas_usage += code_deposit_gas
-
-            # CREATE2 hashing cost should only be deducted if the initcode
-            # does not exceed the max length
-            expected_gas_usage += create2_word_cost
-
-            # Initcode word cost is only deducted if the length check
-            # succeeds
-            expected_gas_usage += initcode_word_cost
+            expected_gas_usage += initcode.gas_cost(fork)
 
             # Call returns 1 as valid initcode length s[0]==1 && s[1]==1
             post[caller_contract_address] = Account(
