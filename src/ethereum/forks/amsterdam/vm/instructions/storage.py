@@ -89,20 +89,17 @@ def sstore(evm: Evm) -> None:
     )
     current_value = get_storage(tx_state, evm.message.current_target, key)
 
-    state_gas_storage_set = (
-        StateGasCosts.STATE_BYTES_PER_STORAGE_SET
-        * StateGasCosts.COST_PER_STATE_BYTE
-    )
+    state_gas_storage_set = StateGasCosts.STORAGE_SET
     gas_cost = Uint(0)
+    state_gas = Uint(0)
 
     if (evm.message.current_target, key) not in evm.accessed_storage_keys:
         evm.accessed_storage_keys.add((evm.message.current_target, key))
         gas_cost += GasCosts.COLD_STORAGE_ACCESS
 
-    needs_state_gas = False
     if original_value == current_value and current_value != new_value:
         if original_value == 0:
-            needs_state_gas = True
+            state_gas = state_gas_storage_set
         # charge regular cost for the operation, even when we
         # already charge state gas for state creation
         gas_cost += GasCosts.COLD_STORAGE_WRITE - GasCosts.COLD_STORAGE_ACCESS
@@ -112,7 +109,7 @@ def sstore(evm: Evm) -> None:
     # Refund Counter Calculation
     if current_value != new_value:
         if original_value != 0 and current_value != 0 and new_value == 0:
-            # Storage is cleared for the first time in the transaction
+            # Issue refund for clearing a slot that was non-zero at tx start.
             evm.refund_counter += GasCosts.REFUND_STORAGE_CLEAR
 
         if original_value != 0 and current_value == 0:
@@ -134,8 +131,7 @@ def sstore(evm: Evm) -> None:
     # does not consume state gas that would inflate the parent's
     # reservoir on frame failure.
     charge_gas(evm, gas_cost)
-    if needs_state_gas:
-        charge_state_gas(evm, state_gas_storage_set)
+    charge_state_gas(evm, state_gas)
     set_storage(tx_state, evm.message.current_target, key, new_value)
 
     # PROGRAM COUNTER

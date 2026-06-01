@@ -161,11 +161,10 @@ def set_delegation(message: Message) -> Uint:
     """
     Set the delegation code for the authorities in the message.
 
-    Refills the `STATE_BYTES_PER_NEW_ACCOUNT × CPSB` portion of
-    intrinsic state gas when the authority's account leaf already
-    exists, and the `STATE_BYTES_PER_AUTH_BASE × CPSB` portion when
-    its code slot already holds a delegation indicator. The total is
-    returned so block accounting can subtract it from `tx_state_gas`.
+    Refills `StateGasCosts.NEW_ACCOUNT` when the authority's account
+    leaf already exists, and `StateGasCosts.AUTH_BASE` when its code
+    slot already holds a delegation indicator. The total is returned
+    so block accounting can subtract it from `tx_state_gas`.
 
     Parameters
     ----------
@@ -174,12 +173,12 @@ def set_delegation(message: Message) -> Uint:
 
     Returns
     -------
-    auth_state_refund : `Uint`
+    state_refund : `Uint`
         Total state gas refunded across all processed authorizations.
 
     """
     tx_state = message.tx_env.state
-    auth_state_refund = Uint(0)
+    state_refund = Uint(0)
     for auth in message.tx_env.authorizations:
         if auth.chain_id not in (message.block_env.chain_id, U256(0)):
             continue
@@ -205,12 +204,9 @@ def set_delegation(message: Message) -> Uint:
             continue
 
         if account_exists(tx_state, authority):
-            refund = (
-                StateGasCosts.STATE_BYTES_PER_NEW_ACCOUNT
-                * StateGasCosts.COST_PER_STATE_BYTE
-            )
+            refund = StateGasCosts.NEW_ACCOUNT
             message.state_gas_reservoir += refund
-            auth_state_refund += refund
+            state_refund += refund
 
         # No new delegation indicator bytes are written: either the
         # authority already has one (overwrite in place / clear) or
@@ -219,12 +215,9 @@ def set_delegation(message: Message) -> Uint:
             authority_account.code_hash != EMPTY_CODE_HASH
             or auth.address == NULL_ADDRESS
         ):
-            refund = (
-                StateGasCosts.STATE_BYTES_PER_AUTH_BASE
-                * StateGasCosts.COST_PER_STATE_BYTE
-            )
+            refund = StateGasCosts.AUTH_BASE
             message.state_gas_reservoir += refund
-            auth_state_refund += refund
+            state_refund += refund
 
         if auth.address == NULL_ADDRESS:
             code_to_set = b""
@@ -242,4 +235,4 @@ def set_delegation(message: Message) -> Uint:
         get_account(tx_state, message.code_address).code_hash,
     )
 
-    return auth_state_refund
+    return state_refund

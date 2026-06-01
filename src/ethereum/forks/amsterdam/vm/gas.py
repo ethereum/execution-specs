@@ -40,6 +40,15 @@ class StateGasCosts:
     STATE_BYTES_PER_NEW_ACCOUNT: Final[Uint] = Uint(120)
     STATE_BYTES_PER_STORAGE_SET: Final[Uint] = Uint(64)
     STATE_BYTES_PER_AUTH_BASE: Final[Uint] = Uint(23)
+    STORAGE_SET: Final[Uint] = (
+        STATE_BYTES_PER_STORAGE_SET * COST_PER_STATE_BYTE
+    )
+    NEW_ACCOUNT: Final[Uint] = (
+        STATE_BYTES_PER_NEW_ACCOUNT * COST_PER_STATE_BYTE
+    )
+    AUTH_BASE: Final[Uint] = (
+        STATE_BYTES_PER_AUTH_BASE * COST_PER_STATE_BYTE
+    )
 
 
 # These values may be patched at runtime by a future gas repricing utility

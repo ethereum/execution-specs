@@ -181,14 +181,18 @@ class Evm:
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
     regular_gas_used: Uint = Uint(0)
     state_gas_used: int = 0
+    """
+    State gas that has been consumed by this execution frame and its
+    children.
+
+    `state_gas_used` may go negative when the refund matches an
+    ancestor's charge (e.g. an `SSTORE` clearing a slot a parent set).
+    """
 
 
 def credit_state_gas_refund(evm: Evm, amount: Uint) -> None:
     """
     Credit an inline state gas refund to the local frame's reservoir.
-
-    `state_gas_used` may go negative when the refund matches an
-    ancestor's charge (e.g. an `SSTORE` clearing a slot a parent set).
 
     Parameters
     ----------
@@ -232,10 +236,12 @@ def incorporate_child_on_error(
     """
     Incorporate the state of an unsuccessful `child_evm` into the parent `evm`.
 
-    State is rolled back, so all state gas is restored to the parent's
-    reservoir via the `state_gas_left + state_gas_used` invariant. Any
-    inline refunds the child credited net out automatically — their
-    matching charges are rolled back too.
+    State is rolled back, restoring all state gas to the parent's
+    reservoir via the `state_gas_left + state_gas_used` invariant. The
+    child's `state_gas_used` is not inherited (only the success path
+    propagates it), satisfying the EIP-8037 revert rule that
+    `execution_state_gas_used` decreases by the child's charged state
+    gas. Inline refunds roll back with their matching charges.
 
     Parameters
     ----------

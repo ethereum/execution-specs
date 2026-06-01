@@ -85,10 +85,7 @@ def generic_create(
 
     # Charge state gas for account creation (pay-before-execute).
     # Refunded to the reservoir on any failure path below.
-    create_account_state_gas = (
-        StateGasCosts.STATE_BYTES_PER_NEW_ACCOUNT
-        * StateGasCosts.COST_PER_STATE_BYTE
-    )
+    create_account_state_gas = StateGasCosts.NEW_ACCOUNT
     charge_state_gas(evm, create_account_state_gas)
 
     tx_state = evm.message.tx_env.state
@@ -100,7 +97,11 @@ def generic_create(
     create_message_gas = max_message_call_gas(Uint(evm.gas_left))
     evm.gas_left -= create_message_gas
 
-    # Pass full reservoir to child (no 63/64 rule for state gas)
+    if evm.message.is_static:
+        raise WriteInStaticContext
+
+    # Move full reservoir to child (no 63/64 rule for state gas). Parent's
+    # `state_gas_left` is zeroed and restored when the child returns.
     create_message_state_gas_reservoir = evm.state_gas_left
     evm.state_gas_left = Uint(0)
 
@@ -179,9 +180,6 @@ def create(evm: Evm) -> None:
         The current EVM frame.
 
     """
-    if evm.message.is_static:
-        raise WriteInStaticContext
-
     # STACK
     endowment = pop(evm.stack)
     memory_start_position = pop(evm.stack)
@@ -231,9 +229,6 @@ def create2(evm: Evm) -> None:
         The current EVM frame.
 
     """
-    if evm.message.is_static:
-        raise WriteInStaticContext
-
     # STACK
     endowment = pop(evm.stack)
     memory_start_position = pop(evm.stack)
@@ -450,11 +445,7 @@ def call(evm: Evm) -> None:
 
     charge_gas(evm, extra_gas + extend_memory.cost)
     if value != 0 and not is_account_alive(tx_state, to):
-        charge_state_gas(
-            evm,
-            StateGasCosts.STATE_BYTES_PER_NEW_ACCOUNT
-            * StateGasCosts.COST_PER_STATE_BYTE,
-        )
+        charge_state_gas(evm, StateGasCosts.NEW_ACCOUNT)
 
     message_call_gas = calculate_message_call_gas(
         value,
@@ -646,21 +637,18 @@ def selfdestruct(evm: Evm) -> None:
     if is_cold_access:
         evm.accessed_addresses.add(beneficiary)
 
-    needs_state_gas = (
+    state_gas = Uint(0)
+    if (
         not is_account_alive(tx_state, beneficiary)
         and get_account(tx_state, evm.message.current_target).balance != 0
-    )
+    ):
+        state_gas = StateGasCosts.NEW_ACCOUNT
 
     # Charge regular gas before state gas so that a regular-gas OOG
     # does not consume state gas that would inflate the parent's
     # reservoir on frame failure.
     charge_gas(evm, gas_cost)
-    if needs_state_gas:
-        charge_state_gas(
-            evm,
-            StateGasCosts.STATE_BYTES_PER_NEW_ACCOUNT
-            * StateGasCosts.COST_PER_STATE_BYTE,
-        )
+    charge_state_gas(evm, state_gas)
 
     originator = evm.message.current_target
     originator_balance = get_account(tx_state, originator).balance

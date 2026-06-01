@@ -276,7 +276,6 @@ def process_message(message: Message) -> Evm:
 
     code = message.code
     valid_jump_destinations = get_valid_jump_destinations(code)
-
     evm = Evm(
         pc=Uint(0),
         stack=[],

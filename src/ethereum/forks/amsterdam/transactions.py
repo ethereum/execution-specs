@@ -30,20 +30,16 @@ from .fork_types import Authorization, VersionedHash
 
 @dataclass
 class IntrinsicGasCost:
-    """
-    Intrinsic gas costs for a transaction, split by gas type.
-
-    `regular`: `ethereum.base_types.Uint`
-        Regular execution gas (calldata, base cost, access list, etc.)
-    `state`: `ethereum.base_types.Uint`
-        State growth gas (account creation, storage set, authorization).
-    `calldata_floor`: `ethereum.base_types.Uint`
-        Minimum gas cost based on calldata size per [EIP-7623].
-    """
+    """Intrinsic gas costs for a transaction, split by gas type."""
 
     regular: Uint
+    """Regular execution gas (calldata, base cost, access list, etc.)."""
+
     state: Uint
+    """State growth gas (account creation, storage set, authorization)."""
+
     calldata_floor: Uint
+    """Minimum gas cost based on calldata size per [EIP-7623]."""
 
 
 TX_MAX_GAS_LIMIT = Uint(16_777_216)
@@ -633,10 +629,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> IntrinsicGasCost:
     create_regular_gas = Uint(0)
     create_state_gas = Uint(0)
     if tx.to == Bytes0(b""):
-        create_state_gas = (
-            StateGasCosts.STATE_BYTES_PER_NEW_ACCOUNT
-            * StateGasCosts.COST_PER_STATE_BYTE
-        )
+        create_state_gas = StateGasCosts.NEW_ACCOUNT
         create_regular_gas = GasCosts.REGULAR_GAS_CREATE + init_code_cost(
             ulen(tx.data)
         )
@@ -664,11 +657,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> IntrinsicGasCost:
             tx.authorizations
         )
         auth_state_gas = (
-            (
-                StateGasCosts.STATE_BYTES_PER_NEW_ACCOUNT
-                + StateGasCosts.STATE_BYTES_PER_AUTH_BASE
-            )
-            * StateGasCosts.COST_PER_STATE_BYTE
+            (StateGasCosts.NEW_ACCOUNT + StateGasCosts.AUTH_BASE)
             * ulen(tx.authorizations)
         )
 

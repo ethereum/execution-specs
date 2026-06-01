@@ -571,14 +571,14 @@ def check_transaction(
 
     # Worst-case regular contribution: tx.gas minus the portion that
     # must go to intrinsic state gas, capped at TX_MAX_GAS_LIMIT.
-    if min(TX_MAX_GAS_LIMIT, tx.gas - intrinsic.state) > (
-        regular_gas_available
-    ):
+    worst_case_regular = min(TX_MAX_GAS_LIMIT, tx.gas - intrinsic.state)
+    if worst_case_regular > regular_gas_available:
         raise GasUsedExceedsLimitError("gas used exceeds limit")
 
     # Worst-case state contribution: tx.gas minus the portion that
     # must go to intrinsic regular gas.
-    if tx.gas - intrinsic.regular > state_gas_available:
+    worst_case_state = tx.gas - intrinsic.regular
+    if worst_case_state > state_gas_available:
         raise GasUsedExceedsLimitError("gas used exceeds limit")
 
     tx_blob_gas_used = calculate_total_blob_gas(tx)
@@ -799,9 +799,7 @@ def process_unchecked_system_transaction(
         gas_price=block_env.base_fee_per_gas,
         gas=SYSTEM_TRANSACTION_GAS,
         state_gas_reservoir=(
-            StateGasCosts.STATE_BYTES_PER_STORAGE_SET
-            * StateGasCosts.COST_PER_STATE_BYTE
-            * SYSTEM_MAX_SSTORES_PER_CALL
+            StateGasCosts.STORAGE_SET * SYSTEM_MAX_SSTORES_PER_CALL
         ),
         access_list_addresses=set(),
         access_list_storage_keys=set(),
@@ -821,9 +819,7 @@ def process_unchecked_system_transaction(
         target=target_address,
         gas=SYSTEM_TRANSACTION_GAS,
         state_gas_reservoir=(
-            StateGasCosts.STATE_BYTES_PER_STORAGE_SET
-            * StateGasCosts.COST_PER_STATE_BYTE
-            * SYSTEM_MAX_SSTORES_PER_CALL
+            StateGasCosts.STORAGE_SET * SYSTEM_MAX_SSTORES_PER_CALL
         ),
         value=U256(0),
         data=data,
@@ -1089,10 +1085,7 @@ def process_transaction(
         )
         tx_output.state_gas_used = 0
         if isinstance(tx.to, Bytes0):
-            new_account_refund = (
-                StateGasCosts.STATE_BYTES_PER_NEW_ACCOUNT
-                * StateGasCosts.COST_PER_STATE_BYTE
-            )
+            new_account_refund = StateGasCosts.NEW_ACCOUNT
             tx_output.state_gas_left += new_account_refund
             tx_output.state_refund += new_account_refund
 
