@@ -488,7 +488,7 @@ def test_varying_calldata_costs(
 
     # Time to start searching for appropriate call data for each scenario
     num_iterations = 200
-    # Currently in Amsterdam, the optimal call data is found in about
+    # Currently in EIP-7778, the optimal call data is found in about
     # 30 iterations for CallDataTestType.DATA_FLOOR_GT_TX_GAS_BEFORE_REFUND.
     # Setting this higher just to make it
     # a bit more future proof if the gas calc logic changes
