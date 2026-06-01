@@ -1524,6 +1524,7 @@ class Osaka(
     eips.EIP7918,
     eips.EIP7594,
     eips.EIP7951,
+    eips.EIP7883,
     Prague,
     solc_name="cancun",
 ):
