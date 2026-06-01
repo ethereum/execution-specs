@@ -127,7 +127,9 @@ def test_burn_log_at_fork_transition(
     transition_timestamp = 15_000
     post_transition_timestamp = 15_001
     post_fork = fork.fork_at(timestamp=post_transition_timestamp)
-    gas_limit = 200_000 + post_fork.gas_costs().NEW_ACCOUNT
+    gas_limit = 200_000
+    if post_fork.is_eip_enabled(8037):
+        gas_limit += post_fork.gas_costs().NEW_ACCOUNT
     blocks = [
         Block(
             timestamp=ts,
