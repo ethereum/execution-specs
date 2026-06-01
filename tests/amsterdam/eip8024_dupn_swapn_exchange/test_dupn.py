@@ -10,12 +10,14 @@ from execution_testing import (
     Account,
     Alloc,
     Bytecode,
+    EIPChecklist,
+    Fork,
     Op,
     StateTestFiller,
     Transaction,
 )
 
-from .spec import decode_single, ref_spec_8024
+from .spec import Spec, decode_single, ref_spec_8024
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8024.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8024.version
@@ -138,6 +140,52 @@ def test_dupn_stack_underflow(
 
     # Transaction should fail, contract storage unchanged
     post = {contract_address: Account(storage={0: 0})}
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.Opcode.Test.GasUsage.Normal()
+@EIPChecklist.Opcode.Test.GasUsage.OutOfGasExecution()
+@EIPChecklist.Opcode.Test.GasUsage.ExtraGas()
+@pytest.mark.parametrize("gas_cost_delta", [-2, -1, 0, 1, 2])
+def test_dupn_gas_cost_boundary(
+    gas_cost_delta: int,
+    pre: Alloc,
+    fork: Fork,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test DUPN at the gas cost boundary.
+
+    DUPN is invoked in a callee that receives exactly its execution cost
+    plus `gas_cost_delta`. The caller records the CALL result: a negative
+    delta starves DUPN of its base gas (3) and the sub-call runs out of
+    gas (result 0); a zero or positive delta succeeds (result 1).
+    """
+    stack_index = Spec.MIN_STACK_INDEX  # 17
+
+    code = Bytecode()
+    for i in range(stack_index):
+        code += Op.PUSH1(i)
+    code += Op.DUPN[stack_index]
+
+    contract_address = pre.deploy_contract(code=code)
+
+    call_code = Op.SSTORE(
+        0,
+        Op.CALL(
+            gas=code.gas_cost(fork) + gas_cost_delta,
+            address=contract_address,
+        ),
+    )
+    call_address = pre.deploy_contract(
+        code=call_code,
+        storage={0: 0xDEADBEEF},
+    )
+
+    tx = Transaction(to=call_address, sender=pre.fund_eoa(), gas_limit=200_000)
+
+    post = {call_address: Account(storage={0: 0 if gas_cost_delta < 0 else 1})}
 
     state_test(pre=pre, post=post, tx=tx)
 
