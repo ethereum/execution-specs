@@ -298,14 +298,9 @@ def generic_call(
     """
     Perform the core logic of the `CALL*` family of opcodes.
     """
-    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
+    from ...vm.interpreter import process_message
 
     evm.return_data = b""
-
-    if evm.message.depth + Uint(1) > STACK_DEPTH_LIMIT:
-        evm.gas_left += gas
-        push(evm.stack, U256(0))
-        return
 
     tx_state = evm.message.tx_env.state
     code_hash = get_account(tx_state, code_address).code_hash
@@ -386,29 +381,38 @@ def call(evm: Evm) -> None:
     )
 
     is_cold_access = to not in evm.accessed_addresses
-    if is_cold_access:
-        access_gas_cost = GasCosts.COLD_ACCOUNT_ACCESS
-    else:
-        access_gas_cost = GasCosts.WARM_ACCESS
-
     transfer_gas_cost = Uint(0) if value == 0 else GasCosts.CALL_VALUE
 
-    # check static gas before state access
-    check_gas(
-        evm,
-        access_gas_cost + transfer_gas_cost + extend_memory.cost,
-    )
+    # Pre-state extra gas (warm-equivalent access cost only; cold surcharge
+    # is deferred to post-state).
+    extra_gas = GasCosts.WARM_ACCESS + transfer_gas_cost
+    check_gas(evm, extra_gas + extend_memory.cost)
 
-    # STATE ACCESS
+    # Pre-state preconditions: stack depth and (if value > 0) sender balance.
+    from ...vm.interpreter import STACK_DEPTH_LIMIT
+
     tx_state = evm.message.tx_env.state
+    sender_balance = get_account(tx_state, evm.message.current_target).balance
+    if evm.message.depth + Uint(1) > STACK_DEPTH_LIMIT or (
+        value > U256(0) and sender_balance < value
+    ):
+        charge_gas(evm, extra_gas + extend_memory.cost)
+        evm.memory += b"\x00" * extend_memory.expand_by
+        push(evm.stack, U256(0))
+        evm.return_data = b""
+        evm.pc += Uint(1)
+        return
+
+    # Post-state: cold surcharge paired with warming and BAL insertion.
     if is_cold_access:
+        extra_gas += GasCosts.COLD_ACCOUNT_ACCESS - GasCosts.WARM_ACCESS
+        check_gas(evm, extra_gas + extend_memory.cost)
         evm.accessed_addresses.add(to)
 
-    create_gas_cost = GasCosts.NEW_ACCOUNT
-    if value == 0 or is_account_alive(tx_state, to):
-        create_gas_cost = Uint(0)
+    if value > U256(0) and not is_account_alive(tx_state, to):
+        extra_gas += GasCosts.NEW_ACCOUNT
+        check_gas(evm, extra_gas + extend_memory.cost)
 
-    extra_gas = access_gas_cost + transfer_gas_cost + create_gas_cost
     (
         is_delegated,
         code_address,
@@ -416,7 +420,6 @@ def call(evm: Evm) -> None:
     ) = calculate_delegation_cost(evm, to)
 
     if is_delegated:
-        # check enough gas for delegation access
         extra_gas += delegation_access_cost
         check_gas(evm, extra_gas + extend_memory.cost)
         if code_address not in evm.accessed_addresses:
@@ -433,27 +436,21 @@ def call(evm: Evm) -> None:
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
-    sender_balance = get_account(tx_state, evm.message.current_target).balance
-    if sender_balance < value:
-        push(evm.stack, U256(0))
-        evm.return_data = b""
-        evm.gas_left += message_call_gas.sub_call
-    else:
-        generic_call(
-            evm,
-            message_call_gas.sub_call,
-            value,
-            evm.message.current_target,
-            to,
-            code_address,
-            True,
-            False,
-            memory_input_start_position,
-            memory_input_size,
-            memory_output_start_position,
-            memory_output_size,
-            is_delegated,
-        )
+    generic_call(
+        evm,
+        message_call_gas.sub_call,
+        value,
+        evm.message.current_target,
+        to,
+        code_address,
+        True,
+        False,
+        memory_input_start_position,
+        memory_input_size,
+        memory_output_start_position,
+        memory_output_size,
+        is_delegated,
+    )
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
@@ -490,25 +487,34 @@ def callcode(evm: Evm) -> None:
     )
 
     is_cold_access = code_address not in evm.accessed_addresses
-    if is_cold_access:
-        access_gas_cost = GasCosts.COLD_ACCOUNT_ACCESS
-    else:
-        access_gas_cost = GasCosts.WARM_ACCESS
-
     transfer_gas_cost = Uint(0) if value == 0 else GasCosts.CALL_VALUE
 
-    # check static gas before state access
-    check_gas(
-        evm,
-        access_gas_cost + extend_memory.cost + transfer_gas_cost,
-    )
+    # Pre-state extra gas (warm-equivalent access cost only; cold surcharge
+    # is deferred to post-state).
+    extra_gas = GasCosts.WARM_ACCESS + transfer_gas_cost
+    check_gas(evm, extra_gas + extend_memory.cost)
 
-    # STATE ACCESS
+    # Pre-state preconditions: stack depth and (if value > 0) sender balance.
+    from ...vm.interpreter import STACK_DEPTH_LIMIT
+
     tx_state = evm.message.tx_env.state
+    sender_balance = get_account(tx_state, evm.message.current_target).balance
+    if evm.message.depth + Uint(1) > STACK_DEPTH_LIMIT or (
+        value > U256(0) and sender_balance < value
+    ):
+        charge_gas(evm, extra_gas + extend_memory.cost)
+        evm.memory += b"\x00" * extend_memory.expand_by
+        push(evm.stack, U256(0))
+        evm.return_data = b""
+        evm.pc += Uint(1)
+        return
+
+    # Post-state: cold surcharge paired with warming and BAL insertion.
     if is_cold_access:
+        extra_gas += GasCosts.COLD_ACCOUNT_ACCESS - GasCosts.WARM_ACCESS
+        check_gas(evm, extra_gas + extend_memory.cost)
         evm.accessed_addresses.add(code_address)
 
-    extra_gas = access_gas_cost + transfer_gas_cost
     (
         is_delegated,
         code_address,
@@ -516,7 +522,6 @@ def callcode(evm: Evm) -> None:
     ) = calculate_delegation_cost(evm, code_address)
 
     if is_delegated:
-        # check enough gas for delegation access
         extra_gas += delegation_access_cost
         check_gas(evm, extra_gas + extend_memory.cost)
         if code_address not in evm.accessed_addresses:
@@ -533,28 +538,21 @@ def callcode(evm: Evm) -> None:
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
-    sender_balance = get_account(tx_state, evm.message.current_target).balance
-
-    if sender_balance < value:
-        push(evm.stack, U256(0))
-        evm.return_data = b""
-        evm.gas_left += message_call_gas.sub_call
-    else:
-        generic_call(
-            evm,
-            message_call_gas.sub_call,
-            value,
-            evm.message.current_target,
-            to,
-            code_address,
-            True,
-            False,
-            memory_input_start_position,
-            memory_input_size,
-            memory_output_start_position,
-            memory_output_size,
-            is_delegated,
-        )
+    generic_call(
+        evm,
+        message_call_gas.sub_call,
+        value,
+        evm.message.current_target,
+        to,
+        code_address,
+        True,
+        False,
+        memory_input_start_position,
+        memory_input_size,
+        memory_output_start_position,
+        memory_output_size,
+        is_delegated,
+    )
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
@@ -652,19 +650,29 @@ def delegatecall(evm: Evm) -> None:
     )
 
     is_cold_access = code_address not in evm.accessed_addresses
-    if is_cold_access:
-        access_gas_cost = GasCosts.COLD_ACCOUNT_ACCESS
-    else:
-        access_gas_cost = GasCosts.WARM_ACCESS
 
-    # check static gas before state access
-    check_gas(evm, access_gas_cost + extend_memory.cost)
+    # Pre-state extra gas (warm-equivalent access cost only; cold surcharge
+    # is deferred to post-state).
+    extra_gas = GasCosts.WARM_ACCESS
+    check_gas(evm, extra_gas + extend_memory.cost)
 
-    # STATE ACCESS
+    # Pre-state precondition: stack depth.
+    from ...vm.interpreter import STACK_DEPTH_LIMIT
+
+    if evm.message.depth + Uint(1) > STACK_DEPTH_LIMIT:
+        charge_gas(evm, extra_gas + extend_memory.cost)
+        evm.memory += b"\x00" * extend_memory.expand_by
+        push(evm.stack, U256(0))
+        evm.return_data = b""
+        evm.pc += Uint(1)
+        return
+
+    # Post-state: cold surcharge paired with warming and BAL insertion.
     if is_cold_access:
+        extra_gas += GasCosts.COLD_ACCOUNT_ACCESS - GasCosts.WARM_ACCESS
+        check_gas(evm, extra_gas + extend_memory.cost)
         evm.accessed_addresses.add(code_address)
 
-    extra_gas = access_gas_cost
     (
         is_delegated,
         code_address,
@@ -672,7 +680,6 @@ def delegatecall(evm: Evm) -> None:
     ) = calculate_delegation_cost(evm, code_address)
 
     if is_delegated:
-        # check enough gas for delegation access
         extra_gas += delegation_access_cost
         check_gas(evm, extra_gas + extend_memory.cost)
         if code_address not in evm.accessed_addresses:
@@ -737,19 +744,29 @@ def staticcall(evm: Evm) -> None:
     )
 
     is_cold_access = to not in evm.accessed_addresses
-    if is_cold_access:
-        access_gas_cost = GasCosts.COLD_ACCOUNT_ACCESS
-    else:
-        access_gas_cost = GasCosts.WARM_ACCESS
 
-    # check static gas before state access
-    check_gas(evm, access_gas_cost + extend_memory.cost)
+    # Pre-state extra gas (warm-equivalent access cost only; cold surcharge
+    # is deferred to post-state).
+    extra_gas = GasCosts.WARM_ACCESS
+    check_gas(evm, extra_gas + extend_memory.cost)
 
-    # STATE ACCESS
+    # Pre-state precondition: stack depth.
+    from ...vm.interpreter import STACK_DEPTH_LIMIT
+
+    if evm.message.depth + Uint(1) > STACK_DEPTH_LIMIT:
+        charge_gas(evm, extra_gas + extend_memory.cost)
+        evm.memory += b"\x00" * extend_memory.expand_by
+        push(evm.stack, U256(0))
+        evm.return_data = b""
+        evm.pc += Uint(1)
+        return
+
+    # Post-state: cold surcharge paired with warming and BAL insertion.
     if is_cold_access:
+        extra_gas += GasCosts.COLD_ACCOUNT_ACCESS - GasCosts.WARM_ACCESS
+        check_gas(evm, extra_gas + extend_memory.cost)
         evm.accessed_addresses.add(to)
 
-    extra_gas = access_gas_cost
     (
         is_delegated,
         code_address,
@@ -757,7 +774,6 @@ def staticcall(evm: Evm) -> None:
     ) = calculate_delegation_cost(evm, to)
 
     if is_delegated:
-        # check enough gas for delegation access
         extra_gas += delegation_access_cost
         check_gas(evm, extra_gas + extend_memory.cost)
         if code_address not in evm.accessed_addresses:
