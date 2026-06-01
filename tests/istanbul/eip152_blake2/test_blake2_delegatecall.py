@@ -45,7 +45,6 @@ def test_blake2_precompile_delegatecall(
     tx = Transaction(
         to=account,
         sender=pre.fund_eoa(),
-        gas_limit=90_000,
         protected=True,
     )
 

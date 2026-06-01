@@ -420,7 +420,6 @@ def test_blake2b(
         ty=0x0,
         to=account,
         data=data,
-        gas_limit=1_000_000,
         protected=True,
         sender=sender,
         value=100000,
@@ -554,22 +553,14 @@ def test_blake2b_invalid_gas(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-def max_tx_gas_limit(fork: Fork) -> int:
-    """Maximum gas limit for a transaction (fork agnostic)."""
-    tx_limit = fork.transaction_gas_limit_cap()
-    if tx_limit is not None:
-        return tx_limit
-    return Environment().gas_limit
-
-
-def tx_gas_limits(fork: Fork) -> List[int]:
+def tx_gas_limits(fork: Fork) -> List[int | None]:
     """List of tx gas limits."""
     # Three coverage levels for BLAKE2 + SSTORE base costs. The
     # contract writes two first-time SSTOREs (data_1, data_2), each
     # adding `sstore_state_gas` under EIP-8037 (0 otherwise).
     sstore_state = Op.SSTORE(new_value=1).state_cost(fork)
     return [
-        max_tx_gas_limit(fork),
+        None,
         90_000 + 2 * sstore_state,
         110_000 + 2 * sstore_state,
         200_000 + 2 * sstore_state,
@@ -691,9 +682,6 @@ def test_blake2b_gas_limit(
 
 @pytest.mark.valid_from("Istanbul")
 @pytest.mark.parametrize("call_opcode", [Op.CALL, Op.CALLCODE])
-@pytest.mark.parametrize_by_fork(
-    "gas_limit", lambda fork: [max_tx_gas_limit(fork)]
-)
 @pytest.mark.parametrize(
     ["data", "output"],
     [
@@ -778,7 +766,6 @@ def test_blake2b_large_gas_limit(
     state_test: StateTestFiller,
     pre: Alloc,
     call_opcode: Op,
-    gas_limit: int,
     blake2b_contract_bytecode: Bytecode,
     data: Blake2bInput | str | bytes,
     output: ExpectedOutput,
@@ -798,7 +785,6 @@ def test_blake2b_large_gas_limit(
         ty=0x0,
         to=account,
         data=data,
-        gas_limit=gas_limit,
         protected=True,
         sender=sender,
         value=0,

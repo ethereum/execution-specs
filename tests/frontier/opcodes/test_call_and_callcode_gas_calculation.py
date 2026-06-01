@@ -88,7 +88,10 @@ def sufficient_gas(
         metadata: dict = {"address_warm": False}
         if is_value_call:
             metadata["value_transfer"] = True
-            metadata["account_new"] = callee_opcode == Op.CALL
+            account_new = callee_opcode == Op.CALL
+            if fork.is_eip_enabled(8037):
+                account_new = False
+            metadata["account_new"] = account_new
         cost = callee_opcode(**metadata).gas_cost(fork)
     elif Byzantium <= fork < Berlin:
         cost = 700  # Pre-Berlin call cost
@@ -200,14 +203,9 @@ def caller_address(pre: Alloc, caller_code: Bytecode) -> Address:
 @pytest.fixture
 def caller_tx(sender: EOA, caller_address: Address, fork: Fork) -> Transaction:
     """Transaction that performs the call to the caller contract."""
-    gas_limit = 500_000
-    if fork.is_eip_enabled(8037):
-        gas_limit = 1_000_000
-
     return Transaction(
         to=caller_address,
         value=1,
-        gas_limit=gas_limit,
         sender=sender,
         protected=fork.supports_protected_txs(),
     )

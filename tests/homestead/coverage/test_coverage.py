@@ -4,14 +4,7 @@ into EEST tests.
 """
 
 import pytest
-from execution_testing import (
-    Alloc,
-    Environment,
-    Fork,
-    Op,
-    StateTestFiller,
-    Transaction,
-)
+from execution_testing import Alloc, Fork, Op, StateTestFiller, Transaction
 from execution_testing.forks import Cancun
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -73,11 +66,8 @@ def test_coverage(
 
     if fork >= Cancun:
         tx = Transaction(
-            sender=pre.fund_eoa(7_000_000_000_000_000_000),
-            gas_limit=100000,
+            sender=pre.fund_eoa(),
             to=address_to,
-            data=b"",
-            value=0,
             protected=False,
             access_list=[],
             max_fee_per_gas=10,
@@ -85,12 +75,9 @@ def test_coverage(
         )
     else:
         tx = Transaction(
-            sender=pre.fund_eoa(7_000_000_000_000_000_000),
-            gas_limit=100000,
+            sender=pre.fund_eoa(),
             to=address_to,
-            data=b"",
-            value=0,
             protected=False,
         )
 
-    state_test(env=Environment(), pre=pre, post={}, tx=tx)
+    state_test(pre=pre, post={}, tx=tx)

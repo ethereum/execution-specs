@@ -54,7 +54,6 @@ def test_call_large_offset_mstore(
     contract = pre.deploy_contract(call_measure + mstore_measure)
 
     tx = Transaction(
-        gas_limit=500_000,
         to=contract,
         value=0,
         sender=sender,
@@ -66,7 +65,6 @@ def test_call_large_offset_mstore(
     # mstore cost: base cost + expansion cost
     mstore_cost = Op.MSTORE(new_memory_size=mem_offset + 32).gas_cost(fork)
     state_test(
-        env=Environment(),
         pre=pre,
         tx=tx,
         post={
@@ -129,7 +127,6 @@ def test_call_memory_expands_on_early_revert(
     )
 
     tx = Transaction(
-        gas_limit=500_000,
         to=contract,
         value=0,
         sender=sender,
@@ -143,7 +140,7 @@ def test_call_memory_expands_on_early_revert(
         Op.CALL(
             address_warm=False,
             value_transfer=True,
-            account_new=True,
+            account_new=not fork.is_eip_enabled(8037),  # TODO: Gas calc check
             new_memory_size=ret_size,
         ).gas_cost(fork)
         - gsc.CALL_STIPEND
@@ -153,7 +150,6 @@ def test_call_memory_expands_on_early_revert(
     # on CALL.
     mstore_cost = Op.MSTORE(new_memory_size=0).gas_cost(fork)
     state_test(
-        env=Environment(),
         pre=pre,
         tx=tx,
         post={
@@ -199,7 +195,6 @@ def test_call_large_args_offset_size_zero(
     contract = pre.deploy_contract(call_measure)
 
     tx = Transaction(
-        gas_limit=500_000,
         to=contract,
         value=0,
         sender=sender,

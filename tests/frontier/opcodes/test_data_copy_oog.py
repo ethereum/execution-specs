@@ -6,7 +6,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Environment,
     Op,
     StateTestFiller,
     Storage,
@@ -107,17 +106,11 @@ def test_calldatacopy_word_copy_oog(
     tx = Transaction(
         to=outer_address,
         sender=sender,
-        gas_limit=500_000,  # Plenty of gas for outer call
     )
 
     post = {outer_address: Account(storage=storage)}
 
-    state_test(
-        env=Environment(),
-        pre=pre,
-        post=post,
-        tx=tx,
-    )
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize(
@@ -176,14 +169,8 @@ def test_codecopy_word_copy_oog(
     tx = Transaction(
         to=outer_address,
         sender=sender,
-        gas_limit=500_000,
     )
 
     post = {outer_address: Account(storage=storage)}
 
-    state_test(
-        env=Environment(),
-        pre=pre,
-        post=post,
-        tx=tx,
-    )
+    state_test(pre=pre, post=post, tx=tx)
