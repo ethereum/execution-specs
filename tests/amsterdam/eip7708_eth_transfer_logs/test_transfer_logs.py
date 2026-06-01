@@ -1088,6 +1088,7 @@ def test_nested_calls_log_order(
     state_test: StateTestFiller,
     env: Environment,
     pre: Alloc,
+    fork: Fork,
     sender: EOA,
     call_depth: int,
 ) -> None:
@@ -1095,44 +1096,46 @@ def test_nested_calls_log_order(
     transfer_value = 100
     tx_value = 1000
 
-    # Build chain: contracts[0] -> contracts[1] -> ... -> final_recipient
-    final_recipient = pre.nonexistent_account()
-    contracts: list[Address] = []
-    expected_logs: list[TransactionLog] = []
-
-    # Build contracts in reverse order (deepest first)
-    next_target = final_recipient
+    # Build the chain from innermost outward by prepending each new caller.
+    # Once finished, accounts[0] is the entry contract (the tx target) and
+    # accounts[-1] is the final recipient.
+    # Forward all gas (`Op.GAS`) rather than a fixed amount: under EIP-8037
+    # each frame's per-frame `SSTORE` and the deepest `NEW_ACCOUNT` charge
+    # make a fixed forward too small to reach the chain depth.
+    accounts: list[Address] = [pre.nonexistent_account()]
     for _ in range(call_depth):
-        contract_code = Op.CALL(
-            gas=500_000, address=next_target, value=transfer_value
+        contract_code = Op.SSTORE(
+            0,
+            Op.CALL(gas=Op.GAS, address=accounts[0], value=transfer_value),
         )
-        # Each contract needs enough balance for its transfer
-        contract = pre.deploy_contract(contract_code, balance=transfer_value)
-        contracts.insert(0, contract)
-        next_target = contract
+        accounts.insert(
+            0, pre.deploy_contract(contract_code, balance=transfer_value)
+        )
 
-    # First contract is the tx target
-    entry_contract = contracts[0]
+    entry_contract = accounts[0]
+    final_recipient = accounts[-1]
 
-    # Build expected logs in chronological order
-    # First: tx-level transfer (sender -> entry_contract)
-    expected_logs.append(transfer_log(sender, entry_contract, tx_value))
-
-    # Then: each CALL in order
+    expected_logs: list[TransactionLog] = [
+        transfer_log(sender, entry_contract, tx_value)
+    ]
     for i in range(call_depth):
-        from_addr = contracts[i]
-        to_addr = contracts[i + 1] if i + 1 < call_depth else final_recipient
-        expected_logs.append(transfer_log(from_addr, to_addr, transfer_value))
+        expected_logs.append(
+            transfer_log(accounts[i], accounts[i + 1], transfer_value)
+        )
 
     tx = Transaction(
         sender=sender,
         to=entry_contract,
         value=tx_value,
-        gas_limit=1_000_000,
+        gas_limit=fork.transaction_gas_limit_cap(),
         expected_receipt=TransactionReceipt(logs=expected_logs),
     )
 
-    post = {final_recipient: Account(balance=transfer_value)}
+    post: dict[Address, Account] = {
+        final_recipient: Account(balance=transfer_value)
+    }
+    for chain_contract in accounts[:-1]:
+        post[chain_contract] = Account(storage={0: 1})
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
