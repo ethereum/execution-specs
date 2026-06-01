@@ -66,7 +66,7 @@ EMPTY_ACCOUNT_HASH = Account().hash()
 class Alloc(SharedAlloc):
     """Allocation of accounts in the state, pre and post test execution."""
 
-    _eoa_fund_amount_default: int = PrivateAttr(10**21)
+    _eoa_fund_amount_default: int = PrivateAttr(10**27)
     _account_salt: Dict[Hash, int] = PrivateAttr(default_factory=dict)
     _stub_accounts: Dict[str, Account] = PrivateAttr(default_factory=dict)
 
