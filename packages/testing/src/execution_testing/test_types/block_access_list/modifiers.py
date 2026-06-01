@@ -481,6 +481,41 @@ def append_storage(
     return transform
 
 
+def append_empty_slot(
+    address: Address, slot: int
+) -> Callable[[BlockAccessList], BlockAccessList]:
+    """
+    Append an empty BalStorageSlot (no changes) to an account's
+    storage_changes. Used by invalid-BAL tests to simulate a malformed
+    entry where a slot is recorded as changed but carries no actual change.
+    """
+
+    def transform(bal: BlockAccessList) -> BlockAccessList:
+        from . import BalStorageSlot
+
+        found_address = False
+        new_root = []
+        for account_change in bal.root:
+            if account_change.address == address:
+                found_address = True
+                new_account = account_change.model_copy(deep=True)
+                new_account.storage_changes.append(
+                    BalStorageSlot(slot=slot, slot_changes=[])
+                )
+                new_root.append(new_account)
+            else:
+                new_root.append(account_change)
+
+        if not found_address:
+            raise ValueError(
+                f"Address {address} not found in BAL to append empty slot"
+            )
+
+        return BlockAccessList(root=new_root)
+
+    return transform
+
+
 def duplicate_account(
     address: Address,
 ) -> Callable[[BlockAccessList], BlockAccessList]:
@@ -779,6 +814,7 @@ __all__ = [
     "append_account",
     "append_change",
     "append_storage",
+    "append_empty_slot",
     "duplicate_account",
     "reverse_accounts",
     "keep_only",

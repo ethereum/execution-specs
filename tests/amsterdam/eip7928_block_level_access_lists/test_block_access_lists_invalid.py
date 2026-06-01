@@ -36,6 +36,7 @@ from execution_testing import (
 from execution_testing.test_types.block_access_list.modifiers import (
     append_account,
     append_change,
+    append_empty_slot,
     append_storage,
     duplicate_account,
     duplicate_balance_change,
@@ -1095,28 +1096,6 @@ def test_bal_invalid_empty_slot_changes(
     oracle = pre.deploy_contract(code=Op.SSTORE(0, 0x42), storage=pre_storage)
     tx = Transaction(sender=alice, to=oracle, gas_limit=1_000_000)
 
-    def append_empty_slot(bal):  # type: ignore[no-untyped-def]
-        from execution_testing import BlockAccessList
-
-        new_root = []
-        for account in bal.root:
-            if account.address == oracle:
-                new_account = account.model_copy(deep=True)
-                new_account.storage_changes.append(
-                    BalStorageSlot(slot=slot_to_inject, slot_changes=[])
-                )
-                # Strip the same slot from storage_reads to isolate the
-                # empty-slot rule from the "appears in both" rule.
-                new_account.storage_reads = [
-                    s
-                    for s in new_account.storage_reads
-                    if int(s) != slot_to_inject
-                ]
-                new_root.append(new_account)
-            else:
-                new_root.append(account)
-        return BlockAccessList(root=new_root)
-
     blockchain_test(
         pre=pre,
         post=pre,
@@ -1135,7 +1114,7 @@ def test_bal_invalid_empty_slot_changes(
                         ),
                         oracle: oracle_expectation,
                     }
-                ).modify(append_empty_slot),
+                ).modify(append_empty_slot(oracle, slot=slot_to_inject)),
             )
         ],
     )
