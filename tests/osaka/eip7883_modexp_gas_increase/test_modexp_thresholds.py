@@ -398,7 +398,6 @@ def test_modexp_used_in_transaction_entry_points(
     pre: Alloc,
     tx: Transaction,
     modexp_input: bytes,
-    tx_gas_limit: int,
     call_values: int,
 ) -> None:
     """
@@ -409,7 +408,6 @@ def test_modexp_used_in_transaction_entry_points(
         to=Spec.MODEXP_ADDRESS,
         sender=pre.fund_eoa(),
         data=bytes(modexp_input),
-        gas_limit=tx_gas_limit,
         value=call_values,
     )
     state_test(pre=pre, tx=tx, post={})

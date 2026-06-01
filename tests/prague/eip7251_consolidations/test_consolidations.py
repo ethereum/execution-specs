@@ -21,9 +21,6 @@ from execution_testing import (
     TestAddress2,
 )
 
-from ...amsterdam.eip8037_state_creation_gas_cost_increase.spec import (
-    Spec as Spec8037,
-)
 from .helpers import (
     ConsolidationRequest,
     ConsolidationRequestContract,
@@ -379,20 +376,12 @@ pytestmark = pytest.mark.valid_from("Prague")
                                 source_pubkey=i * 2,
                                 target_pubkey=i * 2 + 1,
                                 fee=Spec.get_fee(0),
-                                gas_limit=6_000_000,
                             )
                             for i in range(
                                 Spec.MAX_CONSOLIDATION_REQUESTS_PER_BLOCK * 5
                             )
                         ],
                         call_depth=100,
-                        tx_gas_limit=Spec8037.TX_MAX_GAS_LIMIT,
-                        # tx_gas_limit is held at the cap to test the
-                        # 63/64 drain over the deep call chain. EIP-8037
-                        # state-set work is funded via the reservoir
-                        # rather than the regular pool, which would
-                        # corrupt the boundary the test pins.
-                        fund_state_reservoir=True,
                     ),
                 ],
             ],
@@ -468,7 +457,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=i * 2,
                                 target_pubkey=i * 2 + 1,
-                                gas_limit=1_000_000,
                                 fee=Spec.get_fee(0),
                                 valid=True,
                             )
@@ -491,7 +479,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                                 source_pubkey=i * 2,
                                 target_pubkey=i * 2 + 1,
                                 fee=Spec.get_fee(0),
-                                gas_limit=1_000_000,
                                 valid=True,
                             )
                             for i in range(
