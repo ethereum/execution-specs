@@ -94,12 +94,12 @@ class MessageCallOutput:
     """
 
     gas_left: Uint
-    state_gas_left: Uint
     refund_counter: U256
     logs: Tuple[Log, ...]
     accounts_to_delete: Set[Address]
     error: Optional[EthereumException]
     return_data: Bytes
+    state_gas_left: Uint
     regular_gas_used: Uint
     state_gas_used: int
     state_refund: Uint
@@ -131,12 +131,12 @@ def process_message_call(message: Message) -> MessageCallOutput:
         if is_collision:
             return MessageCallOutput(
                 gas_left=Uint(0),
-                state_gas_left=message.state_gas_reservoir,
                 refund_counter=U256(0),
                 logs=tuple(),
                 accounts_to_delete=set(),
                 error=AddressCollision(),
                 return_data=Bytes(b""),
+                state_gas_left=message.state_gas_reservoir,
                 regular_gas_used=message.gas,
                 state_gas_used=0,
                 state_refund=Uint(0),
@@ -174,12 +174,12 @@ def process_message_call(message: Message) -> MessageCallOutput:
 
     return MessageCallOutput(
         gas_left=evm.gas_left,
-        state_gas_left=evm.state_gas_left,
         refund_counter=refund_counter,
         logs=logs,
         accounts_to_delete=accounts_to_delete,
         error=evm.error,
         return_data=evm.output,
+        state_gas_left=evm.state_gas_left,
         regular_gas_used=evm.regular_gas_used,
         state_gas_used=evm.state_gas_used,
         state_refund=state_refund,
