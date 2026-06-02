@@ -10,7 +10,7 @@ from execution_testing.test_types.chain_config_types import (
     ChainConfigDefaults,
 )
 
-from ...shared.helpers import get_rpc_endpoint
+from ...shared.helpers import get_rpc_endpoint, is_help_or_collectonly_mode
 from .chain_builder_eth_rpc import ChainBuilderEthRPC, TestingRPC
 
 
@@ -94,6 +94,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 def pytest_configure(config: pytest.Config) -> None:
     """Check if a chain ID configuration is provided."""
+    if is_help_or_collectonly_mode(config):
+        return
+
     # Verify chain ID config is consistent with the remote RPC endpoint
     rpc_endpoint = get_rpc_endpoint(config)
     if rpc_endpoint is None:

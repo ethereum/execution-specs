@@ -18,52 +18,14 @@ from typing import Dict, List, Optional, Set, Tuple, TypeAlias
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.frozen import slotted_freezable
-from ethereum_types.numeric import U32, U64, U256, Uint, ulen
+from ethereum_types.numeric import U64, U256, Uint, ulen
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.state import EMPTY_CODE_HASH, Account, Address, PreState
 
 from .exceptions import BlockAccessListGasLimitExceededError
+from .fork_types import BlockAccessIndex
 from .state_tracker import BlockState, TransactionState, get_code
-
-# TODO: Either remove or generalize these type aliases (#2260).
-
-StorageKey: TypeAlias = U256
-"""
-Slot within an [`Account`](ref:ethereum.state.Account)'s storage.
-"""
-
-StorageValue: TypeAlias = U256
-"""
-Value associated with a [`StorageKey`] within an [`Account`]'s storage.
-
-[`StorageKey`]: ref:ethereum.forks.amsterdam.block_access_lists.StorageKey
-[`Account`]: ref:ethereum.state.Account
-"""
-
-CodeData: TypeAlias = Bytes
-"""
-Bytecode associated with an [`Account`](ref:ethereum.state.Account).
-"""
-
-BlockAccessIndex: TypeAlias = U32
-"""
-Position within the set of all changes in a [`Block`].
-
-[`Block`]: ref:ethereum.forks.amsterdam.blocks.Block
-"""
-
-Balance: TypeAlias = U256
-"""
-Balance associated with an [`Account`], in wei.
-
-[`Account`]: ref:ethereum.state.Account
-"""
-
-Nonce: TypeAlias = U64
-"""
-Nonce associated with an [`Account`](ref:ethereum.state.Account).
-"""
 
 
 @slotted_freezable
@@ -84,7 +46,7 @@ class StorageChange:
     [`Block`]: ref:ethereum.forks.amsterdam.blocks.Block
     """
 
-    new_value: StorageValue
+    new_value: U256
     """
     Value of an [`Account`]'s storage slot after this change has been applied.
 
@@ -110,7 +72,7 @@ class BalanceChange:
     [`Block`]: ref:ethereum.forks.amsterdam.blocks.Block
     """
 
-    post_balance: Balance
+    post_balance: U256
     """
     Balance of an [`Account`] after this change has been applied.
 
@@ -136,7 +98,7 @@ class NonceChange:
     [`Block`]: ref:ethereum.forks.amsterdam.blocks.Block
     """
 
-    new_nonce: Nonce
+    new_nonce: U64
     """
     Nonce of an [`Account`] after this change has been applied.
 
@@ -162,7 +124,7 @@ class CodeChange:
     [`Block`]: ref:ethereum.forks.amsterdam.blocks.Block
     """
 
-    new_code: CodeData
+    new_code: Bytes
     """
     Code of an [`Account`] after this change has been applied.
 
@@ -181,7 +143,7 @@ class SlotChanges:
     [`Account`]: ref:ethereum.state.Account
     """  # noqa: E501
 
-    slot: StorageKey
+    slot: U256
     """
     Location within an [`Account`]'s storage that has been modified.
 
@@ -215,7 +177,7 @@ class AccountChanges:
     [`Account`]: ref:ethereum.state.Account
     """
 
-    storage_reads: Tuple[StorageKey, ...]
+    storage_reads: Tuple[U256, ...]
     """
     Storage slots of the associated [`Account`] that have been read but not
     changed.

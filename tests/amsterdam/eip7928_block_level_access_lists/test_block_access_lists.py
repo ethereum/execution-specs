@@ -31,6 +31,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
     TransactionException,
+    Withdrawal,
     add_kzg_version,
     compute_create_address,
 )
@@ -2445,44 +2446,50 @@ def test_bal_create_transaction_empty_code(
     )
 
 
-def test_bal_cross_tx_storage_revert_to_zero(
+@pytest.mark.parametrize(
+    "tx2_value",
+    [
+        pytest.param(0x0, id="tx2_reverts_to_zero"),
+        pytest.param(0xABCD, id="tx2_rewrites_same_value"),
+    ],
+)
+def test_bal_cross_tx_storage_write(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    tx2_value: int,
     fork: Fork,
 ) -> None:
     """
-    Ensure BAL captures storage changes when tx1 writes a non-zero value
-    and tx2 reverts it back to zero. This is a regression test for the
-    blobhash scenario where slot changes were being incorrectly filtered
-    as net-zero across transaction boundaries.
+    Tx1's storage_change must be preserved regardless of tx2's write.
 
-    Tx1: slot 0 = 0x0 -> 0xABCD (change at block_access_index=1)
-    Tx2: slot 0 = 0xABCD -> 0x0 (change MUST be at block_access_index=2)
+    Regression for the blobhash scenario where back-to-pre writes were
+    filtered as net-zero across tx boundaries. The same-value case
+    additionally exercises the uniqueness rule: a slot in storage_changes
+    MUST NOT also appear in storage_reads.
     """
     alice = pre.fund_eoa()
+    tx1_value = 0xABCD
 
-    # Contract that writes to slot 0 based on calldata
     contract = pre.deploy_contract(code=Op.SSTORE(0, Op.CALLDATALOAD(0)))
 
     # Size each tx_gas_limit precisely against its SSTORE transition
     # under EIP-8037's 2D gas model (regular + state).
     intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
-    tx1_data = Hash(0xABCD)
-    tx2_data = Hash(0x0)
+    tx1_data = Hash(tx1_value)
+    tx2_data = Hash(tx2_value)
     tx1_code = Op.SSTORE.with_metadata(
         key_warm=False,
         original_value=0,
         current_value=0,
-        new_value=0xABCD,
+        new_value=tx1_value,
     )(0, Op.CALLDATALOAD(0))
     tx2_code = Op.SSTORE.with_metadata(
         key_warm=False,
-        original_value=0xABCD,
-        current_value=0xABCD,
-        new_value=0x0,
+        original_value=tx1_value,
+        current_value=tx1_value,
+        new_value=tx2_value,
     )(0, Op.CALLDATALOAD(0))
 
-    # Tx1: Write slot 0 = 0xABCD
     tx1 = Transaction(
         sender=alice,
         to=contract,
@@ -2492,7 +2499,6 @@ def test_bal_cross_tx_storage_revert_to_zero(
         ),
     )
 
-    # Tx2: Write slot 0 = 0x0 (revert to zero)
     tx2 = Transaction(
         sender=alice,
         to=contract,
@@ -2501,6 +2507,14 @@ def test_bal_cross_tx_storage_revert_to_zero(
             intrinsic_calc(calldata=tx2_data) + tx2_code.gas_cost(fork)
         ),
     )
+
+    slot_changes = [
+        BalStorageChange(block_access_index=1, post_value=tx1_value),
+    ]
+    if tx2_value != tx1_value:
+        slot_changes.append(
+            BalStorageChange(block_access_index=2, post_value=tx2_value)
+        )
 
     account_expectations = {
         alice: BalAccountExpectation(
@@ -2511,18 +2525,9 @@ def test_bal_cross_tx_storage_revert_to_zero(
         ),
         contract: BalAccountExpectation(
             storage_changes=[
-                BalStorageSlot(
-                    slot=0,
-                    slot_changes=[
-                        BalStorageChange(
-                            block_access_index=1, post_value=0xABCD
-                        ),
-                        # CRITICAL: tx2's write to 0x0 MUST appear
-                        # even though it returns slot to original value
-                        BalStorageChange(block_access_index=2, post_value=0x0),
-                    ],
-                ),
+                BalStorageSlot(slot=0, slot_changes=slot_changes),
             ],
+            storage_reads=[],
         ),
     }
 
@@ -2538,7 +2543,7 @@ def test_bal_cross_tx_storage_revert_to_zero(
         ],
         post={
             alice: Account(nonce=2),
-            contract: Account(storage={0: 0x0}),
+            contract: Account(storage={0: tx2_value}),
         },
     )
 
@@ -3691,13 +3696,22 @@ def test_bal_lexicographic_address_ordering(
 @EIPChecklist.BlockLevelConstraint.Test.Boundary.Exact()
 @EIPChecklist.BlockLevelConstraint.Test.Boundary.Over()
 @pytest.mark.parametrize(
+    "with_cl_withdrawal",
+    [
+        pytest.param(False, id="no_cl_withdrawal"),
+        pytest.param(True, id="with_cl_withdrawal"),
+    ],
+)
+@pytest.mark.parametrize(
+    "with_tx",
+    [pytest.param(False, id="no_tx"), pytest.param(True, id="with_tx")],
+)
+@pytest.mark.parametrize(
     "boundary_offset",
     [
         pytest.param(0, id="at_boundary"),
         pytest.param(
-            -1,
-            marks=pytest.mark.exception_test,
-            id="below_boundary",
+            -1, marks=pytest.mark.exception_test, id="below_boundary"
         ),
     ],
 )
@@ -3706,28 +3720,94 @@ def test_bal_gas_limit_boundary(
     pre: Alloc,
     fork: Fork,
     boundary_offset: int,
+    with_tx: bool,
+    with_cl_withdrawal: bool,
 ) -> None:
     """
-    Test the BAL max items gas limit boundary for an empty block.
+    BAL max-items cap (``bal_items <= block_gas_limit //
+    BLOCK_ACCESS_LIST_ITEM``) must be enforced on the **final** BAL —
+    including pre-tx system work (beacon root, history), user txs, and
+    post-tx system work (CL withdrawals, queue processing).
 
-    The consensus rule requires
-    ``bal_items <= block_gas_limit // BLOCK_ACCESS_LIST_ITEM``.
-    The boundary gas limit is derived from the fork's system-contract
-    BAL footprint.  At the boundary the check passes; one below it fails.
+    Orthogonal axes:
+    - `with_tx`: alice → bob transfer adds 3 items (alice + bob +
+      coinbase warmed via EIP-3651).
+    - `with_cl_withdrawal`: EIP-4895 withdrawal to a recipient adds 1
+      item, processed between txs and the rest of the post-tx system
+      work. Together they catch clients that validate the cap before
+      `process_withdrawals` runs.
     """
-    # EIP-7928
-    # bal_items <= block_gas_limit // ITEM_COST
-    min_gas_limit = (
-        fork.empty_block_bal_item_count()
-        * fork.gas_costs().BLOCK_ACCESS_LIST_ITEM
-    )
-    gas_limit = min_gas_limit + boundary_offset
+    # Match framework's DEFAULT_BASE_FEE so gas_price == base_fee
+    # cancels the priority fee (no coinbase balance_change to absorb
+    # into the expected counts).
+    base_fee_per_gas = 7
 
+    extra_items = 0
+    txs: list = []
+    withdrawals: list = []
+    expected_accounts: dict = {}
+    post: dict = {}
+
+    if with_tx:
+        alice = pre.fund_eoa()
+        bob = pre.fund_eoa(amount=0)
+        # alice (sender) + bob (recipient) + coinbase (EIP-3651 warm).
+        extra_items += 3
+        txs.append(
+            Transaction(
+                sender=alice,
+                to=bob,
+                value=1,
+                gas_limit=21_000,
+                gas_price=base_fee_per_gas,
+            )
+        )
+        expected_accounts[alice] = BalAccountExpectation(
+            nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
+        )
+        expected_accounts[bob] = BalAccountExpectation(
+            balance_changes=[
+                BalBalanceChange(block_access_index=1, post_balance=1)
+            ],
+        )
+        post[bob] = Account(balance=1)
+
+    if with_cl_withdrawal:
+        charlie = pre.fund_eoa(amount=0)
+        withdrawal_amount_wei = 10**9  # 1 gwei
+        # CL withdrawal recipient adds 1 item; processed at
+        # block_access_index = len(txs) + 1 (post-tx).
+        extra_items += 1
+        withdrawals.append(
+            Withdrawal(index=0, validator_index=0, address=charlie, amount=1)
+        )
+        expected_accounts[charlie] = BalAccountExpectation(
+            balance_changes=[
+                BalBalanceChange(
+                    block_access_index=len(txs) + 1,
+                    post_balance=withdrawal_amount_wei,
+                )
+            ],
+        )
+        post[charlie] = Account(balance=withdrawal_amount_wei)
+
+    total_items = fork.empty_block_bal_item_count() + extra_items
+    gas_limit = (
+        total_items * fork.gas_costs().BLOCK_ACCESS_LIST_ITEM + boundary_offset
+    )
+
+    at_boundary = boundary_offset == 0
     block = Block(
-        txs=[],
+        txs=txs,
+        withdrawals=withdrawals,
         exception=(
-            BlockException.BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED
-            if boundary_offset < 0
+            None
+            if at_boundary
+            else BlockException.BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED
+        ),
+        expected_block_access_list=(
+            BlockAccessListExpectation(account_expectations=expected_accounts)
+            if at_boundary and expected_accounts
             else None
         ),
     )
@@ -3735,8 +3815,10 @@ def test_bal_gas_limit_boundary(
     blockchain_test(
         pre=pre,
         blocks=[block],
-        post={},
-        genesis_environment=Environment(gas_limit=gas_limit),
+        post=post if at_boundary else {},
+        genesis_environment=Environment(
+            base_fee_per_gas=base_fee_per_gas, gas_limit=gas_limit
+        ),
     )
 
 

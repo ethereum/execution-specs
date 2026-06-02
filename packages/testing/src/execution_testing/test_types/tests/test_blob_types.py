@@ -93,13 +93,7 @@ def test_blob_creation_and_writing_and_reading(
     b = Blob.from_fork(fork=fork, seed=seed, timestamp=timestamp)
     b.write_to_file()
 
-    # read from file
-    #       determine what filename would be
-    cell_proof_amount = str(fork.get_blob_constant("AMOUNT_CELL_PROOFS"))
-    file_name = (
-        "blob_" + str(seed) + "_cell_proofs_" + cell_proof_amount + ".json"
-    )
-    #       read
+    file_name = Blob.get_filename(fork, seed)
     restored = Blob.from_file(file_name)
 
     # ensure file you read equals file you wrote

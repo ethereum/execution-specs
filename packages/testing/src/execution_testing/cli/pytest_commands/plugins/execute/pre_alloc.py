@@ -36,6 +36,7 @@ from execution_testing.test_types import (
     EOA,
     AuthorizationTuple,
     ChainConfig,
+    TestPhase,
     Transaction,
     TransactionTestMetadata,
     compute_deterministic_create2_address,
@@ -157,7 +158,6 @@ def execute_required_contracts(
         logger.info(
             "Checking if deterministic factory contract is already deployed"
         )
-        tx_index = 0
         if (
             check_deterministic_factory_deployment(
                 eth_rpc=eth_rpc, fork=session_fork
@@ -165,11 +165,10 @@ def execute_required_contracts(
             is None
         ):
             try:
-                tx_index = deploy_deterministic_factory_contract(
+                deploy_deterministic_factory_contract(
                     eth_rpc=eth_rpc,
                     seed_key=session_worker_key,
                     gas_price=sender_funding_transactions_gas_price,
-                    tx_index=tx_index,
                 )
             except Exception as e:
                 raise RuntimeError(
@@ -341,6 +340,11 @@ class Alloc(SharedAlloc):
         pending_tx = PendingTransaction(
             **kwargs,
         )
+        # Pending txs are setup by definition; override Transaction's
+        # test_phase default (sourced from TestPhaseManager) so a
+        # ``pre.fund_eoa`` call inside ``TestPhaseManager.execution()``
+        # doesn't bleed an EXECUTION phase onto a setup tx.
+        pending_tx.test_phase = TestPhase.SETUP
         pending_tx.metadata = TransactionTestMetadata(
             test_id=self._node_id,
             phase="setup",
@@ -993,6 +997,23 @@ class Alloc(SharedAlloc):
         for response in responses:
             logger.debug(f"Transaction response: {response.model_dump_json()}")
         return responses
+
+    def pending_transactions(self) -> List[Transaction]:
+        """
+        Return the queued setup transactions, signed; clears the queue.
+
+        Used by fill-stateful to materialise ``pre.fund_eoa`` /
+        ``pre.deploy_contract`` calls into a synthetic setup block.
+        Unset ``value`` is coerced to ``0`` (live-send path would default
+        it before broadcast).
+        """
+        txs: List[Transaction] = []
+        for tx in self._pending_txs:
+            if tx.value is None:
+                tx.value = HexNumber(0)
+            txs.append(tx.with_signature_and_sender())
+        self._pending_txs.clear()
+        return txs
 
 
 @pytest.fixture(scope="function")

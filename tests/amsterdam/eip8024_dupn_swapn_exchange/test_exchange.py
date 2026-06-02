@@ -10,13 +10,14 @@ from execution_testing import (
     Account,
     Alloc,
     Bytecode,
+    EIPChecklist,
     Fork,
     Op,
     StateTestFiller,
     Transaction,
 )
 
-from .spec import decode_pair, ref_spec_8024
+from .spec import Spec, decode_pair, ref_spec_8024
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8024.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8024.version
@@ -249,6 +250,57 @@ def test_exchange_stack_underflow(
 
     # Transaction should fail, contract storage unchanged
     post = {contract_address: Account(storage={})}
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.Opcode.Test.GasUsage.Normal()
+@EIPChecklist.Opcode.Test.GasUsage.OutOfGasExecution()
+@EIPChecklist.Opcode.Test.GasUsage.ExtraGas()
+@pytest.mark.parametrize("gas_cost_delta", [-2, -1, 0, 1, 2])
+def test_exchange_gas_cost_boundary(
+    gas_cost_delta: int,
+    pre: Alloc,
+    fork: Fork,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test EXCHANGE at the gas cost boundary.
+
+    EXCHANGE is invoked in a callee that receives exactly its execution
+    cost plus `gas_cost_delta`. The caller records the CALL result: a
+    negative delta starves EXCHANGE of its base gas (3) and the sub-call
+    runs out of gas (result 0); a zero or positive delta succeeds
+    (result 1).
+    """
+    # EXCHANGE with decoded (n, m) swaps position (n+1) with position
+    # (m+1); since n < m it needs m + 1 items on the stack. Use the
+    # smallest valid pair.
+    n = Spec.EXCHANGE_MIN_N  # 1
+    m = n + 1
+
+    code = Bytecode()
+    for i in range(m + 1):
+        code += Op.PUSH1(i)
+    code += Op.EXCHANGE[n, m]
+
+    contract_address = pre.deploy_contract(code=code)
+
+    call_code = Op.SSTORE(
+        0,
+        Op.CALL(
+            gas=code.gas_cost(fork) + gas_cost_delta,
+            address=contract_address,
+        ),
+    )
+    call_address = pre.deploy_contract(
+        code=call_code,
+        storage={0: 0xDEADBEEF},
+    )
+
+    tx = Transaction(to=call_address, sender=pre.fund_eoa(), gas_limit=200_000)
+
+    post = {call_address: Account(storage={0: 0 if gas_cost_delta < 0 else 1})}
 
     state_test(pre=pre, post=post, tx=tx)
 

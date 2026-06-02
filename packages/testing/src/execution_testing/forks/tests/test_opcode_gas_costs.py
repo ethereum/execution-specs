@@ -63,7 +63,7 @@ from ..helpers import Fork
             Osaka,
             Op.SHA3(data_size=64, new_memory_size=96),
             Osaka.gas_costs().OPCODE_KECCAK256_BASE
-            + Osaka.gas_costs().OPCODE_KECCACK256_PER_WORD * 2
+            + Osaka.gas_costs().OPCODE_KECCAK256_PER_WORD * 2
             + Osaka.memory_expansion_gas_calculator()(new_bytes=96),
             id="sha3_with_data_and_memory",
         ),
@@ -279,7 +279,7 @@ from ..helpers import Fork
             Op.CREATE2(init_code_size=64, new_memory_size=64),
             Osaka.gas_costs().OPCODE_CREATE_BASE
             + Osaka.gas_costs().CODE_INIT_PER_WORD * 2
-            + Osaka.gas_costs().OPCODE_KECCACK256_PER_WORD * 2
+            + Osaka.gas_costs().OPCODE_KECCAK256_PER_WORD * 2
             + Osaka.memory_expansion_gas_calculator()(new_bytes=64),
             id="create2_with_initcode_and_hash",
         ),

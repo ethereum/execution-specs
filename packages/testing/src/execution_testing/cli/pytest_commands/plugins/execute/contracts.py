@@ -1,6 +1,9 @@
 """Methods to deploy required contracts for execute command."""
 
+from typing import List, Tuple
+
 from execution_testing.base_types import Address
+from execution_testing.client_clis.cli_types import EnginePayloadMetadata
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.logging import get_logger
 from execution_testing.rpc import EthRPC
@@ -11,6 +14,8 @@ from execution_testing.test_types import (
     Transaction,
     TransactionTestMetadata,
 )
+
+from .rpc.chain_builder_eth_rpc import ChainBuilderEthRPC
 
 logger = get_logger(__name__)
 
@@ -34,14 +39,40 @@ def check_deterministic_factory_deployment(
     return None
 
 
+def _send_tx_capturing(
+    eth_rpc: EthRPC,
+    tx: Transaction,
+) -> EnginePayloadMetadata | None:
+    """
+    Send a single tx, returning the built engine payload metadata when
+    routed through ``testing_buildBlockV1`` (fill-stateful path) or
+    ``None`` for the mempool path (execute).
+    """
+    if (
+        isinstance(eth_rpc, ChainBuilderEthRPC)
+        and eth_rpc.testing_rpc is not None
+    ):
+        return eth_rpc.build_block_with_transactions([tx])
+    eth_rpc.send_wait_transactions([tx])
+    return None
+
+
 def deploy_deterministic_factory_contract(
     *,
     eth_rpc: EthRPC,
     seed_key: EOA,
     gas_price: int,
     tx_index: int = 0,
-) -> int:
-    """Deploy the deterministic deployment contract."""
+) -> Tuple[int, List[EnginePayloadMetadata]]:
+    """
+    Deploy the deterministic deployment contract.
+
+    Returns ``(next_tx_index, captured_payloads)``; the captured list is
+    only populated on the fill-stateful path (``ChainBuilderEthRPC`` with
+    ``testing_rpc``) so callers can write payloads into
+    ``pre_run/<start_block_hash>.json``.
+    """
+    captured: List[EnginePayloadMetadata] = []
     deploy_tx_gas_price = 0x174876E800
     deploy_tx_gas_limit = 0x0186A0
     deploy_tx = Transaction(
@@ -90,7 +121,9 @@ def deploy_deterministic_factory_contract(
             tx_index=tx_index,
         )
         tx_index += 1
-        eth_rpc.send_wait_transactions([fund_tx])
+        fund_payload = _send_tx_capturing(eth_rpc, fund_tx)
+        if fund_payload is not None:
+            captured.append(fund_payload)
         logger.info(f"Funding transaction mined: {fund_tx.hash}")
 
     # Add deployment transaction.
@@ -103,7 +136,9 @@ def deploy_deterministic_factory_contract(
         tx_index=tx_index,
     )
     tx_index += 1
-    eth_rpc.send_wait_transactions([deploy_tx])
+    deploy_payload = _send_tx_capturing(eth_rpc, deploy_tx)
+    if deploy_payload is not None:
+        captured.append(deploy_payload)
     logger.info(f"Deployment transaction mined: {deploy_tx.hash}")
     deployment_contract_code = eth_rpc.get_code(DETERMINISTIC_FACTORY_ADDRESS)
     logger.info(f"Deployment contract code: {deployment_contract_code}")
@@ -111,4 +146,4 @@ def deploy_deterministic_factory_contract(
         f"Deployment contract code is not the expected code: "
         f"{deployment_contract_code} != {DETERMINISTIC_FACTORY_BYTECODE}"
     )
-    return tx_index
+    return tx_index, captured

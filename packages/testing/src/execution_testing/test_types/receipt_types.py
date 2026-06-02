@@ -43,12 +43,18 @@ class TransactionReceipt(CamelModel):
     @model_validator(mode="before")
     @classmethod
     def strip_extra_fields(cls, data: Any) -> Any:
-        """Strip extra fields from t8n tool output not part of model."""
+        """Strip extra fields from t8n tool / RPC output not part of model."""
         if isinstance(data, dict):
             data = dict(data)
             # geth (1.16+) returns extra fields in receipts
             data.pop("type", None)
             data.pop("blockNumber", None)
+            # Fields eth_getTransactionReceipt returns that the fixture
+            # schema does not model. Fill-stateful fetches receipts live,
+            # so we tolerate these even though the t8n path never emits
+            # them.
+            data.pop("from", None)
+            data.pop("to", None)
             root = data.get("root")
             root_is_empty = root in (None, "", "0x", b"", bytearray())
             if not root_is_empty:

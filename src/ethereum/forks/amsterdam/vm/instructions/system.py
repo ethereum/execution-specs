@@ -244,7 +244,7 @@ def create2(evm: Evm) -> None:
     charge_gas(
         evm,
         GasCosts.REGULAR_GAS_CREATE
-        + GasCosts.OPCODE_KECCACK256_PER_WORD * call_data_words
+        + GasCosts.OPCODE_KECCAK256_PER_WORD * call_data_words
         + extend_memory.cost
         + init_code_gas,
     )

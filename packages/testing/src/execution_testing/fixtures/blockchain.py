@@ -10,6 +10,7 @@ from typing import (
     List,
     Literal,
     Self,
+    Sequence,
     Set,
     Tuple,
     Type,
@@ -58,6 +59,7 @@ from execution_testing.test_types import (
     Environment,
     Removable,
     Requests,
+    TestPhase,
     Transaction,
     Withdrawal,
 )
@@ -524,6 +526,17 @@ class FixtureEngineNewPayload(CamelModel):
         ]
         | None
     ) = None
+    phase: TestPhase | None = Field(
+        None,
+        description=(
+            "Test phase the payload belongs to (setup / execution / "
+            "cleanup). Set at fill time from the transactions' "
+            "TestPhaseManager context; consumers use it to partition "
+            "payloads (e.g. BlockchainEngineStatefulFixture "
+            "setupEngineNewPayloads vs engineNewPayloads) without "
+            "re-inferring from tx metadata."
+        ),
+    )
 
     def valid(self) -> bool:
         """Return whether the payload is valid."""
@@ -548,6 +561,38 @@ class FixtureEngineNewPayload(CamelModel):
             withdrawals=execution_payload.withdrawals,
             parent_beacon_block_root=parent_beacon_block_root,
         )
+
+    @staticmethod
+    def derive_phase(transactions: Sequence[Any]) -> TestPhase | None:
+        """
+        Derive block phase from transactions.
+
+        Reads ``test_phase`` (set by ``TestPhaseManager`` context managers at
+        construction time), falling back to ``metadata.phase`` (set explicitly
+        by pre_alloc helpers). A block with any ``SETUP`` transaction is
+        considered part of setup; otherwise the single shared phase is used,
+        or ``None`` if the block has no phase-tagged transactions.
+        """
+        if not transactions:
+            return None
+
+        phases: set[TestPhase] = set()
+        for tx in transactions:
+            phase = getattr(tx, "test_phase", None)
+            if phase is None:
+                meta = getattr(tx, "metadata", None)
+                if meta is not None:
+                    phase = getattr(meta, "phase", None)
+            if phase is not None:
+                phases.add(phase)
+
+        if not phases:
+            return None
+        if len(phases) == 1:
+            return next(iter(phases))
+        if TestPhase.SETUP in phases:
+            return TestPhase.SETUP
+        return None
 
     @classmethod
     def from_fixture_header(
@@ -623,6 +668,8 @@ class FixtureEngineNewPayload(CamelModel):
             EngineNewPayloadParameters,
             tuple(params),
         )
+        # Auto-derive phase from transactions if the caller did not pass one.
+        kwargs.setdefault("phase", cls.derive_phase(transactions))
         new_payload = cls(
             params=payload_params,
             new_payload_version=new_payload_version,
@@ -863,7 +910,7 @@ class BlockchainEngineXFixture(BlockchainEngineFixtureCommon):
         "Tests that generate a Blockchain Test Engine X fixture."
     )
     format_phases: ClassVar[Set[FixtureFillingPhase]] = {
-        FixtureFillingPhase.FILL,
+        FixtureFillingPhase.FILL_AFTER_PRE_ALLOC_GENERATION,
         FixtureFillingPhase.PRE_ALLOC_GENERATION,
     }
     transition_tool_cache_key: ClassVar[str] = ""
@@ -901,16 +948,61 @@ class BlockchainEngineStatefulFixture(BlockchainEngineFixtureCommon):
         "snapshot-based stateful Engine API testing."
     )
     format_phases: ClassVar[Set[FixtureFillingPhase]] = {
-        FixtureFillingPhase.FILL,
-        FixtureFillingPhase.PRE_ALLOC_GENERATION,
+        FixtureFillingPhase.FILL_STATEFUL,
     }
 
     snapshot_block_number: HexNumber
     snapshot_block_hash: Hash
+    start_block_number: HexNumber
+    start_block_hash: Hash
 
     setup_payloads: List[FixtureEngineNewPayload] = Field(
-        ..., alias="setupEngineNewPayloads"
+        default_factory=list,
+        alias="setupEngineNewPayloads",
+        description=(
+            "Per-test setup-phase payloads applied on top of "
+            "``start_block_hash`` before the test's execution payloads."
+        ),
     )
+    payloads: List[FixtureEngineNewPayload] = Field(
+        ..., alias="engineNewPayloads"
+    )
+    benchmark_gas_used: HexNumber | None = Field(
+        None,
+        alias="benchmarkGasUsed",
+        description=(
+            "Total gas consumed by the execution payloads when this fixture "
+            "was filled, as reported by the live client. Populated for "
+            "``BENCHMARKING`` operation mode; ``None`` otherwise. Lets "
+            "consumers compare expected vs. observed gas without replay."
+        ),
+    )
+
+
+class StatefulPreRunFixture(CamelModel):
+    """
+    Pre-run payloads for stateful benchmark fixtures.
+
+    Contains session-scoped blocks (e.g. deterministic factory deploy,
+    seed funding via CL withdrawal) that must be replayed once before
+    any per-test fixtures land.
+
+    This is a deliberately smaller sibling of
+    :class:`BlockchainEngineStatefulFixture` — they share the snapshot/
+    start anchor fields and the ``engineNewPayloads`` payload list, but
+    pre-run carries no per-test fields (``last_block_hash``, ``config``,
+    ``setupEngineNewPayloads``) because there is no test execution
+    attached to it. Consumers (benchmarkoor) route by directory:
+    ``pre_run/*.json`` parse as ``StatefulPreRunFixture`` and apply
+    once per session; ``for_<fork>_at_<gas>/.../*.json`` parse as
+    ``BlockchainEngineStatefulFixture`` and apply per test.
+    """
+
+    network: str
+    snapshot_block_number: HexNumber
+    snapshot_block_hash: Hash
+    start_block_number: HexNumber | None = None
+    start_block_hash: Hash | None = None
     payloads: List[FixtureEngineNewPayload] = Field(
         ..., alias="engineNewPayloads"
     )
