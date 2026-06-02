@@ -119,17 +119,6 @@ def test_burn_log_at_fork_transition(
             beneficiary: Account(balance=contract_balance * 3),
         }
 
-    # `fork` is a TransitionFork here; resolve to the post-transition
-    # fork (where the larger NEW_ACCOUNT applies) so the gas budget
-    # covers the same-tx CREATE+SELFDESTRUCT on the post-transition
-    # block. The pre-transition block has plenty of headroom.
-    pre_transition_timestamp = 14_999
-    transition_timestamp = 15_000
-    post_transition_timestamp = 15_001
-    post_fork = fork.fork_at(timestamp=post_transition_timestamp)
-    gas_limit = 200_000
-    if post_fork.is_eip_enabled(8037):
-        gas_limit += post_fork.gas_costs().NEW_ACCOUNT
     blocks = [
         Block(
             timestamp=ts,
@@ -137,18 +126,11 @@ def test_burn_log_at_fork_transition(
                 Transaction(
                     to=targets[i],
                     sender=sender,
-                    gas_limit=gas_limit,
                     expected_receipt=TransactionReceipt(logs=expected_logs[i]),
                 )
             ],
         )
-        for i, ts in enumerate(
-            [
-                pre_transition_timestamp,
-                transition_timestamp,
-                post_transition_timestamp,
-            ]
-        )
+        for i, ts in enumerate([14_999, 15_000, 15_001])
     ]
 
     blockchain_test(pre=pre, blocks=blocks, post=post)
@@ -175,7 +157,6 @@ def test_transfer_log_fork_transition(
                     to=recipient,
                     sender=sender,
                     value=100,
-                    gas_limit=21_000,
                     expected_receipt=TransactionReceipt(logs=[]),
                 )
             ],
@@ -187,7 +168,6 @@ def test_transfer_log_fork_transition(
                     to=recipient,
                     sender=sender,
                     value=100,
-                    gas_limit=21_000,
                     expected_receipt=TransactionReceipt(
                         logs=[transfer_log(sender, recipient, 100)]
                     ),
@@ -201,7 +181,6 @@ def test_transfer_log_fork_transition(
                     to=recipient,
                     sender=sender,
                     value=100,
-                    gas_limit=21_000,
                     expected_receipt=TransactionReceipt(
                         logs=[transfer_log(sender, recipient, 100)]
                     ),
