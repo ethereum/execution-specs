@@ -388,8 +388,8 @@ def call(evm: Evm) -> None:
         value,
         gas,
         Uint(evm.gas_left),
-        extend_memory.cost,
-        access_gas_cost + create_gas_cost + transfer_gas_cost,
+        memory_cost=extend_memory.cost,
+        extra_gas=access_gas_cost + create_gas_cost + transfer_gas_cost,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
     if evm.message.is_static and value != U256(0):
