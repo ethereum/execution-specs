@@ -648,13 +648,6 @@ def test_tx_gas_limit_cap_access_list_with_diff_addr(
     ],
 )
 @pytest.mark.valid_from("Osaka")
-# TODO[EIP-8037]: cap math here uses the combined intrinsic (regular + state)
-# vs. tx_gas_limit_cap, but Amsterdam only caps max(intrinsic.regular,
-# calldata_floor). Auth state-gas no longer counts toward the cap, so
-# auth_list_length comes out wrong and the GAS_LIMIT_EXCEEDS_MAXIMUM cases
-# stop tripping. Needs a fork-aware rewrite that splits intrinsic.regular
-# from intrinsic.state.
-@pytest.mark.valid_before("EIP8037")
 def test_tx_gas_limit_cap_authorized_tx(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -678,14 +671,21 @@ def test_tx_gas_limit_cap_authorized_tx(
             for i in range(auth_count)
         ]
 
-    def intrinsic_cost_for_auth_list_length(auth_count: int) -> int:
-        return intrinsic_cost(
+    def capped_intrinsic_cost(auth_count: int) -> int:
+        """Return the intrinsic gas that counts toward the cap."""
+        cost = intrinsic_cost(
             access_list=make_access_list(auth_count),
             authorization_list_or_count=auth_count,
         )
+        if fork.is_eip_enabled(8037):
+            # EIP-8037 caps only the regular dimension, not state gas.
+            cost -= fork.transaction_intrinsic_state_gas(
+                authorization_count=auth_count
+            )
+        return cost
 
     auth_list_length = max_count_with_intrinsic_cost_at_most(
-        intrinsic_cost_for_auth_list_length, tx_gas_limit_cap
+        capped_intrinsic_cost, tx_gas_limit_cap
     ) + int(exceed_tx_gas_limit)
 
     # EIP-7702 authorization transaction cost:
@@ -715,13 +715,14 @@ def test_tx_gas_limit_cap_authorized_tx(
     correct_intrinsic_cost = intrinsic_cost(
         access_list=access_list, authorization_list_or_count=auth_list_length
     )
+    correct_capped_cost = capped_intrinsic_cost(auth_list_length)
     if exceed_tx_gas_limit:
-        assert correct_intrinsic_cost > tx_gas_limit_cap, (
-            "Correct intrinsic cost should exceed the tx gas limit cap"
+        assert correct_capped_cost > tx_gas_limit_cap, (
+            "Correct capped intrinsic cost should exceed the tx gas limit cap"
         )
     else:
-        assert correct_intrinsic_cost <= tx_gas_limit_cap, (
-            "Correct intrinsic cost should be less than or "
+        assert correct_capped_cost <= tx_gas_limit_cap, (
+            "Correct capped intrinsic cost should be less than or "
             "equal to the tx gas limit cap"
         )
 
@@ -737,7 +738,12 @@ def test_tx_gas_limit_cap_authorized_tx(
         sender=pre.fund_eoa(),
         access_list=access_list,
         authorization_list=auth_tuples,
-        error=TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM
+        # EIP-8037 reports a cap overflow as INTRINSIC_GAS_TOO_LOW.
+        error=(
+            TransactionException.INTRINSIC_GAS_TOO_LOW
+            if fork.is_eip_enabled(8037)
+            else TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM
+        )
         if correct_intrinsic_cost_in_transaction_gas_limit
         and exceed_tx_gas_limit
         else TransactionException.INTRINSIC_GAS_TOO_LOW
@@ -745,7 +751,13 @@ def test_tx_gas_limit_cap_authorized_tx(
         else None,
     )
 
+    env = Environment()
+    if fork.is_eip_enabled(8037):
+        # Size the block so it fits the state reservoir.
+        env = Environment(gas_limit=correct_intrinsic_cost)
+
     state_test(
+        env=env,
         pre=pre,
         post={},
         tx=tx,
