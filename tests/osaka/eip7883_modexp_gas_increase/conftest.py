@@ -51,7 +51,6 @@ def call_contract_post_storage() -> Storage:
 @pytest.fixture
 def total_tx_gas_needed(
     fork: Fork,
-    modexp_expected: bytes,
     modexp_input: ModExpInput,
     precompile_gas: int,
 ) -> int:
@@ -60,8 +59,8 @@ def total_tx_gas_needed(
         fork.transaction_intrinsic_cost_calculator()
     )
     memory_expansion_gas_calculator = fork.memory_expansion_gas_calculator()
-    gas_costs = fork.gas_costs()
-    sstore_gas = gas_costs.STORAGE_SET * (len(modexp_expected) // 32)
+    sstore_gas = Op.SSTORE(key_warm=False).gas_cost(fork) * 4
+    precompile_gas_with_margin = precompile_gas * 64 // 63
     extra_gas = 100_000
     if fork.is_eip_enabled(8037):
         extra_gas = 500_000
@@ -70,7 +69,7 @@ def total_tx_gas_needed(
         extra_gas
         + intrinsic_gas_cost_calculator(calldata=bytes(modexp_input))
         + memory_expansion_gas_calculator(new_bytes=len(bytes(modexp_input)))
-        + precompile_gas
+        + precompile_gas_with_margin
         + sstore_gas
     )
 
