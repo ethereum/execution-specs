@@ -3,10 +3,8 @@ Test_revert_in_create_in_init_paris.
 
 Ported from:
 state_tests/stRevertTest/RevertInCreateInInit_ParisFiller.json
-@manually-enhanced: Do not overwrite. tx `gas_limit` bumped on Amsterdam
-to cover EIP-8037 NEW_ACCOUNT state-gas spill in nested CREATE;
-pre-EIP-8037 unchanged.
 
+@manually-enhanced: Do not overwrite. Explicit gas values removed.
 """
 
 import pytest
@@ -19,7 +17,6 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -34,14 +31,8 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_revert_in_create_in_init_paris(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """Test_revert_in_create_in_init_paris."""
-    # EIP-8037 NEW_ACCOUNT state-gas spill OoGs the nested CREATE.
-    tx_gas_limit = 200000
-    if fork.is_eip_enabled(8037):
-        tx_gas_limit = 1_000_000
-
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     addr = Address(0x4757608F18B70777AE788DD4056EEED52F7AA68F)
     sender = EOA(
@@ -75,7 +66,6 @@ def test_revert_in_create_in_init_paris(
         + Op.MSTORE(offset=0x0, value=0x112233)
         + Op.REVERT(offset=0x0, size=0x20)
         + Op.STOP,
-        gas_limit=tx_gas_limit,
     )
 
     post = {addr: Account(storage={0: 1}, balance=10)}

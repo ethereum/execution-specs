@@ -3,9 +3,8 @@ Puts the base 0, exponent 0 and modulus 0 into the MODEXP precompile,...
 
 Ported from:
 state_tests/stPreCompiledContracts2/modexp_0_0_0_25000Filler.json
-@manually-enhanced: Do not overwrite. tx_gas values bumped on
-Amsterdam to cover EIP-8037 state-gas spill; pre-EIP-8037 unchanged.
 
+@manually-enhanced: Do not overwrite. Explicit gas values removed.
 """
 
 import pytest
@@ -20,7 +19,6 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -64,7 +62,6 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_modexp_0_0_0_25000(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
     d: int,
     g: int,
     v: int,
@@ -216,7 +213,6 @@ def test_modexp_0_0_0_25000(
             pc=Op.PC,
             condition=Op.ISZERO(
                 Op.CALL(
-                    gas=0x5F5E0FF,
                     address=0x5,
                     value=0x0,
                     args_offset=0x160,
@@ -231,7 +227,6 @@ def test_modexp_0_0_0_25000(
         + Op.PUSH1[0x21]
         + Op.POP(
             Op.CALL(
-                gas=0x15,
                 address=0x4,
                 value=0x0,
                 args_offset=Op.DUP5,
@@ -270,18 +265,8 @@ def test_modexp_0_0_0_25000(
         + Hash(0x0)
         + Hash(0x0),
     ]
-    tx_gas = [47040, 90000, 110000, 200000]
-    if fork.is_eip_enabled(8037):
-        # EIP-8037 state-gas spill OoGs the SSTORE; bump to fit.
-        tx_gas = [200000, 200000, 200000, 200000]
 
-    tx = Transaction(
-        sender=sender,
-        to=contract_0,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
-        nonce=1,
-    )
+    tx = Transaction(sender=sender, to=contract_0, data=tx_data[d], nonce=1)
 
     post = {
         contract_1: Account(storage={}, code=b"", balance=1, nonce=0),
