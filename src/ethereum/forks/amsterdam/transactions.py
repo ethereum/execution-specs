@@ -657,9 +657,8 @@ def calculate_intrinsic_cost(tx: Transaction) -> IntrinsicGasCost:
             tx.authorizations
         )
         auth_state_gas = (
-            (StateGasCosts.NEW_ACCOUNT + StateGasCosts.AUTH_BASE)
-            * ulen(tx.authorizations)
-        )
+            StateGasCosts.NEW_ACCOUNT + StateGasCosts.AUTH_BASE
+        ) * ulen(tx.authorizations)
 
     # EIP-7976 floor tokens: all calldata bytes count uniformly.
     floor_tokens_in_calldata = ulen(tx.data) * GasCosts.TX_DATA_TOKEN_STANDARD
