@@ -89,7 +89,6 @@ def sstore(evm: Evm) -> None:
     )
     current_value = get_storage(tx_state, evm.message.current_target, key)
 
-    state_gas_storage_set = StateGasCosts.STORAGE_SET
     gas_cost = Uint(0)
     state_gas = Uint(0)
 
@@ -99,7 +98,7 @@ def sstore(evm: Evm) -> None:
 
     if original_value == current_value and current_value != new_value:
         if original_value == 0:
-            state_gas = state_gas_storage_set
+            state_gas = StateGasCosts.STORAGE_SET
         # charge regular cost for the operation, even when we
         # already charge state gas for state creation
         gas_cost += GasCosts.COLD_STORAGE_WRITE - GasCosts.COLD_STORAGE_ACCESS
@@ -120,7 +119,7 @@ def sstore(evm: Evm) -> None:
             # Storage slot being restored to its original value
             if original_value == 0:
                 # Slot set then cleared: refund the state gas charge.
-                credit_state_gas_refund(evm, state_gas_storage_set)
+                credit_state_gas_refund(evm, StateGasCosts.STORAGE_SET)
             evm.refund_counter += int(
                 GasCosts.COLD_STORAGE_WRITE
                 - GasCosts.COLD_STORAGE_ACCESS
