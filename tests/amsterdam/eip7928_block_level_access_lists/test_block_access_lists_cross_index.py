@@ -14,6 +14,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    BalAccountAbsentValues,
     BalAccountExpectation,
     BalBalanceChange,
     BalNonceChange,
@@ -273,18 +274,20 @@ def test_bal_intra_tx_round_trip_after_prior_tx_write(
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
-    A per-tx no-op SSTORE sequence is demoted to a read even when an
-    earlier tx in the same block already wrote to the slot.
+    Verify a per-tx no-op SSTORE round-trip is not recorded as a storage
+    change when an earlier tx in the same block wrote the slot.
 
-    Per EIP-7928 §Storage, "Implementations MUST check the
-    pre-transaction value to correctly distinguish between actual writes
-    and no-op writes." Pre-transaction is per-tx, not per-block, so a
-    prior tx's write to the slot does not change tx 2's classification.
+    Per EIP-7928 §Storage, a write is compared against "the storage value
+    as of immediately before the current `block_access_index` (i.e., the
+    cumulative state from all prior indices, falling back to the pre-block
+    state)", and "a no-op write MUST NOT remove `storage_changes` entries
+    from earlier indices for the same slot".
 
     Both txs call the same contract whose runtime SSTOREs 0xff then 0x42
-    to slot 1. Tx 1 changes slot 1 from 0 to 0x42 (real change). Tx 2
-    round-trips it 0x42 -> 0xff -> 0x42 (net-zero, per-tx no-op). Only
-    tx 1 must appear in `storage_changes`.
+    to slot 1. Tx 1 changes slot 1 from 0 to 0x42 (real change). Tx 1's
+    write becomes tx 2's baseline, so tx 2's 0x42 -> 0xff -> 0x42 nets to
+    a no-op and only tx 1 appears in `storage_changes` (with tx 1's entry
+    left intact).
     """
     # Runtime: write 0xff to slot 1, then write 0x42 to slot 1, STOP.
     # The two SSTOREs hit the journal at every call, but the net effect
@@ -315,6 +318,22 @@ def test_bal_intra_tx_round_trip_after_prior_tx_write(
                         ],
                     ),
                 ],
+                # `storage_changes` is only verified as a sub-sequence
+                # at fill time, so this additional check guards against a
+                # reference regression that emits tx 2's no-op as a
+                # spurious index-2 change.
+                absent_values=BalAccountAbsentValues(
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=1,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=2, post_value=0x42
+                                ),
+                            ],
+                        ),
+                    ],
+                ),
             ),
             sender_a: BalAccountExpectation(
                 nonce_changes=[
