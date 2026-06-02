@@ -854,7 +854,7 @@ def process_transaction(
         encode_transaction(tx),
     )
 
-    intrinsic_gas, calldata_floor_gas_cost = validate_transaction(tx)
+    intrinsic = validate_transaction(tx)
 
     (
         sender,
@@ -877,7 +877,7 @@ def process_transaction(
 
     effective_gas_fee = tx.gas * effective_gas_price
 
-    gas = tx.gas - intrinsic_gas
+    gas = tx.gas - intrinsic.regular
     increment_nonce(tx_state, sender)
 
     sender_balance_after_gas_fee = (
@@ -926,7 +926,7 @@ def process_transaction(
     # Transactions with less execution_gas_used than the floor pay at the
     # floor cost.
     tx_gas_used_after_refund = max(
-        tx_gas_used_after_refund, calldata_floor_gas_cost
+        tx_gas_used_after_refund, intrinsic.calldata_floor
     )
 
     tx_gas_left = tx.gas - tx_gas_used_after_refund
