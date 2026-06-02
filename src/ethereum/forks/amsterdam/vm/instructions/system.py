@@ -11,6 +11,8 @@ Introduction
 Implementations of the EVM system related instructions.
 """
 
+from dataclasses import dataclass
+
 from ethereum_types.bytes import Bytes, Bytes0
 from ethereum_types.numeric import U256, Uint
 
@@ -302,23 +304,29 @@ def return_(evm: Evm) -> None:
     pass
 
 
-def generic_call(
-    evm: Evm,
-    gas: Uint,
-    state_gas_reservoir: Uint,
-    value: U256,
-    caller: Address,
-    to: Address,
-    code_address: Address,
-    should_transfer_value: bool,
-    is_staticcall: bool,
-    memory_input_start_position: U256,
-    memory_input_size: U256,
-    memory_output_start_position: U256,
-    memory_output_size: U256,
-    code: Bytes,
-    disable_precompiles: bool,
-) -> None:
+@dataclass
+class GenericCallParams:
+    """
+    Parameters for the core logic of the `CALL*` family of opcodes.
+    """
+
+    gas: Uint
+    state_gas_reservoir: Uint
+    value: U256
+    caller: Address
+    to: Address
+    code_address: Address
+    should_transfer_value: bool
+    is_staticcall: bool
+    memory_input_start_position: U256
+    memory_input_size: U256
+    memory_output_start_position: U256
+    memory_output_size: U256
+    code: Bytes
+    disable_precompiles: bool
+
+
+def generic_call(evm: Evm, params: GenericCallParams) -> None:
     """
     Perform the core logic of the `CALL*` family of opcodes.
     """
@@ -327,33 +335,35 @@ def generic_call(
     evm.return_data = b""
 
     if evm.message.depth + Uint(1) > STACK_DEPTH_LIMIT:
-        evm.gas_left += gas
-        evm.state_gas_left += state_gas_reservoir
+        evm.gas_left += params.gas
+        evm.state_gas_left += params.state_gas_reservoir
         push(evm.stack, U256(0))
         return
 
     call_data = memory_read_bytes(
-        evm.memory, memory_input_start_position, memory_input_size
+        evm.memory,
+        params.memory_input_start_position,
+        params.memory_input_size,
     )
 
     child_message = Message(
         block_env=evm.message.block_env,
         tx_env=evm.message.tx_env,
-        caller=caller,
-        target=to,
-        gas=gas,
-        state_gas_reservoir=state_gas_reservoir,
-        value=value,
+        caller=params.caller,
+        target=params.to,
+        gas=params.gas,
+        state_gas_reservoir=params.state_gas_reservoir,
+        value=params.value,
         data=call_data,
-        code=code,
-        current_target=to,
+        code=params.code,
+        current_target=params.to,
         depth=evm.message.depth + Uint(1),
-        code_address=code_address,
-        should_transfer_value=should_transfer_value,
-        is_static=True if is_staticcall else evm.message.is_static,
+        code_address=params.code_address,
+        should_transfer_value=params.should_transfer_value,
+        is_static=(True if params.is_staticcall else evm.message.is_static),
         accessed_addresses=evm.accessed_addresses.copy(),
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
-        disable_precompiles=disable_precompiles,
+        disable_precompiles=params.disable_precompiles,
         parent_evm=evm,
     )
 
@@ -368,10 +378,12 @@ def generic_call(
         evm.return_data = child_evm.output
         push(evm.stack, CALL_SUCCESS)
 
-    actual_output_size = min(memory_output_size, U256(len(child_evm.output)))
+    actual_output_size = min(
+        params.memory_output_size, U256(len(child_evm.output))
+    )
     memory_write(
         evm.memory,
-        memory_output_start_position,
+        params.memory_output_start_position,
         child_evm.output[:actual_output_size],
     )
 
@@ -473,20 +485,22 @@ def call(evm: Evm) -> None:
     else:
         generic_call(
             evm,
-            message_call_gas.sub_call,
-            call_state_gas_reservoir,
-            value,
-            evm.message.current_target,
-            to,
-            code_address,
-            True,
-            False,
-            memory_input_start_position,
-            memory_input_size,
-            memory_output_start_position,
-            memory_output_size,
-            code,
-            is_delegated,
+            GenericCallParams(
+                gas=message_call_gas.sub_call,
+                state_gas_reservoir=call_state_gas_reservoir,
+                value=value,
+                caller=evm.message.current_target,
+                to=to,
+                code_address=code_address,
+                should_transfer_value=True,
+                is_staticcall=False,
+                memory_input_start_position=memory_input_start_position,
+                memory_input_size=memory_input_size,
+                memory_output_start_position=memory_output_start_position,
+                memory_output_size=memory_output_size,
+                code=code,
+                disable_precompiles=is_delegated,
+            ),
         )
 
     # PROGRAM COUNTER
@@ -586,20 +600,22 @@ def callcode(evm: Evm) -> None:
     else:
         generic_call(
             evm,
-            message_call_gas.sub_call,
-            call_state_gas_reservoir,
-            value,
-            evm.message.current_target,
-            to,
-            code_address,
-            True,
-            False,
-            memory_input_start_position,
-            memory_input_size,
-            memory_output_start_position,
-            memory_output_size,
-            code,
-            is_delegated,
+            GenericCallParams(
+                gas=message_call_gas.sub_call,
+                state_gas_reservoir=call_state_gas_reservoir,
+                value=value,
+                caller=evm.message.current_target,
+                to=to,
+                code_address=code_address,
+                should_transfer_value=True,
+                is_staticcall=False,
+                memory_input_start_position=memory_input_start_position,
+                memory_input_size=memory_input_size,
+                memory_output_start_position=memory_output_start_position,
+                memory_output_size=memory_output_size,
+                code=code,
+                disable_precompiles=is_delegated,
+            ),
         )
 
     # PROGRAM COUNTER
@@ -752,20 +768,22 @@ def delegatecall(evm: Evm) -> None:
 
     generic_call(
         evm,
-        message_call_gas.sub_call,
-        call_state_gas_reservoir,
-        evm.message.value,
-        evm.message.caller,
-        evm.message.current_target,
-        code_address,
-        False,
-        False,
-        memory_input_start_position,
-        memory_input_size,
-        memory_output_start_position,
-        memory_output_size,
-        code,
-        is_delegated,
+        GenericCallParams(
+            gas=message_call_gas.sub_call,
+            state_gas_reservoir=call_state_gas_reservoir,
+            value=evm.message.value,
+            caller=evm.message.caller,
+            to=evm.message.current_target,
+            code_address=code_address,
+            should_transfer_value=False,
+            is_staticcall=False,
+            memory_input_start_position=memory_input_start_position,
+            memory_input_size=memory_input_size,
+            memory_output_start_position=memory_output_start_position,
+            memory_output_size=memory_output_size,
+            code=code,
+            disable_precompiles=is_delegated,
+        ),
     )
 
     # PROGRAM COUNTER
@@ -849,20 +867,22 @@ def staticcall(evm: Evm) -> None:
 
     generic_call(
         evm,
-        message_call_gas.sub_call,
-        call_state_gas_reservoir,
-        U256(0),
-        evm.message.current_target,
-        to,
-        code_address,
-        True,
-        True,
-        memory_input_start_position,
-        memory_input_size,
-        memory_output_start_position,
-        memory_output_size,
-        code,
-        is_delegated,
+        GenericCallParams(
+            gas=message_call_gas.sub_call,
+            state_gas_reservoir=call_state_gas_reservoir,
+            value=U256(0),
+            caller=evm.message.current_target,
+            to=to,
+            code_address=code_address,
+            should_transfer_value=True,
+            is_staticcall=True,
+            memory_input_start_position=memory_input_start_position,
+            memory_input_size=memory_input_size,
+            memory_output_start_position=memory_output_start_position,
+            memory_output_size=memory_output_size,
+            code=code,
+            disable_precompiles=is_delegated,
+        ),
     )
 
     # PROGRAM COUNTER
