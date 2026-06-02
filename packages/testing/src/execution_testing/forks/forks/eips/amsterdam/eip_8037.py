@@ -446,7 +446,7 @@ class EIP8037(BaseFork):
         code_deposit_size = metadata["code_deposit_size"]
         if code_deposit_size > 0:
             code_words = (code_deposit_size + 31) // 32
-            hash_gas = gas_costs.OPCODE_KECCACK256_PER_WORD * code_words
+            hash_gas = gas_costs.OPCODE_KECCAK256_PER_WORD * code_words
             return hash_gas
         return 0
 
