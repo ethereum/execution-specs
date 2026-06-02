@@ -327,7 +327,10 @@ def test_multi_transaction_gas_accounting(
         blocks=[
             Block(
                 txs=txs,
-                exception=BlockException.GAS_USED_OVERFLOW
+                exception=[
+                    BlockException.GAS_USED_OVERFLOW,
+                    TransactionException.GAS_ALLOWANCE_EXCEEDED,
+                ]
                 if exceed_block_gas_limit
                 else None,
                 expected_gas_used=total_block_gas_used
