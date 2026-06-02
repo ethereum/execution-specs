@@ -55,7 +55,13 @@ from execution_testing import (
     call_return_code,
 )
 
-from .common import INF_POINT, Z_Y_VALID_ENDIANNESS, Z
+from .common import (
+    G1_GENERATOR,
+    INF_POINT,
+    NEG_G1_GENERATOR,
+    Z_Y_VALID_ENDIANNESS,
+    Z,
+)
 from .spec import Spec, ref_spec_4844
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_4844.git_path
@@ -405,6 +411,25 @@ def test_valid_inputs(
             INF_POINT,
             Spec.kzg_to_versioned_hash(INF_POINT, 0xFF),
             id="correct_proof_1_incorrect_versioned_hash_version_0xff",
+        ),
+        # Proof is the negation of G1_generator.
+        pytest.param(
+            0,
+            0,
+            G1_GENERATOR,
+            NEG_G1_GENERATOR,
+            None,
+            id="proof_neg_g1_generator",
+        ),
+        # P+P doubling in the final G1 add: verifier computes
+        # `C - [y]_1 = [-1]_1 + [-1]_1`, forcing the doubling path.
+        pytest.param(
+            0,
+            1,
+            NEG_G1_GENERATOR,
+            INF_POINT,
+            None,
+            id="g1_doubling_in_final_add",
         ),
     ],
 )
