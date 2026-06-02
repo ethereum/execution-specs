@@ -26,14 +26,14 @@ from . import Evm
 from .exceptions import OutOfGasError
 
 
+# These may be patched at runtime by a future gas repricing utility to
+# fast-iterate on state-byte costs.
 class StateGasCosts:
     """
     EIP-8037 state-gas constants.
 
     Kept separate from `GasCosts` because these carry a different unit:
     state-byte counts that convert into gas via `COST_PER_STATE_BYTE`.
-    Like `GasCosts`, these may be patched at runtime by a future gas
-    repricing utility to fast-iterate on state-byte costs.
     """
 
     COST_PER_STATE_BYTE: Final[Uint] = Uint(1530)
