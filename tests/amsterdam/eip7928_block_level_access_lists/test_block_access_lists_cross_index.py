@@ -268,6 +268,79 @@ def test_bal_noop_write_filtering(
     )
 
 
+def test_bal_intra_tx_round_trip_after_prior_tx_write(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    A per-tx no-op SSTORE sequence is demoted to a read even when an
+    earlier tx in the same block already wrote to the slot.
+
+    Per EIP-7928 §Storage, "Implementations MUST check the
+    pre-transaction value to correctly distinguish between actual writes
+    and no-op writes." Pre-transaction is per-tx, not per-block, so a
+    prior tx's write to the slot does not change tx 2's classification.
+
+    Both txs call the same contract whose runtime SSTOREs 0xff then 0x42
+    to slot 1. Tx 1 changes slot 1 from 0 to 0x42 (real change). Tx 2
+    round-trips it 0x42 -> 0xff -> 0x42 (net-zero, per-tx no-op). Only
+    tx 1 must appear in `storage_changes`.
+    """
+    # Runtime: write 0xff to slot 1, then write 0x42 to slot 1, STOP.
+    # The two SSTOREs hit the journal at every call, but the net effect
+    # on the slot is `pre_value -> 0x42` — a no-op when pre_value == 0x42.
+    contract_code = Bytecode(Op.SSTORE(1, 0xFF) + Op.SSTORE(1, 0x42) + Op.STOP)
+    contract = pre.deploy_contract(code=contract_code)
+
+    sender_a = pre.fund_eoa()
+    sender_b = pre.fund_eoa()
+
+    # Both txs go into the same block; tx 1 makes the real 0 -> 0x42
+    # change, tx 2 starts from 0x42 and ends at 0x42 (per-tx no-op).
+    tx_1 = Transaction(sender=sender_a, to=contract, gas_limit=200_000)
+    tx_2 = Transaction(sender=sender_b, to=contract, gas_limit=200_000)
+
+    expected_block_access_list = BlockAccessListExpectation(
+        account_expectations={
+            contract: BalAccountExpectation(
+                # Only tx 1's real change appears. Tx 2's same-value
+                # round-trip MUST be classified as a read for tx 2.
+                storage_changes=[
+                    BalStorageSlot(
+                        slot=1,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=1, post_value=0x42
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+            sender_a: BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1),
+                ],
+            ),
+            sender_b: BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(block_access_index=2, post_nonce=1),
+                ],
+            ),
+        }
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx_1, tx_2],
+                expected_block_access_list=expected_block_access_list,
+            ),
+        ],
+        post={contract: Account(storage={1: 0x42})},
+    )
+
+
 def test_bal_system_contract_noop_filtering(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
