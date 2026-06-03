@@ -228,42 +228,45 @@ def _compute_deploy_gas_limit(
     storage_slots: int = 0,
 ) -> Tuple[int, int]:
     """
-    Compute the gas_limit for a contract-deploy transaction, split
-    into the EIP-7825 cap-bound regular portion and the total
-    (regular + state) deploy gas.
-
-    Per EIP-8037, the per-tx 2^24 cap binds only the regular-gas
-    portion of intrinsic gas; state gas is drawn from the per-block
-    reservoir and may push tx.gas above the cap. We therefore return
-    both values: callers compare ``regular_gas`` against
-    ``transaction_gas_limit_cap()`` and use ``deploy_gas_limit`` as
-    the actual ``tx.gas`` field. Pre-Amsterdam, the state-gas helpers
-    return 0 and ``deploy_gas_limit == regular_gas``.
-
-    The regular portion is doubled as a safety buffer (gas estimation
-    is approximate); the state portion is exact and is not doubled.
+    Compute the deploy transaction gas limit, returning both the regular
+    gas portion bound by the EIP 7825 cap and the total regular plus
+    state gas used as the transaction gas field. Under EIP 8037 the cap
+    binds only the regular portion while state gas comes from the block
+    reservoir and may push the total above the cap, and before Amsterdam
+    the state gas is zero so the total equals the regular gas. The regular
+    portion is doubled as a safety buffer since gas estimation is
+    approximate while the state portion is exact.
     """
     gas_costs = fork.gas_costs()
     memory_expansion_gas_calculator = fork.memory_expansion_gas_calculator()
-    calldata_gas_calculator = fork.calldata_gas_calculator()
+    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
 
-    # Regular-gas portion (subject to EIP-7825 cap). On EIP-8037 forks
-    # `TX_CREATE` folds in the new-account state gas; back that out so
-    # we only count regular gas here.
-    regular_gas = gas_costs.TX_BASE + gas_costs.TX_CREATE
-    regular_gas -= fork.transaction_intrinsic_state_gas(contract_creation=True)
-    regular_gas += storage_slots * 22_600
+    sstore = Op.SSTORE(new_value=1)
+    sstore_state_gas = sstore.state_cost(fork)
+    sstore_regular_gas = sstore.gas_cost(fork) - sstore_state_gas
+
+    # Back out the state gas folded into TX_CREATE.
+    intrinsic_state_gas = fork.transaction_intrinsic_state_gas(
+        contract_creation=True
+    )
+    intrinsic_regular_gas = (
+        intrinsic_gas_calculator(calldata=initcode, contract_creation=True)
+        - intrinsic_state_gas
+    )
+
+    # Regular portion, bound by the gas cap.
+    regular_gas = intrinsic_regular_gas
     regular_gas += deploy_code_size * gas_costs.CODE_DEPOSIT_PER_BYTE
     regular_gas += memory_expansion_gas_calculator(
         new_bytes=len(bytes(initcode))
     )
-    regular_gas += calldata_gas_calculator(data=initcode)
-    regular_gas = regular_gas * 2
+    regular_gas += storage_slots * sstore_regular_gas
+    regular_gas *= 2
 
-    # State-gas portion (drawn from block reservoir, not capped).
-    state_gas = fork.transaction_intrinsic_state_gas(contract_creation=True)
+    # State portion, from the block reservoir.
+    state_gas = intrinsic_state_gas
     state_gas += fork.code_deposit_state_gas(code_size=deploy_code_size)
-    state_gas += storage_slots * Op.SSTORE(new_value=1).state_cost(fork)
+    state_gas += storage_slots * sstore_state_gas
 
     deploy_gas_limit = regular_gas + state_gas
     return regular_gas, deploy_gas_limit
