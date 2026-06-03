@@ -19,12 +19,10 @@ from execution_testing.vm import (
 from ....base_fork import BaseFork
 from ....gas_costs import GasCosts
 
-# EIP-8037 state byte sizes (mirrors EELS amsterdam/vm/gas.py).
 STATE_BYTES_PER_NEW_ACCOUNT = 120
 STATE_BYTES_PER_STORAGE_SET = 64
 STATE_BYTES_PER_AUTH_BASE = 23
 
-# EIP-8037 regular gas base costs.
 PER_AUTH_BASE_COST = 7_500
 REGULAR_GAS_CREATE = 9_000
 
@@ -69,17 +67,15 @@ class EIP8037(BaseFork):
     @classmethod
     def gas_costs(cls) -> GasCosts:
         """
-        Gas costs are updated for two-dimensional gas metering.
-        State gas is folded into totals.
+        Return gas costs updated for two-dimensional gas metering,
+        with state gas folded into the relevant totals.
         """
         cpsb = cls.cost_per_state_byte()
         parent = super(EIP8037, cls).gas_costs()
         new_acct = STATE_BYTES_PER_NEW_ACCOUNT * cpsb
         return replace(
             parent,
-            # EIP-7928: block access list item cost
             BLOCK_ACCESS_LIST_ITEM=2000,
-            # EIP-8037: state gas folded into totals
             STORAGE_SET=(
                 parent.COLD_STORAGE_WRITE
                 - parent.COLD_STORAGE_ACCESS
@@ -105,7 +101,6 @@ class EIP8037(BaseFork):
         opcode_state_calculator = cls.opcode_state_calculator()
 
         def fn(opcode: OpcodeBase) -> int:
-            # Get the gas cost or calculator
             if opcode not in opcode_gas_map:
                 raise ValueError(
                     f"No gas cost defined for opcode: {opcode._name_}"
@@ -113,13 +108,10 @@ class EIP8037(BaseFork):
             gas_cost_or_calculator = opcode_gas_map[opcode]
 
             if callable(gas_cost_or_calculator):
-                # If it's a callable, call it with the opcode
                 regular_gas = gas_cost_or_calculator(opcode)
             else:
-                # Otherwise it's a constant
                 regular_gas = gas_cost_or_calculator
 
-            # EIP-8037 adds the state gas on top of the regular gas cost.
             return regular_gas + opcode_state_calculator(opcode)
 
         return fn
@@ -139,9 +131,6 @@ class EIP8037(BaseFork):
             Opcodes.RETURN: lambda op: cls._calculate_return_state_gas(
                 op, gas_costs
             ),
-            # New-account state gas (NEW_ACCOUNT * CPSB) lives here so
-            # that `OPCODE_CREATE_BASE` stays regular-only and matches
-            # the spec EVM constant.
             Opcodes.CREATE: lambda op: cls._calculate_create_state_gas(
                 op, gas_costs
             ),
@@ -158,17 +147,13 @@ class EIP8037(BaseFork):
         opcode_state_map = cls.opcode_state_map()
 
         def fn(opcode: OpcodeBase) -> int:
-            # Get the cpsb multiplier or state gas calculator
             if opcode not in opcode_state_map:
-                # By default, an opcode does not incur in state gas cost.
                 return 0
             state_or_calculator = opcode_state_map[opcode]
 
-            # If it's a callable, call it with the opcode
             if callable(state_or_calculator):
                 return state_or_calculator(opcode)
 
-            # Otherwise it's a constant
             return state_or_calculator * cls.cost_per_state_byte()
 
         return fn
@@ -182,21 +167,16 @@ class EIP8037(BaseFork):
         opcode_state_refund_calculator = cls.opcode_state_refund_calculator()
 
         def fn(opcode: OpcodeBase) -> int:
-            # Get the gas refund or calculator
             state_refund = opcode_state_refund_calculator(opcode)
             if opcode not in opcode_refund_map:
-                # Most opcodes don't provide refunds
                 return state_refund
             refund_or_calculator = opcode_refund_map[opcode]
 
-            # If it's a callable, call it with the opcode
             if callable(refund_or_calculator):
                 regular_refund = refund_or_calculator(opcode)
             else:
-                # Otherwise it's a constant
                 regular_refund = refund_or_calculator
 
-            # EIP-8037 adds the state refund on top of the regular refund.
             return regular_refund + state_refund
 
         return fn
@@ -228,17 +208,13 @@ class EIP8037(BaseFork):
         opcode_state_refund_map = cls.opcode_state_refund_map()
 
         def fn(opcode: OpcodeBase) -> int:
-            # Get the cpsb multiplier or state gas calculator
             if opcode not in opcode_state_refund_map:
-                # By default, an opcode does not incur in state gas cost.
                 return 0
             state_refund_or_calculator = opcode_state_refund_map[opcode]
 
-            # If it's a callable, call it with the opcode
             if callable(state_refund_or_calculator):
                 return state_refund_or_calculator(opcode)
 
-            # Otherwise it's a constant
             return state_refund_or_calculator * cls.cost_per_state_byte()
 
         return fn
@@ -251,11 +227,10 @@ class EIP8037(BaseFork):
         authorization_count: int = 0,
     ) -> int:
         """
-        Return the intrinsic state gas for a transaction (EIP-8037).
-
-        State gas sources:
-        - Creation: STATE_BYTES_PER_NEW_ACCOUNT * cpsb
-        - Auth: (NEW_ACCOUNT + AUTH_BASE) * cpsb
+        Return the intrinsic state gas for a transaction. Creation
+        adds `STATE_BYTES_PER_NEW_ACCOUNT * cpsb`, and each
+        authorization adds
+        `(STATE_BYTES_PER_NEW_ACCOUNT + STATE_BYTES_PER_AUTH_BASE) * cpsb`.
         """
         cpsb = cls.cost_per_state_byte()
         state_gas = 0
@@ -273,13 +248,11 @@ class EIP8037(BaseFork):
         cls, opcode: OpcodeBase, gas_costs: GasCosts
     ) -> int:
         """
-        Calculate updated SSTORE gas cost.
-
-        For 0->nonzero: regular (UPDATE - COLD_SLOAD) + state
-        (STATE_BYTES_PER_STORAGE_SET * cpsb).
-        For nonzero->different nonzero: regular
-        (UPDATE - COLD_SLOAD).
-        Otherwise: WARM_SLOAD.
+        Calculate the regular SSTORE gas cost. The state portion is
+        returned separately by `_calculate_sstore_state_gas`. A cold
+        slot adds `COLD_STORAGE_ACCESS`, a write to an unchanged
+        original adds `COLD_STORAGE_WRITE` minus `COLD_STORAGE_ACCESS`,
+        and every other case adds `WARM_SLOAD`.
         """
         metadata = opcode.metadata
 
@@ -305,7 +278,9 @@ class EIP8037(BaseFork):
         cls, opcode: OpcodeBase, gas_costs: GasCosts
     ) -> int:
         """
-        Calculate updated SSTORE state gas cost.
+        Calculate the SSTORE state gas cost. Return
+        `STATE_BYTES_PER_STORAGE_SET * cpsb` when a slot is first set
+        from zero, otherwise return 0.
         """
         del gas_costs
         metadata = opcode.metadata
@@ -330,9 +305,8 @@ class EIP8037(BaseFork):
         cls, opcode: OpcodeBase, gas_costs: GasCosts
     ) -> int:
         """
-        Calculate updated SSTORE regular gas refund. The state-gas
-        portion is returned separately by
-        `_calculate_sstore_state_refund`.
+        Calculate the regular SSTORE gas refund. The state portion is
+        returned separately by `_calculate_sstore_state_refund`.
         """
         metadata = opcode.metadata
 
@@ -364,11 +338,10 @@ class EIP8037(BaseFork):
         cls, opcode: OpcodeBase, gas_costs: GasCosts
     ) -> int:
         """
-        Calculate SSTORE state gas refund.
-
-        Return the state-gas portion (`STATE_BYTES_PER_STORAGE_SET *
-        cpsb`) when a slot that was originally empty is restored back
-        to zero within the transaction; otherwise return 0.
+        Calculate the SSTORE state gas refund. Return
+        `STATE_BYTES_PER_STORAGE_SET * cpsb` when a slot that was
+        originally empty is restored back to zero within the
+        transaction, otherwise return 0.
         """
         del gas_costs
         metadata = opcode.metadata
@@ -390,12 +363,10 @@ class EIP8037(BaseFork):
         cls, opcode: OpcodeBase, gas_costs: GasCosts
     ) -> int:
         """
-        Calculate SELFDESTRUCT state gas refund.
-
-        Account creation: STATE_BYTES_PER_NEW_ACCOUNT * cost_per_state_byte
-        Created storage slots: STATE_BYTES_PER_STORAGE_SET *
-        cost_per_state_byte per non-zero slot
-        Code deposit: len(code) * cost_per_state_byte
+        Calculate the SELFDESTRUCT state gas refund. Refund
+        `STATE_BYTES_PER_NEW_ACCOUNT * cpsb` for the destroyed account,
+        `STATE_BYTES_PER_STORAGE_SET * cpsb` for each populated storage
+        slot, and `cpsb` per byte of deposited code.
         """
         del gas_costs
         metadata = opcode.metadata
@@ -424,11 +395,9 @@ class EIP8037(BaseFork):
         cls, opcode: OpcodeBase, gas_costs: GasCosts
     ) -> int:
         """
-        Calculate updated RETURN gas cost.
-
-        Replace G_CODE_DEPOSIT_BYTE with cpsb per byte for code
-        deposit, and add code hash gas (keccak256 of deployed
-        bytecode).
+        Calculate the regular RETURN gas cost: the code hash gas
+        (keccak256 of the deployed bytecode). The per byte code deposit
+        cost moves to state gas, returned by `_calculate_return_state_gas`.
         """
         metadata = opcode.metadata
         code_deposit_size = metadata["code_deposit_size"]
@@ -443,11 +412,10 @@ class EIP8037(BaseFork):
         cls, opcode: OpcodeBase, gas_costs: GasCosts
     ) -> int:
         """
-        Calculate RETURN state gas cost.
-
-        Return `cpsb` per deposited code byte (the state-gas portion
-        replacing G_CODE_DEPOSIT_BYTE). Code hash gas is accounted
-        for separately in `_calculate_return_gas`.
+        Calculate the RETURN state gas cost: `cpsb` per deposited code
+        byte, the state portion replacing the per byte code deposit
+        cost. The code hash gas is accounted for separately in
+        `_calculate_return_gas`.
         """
         del gas_costs
         metadata = opcode.metadata
@@ -461,11 +429,11 @@ class EIP8037(BaseFork):
         cls, opcode: OpcodeBase, gas_costs: GasCosts
     ) -> int:
         """
-        Calculate CREATE/CREATE2 state gas cost (`NEW_ACCOUNT * CPSB`).
-
-        Pre-EIP-8037 this was folded into `OPCODE_CREATE_BASE`; under
-        EIP-8037 it is exposed here so that `OPCODE_CREATE_BASE` stays
-        regular-only and matches the spec EVM constant.
+        Calculate the CREATE and CREATE2 state gas cost, which is
+        `NEW_ACCOUNT`. Before EIP-8037 this was folded into
+        `OPCODE_CREATE_BASE`. Under EIP-8037 it is exposed here so that
+        `OPCODE_CREATE_BASE` stays regular only and matches the spec
+        EVM constant.
         """
         del opcode
         return gas_costs.NEW_ACCOUNT

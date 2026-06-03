@@ -478,10 +478,9 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """
         Return a mapping of opcodes to their state gas costs.
 
-        Each entry is either:
-        - Constants (int): Multiplier of the cost_per_state_byte
-        - Callables: Functions that take the opcode instance with metadata and
-                     return the full state gas cost
+        An int value is a multiplier of `cost_per_state_byte`. A
+        callable takes the opcode instance with metadata and returns
+        the full state gas cost.
         """
         pass
 
@@ -493,10 +492,8 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """
         Return a mapping of opcodes to their gas refunds.
 
-        Each entry is either:
-        - Constants (int): Direct gas refund values
-        - Callables: Functions that take the opcode instance with metadata and
-                     return gas refund
+        An int value is a direct gas refund. A callable takes the
+        opcode instance with metadata and returns the gas refund.
         """
         pass
 
@@ -508,10 +505,9 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """
         Return a mapping of opcodes to their state refunds.
 
-        Each entry is either:
-        - Constants (int): Multiplier of the cost_per_state_byte
-        - Callables: Functions that take the opcode instance with metadata and
-                     return the state refund
+        An int value is a multiplier of `cost_per_state_byte`. A
+        callable takes the opcode instance with metadata and returns
+        the state refund.
         """
         pass
 
@@ -646,7 +642,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     @abstractmethod
     def cost_per_state_byte(cls) -> int:
         """
-        Calculate the state gas cost per byte based on `cls._env_gas_limit`.
+        Return the cost per state byte for this fork.
         """
         pass
 
@@ -866,18 +862,17 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         deploy_code_size: int = 0,
     ) -> int:
         """
-        Return how much an OoG-tuned regular-gas budget must lift on this
-        fork to preserve the same intermediate state.
+        Return the extra regular gas a budget needs on this fork to
+        stop at the same execution point.
 
-        EIP-8037 splits each fresh SSTORE-set, CREATE, and deployed code
-        byte into a regular portion plus a state-gas portion; when the
-        per-tx state-gas reservoir is empty, the state-gas portion spills
-        back into regular gas. For tests calibrated to OoG mid-execution
-        after N SSTOREs, M CREATEs, and a deploy of K bytes complete,
-        Amsterdam needs the original budget plus the cumulative spill to
-        land at the same point. Pre-EIP-8037 forks return 0 (state-gas
-        helpers are 0), so callers can apply this unconditionally without
-        a fork guard.
+        EIP-8037 splits each fresh SSTORE set, CREATE, and deployed
+        code byte into a regular portion and a state gas portion. When
+        the transaction state gas reservoir is empty, the state gas
+        portion spills back into regular gas. A test tuned to run out
+        of gas after a fixed number of SSTOREs, CREATEs, and deployed
+        bytes needs that cumulative state gas added to its budget to
+        land at the same point. Forks before EIP-8037 have no state gas
+        and return 0, so callers can apply this without a fork guard.
         """
         return (
             sstores_before_oog * Opcodes.SSTORE(new_value=1).state_cost(cls)
