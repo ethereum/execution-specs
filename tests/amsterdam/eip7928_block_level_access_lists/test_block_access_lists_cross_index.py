@@ -501,7 +501,7 @@ def test_bal_withdrawal_predeploy_balance_observed_cross_tx(
     tx_read_balance = Transaction(
         sender=sender_1,
         to=reader,
-        gas_limit=100_000,
+        gas_limit=200_000,
     )
 
     expected_block_access_list = BlockAccessListExpectation(
