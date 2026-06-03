@@ -11,13 +11,7 @@ tests:
 
 benchmark:
   evm-type: benchmark
-  fill-params: --fork=Osaka --generate-all-formats --gas-benchmark-values 1,5,10,30,60,100,150 ./tests/benchmark/compute --maxprocesses=30 --dist=worksteal
-  feature_only: true
-
-benchmark_fast:
-  evm-type: benchmark
-  fill-params: --fork=Osaka --generate-all-formats --gas-benchmark-values 100 ./tests/benchmark/compute
-  feature_only: true
+  fill-params: --fork=Amsterdam --generate-all-formats --gas-benchmark-values 1,10,30,60,100,150,200,300 ./tests/benchmark
 
 # Shared entry for all `<feat>-devnet` releases; matched by `-devnet` suffix.
 devnet:
