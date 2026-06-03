@@ -14,6 +14,15 @@ from .cli_types import (
 )
 from .client_backend import ClientBackend, ClientBackendExceptionMapper
 from .clis.besu import BesuFixtureConsumer, BesuTransitionTool
+
+# NOTE: erigon is imported before geth so it is registered (and thus probed)
+# first. Both expose an `evm` binary printing `evm version ...`; go-ethereum's
+# detection matches that banner unconditionally, so it would otherwise claim an
+# Erigon binary. ErigonEvm.detect_binary positively fingerprints Erigon (via
+# the `enginextest` subcommand) and declines anything else, so a go-ethereum
+# binary checked here falls through to GethEvm — the ordering only gives Erigon
+# first look, it does not by itself decide identity.
+from .clis.erigon import ErigonExceptionMapper, ErigonFixtureConsumer
 from .clis.ethereumjs import EthereumJSTransitionTool
 from .clis.evmone import (
     EvmOneBlockchainFixtureConsumer,
@@ -50,6 +59,8 @@ __all__ = (
     "CLINotFoundInPathError",
     "ClientBackend",
     "ClientBackendExceptionMapper",
+    "ErigonExceptionMapper",
+    "ErigonFixtureConsumer",
     "EthereumJSTransitionTool",
     "EvmoneExceptionMapper",
     "EvmOneTransitionTool",

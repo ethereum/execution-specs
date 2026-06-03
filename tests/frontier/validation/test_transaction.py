@@ -1,7 +1,14 @@
 """Test the transaction level validations applied from Frontier."""
 
 import pytest
-from execution_testing import Alloc, Transaction
+from execution_testing import (
+    Account,
+    Alloc,
+    Op,
+    StateTestFiller,
+    Storage,
+    Transaction,
+)
 from execution_testing.base_types.base_types import ZeroPaddedHexNumber
 from execution_testing.exceptions.exceptions import TransactionException
 from execution_testing.forks.base_fork import BaseFork
@@ -149,3 +156,44 @@ def test_sender_balance(
     )
 
     blockchain_test(pre=pre, post={}, blocks=[block], genesis_environment=env)
+
+
+@pytest.mark.valid_from("Frontier")
+@pytest.mark.state_test_only
+@pytest.mark.exception_test
+@pytest.mark.eels_base_coverage
+def test_sender_balance_insufficient_state_test(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    A legacy transaction from a sender that cannot afford `gas * gasPrice`
+    must be rejected, exercised through the state-test code path.
+    """
+    storage = Storage()
+    # If the transaction were (incorrectly) executed, this SSTORE would land a
+    # non-default value in slot 0, diverging the post-state root from the
+    # rejected (pre == post) outcome.
+    contract = pre.deploy_contract(
+        code=Op.SSTORE(storage.store_next(0, "must_stay_unset"), 0x1)
+        + Op.STOP,
+    )
+    # Zero balance, unable to cover any gas cost.
+    sender = pre.fund_eoa(amount=0)
+
+    tx = Transaction(
+        sender=sender,
+        to=contract,
+        gas_limit=100_000,
+        gas_price=10,
+        protected=False,  # legacy tx
+        error=TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
+    )
+
+    state_test(
+        env=Environment(),
+        pre=pre,
+        # Transaction rejected: contract storage stays empty.
+        post={contract: Account(storage=storage)},
+        tx=tx,
+    )
