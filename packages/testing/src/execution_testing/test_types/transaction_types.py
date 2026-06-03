@@ -571,10 +571,6 @@ class Transaction(
                 # Signer remains `None` in this case
                 pass
 
-    def with_gas_limit(self, gas_limit: int) -> Self:
-        """Return a new copy of the transaction with a defined gas limit."""
-        return self.model_copy(update={"gas_limit": HexNumber(gas_limit)})
-
     def with_signature_and_sender(
         self, *, keep_secret_key: bool = False
     ) -> Self:
@@ -844,6 +840,11 @@ class Transaction(
                 if "max_fee_per_blob_gas" not in self.model_fields_set:
                     self.max_fee_per_blob_gas = HexNumber(max_fee_per_blob_gas)
 
+    def set_gas_limit(self, gas_limit: int) -> None:
+        """Set the transaction gas limit if unset."""
+        if "gas_limit" not in self.model_fields_set:
+            self.gas_limit = HexNumber(gas_limit)
+
     def signer_minimum_balance(self, *, fork: Fork) -> int:
         """Return minimum balance of the signer."""
         gas_price = self.gas_price or self.max_fee_per_gas
@@ -1038,6 +1039,10 @@ class NetworkWrappedTransaction(CamelModel, RLPSerializable):
             max_priority_fee_per_gas=max_priority_fee_per_gas,
             max_fee_per_blob_gas=max_fee_per_blob_gas,
         )
+
+    def set_gas_limit(self, gas_limit: int) -> None:
+        """Set the transaction gas limit if unset."""
+        self.tx.set_gas_limit(gas_limit)
 
     def signer_minimum_balance(self, *, fork: Fork) -> int:
         """Return minimum balance of the signer."""

@@ -803,6 +803,34 @@ class BlockchainTest(BaseTest):
             ).with_rlp(txs=[]),
         )
 
+    @staticmethod
+    def calculate_max_transaction_gas_limit(
+        txs: List[Transaction], env: Environment, fork: Fork
+    ) -> int:
+        """
+        Calculate the maximum gas limit that can be set in a transaction
+        given a list of transactions with and without gas-limits set
+        and a maximum available environment gas.
+        """
+        available_gas = int(env.gas_limit)
+        unset_gas_limit_tx_count = 0
+        for tx in txs:
+            if tx.gas_limit is None:
+                unset_gas_limit_tx_count += 1
+            else:
+                available_gas -= int(tx.gas_limit)
+
+        if unset_gas_limit_tx_count == 0 or available_gas <= 0:
+            return 0
+
+        max_gas_limit = available_gas // unset_gas_limit_tx_count
+        tx_gas_limit_cap = fork.transaction_gas_limit_cap()
+        if fork.is_eip_enabled(8037):
+            tx_gas_limit_cap = None
+        if tx_gas_limit_cap:
+            max_gas_limit = min(max_gas_limit, tx_gas_limit_cap)
+        return max_gas_limit
+
     def generate_block_data(
         self,
         t8n: FillerBackend,
@@ -825,27 +853,16 @@ class BlockchainTest(BaseTest):
         env = env.set_fork_requirements(fork)
         txs = block.txs[:]
         if any(tx.gas_limit is None for tx in block.txs):
-            available_gas = env.gas_limit
-            tx_unset_gas_limit_count = 0
-            for tx in block.txs:
-                if tx.gas_limit is None:
-                    tx_unset_gas_limit_count += 1
-                else:
-                    available_gas -= tx.gas_limit
-            if available_gas <= 0:
+            max_gas_limit = self.calculate_max_transaction_gas_limit(
+                txs, env, fork
+            )
+            if max_gas_limit == 0:
                 raise Exception(
                     "test correctness: unable to automatically calculate gas "
                     "limit for transactions (No remaining gas)."
                 )
-            max_gas_limit = available_gas // tx_unset_gas_limit_count
-            tx_gas_limit_cap = fork.transaction_gas_limit_cap()
-            if fork.is_eip_enabled(8037):
-                tx_gas_limit_cap = None
-            if tx_gas_limit_cap:
-                max_gas_limit = min(max_gas_limit, tx_gas_limit_cap)
-            for i in range(len(txs)):
-                if txs[i].gas_limit is None:
-                    txs[i] = txs[i].with_gas_limit(max_gas_limit)
+            for tx in txs:
+                tx.set_gas_limit(max_gas_limit)
         txs = [tx.with_signature_and_sender() for tx in txs]
 
         if failing_tx_count := len([tx for tx in txs if tx.error]) > 0:
