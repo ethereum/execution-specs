@@ -692,10 +692,11 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     def transaction_intrinsic_state_gas(
         cls,
         *,
-        contract_creation: bool = False,  # noqa: ARG003
-        authorization_count: int = 0,  # noqa: ARG003
+        contract_creation: bool = False,
+        authorization_count: int = 0,
     ) -> int:
         """Return intrinsic state gas (zero pre-Amsterdam)."""
+        del contract_creation, authorization_count
         return 0
 
     @classmethod
@@ -862,17 +863,10 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         deploy_code_size: int = 0,
     ) -> int:
         """
-        Return the extra regular gas a budget needs on this fork to
-        stop at the same execution point.
-
-        EIP-8037 splits each fresh SSTORE set, CREATE, and deployed
-        code byte into a regular portion and a state gas portion. When
-        the transaction state gas reservoir is empty, the state gas
-        portion spills back into regular gas. A test tuned to run out
-        of gas after a fixed number of SSTOREs, CREATEs, and deployed
-        bytes needs that cumulative state gas added to its budget to
-        land at the same point. Forks before EIP-8037 have no state gas
-        and return 0, so callers can apply this without a fork guard.
+        Return the extra regular gas an out of gas budget needs to
+        stop at the same point on this fork: the state gas EIP-8037
+        spills into regular gas for the given SSTOREs, CREATEs, and
+        deployed bytes. Zero before EIP-8037, so no fork guard needed.
         """
         return (
             sstores_before_oog * Opcodes.SSTORE(new_value=1).state_cost(cls)
