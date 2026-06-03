@@ -1515,8 +1515,6 @@ def test_bal_staticcall_no_delegation_and_oog_before_target_access(
 
     When target_is_warm=True, we use EIP-2930 tx access list to warm the
     target. Access list warming does NOT add to BAL - only EVM access does.
-
-    Memory expansion is parametrized independently for args and ret per #1910.
     """
     alice = pre.fund_eoa()
 
@@ -2562,6 +2560,7 @@ def test_bal_create_contract_init_revert(
 def test_bal_call_revert_insufficient_funds(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    fork: Fork,
     call_opcode: Op,
     delegated: bool,
     target_is_warm: bool,
@@ -2573,12 +2572,10 @@ def test_bal_call_revert_insufficient_funds(
 
     Caller (balance=100): SLOAD(0x01) → call_opcode(target, value=1000)
     → SSTORE(0x02, result). The call fails because 1000 > 100. The
-    failure happens after delegation resolution. However, the delegation
-    target's account has not been read yet.
-    So when the target is a 7702-delegated EOA, the target itself appears in
-    the BAL since it is already read. The delegation target however,
-    does not appear in the BAL, since it does not need to be read
-    for verifying sufficient balance.
+    failure happens after delegation resolution. Under EIP-8037 the
+    call family reads the delegation target's code before the balance
+    check fails, so both the target and the delegation target appear in
+    the BAL. Pre-8037 forks defer that read, so only the target appears.
 
     Access-list warming does NOT add to BAL on its own — only EVM
     access does — so the BAL is identical across warm/cold variants.
@@ -2647,12 +2644,20 @@ def test_bal_call_revert_insufficient_funds(
         # Target accessed before balance check fails.
         target: BalAccountExpectation.empty(),
     }
+
     if delegated:
         assert delegation_target is not None
-        # Delegation target must NOT appear in the BAL — get_account
-        # for code_address only runs inside generic_call, which is
-        # never invoked when the balance check fails.
-        account_expectations[delegation_target] = None
+        # Under EIP-8037 the call family reads the delegation target's
+        # code before the balance check fails, so it appears in the
+        # BAL. Pre-8037 forks defer that read and it stays out.
+        # TODO: drop this fork split once #2473 (defer get_code into
+        # generic_call) is consolidated into amsterdam.
+        if fork.is_eip_enabled(8037):
+            account_expectations[delegation_target] = (
+                BalAccountExpectation.empty()
+            )
+        else:
+            account_expectations[delegation_target] = None
 
     block = Block(
         txs=[tx],
@@ -2711,6 +2716,7 @@ def test_bal_create_selfdestruct_to_self_with_call(
     # (regular base + state gas, CPSB-agnostic).
     oracle_call_gas = 100_000 + Op.SSTORE(new_value=1).state_cost(fork)
     initcode_runtime = (
+        # CALL(gas, Oracle, value=0, ...)
         Op.CALL(oracle_call_gas, oracle, 0, 0, 0, 0, 0)
         + Op.POP
         # Write to own storage slot 0x01

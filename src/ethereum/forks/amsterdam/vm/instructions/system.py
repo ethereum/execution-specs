@@ -316,6 +316,7 @@ def generic_call(
     memory_input_size: U256,
     memory_output_start_position: U256,
     memory_output_size: U256,
+    code: Bytes,
     disable_precompiles: bool,
 ) -> None:
     """
@@ -330,10 +331,6 @@ def generic_call(
         evm.state_gas_left += state_gas_reservoir
         push(evm.stack, U256(0))
         return
-
-    tx_state = evm.message.tx_env.state
-    code_hash = get_account(tx_state, code_address).code_hash
-    code = get_code(tx_state, code_hash)
 
     call_data = memory_read_bytes(
         evm.memory, memory_input_start_position, memory_input_size
@@ -443,6 +440,9 @@ def call(evm: Evm) -> None:
         if code_address not in evm.accessed_addresses:
             evm.accessed_addresses.add(code_address)
 
+    code_hash = get_account(tx_state, code_address).code_hash
+    code = get_code(tx_state, code_hash)
+
     charge_gas(evm, extra_gas + extend_memory.cost)
     if value != 0 and not is_account_alive(tx_state, to):
         charge_state_gas(evm, StateGasCosts.NEW_ACCOUNT)
@@ -485,6 +485,7 @@ def call(evm: Evm) -> None:
             memory_input_size,
             memory_output_start_position,
             memory_output_size,
+            code,
             is_delegated,
         )
 
@@ -555,6 +556,9 @@ def callcode(evm: Evm) -> None:
         if code_address not in evm.accessed_addresses:
             evm.accessed_addresses.add(code_address)
 
+    code_hash = get_account(tx_state, code_address).code_hash
+    code = get_code(tx_state, code_hash)
+
     message_call_gas = calculate_message_call_gas(
         value,
         gas,
@@ -594,6 +598,7 @@ def callcode(evm: Evm) -> None:
             memory_input_size,
             memory_output_start_position,
             memory_output_size,
+            code,
             is_delegated,
         )
 
@@ -724,6 +729,10 @@ def delegatecall(evm: Evm) -> None:
         if code_address not in evm.accessed_addresses:
             evm.accessed_addresses.add(code_address)
 
+    tx_state = evm.message.tx_env.state
+    code_hash = get_account(tx_state, code_address).code_hash
+    code = get_code(tx_state, code_hash)
+
     message_call_gas = calculate_message_call_gas(
         U256(0),
         gas,
@@ -755,6 +764,7 @@ def delegatecall(evm: Evm) -> None:
         memory_input_size,
         memory_output_start_position,
         memory_output_size,
+        code,
         is_delegated,
     )
 
@@ -816,6 +826,10 @@ def staticcall(evm: Evm) -> None:
         if code_address not in evm.accessed_addresses:
             evm.accessed_addresses.add(code_address)
 
+    tx_state = evm.message.tx_env.state
+    code_hash = get_account(tx_state, code_address).code_hash
+    code = get_code(tx_state, code_hash)
+
     message_call_gas = calculate_message_call_gas(
         U256(0),
         gas,
@@ -847,6 +861,7 @@ def staticcall(evm: Evm) -> None:
         memory_input_size,
         memory_output_start_position,
         memory_output_size,
+        code,
         is_delegated,
     )
 
