@@ -71,7 +71,6 @@ class TestPartialFixtureFiles:
         """Output for a single fixture must match json.dumps(..., indent=4)."""
         collector = FixtureCollector(
             output_dir=output_dir,
-            fill_static_tests=False,
             single_fixture_per_file=False,
             filler_path=filler_path,
             generate_index=False,
@@ -101,7 +100,6 @@ class TestPartialFixtureFiles:
         """
         collector = FixtureCollector(
             output_dir=output_dir,
-            fill_static_tests=False,
             single_fixture_per_file=False,
             filler_path=filler_path,
             generate_index=False,
@@ -136,7 +134,6 @@ class TestPartialFixtureFiles:
         """
         collector1 = FixtureCollector(
             output_dir=output_dir,
-            fill_static_tests=False,
             single_fixture_per_file=False,
             filler_path=filler_path,
             generate_index=False,
@@ -154,7 +151,6 @@ class TestPartialFixtureFiles:
         # Worker B writes fixtures 3-5 (separate partial file)
         collector2 = FixtureCollector(
             output_dir=output_dir,
-            fill_static_tests=False,
             single_fixture_per_file=False,
             filler_path=filler_path,
             generate_index=False,
@@ -189,7 +185,6 @@ class TestPartialFixtureFiles:
         """The written file must be parseable as valid JSON."""
         collector = FixtureCollector(
             output_dir=output_dir,
-            fill_static_tests=False,
             single_fixture_per_file=False,
             filler_path=filler_path,
             generate_index=False,
@@ -214,7 +209,6 @@ class TestPartialFixtureFiles:
         """Fixture entries in the output file must be sorted by key."""
         collector = FixtureCollector(
             output_dir=output_dir,
-            fill_static_tests=False,
             single_fixture_per_file=False,
             filler_path=filler_path,
             generate_index=False,
@@ -241,7 +235,6 @@ class TestPartialFixtureFiles:
         """Partial JSONL files are deleted after merging."""
         collector = FixtureCollector(
             output_dir=output_dir,
-            fill_static_tests=False,
             single_fixture_per_file=False,
             filler_path=filler_path,
             generate_index=False,
@@ -289,7 +282,6 @@ class TestLegacyCompatibility:
         new_dir.mkdir()
         collector = FixtureCollector(
             output_dir=new_dir,
-            fill_static_tests=False,
             single_fixture_per_file=False,
             filler_path=filler_path,
             generate_index=False,
@@ -328,7 +320,6 @@ class TestLegacyCompatibility:
         new_dir.mkdir()
         collector = FixtureCollector(
             output_dir=new_dir,
-            fill_static_tests=False,
             single_fixture_per_file=False,
             filler_path=filler_path,
             generate_index=False,
@@ -372,7 +363,6 @@ class TestLegacyCompatibility:
         for worker_idx in range(3):
             collector = FixtureCollector(
                 output_dir=new_dir,
-                fill_static_tests=False,
                 single_fixture_per_file=False,
                 filler_path=filler_path,
                 generate_index=False,
@@ -422,7 +412,6 @@ class TestLegacyCompatibility:
         new_dir.mkdir()
         collector = FixtureCollector(
             output_dir=new_dir,
-            fill_static_tests=False,
             single_fixture_per_file=False,
             filler_path=filler_path,
             generate_index=False,

@@ -531,8 +531,5 @@ def pytest_collection_modifyitems(
                     )
                 )
 
-        if "yul" in item.fixturenames:  # type: ignore
-            item.add_marker(pytest.mark.yul_test)
-
     for i in reversed(items_for_removal):
         items.pop(i)

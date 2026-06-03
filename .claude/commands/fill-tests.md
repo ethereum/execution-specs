@@ -45,12 +45,6 @@ uv run fill --collect-only tests/                      # Dry run: list tests wit
 - These two modes are **mutually exclusive**
 - Use `--generate-pre-alloc-groups` for stateful benchmarks
 
-## Static Tests (Legacy)
-
-- `uv run fill --fill-static-tests tests/static/` — fills YAML/JSON fillers from `ethereum/tests`
-- Legacy only — do NOT add new static fillers. Use Python tests instead
-- Useful to check if spec changes broke how legacy tests fill
-
 ## Fixture Formats
 
 One test function auto-generates multiple formats: `StateFixture`, `BlockchainFixture`, `BlockchainEngineFixture`. Use `--generate-all-formats` for additional formats via 2-phase execution.

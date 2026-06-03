@@ -95,11 +95,9 @@ order_fixtures = "execution_testing.cli.order_fixtures:order_fixtures"
 evm_bytes = "execution_testing.cli.evm_bytes:evm_bytes"
 hasher = "execution_testing.cli.hasher:main"
 eest = "execution_testing.cli.eest.cli:eest"
-fillerconvert = "execution_testing.cli.fillerconvert.fillerconvert:main"
 groupstats = "execution_testing.cli.show_pre_alloc_group_stats:main"
 extract_config = "execution_testing.cli.extract_config:extract_config"
 compare_fixtures = "execution_testing.cli.compare_fixtures:main"
-modify_static_test_gas_limits = "execution_testing.cli.modify_static_test_gas_limits:main"
 benchmark_parser = "execution_testing.cli.benchmark_parser:main"
 
 [tool.setuptools.packages.find]

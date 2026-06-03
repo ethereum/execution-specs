@@ -1385,20 +1385,8 @@ def fixture_collector(
     Return configured fixture collector instance used for all tests in one test
     module.
     """
-    # Dynamically load the 'static_filler' and 'solc' plugins if needed
-    if request.config.getoption("fill_static_tests_enabled"):
-        request.config.pluginmanager.import_plugin(
-            "execution_testing.cli.pytest_commands.plugins.filler.static_filler"
-        )
-        request.config.pluginmanager.import_plugin(
-            "execution_testing.cli.pytest_commands.plugins.solc.solc"
-        )
-
     fixture_collector = FixtureCollector(
         output_dir=fixture_output.directory,
-        fill_static_tests=request.config.getoption(
-            "fill_static_tests_enabled"
-        ),
         single_fixture_per_file=fixture_output.single_fixture_per_file,
         filler_path=filler_path,
         base_dump_dir=base_dump_dir,
@@ -1735,9 +1723,6 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     """
     Pytest hook used to dynamically generate test cases for each fixture format
     a given test spec supports.
-
-    NOTE: The static test filler does NOT use this hook. See
-    FillerFile.collect() in ./static_filler.py for more details.
     """
     session: FillingSession = metafunc.config.filling_session  # type: ignore[attr-defined]
     for test_type in BaseTest.spec_types.values():
@@ -1827,8 +1812,6 @@ def pytest_collection_modifyitems(
             if marker.name == "fill":
                 for mark in marker.args:
                     item.add_marker(mark)
-        if "yul" in item.fixturenames:  # type: ignore
-            item.add_marker(pytest.mark.yul_test)
 
         # Update test ID for state tests that use a transition fork
         if fork in get_transition_forks():

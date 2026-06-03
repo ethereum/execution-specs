@@ -173,15 +173,6 @@ def pytest_configure(config: pytest.Config) -> None:
 
     config.addinivalue_line(
         "markers",
-        "yul_test: a test case that compiles Yul code.",
-    )
-    config.addinivalue_line(
-        "markers",
-        "compile_yul_with(fork): Always compile Yul source using the "
-        "corresponding evm version.",
-    )
-    config.addinivalue_line(
-        "markers",
         "fill: Markers to be added in fill mode only.",
     )
     config.addinivalue_line(
@@ -402,17 +393,3 @@ def is_exception_test(request: pytest.FixtureRequest) -> bool:
     test (invalid block, invalid transaction).
     """
     return request.node.get_closest_marker("exception_test") is not None
-
-
-def pytest_addoption(parser: pytest.Parser) -> None:
-    """Add command-line options to pytest."""
-    static_filler_group = parser.getgroup(
-        "static", "Arguments defining static filler behavior"
-    )
-    static_filler_group.addoption(
-        "--fill-static-tests",
-        action="store_true",
-        dest="fill_static_tests_enabled",
-        default=None,
-        help=("Enable reading and filling from static test files."),
-    )
