@@ -569,7 +569,6 @@ def test_varying_calldata_costs(
         pytest.param(False, id=""),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 @pytest.mark.execute(pytest.mark.skip(reason="Requires specific gas price"))
 @pytest.mark.valid_from("Amsterdam")
 def test_multiple_refund_types_in_one_tx(
