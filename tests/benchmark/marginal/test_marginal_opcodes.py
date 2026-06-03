@@ -179,7 +179,7 @@ DIV_CONFIG = MarginalOpcodeConfig(
     name="DIV",
     opcode=Op.DIV,
     max_op_count=300,
-    step=100,  # 4 data points
+    step=75,  # 5 data points
     stack_args=[DIV_DIVISOR, DIV_DIVIDEND],  # divisor, dividend
     inputs_per_op=2,
     outputs_per_op=1,
@@ -192,7 +192,7 @@ SDIV_CONFIG = MarginalOpcodeConfig(
     name="SDIV",
     opcode=Op.SDIV,
     max_op_count=300,
-    step=100,  # 4 data points
+    step=75,  # 5 data points
     stack_args=[SDIV_DIVISOR, SDIV_DIVIDEND],  # divisor, dividend
     inputs_per_op=2,
     outputs_per_op=1,
@@ -205,7 +205,7 @@ MOD_CONFIG = MarginalOpcodeConfig(
     name="MOD",
     opcode=Op.MOD,
     max_op_count=300,
-    step=100,  # 4 data points
+    step=75,  # 5 data points
     stack_args=[MOD_191_BIT, MAX_U256],  # 191-bit modulus, MAX dividend
     inputs_per_op=2,
     outputs_per_op=1,
@@ -218,7 +218,7 @@ SMOD_CONFIG = MarginalOpcodeConfig(
     name="SMOD",
     opcode=Op.SMOD,
     max_op_count=300,
-    step=100,  # 4 data points
+    step=75,  # 5 data points
     stack_args=[MOD_191_BIT, MAX_U256],  # 191-bit modulus, MAX dividend
     inputs_per_op=2,
     outputs_per_op=1,
@@ -231,7 +231,7 @@ ADDMOD_CONFIG = MarginalOpcodeConfig(
     name="ADDMOD",
     opcode=Op.ADDMOD,
     max_op_count=200,  # 200 * 4 = 800 < 1024
-    step=66,  # 4 data points
+    step=50,  # 5 data points
     stack_args=[MOD_191_BIT, MAX_U256, MAX_U256],  # N=191-bit mod, b=MAX, a=MAX
     inputs_per_op=3,
     outputs_per_op=1,
@@ -244,7 +244,7 @@ MULMOD_CONFIG = MarginalOpcodeConfig(
     name="MULMOD",
     opcode=Op.MULMOD,
     max_op_count=200,
-    step=66,  # 4 data points
+    step=50,  # 5 data points
     stack_args=[MOD_191_BIT, MAX_U256, MAX_U256],  # N=191-bit mod, b=MAX, a=MAX
     inputs_per_op=3,
     outputs_per_op=1,
@@ -257,8 +257,8 @@ MULMOD_CONFIG = MarginalOpcodeConfig(
 EXP_CONFIG = MarginalOpcodeConfig(
     name="EXP",
     opcode=Op.EXP,
-    max_op_count=150,
-    step=50,  # 4 data points
+    max_op_count=200,
+    step=50,  # 5 data points
     stack_args=[MAX_U256, MAX_U256],  # execution-specs uses MAX for both - matches!
     inputs_per_op=2,
     outputs_per_op=1,
@@ -340,8 +340,8 @@ EQ_CONFIG = MarginalOpcodeConfig(
 ISZERO_CONFIG = MarginalOpcodeConfig(
     name="ISZERO",
     opcode=Op.ISZERO,
-    max_op_count=450,  # 450 * 2 = 900 < 1024
-    step=112,  # 5 data points
+    max_op_count=360,  # 360 * 2 = 720 < 1024
+    step=90,  # 5 data points
     stack_args=[MAX_U256],
     inputs_per_op=1,
     outputs_per_op=1,
@@ -388,8 +388,8 @@ XOR_CONFIG = MarginalOpcodeConfig(
 NOT_CONFIG = MarginalOpcodeConfig(
     name="NOT",
     opcode=Op.NOT,
-    max_op_count=450,  # 450 * 2 = 900 < 1024
-    step=112,  # 5 data points
+    max_op_count=360,  # 360 * 2 = 720 < 1024
+    step=90,  # 5 data points
     stack_args=[MAX_U256],
     inputs_per_op=1,
     outputs_per_op=1,
@@ -515,8 +515,8 @@ PUSH16_CONFIG = MarginalOpcodeConfig(
 PUSH32_CONFIG = MarginalOpcodeConfig(
     name="PUSH32",
     opcode=Op.PUSH32(MAX_U256),  # Max 32-byte value
-    max_op_count=350,
-    step=87,  # 5 data points
+    max_op_count=280,
+    step=70,  # 5 data points
     stack_args=[],
     inputs_per_op=0,
     outputs_per_op=1,
@@ -597,8 +597,8 @@ LOG2_CONFIG = MarginalOpcodeConfig(
 LOG3_CONFIG = MarginalOpcodeConfig(
     name="LOG3",
     opcode=Op.LOG3,
-    max_op_count=50,
-    step=12,  # 5 data points
+    max_op_count=40,
+    step=10,  # 5 data points
     stack_args=[0, 32, 0xFF, 0xFF, 0xFF],  # offset, size, topic0, topic1, topic2
     inputs_per_op=5,
     outputs_per_op=0,
@@ -1024,8 +1024,8 @@ SLOAD_CONFIG = MarginalOpcodeConfig(
 SSTORE_CONFIG = MarginalOpcodeConfig(
     name="SSTORE",
     opcode=Op.SSTORE,
-    max_op_count=50,
-    step=12,  # 5 data points
+    max_op_count=40,
+    step=10,  # 5 data points
     stack_args=[MAX_U256, 100],  # value, slot (SSTORE pops slot first)
     inputs_per_op=2,
     outputs_per_op=0,
@@ -1143,8 +1143,8 @@ EXTCODEHASH_CONFIG = MarginalOpcodeConfig(
 EXTCODECOPY_CONFIG = MarginalOpcodeConfig(
     name="EXTCODECOPY",
     opcode=Op.EXTCODECOPY,
-    max_op_count=50,
-    step=12,  # 5 data points
+    max_op_count=40,
+    step=10,  # 5 data points
     stack_args=[256, 0, 0, 0xDEAD],  # size=256, offset=0, destOffset=0, address
     inputs_per_op=4,
     outputs_per_op=0,
@@ -1174,11 +1174,15 @@ def push_value(value: int) -> Bytecode:
 
 
 def generate_op_counts(max_op_count: int, step: int) -> List[int]:
-    """Generate list of op_counts from 0 to max_op_count with given step."""
+    """Generate list of op_counts from 0 to max_op_count with given step.
+
+    IMPORTANT: max_op_count must be divisible by step to ensure evenly spaced points.
+    """
     counts = list(range(0, max_op_count + 1, step))
-    # Ensure max_op_count is included even if not aligned with step
-    if counts[-1] != max_op_count:
-        counts.append(max_op_count)
+    assert counts[-1] == max_op_count, (
+        f"max_op_count={max_op_count} must be divisible by step={step}. "
+        f"Got {len(counts)} points ending at {counts[-1]} instead of {max_op_count}"
+    )
     return counts
 
 

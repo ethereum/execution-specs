@@ -69,6 +69,9 @@ BLS12_PAIRING_ADDRESS = Address(0x0F)
 BLS12_MAP_FP_TO_G1_ADDRESS = Address(0x10)
 BLS12_MAP_FP2_TO_G2_ADDRESS = Address(0x11)
 
+# P256VERIFY precompile address (RIP-7212, secp256r1 ECDSA signature verification)
+P256VERIFY_ADDRESS = Address(0x100)
+
 
 @dataclass
 class MarginalPrecompileConfig:
@@ -1472,18 +1475,109 @@ def test_marginal_bn128_pairing(
         BN128_PAIRING_CONFIG.max_op_count,
     )
     target = pre.deploy_contract(code=target_code)
-    
+
     caller_code = _generate_precompile_caller(target, BN128_PAIRING_CONFIG.num_calls)
     caller = pre.deploy_contract(code=caller_code)
-    
+
     sender = pre.fund_eoa()
-    
+
     tx = Transaction(
         to=caller,
         gas_limit=BN128_PAIRING_CONFIG.gas_limit,
         sender=sender,
     )
-    
+
     post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
-    
+
     state_test(env=Environment(gas_limit=BN128_PAIRING_CONFIG.gas_limit), pre=pre, post=post, tx=tx)
+
+
+# ============================================================================
+# P256VERIFY precompile (0x100) — RIP-7212, secp256r1 ECDSA verify
+# Gas: 3450 (fixed)
+# Input: 160 bytes (hash | r | s | Qx | Qy)
+# Output: 32 bytes (0x00...01 for valid, empty for invalid)
+# ============================================================================
+
+def create_p256verify_input(
+    msg_hash: bytes,
+    r: bytes,
+    s: bytes,
+    qx: bytes,
+    qy: bytes,
+) -> bytes:
+    """
+    Create P256VERIFY precompile input (RIP-7212).
+
+    Input format: hash (32) | r (32) | s (32) | Qx (32) | Qy (32) = 160 bytes
+    """
+    return msg_hash + r + s + qx + qy
+
+
+# Deterministic test vector generated with Python `cryptography`:
+#   priv  = 0xc9afa9d845ba75166b5c215767b1d6934e50c3db36e89b127b8a622b120f6721
+#   msg   = b"sample"  (hashed with SHA-256)
+# Verified VALID against the public key derived from priv.
+P256VERIFY_INPUT = create_p256verify_input(
+    msg_hash=bytes.fromhex("af2bdbe1aa9b6ec1e2ade1d694f41fc71a831d0268e9891562113d8a62add1bf"),
+    r=bytes.fromhex("4d6781063608addd9b5b2e31b63475130bed77539f53a3b272e3449374b07601"),
+    s=bytes.fromhex("9c16d42afc4daafb22be40012445b445c13960fdfa76f03d2cc7353df7b59dff"),
+    qx=bytes.fromhex("60fed4ba255a9d31c961eb74c6356d68c049b8923b61fa6ce669622e60f29fb6"),
+    qy=bytes.fromhex("7903fe1008b8bc99a41ae9e95628bc64f2f1b20c2d7e9f5177a3c294d4462299"),
+)
+
+P256VERIFY_CONFIG = MarginalPrecompileConfig(
+    name="P256VERIFY",
+    address=P256VERIFY_ADDRESS,
+    max_op_count=200,  # 3450 gas/call — similar order to ecrecover
+    step=66,           # 4 data points
+    input_data=P256VERIFY_INPUT,
+    input_size=len(P256VERIFY_INPUT),  # 160 bytes
+    num_calls=2,       # mirror ecrecover for proving-time amplification
+)
+
+
+# ============================================================================
+# P256VERIFY with caller-contract approach
+# ============================================================================
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(P256VERIFY_CONFIG.max_op_count, P256VERIFY_CONFIG.step),
+    ids=lambda x: f"op_count_{x * P256VERIFY_CONFIG.num_calls}",
+)
+def test_marginal_p256verify(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    op_count: int,
+) -> None:
+    """
+    Marginal cost estimation test for P256VERIFY (RIP-7212, secp256r1 ECDSA verify)
+    using caller-contract approach.
+
+    Uses a two-level structure for 2x amplification of proving time.
+    """
+    target_code = _generate_precompile_target(
+        P256VERIFY_CONFIG.address,
+        P256VERIFY_CONFIG.input_data,
+        op_count,
+        P256VERIFY_CONFIG.max_op_count,
+    )
+    target = pre.deploy_contract(code=target_code)
+
+    caller_code = _generate_precompile_caller(target, P256VERIFY_CONFIG.num_calls)
+    caller = pre.deploy_contract(code=caller_code)
+
+    sender = pre.fund_eoa()
+
+    tx = Transaction(
+        to=caller,
+        gas_limit=P256VERIFY_CONFIG.gas_limit,
+        sender=sender,
+    )
+
+    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+
+    state_test(env=Environment(gas_limit=P256VERIFY_CONFIG.gas_limit), pre=pre, post=post, tx=tx)
