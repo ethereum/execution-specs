@@ -46,8 +46,6 @@ class EIP8037(BaseFork):
         """
         Bump the inherited limit so state gas cost changes cannot
         OOG a system call.
-
-        TODO: consider moving this to EIP-8038.
         """
         sstore_state_gas = (
             STATE_BYTES_PER_STORAGE_SET * cls.cost_per_state_byte()
@@ -132,11 +130,6 @@ class EIP8037(BaseFork):
     ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
         """
         Return a mapping of opcodes to their state gas costs.
-
-        Each entry is either:
-        - Constants (int): Multiplier of the cost_per_state_byte
-        - Callables: Functions that take the opcode instance with metadata and
-                     return the full state gas cost.
         """
         gas_costs = cls.gas_costs()
         return {
@@ -146,7 +139,7 @@ class EIP8037(BaseFork):
             Opcodes.RETURN: lambda op: cls._calculate_return_state_gas(
                 op, gas_costs
             ),
-            # New-account state gas (NEW_ACCOUNT × CPSB) lives here so
+            # New-account state gas (NEW_ACCOUNT * CPSB) lives here so
             # that `OPCODE_CREATE_BASE` stays regular-only and matches
             # the spec EVM constant.
             Opcodes.CREATE: lambda op: cls._calculate_create_state_gas(
@@ -214,11 +207,6 @@ class EIP8037(BaseFork):
     ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
         """
         Return a mapping of opcodes to their state refunds.
-
-        Each entry is either:
-        - Constants (int): Multiplier of the cost_per_state_byte
-        - Callables: Functions that take the opcode instance with metadata and
-                     return the state refund
         """
         gas_costs = cls.gas_costs()
         return {
@@ -404,10 +392,10 @@ class EIP8037(BaseFork):
         """
         Calculate SELFDESTRUCT state gas refund.
 
-        Account creation: STATE_BYTES_PER_NEW_ACCOUNT × cost_per_state_byte
-        Created storage slots: STATE_BYTES_PER_STORAGE_SET ×
+        Account creation: STATE_BYTES_PER_NEW_ACCOUNT * cost_per_state_byte
+        Created storage slots: STATE_BYTES_PER_STORAGE_SET *
         cost_per_state_byte per non-zero slot
-        Code deposit: len(code) × cost_per_state_byte
+        Code deposit: len(code) * cost_per_state_byte
         """
         del gas_costs
         metadata = opcode.metadata
@@ -473,7 +461,7 @@ class EIP8037(BaseFork):
         cls, opcode: OpcodeBase, gas_costs: GasCosts
     ) -> int:
         """
-        Calculate CREATE/CREATE2 state gas cost (`NEW_ACCOUNT × CPSB`).
+        Calculate CREATE/CREATE2 state gas cost (`NEW_ACCOUNT * CPSB`).
 
         Pre-EIP-8037 this was folded into `OPCODE_CREATE_BASE`; under
         EIP-8037 it is exposed here so that `OPCODE_CREATE_BASE` stays
