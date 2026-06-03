@@ -2573,11 +2573,12 @@ def test_bal_call_revert_insufficient_funds(
 
     Caller (balance=100): SLOAD(0x01) → call_opcode(target, value=1000)
     → SSTORE(0x02, result). The call fails because 1000 > 100. The
-    failure happens after delegation resolution, so when the target is
-    a 7702-delegated EOA both target and delegation target appear in
-    the BAL — distinct from the OOG case (see
-    test_bal_call_7702_delegation_and_oog) where the static-check
-    optimization keeps the delegation target out of the BAL.
+    failure happens after delegation resolution. However, the delegation
+    target's account has not been read yet.
+    So when the target is a 7702-delegated EOA, the target itself appears in
+    the BAL since it is already read. The delegation target however,
+    does not appear in the BAL, since it does not need to be read
+    for verifying sufficient balance.
 
     Access-list warming does NOT add to BAL on its own — only EVM
     access does — so the BAL is identical across warm/cold variants.
@@ -2628,7 +2629,7 @@ def test_bal_call_revert_insufficient_funds(
         access_list=access_list,
     )
 
-    account_expectations: Dict[Address, BalAccountExpectation] = {
+    account_expectations: Dict[Address, BalAccountExpectation | None] = {
         alice: BalAccountExpectation(
             nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
         ),
@@ -2648,8 +2649,10 @@ def test_bal_call_revert_insufficient_funds(
     }
     if delegated:
         assert delegation_target is not None
-        # Delegation resolved before balance check fails.
-        account_expectations[delegation_target] = BalAccountExpectation.empty()
+        # Delegation target must NOT appear in the BAL — get_account
+        # for code_address only runs inside generic_call, which is
+        # never invoked when the balance check fails.
+        account_expectations[delegation_target] = None
 
     block = Block(
         txs=[tx],
