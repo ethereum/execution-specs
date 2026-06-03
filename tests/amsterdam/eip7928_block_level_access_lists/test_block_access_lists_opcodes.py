@@ -2051,10 +2051,7 @@ def test_bal_create_oog_code_deposit(
         access_list=[],
     )
 
-    # CREATE charges NEW_ACCOUNT (scales with cpsb under EIP-8037) plus
-    # base; the 500_000 buffer is enough for init code + a single SSTORE
-    # but well short of the 10_000-byte deposit. Including NEW_ACCOUNT
-    # keeps the budget CPSB-agnostic.
+    # NEW_ACCOUNT keeps the budget CPSB-agnostic but short of the deposit.
     tx = Transaction(
         sender=alice,
         to=factory,
@@ -2716,7 +2713,6 @@ def test_bal_create_selfdestruct_to_self_with_call(
     # (regular base + state gas, CPSB-agnostic).
     oracle_call_gas = 100_000 + Op.SSTORE(new_value=1).state_cost(fork)
     initcode_runtime = (
-        # CALL(gas, Oracle, value=0, ...)
         Op.CALL(oracle_call_gas, oracle, 0, 0, 0, 0, 0)
         + Op.POP
         # Write to own storage slot 0x01
@@ -2778,10 +2774,7 @@ def test_bal_create_selfdestruct_to_self_with_call(
         opcode=Op.CREATE2,
     )
 
-    # CREATE2 + 3 first-time SSTOREs (factory slot 0, oracle slot 1,
-    # ephemeral slot 1 in the created contract). NEW_ACCOUNT and
-    # `sstore_state_gas()` are 0 pre-EIP-8037 and scale with cpsb on
-    # Amsterdam, keeping this budget CPSB-agnostic.
+    # Budget for CREATE2 + 3 first-time SSTOREs, CPSB-agnostic via state gas.
     gas_limit = (
         1_000_000
         + fork.gas_costs().NEW_ACCOUNT

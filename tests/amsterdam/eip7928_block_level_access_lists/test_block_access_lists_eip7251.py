@@ -98,10 +98,7 @@ def test_bal_system_dequeue_consolidations_eip7251(
     pre: Alloc,
     blocks_consolidation_requests: List[ConsolidationRequestTransaction],
 ) -> None:
-    """
-    Test BAL system dequeue for consolidation requests to the beacon
-    chain.
-    """
+    """Test making a consolidation request to the beacon chain."""
     txs = []
 
     for request in blocks_consolidation_requests:
