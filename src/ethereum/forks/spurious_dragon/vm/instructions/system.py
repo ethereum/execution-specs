@@ -170,7 +170,7 @@ def return_(evm: Evm) -> None:
 
 
 @dataclass
-class GenericCallParams:
+class GenericCall:
     """
     Parameters for the core logic of the `CALL*` family of opcodes.
     """
@@ -187,7 +187,7 @@ class GenericCallParams:
     memory_output_size: U256
 
 
-def generic_call(evm: Evm, params: GenericCallParams) -> None:
+def generic_call(evm: Evm, params: GenericCall) -> None:
     """
     Perform the core logic of the `CALL*` family of opcodes.
     """
@@ -295,7 +295,7 @@ def call(evm: Evm) -> None:
     else:
         generic_call(
             evm,
-            GenericCallParams(
+            GenericCall(
                 gas=message_call_gas.sub_call,
                 value=value,
                 caller=evm.message.current_target,
@@ -363,7 +363,7 @@ def callcode(evm: Evm) -> None:
     else:
         generic_call(
             evm,
-            GenericCallParams(
+            GenericCall(
                 gas=message_call_gas.sub_call,
                 value=value,
                 caller=evm.message.current_target,
@@ -489,7 +489,7 @@ def delegatecall(evm: Evm) -> None:
     evm.memory += b"\x00" * extend_memory.expand_by
     generic_call(
         evm,
-        GenericCallParams(
+        GenericCall(
             gas=message_call_gas.sub_call,
             value=evm.message.value,
             caller=evm.message.caller,

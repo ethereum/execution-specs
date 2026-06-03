@@ -305,7 +305,7 @@ def return_(evm: Evm) -> None:
 
 
 @dataclass
-class GenericCallParams:
+class GenericCall:
     """
     Parameters for the core logic of the `CALL*` family of opcodes.
     """
@@ -326,7 +326,7 @@ class GenericCallParams:
     disable_precompiles: bool
 
 
-def generic_call(evm: Evm, params: GenericCallParams) -> None:
+def generic_call(evm: Evm, params: GenericCall) -> None:
     """
     Perform the core logic of the `CALL*` family of opcodes.
     """
@@ -360,7 +360,7 @@ def generic_call(evm: Evm, params: GenericCallParams) -> None:
         depth=evm.message.depth + Uint(1),
         code_address=params.code_address,
         should_transfer_value=params.should_transfer_value,
-        is_static=(True if params.is_staticcall else evm.message.is_static),
+        is_static=params.is_staticcall or evm.message.is_static,
         accessed_addresses=evm.accessed_addresses.copy(),
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         disable_precompiles=params.disable_precompiles,
@@ -485,7 +485,7 @@ def call(evm: Evm) -> None:
     else:
         generic_call(
             evm,
-            GenericCallParams(
+            GenericCall(
                 gas=message_call_gas.sub_call,
                 state_gas_reservoir=call_state_gas_reservoir,
                 value=value,
@@ -600,7 +600,7 @@ def callcode(evm: Evm) -> None:
     else:
         generic_call(
             evm,
-            GenericCallParams(
+            GenericCall(
                 gas=message_call_gas.sub_call,
                 state_gas_reservoir=call_state_gas_reservoir,
                 value=value,
@@ -768,7 +768,7 @@ def delegatecall(evm: Evm) -> None:
 
     generic_call(
         evm,
-        GenericCallParams(
+        GenericCall(
             gas=message_call_gas.sub_call,
             state_gas_reservoir=call_state_gas_reservoir,
             value=evm.message.value,
@@ -867,7 +867,7 @@ def staticcall(evm: Evm) -> None:
 
     generic_call(
         evm,
-        GenericCallParams(
+        GenericCall(
             gas=message_call_gas.sub_call,
             state_gas_reservoir=call_state_gas_reservoir,
             value=U256(0),

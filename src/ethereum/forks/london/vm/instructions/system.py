@@ -249,7 +249,7 @@ def return_(evm: Evm) -> None:
 
 
 @dataclass
-class GenericCallParams:
+class GenericCall:
     """
     Parameters for the core logic of the `CALL*` family of opcodes.
     """
@@ -267,7 +267,7 @@ class GenericCallParams:
     memory_output_size: U256
 
 
-def generic_call(evm: Evm, params: GenericCallParams) -> None:
+def generic_call(evm: Evm, params: GenericCall) -> None:
     """
     Perform the core logic of the `CALL*` family of opcodes.
     """
@@ -300,7 +300,7 @@ def generic_call(evm: Evm, params: GenericCallParams) -> None:
         depth=evm.message.depth + Uint(1),
         code_address=params.code_address,
         should_transfer_value=params.should_transfer_value,
-        is_static=True if params.is_staticcall else evm.message.is_static,
+        is_static=params.is_staticcall or evm.message.is_static,
         accessed_addresses=evm.accessed_addresses.copy(),
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         parent_evm=evm,
@@ -387,7 +387,7 @@ def call(evm: Evm) -> None:
     else:
         generic_call(
             evm,
-            GenericCallParams(
+            GenericCall(
                 gas=message_call_gas.sub_call,
                 value=value,
                 caller=evm.message.current_target,
@@ -464,7 +464,7 @@ def callcode(evm: Evm) -> None:
     else:
         generic_call(
             evm,
-            GenericCallParams(
+            GenericCall(
                 gas=message_call_gas.sub_call,
                 value=value,
                 caller=evm.message.current_target,
@@ -590,7 +590,7 @@ def delegatecall(evm: Evm) -> None:
     evm.memory += b"\x00" * extend_memory.expand_by
     generic_call(
         evm,
-        GenericCallParams(
+        GenericCall(
             gas=message_call_gas.sub_call,
             value=evm.message.value,
             caller=evm.message.caller,
@@ -657,7 +657,7 @@ def staticcall(evm: Evm) -> None:
     evm.memory += b"\x00" * extend_memory.expand_by
     generic_call(
         evm,
-        GenericCallParams(
+        GenericCall(
             gas=message_call_gas.sub_call,
             value=U256(0),
             caller=evm.message.current_target,
