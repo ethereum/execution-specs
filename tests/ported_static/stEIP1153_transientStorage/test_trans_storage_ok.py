@@ -18,7 +18,7 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.specs.post_state_resolution import (
     resolve_expect_post,
 )
 from execution_testing.vm import Op
