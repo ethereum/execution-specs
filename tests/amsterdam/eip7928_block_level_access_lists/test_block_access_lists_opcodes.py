@@ -450,30 +450,22 @@ def test_bal_extcodesize_and_oog(
     Ensure BAL handles EXTCODESIZE and OOG during EXTCODESIZE appropriately.
     """
     alice = pre.fund_eoa()
-    gas_costs = fork.gas_costs()
 
     # Create target contract with some code
-    target_contract = pre.deploy_contract(code=Bytecode(Op.STOP))
+    target_contract = pre.deploy_contract(code=Op.STOP)
 
     # Create contract that checks target's code size
-    codesize_checker_code = Bytecode(
+    codesize_checker_code = (
         Op.PUSH20(target_contract)  # Target contract address
-        + Op.EXTCODESIZE  # Check code size (cold access)
+        + Op.EXTCODESIZE(address_warm=False)  # Check code size (cold access)
         + Op.STOP
     )
 
     codesize_checker = pre.deploy_contract(code=codesize_checker_code)
 
-    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-    intrinsic_gas_cost = intrinsic_gas_calculator()
+    intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()()
 
-    # Costs:
-    # - PUSH20 = G_VERY_LOW
-    # - EXTCODESIZE cold = G_COLD_ACCOUNT_ACCESS
-    push_cost = gas_costs.VERY_LOW
-    extcodesize_cold_cost = gas_costs.COLD_ACCOUNT_ACCESS
-    tx_gas_limit = intrinsic_gas_cost + push_cost + extcodesize_cold_cost
-
+    tx_gas_limit = intrinsic_gas_cost + codesize_checker_code.gas_cost(fork)
     if fails_at_extcodesize:
         # subtract 1 gas to ensure OOG at EXTCODESIZE
         tx_gas_limit -= 1
@@ -758,10 +750,11 @@ def test_bal_call_no_delegation_oog_after_target_access(
         access_list=access_list,
     )
 
-    # OOG at charge_state_gas for new account — child frame never
-    # created, target not tracked in BAL.
+    # Target is always in BAL after state access but value transfer fails
+    # (no balance changes)
     account_expectations: Dict[Address, BalAccountExpectation | None] = {
         caller: BalAccountExpectation.empty(),
+        target: BalAccountExpectation.empty(),
     }
 
     post_state = {
@@ -1783,65 +1776,60 @@ def test_bal_extcodecopy_and_oog(
     checked BEFORE recording account access.
     """
     alice = pre.fund_eoa()
-    gas_costs = fork.gas_costs()
 
     # Create target contract with some code
-    target_contract = pre.deploy_contract(
-        code=Bytecode(Op.PUSH1(0x42) + Op.STOP)
+    target_contract = pre.deploy_contract(code=Op.PUSH1(0x42) + Op.STOP)
+
+    # Full EXTCODECOPY: access + copy + memory expansion
+    extcodecopy_code = Op.EXTCODECOPY(
+        address=target_contract,
+        dest_offset=memory_offset,
+        offset=0,
+        size=copy_size,
+        address_warm=False,
+        data_size=copy_size,
+        new_memory_size=memory_offset + copy_size,
     )
 
-    # Build EXTCODECOPY contract with appropriate PUSH sizes
-    if memory_offset <= 0xFF:
-        dest_push = Op.PUSH1(memory_offset)
-    elif memory_offset <= 0xFFFF:
-        dest_push = Op.PUSH2(memory_offset)
-    else:
-        dest_push = Op.PUSH3(memory_offset)
+    extcodecopy_contract = pre.deploy_contract(code=extcodecopy_code + Op.STOP)
 
-    extcodecopy_contract_code = Bytecode(
-        Op.PUSH1(copy_size)
-        + Op.PUSH1(0)  # codeOffset
-        + dest_push  # destOffset
-        + Op.PUSH20(target_contract)
-        + Op.EXTCODECOPY
-        + Op.STOP
-    )
-
-    extcodecopy_contract = pre.deploy_contract(code=extcodecopy_contract_code)
-
-    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-    intrinsic_gas_cost = intrinsic_gas_calculator()
-
-    # Calculate costs
-    push_cost = gas_costs.VERY_LOW * 4
-    cold_access_cost = gas_costs.COLD_ACCOUNT_ACCESS
-    copy_cost = gas_costs.OPCODE_COPY_PER_WORD * ((copy_size + 31) // 32)
+    intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()()
 
     if oog_scenario == "success":
         # Provide enough gas for everything including memory expansion
-        memory_cost = fork.memory_expansion_gas_calculator()(
-            new_bytes=memory_offset + copy_size
-        )
-        execution_cost = push_cost + cold_access_cost + copy_cost + memory_cost
-        tx_gas_limit = intrinsic_gas_cost + execution_cost
+        tx_gas_limit = intrinsic_gas_cost + extcodecopy_code.gas_cost(fork)
         target_in_bal = True
     elif oog_scenario == "oog_at_cold_access":
-        # Provide gas for pushes but 1 less than cold access cost
-        execution_cost = push_cost + cold_access_cost
-        tx_gas_limit = intrinsic_gas_cost + execution_cost - 1
+        # Provide gas for pushes but 1 less than cold access
+        extcodecopy_access_only = Op.EXTCODECOPY(
+            address=target_contract,
+            dest_offset=memory_offset,
+            offset=0,
+            size=copy_size,
+            address_warm=False,
+            data_size=0,
+            new_memory_size=0,
+        )
+        tx_gas_limit = (
+            intrinsic_gas_cost + extcodecopy_access_only.gas_cost(fork) - 1
+        )
         target_in_bal = False
     elif oog_scenario == "oog_at_memory_large_offset":
         # Provide gas for push + cold access + copy, but NOT memory expansion
-        execution_cost = push_cost + cold_access_cost + copy_cost
-        tx_gas_limit = intrinsic_gas_cost + execution_cost
+        extcodecopy_no_mem = Op.EXTCODECOPY(
+            address=target_contract,
+            dest_offset=memory_offset,
+            offset=0,
+            size=copy_size,
+            address_warm=False,
+            data_size=copy_size,
+            new_memory_size=0,
+        )
+        tx_gas_limit = intrinsic_gas_cost + extcodecopy_no_mem.gas_cost(fork)
         target_in_bal = False
     elif oog_scenario == "oog_at_memory_boundary":
-        # Calculate memory cost and provide exactly 1 less than needed
-        memory_cost = fork.memory_expansion_gas_calculator()(
-            new_bytes=memory_offset + copy_size
-        )
-        execution_cost = push_cost + cold_access_cost + copy_cost + memory_cost
-        tx_gas_limit = intrinsic_gas_cost + execution_cost - 1
+        # Calculate full cost and provide exactly 1 less than needed
+        tx_gas_limit = intrinsic_gas_cost + extcodecopy_code.gas_cost(fork) - 1
         target_in_bal = False
     else:
         raise ValueError(f"Invariant: unknown oog_scenario {oog_scenario}")
@@ -3632,25 +3620,30 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
     pre_balance: int,
 ) -> None:
     """
-    Tx1 CREATE2+SELFDESTRUCT, Tx2 CREATE2 resurrection at same address.
+    Tx1 CREATE2+SSTORE+SELFDESTRUCT, Tx2 CREATE2 resurrection at same
+    address.
 
     Two identical txs invoke the same factory with the same initcode
     (same hash => same CREATE2 address A). The factory branches on its
     own storage slot 1: on the first tx, the slot is 0 so the factory
-    CREATE2's then CALLs A (runtime SELFDESTRUCTs) and records the
-    CALL's return code in slot 1; on the second tx, slot 1 is non-zero
-    so only CREATE2 runs and A persists with the runtime code.
+    CREATE2's then CALLs A (runtime SSTOREs to a target slot then
+    SELFDESTRUCTs) and records the CALL's return code in slot 1; on the
+    second tx, slot 1 is non-zero so only CREATE2 runs and A persists
+    with the runtime code (its runtime is never executed).
 
     Per EIP-7928 SELFDESTRUCT-in-tx semantics, Tx1's destructed A has no
     `nonce_changes` or `code_changes`; only `balance_changes` if it was
-    pre-funded. Tx2's fresh A has `nonce_changes` (post=1) and
-    `code_changes` (post=runtime).
+    pre-funded. The SSTORE is demoted to `storage_reads` because the
+    contract is destroyed in the same tx. Tx2's fresh A has
+    `nonce_changes` (post=1), `code_changes` (post=runtime), and empty
+    storage.
     """
     alice = pre.fund_eoa()
     beneficiary = pre.fund_eoa(amount=0)
     salt = 0
+    target_slot = 0x07
 
-    runtime = Op.SELFDESTRUCT(beneficiary)
+    runtime = Op.SSTORE(target_slot, 0xCAFE) + Op.SELFDESTRUCT(beneficiary)
     runtime_bytes = bytes(runtime)
     initcode_bytes = bytes(Initcode(deploy_code=runtime))
 
@@ -3662,7 +3655,7 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
         )
         + Conditional(
             condition=Op.ISZERO(Op.SLOAD(1)),
-            if_true=Op.SSTORE(1, Op.CALL(50_000, Op.SLOAD(0), 0, 0, 0, 0, 0)),
+            if_true=Op.SSTORE(1, Op.CALL(Op.GAS, Op.SLOAD(0), 0, 0, 0, 0, 0)),
             if_false=Op.STOP,
         )
         + Op.STOP
@@ -3715,8 +3708,10 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
                 target_a: BalAccountExpectation(
-                    # Tx1 destruction (EIP-7928 #165): no nonce/code changes.
-                    # Tx2 resurrection: fresh contract with nonce=1, runtime.
+                    # Tx1 destruction (EIP-7928 #165): no nonce/code changes;
+                    # the SSTORE is demoted to a storage_read because A is
+                    # destroyed same-tx. Tx2 resurrection: fresh contract
+                    # with nonce=1, runtime, and untouched storage.
                     nonce_changes=[
                         BalNonceChange(block_access_index=2, post_nonce=1),
                     ],
@@ -3727,7 +3722,7 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
                     ],
                     balance_changes=target_a_balance_changes,
                     storage_changes=[],
-                    storage_reads=[],
+                    storage_reads=[target_slot],
                 ),
                 beneficiary: beneficiary_expectation,
             }
@@ -3738,7 +3733,9 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
         pre=pre,
         blocks=[block],
         post={
-            target_a: Account(nonce=1, balance=0, code=runtime_bytes),
+            target_a: Account(
+                nonce=1, balance=0, code=runtime_bytes, storage={}
+            ),
             beneficiary: Account(balance=pre_balance)
             if pre_balance > 0
             else Account.NONEXISTENT,
