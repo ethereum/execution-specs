@@ -41,8 +41,9 @@ and cadence.
 Release tags use the form `<feature>@v<X>.<Y>.<Z>`. The underlying git tag is prefixed with
 `tests-` to namespace it apart from the spec-package `vX.Y.Z` tags (e.g.
 `tests-bal-devnet@v7.0.0`), except the default `tests` feature, which tags as
-`tests@v<X>.<Y>.<Z>` directly (no doubled prefix). The GitHub release title always omits the
-`tests-` prefix (`bal-devnet@v7.0.0`).
+`tests@v<X>.<Y>.<Z>` directly (no doubled prefix). The GitHub release title matches the git
+tag (e.g. `tests-bal-devnet@v7.0.0`); `consume cache` still accepts the friendly
+`<feature>@vX.Y.Z` form (`bal-devnet@v7.0.0`).
 
 `X` identifies the fork or devnet a release targets; `Y` and `Z` order changes within that
 target:

@@ -185,11 +185,10 @@ jobs:
           TARGET_SHA: ${{ needs.setup.outputs.target_sha }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Release title never carries the `tests-` prefix.
           RELEASE_NAME="${INPUT_FEATURE}@${INPUT_VERSION}"
           # Git tags namespace fixture releases under `tests-<feature>@`, except
           # the default `tests` feature which tags as `tests@vX.Y.Z` (no doubled
-          # prefix).
+          # prefix). The release title matches the git tag.
           if [ "$INPUT_FEATURE" = "tests" ]; then
             TAG_NAME="$RELEASE_NAME"
             TAG_GLOB="tests@v*"
@@ -216,7 +215,7 @@ jobs:
             --prerelease
             --generate-notes
             --target "$TARGET"
-            --title "$RELEASE_NAME"
+            --title "$TAG_NAME"
           )
           if [ -n "$PREV_TAG" ]; then
             RELEASE_ARGS+=(--notes-start-tag "$PREV_TAG")

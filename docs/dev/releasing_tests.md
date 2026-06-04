@@ -62,12 +62,12 @@ On success the workflow:
    given, otherwise the dispatch commit).
 3. Publishes a **draft pre-release** to
    [`ethereum/execution-specs`](https://github.com/ethereum/execution-specs/releases), titled
-   `<feature>@vX.Y.Z` (no `tests-` prefix), with the fixture tarball(s) attached.
+   the same as the git tag, with the fixture tarball(s) attached.
 
 | Example dispatch | Git tag | Release title | Artifact |
 | ---------------- | ------- | ------------- | -------- |
 | `feature=tests version=v24.0.0` | `tests@v24.0.0` | `tests@v24.0.0` | `fixtures.tar.gz` |
-| `feature=bal-devnet version=v7.0.0 branch=bal-devnet-7` | `tests-bal-devnet@v7.0.0` | `bal-devnet@v7.0.0` | `fixtures_bal-devnet.tar.gz` |
+| `feature=bal-devnet version=v7.0.0 branch=bal-devnet-7` | `tests-bal-devnet@v7.0.0` | `tests-bal-devnet@v7.0.0` | `fixtures_bal-devnet.tar.gz` |
 
 The release is created as a draft; review and publish it from the GitHub releases page.
 
