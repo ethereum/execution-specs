@@ -1,13 +1,71 @@
-# EEST Fixture Releases
+# EELS Fixture Releases
 
-!!! warning "Two repositories — do not confuse them"
-    - **`ethereum/execution-specs`** publishes Python *spec package* releases tagged `vX.Y.Z` (e.g. [`v2.20.0`](https://github.com/ethereum/execution-specs/releases/tag/v2.20.0)). **These contain no test fixtures** — they are the executable specification package only.
-    - **Test fixtures** are published as **feature-scoped releases** on the same repository — `consensus@vX.Y.Z`, `<feat>-devnet@vX.Y.Z`, `benchmark@vX.Y.Z` — and are *not* attached to the `vX.Y.Z` package tags.
-    - The legacy `fixtures_stable.tar.gz` / `fixtures_develop.tar.gz` artifacts (previously on `ethereum/execution-spec-tests`) are being retired in favour of the feature-scoped releases described here.
+Test fixtures are published as **feature-scoped releases** on the
+[`ethereum/execution-specs`](https://github.com/ethereum/execution-specs/releases)
+repository — `tests@vX.Y.Z`, `<feat>-devnet@vX.Y.Z`, and `benchmark@vX.Y.Z`. Each is a
+self-contained `.tar.gz` of JSON fixtures that execution clients consume in CI.
 
-## Formats and Release Layout
+This page describes the release types, their versioning, the fixture formats they contain,
+and how to consume them. For the release *mechanics* — how to cut a new release — see
+[Releasing Test Fixtures](../dev/releasing_tests.md).
 
-Fixture releases contain JSON test fixtures in various formats. Note that transaction type tests are executed directly from Python source using the [`execute`](./execute/index.md) command.
+!!! note "Fixture releases vs. the spec-package `vX.Y.Z` tags"
+    `ethereum/execution-specs` also publishes Python *spec package* releases tagged
+    `vX.Y.Z` (e.g. [`v2.20.0`](https://github.com/ethereum/execution-specs/releases/tag/v2.20.0)).
+    Those contain **no test fixtures** — they are the executable specification package only.
+    Fixture releases are the feature-scoped tags described on this page and are never
+    attached to the `vX.Y.Z` package tags.
+
+## Test Release Types
+
+Fixtures are released as independent types. Each type has its own tag namespace, artifact,
+and cadence.
+
+| Type      | Tag                    | Artifact                        | Scope                                                                          | Built from              |
+| --------- | ---------------------- | ------------------------------- | ------------------------------------------------------------------------------ | ----------------------- |
+| Tests     | `tests@vX.Y.Z`         | `fixtures.tar.gz`               | All forks, all tests (eventually including `ethereum/tests` state tests)        | latest `forks/*` branch |
+| Devnet    | `<feat>-devnet@vX.Y.Z` | `fixtures_<feat>-devnet.tar.gz` | All forks, all tests, for an upcoming-fork feature under active devnet testing   | the devnet branch       |
+| Benchmark | `benchmark@vX.Y.Z`     | `fixtures_benchmark.tar.gz`     | EVM benchmarking tests                                                          | latest `forks/*` branch |
+
+- **Tests** releases track clients' production branches and are tagged frequently (roughly
+  once or twice a week). They are the "must pass" release for mainnet CI, and supersede the
+  old `fixtures_stable` / `fixtures_develop` artifacts.
+- **Devnet** releases target a specific feature under active development (e.g. `bal-devnet`).
+  They are advisory/non-blocking and may not yet cover every EIP; see the corresponding
+  release notes for the coverage provided.
+- **Benchmark** (and, in future, zkEVM) releases are produced separately for their
+  specialized consumers.
+
+## Versioning Scheme
+
+Release tags use the form `<feature>@v<X>.<Y>.<Z>`. The underlying git tag is prefixed with
+`tests-` to namespace it apart from the spec-package `vX.Y.Z` tags (e.g.
+`tests-bal-devnet@v7.0.0`), except the default `tests` feature, which tags as
+`tests@v<X>.<Y>.<Z>` directly (no doubled prefix). The GitHub release title always omits the
+`tests-` prefix (`bal-devnet@v7.0.0`).
+
+`X` identifies the fork or devnet a release targets; `Y` and `Z` order changes within that
+target:
+
+| Component | Tests                                               | Devnet                                               | Benchmark                       |
+| --------- | --------------------------------------------------- | ---------------------------------------------------- | ------------------------------- |
+| `X`       | Fork number                                         | Devnet number                                        | Fork number (mirrors target)    |
+| `Y`       | Consensus-breaking spec change targeting fork `X`   | Consensus-breaking spec change targeting devnet `X`  | Mirrors the targeted feature    |
+| `Z`       | Non-breaking change (refactor), new/modified tests  | Non-breaking change (refactor), new/modified tests   | Moves freely at its own pace    |
+
+A client targeting fork/devnet `X` should take the release with **major == `X`**, the latest
+**minor**, and ideally the latest **patch**. The major alone tells you whether a release is
+relevant to you, and a bump in `Y` (e.g. `v7.0.0` → `v7.1.0`) signals a consensus-breaking
+spec change in *your* target — read the release notes before adopting it.
+
+This also lets two devnets of the same feature be maintained in parallel — e.g. `v3.0.1`
+alongside `v7.0.0` — without ambiguity, the same way `2.x` and `3.x` coexist under semver.
+
+## Fixture Formats
+
+Fixture releases contain JSON test fixtures in various formats. Note that transaction type
+tests are executed directly from Python source using the [`execute`](./execute/index.md)
+command.
 
 | Format                                                               | Consumed by the client                                                                                                                                                                                                                                                                    | Location in `.tar.gz` release                                       |
 | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
@@ -17,113 +75,38 @@ Fixture releases contain JSON test fixtures in various formats. Note that transa
 | [Transaction Tests](./test_formats/transaction_test.md)             | - using a new simulator coming soon                                                                                                                                                                                                                                                       | None; executed directly from Python source,</br>using a release tag |
 | Blob Transaction Tests                                               | - using the [eels/execute-blobs Simulator](./execute/hive.md#the-eelsexecute-blobs-simulator)                                                                                                                                                                                                                         | None; executed directly from Python source,</br>using a release tag |
 
-## Release Tracks
-
-Fixtures are released on independent tracks. Each track has its own tag namespace, artifact, and cadence.
-
-| Track     | Tag                  | Artifact                        | Scope                                                              | Built from        |
-| --------- | -------------------- | ------------------------------- | ------------------------------------------------------------------ | ----------------- |
-| Consensus | `consensus@vX.Y.Z`   | `fixtures_consensus.tar.gz`     | All forks, all tests (including legacy tests)                       | latest `forks/*` branch |
-| Devnet    | `<feat>-devnet@vX.Y.Z` | `fixtures_<feat>-devnet.tar.gz` | All forks, all tests, for an upcoming-fork feature under active devnet testing | the devnet branch |
-| Benchmark | `benchmark@vX.Y.Z`   | `fixtures_benchmark.tar.gz`     | EVM benchmarking tests                                             | latest `forks/*` branch |
-
-- **Consensus** releases track clients' production branches and are tagged frequently (roughly once or twice a week). They are the "must pass" release for mainnet CI.
-- **Devnet** releases target a specific feature under active development (e.g. `bal-devnet`). They are still WIP and may not contain full coverage for all EIPs; see the corresponding release notes for the coverage provided.
-- **Benchmark** (and, in future, zkEVM) releases are produced separately for their specialized consumers.
-
-## Versioning Scheme
-
-Tags use the form `<track>@v<X>.<Y>.<Z>`. The underlying git tag is prefixed with `tests-` (e.g. `tests-consensus@v1.2.3`); the GitHub release title omits the prefix (`consensus@v1.2.3`).
-
-The meaning of `X.Y.Z` depends on the track:
-
-| Component | Consensus track             | Devnet track                | Benchmark track             |
-| --------- | --------------------------- | --------------------------- | --------------------------- |
-| `X`       | Fork number                 | Devnet version              | Fork number                 |
-| `Y`       | Spec/test change → a change in behaviour |  Spec/test change → a change in behaviour | Spec/test change → a change in behaviour |
-| `Z`       | New tests only (no behaviour change) | New tests only (no behaviour change) | New tests only (no behaviour change) |
-
-This keeps the version purely ordered within a track: a higher `X.Y.Z` on the same track is always the newer release.
-
 ## Pinning Guidance
 
 Mapped to a typical client CI setup:
 
-- **Blocking gate (current + past forks).** Pin a specific `consensus@vX.Y.Z` for reproducible, no-rug-pull CI on your `master`/production branch, or follow the latest consensus release if a moving target is acceptable. This supersedes the old `fixtures_develop`/`fixtures_stable` artifacts.
-- **Non-blocking gate (next fork).** Use the current `<feat>-devnet@vX.Y.Z` release for the upcoming fork's active devnet (e.g. `bal-devnet@vX.Y.Z`). Treat it as advisory — devnet coverage changes rapidly and should not block merges.
+- **Blocking gate (current + past forks).** Pin a specific `tests@vX.Y.Z` for reproducible,
+  no-rug-pull CI on your `master`/production branch, or follow the latest `tests` release if
+  a moving target is acceptable. This supersedes the old `fixtures_develop` / `fixtures_stable`
+  artifacts.
+- **Non-blocking gate (next fork).** Use the current `<feat>-devnet@vX.Y.Z` release for the
+  upcoming fork's active devnet (e.g. `bal-devnet@vX.Y.Z`). Treat it as advisory — devnet
+  coverage changes rapidly and should not block merges.
 
-!!! note "Devnet vs. consensus overlap"
-    Devnet releases are filled for all forks/tests, so they overlap with the consensus release. If your blocking gate already runs a consensus release, the devnet gate re-runs that shared coverage. Deduplicating that overlap is consumer-side concern handled when resolving/consuming releases.
+!!! note "Devnet vs. tests overlap"
+    Devnet releases are filled for all forks/tests, so they overlap with the `tests` release.
+    If your blocking gate already runs a `tests` release, the devnet gate re-runs that shared
+    coverage. Deduplicating that overlap is a consumer-side concern handled when
+    resolving/consuming releases.
 
-## Creating a Fixture Release
+## Downloading Releases
 
-Fixture releases are produced by manually dispatching the [`release_fixtures.yaml`](https://github.com/ethereum/execution-specs/blob/master/.github/workflows/release_fixtures.yaml) workflow. There is no tag to push by hand: the workflow builds the fixtures and, only on success, creates the tag and the (draft) GitHub release.
-
-```bash
-gh workflow run release_fixtures.yaml -f feature=<feature> -f version=vX.Y.Z [-f branch=<branch>]
-```
-
-### Inputs
-
-| Input      | Required          | Description                                                                                          |
-| ---------- | ----------------- | ---------------------------------------------------------------------------------------------------- |
-| `feature`  | yes               | Feature name, e.g. `consensus`, `benchmark`, or a `<feat>-devnet` name.                                |
-| `version`  | yes               | Release version `vX.Y.Z` (validated against `^v[0-9]+\.[0-9]+\.[0-9]+$`). Tagged as `tests-<feature>@<version>`. |
-| `branch`   | for `*-devnet`    | Branch to build and release from. Optional for non-devnet features; **required** for devnet releases. |
-| `evm`      | no                | Override the evm impl (e.g. `geth`, `evmone`). Defaults to the feature's `evm-type` in `feature.yaml`. |
-| `evm_repo` | no                | Override the t8n tool repo (e.g. `ethereum/go-ethereum`).                                              |
-| `evm_ref`  | no                | Override the t8n tool branch / tag / commit.                                                          |
-
-`<feature>` must be a key in [`.github/configs/feature.yaml`](https://github.com/ethereum/execution-specs/blob/master/.github/configs/feature.yaml) (e.g. `consensus`, `benchmark`), or a `<feat>-devnet` name that resolves to the shared `devnet` feature.
-
-### Devnet releases
-
-Devnet releases must use a `<feat>-devnet` feature name (e.g. `feature=bal-devnet`) and must specify the branch to release from:
+The [`consume cache`](./consume/cache.md) command resolves EELS release and pre-release tags
+to release URLs and downloads them — for example:
 
 ```bash
-gh workflow run release_fixtures.yaml -f feature=bal-devnet -f version=v1.0.0 -f branch=bal-devnet-7
+uv run consume cache --input=tests@latest
+uv run consume cache --input=bal-devnet@v7.0.0
 ```
 
-A bare `devnet` feature (no `<feat>-` prefix), or a `*-devnet` release without a `branch`, fails fast in the first job before any fixtures are built.
+Raw tarballs can also be fetched directly with the GitHub CLI:
 
-### What the workflow produces
+```bash
+gh release download tests-bal-devnet@v7.0.0 --repo ethereum/execution-specs --pattern '*.tar.gz'
+```
 
-On success the workflow:
-
-1. Builds `fixtures_<feature>.tar.gz` for the resolved feature (per its `evm-type` and `fill-params` in `feature.yaml`).
-2. Creates the git tag `tests-<feature>@vX.Y.Z` on the released commit (the `branch` HEAD when given, otherwise the dispatch commit).
-3. Publishes a **draft pre-release** to [`ethereum/execution-specs`](https://github.com/ethereum/execution-specs/releases), titled `<feature>@vX.Y.Z` (no `tests-` prefix), with the fixture tarball(s) attached.
-
-| Example dispatch | Git tag | Release title | Artifact |
-| ---------------- | ------- | ------------- | -------- |
-| `feature=consensus version=v1.2.3` | `tests-consensus@v1.2.3` | `consensus@v1.2.3` | `fixtures_consensus.tar.gz` |
-| `feature=bal-devnet version=v1.0.0 branch=bal-devnet-7` | `tests-bal-devnet@v1.0.0` | `bal-devnet@v1.0.0` | `fixtures_bal-devnet.tar.gz` |
-
-The release is created as a draft; review and publish it from the GitHub releases page.
-
-### Tagging A Release
-
-To cut a new release:
-
-1. **Pick the next version** per the [Versioning Scheme](#versioning-scheme) for the track you're releasing on (e.g. the next consensus release after `consensus@v20.3.0` is `consensus@v20.3.1` for a tests-only bump, or `consensus@v20.4.0` for a behaviour change).
-2. **Dispatch the workflow** from the [Actions tab](https://github.com/ethereum/execution-specs/actions/workflows/release_fixtures.yaml) or via the CLI:
-
-   ```bash
-   gh workflow run release_fixtures.yaml -f feature=consensus -f version=v20.3.1
-   # devnet releases additionally require the branch to release from:
-   gh workflow run release_fixtures.yaml -f feature=bal-devnet -f version=v1.0.0 -f branch=bal-devnet-7
-   ```
-
-3. **Wait for the build to succeed.** On success the workflow creates the `tests-<feature>@vX.Y.Z` tag on the target commit and drafts the GitHub release with the fixture tarball attached. If any job fails, no tag or release is created — fix the cause and re-dispatch.
-4. **Review and publish the draft.** Open the draft on the [releases page](https://github.com/ethereum/execution-specs/releases), check the auto-generated notes (anchored at the prior release on the same track via `--notes-start-tag`), and click *Publish release* when ready.
-
-!!! tip "Release features opt into all fixture formats via `feature.yaml`"
-    Tarball output (`.tar.gz`) does not by itself include the pre-allocation group formats (`BlockchainEngineXFixture`, `BlockchainEngineStatefulFixture`). A release feature requests them by adding `--generate-all-formats` to its `fill-params` in `.github/configs/feature.yaml`:
-    ```console
-    # Automatically enables --generate-all-formats due to .tar.gz output
-    uv run fill --output=fixtures_consensus.tar.gz tests/
-    ```
-
-## Help Downloading Releases
-
-The [`consume cache`](./consume/cache.md) command can be used to resolve EEST release and pre-release tags to release URLs and download them.
+To create a release, see [Releasing Test Fixtures](../dev/releasing_tests.md).

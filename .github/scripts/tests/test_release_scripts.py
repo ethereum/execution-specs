@@ -1,7 +1,7 @@
 """
 Test the CI release helper scripts.
 
-Each test invokes the script via ``uv run`` to validate the actual CLI
+Each test invokes the script via `uv run` to validate the actual CLI
 interface, matching how GitHub Actions calls them.
 """
 
@@ -43,12 +43,12 @@ class TestGenerateBuildMatrix:
 
     def test_split_feature_produces_entries_per_range(self):
         """Verify a split feature expands into one entry per range."""
-        result = run_script(BUILD_MATRIX_SCRIPT, "consensus")
+        result = run_script(BUILD_MATRIX_SCRIPT, "tests", "v24.0.0")
         assert result.returncode == 0
         out = parse_matrix_output(result.stdout)
         matrix = json.loads(out["build_matrix"])
         assert len(matrix) > 1
-        assert out["feature_name"] == "consensus"
+        assert out["feature_name"] == "tests"
         assert out["combine_labels"] != ""
         labels = [e["label"] for e in matrix]
         assert all(lbl != "" for lbl in labels)
@@ -57,7 +57,7 @@ class TestGenerateBuildMatrix:
 
     def test_unsplit_feature_produces_single_entry(self):
         """Verify a feature without fork-ranges produces one entry."""
-        result = run_script(BUILD_MATRIX_SCRIPT, "benchmark")
+        result = run_script(BUILD_MATRIX_SCRIPT, "benchmark", "v24.0.0")
         assert result.returncode == 0
         out = parse_matrix_output(result.stdout)
         matrix = json.loads(out["build_matrix"])
@@ -70,7 +70,9 @@ class TestGenerateBuildMatrix:
 
     def test_devnet_name_resolves_to_shared_feature(self):
         """Verify a <feat>-devnet name resolves to the devnet feature."""
-        result = run_script(BUILD_MATRIX_SCRIPT, "bal-devnet")
+        result = run_script(
+            BUILD_MATRIX_SCRIPT, "bal-devnet", "v7.0.0", "bal-devnet-7"
+        )
         assert result.returncode == 0
         out = parse_matrix_output(result.stdout)
         matrix = json.loads(out["build_matrix"])
@@ -80,7 +82,7 @@ class TestGenerateBuildMatrix:
 
     def test_unknown_feature_fails(self):
         """Verify error exit for unknown feature name."""
-        result = run_script(BUILD_MATRIX_SCRIPT, "nonexistent")
+        result = run_script(BUILD_MATRIX_SCRIPT, "nonexistent", "v1.0.0")
         assert result.returncode == 1
         assert "not found" in result.stderr
 
@@ -92,13 +94,81 @@ class TestGenerateBuildMatrix:
 
     def test_output_is_valid_github_actions_format(self):
         """Verify output lines are key=value for GITHUB_OUTPUT."""
-        result = run_script(BUILD_MATRIX_SCRIPT, "consensus")
+        result = run_script(BUILD_MATRIX_SCRIPT, "tests", "v24.0.0")
         assert result.returncode == 0
         lines = result.stdout.strip().splitlines()
         assert len(lines) == 3
         assert lines[0].startswith("build_matrix=")
         assert lines[1].startswith("feature_name=")
         assert lines[2].startswith("combine_labels=")
+
+
+class TestValidateInputs:
+    """Test the release input validation in generate_build_matrix.py."""
+
+    def test_bad_version_fails(self):
+        """Verify a non vX.Y.Z version is rejected."""
+        result = run_script(BUILD_MATRIX_SCRIPT, "tests", "24.0.0")
+        assert result.returncode == 1
+        assert "must match vX.Y.Z" in result.stderr
+
+    def test_empty_feature_fails(self):
+        """Verify an empty feature name is rejected."""
+        result = run_script(BUILD_MATRIX_SCRIPT, "", "v1.0.0")
+        assert result.returncode == 1
+        assert "feature name is empty" in result.stderr
+
+    def test_bare_devnet_fails(self):
+        """Verify a bare `devnet` feature name is rejected."""
+        result = run_script(
+            BUILD_MATRIX_SCRIPT, "devnet", "v7.0.0", "bal-devnet-7"
+        )
+        assert result.returncode == 1
+        assert "require a <feat>- prefix" in result.stderr
+
+    def test_devnet_index_in_feature_name_fails(self):
+        """Verify `<feat>-devnet-<n>` is rejected with a suggestion."""
+        result = run_script(
+            BUILD_MATRIX_SCRIPT, "bal-devnet-7", "v7.0.0", "bal-devnet-7"
+        )
+        assert result.returncode == 1
+        assert "did you mean feature=bal-devnet version=v7.0.0" in (
+            result.stderr
+        )
+
+    def test_devnet_without_branch_fails(self):
+        """Verify a `<feat>-devnet` release requires a branch."""
+        result = run_script(BUILD_MATRIX_SCRIPT, "bal-devnet", "v7.0.0")
+        assert result.returncode == 1
+        assert "require a 'branch' input" in result.stderr
+
+    def test_devnet_branch_without_number_fails(self):
+        """Verify a devnet branch with no trailing number is rejected."""
+        result = run_script(
+            BUILD_MATRIX_SCRIPT, "bal-devnet", "v7.0.0", "bal-devnet"
+        )
+        assert result.returncode == 1
+        assert "could not parse a devnet number" in result.stderr
+
+    def test_devnet_major_must_match_branch_number(self):
+        """Verify the major version must equal the branch devnet number."""
+        result = run_script(
+            BUILD_MATRIX_SCRIPT, "bal-devnet", "v3.0.0", "bal-devnet-7"
+        )
+        assert result.returncode == 1
+        assert "must equal the devnet number" in result.stderr
+
+    def test_devnet_matching_major_passes(self):
+        """Verify a major equal to the branch devnet number passes."""
+        result = run_script(
+            BUILD_MATRIX_SCRIPT,
+            "glamsterdam-devnet",
+            "v5.0.0",
+            "glamsterdam-devnet-5",
+        )
+        assert result.returncode == 0
+        out = parse_matrix_output(result.stdout)
+        assert out["feature_name"] == "glamsterdam-devnet"
 
 
 class TestCreateReleaseTarball:
