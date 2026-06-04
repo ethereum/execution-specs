@@ -360,8 +360,10 @@ def test_storage_access_cold(
             )
         )
         for exec_tx in exec_txs:
+            exec_tx_gas_limit = exec_tx.gas_limit
+            assert exec_tx_gas_limit is not None
             if tx_result == TransactionResult.OUT_OF_GAS:
-                expected_gas_used += exec_tx.gas_limit
+                expected_gas_used += exec_tx_gas_limit
             else:
                 expected_gas_used += exec_tx.gas_cost
 
