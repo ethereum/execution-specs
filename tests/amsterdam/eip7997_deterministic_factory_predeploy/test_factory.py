@@ -20,6 +20,7 @@ from execution_testing import (
     Storage,
     Transaction,
     compute_create2_address,
+    keccak256,
 )
 
 from .spec import Spec, ref_spec_7997
@@ -36,9 +37,38 @@ def test_factory_predeploy_account(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """The factory bytecode is present at `0x12` with nonce 1."""
+    """
+    The factory bytecode is present at `0x12` with nonce 1 and balance 0.
+    Verifies EVM-observable views of the predeploy via `EXTCODESIZE`,
+    `EXTCODEHASH`, `EXTCODECOPY` + `SHA3`, and `BALANCE`.
+    """
     caller = pre.deploy_contract(
-        Op.SSTORE(0, Op.EXTCODESIZE(FACTORY)) + Op.STOP,
+        Op.SSTORE(
+            0,
+            Op.EXTCODESIZE(FACTORY),
+            original_value=0,
+            new_value=1,
+        )
+        + Op.SSTORE(
+            1,
+            Op.EXTCODEHASH(FACTORY),
+            original_value=0,
+            new_value=1,
+        )
+        + Op.EXTCODECOPY(FACTORY, 0, 0, Op.EXTCODESIZE(FACTORY))
+        + Op.SSTORE(
+            2,
+            Op.SHA3(0, Op.EXTCODESIZE(FACTORY)),
+            original_value=0,
+            new_value=1,
+        )
+        + Op.SSTORE(
+            3,
+            Op.BALANCE(FACTORY),
+            original_value=0,
+            new_value=0,
+        )
+        + Op.STOP,
     )
     state_test(
         pre=pre,
@@ -50,78 +80,43 @@ def test_factory_predeploy_account(
         post={
             FACTORY: Account(
                 nonce=1,
+                balance=0,
                 code=Spec.FACTORY_BYTECODE,
             ),
             caller: Account(
-                storage={0: len(Spec.FACTORY_BYTECODE)},
+                storage={
+                    0: len(Spec.FACTORY_BYTECODE),
+                    1: keccak256(Spec.FACTORY_BYTECODE),
+                    2: keccak256(Spec.FACTORY_BYTECODE),
+                    3: 0,
+                },
             ),
         },
     )
 
 
+@pytest.mark.parametrize(
+    "forwarded_value",
+    [
+        pytest.param(0, id="no_value"),
+        pytest.param(1, id="with_value"),
+    ],
+)
 def test_factory_deploys_contract(
     state_test: StateTestFiller,
     pre: Alloc,
+    forwarded_value: int,
 ) -> None:
     """
     Calling the factory with `salt || initcode` deploys a contract at the
-    expected `CREATE2` address and returns that address.
+    expected `CREATE2` address and returns that address. When the call
+    forwards a non-zero value, the deployed contract receives that
+    balance.
     """
     salt = 0x42
     runtime_code = Op.PUSH1(0x01) + Op.PUSH1(0x00) + Op.RETURN
     initcode = Initcode(deploy_code=runtime_code)
     expected_address = compute_create2_address(FACTORY, salt, initcode)
-
-    storage = Storage()
-    caller = pre.deploy_contract(
-        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-        + Op.SSTORE(
-            storage.store_next(1, "factory_call_success"),
-            Op.CALL(
-                gas=Op.GAS,
-                address=FACTORY,
-                value=0,
-                args_offset=0,
-                args_size=Op.CALLDATASIZE,
-                ret_offset=0,
-                ret_size=32,
-            ),
-        )
-        + Op.SSTORE(
-            storage.store_next(expected_address, "returned_address"),
-            Op.MLOAD(0),
-        )
-        + Op.STOP,
-    )
-
-    state_test(
-        pre=pre,
-        tx=Transaction(
-            sender=pre.fund_eoa(),
-            to=caller,
-            data=Hash(salt) + bytes(initcode),
-            gas_limit=500_000,
-        ),
-        post={
-            caller: Account(storage=storage),
-            expected_address: Account(
-                nonce=1,
-                code=bytes(runtime_code),
-            ),
-        },
-    )
-
-
-def test_factory_forwards_value(
-    state_test: StateTestFiller,
-    pre: Alloc,
-) -> None:
-    """`CALLVALUE` is forwarded from the factory to the created contract."""
-    salt = 0x1234
-    runtime_code = Op.STOP
-    initcode = Initcode(deploy_code=runtime_code)
-    expected_address = compute_create2_address(FACTORY, salt, initcode)
-    forwarded_value = 0xBA1
 
     storage = Storage()
     caller = pre.deploy_contract(
@@ -137,6 +132,10 @@ def test_factory_forwards_value(
                 ret_offset=0,
                 ret_size=32,
             ),
+        )
+        + Op.SSTORE(
+            storage.store_next(expected_address, "returned_address"),
+            Op.MLOAD(0),
         )
         + Op.STOP,
         balance=forwarded_value,
@@ -540,25 +539,14 @@ def test_factory_in_caller_context(
     initcode = Initcode(deploy_code=runtime_code)
     factory_derived = compute_create2_address(FACTORY, salt, initcode)
 
-    if call_opcode is Op.CALLCODE:
-        call_op = Op.CALLCODE(
-            gas=Op.GAS,
-            address=FACTORY,
-            value=0,
-            args_offset=0,
-            args_size=Op.CALLDATASIZE,
-            ret_offset=0x100,
-            ret_size=32,
-        )
-    else:
-        call_op = Op.DELEGATECALL(
-            gas=Op.GAS,
-            address=FACTORY,
-            args_offset=0,
-            args_size=Op.CALLDATASIZE,
-            ret_offset=0x100,
-            ret_size=32,
-        )
+    call_op = Op.DELEGATECALL(
+        gas=Op.GAS,
+        address=FACTORY,
+        args_offset=0,
+        args_size=Op.CALLDATASIZE,
+        ret_offset=0x100,
+        ret_size=32,
+    )
 
     caller = pre.deploy_contract(
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
@@ -659,7 +647,7 @@ def test_factory_deploys_to_pre_funded_address(
     runtime_code = Op.STOP
     initcode = Initcode(deploy_code=runtime_code)
     expected_address = compute_create2_address(FACTORY, salt, initcode)
-    pre_balance = 0xBA1
+    pre_balance = 1
 
     pre[expected_address] = Account(balance=pre_balance)
 
@@ -790,7 +778,7 @@ def test_factory_receives_balance_via_selfdestruct(
     Tests that the factory address has no special handling under
     `SELFDESTRUCT` — it behaves like any other contract beneficiary.
     """
-    forwarded_value = 0xBA1
+    forwarded_value = 1
 
     sd_actor = pre.deploy_contract(
         Op.SELFDESTRUCT(FACTORY),
