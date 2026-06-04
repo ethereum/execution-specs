@@ -25,9 +25,9 @@ outputs:
   evm-bin:
     description: "Binary name of the evm tool to use"
     value: ${{ steps.config-evm-reader.outputs.evm-bin }}
-  x-dist:
+  xdist:
     description: "Number of parallel pytest-xdist workers to use"
-    value: ${{ steps.config-evm-reader.outputs.x-dist }}
+    value: ${{ steps.config-evm-reader.outputs.xdist }}
 runs:
   using: "composite"
   steps:
@@ -56,7 +56,7 @@ runs:
         echo "Repository: ${{ steps.resolved.outputs.repo }}"
         echo "Reference: ${{ steps.resolved.outputs.ref }}"
         echo "EVM Binary: ${{ steps.config-evm-reader.outputs.evm-bin }}"
-        echo "X-Dist parameter: ${{ steps.config-evm-reader.outputs.x-dist }}"
+        echo "X-Dist parameter: ${{ steps.config-evm-reader.outputs.xdist }}"
     - name: Skip building for EELS
       if: steps.config-evm-reader.outputs.impl == 'eels'
       shell: bash

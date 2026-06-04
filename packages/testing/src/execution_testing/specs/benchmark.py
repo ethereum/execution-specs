@@ -31,6 +31,7 @@ from execution_testing.execution import (
     TransactionPost,
 )
 from execution_testing.fixtures import (
+    BlockchainEngineFixture,
     BlockchainEngineXFixture,
     BlockchainFixture,
     FixtureFormat,
@@ -315,6 +316,7 @@ class BenchmarkTest(BaseTest):
         Sequence[FixtureFormat | LabeledFixtureFormat]
     ] = [
         BlockchainFixture,
+        BlockchainEngineFixture,
         BlockchainEngineXFixture,
     ]
 
@@ -327,6 +329,9 @@ class BenchmarkTest(BaseTest):
     ]
 
     supported_markers: ClassVar[Dict[str, str]] = {
+        "blockchain_test_engine_only": (
+            "Only generate a blockchain test engine fixture"
+        ),
         "blockchain_test_only": "Only generate a blockchain test fixture",
         "repricing": "Mark test as reference test for gas repricing analysis",
     }
@@ -425,6 +430,8 @@ class BenchmarkTest(BaseTest):
 
         if "blockchain_test_only" in [m.name for m in markers]:
             return fixture_format != BlockchainFixture
+        if "blockchain_test_engine_only" in [m.name for m in markers]:
+            return fixture_format != BlockchainEngineFixture
         return False
 
     def get_genesis_environment(self) -> Environment:
