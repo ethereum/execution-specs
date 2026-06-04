@@ -310,7 +310,7 @@ class Transaction(
                 data.pop("hash", None)
         return data
 
-    gas_limit: HexNumber | None = Field(
+    gas_limit: HexNumber | None = Field(  # type: ignore
         None,
         serialization_alias="gas",
         validation_alias=AliasChoices("gas_limit", "gasLimit", "gas"),
@@ -852,6 +852,9 @@ class Transaction(
             "Impossible to calculate minimum balance without gas price"
         )
         gas_limit = self.gas_limit
+        assert gas_limit is not None, (
+            "Impossible to calculate minimum balance without gas limit"
+        )
         if self.ty == 3 and self.blob_versioned_hashes is not None:
             max_fee_per_blob_gas = self.max_fee_per_blob_gas
             assert max_fee_per_blob_gas is not None, (

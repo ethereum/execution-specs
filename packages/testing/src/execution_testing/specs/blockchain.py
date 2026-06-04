@@ -1421,11 +1421,15 @@ class BlockchainTest(BaseTest):
                     f"max_priority_fee_per_gas={max_priority_fee_per_gas}, "
                     f"max_fee_per_blob_gas={max_fee_per_blob_gas}."
                 )
-            required_balances = execute_plan.get_required_sender_balances(
+            execute_plan.prepare_transactions(
+                env=self.genesis_environment,
                 gas_price=gas_price,
                 max_fee_per_gas=max_fee_per_gas,
                 max_priority_fee_per_gas=max_priority_fee_per_gas,
                 max_fee_per_blob_gas=max_fee_per_blob_gas,
+                fork=session_fork,
+            )
+            required_balances = execute_plan.get_required_sender_balances(
                 fork=session_fork,
             )
             resolve_deferred()
