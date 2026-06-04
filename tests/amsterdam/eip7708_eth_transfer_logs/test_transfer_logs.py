@@ -172,7 +172,6 @@ def test_contract_creation_tx_collision(
     state_test: StateTestFiller,
     env: Environment,
     pre: Alloc,
-    fork: Fork,
     collision_nonce: int,
     collision_code: bytes,
 ) -> None:
@@ -600,8 +599,6 @@ def test_create_out_of_gas_no_log(
     initcode: Bytecode,
 ) -> None:
     """Test that CREATE running out of gas does NOT emit transfer log."""
-    # TODO: This test can be improved to be more precise: Subcall with crafted
-    # gas limit.
     tx_value = 1000
     gas_limit = 100_000
     if fork.is_eip_enabled(8037):
@@ -1040,7 +1037,6 @@ def test_nested_calls_log_order(
     state_test: StateTestFiller,
     env: Environment,
     pre: Alloc,
-    fork: Fork,
     sender: EOA,
     call_depth: int,
 ) -> None:

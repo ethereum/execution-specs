@@ -11,7 +11,6 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
-    Fork,
     Op,
     Transaction,
     TransactionReceipt,
@@ -36,7 +35,6 @@ REFERENCE_SPEC_VERSION = ref_spec_7708.version
 def test_burn_log_at_fork_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    fork: Fork,
     same_tx: bool,
     to_self: bool,
 ) -> None:
