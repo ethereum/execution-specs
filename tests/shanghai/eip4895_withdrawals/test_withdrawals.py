@@ -80,11 +80,13 @@ class TestUseValueInTx:
 
     @pytest.fixture
     def withdrawal(self, tx: Transaction, sender: EOA) -> Withdrawal:  # noqa: D102
+        tx_gas_limit = tx.gas_limit
+        assert tx_gas_limit is not None
         return Withdrawal(
             index=0,
             validator_index=0,
             address=sender,
-            amount=tx.gas_limit + 1,
+            amount=tx_gas_limit + 1,
         )
 
     @pytest.fixture
