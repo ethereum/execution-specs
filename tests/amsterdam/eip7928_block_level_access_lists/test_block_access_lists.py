@@ -323,11 +323,8 @@ def test_bal_callcode_nested_value_transfer(
     alice = pre.fund_eoa()
     bob = pre.fund_eoa(amount=0)
 
-    call_gas = 0
-    if fork.is_eip_enabled(8037):
-        call_gas = 500_000
     # TargetContract sends 100 wei to bob
-    target_code = Op.CALL(call_gas, bob, 100, 0, 0, 0, 0)
+    target_code = Op.CALL(0, bob, 100, 0, 0, 0, 0)
     target_contract = pre.deploy_contract(code=target_code)
 
     callcode_gas = 50_000
