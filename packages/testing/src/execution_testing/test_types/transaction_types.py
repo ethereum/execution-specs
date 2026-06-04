@@ -842,7 +842,7 @@ class Transaction(
 
     def set_gas_limit(self, gas_limit: int) -> None:
         """Set the transaction gas limit if unset."""
-        if "gas_limit" not in self.model_fields_set:
+        if "gas_limit" not in self.model_fields_set or self.gas_limit is None:
             self.gas_limit = HexNumber(gas_limit)
 
     def signer_minimum_balance(self, *, fork: Fork) -> int:
