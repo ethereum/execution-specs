@@ -22,7 +22,7 @@ from execution_testing import (
     ceiling_division,
 )
 
-from .common import INF_POINT, Z
+from .common import INF_POINT, Z_Y_VALID_ENDIANNESS, Z
 from .spec import Spec, ref_spec_4844
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_4844.git_path
@@ -41,8 +41,8 @@ def precompile_input(proof: Literal["correct", "incorrect"]) -> bytes:
     versioned_hash = Spec.kzg_to_versioned_hash(kzg_commitment)
     return (
         versioned_hash
-        + z.to_bytes(32, "little")
-        + y.to_bytes(32, "little")
+        + z.to_bytes(32, Z_Y_VALID_ENDIANNESS)
+        + y.to_bytes(32, Z_Y_VALID_ENDIANNESS)
         + kzg_commitment
         + kzg_proof
     )
