@@ -357,12 +357,11 @@ class StateTest(BaseTest):
 
         env = self.env.set_fork_requirements(fork)
         tx = self.tx
-        if tx.gas_limit is None:
-            tx_gas_limit_cap = fork.transaction_gas_limit_cap()
-            if fork.is_eip_enabled(8037):
-                tx_gas_limit_cap = None
-            gas_limit = tx_gas_limit_cap if tx_gas_limit_cap else env.gas_limit
-            tx.set_gas_limit(gas_limit)
+        tx.set_gas_limit(
+            max_gas_limit=env.gas_limit,
+            transaction_gas_limit_cap=fork.transaction_gas_limit_cap(),
+            state_gas_reservoir_enabled=fork.state_gas_reservoir_enabled(),
+        )
         tx = tx.with_signature_and_sender(keep_secret_key=True)
         pre_alloc = Alloc.merge(
             Alloc.model_validate(fork.pre_allocation()),

@@ -56,7 +56,11 @@ class TransactionPost(BaseExecute):
                 block, env, fork
             )
             for tx in block:
-                tx.set_gas_limit(max_tx_gas_limit)
+                tx.set_gas_limit(
+                    max_gas_limit=max_tx_gas_limit,
+                    transaction_gas_limit_cap=fork.transaction_gas_limit_cap(),
+                    state_gas_reservoir_enabled=fork.state_gas_reservoir_enabled(),
+                )
                 tx.set_gas_price(
                     gas_price=gas_price,
                     max_fee_per_gas=max_fee_per_gas,

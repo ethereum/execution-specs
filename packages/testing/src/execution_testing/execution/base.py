@@ -65,7 +65,7 @@ class BaseExecute(CamelModel):
 
         max_gas_limit = available_gas // unset_gas_limit_tx_count
         tx_gas_limit_cap = fork.transaction_gas_limit_cap()
-        if fork.is_eip_enabled(8037):
+        if fork.state_gas_reservoir_enabled():
             tx_gas_limit_cap = None
         if tx_gas_limit_cap:
             max_gas_limit = min(max_gas_limit, tx_gas_limit_cap)

@@ -331,6 +331,8 @@ class Transaction(
 
     expected_receipt: TransactionReceipt | None = Field(None, exclude=True)
 
+    state_gas_reservoir: int = Field(0, exclude=True)
+
     zero: ClassVar[Literal[0]] = 0
 
     metadata: TransactionTestMetadata | None = Field(None, exclude=True)
@@ -840,10 +842,37 @@ class Transaction(
                 if "max_fee_per_blob_gas" not in self.model_fields_set:
                     self.max_fee_per_blob_gas = HexNumber(max_fee_per_blob_gas)
 
-    def set_gas_limit(self, gas_limit: int) -> None:
+    def set_gas_limit(
+        self,
+        *,
+        max_gas_limit: int,
+        transaction_gas_limit_cap: int | None,
+        state_gas_reservoir_enabled: bool = False,
+    ) -> None:
         """Set the transaction gas limit if unset."""
         if "gas_limit" not in self.model_fields_set or self.gas_limit is None:
-            self.gas_limit = HexNumber(gas_limit)
+            tx_gas_limit = max_gas_limit
+            if (
+                "state_gas_reservoir" in self.model_fields_set
+                and state_gas_reservoir_enabled
+            ):
+                assert transaction_gas_limit_cap is not None, (
+                    "Impossible to set calculate the tx gas limit for the "
+                    "required state gas reservoir without a gas limit cap"
+                )
+                if self.state_gas_reservoir > 0:
+                    minimum_gas_with_reservoir = (
+                        transaction_gas_limit_cap + self.state_gas_reservoir
+                    )
+                    assert tx_gas_limit >= minimum_gas_with_reservoir
+                    tx_gas_limit = minimum_gas_with_reservoir
+                else:
+                    if tx_gas_limit > transaction_gas_limit_cap:
+                        tx_gas_limit = transaction_gas_limit_cap
+            elif transaction_gas_limit_cap is not None:
+                if tx_gas_limit > transaction_gas_limit_cap:
+                    tx_gas_limit = transaction_gas_limit_cap
+            self.gas_limit = HexNumber(tx_gas_limit)
 
     def signer_minimum_balance(self, *, fork: Fork) -> int:
         """Return minimum balance of the signer."""
@@ -1043,9 +1072,19 @@ class NetworkWrappedTransaction(CamelModel, RLPSerializable):
             max_fee_per_blob_gas=max_fee_per_blob_gas,
         )
 
-    def set_gas_limit(self, gas_limit: int) -> None:
+    def set_gas_limit(
+        self,
+        *,
+        max_gas_limit: int,
+        transaction_gas_limit_cap: int | None,
+        state_gas_reservoir_enabled: bool = False,
+    ) -> None:
         """Set the transaction gas limit if unset."""
-        self.tx.set_gas_limit(gas_limit)
+        self.tx.set_gas_limit(
+            max_gas_limit=max_gas_limit,
+            transaction_gas_limit_cap=transaction_gas_limit_cap,
+            state_gas_reservoir_enabled=state_gas_reservoir_enabled,
+        )
 
     def signer_minimum_balance(self, *, fork: Fork) -> int:
         """Return minimum balance of the signer."""
