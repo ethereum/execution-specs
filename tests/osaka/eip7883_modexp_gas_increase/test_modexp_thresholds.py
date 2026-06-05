@@ -468,9 +468,7 @@ def test_contract_creation_transaction(
 
     tx = Transaction(
         sender=sender,
-        gas_limit=1_000_000,
         to=None,
-        value=0,
         data=contract_bytecode + bytes(modexp_input),
     )
 
@@ -558,9 +556,7 @@ def test_contract_initcode(
 
     tx = Transaction(
         sender=sender,
-        gas_limit=(1_000_000 if fork.is_eip_enabled(8037) else 200_000),
         to=factory_contract_address,
-        value=0,
         data=call_modexp_bytecode + bytes(modexp_input),
     )
 
