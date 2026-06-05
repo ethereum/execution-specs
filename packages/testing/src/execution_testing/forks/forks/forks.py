@@ -1026,6 +1026,13 @@ class Frontier(
         return None
 
     @classmethod
+    def state_gas_reservoir_enabled(cls) -> bool:
+        """
+        At Genesis, state gas reservoir is not enabled.
+        """
+        return False
+
+    @classmethod
     def code_deposit_state_gas(cls, *, code_size: int) -> int:
         """Return the state gas for code deposit of the given size."""
         del code_size

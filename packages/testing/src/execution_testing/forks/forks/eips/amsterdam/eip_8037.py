@@ -40,6 +40,13 @@ class EIP8037(BaseFork):
         return 1530
 
     @classmethod
+    def state_gas_reservoir_enabled(cls) -> bool:
+        """
+        State gas reservoir becomes enabled.
+        """
+        return True
+
+    @classmethod
     def system_call_gas_limit(cls) -> int:
         """
         Bump the inherited limit so state gas cost changes cannot
