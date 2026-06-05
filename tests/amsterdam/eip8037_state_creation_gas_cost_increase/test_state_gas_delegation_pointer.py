@@ -14,7 +14,6 @@ from execution_testing import (
     Account,
     Alloc,
     AuthorizationTuple,
-    Environment,
     Fork,
     Op,
     StateTestFiller,
@@ -42,9 +41,6 @@ def test_sstore_via_delegation_pointer(
     contract code in the EOA's context. The SSTORE state gas should
     be charged from the reservoir just as it would for a direct call.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     auth_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )
@@ -61,7 +57,7 @@ def test_sstore_via_delegation_pointer(
     sender = pre.fund_eoa()
     tx = Transaction(
         to=delegator,
-        gas_limit=(gas_limit_cap + auth_state_gas + sstore_state_gas),
+        state_gas_reservoir=auth_state_gas + sstore_state_gas,
         authorization_list=[
             AuthorizationTuple(
                 address=contract,
@@ -74,7 +70,7 @@ def test_sstore_via_delegation_pointer(
 
     # SSTORE writes to the delegator's storage context
     post = {delegator: Account(storage=storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -89,9 +85,6 @@ def test_sstore_direct_call_same_contract(
     Baseline comparison: calling the contract directly (not via a
     delegation pointer) charges SSTORE state gas identically.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     storage = Storage()
@@ -102,12 +95,12 @@ def test_sstore_direct_call_same_contract(
     sender = pre.fund_eoa()
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas,
         sender=sender,
     )
 
     post = {contract: Account(storage=storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -124,9 +117,6 @@ def test_delegation_pointer_new_account_state_gas(
     is charged identically to a direct call.
     """
     gas_costs = fork.gas_costs()
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     auth_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )
@@ -151,7 +141,7 @@ def test_delegation_pointer_new_account_state_gas(
     sender = pre.fund_eoa()
     tx = Transaction(
         to=delegator,
-        gas_limit=(gas_limit_cap + auth_state_gas + new_account_state_gas),
+        state_gas_reservoir=auth_state_gas + new_account_state_gas,
         authorization_list=[
             AuthorizationTuple(
                 address=contract,
@@ -164,4 +154,4 @@ def test_delegation_pointer_new_account_state_gas(
 
     # CALL success stored in delegator's storage context
     post = {delegator: Account(storage=parent_storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

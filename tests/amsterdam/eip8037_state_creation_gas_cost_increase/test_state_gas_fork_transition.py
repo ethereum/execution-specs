@@ -42,7 +42,6 @@ pytestmark = pytest.mark.valid_at_transition_to("EIP8037")
 def test_sstore_state_gas_at_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """
     Test SSTORE state gas activates at the EIP-8037 fork boundary.
@@ -52,9 +51,6 @@ def test_sstore_state_gas_at_transition(
     operation requires state gas. Both blocks use TX_MAX_GAS_LIMIT
     which provides enough gas in either regime.
     """
-    after_fork = fork.fork_at(timestamp=15_000)
-    gas_limit_cap = after_fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     contract_before = pre.deploy_contract(
         code=Op.SSTORE(0, 1),
     )
@@ -69,7 +65,7 @@ def test_sstore_state_gas_at_transition(
             txs=[
                 Transaction(
                     to=contract_before,
-                    gas_limit=gas_limit_cap,
+                    state_gas_reservoir=0,
                     sender=pre.fund_eoa(),
                 ),
             ],
@@ -80,7 +76,7 @@ def test_sstore_state_gas_at_transition(
             txs=[
                 Transaction(
                     to=contract_after,
-                    gas_limit=gas_limit_cap,
+                    state_gas_reservoir=0,
                     sender=pre.fund_eoa(),
                 ),
             ],
@@ -196,8 +192,6 @@ def test_reservoir_available_after_transition(
     which child calls can draw from for state operations.
     """
     after_fork = fork.fork_at(timestamp=15_000)
-    gas_limit_cap = after_fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(after_fork)
 
     child_storage = Storage()
@@ -221,7 +215,7 @@ def test_reservoir_available_after_transition(
             txs=[
                 Transaction(
                     to=parent,
-                    gas_limit=gas_limit_cap + sstore_state_gas,
+                    state_gas_reservoir=sstore_state_gas,
                     sender=pre.fund_eoa(),
                 ),
             ],

@@ -17,7 +17,6 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
-    Environment,
     Fork,
     Header,
     Initcode,
@@ -48,9 +47,6 @@ def test_selfdestruct_new_beneficiary_charges_state_gas(
     creating the new beneficiary account.
     """
     gas_costs = fork.gas_costs()
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     new_account_state_gas = gas_costs.NEW_ACCOUNT
 
     # Non-existent beneficiary
@@ -63,18 +59,17 @@ def test_selfdestruct_new_beneficiary_charges_state_gas(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + new_account_state_gas,
+        state_gas_reservoir=new_account_state_gas,
         sender=pre.fund_eoa(),
     )
 
-    state_test(env=env, pre=pre, post={}, tx=tx)
+    state_test(pre=pre, post={}, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
 def test_selfdestruct_existing_beneficiary_no_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """
     Test SELFDESTRUCT to existing beneficiary charges no state gas.
@@ -82,8 +77,6 @@ def test_selfdestruct_existing_beneficiary_no_state_gas(
     When the beneficiary already exists, no new account is created
     and no state gas is charged.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     beneficiary = pre.fund_eoa(amount=0)
 
     contract = pre.deploy_contract(
@@ -93,7 +86,7 @@ def test_selfdestruct_existing_beneficiary_no_state_gas(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap,
+        state_gas_reservoir=0,
         sender=pre.fund_eoa(),
     )
 
@@ -104,7 +97,6 @@ def test_selfdestruct_existing_beneficiary_no_state_gas(
 def test_selfdestruct_zero_balance_no_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """
     Test SELFDESTRUCT with zero balance charges no state gas.
@@ -113,8 +105,6 @@ def test_selfdestruct_zero_balance_no_state_gas(
     transferred, so no new account is created even if the beneficiary
     does not exist.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     # Non-existent beneficiary but contract has zero balance
     beneficiary = 0xDEAD
 
@@ -125,7 +115,7 @@ def test_selfdestruct_zero_balance_no_state_gas(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap,
+        state_gas_reservoir=0,
         sender=pre.fund_eoa(),
     )
 
@@ -145,9 +135,6 @@ def test_selfdestruct_state_gas_from_reservoir(
     for the non-existent beneficiary is drawn from the reservoir.
     """
     gas_costs = fork.gas_costs()
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     new_account_state_gas = gas_costs.NEW_ACCOUNT
 
     beneficiary = 0xDEAD
@@ -159,11 +146,11 @@ def test_selfdestruct_state_gas_from_reservoir(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + new_account_state_gas,
+        state_gas_reservoir=new_account_state_gas,
         sender=pre.fund_eoa(),
     )
 
-    state_test(env=env, pre=pre, post={}, tx=tx)
+    state_test(pre=pre, post={}, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -182,7 +169,6 @@ def test_selfdestruct_to_self_in_create_tx(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    env = Environment()
 
     inner_code = Op.SELFDESTRUCT(Op.ADDRESS)
 
@@ -204,7 +190,7 @@ def test_selfdestruct_to_self_in_create_tx(
         sender=pre.fund_eoa(),
     )
 
-    state_test(env=env, pre=pre, post={}, tx=tx)
+    state_test(pre=pre, post={}, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -221,8 +207,6 @@ def test_selfdestruct_new_beneficiary_header_gas_used(
     be accepted with correct 2D gas accounting in the header.
     """
     gas_costs = fork.gas_costs()
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     new_account_state_gas = gas_costs.NEW_ACCOUNT
 
     beneficiary = pre.fund_eoa(amount=0)
@@ -241,7 +225,7 @@ def test_selfdestruct_new_beneficiary_header_gas_used(
 
     tx = Transaction(
         to=caller,
-        gas_limit=gas_limit_cap + new_account_state_gas,
+        state_gas_reservoir=new_account_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -272,8 +256,6 @@ def test_create_selfdestruct_no_refund_account_and_storage(
     num_slots: int,
 ) -> None:
     """Verify same tx CREATE+SELFDESTRUCT does not refund state gas."""
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
@@ -313,7 +295,7 @@ def test_create_selfdestruct_no_refund_account_and_storage(
 
     tx = Transaction(
         to=factory,
-        gas_limit=gas_limit_cap + total_state_gas,
+        state_gas_reservoir=total_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -347,8 +329,6 @@ def test_create_selfdestruct_no_refund_code_deposit_state_gas(
     state gas.
     """
     assert code_size >= 2
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
     code_deposit_state_gas = fork.code_deposit_state_gas(code_size=code_size)
 
@@ -391,7 +371,7 @@ def test_create_selfdestruct_no_refund_code_deposit_state_gas(
     tx = Transaction(
         to=factory,
         data=bytes(initcode),
-        gas_limit=gas_limit_cap + total_state_gas,
+        state_gas_reservoir=total_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -412,8 +392,6 @@ def test_create_selfdestruct_code_deposit_no_refund_header_check(
     Verify block header gas reflects the full account plus code-deposit
     state-gas charge on a same-tx CREATE+SELFDESTRUCT.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     gas_costs = fork.gas_costs()
     new_account_state_gas = gas_costs.NEW_ACCOUNT
 
@@ -450,7 +428,7 @@ def test_create_selfdestruct_code_deposit_no_refund_header_check(
     tx = Transaction(
         to=factory,
         data=bytes(initcode),
-        gas_limit=gas_limit_cap + total_state_gas,
+        state_gas_reservoir=total_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -479,8 +457,6 @@ def test_create_selfdestruct_sstore_restoration_refund(
     Verify SSTORE restoration still refunds its slot state gas when
     the surrounding contract SELFDESTRUCTs.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
@@ -521,7 +497,7 @@ def test_create_selfdestruct_sstore_restoration_refund(
 
     tx = Transaction(
         to=factory,
-        gas_limit=gas_limit_cap + new_account_state_gas + sstore_state_gas,
+        state_gas_reservoir=new_account_state_gas + sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -551,8 +527,6 @@ def test_selfdestruct_pre_existing_account_no_refund(
     header `gas_used` reflects the full regular-gas tx cost (no
     state-gas refund offset).
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
 
     # Victim deployed in `pre` (NOT same-tx-created).  SELFDESTRUCTs
@@ -571,7 +545,7 @@ def test_selfdestruct_pre_existing_account_no_refund(
 
     tx = Transaction(
         to=caller,
-        gas_limit=gas_limit_cap,
+        state_gas_reservoir=0,
         sender=pre.fund_eoa(),
     )
 
@@ -606,8 +580,6 @@ def test_selfdestruct_via_delegatecall_chain_no_refund(
     Verify SELFDESTRUCT in a nested DELEGATECALL/CALLCODE frame below
     a same-tx-created contract does not refund state gas.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
@@ -709,7 +681,7 @@ def test_selfdestruct_via_delegatecall_chain_no_refund(
     tx = Transaction(
         to=factory,
         data=bytes(initcode),
-        gas_limit=gas_limit_cap + total_state_gas,
+        state_gas_reservoir=total_state_gas,
         sender=pre.fund_eoa(),
     )
 

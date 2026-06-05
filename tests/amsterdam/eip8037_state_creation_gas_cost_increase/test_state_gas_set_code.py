@@ -18,7 +18,6 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
-    Environment,
     Fork,
     Header,
     Op,
@@ -59,9 +58,6 @@ def test_authorization_state_gas_scaling(
     cost_per_state_byte of intrinsic state gas. The transaction
     should succeed with enough total gas.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     auth_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )
@@ -82,19 +78,18 @@ def test_authorization_state_gas_scaling(
     sender = pre.fund_eoa()
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + auth_state_gas * num_auths,
+        state_gas_reservoir=auth_state_gas * num_auths,
         authorization_list=authorization_list,
         sender=sender,
     )
 
-    state_test(env=env, pre=pre, post={}, tx=tx)
+    state_test(pre=pre, post={}, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
 def test_existing_account_refund(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """
     Test authorization targeting existing account refunds state gas.
@@ -104,10 +99,6 @@ def test_existing_account_refund(
     intrinsic_state_gas. Only 23 * cost_per_state_byte is effectively
     charged.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
-
     contract = pre.deploy_contract(code=Op.STOP)
 
     # Signer is an existing funded EOA (account_exists = True)
@@ -127,12 +118,12 @@ def test_existing_account_refund(
     sender = pre.fund_eoa()
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap,
+        state_gas_reservoir=0,
         authorization_list=authorization_list,
         sender=sender,
     )
 
-    state_test(env=env, pre=pre, post={}, tx=tx)
+    state_test(pre=pre, post={}, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -148,9 +139,6 @@ def test_mixed_new_and_existing_auths(
     another targets a new account (no refund). The total state gas
     should reflect the mixed charges.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     full_auth_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )
@@ -188,12 +176,12 @@ def test_mixed_new_and_existing_auths(
     sender = pre.fund_eoa()
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + full_auth_state_gas * 2,
+        state_gas_reservoir=full_auth_state_gas * 2,
         authorization_list=authorization_list,
         sender=sender,
     )
 
-    state_test(env=env, pre=pre, post={}, tx=tx)
+    state_test(pre=pre, post={}, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -209,9 +197,6 @@ def test_authorization_with_sstore(
     contract performs an SSTORE. Both the authorization state gas and
     the SSTORE state gas are charged.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     auth_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )
@@ -234,13 +219,13 @@ def test_authorization_with_sstore(
     sender = pre.fund_eoa()
     tx = Transaction(
         to=contract,
-        gas_limit=(gas_limit_cap + auth_state_gas + sstore_state_gas),
+        state_gas_reservoir=auth_state_gas + sstore_state_gas,
         authorization_list=authorization_list,
         sender=sender,
     )
 
     post = {contract: Account(storage=storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -257,9 +242,6 @@ def test_existing_account_refund_enables_sstore(
     This refunded gas should then be available for SSTORE state
     gas in the execution phase.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     auth_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )
@@ -285,13 +267,13 @@ def test_existing_account_refund_enables_sstore(
     sender = pre.fund_eoa()
     tx = Transaction(
         to=contract,
-        gas_limit=(gas_limit_cap + auth_state_gas + sstore_state_gas),
+        state_gas_reservoir=auth_state_gas + sstore_state_gas,
         authorization_list=authorization_list,
         sender=sender,
     )
 
     post = {contract: Account(storage=storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize(
@@ -339,8 +321,6 @@ def test_auth_refund_block_gas_accounting(
     Verified via header `gas_used`, receipt `cumulative_gas_used`, and
     the authority post-state (catches a silently-skipped auth).
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     intrinsic_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )
@@ -406,7 +386,7 @@ def test_auth_refund_block_gas_accounting(
 
     tx = Transaction(
         to=contract_new,
-        gas_limit=gas_limit_cap + intrinsic_state_gas,
+        state_gas_reservoir=intrinsic_state_gas,
         authorization_list=authorization_list,
         sender=pre.fund_eoa(),
         expected_receipt=TransactionReceipt(
@@ -435,9 +415,6 @@ def test_invalid_nonce_auth_still_charges_intrinsic_state_gas(
     but its intrinsic state gas (135 * cpsb) is still charged upfront
     as part of the transaction's intrinsic gas.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     auth_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )
@@ -456,12 +433,12 @@ def test_invalid_nonce_auth_still_charges_intrinsic_state_gas(
     sender = pre.fund_eoa()
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + auth_state_gas,
+        state_gas_reservoir=auth_state_gas,
         authorization_list=authorization_list,
         sender=sender,
     )
 
-    state_test(env=env, pre=pre, post={}, tx=tx)
+    state_test(pre=pre, post={}, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -476,9 +453,6 @@ def test_invalid_chain_id_auth_still_charges_intrinsic_state_gas(
     An authorization with a mismatched chain ID is skipped during
     processing, but intrinsic state gas is still charged upfront.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     auth_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )
@@ -498,12 +472,12 @@ def test_invalid_chain_id_auth_still_charges_intrinsic_state_gas(
     sender = pre.fund_eoa()
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + auth_state_gas,
+        state_gas_reservoir=auth_state_gas,
         authorization_list=authorization_list,
         sender=sender,
     )
 
-    state_test(env=env, pre=pre, post={}, tx=tx)
+    state_test(pre=pre, post={}, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -520,9 +494,6 @@ def test_self_sponsored_authorization(
     charged. Since the sender account already exists, the
     new-account state gas refund applies.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     auth_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )
@@ -544,13 +515,13 @@ def test_self_sponsored_authorization(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + auth_state_gas,
+        state_gas_reservoir=auth_state_gas,
         authorization_list=authorization_list,
         sender=sender,
     )
 
     post = {contract: Account(storage=storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -567,9 +538,6 @@ def test_duplicate_signer_authorizations(
     Only the last valid authorization takes effect, but all contribute
     to intrinsic state gas.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     auth_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )
@@ -596,12 +564,12 @@ def test_duplicate_signer_authorizations(
     sender = pre.fund_eoa()
     tx = Transaction(
         to=contract_a,
-        gas_limit=gas_limit_cap + auth_state_gas * 2,
+        state_gas_reservoir=auth_state_gas * 2,
         authorization_list=authorization_list,
         sender=sender,
     )
 
-    state_test(env=env, pre=pre, post={}, tx=tx)
+    state_test(pre=pre, post={}, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -617,9 +585,6 @@ def test_auth_with_calldata_and_access_list(
     authorization state gas. All components contribute to the total
     intrinsic gas requirement.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     auth_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )
@@ -643,14 +608,14 @@ def test_auth_with_calldata_and_access_list(
     sender = pre.fund_eoa()
     tx = Transaction(
         to=contract,
-        gas_limit=(gas_limit_cap + auth_state_gas + sstore_state_gas),
+        state_gas_reservoir=auth_state_gas + sstore_state_gas,
         data=b"\x00" * 31 + b"\x42",  # Calldata adds to intrinsic gas
         authorization_list=authorization_list,
         sender=sender,
     )
 
     post = {contract: Account(storage=storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize(
@@ -677,9 +642,6 @@ def test_mixed_valid_and_invalid_auths(
     state gas is still consumed. The total intrinsic state gas equals
     (num_valid + num_invalid) * 135 * cpsb.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     auth_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )
@@ -714,12 +676,12 @@ def test_mixed_valid_and_invalid_auths(
     sender = pre.fund_eoa()
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + auth_state_gas * total_auths,
+        state_gas_reservoir=auth_state_gas * total_auths,
         authorization_list=authorization_list,
         sender=sender,
     )
 
-    state_test(env=env, pre=pre, post={}, tx=tx)
+    state_test(pre=pre, post={}, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -735,9 +697,6 @@ def test_many_authorizations_state_gas(
     The total state gas is drawn from the reservoir. Verifies that
     large authorization lists scale correctly.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     auth_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )
@@ -759,12 +718,12 @@ def test_many_authorizations_state_gas(
     sender = pre.fund_eoa()
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + auth_state_gas * num_auths,
+        state_gas_reservoir=auth_state_gas * num_auths,
         authorization_list=authorization_list,
         sender=sender,
     )
 
-    state_test(env=env, pre=pre, post={}, tx=tx)
+    state_test(pre=pre, post={}, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -780,9 +739,6 @@ def test_auth_with_multiple_sstores(
     charges all draw from the same reservoir. Verifies combined state
     gas accounting across intrinsic and execution phases.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     auth_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )
@@ -809,13 +765,13 @@ def test_auth_with_multiple_sstores(
     sender = pre.fund_eoa()
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + total_state_gas,
+        state_gas_reservoir=total_state_gas,
         authorization_list=authorization_list,
         sender=sender,
     )
 
     post = {contract: Account(storage=storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize(
@@ -902,9 +858,6 @@ def test_authorization_to_precompile_address(
     The authorization is processed and the signer's code is set to
     the precompile address delegation designator.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     auth_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )
@@ -924,12 +877,12 @@ def test_authorization_to_precompile_address(
     sender = pre.fund_eoa()
     tx = Transaction(
         to=signer,
-        gas_limit=gas_limit_cap + auth_state_gas,
+        state_gas_reservoir=auth_state_gas,
         authorization_list=authorization_list,
         sender=sender,
     )
 
-    state_test(env=env, pre=pre, post={}, tx=tx)
+    state_test(pre=pre, post={}, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -950,8 +903,6 @@ def test_multi_tx_block_auth_refund_and_sstore(
     Verifies block-level state gas accounting correctly handles both
     the auth refund from tx1 and the SSTORE charge from tx2.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     auth_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )
@@ -971,7 +922,7 @@ def test_multi_tx_block_auth_refund_and_sstore(
     sender_1 = pre.fund_eoa()
     tx_1 = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + auth_state_gas,
+        state_gas_reservoir=auth_state_gas,
         authorization_list=authorization_list,
         sender=sender_1,
     )
@@ -984,7 +935,7 @@ def test_multi_tx_block_auth_refund_and_sstore(
     sender_2 = pre.fund_eoa()
     tx_2 = Transaction(
         to=sstore_contract,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas,
         sender=sender_2,
     )
 
@@ -1015,9 +966,6 @@ def test_auth_refund_bypasses_one_fifth_cap(
     the SSTOREs would OOG. By succeeding, this test proves the refund
     bypasses the cap.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     auth_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )
@@ -1054,15 +1002,13 @@ def test_auth_refund_bypasses_one_fifth_cap(
     sender = pre.fund_eoa()
     tx = Transaction(
         to=contract,
-        gas_limit=(
-            gas_limit_cap + auth_state_gas + sstore_state_gas * num_sstores
-        ),
+        state_gas_reservoir=auth_state_gas + sstore_state_gas * num_sstores,
         authorization_list=authorization_list,
         sender=sender,
     )
 
     post = {contract: Account(storage=storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize(
@@ -1091,8 +1037,6 @@ def test_existing_account_auth_header_gas_used_reflects_refund(
     header gas_used equals
     `max(intrinsic_regular, intrinsic_state - N * auth_refund)`.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     intrinsic_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=num_auths,
     )
@@ -1111,7 +1055,7 @@ def test_existing_account_auth_header_gas_used_reflects_refund(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + intrinsic_state_gas,
+        state_gas_reservoir=intrinsic_state_gas,
         authorization_list=authorization_list,
         sender=pre.fund_eoa(),
     )
@@ -1154,8 +1098,6 @@ def test_mixed_auths_header_gas_used_reflects_existing_refunds(
     authorities contribute none. Header gas_used is
     `max(intrinsic_regular, intrinsic_state - num_existing * refund)`.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     num_auths = num_existing + num_new
     intrinsic_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=num_auths,
@@ -1190,7 +1132,7 @@ def test_mixed_auths_header_gas_used_reflects_existing_refunds(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + intrinsic_state_gas,
+        state_gas_reservoir=intrinsic_state_gas,
         authorization_list=authorization_list,
         sender=pre.fund_eoa(),
     )
@@ -1230,8 +1172,6 @@ def test_existing_auth_refund_survives_top_level_revert(
 
     with `execution_state` netting to 0 because of the revert.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     intrinsic_state_gas = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )
@@ -1265,7 +1205,7 @@ def test_existing_auth_refund_survives_top_level_revert(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + intrinsic_state_gas,
+        state_gas_reservoir=intrinsic_state_gas,
         authorization_list=authorization_list,
         sender=pre.fund_eoa(),
     )
@@ -1352,7 +1292,7 @@ def test_auth_state_gas_in_header_after_failure(
     tx = Transaction(
         ty=4,
         to=target,
-        gas_limit=tx_gas,
+        state_gas_reservoir=auth_intrinsic_state,
         sender=pre.fund_eoa(),
         authorization_list=[
             AuthorizationTuple(
@@ -1405,9 +1345,6 @@ def test_auth_sender_billing_after_failure(
     the sender's bill via the billing formula. The sender pays less
     than in the new-account case by exactly the refund amount.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-
     auth_intrinsic_state = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
     )
@@ -1424,8 +1361,6 @@ def test_auth_sender_billing_after_failure(
     else:
         signer = pre.fund_eoa(0)
 
-    tx_gas = gas_limit_cap + auth_intrinsic_state
-
     revert_gas = (Op.REVERT(0, 0)).gas_cost(fork)
     auth_refund = new_account_refund if authority_exists else 0
     expected_cumulative = intrinsic_total + revert_gas - auth_refund
@@ -1437,7 +1372,7 @@ def test_auth_sender_billing_after_failure(
     tx = Transaction(
         ty=4,
         to=target,
-        gas_limit=tx_gas,
+        state_gas_reservoir=auth_intrinsic_state,
         sender=pre.fund_eoa(),
         authorization_list=[
             AuthorizationTuple(

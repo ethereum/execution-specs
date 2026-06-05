@@ -16,7 +16,6 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
-    Environment,
     Fork,
     Op,
     StateTestFiller,
@@ -37,7 +36,6 @@ REFERENCE_SPEC_VERSION = ref_spec_8037.version
 def test_calldata_floor_with_sstore(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """
     Test calldata floor does not affect state gas charging.
@@ -45,8 +43,6 @@ def test_calldata_floor_with_sstore(
     A transaction with large calldata triggers the calldata floor for
     regular gas, but state gas for SSTORE is charged independently.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     storage = Storage()
     contract = pre.deploy_contract(
         code=Op.SSTORE(storage.store_next(1), 1),
@@ -58,7 +54,7 @@ def test_calldata_floor_with_sstore(
     tx = Transaction(
         to=contract,
         data=calldata,
-        gas_limit=gas_limit_cap,
+        state_gas_reservoir=0,
         sender=pre.fund_eoa(),
     )
 
@@ -70,7 +66,6 @@ def test_calldata_floor_with_sstore(
 def test_calldata_floor_independent_of_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """
     Test calldata floor applies only to regular gas dimension.
@@ -80,8 +75,6 @@ def test_calldata_floor_independent_of_state_gas(
     high calldata and no state operations should succeed even when
     the floor exceeds actual execution gas.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     contract = pre.deploy_contract(code=Op.STOP)
 
     # Large calldata so the floor exceeds actual execution gas
@@ -90,7 +83,7 @@ def test_calldata_floor_independent_of_state_gas(
     tx = Transaction(
         to=contract,
         data=calldata,
-        gas_limit=gas_limit_cap,
+        state_gas_reservoir=0,
         sender=pre.fund_eoa(),
     )
 
@@ -109,9 +102,6 @@ def test_calldata_floor_higher_than_execution_with_state_ops(
     Even when calldata floor > actual regular gas used, state gas for
     SSTORE is charged normally from the reservoir or gas_left.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     storage = Storage()
@@ -125,12 +115,12 @@ def test_calldata_floor_higher_than_execution_with_state_ops(
     tx = Transaction(
         to=contract,
         data=calldata,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
     post = {contract: Account(storage=storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize(

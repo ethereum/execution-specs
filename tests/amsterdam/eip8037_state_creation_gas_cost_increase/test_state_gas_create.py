@@ -17,7 +17,6 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
-    Environment,
     Fork,
     Header,
     Initcode,
@@ -43,7 +42,6 @@ REFERENCE_SPEC_VERSION = ref_spec_8037.version
 def test_create_charges_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """
     Test CREATE charges state gas for new account and code deposit.
@@ -51,8 +49,6 @@ def test_create_charges_state_gas(
     A successful CREATE charges new-account state gas plus code
     deposit state gas proportional to the deployed code size.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     init_code = Op.STOP
 
     storage = Storage()
@@ -72,7 +68,7 @@ def test_create_charges_state_gas(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap,
+        state_gas_reservoir=0,
         sender=pre.fund_eoa(),
     )
 
@@ -101,9 +97,6 @@ def test_create_with_reservoir(
     is drawn from the reservoir rather than gas_left.
     """
     gas_costs = fork.gas_costs()
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     create_state_gas = gas_costs.NEW_ACCOUNT
 
     storage = Storage()
@@ -130,12 +123,12 @@ def test_create_with_reservoir(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + create_state_gas,
+        state_gas_reservoir=create_state_gas,
         sender=pre.fund_eoa(),
     )
 
     post = {contract: Account(storage=storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -150,8 +143,6 @@ def test_create2_child_spill_not_double_charged(
     pays new-account and storage state gas by spilling from `gas_left`. The
     factory must not charge the same state growth again at frame end.
     """
-    env = Environment()
-
     init_code = sum(Op.SSTORE(i, i + 1) for i in range(6)) + Op.STOP
     mstore_value, initcode_size = init_code_at_high_bytes(init_code)
 
@@ -183,7 +174,7 @@ def test_create2_child_spill_not_double_charged(
     post = {
         created: Account(nonce=1, storage={i: i + 1 for i in range(6)}),
     }
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize(
@@ -218,9 +209,6 @@ def test_code_deposit_state_gas_scales_with_size(
         code_size = fork.max_code_size() + 1
     assert isinstance(code_size, int)
 
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     # State gas: new account + code deposit
     total_state_gas = fork.create_state_gas(code_size=code_size)
 
@@ -232,7 +220,7 @@ def test_code_deposit_state_gas_scales_with_size(
     tx = Transaction(
         to=None,
         data=init_code,
-        gas_limit=gas_limit_cap + total_state_gas,
+        state_gas_reservoir=total_state_gas,
         sender=sender,
     )
 
@@ -242,7 +230,7 @@ def test_code_deposit_state_gas_scales_with_size(
     else:
         post = {}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -316,7 +304,6 @@ def test_repeated_create_same_code_charges_each_account(
 def test_create_tx_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """
     Test contract creation transaction charges intrinsic state gas.
@@ -325,12 +312,10 @@ def test_create_tx_state_gas(
     as intrinsic state gas for the new account, plus code deposit state
     gas for the deployed bytecode.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     tx = Transaction(
         to=None,
         data=Op.STOP,
-        gas_limit=gas_limit_cap,
+        state_gas_reservoir=0,
         sender=pre.fund_eoa(),
     )
 
@@ -341,7 +326,6 @@ def test_create_tx_state_gas(
 def test_create_revert_no_code_deposit_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """
     Test reverted CREATE does not charge code deposit state gas.
@@ -350,8 +334,6 @@ def test_create_revert_no_code_deposit_state_gas(
     account state gas is consumed but no code deposit state gas is
     charged because no code was deployed.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     init_code = Op.REVERT(0, 0)
 
     storage = Storage()
@@ -371,7 +353,7 @@ def test_create_revert_no_code_deposit_state_gas(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap,
+        state_gas_reservoir=0,
         sender=pre.fund_eoa(),
     )
 
@@ -536,8 +518,6 @@ def test_code_deposit_oog_preserves_parent_reservoir(
     CREATE proves the reservoir was not inflated by a spill-then-halt
     refund.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     gas_costs = fork.gas_costs()
     new_account_state_gas = gas_costs.NEW_ACCOUNT
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
@@ -582,7 +562,7 @@ def test_code_deposit_oog_preserves_parent_reservoir(
     # gas_left, which the limited CALL gas cannot cover.
     tx = Transaction(
         to=caller,
-        gas_limit=(gas_limit_cap + new_account_state_gas + sstore_state_gas),
+        state_gas_reservoir=new_account_state_gas + sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -916,12 +896,11 @@ def test_sstore_oog_no_reservoir_inflation(
     )
 
     sender = pre.fund_eoa()
-    # gas_limit = cap, reservoir = 0
     tx = Transaction(
         sender=sender,
         to=caller,
         data=bytes(initcode),
-        gas_limit=fork.transaction_gas_limit_cap(),
+        state_gas_reservoir=0,
     )
 
     created = not gas_shortfall
@@ -1030,13 +1009,11 @@ def test_max_initcode_size_gas_metering_via_create(
         + Op.STOP
     )
 
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     tx = Transaction(
         sender=alice,
         to=caller,
         data=bytes(initcode),
-        gas_limit=gas_limit_cap + factory_state_gas,
+        state_gas_reservoir=factory_state_gas,
     )
 
     created = not gas_shortfall
@@ -1089,12 +1066,10 @@ def test_create_no_double_charge_new_account(
         )
     )
 
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=caller,
-        gas_limit=gas_limit_cap + create_state_gas,
+        state_gas_reservoir=create_state_gas,
     )
 
     post = {
@@ -1141,9 +1116,6 @@ def test_code_deposit_halt_discards_initcode_state_gas(
     in block_state_gas_used, which determines the block header
     gas_used via max(block_regular_gas, block_state_gas).
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-
     subcall_forwarded_value = 1
     entry_account_value = 1
     if state_opcode == Op.CALL:
@@ -1175,7 +1147,7 @@ def test_code_deposit_halt_discards_initcode_state_gas(
                         to=None,
                         data=initcode,
                         value=entry_account_value + subcall_forwarded_value,
-                        gas_limit=gas_limit_cap,
+                        state_gas_reservoir=0,
                         sender=pre.fund_eoa(),
                     ),
                 ],
@@ -1199,9 +1171,6 @@ def test_create_tx_header_gas_used(
     header. Catches bugs where clients report gas_limit instead of
     actual consumed gas.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-
     gas_costs = fork.gas_costs()
     initcode = Op.STOP
     create_state_gas = fork.create_state_gas(code_size=1)
@@ -1209,7 +1178,7 @@ def test_create_tx_header_gas_used(
     tx = Transaction(
         to=None,
         data=initcode,
-        gas_limit=gas_limit_cap + create_state_gas,
+        state_gas_reservoir=create_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -1261,7 +1230,7 @@ def test_create_initcode_halt_no_code_deposit_state_gas(
     tx = Transaction(
         to=None,
         data=initcode,
-        gas_limit=gas_limit,
+        state_gas_reservoir=intrinsic_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -1298,9 +1267,6 @@ def test_state_gas_spill_header_gas_used(
     the reservoir and partially spilling into gas_left. Verify the
     block header gas_used reflects the correct 2D max accounting.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-
     # SSTORE zero-to-nonzero with small reservoir
     sstore_code = Op.SSTORE(0, 1) + Op.STOP
     contract = pre.deploy_contract(code=sstore_code)
@@ -1313,11 +1279,10 @@ def test_state_gas_spill_header_gas_used(
 
     # Reservoir = half the SSTORE state gas, rest spills to gas_left
     reservoir = sstore_state_gas // 2
-    gas_limit = gas_limit_cap + reservoir
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit,
+        state_gas_reservoir=reservoir,
         sender=pre.fund_eoa(),
     )
 
@@ -1360,8 +1325,6 @@ def test_failed_create_header_gas_used(
     halt). Verify the block is accepted with correct gas accounting.
     Parametrized across failure modes and create opcodes.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     create_state_gas = fork.create_state_gas(code_size=0)
 
     if failure_mode == "revert":
@@ -1388,7 +1351,7 @@ def test_failed_create_header_gas_used(
 
     tx = Transaction(
         to=factory,
-        gas_limit=gas_limit_cap + create_state_gas,
+        state_gas_reservoir=create_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -1422,8 +1385,6 @@ def test_create_silent_failure_refunds_state_gas(
     balance) refund `GAS_NEW_ACCOUNT` to the reservoir. Block state
     gas reflects only the probe SSTORE, not the refunded CREATE.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     gas_costs = fork.gas_costs()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
@@ -1444,7 +1405,7 @@ def test_create_silent_failure_refunds_state_gas(
 
     tx = Transaction(
         to=factory,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -1573,8 +1534,6 @@ def test_create_child_halt_refunds_state_gas(
     but not enough to spill the state portion, so the probe SSTORE
     can only succeed via the refunded reservoir.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     gas_costs = fork.gas_costs()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     new_account_state_gas = gas_costs.NEW_ACCOUNT
@@ -1623,7 +1582,7 @@ def test_create_child_halt_refunds_state_gas(
     )
     tx = Transaction(
         to=caller,
-        gas_limit=gas_limit_cap + new_account_state_gas,
+        state_gas_reservoir=new_account_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -1644,8 +1603,6 @@ def test_create_mixed_success_and_failure_block_accounting(
     One successful CREATE plus one failed CREATE (REVERT): block
     state gas reflects only the successful charges.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
     create_account_state_gas = fork.create_state_gas(code_size=0)
 
@@ -1677,7 +1634,7 @@ def test_create_mixed_success_and_failure_block_accounting(
 
     tx = Transaction(
         to=factory,
-        gas_limit=gas_limit_cap + 2 * create_account_state_gas,
+        state_gas_reservoir=2 * create_account_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -1707,8 +1664,6 @@ def test_create_collision_refunds_state_gas(
     probe SSTORE can only succeed via the refunded reservoir, not
     by spilling state gas from `gas_left`.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     gas_costs = fork.gas_costs()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     new_account_state_gas = gas_costs.NEW_ACCOUNT
@@ -1758,7 +1713,7 @@ def test_create_collision_refunds_state_gas(
     )
     tx = Transaction(
         to=caller,
-        gas_limit=gas_limit_cap + new_account_state_gas,
+        state_gas_reservoir=new_account_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -1782,8 +1737,6 @@ def test_create_code_deposit_oog_refunds_state_gas(
     `gas_left` so the probe SSTORE can only succeed via the
     refunded reservoir, not by spilling state gas from `gas_left`.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     gas_costs = fork.gas_costs()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     new_account_state_gas = gas_costs.NEW_ACCOUNT
@@ -1824,7 +1777,7 @@ def test_create_code_deposit_oog_refunds_state_gas(
     )
     tx = Transaction(
         to=caller,
-        gas_limit=gas_limit_cap + new_account_state_gas,
+        state_gas_reservoir=new_account_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -1958,15 +1911,13 @@ def test_oversized_initcode_tx_no_state_gas(
     sender = pre.fund_eoa()
     create_address = compute_create_address(address=sender, nonce=0)
 
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     create_state_gas = fork.create_state_gas(code_size=len(Op.STOP))
 
     tx = Transaction(
         sender=sender,
         to=None,
         data=initcode,
-        gas_limit=gas_limit_cap + create_state_gas,
+        state_gas_reservoir=create_state_gas,
     )
 
     if initcode_size_delta > 0:
@@ -2016,8 +1967,6 @@ def test_oversized_initcode_opcode_no_state_gas(
     initcode = Initcode(deploy_code=Op.STOP, initcode_length=size)
     initcode_bytes = bytes(initcode)
 
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     gas_costs = fork.gas_costs()
     create_state_gas = gas_costs.NEW_ACCOUNT
 
@@ -2052,7 +2001,7 @@ def test_oversized_initcode_opcode_no_state_gas(
         sender=pre.fund_eoa(),
         to=factory,
         data=initcode_bytes,
-        gas_limit=gas_limit_cap + create_state_gas,
+        state_gas_reservoir=create_state_gas,
     )
 
     post: dict = {factory: Account(storage=storage)}
@@ -2228,8 +2177,6 @@ def test_nested_create_fail_parent_revert_state_gas(
     Verify factory nonce is rolled back when the factory reverts after
     a failed inner CREATE, and preserved when the factory returns.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     gas_costs = fork.gas_costs()
     create_state_gas = gas_costs.NEW_ACCOUNT
 
@@ -2264,7 +2211,7 @@ def test_nested_create_fail_parent_revert_state_gas(
 
     tx = Transaction(
         to=caller,
-        gas_limit=gas_limit_cap + create_state_gas,
+        state_gas_reservoir=create_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -2304,8 +2251,6 @@ def test_create_stack_depth_state_gas_consumed(
     Verify the state gas reservoir survives a deep recursion of
     nested CALLs that silently fail on gas or depth exhaustion.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     storage = Storage()
@@ -2318,7 +2263,7 @@ def test_create_stack_depth_state_gas_consumed(
 
     tx = Transaction(
         to=recursive,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 

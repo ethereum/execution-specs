@@ -98,9 +98,6 @@ def test_charge_draws_entirely_from_reservoir(
     gas_left should not be reduced by the state charge. Verify by
     performing a regular-gas-heavy computation after the SSTORE.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     storage = Storage()
@@ -119,12 +116,12 @@ def test_charge_draws_entirely_from_reservoir(
     # Provide exact state gas in the reservoir
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + sstore_state_gas * 2,
+        state_gas_reservoir=sstore_state_gas * 2,
         sender=pre.fund_eoa(),
     )
 
     post = {contract: Account(storage=storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -140,9 +137,6 @@ def test_charge_spills_to_gas_left(
     state charge, the remainder is taken from gas_left. The SSTORE
     should still succeed.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     storage = Storage()
@@ -154,12 +148,12 @@ def test_charge_spills_to_gas_left(
     half_state_gas = sstore_state_gas // 2
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + half_state_gas,
+        state_gas_reservoir=half_state_gas,
         sender=pre.fund_eoa(),
     )
 
     post = {contract: Account(storage=storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @EIPChecklist.GasCostChanges.Test.OutOfGas()
@@ -201,7 +195,6 @@ def test_charge_oog_both_pools_insufficient(
 def test_refund_cap_includes_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """
     Test the 1/5 refund cap includes state gas used from gas_left.
@@ -212,8 +205,6 @@ def test_refund_cap_includes_state_gas(
     performs an SSTORE zero-to-nonzero-to-zero sequence to generate
     a refund and verifies the transaction succeeds.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     contract = pre.deploy_contract(
         code=(Op.SSTORE(0, 1) + Op.SSTORE(0, 0)),
     )
@@ -221,7 +212,7 @@ def test_refund_cap_includes_state_gas(
     # No reservoir — all gas from gas_left, refund cap applies
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap,
+        state_gas_reservoir=0,
         sender=pre.fund_eoa(),
     )
 
@@ -246,9 +237,6 @@ def test_refund_with_reservoir_state_gas(
     both dimensions. An SSTORE zero-to-nonzero-to-zero sequence
     should refund correctly.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     contract = pre.deploy_contract(
@@ -257,13 +245,13 @@ def test_refund_with_reservoir_state_gas(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
     # Slot 0 restored to zero
     post = {contract: Account(storage={0: 0})}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.exception_test
