@@ -852,25 +852,27 @@ class Transaction(
         """Set the transaction gas limit if unset."""
         if "gas_limit" not in self.model_fields_set or self.gas_limit is None:
             tx_gas_limit = max_gas_limit
-            if (
-                "state_gas_reservoir" in self.model_fields_set
-                and state_gas_reservoir_enabled
-            ):
-                assert transaction_gas_limit_cap is not None, (
-                    "Impossible to set calculate the tx gas limit for the "
-                    "required state gas reservoir without a gas limit cap"
-                )
-                if self.state_gas_reservoir > 0:
-                    minimum_gas_with_reservoir = (
-                        transaction_gas_limit_cap + self.state_gas_reservoir
+            if state_gas_reservoir_enabled:
+                if "state_gas_reservoir" in self.model_fields_set:
+                    assert transaction_gas_limit_cap is not None, (
+                        "Impossible to set calculate the tx gas limit for the "
+                        "required state gas reservoir without a gas limit cap"
                     )
-                    assert tx_gas_limit >= minimum_gas_with_reservoir
-                    tx_gas_limit = minimum_gas_with_reservoir
-                else:
-                    if tx_gas_limit > transaction_gas_limit_cap:
-                        tx_gas_limit = transaction_gas_limit_cap
-            elif transaction_gas_limit_cap is not None:
-                if tx_gas_limit > transaction_gas_limit_cap:
+                    if self.state_gas_reservoir > 0:
+                        minimum_gas_with_reservoir = (
+                            transaction_gas_limit_cap
+                            + self.state_gas_reservoir
+                        )
+                        assert tx_gas_limit >= minimum_gas_with_reservoir
+                        tx_gas_limit = minimum_gas_with_reservoir
+                    else:
+                        if tx_gas_limit > transaction_gas_limit_cap:
+                            tx_gas_limit = transaction_gas_limit_cap
+            else:
+                if (
+                    transaction_gas_limit_cap is not None
+                    and tx_gas_limit > transaction_gas_limit_cap
+                ):
                     tx_gas_limit = transaction_gas_limit_cap
             self.gas_limit = HexNumber(tx_gas_limit)
 
