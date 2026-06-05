@@ -6,7 +6,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Environment,
     Fork,
     Op,
     StateTestFiller,
@@ -28,8 +27,6 @@ def test_blake2_precompile_delegatecall(
     Test delegatecall consumes specified gas for the Blake2B precompile when it
     exists.
     """
-    env = Environment()
-
     account = pre.deploy_contract(
         Op.SSTORE(
             0,
@@ -42,11 +39,7 @@ def test_blake2_precompile_delegatecall(
         storage={0: 0xDEADBEEF},
     )
 
-    tx = Transaction(
-        to=account,
-        sender=pre.fund_eoa(),
-        protected=True,
-    )
+    tx = Transaction(to=account, sender=pre.fund_eoa())
 
     # If precompile exists, DELEGATECALL will fail, otherwise DELEGATECALL will
     # succeed
@@ -58,4 +51,4 @@ def test_blake2_precompile_delegatecall(
         )
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
