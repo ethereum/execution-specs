@@ -13,7 +13,6 @@ from execution_testing import (
     Address,
     Alloc,
     Bytecode,
-    Environment,
     Op,
     StateTestFiller,
     Storage,
@@ -175,12 +174,7 @@ def test_no_memory_corruption_on_upper_call_stack_levels(
     Perform a subcall with any of the following opcodes, which uses MCOPY
     during its execution, and verify that the caller's memory is unaffected.
     """
-    state_test(
-        env=Environment(),
-        pre=pre,
-        post=post,
-        tx=tx,
-    )
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize(
@@ -203,9 +197,4 @@ def test_no_memory_corruption_on_upper_create_stack_levels(
       - `CREATE`
       - `CREATE2`.
     """
-    state_test(
-        env=Environment(),
-        pre=pre,
-        post=post,
-        tx=tx,
-    )
+    state_test(pre=pre, post=post, tx=tx)
