@@ -91,7 +91,6 @@ def test_blockhash_zero_out_of_window(
     tx = Transaction(
         sender=sender,
         to=contract,
-        gas_limit=200_000,
         protected=False,  # legacy tx so it fills on pre-EIP-155 forks too
     )
 
@@ -136,7 +135,6 @@ def test_blockhash_zero_in_window_control(
     tx = Transaction(
         sender=sender,
         to=contract,
-        gas_limit=200_000,
         protected=False,  # legacy tx so it fills on pre-EIP-155 forks too
     )
 

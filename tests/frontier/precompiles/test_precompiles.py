@@ -7,7 +7,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Environment,
     Fork,
     Op,
     StateTestFiller,
@@ -83,10 +82,8 @@ def test_precompiles(
     precompiled contract exists at the given address.
 
     """
-    env = Environment()
-
     # Empty account to serve as reference
-    empty_account = pre.fund_eoa(amount=0)
+    empty_account = pre.nonexistent_account()
 
     # Memory
     args_offset = 0
@@ -134,7 +131,6 @@ def test_precompiles(
     tx = Transaction(
         to=account,
         sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
         protected=True,
     )
 
@@ -142,4 +138,4 @@ def test_precompiles(
     # Expect 0x00 when a precompile exists at the address, 0x01 otherwise
     post = {account: Account(storage={0: 0 if precompile_exists else 1})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
