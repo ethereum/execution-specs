@@ -253,7 +253,6 @@ def test_dynamic_create2_selfdestruct_collision(
     tx = Transaction(
         to=address_to,
         data=initcode,
-        gas_limit=5_000_000,
         sender=sender,
     )
 
@@ -526,13 +525,11 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
                     Transaction(
                         to=address_to,
                         data=initcode,
-                        gas_limit=5_000_000,
                         sender=sender,
                     ),
                     Transaction(
                         to=address_to_second,
                         data=initcode,
-                        gas_limit=5_000_000,
                         sender=sender,
                     ),
                 ]
@@ -805,13 +802,11 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
                     Transaction(
                         to=address_to,
                         data=initcode,
-                        gas_limit=5_000_000,
                         sender=sender,
                     ),
                     Transaction(
                         to=address_to,
                         data=initcode,
-                        gas_limit=5_000_000,
                         sender=sender,
                     ),
                 ]

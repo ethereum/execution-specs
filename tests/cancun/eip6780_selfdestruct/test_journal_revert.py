@@ -8,7 +8,6 @@ from execution_testing import (
     Alloc,
     BalAccountExpectation,
     BlockAccessListExpectation,
-    Environment,
     Fork,
     Op,
     StateTestFiller,
@@ -24,7 +23,6 @@ REFERENCE_SPEC_VERSION = "1b6a0e94cc47e859b9866e570391cf37dc55059a"
 @pytest.mark.valid_from("Cancun")
 def test_selfdestruct_balance_transfer_reverted(
     state_test: StateTestFiller,
-    env: Environment,
     pre: Alloc,
     fork: Fork,
 ) -> None:
@@ -49,13 +47,12 @@ def test_selfdestruct_balance_transfer_reverted(
 
     # Controller calls victim (triggers SELFDESTRUCT) then reverts.
     controller = pre.deploy_contract(
-        Op.POP(Op.CALL(gas=100_000, address=victim))
-        + Op.REVERT(offset=0, size=0)
+        Op.POP(Op.CALL(address=victim)) + Op.REVERT(offset=0, size=0)
     )
 
     # Outer calls controller, then checks beneficiary balance.
     outer = pre.deploy_contract(
-        Op.POP(Op.CALL(gas=200_000, address=controller))
+        Op.POP(Op.CALL(address=controller))
         + Op.SSTORE(
             storage.store_next(beneficiary_balance, "beneficiary_balance"),
             Op.BALANCE(beneficiary),
@@ -92,7 +89,6 @@ def test_selfdestruct_balance_transfer_reverted(
     )
 
     state_test(
-        env=env,
         pre=pre,
         post={
             outer: Account(storage=storage),
@@ -104,7 +100,6 @@ def test_selfdestruct_balance_transfer_reverted(
         tx=Transaction(
             sender=sender,
             to=outer,
-            gas_limit=1_000_000,
             expected_receipt=expected_receipt,
         ),
         expected_block_access_list=expected_bal,
