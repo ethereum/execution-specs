@@ -441,6 +441,10 @@ builtin = "clear,code,usage"
 # Version control & tooling, build artifacts, data files, test fixtures, temp files, lock files
 skip = [
     ".devcontainer",
+    # Local AI memory and notes files (gitignored, may exist as symlinks)
+    "CLAUDE.local.md",
+    ".mb",
+    "mb",
     ".git",
     ".just",
     ".venv",
