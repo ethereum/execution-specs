@@ -944,7 +944,7 @@ requires-dist = [
     { name = "cryptography", specifier = ">=45.0.1,<46" },
     { name = "ethash", marker = "extra == 'optimized'", specifier = ">=1.1.0,<2" },
     { name = "ethereum-rlp", specifier = ">=0.1.6,<0.2" },
-    { name = "ethereum-types", specifier = ">=0.4.0,<0.5" },
+    { name = "ethereum-types", specifier = ">=0.4.1,<0.5" },
     { name = "libcst", specifier = ">=1.8,<2" },
     { name = "platformdirs", specifier = ">=4.2,<5" },
     { name = "py-ecc", specifier = ">=8.0.0b2,<9" },
@@ -1113,7 +1113,7 @@ requires-dist = [
     { name = "ethereum-execution", editable = "." },
     { name = "ethereum-hive", specifier = ">=0.1.0a5,<1.0.0" },
     { name = "ethereum-rlp", specifier = ">=0.1.6,<0.2" },
-    { name = "ethereum-types", specifier = ">=0.4.0,<0.5" },
+    { name = "ethereum-types", specifier = ">=0.4.1,<0.5" },
     { name = "filelock", specifier = ">=3.15.1,<4" },
     { name = "gitpython", specifier = ">=3.1.31,<4" },
     { name = "ijson", specifier = ">=3.3,<4" },
@@ -1182,15 +1182,15 @@ wheels = [
 
 [[package]]
 name = "ethereum-types"
-version = "0.4.0"
+version = "0.4.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "mypy-extensions" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/30/7d/0891ebc73937db7a585e78a167707ecf4948aa4e32ac7b9f67422f4395e3/ethereum_types-0.4.0.tar.gz", hash = "sha256:9c6f52b89bf739ebfe26bdc2fc1d14f9a1bc4c658ef2bbca0003bbdef8ed9cc2", size = 16759, upload-time = "2026-06-03T20:30:10.468Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e5/bf/6c15ea3372a19b4df9d47ba08d32ad0751c059c31c7f15842cf12e5736bd/ethereum_types-0.4.1.tar.gz", hash = "sha256:c0eee4464c42ed8217dfc927400db98157cc8b09252ecefa703176496dbe3b4d", size = 67752, upload-time = "2026-06-08T16:57:04.424Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/03/cd/859435bc9d939158a4f41301631071b6cc5a1655883e720d22887b2a0a0b/ethereum_types-0.4.0-py3-none-any.whl", hash = "sha256:0bc2d2735faf92ba1ba317d409f019b56e33a21f2e1318356f96831d9996d392", size = 11753, upload-time = "2026-06-03T20:30:11.165Z" },
+    { url = "https://files.pythonhosted.org/packages/78/f6/466c684cee5eacd6413f33284a8bd45686564e7c5974d5cda331c9577c4e/ethereum_types-0.4.1-py3-none-any.whl", hash = "sha256:33de3e2a0c0e57ea1b67802485de556b92d557aae7c8c640070800f2b4f639e3", size = 12162, upload-time = "2026-06-08T16:57:05.382Z" },
 ]
 
 [[package]]
