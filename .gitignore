@@ -8,6 +8,9 @@
 
 # AI
 .claude/settings.local.json
+CLAUDE.local.md
+.mb/
+mb/
 .devcontainer
 
 # Benchmark fixed opcode counts
