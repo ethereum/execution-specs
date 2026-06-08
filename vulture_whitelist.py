@@ -11,6 +11,9 @@ from ethereum_spec_tools.evm_tools.t8n.transition_tool import EELST8N
 
 from ethereum.ethash import *
 from ethereum.fork_criteria import Unscheduled
+from ethereum.forks.amsterdam.transactions.frame_transaction import (
+    FrameMode,
+)
 from ethereum.trace import EvmTracer
 from ethereum.utils.hexadecimal import hex_to_bytes256
 from ethereum_optimized.state_db import State
@@ -46,6 +49,10 @@ Withdrawal.validator_index
 
 # src/ethereum/fork_criteria.py
 Unscheduled
+
+# src/ethereum/forks/amsterdam/transactions/frame_transaction.py -
+# constructed while decoding transactions, never compared explicitly
+FrameMode.DEFAULT
 
 # src/ethereum/ethash.py
 ethash.generate_dataset

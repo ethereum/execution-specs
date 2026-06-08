@@ -41,6 +41,9 @@ TRANSFER_TOPIC = keccak256(b"Transfer(address,address,uint256)")
 SYSTEM_ADDRESS = Address(
     bytes.fromhex("fffffffffffffffffffffffffffffffffffffffe")
 )
+FRAME_ENTRY_POINT = Address(
+    bytes.fromhex("00000000000000000000000000000000000000aa")
+)
 CALL_SUCCESS = U256(1)
 
 

@@ -5,10 +5,12 @@ transactions are the events that move between states.
 """
 
 from dataclasses import dataclass
+from enum import STRICT
 from typing import Tuple, TypeGuard, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
+from ethereum_types.enum import UintEnum, UintFlag
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U64, U256, Uint, ulen
 
@@ -489,12 +491,239 @@ class SetCodeTransaction:
     """
 
 
+@final
+class FrameMode(UintEnum, boundary=STRICT):
+    """
+    Indicates the purpose of a [`Frame`].
+
+    [`Frame`]: ref:ethereum.forks.amsterdam.transactions.Frame
+    """
+
+    DEFAULT = Uint(0)
+    """
+    Execute frame as [`FRAME_ENTRY_POINT`][fep].
+
+    [fep]: ref:ethereum.forks.amsterdam.vm.FRAME_ENTRY_POINT
+    """
+
+    VERIFY = Uint(1)
+    """
+    Identify frame as transaction validation.
+    """
+
+    SENDER = Uint(2)
+    """
+    Execute frame as [`sender`][s].
+
+    [s]: ref:ethereum.forks.amsterdam.transactions.FrameTransaction.sender
+    """
+
+
+@final
+class FrameFlag(UintFlag, boundary=STRICT):
+    """
+    Frame or mode features.
+    """
+
+    APPROVE_PAYMENT = Uint(1)
+    """
+    [`Frame`] has permission to approve payment.
+
+    [`Frame`]: ref:ethereum.forks.amsterdam.transactions.Frame
+    """
+
+    APPROVE_EXECUTION = Uint(2)
+    """
+    [`Frame`] has permission to approve execution.
+
+    [`Frame`]: ref:ethereum.forks.amsterdam.transactions.Frame
+    """
+
+    ATOMIC_BATCH = Uint(4)
+    """
+    [`Frame`] belongs to an atomic batch.
+
+    All frames within an atomic batch either all succeed or are all reverted.
+
+    [`Frame`]: ref:ethereum.forks.amsterdam.transactions.Frame
+    """
+
+
+@final
+@slotted_freezable
+@dataclass
+class Frame:
+    """
+    Unit of execution defined in a [`FrameTransaction`][ft].
+
+    [ft]: ref:ethereum.forks.amsterdam.transactions.FrameTransaction
+    """
+
+    mode: FrameMode
+    """
+    Purpose of this frame.
+
+    Specifies the specific execution semantics this frame will execute with.
+    """
+
+    flags: FrameFlag
+    """
+    Enable optional frame or mode features.
+    """
+
+    to: Bytes0 | Address
+    """
+    Destination or target account for the frame.
+    """
+
+    gas: U256
+    """
+    Maximum amount of gas that can be used by this frame.
+    """
+
+    value: U256
+    """
+    Amount of ether (in wei) to transfer from the [`sender`][s] as part of the
+    frame execution.
+
+    [s]: ref:ethereum.forks.amsterdam.transactions.FrameTransaction.sender
+    """
+
+    data: Bytes
+    """
+    The data payload of the frame, which can be used to call functions on
+    contracts.
+    """
+
+
+@final
+class FrameSignatureScheme(UintEnum, boundary=STRICT):
+    """
+    Algorithm used to authenticate [`FrameSignature`][fs]s.
+
+    [fs]: ref:ethereum.forks.amsterdam.transactions.FrameSignature
+    """
+
+    SECP256K1 = Uint(0)
+    P256 = Uint(1)
+
+
+@final
+@slotted_freezable
+@dataclass
+class FrameSignature:
+    """
+    A signature provided to [`VERIFY`][v] frames.
+
+    [v]: ref:ethereum.forks.amsterdam.transactions.FrameMode.VERIFY
+    """
+
+    scheme: FrameSignatureScheme
+    """
+    Algorithm used to construct the signature.
+    """
+
+    signer: Bytes
+    """
+    Scheme-dependent signer metadata.
+
+    For [`SECP256K1`] and [`P256`], this is a 20-byte address.
+
+    [`SECP256K1`]: ref:ethereum.forks.amsterdam.transactions.FrameSignatureScheme.SECP256K1
+    [`P256`]: ref:ethereum.forks.amsterdam.transactions.FrameSignatureScheme.P256
+    """  # noqa: E501
+
+    message: Bytes0 | Bytes32
+    """
+    Either empty, indicating the canonical transaction signature hash, or an
+    explicit 32-byte digest.
+    """
+
+    signature: Bytes
+    """
+    Raw signature bytes, to be interpreted according to [`scheme`].
+
+    [`scheme`]: ref:ethereum.forks.amsterdam.transactions.FrameSignature.scheme
+    """
+
+
+@final
+@slotted_freezable
+@dataclass
+class FrameTransaction:
+    """
+    Transaction type constructed from a series of frames, abstractly defining
+    validity conditions and gas payment. Introduced in [EIP-8141].
+
+    [EIP-8141]: https://eips.ethereum.org/EIPS/eip-8141
+    """
+
+    chain_id: U64
+    """
+    The ID of the chain on which this transaction is executed.
+    """
+
+    nonce: U256
+    """
+    A scalar value equal to the number of transactions sent by the
+    [`sender`][s].
+
+    [s]: ref:ethereum.forks.amsterdam.transactions.FrameTransaction.sender
+    """
+
+    sender: Address
+    """
+    Address of the account intended to be the sender of the transaction.
+    """
+
+    frames: Tuple[Frame, ...]
+    """
+    List of frames to execute.
+    """
+
+    signatures: Tuple[FrameSignature, ...]
+    """
+    Validated signatures available to the transaction.
+
+    The `signatures` list contains signatures that may be referenced by
+    [`VERIFY`][v] frames and by ordinary EVM execution. Every signature in the
+    list must validate successfully before any [`Frame`] is executed. If any
+    signature is malformed or invalid, the whole transaction is invalid.
+
+    [v]: ref:ethereum.forks.amsterdam.transactions.FrameMode.VERIFY
+    [`Frame`]: ref:ethereum.forks.amsterdam.transactions.Frame
+    """
+
+    max_priority_fee_per_gas: Uint
+    """
+    The maximum priority fee per gas that the sender is willing to pay.
+    """
+
+    max_fee_per_gas: Uint
+    """
+    The maximum fee per gas that the sender is willing to pay, including the
+    base fee and priority fee.
+    """
+
+    max_fee_per_blob_gas: U256
+    """
+    The maximum fee per blob gas that the sender is willing to pay.
+    """
+
+    blob_versioned_hashes: Tuple[VersionedHash, ...]
+    """
+    A tuple of objects that represent the versioned hashes of the blobs
+    included in the transaction.
+    """
+
+
 Transaction = (
     LegacyTransaction
     | AccessListTransaction
     | FeeMarketTransaction
     | BlobTransaction
     | SetCodeTransaction
+    | FrameTransaction
 )
 """
 Union type representing any valid transaction type.
@@ -549,6 +778,8 @@ def encode_transaction(tx: Transaction) -> LegacyTransaction | Bytes:
         return b"\x03" + rlp.encode(tx)
     elif isinstance(tx, SetCodeTransaction):
         return b"\x04" + rlp.encode(tx)
+    elif isinstance(tx, FrameTransaction):
+        return b"\x06" + rlp.encode(tx)
     else:
         raise Exception(f"Unable to encode transaction of type {type(tx)}")
 
@@ -574,6 +805,8 @@ def decode_transaction(tx: LegacyTransaction | Bytes) -> Transaction:
             return rlp.decode_to(BlobTransaction, tx[1:])
         elif tx[0] == 4:
             return rlp.decode_to(SetCodeTransaction, tx[1:])
+        elif tx[0] == 6:
+            return rlp.decode_to(FrameTransaction, tx[1:])
         elif tx[0] >= 0xC0:
             assert tx[0] <= 0xFE
             return rlp.decode_to(LegacyTransaction, tx)
