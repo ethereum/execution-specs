@@ -3782,7 +3782,6 @@ def test_bal_destroyed_dirty_account_emits_no_state_changes(
             + Op.POP(create_opcode(value=0, offset=0, size=0))
         ),
     )
-    initcode_bytes = bytes(init_code)
 
     factory_code = (
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
