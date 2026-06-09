@@ -3768,7 +3768,7 @@ def test_bal_destroyed_dirty_account_emits_no_state_changes(
     only `storage_reads` for the demoted slots.
     """
     alice = pre.fund_eoa()
-    beneficiary = pre.fund_eoa(amount=0)
+    beneficiary = pre.nonexistent_account()
     factory_balance = 1000
     endowment = 100
     slot_write = 0x07
