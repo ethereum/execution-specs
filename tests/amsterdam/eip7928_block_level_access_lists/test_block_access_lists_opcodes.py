@@ -3646,7 +3646,7 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
     target_slot = 0x07
 
     runtime = Op.SSTORE(target_slot, 0xCAFE) + Op.SELFDESTRUCT(beneficiary)
-    runtime_bytes = init_code.deploy_code
+    runtime_bytes = bytes(runtime)
     initcode_bytes = bytes(Initcode(deploy_code=runtime))
 
     factory_code = (
@@ -3833,6 +3833,8 @@ def test_bal_dirty_account_selfdestruct(
         opcode=create_opcode,
     )
 
+    expected_ephemeral_post: Account | None
+    expected_beneficiary_post: Account | None
     if destruction_successful:
         expected_ephemeral_bal = BalAccountExpectation(
             balance_changes=[],
