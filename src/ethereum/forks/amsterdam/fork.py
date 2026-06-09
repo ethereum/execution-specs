@@ -559,10 +559,6 @@ def check_transaction(
         is empty.
 
     """
-    # Per-tx 2D gas inclusion check: for each dimension the worst-case
-    # contribution must fit in the remaining budget.  Block-end
-    # validation still enforces
-    # max(block_regular_gas_used, block_state_gas_used) <= gas_limit.
     regular_gas_available = (
         block_env.block_gas_limit - block_output.block_gas_used
     )

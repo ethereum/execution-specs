@@ -649,12 +649,12 @@ def calculate_intrinsic_cost(tx: Transaction) -> IntrinsicGasCost:
             ulen(tx.data)
         )
 
-    access_list_gas = Uint(0)
+    access_list_cost = Uint(0)
     tokens_in_access_list = Uint(0)
     if has_access_list(tx):
         for access in tx.access_list:
-            access_list_gas += GasCosts.TX_ACCESS_LIST_ADDRESS
-            access_list_gas += (
+            access_list_cost += GasCosts.TX_ACCESS_LIST_ADDRESS
+            access_list_cost += (
                 ulen(access.slots) * GasCosts.TX_ACCESS_LIST_STORAGE_KEY
             )
             tokens_in_access_list += ACCESS_LIST_ADDRESS_FLOOR_TOKENS
@@ -663,7 +663,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> IntrinsicGasCost:
             )
 
     # Data token floor cost for access list bytes.
-    access_list_gas += tokens_in_access_list * GasCosts.TX_DATA_TOKEN_FLOOR
+    access_list_cost += tokens_in_access_list * GasCosts.TX_DATA_TOKEN_FLOOR
 
     auth_regular_gas = Uint(0)
     auth_state_gas = Uint(0)
@@ -690,7 +690,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> IntrinsicGasCost:
         GasCosts.TX_BASE
         + data_cost
         + create_regular_gas
-        + access_list_gas
+        + access_list_cost
         + auth_regular_gas
     )
 
