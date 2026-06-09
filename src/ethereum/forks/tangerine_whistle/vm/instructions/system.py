@@ -12,6 +12,7 @@ Implementations of the EVM system related instructions.
 """
 
 from dataclasses import dataclass
+from typing import final
 
 from ethereum_types.bytes import Bytes0
 from ethereum_types.numeric import U256, Uint
@@ -168,6 +169,7 @@ def return_(evm: Evm) -> None:
     pass
 
 
+@final
 @dataclass
 class GenericCall:
     """

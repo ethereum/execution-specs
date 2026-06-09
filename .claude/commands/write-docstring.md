@@ -15,6 +15,7 @@ Conventions for writing docstrings in `src/ethereum/`. Docstrings are the primar
 - Do not include constants/numeric values in the docstring (values in docstrings can easily desync with the code, and no tool will detect it)
 - Avoid restating what the code is doing (the code should speak for itself)
 - Avoid mentioning the current fork unnecessarily (creates noisy diffs between forks)
+- Docstrings should be reserved for meaningful specification, while comments (`# ...`) can be used to explain particulars of the Python reference implementation
 
 ## Module Docstrings
 
@@ -246,6 +247,8 @@ Bare URLs in angle brackets for inline use:
 ```
 Available at <https://github.com/ethereum/genesis_block_generator>.
 ```
+
+If a URL is too long to include because of the line length limit, you can add `# noqa: E501` after the trailing `"""` to squelch the warning (but this should be a last resort).
 
 ### Usage in text
 

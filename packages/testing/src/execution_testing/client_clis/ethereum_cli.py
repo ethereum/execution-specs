@@ -180,7 +180,7 @@ class EthereumCLI:
                 for subclass in subclasses:
                     logger.debug(f"Trying subclass {subclass}")
                     try:
-                        if subclass.detect_binary(binary_output):
+                        if subclass.detect_binary(binary_output, binary):
                             subclass_check_result = subclass(
                                 binary=binary, **kwargs
                             )
@@ -204,10 +204,19 @@ class EthereumCLI:
         raise UnknownCLIError(f"Unknown CLI: {binary}")
 
     @classmethod
-    def detect_binary(cls, binary_output: str) -> bool:
+    def detect_binary(
+        cls,
+        binary_output: str,
+        binary: Optional[Path] = None,  # noqa: ARG003
+    ) -> bool:
         """
         Return True if a CLI's `binary_output` matches the
         class's expected output.
+
+        `binary` is the resolved path to the tool being probed. Subclasses may
+        use it to disambiguate tools that share a version banner by inspecting
+        the binary itself (e.g. its subcommands), instead of relying on the
+        version string alone.
         """
         logger.debug(f"Trying to detect binary for {binary_output}..")
         assert cls.detect_binary_pattern is not None

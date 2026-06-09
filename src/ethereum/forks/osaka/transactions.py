@@ -5,7 +5,7 @@ transactions are the events that move between states.
 """
 
 from dataclasses import dataclass
-from typing import Tuple, TypeGuard
+from typing import Tuple, TypeGuard, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
@@ -29,6 +29,7 @@ from .exceptions import (
 from .fork_types import Authorization, VersionedHash
 
 
+@final
 @dataclass
 class IntrinsicGasCost:
     """Intrinsic gas costs for a transaction, split by gas type."""
@@ -47,6 +48,7 @@ class IntrinsicGasCost:
 TX_MAX_GAS_LIMIT = Uint(16_777_216)
 
 
+@final
 @slotted_freezable
 @dataclass
 class LegacyTransaction:
@@ -109,6 +111,7 @@ class LegacyTransaction:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class Access:
@@ -128,6 +131,7 @@ class Access:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class AccessListTransaction:
@@ -200,6 +204,7 @@ class AccessListTransaction:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class FeeMarketTransaction:
@@ -277,6 +282,7 @@ class FeeMarketTransaction:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class BlobTransaction:
@@ -365,6 +371,7 @@ class BlobTransaction:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class SetCodeTransaction:

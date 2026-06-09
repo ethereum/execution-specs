@@ -24,8 +24,8 @@ dependencies = [
     "coincurve>=20,<21",
     "typing_extensions>=4.4",
     "py-ecc>=8.0.0b2,<9",
-    "ethereum-types>=0.3.0,<0.4",
-    "ethereum-rlp>=0.1.5,<0.2",
+    "ethereum-types>=0.4.1,<0.5",
+    "ethereum-rlp>=0.1.6,<0.2",
     "cryptography>=45.0.1,<46",
     "platformdirs>=4.2,<5",
     "libcst>=1.8,<2",
@@ -441,6 +441,10 @@ builtin = "clear,code,usage"
 # Version control & tooling, build artifacts, data files, test fixtures, temp files, lock files
 skip = [
     ".devcontainer",
+    # Local AI memory and notes files (gitignored, may exist as symlinks)
+    "CLAUDE.local.md",
+    ".mb",
+    "mb",
     ".git",
     ".just",
     ".venv",

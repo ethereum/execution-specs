@@ -1,16 +1,43 @@
 """
-State Trie.
+Modified Merkle Patricia Trie (MPT), the data structure that commits to
+large amounts of state with a single hash.
 
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
+The MPT is a 16-ary radix trie augmented with cryptographic hashing, so each
+unique mapping of keys to values has a deterministic root hash. Block headers
+commit to the state, transactions, and receipts through these roots, allowing
+nodes to verify any individual entry against the header without storing the
+entire trie.
 
-Introduction
-------------
+The trie has three kinds of internal node:
 
-The state trie is the structure responsible for storing
-`.fork_types.Account` objects.
-"""
+- A [`LeafNode`] terminates a path and stores a value.
+- An [`ExtensionNode`] compresses a sequence of nibbles shared by every key
+  passing through it, avoiding chains of single-child branches.
+- A [`BranchNode`] has up to sixteen children, one per nibble value, plus an
+  optional value for a key that terminates exactly at this node.
+
+Keys are processed as **nibbles** (half-bytes, each `0` to `15` inclusive)
+by [`bytes_to_nibble_list`][bnl], and stored within nodes in a compressed
+[hex-prefix encoding][hp] produced by [`nibble_list_to_compact`][nlc].
+
+Some tries are _secured_, meaning their keys are hashed with [`keccak256`]
+before insertion. Hashing distributes keys uniformly so adversarial choices
+cannot create a deeply unbalanced trie. The state and storage tries are
+secured; the transaction and receipt tries are not.
+
+The mapping of keys to values is exposed through [`Trie`]; the [`root`]
+function reduces a trie to its 32-byte commitment.
+
+[`LeafNode`]: ref:ethereum.merkle_patricia_trie.LeafNode
+[`ExtensionNode`]: ref:ethereum.merkle_patricia_trie.ExtensionNode
+[`BranchNode`]: ref:ethereum.merkle_patricia_trie.BranchNode
+[`Trie`]: ref:ethereum.merkle_patricia_trie.Trie
+[`root`]: ref:ethereum.merkle_patricia_trie.root
+[bnl]: ref:ethereum.merkle_patricia_trie.bytes_to_nibble_list
+[nlc]: ref:ethereum.merkle_patricia_trie.nibble_list_to_compact
+[`keccak256`]: ref:ethereum.crypto.hash.keccak256
+[hp]: https://ethereum.org/en/developers/docs/data-structures-and-encoding/patricia-merkle-trie/#optimization
+"""  # noqa: E501
 
 from __future__ import annotations
 
@@ -29,6 +56,7 @@ from typing import (
     Tuple,
     TypeVar,
     cast,
+    final,
 )
 
 from ethereum_rlp import Extended, rlp
@@ -43,20 +71,6 @@ from ethereum.utils.hexadecimal import hex_to_bytes
 if TYPE_CHECKING:
     from ethereum.state import Account, Address, Root
 
-# note: an empty trie (regardless of whether it is secured) has root:
-#
-#   keccak256(RLP(b''))
-#       ==
-#   56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421 # noqa: E501
-#
-# also:
-#
-#   keccak256(RLP(()))
-#       ==
-#   1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347 # noqa: E501
-#
-# which is the sha3Uncles hash in block header with no uncles
-#
 # Note: `Hash32` is used here rather than `Root` because `Root` is defined in
 # `ethereum.state`, which imports from this module — referring to it at module
 # scope would create a circular import.
@@ -65,24 +79,62 @@ EMPTY_TRIE_ROOT = Hash32(
         "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
     )
 )
+"""
+Root hash of an empty Merkle Patricia Trie.
+
+Used in block headers (state, transactions, receipts, etc.) when the
+corresponding trie has no entries. This is the [`keccak256`] hash of the RLP
+encoding of an empty byte string, regardless of whether the trie would have
+been secured.
+
+[`keccak256`]: ref:ethereum.crypto.hash.keccak256
+"""
 
 
+@final
 @slotted_freezable
 @dataclass
 class LeafNode:
-    """Leaf node in the Merkle Trie."""
+    """
+    Terminal node in the trie, holding a value at the end of a key path.
+    """
 
     rest_of_key: Bytes
+    """
+    Nibbles of the key not yet consumed by ancestor nodes.
+    """
+
     value: Extended
+    """
+    Value stored at this key, in its encoded form.
+    """
 
 
+@final
 @slotted_freezable
 @dataclass
 class ExtensionNode:
-    """Extension node in the Merkle Trie."""
+    """
+    Internal node that compresses a run of nibbles shared by every key
+    passing through it.
+
+    Without this optimization, deep tries of similar keys would otherwise
+    require long chains of single-child [`BranchNode`]s.
+
+    [`BranchNode`]: ref:ethereum.merkle_patricia_trie.BranchNode
+    """
 
     key_segment: Bytes
+    """
+    Sequence of nibbles shared by all keys descending through this node.
+    """
+
     subnode: Extended
+    """
+    Encoded child node reached after consuming [`key_segment`][ks].
+
+    [ks]: ref:ethereum.merkle_patricia_trie.ExtensionNode.key_segment
+    """
 
 
 BranchSubnodes = Tuple[
@@ -103,18 +155,41 @@ BranchSubnodes = Tuple[
     Extended,
     Extended,
 ]
+"""
+Children of a [`BranchNode`], one per nibble value (`0` to `15` inclusive).
+
+Each entry is the encoded form of another internal node, or `b""` if no key
+descends through that nibble.
+
+[`BranchNode`]: ref:ethereum.merkle_patricia_trie.BranchNode
+"""
 
 
+@final
 @slotted_freezable
 @dataclass
 class BranchNode:
-    """Branch node in the Merkle Trie."""
+    """
+    Internal node with up to sixteen children, one per nibble value, plus an
+    optional value for a key that terminates exactly at this node.
+    """
 
     subnodes: BranchSubnodes
+    """
+    Encoded children, indexed by the next nibble of the key.
+    """
+
     value: Extended
+    """
+    Value for a key that terminates at this node, or `b""` if no such key
+    exists.
+    """
 
 
 InternalNode = LeafNode | ExtensionNode | BranchNode
+"""
+Any of the three node types making up a Merkle Patricia Trie.
+"""
 
 
 K = TypeVar("K", bound=Bytes)
@@ -123,10 +198,13 @@ V = TypeVar("V", bound=Extended | None)
 
 def encode_account(raw_account_data: Account, storage_root: Bytes) -> Bytes:
     """
-    Encode `Account` dataclass.
+    Encode an [`Account`] for inclusion in the state trie.
 
-    Storage is not stored in the `Account` dataclass, so `Accounts` cannot be
-    encoded without providing a storage root.
+    The [`Account`] dataclass holds nonce, balance, and code hash, but not
+    the account's storage. The corresponding `storage_root` (the root of the
+    account's own storage trie) is therefore passed in separately.
+
+    [`Account`]: ref:ethereum.state.Account
     """
     return rlp.encode(
         (
@@ -140,23 +218,17 @@ def encode_account(raw_account_data: Account, storage_root: Bytes) -> Bytes:
 
 def encode_internal_node(node: Optional[InternalNode]) -> Extended:
     """
-    Encodes a Merkle Trie node into its RLP form. The RLP will then be
-    serialized into a `Bytes` object and hashed unless it is less than 32 bytes
-    when serialized.
+    Encode an [`InternalNode`] into its RLP form.
 
-    This function also accepts `None`, representing the absence of a node,
-    which is encoded to `b""`.
+    When the resulting serialization is at least 32 bytes, [`keccak256`] is
+    applied so that parents store a fixed-size hash. Shorter encodings are
+    returned unhashed and embedded directly into the parent, since storing a
+    hash would only waste space.
 
-    Parameters
-    ----------
-    node : Optional[InternalNode]
-        The node to encode.
+    `None` represents the absence of a node and is encoded as `b""`.
 
-    Returns
-    -------
-    encoded : `Extended`
-        The node encoded as RLP.
-
+    [`InternalNode`]: ref:ethereum.merkle_patricia_trie.InternalNode
+    [`keccak256`]: ref:ethereum.crypto.hash.keccak256
     """
     unencoded: Extended
     if node is None:
@@ -185,7 +257,14 @@ def encode_internal_node(node: Optional[InternalNode]) -> Extended:
 
 def encode_node(node: Extended, storage_root: Bytes | None = None) -> Bytes:
     """
-    Encode a Node for storage in the Merkle Trie.
+    Encode a value for storage in the trie.
+
+    [`Account`] values require a `storage_root` and are encoded with
+    [`encode_account`]; raw `Bytes` are returned unchanged; everything else
+    is RLP-encoded.
+
+    [`Account`]: ref:ethereum.state.Account
+    [`encode_account`]: ref:ethereum.merkle_patricia_trie.encode_account
     """
     from ethereum.state import Account
 
@@ -198,52 +277,67 @@ def encode_node(node: Extended, storage_root: Bytes | None = None) -> Bytes:
         return rlp.encode(node)
 
 
+@final
 @dataclass
 class Trie(Generic[K, V]):
     """
-    The Merkle Trie.
+    Key-value mapping with a single root hash that uniquely identifies its
+    contents.
+
+    A trie may be _secured_, meaning keys are hashed with [`keccak256`]
+    before insertion to prevent adversarial keys from producing a deeply
+    unbalanced trie. The state and storage tries are secured; the transaction
+    and receipt tries are not.
+
+    A trie has a [`default`] value representing key absence: storing
+    [`default`] at a key is equivalent to omitting the key, since the
+    underlying MPT represents missing keys by leaving them out entirely.
+
+    [`keccak256`]: ref:ethereum.crypto.hash.keccak256
+    [`default`]: ref:ethereum.merkle_patricia_trie.Trie.default
     """
 
     secured: bool
+    """
+    When `True`, keys are hashed with [`keccak256`] before being inserted
+    into the underlying MPT.
+
+    [`keccak256`]: ref:ethereum.crypto.hash.keccak256
+    """
+
     default: V
+    """
+    Value treated as key absence — storing this value through [`trie_set`]
+    removes the key, and [`trie_get`] returns it for missing keys.
+
+    [`trie_set`]: ref:ethereum.merkle_patricia_trie.trie_set
+    [`trie_get`]: ref:ethereum.merkle_patricia_trie.trie_get
+    """
+
+    # Held in a plain Python dictionary; the MPT structure is built only when
+    # `root` is called. This trades performance for clarity, since storing
+    # intermediate nodes is not needed for the spec's outputs.
     _data: Dict[K, V] = field(default_factory=dict)
 
 
 def copy_trie(trie: Trie[K, V]) -> Trie[K, V]:
     """
-    Create a copy of `trie`. Since only frozen objects may be stored in tries,
-    the contents are reused.
+    Create a copy of `trie`.
 
-    Parameters
-    ----------
-    trie: `Trie`
-        Trie to copy.
-
-    Returns
-    -------
-    new_trie : `Trie[K, V]`
-        A copy of the trie.
-
+    Since only frozen objects may be stored in a trie, the contents are
+    shared between the original and the copy.
     """
     return Trie(trie.secured, trie.default, copy.copy(trie._data))
 
 
 def trie_set(trie: Trie[K, V], key: K, value: V) -> None:
     """
-    Stores an item in a Merkle Trie.
+    Insert or update `key` in `trie` with the given `value`.
 
-    This method deletes the key if `value == trie.default`, because the Merkle
-    Trie represents the default value by omitting it from the trie.
+    Storing the trie's [`default`] value deletes the key, since a trie
+    represents `default` by omitting the key entirely.
 
-    Parameters
-    ----------
-    trie: `Trie`
-        Trie to store in.
-    key : `Bytes`
-        Key to lookup.
-    value : `V`
-        Node to insert at `key`.
-
+    [`default`]: ref:ethereum.merkle_patricia_trie.Trie.default
     """
     if value == trie.default:
         if key in trie._data:
@@ -254,29 +348,16 @@ def trie_set(trie: Trie[K, V], key: K, value: V) -> None:
 
 def trie_get(trie: Trie[K, V], key: K) -> V:
     """
-    Gets an item from the Merkle Trie.
+    Look up `key` in `trie`, returning the trie's [`default`] value if absent.
 
-    This method returns `trie.default` if the key is missing.
-
-    Parameters
-    ----------
-    trie:
-        Trie to lookup in.
-    key :
-        Key to lookup.
-
-    Returns
-    -------
-    node : `V`
-        Node at `key` in the trie.
-
+    [`default`]: ref:ethereum.merkle_patricia_trie.Trie.default
     """
     return trie._data.get(key, trie.default)
 
 
 def common_prefix_length(a: Sequence, b: Sequence) -> int:
     """
-    Find the longest common prefix of two sequences.
+    Find the length of the longest common prefix of two sequences.
     """
     for i in range(len(a)):
         if i >= len(b) or a[i] != b[i]:
@@ -286,38 +367,24 @@ def common_prefix_length(a: Sequence, b: Sequence) -> int:
 
 def nibble_list_to_compact(x: Bytes, is_leaf: bool) -> Bytes:
     """
-    Compresses nibble-list into a standard byte array with a flag.
+    Compress a list of nibbles into bytes using hex-prefix encoding.
 
-    A nibble-list is a list of byte values no greater than `15`. The flag is
-    encoded in high nibble of the highest byte. The flag nibble can be broken
-    down into two two-bit flags.
+    Nibbles are packed two-per-byte, preceded by a single flag nibble at the
+    high position of the first byte:
 
-    Highest nibble::
+    ```
+    +---+---+---------+--------+
+    | _ | _ | is_leaf | parity |
+    +---+---+---------+--------+
+      3   2      1        0
+    ```
 
-        +---+---+----------+--------+
-        | _ | _ | is_leaf | parity |
-        +---+---+----------+--------+
-          3   2      1         0
+    The lowest bit of the flag nibble encodes the parity of the nibble-list
+    length (`0` for even, `1` for odd). The next bit distinguishes leaf nodes
+    from extension nodes. The two highest bits are unused.
 
-
-    The lowest bit of the nibble encodes the parity of the length of the
-    remaining nibbles -- `0` when even and `1` when odd. The second lowest bit
-    is used to distinguish leaf and extension nodes. The other two bits are not
-    used.
-
-    Parameters
-    ----------
-    x :
-        Array of nibbles.
-    is_leaf :
-        True if this is part of a leaf node, or false if it is an extension
-        node.
-
-    Returns
-    -------
-    compressed : `bytearray`
-        Compact byte array.
-
+    When the length is odd the first nibble of `x` is packed into the same
+    byte as the flag, leaving an even number of remaining nibbles to pair off.
     """
     compact = bytearray()
 
@@ -335,18 +402,8 @@ def nibble_list_to_compact(x: Bytes, is_leaf: bool) -> Bytes:
 
 def bytes_to_nibble_list(bytes_: Bytes) -> Bytes:
     """
-    Converts a `Bytes` into to a sequence of nibbles (bytes with value < 16).
-
-    Parameters
-    ----------
-    bytes_:
-        The `Bytes` to convert.
-
-    Returns
-    -------
-    nibble_list : `Bytes`
-        The `Bytes` in nibble-list format.
-
+    Split each input byte into its high and low nibble, producing a sequence
+    of bytes each holding a value from `0` to `15` inclusive.
     """
     nibble_list = bytearray(2 * len(bytes_))
     for byte_index, byte in enumerate(bytes_):
@@ -360,22 +417,20 @@ def _prepare_trie(
     get_storage_root: Optional[Callable[[Address], Root]] = None,
 ) -> Mapping[Bytes, Bytes]:
     """
-    Prepares the trie for root calculation. Removes values that are empty,
-    hashes the keys (if `secured == True`) and encodes all the nodes.
+    Convert a [`Trie`] into the nibble-keyed mapping consumed by
+    [`patricialize`].
 
-    Parameters
-    ----------
-    trie :
-        The `Trie` to prepare.
-    get_storage_root :
-        Function to get the storage root of an account. Needed to encode
-        `Account` objects.
+    Each value is encoded with [`encode_node`]; if the value is an
+    [`Account`], `get_storage_root` must be supplied to provide its storage
+    root. Keys are hashed with [`keccak256`] when the trie is secured, then
+    expanded into nibble form via [`bytes_to_nibble_list`][bnl].
 
-    Returns
-    -------
-    out : `Mapping[ethereum.base_types.Bytes, Node]`
-        Object with keys mapped to nibble-byte form.
-
+    [`Trie`]: ref:ethereum.merkle_patricia_trie.Trie
+    [`patricialize`]: ref:ethereum.merkle_patricia_trie.patricialize
+    [`encode_node`]: ref:ethereum.merkle_patricia_trie.encode_node
+    [`Account`]: ref:ethereum.state.Account
+    [bnl]: ref:ethereum.merkle_patricia_trie.bytes_to_nibble_list
+    [`keccak256`]: ref:ethereum.crypto.hash.keccak256
     """
     from ethereum.state import Account, Address
 
@@ -408,22 +463,19 @@ def root(
     get_storage_root: Optional[Callable[[Address], Root]] = None,
 ) -> Root:
     """
-    Computes the root of a modified merkle patricia trie (MPT).
+    Compute the root hash of `trie`.
 
-    Parameters
-    ----------
-    trie :
-        `Trie` to get the root of.
-    get_storage_root :
-        Function to get the storage root of an account. Needed to encode
-        `Account` objects.
+    The trie is patricialized into a tree of [`InternalNode`]s; the root node
+    is RLP-encoded and hashed with [`keccak256`] to produce the fixed-size
+    [`Hash32`] used in block headers.
 
+    `get_storage_root` is required when encoding [`Account`] values, so it
+    must be supplied when computing the state root.
 
-    Returns
-    -------
-    root : `.state.Root`
-        MPT root of the underlying key-value pairs.
-
+    [`InternalNode`]: ref:ethereum.merkle_patricia_trie.InternalNode
+    [`keccak256`]: ref:ethereum.crypto.hash.keccak256
+    [`Hash32`]: ref:ethereum.crypto.hash.Hash32
+    [`Account`]: ref:ethereum.state.Account
     """
     from ethereum.state import Root
 
@@ -441,23 +493,25 @@ def patricialize(
     obj: Mapping[Bytes, Bytes], level: Uint
 ) -> Optional[InternalNode]:
     """
-    Structural composition function.
+    Recursively build the trie for `obj`, starting `level` nibbles into the
+    keys.
 
-    Used to recursively patricialize and merkleize a dictionary. Includes
-    memoization of the tree structure and hashes.
+    The structure of the returned subtree is determined by inspecting the
+    keys present at the current `level`:
 
-    Parameters
-    ----------
-    obj :
-        Underlying trie key-value pairs, with keys in nibble-list format.
-    level :
-        Current trie level.
+    1. With no keys, the subtree is empty and `None` is returned.
+    1. With a single key, a [`LeafNode`] holds the remaining nibbles and the
+       value.
+    1. When every key shares a non-empty prefix at this level, an
+       [`ExtensionNode`] consumes the prefix and the algorithm recurses for
+       the rest.
+    1. Otherwise the keys are partitioned by their next nibble into up to
+       sixteen groups, each recursively patricialized, and combined into a
+       [`BranchNode`].
 
-    Returns
-    -------
-    node : `ethereum.base_types.Bytes`
-        Root node of `obj`.
-
+    [`LeafNode`]: ref:ethereum.merkle_patricia_trie.LeafNode
+    [`ExtensionNode`]: ref:ethereum.merkle_patricia_trie.ExtensionNode
+    [`BranchNode`]: ref:ethereum.merkle_patricia_trie.BranchNode
     """
     if len(obj) == 0:
         return None

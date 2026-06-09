@@ -13,7 +13,7 @@ See [`BlockAccessList`][bal] for more detail.
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set, Tuple, TypeAlias
+from typing import Dict, List, Optional, Set, Tuple, TypeAlias, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes32
@@ -28,6 +28,7 @@ from .fork_types import BlockAccessIndex
 from .state_tracker import BlockState, TransactionState, get_code
 
 
+@final
 @slotted_freezable
 @dataclass
 class StorageChange:
@@ -54,6 +55,7 @@ class StorageChange:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class BalanceChange:
@@ -80,6 +82,7 @@ class BalanceChange:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class NonceChange:
@@ -106,6 +109,7 @@ class NonceChange:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class CodeChange:
@@ -132,6 +136,7 @@ class CodeChange:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class SlotChanges:
@@ -156,6 +161,7 @@ class SlotChanges:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class AccountChanges:
@@ -233,6 +239,7 @@ A `BlockAccessList` includes, for example, the targets of:
 """
 
 
+@final
 @dataclass
 class AccountData:
     """
@@ -273,6 +280,7 @@ class AccountData:
     """
 
 
+@final
 @dataclass
 class BlockAccessListBuilder:
     """

@@ -943,8 +943,8 @@ requires-dist = [
     { name = "coincurve", specifier = ">=20,<21" },
     { name = "cryptography", specifier = ">=45.0.1,<46" },
     { name = "ethash", marker = "extra == 'optimized'", specifier = ">=1.1.0,<2" },
-    { name = "ethereum-rlp", specifier = ">=0.1.5,<0.2" },
-    { name = "ethereum-types", specifier = ">=0.3.0,<0.4" },
+    { name = "ethereum-rlp", specifier = ">=0.1.6,<0.2" },
+    { name = "ethereum-types", specifier = ">=0.4.1,<0.5" },
     { name = "libcst", specifier = ">=1.8,<2" },
     { name = "platformdirs", specifier = ">=4.2,<5" },
     { name = "py-ecc", specifier = ">=8.0.0b2,<9" },
@@ -1112,8 +1112,8 @@ requires-dist = [
     { name = "eth-abi", specifier = ">=5.2.0" },
     { name = "ethereum-execution", editable = "." },
     { name = "ethereum-hive", specifier = ">=0.1.0a5,<1.0.0" },
-    { name = "ethereum-rlp", specifier = ">=0.1.5,<0.2" },
-    { name = "ethereum-types", specifier = ">=0.3.0,<0.4" },
+    { name = "ethereum-rlp", specifier = ">=0.1.6,<0.2" },
+    { name = "ethereum-types", specifier = ">=0.4.1,<0.5" },
     { name = "filelock", specifier = ">=3.15.1,<4" },
     { name = "gitpython", specifier = ">=3.1.31,<4" },
     { name = "ijson", specifier = ">=3.3,<4" },
@@ -1169,27 +1169,28 @@ wheels = [
 
 [[package]]
 name = "ethereum-rlp"
-version = "0.1.5"
+version = "0.1.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ethereum-types" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/27/2b/22ec601ed0924f8a54f9e91381e20bb8e98ad1afc8f23799826bb2c313e6/ethereum_rlp-0.1.5.tar.gz", hash = "sha256:679d4fa1163e32bc8c288680f29077980aa2f6b5321d71e8e2bff55c5233b7bd", size = 13724, upload-time = "2026-02-20T04:25:43.158Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/54/55/1fab3dea8f912459751cb39ad4500e165344963af2dbd5fa699befe3e8d4/ethereum_rlp-0.1.6.tar.gz", hash = "sha256:ede36f53b53c8da21f19259a676eed8790950d47f0b42cb928ac8a3c562282f3", size = 14015, upload-time = "2026-06-03T23:12:02.472Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ce/bc/c6006debf372615af7c911e815c79f63395099defed3c8308db37d31511a/ethereum_rlp-0.1.5-py3-none-any.whl", hash = "sha256:4cbb84ec4d4e65e4af3b49757ecd623e04520cbae521ac5386151149ad0a1b7a", size = 9898, upload-time = "2026-02-20T04:25:42.074Z" },
+    { url = "https://files.pythonhosted.org/packages/37/ab/b9b2ff2d37b7feabe3dcdee7d5170cf0e71b849a073bda8857c0afb54962/ethereum_rlp-0.1.6-py3-none-any.whl", hash = "sha256:f4144caa96b975720c62b967bbfd6c98601e95ee3c36457ece11ef4ce0cffa04", size = 9944, upload-time = "2026-06-03T23:12:01.492Z" },
 ]
 
 [[package]]
 name = "ethereum-types"
-version = "0.3.0"
+version = "0.4.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "mypy-extensions" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/90/90/32d9440ae5b2ac97d873862c9cbbacd28c82cf6d471efb54ef3051700739/ethereum_types-0.3.0.tar.gz", hash = "sha256:e5324efd269a0f66993163366543e39aae474a53f48031c31acec956867d8995", size = 15697, upload-time = "2026-02-20T03:47:40.169Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e5/bf/6c15ea3372a19b4df9d47ba08d32ad0751c059c31c7f15842cf12e5736bd/ethereum_types-0.4.1.tar.gz", hash = "sha256:c0eee4464c42ed8217dfc927400db98157cc8b09252ecefa703176496dbe3b4d", size = 67752, upload-time = "2026-06-08T16:57:04.424Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/73/3f/e9c35c2d879cd0084e9eb59e0e650e1688cc75ec3776291d92d4b7989fff/ethereum_types-0.3.0-py3-none-any.whl", hash = "sha256:ade1aae9df702067387b1e100f7b65fe96c87b1d7731fb7838cca79e84e51cca", size = 10685, upload-time = "2026-02-20T03:47:39.065Z" },
+    { url = "https://files.pythonhosted.org/packages/78/f6/466c684cee5eacd6413f33284a8bd45686564e7c5974d5cda331c9577c4e/ethereum_types-0.4.1-py3-none-any.whl", hash = "sha256:33de3e2a0c0e57ea1b67802485de556b92d557aae7c8c640070800f2b4f639e3", size = 12162, upload-time = "2026-06-08T16:57:05.382Z" },
 ]
 
 [[package]]
