@@ -12,7 +12,7 @@ Entry point for the Ethereum specification.
 """
 
 from dataclasses import dataclass
-from typing import Final, List, Optional, Tuple
+from typing import Final, List, Optional, Tuple, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
@@ -134,6 +134,7 @@ MAX_RLP_BLOCK_SIZE = MAX_BLOCK_SIZE - SAFETY_MARGIN
 BLOB_COUNT_LIMIT = 6
 
 
+@final
 @slotted_freezable
 @dataclass
 class ChainContext:
@@ -151,6 +152,7 @@ class ChainContext:
     """Parent header used for header validation and system contracts."""
 
 
+@final
 @dataclass
 class BlockChain:
     """

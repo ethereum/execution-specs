@@ -12,7 +12,7 @@ Entry point for the Ethereum specification.
 """
 
 from dataclasses import dataclass
-from typing import Final, List, Optional, Tuple
+from typing import Final, List, Optional, Tuple, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
@@ -116,6 +116,7 @@ HISTORY_STORAGE_ADDRESS = hex_to_address(
 )
 
 
+@final
 @dataclass
 class BlockChain:
     """

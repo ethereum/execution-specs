@@ -12,7 +12,7 @@ Entry point for the Ethereum specification.
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
@@ -73,6 +73,7 @@ ELASTICITY_MULTIPLIER = Uint(2)
 EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
 
 
+@final
 @dataclass
 class BlockChain:
     """

@@ -5,7 +5,7 @@ transactions are the events that move between states.
 """
 
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Tuple, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
@@ -24,6 +24,7 @@ from ethereum.state import Address
 from .exceptions import TransactionTypeError
 
 
+@final
 @slotted_freezable
 @dataclass
 class LegacyTransaction:
@@ -82,6 +83,7 @@ class LegacyTransaction:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class Access:
@@ -101,6 +103,7 @@ class Access:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class AccessListTransaction:

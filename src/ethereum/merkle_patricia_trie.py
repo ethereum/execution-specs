@@ -56,6 +56,7 @@ from typing import (
     Tuple,
     TypeVar,
     cast,
+    final,
 )
 
 from ethereum_rlp import Extended, rlp
@@ -90,6 +91,7 @@ been secured.
 """
 
 
+@final
 @slotted_freezable
 @dataclass
 class LeafNode:
@@ -108,6 +110,7 @@ class LeafNode:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class ExtensionNode:
@@ -162,6 +165,7 @@ descends through that nibble.
 """
 
 
+@final
 @slotted_freezable
 @dataclass
 class BranchNode:
@@ -273,6 +277,7 @@ def encode_node(node: Extended, storage_root: Bytes | None = None) -> Bytes:
         return rlp.encode(node)
 
 
+@final
 @dataclass
 class Trie(Generic[K, V]):
     """

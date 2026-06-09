@@ -12,6 +12,7 @@ Types reused throughout the specification, which are specific to Ethereum.
 """
 
 from dataclasses import dataclass
+from typing import final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes256
@@ -43,6 +44,7 @@ def encode_account(raw_account_data: Account, storage_root: Bytes) -> Bytes:
     )
 
 
+@final
 @slotted_freezable
 @dataclass
 class Authorization:

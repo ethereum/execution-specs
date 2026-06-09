@@ -12,7 +12,7 @@ Entry point for the Ethereum specification.
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Set, Tuple
+from typing import List, Optional, Set, Tuple, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
@@ -82,6 +82,7 @@ BOMB_DELAY_BLOCKS = 9700000
 EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
 
 
+@final
 @dataclass
 class BlockChain:
     """

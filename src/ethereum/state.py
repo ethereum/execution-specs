@@ -14,7 +14,16 @@ There is a distinction between an account that does not exist and
 """
 
 from dataclasses import dataclass, field
-from typing import AbstractSet, Dict, List, Optional, Protocol, Set, Tuple
+from typing import (
+    AbstractSet,
+    Dict,
+    List,
+    Optional,
+    Protocol,
+    Set,
+    Tuple,
+    final,
+)
 
 from ethereum_types.bytes import Bytes, Bytes20, Bytes32
 from ethereum_types.frozen import slotted_freezable
@@ -37,6 +46,7 @@ Root = Hash32
 EMPTY_CODE_HASH = keccak256(b"")
 
 
+@final
 @slotted_freezable
 @dataclass
 class Account:
@@ -56,6 +66,7 @@ EMPTY_ACCOUNT = Account(
 )
 
 
+@final
 @dataclass
 class BlockDiff:
     """
@@ -141,6 +152,7 @@ class PreState(Protocol):
         ...
 
 
+@final
 @dataclass
 class State:
     """
