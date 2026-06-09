@@ -34,7 +34,7 @@ from execution_testing.fixtures import (
     LabeledFixtureFormat,
 )
 from execution_testing.fixtures.post_verifications import PostVerifications
-from execution_testing.forks import Fork, TransitionFork
+from execution_testing.forks import Fork, SpecTestMutator, TransitionFork
 from execution_testing.forks.base_fork import BaseFork
 from execution_testing.test_types import Environment, Withdrawal
 from execution_testing.test_types.receipt_types import (
@@ -118,6 +118,7 @@ class BaseTest(BaseModel):
     expected_receipt_status: int | None = None
     is_tx_gas_heavy_test: bool = False
     is_exception_test: bool = False
+    spec_test_mutator: SpecTestMutator = SpecTestMutator.NONE
 
     # Class variables, to be set by subclasses
     spec_types: ClassVar[Dict[str, Type["BaseTest"]]] = {}

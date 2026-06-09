@@ -34,6 +34,7 @@ from ..base_fork import (
     TransactionIntrinsicCostCalculator,
 )
 from ..gas_costs import BASE, HIGH, LOW, MID, VERY_LOW, GasCosts
+from ..mutators import SpecTestMutator
 from . import eips
 from .eips.amsterdam import AmsterdamEIPs
 from .helpers import ceiling_division
@@ -1240,6 +1241,14 @@ class Frontier(
         Frontier does not require pre-allocated accounts
         """
         return {}
+
+    @classmethod
+    def spec_test_mutators(cls) -> SpecTestMutator:
+        """
+        Return the list of spec test mutators that can be enabled starting
+        on this fork.
+        """
+        return SpecTestMutator.NONE
 
     @classmethod
     def build_default_block_header(

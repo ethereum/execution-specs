@@ -27,7 +27,7 @@ from execution_testing.base_types.conversions import (
     BytesConvertible,
     NumberConvertible,
 )
-from execution_testing.forks import Fork, TransitionFork
+from execution_testing.forks import Fork, SpecTestMutator, TransitionFork
 from execution_testing.logging import get_logger
 from execution_testing.rpc import EthRPC
 from execution_testing.rpc.rpc_types import TransactionByHashResponse
@@ -242,6 +242,9 @@ class Alloc(SharedAlloc):
     _deferred_fund_addresses: List[_DeferredFundAddress] = PrivateAttr(
         default_factory=list
     )
+    _spec_test_mutator: SpecTestMutator = PrivateAttr(
+        default=SpecTestMutator.NONE
+    )
     _block_number: int = PrivateAttr()
     _timestamp: int = PrivateAttr()
 
@@ -256,6 +259,7 @@ class Alloc(SharedAlloc):
         address_stubs: AddressStubs | None = None,
         block_number: int = 0,
         timestamp: int = 0,
+        spec_test_mutator: SpecTestMutator = SpecTestMutator.NONE,
         **kwargs: Any,
     ) -> None:
         """Initialize the pre-alloc with the given parameters."""
@@ -268,10 +272,7 @@ class Alloc(SharedAlloc):
         self._address_stubs = address_stubs or AddressStubs(root={})
         self._block_number = block_number
         self._timestamp = timestamp
-
-    def code_pre_processor(self, code: Bytecode) -> Bytecode:
-        """Pre-processes the code before setting it."""
-        return code
+        self._spec_test_mutator = spec_test_mutator
 
     def _add_pending_tx(
         self,
@@ -393,7 +394,7 @@ class Alloc(SharedAlloc):
         self,
         code: BytesConvertible,
         *,
-        storage: Storage | StorageRootType | None,
+        storage: Storage,
         balance: NumberConvertible,
         nonce: NumberConvertible,
         address: Address | None,
@@ -401,8 +402,6 @@ class Alloc(SharedAlloc):
         stub: str | None,
     ) -> Address:
         """Execute implementation of contract deployment."""
-        if storage is None:
-            storage = {}
         assert address is None, "address parameter is not supported"
         fork = self._fork.fork_at(
             block_number=self._block_number, timestamp=self._timestamp
@@ -412,9 +411,6 @@ class Alloc(SharedAlloc):
             fork.memory_expansion_gas_calculator()
         )
         calldata_gas_calculator = fork.calldata_gas_calculator()
-
-        if not isinstance(storage, Storage):
-            storage = Storage(storage)  # type: ignore
 
         if stub is not None:
             if stub not in self._address_stubs:
@@ -458,7 +454,6 @@ class Alloc(SharedAlloc):
         assert isinstance(code, Bytecode), (
             f"incompatible code type: {type(code)}"
         )
-        code = self.code_pre_processor(code)
 
         max_code_size = fork.max_code_size()
         if len(code) > max_code_size:
@@ -1006,6 +1001,7 @@ def pre(
     max_fee_per_gas: int,
     max_priority_fee_per_gas: int,
     dry_run: bool,
+    spec_test_mutator: SpecTestMutator,
     request: pytest.FixtureRequest,
 ) -> Generator[Alloc, None, None]:
     """Return default pre allocation for all tests (Empty alloc)."""
@@ -1030,6 +1026,7 @@ def pre(
         chain_id=chain_config.chain_id,
         node_id=request.node.nodeid,
         address_stubs=address_stubs,
+        spec_test_mutator=spec_test_mutator,
     )
 
     # Yield the pre-alloc for usage during the test

@@ -19,6 +19,7 @@ from ....base_fork import (
     TransactionIntrinsicCostCalculator,
 )
 from ....gas_costs import GasCosts
+from ....mutators import SpecTestMutator
 
 
 class EIP7702(BaseFork):
@@ -105,3 +106,14 @@ class EIP7702(BaseFork):
         refunds = super(EIP7702, cls).refund_types()
         refunds.append(RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY)
         return refunds
+
+    @classmethod
+    def spec_test_mutators(cls) -> SpecTestMutator:
+        """
+        Activate EIP-7702 mutator to convert all tests' contracts into
+        delegations.
+        """
+        return (
+            SpecTestMutator.EIP_7702_ALL_CONTRACTS_AS_DELEGATIONS
+            | super(EIP7702, cls).spec_test_mutators()
+        )

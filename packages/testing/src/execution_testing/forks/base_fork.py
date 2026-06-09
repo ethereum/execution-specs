@@ -17,6 +17,8 @@ from typing import (
     Type,
 )
 
+from .mutators import SpecTestMutator
+
 if TYPE_CHECKING:
     from execution_testing.fixtures.blockchain import FixtureHeader
 
@@ -826,6 +828,15 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         This method must always call the `fork_to` method when transitioning,
         because the allocation can only be set at genesis, and thus cannot be
         changed at transition time.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def spec_test_mutators(cls) -> SpecTestMutator:
+        """
+        Return the spec test mutators that can be enabled starting
+        on this fork.
         """
         pass
 
