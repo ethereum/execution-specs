@@ -1,5 +1,5 @@
 """
-EIP-2780: Reduce intrinsic transaction gas costs.
+EIP-2780: Resource-based intrinsic transaction gas.
 
 Decompose the intrinsic transaction gas into explicit recipient-access
 and value-transfer primitives so that the cost paid before execution
