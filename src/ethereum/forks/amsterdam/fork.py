@@ -82,7 +82,7 @@ from .state_tracker import (
 from .transactions import (
     TX_MAX_GAS_LIMIT,
     BlobTransaction,
-    FeeMarketTransaction,
+    FeeMarketCapableTransaction,
     IntrinsicGasCost,
     LegacyTransaction,
     SetCodeTransaction,
@@ -588,9 +588,7 @@ def check_transaction(
     sender_address = recover_sender(block_env.chain_id, tx)
     sender_account = get_account(tx_state, sender_address)
 
-    if isinstance(
-        tx, (FeeMarketTransaction, BlobTransaction, SetCodeTransaction)
-    ):
+    if isinstance(tx, FeeMarketCapableTransaction):
         if tx.max_fee_per_gas < tx.max_priority_fee_per_gas:
             raise PriorityFeeGreaterThanMaxFeeError(
                 "priority fee greater than max fee"

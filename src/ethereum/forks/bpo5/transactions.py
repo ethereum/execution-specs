@@ -480,6 +480,19 @@ See [`has_access_list`][hal] and [`Access`][a] for more details.
 """
 
 
+FeeMarketCapableTransaction = (
+    FeeMarketTransaction | BlobTransaction | SetCodeTransaction
+)
+"""
+Transaction types that include the [EIP-1559]-style fee structure.
+
+See [`FeeMarketTransaction`][fmt] for more details.
+
+[EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
+[fmt]: ref:ethereum.forks.bpo5.transactions.FeeMarketTransaction
+"""
+
+
 def encode_transaction(tx: Transaction) -> LegacyTransaction | Bytes:
     """
     Encode a transaction into its RLP or typed transaction format.
