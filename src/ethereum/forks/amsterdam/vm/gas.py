@@ -210,7 +210,6 @@ class GasCosts:
     OPCODE_MSTORE_BASE: Final[Uint] = VERY_LOW
     OPCODE_MSTORE8_BASE: Final[Uint] = VERY_LOW
     OPCODE_COPY_PER_WORD: Final[Uint] = Uint(3)
-    OPCODE_CREATE_BASE: Final[Uint] = Uint(32000)
     OPCODE_EXP_BASE: Final[Uint] = Uint(10)
     OPCODE_EXP_PER_BYTE: Final[Uint] = Uint(50)
     OPCODE_KECCAK256_BASE: Final[Uint] = Uint(30)

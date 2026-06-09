@@ -33,7 +33,11 @@ class IntrinsicGasCost:
     """Regular execution gas (calldata, base cost, access list, etc.)."""
 
     calldata_floor: Uint
-    """Minimum gas cost based on calldata size per [EIP-7623]."""
+    """
+    Minimum gas cost based on calldata size per [EIP-7623].
+
+    [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
+    """
 
 
 @slotted_freezable

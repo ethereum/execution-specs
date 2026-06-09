@@ -36,10 +36,19 @@ class IntrinsicGasCost:
     """Regular execution gas (calldata, base cost, access list, etc.)."""
 
     state: Uint
-    """State growth gas (account creation, storage set, authorization)."""
+    """
+    State growth gas (account creation, storage set, authorization) per
+    [EIP-8037].
+
+    [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
+    """
 
     calldata_floor: Uint
-    """Minimum gas cost based on calldata size per [EIP-7623]."""
+    """
+    Minimum gas cost based on calldata size per [EIP-7623].
+
+    [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
+    """
 
 
 TX_MAX_GAS_LIMIT = Uint(16_777_216)
@@ -577,11 +586,17 @@ def validate_transaction(tx: Transaction) -> IntrinsicGasCost:
 
     intrinsic = calculate_intrinsic_cost(tx)
     intrinsic_gas = intrinsic.regular + intrinsic.state
-    if max(intrinsic_gas, intrinsic.calldata_floor) > tx.gas:
-        raise InsufficientTransactionGasError("Insufficient gas")
-    if max(intrinsic.regular, intrinsic.calldata_floor) > TX_MAX_GAS_LIMIT:
+    if intrinsic_gas > tx.gas:
+        raise InsufficientTransactionGasError("Insufficient intrinsic gas")
+    if intrinsic.calldata_floor > tx.gas:
+        raise InsufficientTransactionGasError("Insufficient calldata floor")
+    if intrinsic.regular > TX_MAX_GAS_LIMIT:
         raise InsufficientTransactionGasError(
-            "Intrinsic regular gas or calldata floor exceeds TX_MAX_GAS_LIMIT"
+            "Intrinsic regular gas exceeds TX_MAX_GAS_LIMIT"
+        )
+    if intrinsic.calldata_floor > TX_MAX_GAS_LIMIT:
+        raise InsufficientTransactionGasError(
+            "Intrinsic calldata floor exceeds TX_MAX_GAS_LIMIT"
         )
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
         raise NonceOverflowError("Nonce too high")

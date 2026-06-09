@@ -87,8 +87,7 @@ def generic_create(
 
     # Charge state gas for account creation (pay-before-execute).
     # Refunded to the reservoir on any failure path below.
-    create_account_state_gas = StateGasCosts.NEW_ACCOUNT
-    charge_state_gas(evm, create_account_state_gas)
+    charge_state_gas(evm, StateGasCosts.NEW_ACCOUNT)
 
     tx_state = evm.message.tx_env.state
 
@@ -119,7 +118,7 @@ def generic_create(
     ):
         evm.gas_left += create_message_gas
         evm.state_gas_left += create_message_state_gas_reservoir
-        credit_state_gas_refund(evm, create_account_state_gas)
+        credit_state_gas_refund(evm, StateGasCosts.NEW_ACCOUNT)
         push(evm.stack, U256(0))
         return
 
@@ -132,7 +131,7 @@ def generic_create(
         evm.regular_gas_used += create_message_gas
         evm.state_gas_left += create_message_state_gas_reservoir
         # Address collision — no account created, refund state gas.
-        credit_state_gas_refund(evm, create_account_state_gas)
+        credit_state_gas_refund(evm, StateGasCosts.NEW_ACCOUNT)
         push(evm.stack, U256(0))
         return
 
@@ -163,7 +162,7 @@ def generic_create(
     if child_evm.error:
         incorporate_child_on_error(evm, child_evm)
         # No account created, refund parent's CREATE state gas.
-        credit_state_gas_refund(evm, create_account_state_gas)
+        credit_state_gas_refund(evm, StateGasCosts.NEW_ACCOUNT)
         evm.return_data = child_evm.output
         push(evm.stack, U256(0))
     else:

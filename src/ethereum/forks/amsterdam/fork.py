@@ -117,6 +117,10 @@ BEACON_ROOTS_ADDRESS = hex_to_address(
 )
 SYSTEM_TRANSACTION_GAS = Uint(30000000)
 SYSTEM_MAX_SSTORES_PER_CALL = Uint(16)
+"""
+Upper bound on the number of new storage slots a single system call is
+expected to write.
+"""
 MAX_BLOB_GAS_PER_BLOCK: Final[U64] = (
     GasCosts.BLOB_SCHEDULE_MAX * GasCosts.PER_BLOB
 )
@@ -571,13 +575,13 @@ def check_transaction(
     # must go to intrinsic state gas, capped at TX_MAX_GAS_LIMIT.
     worst_case_regular = min(TX_MAX_GAS_LIMIT, tx.gas - intrinsic.state)
     if worst_case_regular > regular_gas_available:
-        raise GasUsedExceedsLimitError("gas used exceeds limit")
+        raise GasUsedExceedsLimitError("regular gas used exceeds limit")
 
     # Worst-case state contribution: tx.gas minus the portion that
     # must go to intrinsic regular gas.
     worst_case_state = tx.gas - intrinsic.regular
     if worst_case_state > state_gas_available:
-        raise GasUsedExceedsLimitError("gas used exceeds limit")
+        raise GasUsedExceedsLimitError("state gas used exceeds limit")
 
     tx_blob_gas_used = calculate_total_blob_gas(tx)
     if tx_blob_gas_used > blob_gas_available:

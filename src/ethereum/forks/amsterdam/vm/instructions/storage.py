@@ -106,7 +106,7 @@ def sstore(evm: Evm) -> None:
     # Refund Counter Calculation
     if current_value != new_value:
         if original_value != 0 and current_value != 0 and new_value == 0:
-            # Issue refund for clearing a slot that was non-zero at tx start.
+            # Storage is cleared for the first time in the transaction
             evm.refund_counter += GasCosts.REFUND_STORAGE_CLEAR
 
         if original_value != 0 and current_value == 0:
