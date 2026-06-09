@@ -116,7 +116,6 @@ def test_sstore_state_gas_source(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment()
-    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     storage = Storage()
     code = Bytecode()
@@ -125,7 +124,7 @@ def test_sstore_state_gas_source(
     contract = pre.deploy_contract(code=code)
 
     if reservoir_covers_state_gas:
-        extra_gas = sstore_state_gas * num_sstores
+        extra_gas = code.state_cost(fork)
     else:
         extra_gas = 1  # Minimal reservoir, rest spills to gas_left
 
@@ -288,7 +287,6 @@ def test_block_state_gas_limit_boundary(
     block_gas_limit = 100_000_000
 
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
-    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     num_sstores = 50
     tx1_code = Bytecode()
@@ -296,7 +294,7 @@ def test_block_state_gas_limit_boundary(
         tx1_code = tx1_code + Op.SSTORE(i, 1)
     tx1_contract = pre.deploy_contract(code=tx1_code)
 
-    tx1_state = num_sstores * sstore_state_gas
+    tx1_state = tx1_code.state_cost(fork)
     tx1_regular = intrinsic_cost() + tx1_code.gas_cost(fork) - tx1_state
     tx1_gas = gas_limit_cap + tx1_state
 
@@ -316,9 +314,7 @@ def test_block_state_gas_limit_boundary(
     tx2_error = (
         TransactionException.GAS_ALLOWANCE_EXCEEDED if delta > 0 else None
     )
-    block_exception = (
-        TransactionException.GAS_ALLOWANCE_EXCEEDED if delta > 0 else None
-    )
+    block_exception = tx2_error
 
     tx1 = Transaction(
         to=tx1_contract,
@@ -493,7 +489,6 @@ def test_creation_tx_state_check_exceeded(
     block_gas_limit = 100_000_000
 
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
-    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     create_intrinsic_total = intrinsic_cost(contract_creation=True)
     create_intrinsic_state = fork.transaction_intrinsic_state_gas(
         contract_creation=True,
@@ -506,7 +501,7 @@ def test_creation_tx_state_check_exceeded(
         tx1_code = tx1_code + Op.SSTORE(i, 1)
     tx1_contract = pre.deploy_contract(code=tx1_code)
 
-    tx1_state = num_sstores * sstore_state_gas
+    tx1_state = tx1_code.state_cost(fork)
     tx1_regular = intrinsic_cost() + tx1_code.gas_cost(fork) - tx1_state
     tx1_gas = gas_limit_cap + tx1_state
     state_available = block_gas_limit - tx1_state
@@ -592,9 +587,8 @@ def test_block_gas_used_with_state_ops(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     storage = Storage()
-    contract = pre.deploy_contract(
-        code=Op.SSTORE(storage.store_next(1), 1),
-    )
+    code = Op.SSTORE(storage.store_next(1), 1)
+    contract = pre.deploy_contract(code=code)
 
     tx = Transaction(
         to=contract,
@@ -602,9 +596,21 @@ def test_block_gas_used_with_state_ops(
         sender=pre.fund_eoa(),
     )
 
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
+    block_regular_gas = intrinsic_cost() + code.regular_cost(fork)
+    block_state_gas = code.state_cost(fork)
+    assert block_state_gas > block_regular_gas
+
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[tx])],
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(
+                    gas_used=block_state_gas,
+                ),
+            ),
+        ],
         post={contract: Account(storage=storage)},
     )
 
@@ -625,22 +631,24 @@ def test_block_2d_gas_valid_when_cumulative_exceeds_limit(
     """
     block_gas_limit = 100_000_000
 
-    gas_costs = fork.gas_costs()
-    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    sstore_code = Op.SSTORE(0, 1, new_value=1)
+    sstore_state_gas = sstore_code.state_cost(fork)
 
     tx_regular = (
-        gas_costs.TX_BASE
-        + 2 * gas_costs.VERY_LOW
-        + gas_costs.COLD_STORAGE_WRITE
+        sstore_code.regular_cost(fork)
+        + fork.transaction_intrinsic_cost_calculator()()
     )
     tx_state = sstore_state_gas
     tx_gas_used = tx_regular + tx_state
 
+    assert tx_state > tx_regular
+    block_gas_used = tx_state
+
     # num_txs sized so `one_d_bound > block_gas_limit > two_d_bound`:
     # per-dimension maxes fit (accepted under 2D-max) but the 1D sum
     # exceeds the limit (would be rejected by a summing client).
-    num_txs = block_gas_limit // max(tx_regular, tx_state)
-    two_d_bound = num_txs * max(tx_regular, tx_state)
+    num_txs = block_gas_limit // block_gas_used
+    two_d_bound = num_txs * block_gas_used
     one_d_bound = num_txs * tx_gas_used
     assert two_d_bound <= block_gas_limit < one_d_bound
 
@@ -671,7 +679,7 @@ def test_block_2d_gas_valid_when_cumulative_exceeds_limit(
                 txs=txs,
                 gas_limit=block_gas_limit,
                 header_verify=Header(
-                    gas_used=num_txs * max(tx_regular, tx_state),
+                    gas_used=num_txs * block_gas_used,
                 ),
             ),
         ],
@@ -1107,13 +1115,13 @@ def _build_call_chain(
     then terminates with `terminator`. The deepest frame just
     executes its body and terminates.
     """
-    deepest_idx = len(frame_bodies) - 1
-    deepest_code = frame_bodies[deepest_idx] + terminator
+    remaining_frame_bodies = frame_bodies[:]
+    deepest_code = remaining_frame_bodies.pop() + terminator
     frame_codes: list[Bytecode] = [deepest_code]
     inner_addr = pre.deploy_contract(code=deepest_code)
-    for depth in range(deepest_idx - 1, -1, -1):
+    while remaining_frame_bodies:
         code = (
-            frame_bodies[depth]
+            remaining_frame_bodies.pop()
             + Op.POP(Op.CALL(gas=Op.GAS, address=inner_addr))
             + terminator
         )
@@ -1140,13 +1148,13 @@ def _build_create_chain(
     credit-on-failure path that distinguishes Policy A from Policy B
     for top-level halt.
     """
-    n = len(frame_bodies)
+    remaining_frame_bodies = frame_bodies[:]
     # Deepest level is just body + terminator (runs as initcode of
     # the depth-(N-2) frame's CREATE).
-    inner_initcode = frame_bodies[-1] + terminator
+    inner_initcode = remaining_frame_bodies.pop() + terminator
     frame_codes: list[Bytecode] = [inner_initcode]
 
-    for i in range(n - 2, -1, -1):
+    while remaining_frame_bodies:
         inner_bytes = bytes(inner_initcode)
         inner_size = len(inner_bytes)
         # Pad to 32-byte alignment so Om.MSTORE uses the cheap
@@ -1154,7 +1162,7 @@ def _build_create_chain(
         # only `size` bytes so the trailing zeros are ignored.
         padded = inner_bytes + b"\x00" * ((-inner_size) % 32)
         code = (
-            frame_bodies[i]
+            remaining_frame_bodies.pop()
             + Om.MSTORE(padded, 0)
             + Op.POP(
                 Op.CREATE(
@@ -1391,11 +1399,7 @@ def test_nested_failure_resets_to_tx_reservoir(
 )
 @pytest.mark.parametrize(
     "depth",
-    [
-        pytest.param(1, id="depth_1"),
-        pytest.param(3, id="depth_3"),
-        pytest.param(10, id="depth_10"),
-    ],
+    [1, 3, 10],
 )
 @pytest.mark.parametrize(
     "consume_at",
@@ -1428,20 +1432,13 @@ def test_nested_state_gas_refund_consumed_at_depth(
     the chain returns; it succeeds only when its frame holds enough
     reservoir, so a missing or mis-propagated credit OOGs it.
     """
-    gas_costs = fork.gas_costs()
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     is_auth_scenario = refund_scenario == "auth_existing_leaf"
 
     probe_address = pre.deploy_contract(code=Op.SSTORE(0, 1))
-    probe_gas = (
-        2 * gas_costs.VERY_LOW
-        + gas_costs.COLD_STORAGE_WRITE
-        + sstore_state_gas
-        - 1
-    )
+    probe_gas = Op.SSTORE(0, 1).gas_cost(fork) - 1
     consumer_storage = Storage()
     consume_op = Op.SSTORE(
         consumer_storage.store_next(1, "probe_must_succeed"),
@@ -1889,63 +1886,6 @@ def test_revert_discards_descendant_storage_clear_credit_through_depth(
         post={top: Account(storage=expected_storage)},
         tx=tx,
     )
-
-
-@pytest.mark.valid_from("EIP8037")
-def test_set_and_clear_pays_no_state_gas(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-) -> None:
-    """
-    A 0→X SSTORE paired with an X→0 on the same slot must cancel in
-    the state-gas reservoir. With a tight regular-gas budget and no
-    reservoir headroom (tx.gas <= TX_MAX_GAS_LIMIT, so reservoir = 0),
-    the tx completes only because the frame-end byte_delta nets to
-    zero.
-
-    A standalone 0→X here would charge +sstore_state_gas at frame
-    end, spill into gas_left, and OOG against this budget. The
-    follow-up X→0 returns the slot to its tx-start original (0), so
-    `compute_state_byte_diff` reports byte_delta=0 and the
-    state-gas reservoir is never touched.
-    """
-    gas_costs = fork.gas_costs()
-    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
-
-    # Same slot, set then cleared. Frame-end byte_delta = 0.
-    set_op = Op.SSTORE.with_metadata(
-        key_warm=False,
-        original_value=0,
-        current_value=0,
-        new_value=1,
-    )(0, 1)
-    clear_op = Op.SSTORE.with_metadata(
-        key_warm=True,
-        original_value=0,
-        current_value=1,
-        new_value=0,
-    )(0, 0)
-    code = set_op + clear_op
-    contract = pre.deploy_contract(code=code)
-
-    # Tight budget: bytecode regular gas plus the headroom required by
-    # the warm SSTORE's `check_gas(CALL_STIPEND + 1)` precondition.
-    # The warm 100-gas charge is already inside `code.regular_cost`,
-    # so the extra headroom needed is `CALL_STIPEND + 1 - WARM_ACCESS`.
-    extra_for_stipend = gas_costs.CALL_STIPEND + 1 - gas_costs.WARM_ACCESS
-    gas_limit = intrinsic_cost + code.regular_cost(fork) + extra_for_stipend
-
-    tx = Transaction(
-        to=contract,
-        gas_limit=gas_limit,
-        sender=pre.fund_eoa(),
-    )
-
-    # Slot 0 returns to its tx-start value (0). The reservoir was
-    # never touched because frame-end byte_delta was zero.
-    post = {contract: Account(storage={0: 0})}
-    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize(

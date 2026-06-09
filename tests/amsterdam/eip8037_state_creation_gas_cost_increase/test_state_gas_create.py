@@ -13,7 +13,6 @@ from typing import Union
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Block,
     BlockchainTestFiller,
@@ -37,12 +36,6 @@ from .spec import init_code_at_high_bytes, ref_spec_8037
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
-
-
-@pytest.fixture
-def nonexistent_account(pre: Alloc) -> Address:
-    """Return a fresh address that does not exist in pre-state."""
-    return pre.fund_eoa(amount=0)
 
 
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
@@ -1134,7 +1127,6 @@ def test_code_deposit_halt_discards_initcode_state_gas(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
-    nonexistent_account: Address,
     state_opcode: Op,
     deposit_fail_mode: str,
 ) -> None:
@@ -1152,9 +1144,14 @@ def test_code_deposit_halt_discards_initcode_state_gas(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
 
+    subcall_forwarded_value = 1
+    entry_account_value = 1
     if state_opcode == Op.CALL:
         state_op = Op.POP(
-            Op.CALL(gas=100_000, address=nonexistent_account, value=1)
+            Op.CALL(
+                address=pre.nonexistent_account(),
+                value=subcall_forwarded_value,
+            )
         )
     else:
         state_op = Op.POP(Op.CREATE(value=0, offset=0, size=1))
@@ -1177,9 +1174,9 @@ def test_code_deposit_halt_discards_initcode_state_gas(
                     Transaction(
                         to=None,
                         data=initcode,
-                        value=10**18,
+                        value=entry_account_value + subcall_forwarded_value,
                         gas_limit=gas_limit_cap,
-                        sender=pre.fund_eoa(10**21),
+                        sender=pre.fund_eoa(),
                     ),
                 ],
             ),
@@ -1301,10 +1298,8 @@ def test_state_gas_spill_header_gas_used(
     the reservoir and partially spilling into gas_left. Verify the
     block header gas_used reflects the correct 2D max accounting.
     """
-    gas_costs = fork.gas_costs()
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     # SSTORE zero-to-nonzero with small reservoir
     sstore_code = Op.SSTORE(0, 1) + Op.STOP
@@ -1313,7 +1308,8 @@ def test_state_gas_spill_header_gas_used(
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
     intrinsic_gas = intrinsic_cost()
 
-    evm_regular = 2 * gas_costs.VERY_LOW + gas_costs.COLD_STORAGE_WRITE
+    sstore_state_gas = sstore_code.state_cost(fork)
+    evm_regular = sstore_code.regular_cost(fork)
 
     # Reservoir = half the SSTORE state gas, rest spills to gas_left
     reservoir = sstore_state_gas // 2
