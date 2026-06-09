@@ -3744,3 +3744,146 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
             factory: Account(nonce=3, storage={0: target_a, 1: 1}),
         },
     )
+
+
+@pytest.mark.with_all_create_opcodes
+def test_bal_destroyed_dirty_account_emits_no_state_changes(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    create_opcode: Op,
+) -> None:
+    """
+    BAL emits no state-change entries for an ephemeral contract whose
+    four state fields are all dirtied before SELFDESTRUCT.
+
+    The factory deploys the ephemeral with non-zero endowment (balance
+    dirty), initcode SSTOREs and SLOADs own slots (storage dirty),
+    invokes an empty CREATE so the ephemeral's own nonce bumps 1→2
+    (nonce dirty), and returns runtime (codedirty).
+    The factory then CALLs the runtime, which SELFDESTRUCTs.
+    Per EIP-6780 the same-tx selfdestruct fully removes the
+    ephemeral; per EIP-7928 its BAL entry must contain no balance,
+    nonce, code, or storage changes;
+    only `storage_reads` for the demoted slots.
+    """
+    alice = pre.fund_eoa()
+    beneficiary = pre.fund_eoa(amount=0)
+    factory_balance = 1000
+    endowment = 100
+    slot_write = 0x07
+    slot_read = 0x09
+
+    init_code = Initcode(
+        deploy_code=Op.SELFDESTRUCT(beneficiary),
+        initcode_prefix=(
+            Op.SSTORE(slot_write, 0xCAFE)
+            + Op.POP(Op.SLOAD(slot_read))
+            + Op.POP(create_opcode(value=0, offset=0, size=0))
+        ),
+    )
+    initcode_bytes = bytes(init_code)
+
+    factory_code = (
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.SSTORE(
+            0,
+            create_opcode(value=endowment, offset=0, size=Op.CALLDATASIZE),
+        )
+        + Op.POP(Op.CALL(50_000, Op.SLOAD(0), 0, 0, 0, 0, 0))
+        + Op.STOP
+    )
+    factory = pre.deploy_contract(code=factory_code, balance=factory_balance)
+
+    ephemeral = compute_create_address(
+        address=factory,
+        nonce=1,
+        initcode=initcode_bytes,
+        opcode=create_opcode,
+    )
+    zombie = compute_create_address(
+        address=ephemeral,
+        nonce=1,
+        initcode=b"",
+        opcode=create_opcode,
+    )
+
+    tx = Transaction(
+        sender=alice,
+        to=factory,
+        data=initcode_bytes,
+        gas_limit=1_000_000,
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                factory: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=2)
+                    ],
+                    balance_changes=[
+                        BalBalanceChange(
+                            block_access_index=1,
+                            post_balance=factory_balance - endowment,
+                        )
+                    ],
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0,
+                            slot_changes=[
+                                # This asserts that
+                                # creation of the ephemeral contract
+                                # was successful
+                                BalStorageChange(
+                                    block_access_index=1,
+                                    post_value=ephemeral,
+                                )
+                            ],
+                        )
+                    ],
+                ),
+                ephemeral: BalAccountExpectation(
+                    balance_changes=[],
+                    nonce_changes=[],
+                    code_changes=[],
+                    storage_changes=[],
+                    storage_reads=[slot_write, slot_read],
+                ),
+                zombie: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                beneficiary: BalAccountExpectation(
+                    balance_changes=[
+                        BalBalanceChange(
+                            block_access_index=1,
+                            post_balance=endowment,
+                        )
+                    ],
+                ),
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1),
+            beneficiary: Account(balance=endowment),
+            factory: Account(
+                nonce=2,
+                balance=factory_balance - endowment,
+                storage={0: ephemeral},
+            ),
+            ephemeral: Account.NONEXISTENT,
+            zombie: Account(nonce=1),
+        },
+    )
