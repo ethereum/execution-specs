@@ -3754,7 +3754,8 @@ def test_bal_destroyed_dirty_account_emits_no_state_changes(
 ) -> None:
     """
     BAL emits no state-change entries for an ephemeral contract whose
-    four state fields are all dirtied before SELFDESTRUCT.
+    four state fields (nonce, balance, storage, code) are all dirtied
+    before SELFDESTRUCT.
 
     The factory deploys the ephemeral with non-zero endowment (balance
     dirty), initcode SSTOREs and SLOADs own slots (storage dirty),
