@@ -3811,7 +3811,7 @@ def test_bal_destroyed_dirty_account_emits_no_state_changes(
     tx = Transaction(
         sender=alice,
         to=factory,
-        data=initcode_bytes,
+        data=init_code,
         gas_limit=1_000_000,
     )
 
