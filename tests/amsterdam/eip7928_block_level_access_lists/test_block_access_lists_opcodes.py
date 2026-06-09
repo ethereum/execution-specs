@@ -3797,7 +3797,7 @@ def test_bal_destroyed_dirty_account_emits_no_state_changes(
     ephemeral = compute_create_address(
         address=factory,
         nonce=1,
-        initcode=initcode_bytes,
+        initcode=init_code,
         opcode=create_opcode,
     )
     zombie = compute_create_address(
