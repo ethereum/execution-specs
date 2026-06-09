@@ -10,6 +10,7 @@ from execution_testing import (
     Account,
     Alloc,
     Environment,
+    Fork,
     Initcode,
     Op,
     StateTestFiller,
@@ -27,6 +28,7 @@ REFERENCE_SPEC_VERSION = "80ef48d0bbb5a4939ade51caaaac57b5df6acd4e"
 def test_selfdestruct_after_create2_collision(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test that a failed CREATE2 collision does not count as creation.
@@ -72,7 +74,14 @@ def test_selfdestruct_after_create2_collision(
         + Op.SSTORE(
             storage.store_next(1, "create2_call_success"),
             Op.CALL(
-                gas=500_000,
+                # Forwarded budget covers deployer's CREATE2 (charged
+                # then refunded on collision under EIP-8037) plus its
+                # SSTORE; both 0 pre-EIP-8037 and scale with cpsb.
+                gas=(
+                    500_000
+                    + fork.gas_costs().NEW_ACCOUNT
+                    + Op.SSTORE(new_value=1).state_cost(fork)
+                ),
                 address=deployer,
                 args_size=Op.CALLDATASIZE,
             ),
@@ -80,7 +89,7 @@ def test_selfdestruct_after_create2_collision(
         # Call target to trigger SELFDESTRUCT
         + Op.SSTORE(
             storage.store_next(1, "selfdestruct_call_success"),
-            Op.CALL(gas=100_000, address=target_address),
+            Op.CALL(gas=500_000, address=target_address),
         )
         + Op.STOP
     )
@@ -106,10 +115,13 @@ def test_selfdestruct_after_create2_collision(
         env=env,
         pre=pre,
         post=post,
+        # 3 first-time SSTOREs (deployer's create2_result and
+        # controller's two outcome flags) each charge state gas under
+        # EIP-8037 (0 otherwise).
         tx=Transaction(
             sender=sender,
             to=controller,
-            gas_limit=2_000_000,
+            gas_limit=2_000_000 + 3 * Op.SSTORE(new_value=1).state_cost(fork),
             data=initcode,
         ),
     )

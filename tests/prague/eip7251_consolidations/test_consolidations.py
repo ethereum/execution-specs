@@ -21,6 +21,9 @@ from execution_testing import (
     TestAddress2,
 )
 
+from ...amsterdam.eip8037_state_creation_gas_cost_increase.spec import (
+    Spec as Spec8037,
+)
 from .helpers import (
     ConsolidationRequest,
     ConsolidationRequestContract,
@@ -383,6 +386,13 @@ pytestmark = pytest.mark.valid_from("Prague")
                             )
                         ],
                         call_depth=100,
+                        tx_gas_limit=Spec8037.TX_MAX_GAS_LIMIT,
+                        # tx_gas_limit is held at the cap to test the
+                        # 63/64 drain over the deep call chain. EIP-8037
+                        # state-set work is funded via the reservoir
+                        # rather than the regular pool, which would
+                        # corrupt the boundary the test pins.
+                        fund_state_reservoir=True,
                     ),
                 ],
             ],

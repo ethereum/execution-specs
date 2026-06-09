@@ -362,9 +362,12 @@ def generate_system_contract_error_test(
                     + gas_costs.COLD_STORAGE_ACCESS
                     + (gas_costs.VERY_LOW * 2)
                 )
+                effective_max_gas = max(
+                    max_gas_limit, fork.system_call_gas_limit()
+                )
                 modified_system_contract_code += sum(
                     Op.SSTORE(i, 1)
-                    for i in range(max_gas_limit // gas_used_per_storage)
+                    for i in range(effective_max_gas // gas_used_per_storage)
                 )
                 # If the gas limit is not divisible by the gas used per
                 # storage, we need to add some NO-OP (JUMPDEST) to the code
@@ -376,7 +379,7 @@ def generate_system_contract_error_test(
                 )
                 modified_system_contract_code += sum(
                     Op.JUMPDEST
-                    for _ in range(max_gas_limit % gas_used_per_storage)
+                    for _ in range(effective_max_gas % gas_used_per_storage)
                 )
 
                 if test_type == SystemContractTestType.OUT_OF_GAS_ERROR:

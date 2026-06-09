@@ -18,14 +18,25 @@ from ethereum.trace import (
     OpStart,
     PrecompileEnd,
     PrecompileStart,
+    StateGasAndRefund,
     TraceEvent,
     TransactionEnd,
     TransactionStart,
 )
 
-from .protocols import Evm, EvmWithReturnData, TransactionEnvironment
+from .protocols import (
+    Evm,
+    EvmWithReturnData,
+    EvmWithStateGas,
+    TransactionEnvironment,
+)
 
-EXCLUDE_FROM_OUTPUT = ["gasCostTraced", "errorTraced", "precompile"]
+EXCLUDE_FROM_OUTPUT = [
+    "gasCostTraced",
+    "stateGasCostTraced",
+    "errorTraced",
+    "precompile",
+]
 
 
 @dataclass
@@ -45,7 +56,10 @@ class Trace:
     depth: int
     refund: int
     opName: str
+    stateGas: Optional[str] = None
+    stateGasCost: Optional[str] = None
     gasCostTraced: bool = False
+    stateGasCostTraced: bool = False
     errorTraced: bool = False
     precompile: bool = False
     error: Optional[str] = None
@@ -171,11 +185,17 @@ class Eip3155Tracer(EvmTracer):
             assert isinstance(last_trace, Trace)
 
             last_trace.gasCostTraced = True
+            last_trace.stateGasCostTraced = True
             last_trace.errorTraced = True
         elif isinstance(event, OpStart):
             op = event.op.value
             if op == "InvalidOpcode":
                 op = "Invalid"
+
+            state_gas = None
+            if isinstance(evm, EvmWithStateGas):
+                state_gas = hex(evm.state_gas_left)
+
             new_trace = Trace(
                 pc=int(evm.pc),
                 op=op,
@@ -188,6 +208,7 @@ class Eip3155Tracer(EvmTracer):
                 depth=int(evm.message.depth) + 1,
                 refund=refund_counter,
                 opName=str(event.op).split(".")[-1],
+                stateGas=state_gas,
             )
 
             self.active_traces.append(new_trace)
@@ -195,6 +216,7 @@ class Eip3155Tracer(EvmTracer):
             assert isinstance(last_trace, Trace)
 
             last_trace.gasCostTraced = True
+            last_trace.stateGasCostTraced = True
             last_trace.errorTraced = True
         elif isinstance(event, OpException):
             if last_trace is not None:
@@ -264,6 +286,15 @@ class Eip3155Tracer(EvmTracer):
                 last_trace.gasCost = hex(event.gas_cost)
                 last_trace.refund = refund_counter
                 last_trace.gasCostTraced = True
+        elif isinstance(event, StateGasAndRefund):
+            if len(self.active_traces) == 0:
+                return
+
+            assert isinstance(last_trace, Trace)
+
+            if not last_trace.stateGasCostTraced:
+                last_trace.stateGasCost = hex(event.state_gas_cost)
+                last_trace.stateGasCostTraced = True
 
 
 class _TraceJsonEncoder(json.JSONEncoder):

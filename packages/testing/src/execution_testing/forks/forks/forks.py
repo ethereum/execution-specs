@@ -329,21 +329,11 @@ class Frontier(
     ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
         """
         Return a mapping of opcodes to their gas costs.
-
-        Each entry is either:
-        - Constants (int): Direct gas cost values from gas_costs()
-        - Callables: Functions that take the opcode instance with metadata and
-                     return gas cost
         """
         gas_costs = cls.gas_costs()
         memory_expansion_calculator = cls.memory_expansion_gas_calculator()
 
-        # Define the opcode gas cost mapping
-        # Each entry is either:
-        # - an int (constant cost)
-        # - a callable(opcode) -> int
         return {
-            # Stop and arithmetic operations
             Opcodes.STOP: 0,
             Opcodes.ADD: gas_costs.OPCODE_ADD,
             Opcodes.MUL: gas_costs.OPCODE_MUL,
@@ -360,7 +350,6 @@ class Frontier(
                 * ((op.metadata["exponent"].bit_length() + 7) // 8)
             ),
             Opcodes.SIGNEXTEND: gas_costs.OPCODE_SIGNEXTEND,
-            # Comparison & bitwise logic operations
             Opcodes.LT: gas_costs.OPCODE_LT,
             Opcodes.GT: gas_costs.OPCODE_GT,
             Opcodes.SLT: gas_costs.OPCODE_SLT,
@@ -372,7 +361,6 @@ class Frontier(
             Opcodes.XOR: gas_costs.OPCODE_XOR,
             Opcodes.NOT: gas_costs.OPCODE_NOT,
             Opcodes.BYTE: gas_costs.OPCODE_BYTE,
-            # SHA3
             Opcodes.SHA3: cls._with_memory_expansion(
                 lambda op: (
                     gas_costs.OPCODE_KECCAK256_BASE
@@ -381,7 +369,6 @@ class Frontier(
                 ),
                 memory_expansion_calculator,
             ),
-            # Environmental information
             Opcodes.ADDRESS: gas_costs.BASE,
             Opcodes.BALANCE: cls._with_account_access(0, gas_costs),
             Opcodes.ORIGIN: gas_costs.BASE,
@@ -409,14 +396,12 @@ class Frontier(
                 ),
                 memory_expansion_calculator,
             ),
-            # Block information
             Opcodes.BLOCKHASH: gas_costs.OPCODE_BLOCKHASH,
             Opcodes.COINBASE: gas_costs.OPCODE_COINBASE,
             Opcodes.TIMESTAMP: gas_costs.BASE,
             Opcodes.NUMBER: gas_costs.BASE,
             Opcodes.PREVRANDAO: gas_costs.BASE,
             Opcodes.GASLIMIT: gas_costs.BASE,
-            # Stack, memory, storage and flow operations
             Opcodes.POP: gas_costs.BASE,
             Opcodes.MLOAD: cls._with_memory_expansion(
                 gas_costs.OPCODE_MLOAD_BASE,
@@ -444,22 +429,18 @@ class Frontier(
             Opcodes.MSIZE: gas_costs.BASE,
             Opcodes.GAS: gas_costs.BASE,
             Opcodes.JUMPDEST: gas_costs.OPCODE_JUMPDEST,
-            # Push operations (PUSH1 through PUSH32)
             **{
                 getattr(Opcodes, f"PUSH{i}"): gas_costs.OPCODE_PUSH
                 for i in range(1, 33)
             },
-            # Dup operations (DUP1 through DUP16)
             **{
                 getattr(Opcodes, f"DUP{i}"): gas_costs.OPCODE_DUP
                 for i in range(1, 17)
             },
-            # Swap operations (SWAP1 through SWAP16)
             **{
                 getattr(Opcodes, f"SWAP{i}"): gas_costs.OPCODE_SWAP
                 for i in range(1, 17)
             },
-            # Logging operations
             Opcodes.LOG0: cls._with_memory_expansion(
                 lambda op: (
                     gas_costs.OPCODE_LOG_BASE
@@ -504,7 +485,6 @@ class Frontier(
                 ),
                 memory_expansion_calculator,
             ),
-            # System operations
             Opcodes.CREATE: cls._with_memory_expansion(
                 lambda op: cls._calculate_create_gas(op, gas_costs),
                 memory_expansion_calculator,
@@ -535,19 +515,37 @@ class Frontier(
         opcode_gas_map = cls.opcode_gas_map()
 
         def fn(opcode: OpcodeBase) -> int:
-            # Get the gas cost or calculator
             if opcode not in opcode_gas_map:
                 raise ValueError(
                     f"No gas cost defined for opcode: {opcode._name_}"
                 )
             gas_cost_or_calculator = opcode_gas_map[opcode]
 
-            # If it's a callable, call it with the opcode
             if callable(gas_cost_or_calculator):
                 return gas_cost_or_calculator(opcode)
 
-            # Otherwise it's a constant
             return gas_cost_or_calculator
+
+        return fn
+
+    @classmethod
+    def opcode_state_map(
+        cls,
+    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
+        """
+        Return a mapping of opcodes to their state gas costs.
+        """
+        return {}
+
+    @classmethod
+    def opcode_state_calculator(cls) -> OpcodeGasCalculator:
+        """
+        Return callable that calculates the state gas of a single opcode.
+        """
+
+        def fn(opcode: OpcodeBase) -> int:
+            del opcode
+            return 0
 
         return fn
 
@@ -557,15 +555,9 @@ class Frontier(
     ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
         """
         Return a mapping of opcodes to their gas refunds.
-
-        Each entry is either:
-        - Constants (int): Direct gas refund values
-        - Callables: Functions that take the opcode instance with metadata and
-                     return gas refund
         """
         gas_costs = cls.gas_costs()
 
-        # Only SSTORE provides refunds
         return {
             Opcodes.SSTORE: lambda op: cls._calculate_sstore_refund(
                 op, gas_costs
@@ -580,18 +572,35 @@ class Frontier(
         opcode_refund_map = cls.opcode_refund_map()
 
         def fn(opcode: OpcodeBase) -> int:
-            # Get the gas refund or calculator
             if opcode not in opcode_refund_map:
-                # Most opcodes don't provide refunds
                 return 0
             refund_or_calculator = opcode_refund_map[opcode]
 
-            # If it's a callable, call it with the opcode
             if callable(refund_or_calculator):
                 return refund_or_calculator(opcode)
 
-            # Otherwise it's a constant
             return refund_or_calculator
+
+        return fn
+
+    @classmethod
+    def opcode_state_refund_map(
+        cls,
+    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
+        """
+        Return a mapping of opcodes to their state refunds.
+        """
+        return {}
+
+    @classmethod
+    def opcode_state_refund_calculator(cls) -> OpcodeGasCalculator:
+        """
+        Return callable that calculates the state refund of a single opcode.
+        """
+
+        def fn(opcode: OpcodeBase) -> int:
+            del opcode
+            return 0
 
         return fn
 
@@ -791,6 +800,13 @@ class Frontier(
         raise NotImplementedError(
             f"Base fee change calculator is not supported in {cls.name()}"
         )
+
+    @classmethod
+    def cost_per_state_byte(cls) -> int:
+        """
+        Return the cost per state byte, 0 before state gas applies.
+        """
+        return 0
 
     @classmethod
     def base_fee_max_change_denominator(cls) -> int:
@@ -1008,6 +1024,18 @@ class Frontier(
     def transaction_gas_limit_cap(cls) -> int | None:
         """At Genesis, no transaction gas limit cap is imposed."""
         return None
+
+    @classmethod
+    def code_deposit_state_gas(cls, *, code_size: int) -> int:
+        """Return the state gas for code deposit of the given size."""
+        del code_size
+        return 0
+
+    @classmethod
+    def create_state_gas(cls, *, code_size: int = 0) -> int:
+        """Return total state gas for CREATE (new account + code deposit)."""
+        del code_size
+        return 0
 
     @classmethod
     def block_rlp_size_limit(cls) -> int | None:

@@ -76,12 +76,14 @@ def test_init_collision_create_tx(
     Test that a contract creation transaction exceptionally aborts when
     the target address has a non-empty storage, balance, nonce, or code.
     """
+    # Contract-creation tx: intrinsic includes NEW_ACCOUNT state gas
+    # under EIP-8037 (0 otherwise).
     tx = Transaction(
         sender=pre.fund_eoa(),
         ty=tx_type,
         to=None,
         data=initcode,
-        gas_limit=200_000,
+        gas_limit=200_000 + fork.gas_costs().NEW_ACCOUNT,
     )
 
     created_contract_address = tx.created_contract

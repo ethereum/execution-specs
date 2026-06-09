@@ -3,6 +3,10 @@ Create2SmartInitCode. create2 works different each time you call it.
 
 Ported from:
 state_tests/stCreate2/create2SmartInitCodeFiller.json
+
+@manually-enhanced: Do not overwrite. tx_gas was raised from 400 000 to
+1 000 000 so the CREATE2 path can afford its EIP-8037 NEW_ACCOUNT state
+gas on Amsterdam (post-state expectations are unchanged on all forks).
 """
 
 import pytest
@@ -169,7 +173,12 @@ def test_create2_smart_init_code(
         Hash(contract_0, left_padding=True),
         Hash(contract_1, left_padding=True),
     ]
-    tx_gas = [400000]
+    # EIP-8037 NEW_ACCOUNT + per-byte state-gas spill into the regular
+    # budget on Amsterdam; pre-EIP-8037 forks keep the original 400 000.
+    outer_tx_gas = 400_000
+    if fork.is_eip_enabled(8037):
+        outer_tx_gas = 1_000_000
+    tx_gas = [outer_tx_gas]
 
     tx = Transaction(
         sender=sender,

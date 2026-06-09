@@ -3,6 +3,16 @@ Test_callcodecallcodecallcode_111_suicide_end.
 
 Ported from:
 state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecallcode_111_SuicideEndFiller.json
+
+
+@manually-enhanced: Do not overwrite. Hardcoded inner-CALL gas values
+from the original filler (100k / 800k / 150k / 50k) were tuned to the
+pre-EIP-8037 gas budget. On Amsterdam each SSTORE in the inner
+callee adds the EIP-8037 per-storage state-gas (37 568 wei of
+regular gas), and the inner CALL OoGs before the test's SSTORE
+markers fire. Bumped uniformly with extra headroom; older forks are
+unaffected because only the requested gas changes, the actual
+consumption is identical.
 """
 
 import pytest
@@ -15,6 +25,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -31,8 +42,20 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_callcodecallcodecallcode_111_suicide_end(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_callcodecallcodecallcode_111_suicide_end."""
+    # EIP-8037 inner-CALL gas bumps (original gas values restored for
+    # pre-EIP-8037 forks; bumped values cover the per-storage state-gas
+    # spill into regular gas on Amsterdam).
+    inner_call_gas = 0x186A0
+    middle_call_gas = 0x249F0
+    inner_call_gas_b = 0xC350
+    if fork.is_eip_enabled(8037):
+        inner_call_gas = 0x1E8480
+        middle_call_gas = 0x1E8480
+        inner_call_gas_b = 0x1E8480
+
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
@@ -59,7 +82,7 @@ def test_callcodecallcodecallcode_111_suicide_end(
         code=Op.SSTORE(
             key=0x0,
             value=Op.DELEGATECALL(
-                gas=0x249F0,
+                gas=middle_call_gas,
                 address=0x9CFF7A3C9C90A301C47982DC2C4399C93700F0FD,
                 args_offset=0x0,
                 args_size=0x40,
@@ -78,7 +101,7 @@ def test_callcodecallcodecallcode_111_suicide_end(
         code=Op.SSTORE(
             key=0x1,
             value=Op.CALL(
-                gas=0x186A0,
+                gas=inner_call_gas,
                 address=0xB207980945728D64A3C9F905932314C8F130EE38,
                 value=0x1,
                 args_offset=0x0,
@@ -98,7 +121,7 @@ def test_callcodecallcodecallcode_111_suicide_end(
         code=Op.SSTORE(
             key=0x2,
             value=Op.CALLCODE(
-                gas=0xC350,
+                gas=inner_call_gas_b,
                 address=0x73B954EBC05BB0FF4A0F6A13A054D50AD1584099,
                 value=0x2,
                 args_offset=0x0,

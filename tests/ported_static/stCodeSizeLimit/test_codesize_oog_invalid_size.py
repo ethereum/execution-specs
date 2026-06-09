@@ -44,6 +44,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
+@pytest.mark.pre_alloc_mutable
 def test_codesize_oog_invalid_size(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -65,11 +66,18 @@ def test_codesize_oog_invalid_size(
         gas_limit=20000000,
     )
 
+    # Return sizes are fork.max_code_size() + 13 and + 1 so CREATE
+    # always overflows the code-size limit. On pre-7954 forks this
+    # yields the original 0x600D / 0x6001 (max_code_size = 0x6000);
+    # on Amsterdam+ it scales with the raised limit.
+    max_code_size = fork.max_code_size()
+    size_d0 = max_code_size + 13
+    size_d1 = max_code_size + 1
     tx_data = [
-        Op.CODECOPY(dest_offset=0x0, offset=0xD, size=0x600D)
-        + Op.RETURN(offset=0x0, size=0x600D),
-        Op.CODECOPY(dest_offset=0x0, offset=0xD, size=0x6001)
-        + Op.RETURN(offset=0x0, size=0x6001),
+        Op.CODECOPY(dest_offset=0x0, offset=0xD, size=size_d0)
+        + Op.RETURN(offset=0x0, size=size_d0),
+        Op.CODECOPY(dest_offset=0x0, offset=0xD, size=size_d1)
+        + Op.RETURN(offset=0x0, size=size_d1),
     ]
     tx_gas = [15000000]
     tx_value = [1]

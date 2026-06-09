@@ -3,6 +3,10 @@ Test: this test checks that the returndata buffer is changed when a...
 
 Ported from:
 state_tests/stRevertTest/RevertOpcodeInCallsOnNonEmptyReturnDataFiller.json
+@manually-enhanced: Do not overwrite. Inner-CALL/DELEGATECALL gas
+bumped on Amsterdam to cover EIP-8037 state-gas spill into regular gas;
+pre-EIP-8037 unchanged.
+
 """
 
 import pytest
@@ -110,6 +114,16 @@ def test_revert_opcode_in_calls_on_non_empty_return_data(
     )
 
     pre[sender] = Account(balance=0xE8D4A51000)
+    # EIP-8037 inner-CALL/DELEGATECALL gas bumps: original values
+    # restored for pre-EIP-8037 forks; bumped for state-gas spill on
+    # Amsterdam.
+    inner_call_gas = 50000
+    deeper_call_gas = 100000
+    deepest_call_gas = 260000
+    if fork.is_eip_enabled(8037):
+        inner_call_gas = 100000
+        deeper_call_gas = 1000000
+        deepest_call_gas = 1000000
     # Source: lll
     # { [[1]] 12 (REVERT 0 1) [[3]] 13 }
     addr_6 = pre.deploy_contract(  # noqa: F841
@@ -148,7 +162,7 @@ def test_revert_opcode_in_calls_on_non_empty_return_data(
         + Op.SSTORE(
             key=0x0,
             value=Op.DELEGATECALL(
-                gas=0xC350,
+                gas=inner_call_gas,
                 address=0x93A599BDE9A3B6390AFDB06952AA5EC0B8C44F3B,
                 args_offset=0x0,
                 args_size=0x0,
@@ -179,7 +193,7 @@ def test_revert_opcode_in_calls_on_non_empty_return_data(
         + Op.SSTORE(
             key=0x0,
             value=Op.CALLCODE(
-                gas=0xC350,
+                gas=inner_call_gas,
                 address=0x93A599BDE9A3B6390AFDB06952AA5EC0B8C44F3B,
                 value=0x0,
                 args_offset=0x0,
@@ -211,7 +225,7 @@ def test_revert_opcode_in_calls_on_non_empty_return_data(
         + Op.SSTORE(
             key=0x4,
             value=Op.CALL(
-                gas=0xC350,
+                gas=inner_call_gas,
                 address=0x93A599BDE9A3B6390AFDB06952AA5EC0B8C44F3B,
                 value=0x0,
                 args_offset=0x0,
@@ -243,7 +257,7 @@ def test_revert_opcode_in_calls_on_non_empty_return_data(
         + Op.SSTORE(
             key=0x0,
             value=Op.CALL(
-                gas=0xC350,
+                gas=inner_call_gas,
                 address=0x93A599BDE9A3B6390AFDB06952AA5EC0B8C44F3B,
                 value=0x0,
                 args_offset=0x0,
@@ -275,7 +289,7 @@ def test_revert_opcode_in_calls_on_non_empty_return_data(
         + Op.SSTORE(
             key=0xA,
             value=Op.CALL(
-                gas=0x3F7A0,
+                gas=deepest_call_gas,
                 address=Op.CALLDATALOAD(offset=0x0),
                 value=0x0,
                 args_offset=0x0,
@@ -307,7 +321,7 @@ def test_revert_opcode_in_calls_on_non_empty_return_data(
         + Op.SSTORE(
             key=0x0,
             value=Op.CALL(
-                gas=0x186A0,
+                gas=deeper_call_gas,
                 address=0xEA519C47889074E6378B0D83747F2C3EA0B9CBC9,
                 value=0x0,
                 args_offset=0x0,

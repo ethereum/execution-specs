@@ -123,6 +123,10 @@ def test_static_call_contract_to_create_contract_oog(
         Bytes(""),
     ]
     tx_gas = [100000]
+    if fork.is_eip_enabled(8037):
+        tx_gas[0] += fork.gas_costs().NEW_ACCOUNT + Op.SSTORE(
+            new_value=1
+        ).state_cost(fork)
     tx_value = [0, 1]
 
     tx = Transaction(

@@ -359,6 +359,13 @@ class TestContractCreationGasUsage:
             )
         return Alloc({create_contract_address: Account.NONEXISTENT})
 
+    # Gated off under EIP-8037: state gas breaks the single-dimension
+    # intrinsic-gas equivalence asserted in `exact_intrinsic_gas`. The
+    # 2D-aware creation-gas metering is covered on Amsterdam by
+    # `test_create_tx_intrinsic_gas_boundary` and
+    # `test_max_initcode_size_gas_metering_via_create` in
+    # `eip8037_state_creation_gas_cost_increase/test_state_gas_create.py`.
+    @pytest.mark.valid_before("EIP8037")
     @pytest.mark.slow()
     def test_gas_usage(
         self,

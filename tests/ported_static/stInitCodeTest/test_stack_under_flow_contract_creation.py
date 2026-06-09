@@ -11,10 +11,12 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
+from execution_testing.forks import Amsterdam
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -28,6 +30,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.pre_alloc_mutable
 def test_stack_under_flow_contract_creation(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
 ) -> None:
     """Test_stack_under_flow_contract_creation."""
@@ -40,7 +43,6 @@ def test_stack_under_flow_contract_creation(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=1000000000000000,
     )
 
     pre[coinbase] = Account(balance=0, nonce=1)
@@ -49,7 +51,7 @@ def test_stack_under_flow_contract_creation(
         sender=sender,
         to=None,
         data=Op.PUSH1[0x0] + Op.CALL,
-        gas_limit=72000,
+        gas_limit=2072000 if fork >= Amsterdam else 72000,
     )
 
     post = {

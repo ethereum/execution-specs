@@ -90,6 +90,7 @@ class BlobhashContext(Enum):
           indexes: The indexes to request using the BLOBHASH opcode
 
         """
+        indexes = list(indexes)
         match self:
             case (
                 BlobhashContext.BLOBHASH_SSTORE
@@ -312,12 +313,19 @@ def test_blobhash_opcode_contexts(
         case _:
             raise Exception(f"Unknown test case {test_case}")
 
+    # Budget covers all branches (simple SSTOREs, CREATE / CREATE2
+    # initcode + deploy) plus per-blob SSTOREs whose state cost
+    # scales with cpsb under EIP-8037 (`sstore_state_gas()` is 0
+    # otherwise).
+    gas_limit = 500_000 + max_blobs_per_tx * Op.SSTORE(new_value=1).state_cost(
+        fork
+    )
     state_test(
         pre=pre,
         tx=Transaction(
             ty=Spec.BLOB_TX_TYPE,
             to=tx_to,
-            gas_limit=500_000,
+            gas_limit=gas_limit,
             max_fee_per_blob_gas=fork.min_base_fee_per_blob_gas() * 10,
             blob_versioned_hashes=simple_blob_hashes,
             sender=pre.fund_eoa(),
@@ -333,16 +341,12 @@ def test_blobhash_opcode_contexts_tx_types(
     state_test: StateTestFiller,
 ) -> None:
     """
-    Tests that the `BLOBHASH` opcode functions correctly when called in
-    different contexts.
+    Test that the `BLOBHASH` opcode returns zero in non-blob transaction
+    types.
 
-    - `BLOBHASH` opcode on the top level of the call stack.
-    - `BLOBHASH` opcode on the max value.
-    - `BLOBHASH` opcode on `CALL`, `DELEGATECALL`, `STATICCALL`, and
-        `CALLCODE`.
-    - `BLOBHASH` opcode on Initcode.
-    - `BLOBHASH` opcode on `CREATE` and `CREATE2`.
-    - `BLOBHASH` opcode on transaction types 0, 1 and 2.
+    Verify BLOBHASH behavior across transaction types 0, 1, and 2 in
+    various calling contexts including top-level, CALL, DELEGATECALL,
+    STATICCALL, CALLCODE, initcode, CREATE, and CREATE2.
     """
     blobhash_sstore_address = BlobhashContext.BLOBHASH_SSTORE.deploy_contract(
         pre=pre, indexes=[0]

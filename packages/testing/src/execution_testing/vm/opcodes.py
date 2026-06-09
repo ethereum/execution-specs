@@ -5909,7 +5909,13 @@ class Opcodes(Opcode, Enum):
         0xFF,
         popped_stack_items=1,
         kwargs=["address"],
-        metadata={"address_warm": False, "account_new": False},
+        metadata={
+            "address_warm": False,
+            "account_new": False,
+            "self_destructed_account": False,
+            "self_destructed_account_storage_slot_count": 0,
+            "self_destructed_account_code_deposit": 0,
+        },
     )
     """
     SELFDESTRUCT(address)
@@ -5937,6 +5943,12 @@ class Opcodes(Opcode, Enum):
                     (default: False)
     - account_new: whether creating a new beneficiary account, requires
                    non-zero balance in the source account (default: False)
+    - self_destructed_account: whether the execution results in an account
+            self-destructing (default: False)
+    - self_destructed_account_storage_slot_count: amount of storage slots that
+            were created in the self-destructing account (default: 0)
+    - self_destructed_account_code_deposit: amount of bytes that comprised the
+            code of the self-destructing account (default: 0)
 
     Source: [evm.codes/#FF](https://www.evm.codes/#FF)
     """

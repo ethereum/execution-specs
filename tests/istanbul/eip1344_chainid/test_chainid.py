@@ -7,6 +7,7 @@ from execution_testing import (
     Account,
     Alloc,
     ChainConfig,
+    Fork,
     Op,
     StateTestFiller,
     Transaction,
@@ -36,16 +37,33 @@ REFERENCE_SPEC_VERSION = "02e46aebc80e6e5006ab4d2daa41876139f9a9e2"
 def test_chainid(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     chain_config: ChainConfig,
     typed_transaction: Transaction,
 ) -> None:
     """Test CHAINID opcode."""
     chain_id = chain_config.chain_id
-    contract_address = pre.deploy_contract(Op.SSTORE(1, Op.CHAINID) + Op.STOP)
+    contract_code = Op.SSTORE(1, Op.CHAINID) + Op.STOP
+    contract_address = pre.deploy_contract(contract_code)
+
+    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
+    # Tx-type-specific intrinsic args derived from the parametrized fixture.
+    intrinsic_kwargs: dict = {"calldata": typed_transaction.data}
+    if typed_transaction.access_list:
+        intrinsic_kwargs["access_list"] = typed_transaction.access_list
+    if typed_transaction.authorization_list:
+        intrinsic_kwargs["authorization_list_or_count"] = (
+            typed_transaction.authorization_list
+        )
 
     tx = typed_transaction.copy(
         chain_id=chain_id,
         to=contract_address,
+        gas_limit=(
+            intrinsic_calc(**intrinsic_kwargs)
+            + contract_code.gas_cost(fork)
+            + Op.SSTORE(new_value=1).state_cost(fork)
+        ),
     )
 
     post = {

@@ -3,18 +3,22 @@ Test_call_recursive_contract.
 
 Ported from:
 state_tests/stInitCodeTest/CallRecursiveContractFiller.json
+
+@manually-enhanced: Do not overwrite. This test has been manually reviewed and
+enhanced.
 """
+
+from typing import Generator
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
-    Bytes,
-    Environment,
+    Fork,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.vm import Op
 
@@ -22,59 +26,80 @@ REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
 
+def recursive_create_calculator(
+    contract: Address, depth: int
+) -> Generator[Address, None, None]:
+    """
+    Calculate the resulting address of a contract creating contracts
+    recursively.
+    """
+    while depth > 0:
+        contract = compute_create_address(address=contract, nonce=1)
+        yield contract
+        depth -= 1
+
+
 @pytest.mark.ported_from(
     ["state_tests/stInitCodeTest/CallRecursiveContractFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_call_recursive_contract(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_call_recursive_contract."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
-
-    pre[sender] = Account(balance=0x989680)
+    sender = pre.fund_eoa()
     # Source: lll
     # {[[ 2 ]](ADDRESS)(CODECOPY 0 0 32)(CREATE 0 0 32)}
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    entry_contract = pre.deploy_contract(
         code=Op.SSTORE(key=0x2, value=Op.ADDRESS)
         + Op.CODECOPY(dest_offset=0x0, offset=0x0, size=0x20)
         + Op.CREATE(value=0x0, offset=0x0, size=0x20)
         + Op.STOP,
-        nonce=40,
-        address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
+
+    gas_limit = 400_000
+    pre_fund_deploy_addresses = False
+    if fork.is_eip_enabled(8037):
+        gas_limit = 2_000_000
+        # In 8037, the cost of creating an account is beared by the parent
+        # creating it, so in order to not run out of gas when we return from
+        # contract creation we pre-fund the accounts. This way they are
+        # already in the trie and don't produce a cost.
+        pre_fund_deploy_addresses = True
 
     tx = Transaction(
         sender=sender,
-        to=contract_0,
-        data=Bytes("00"),
-        gas_limit=400000,
-        value=1,
+        to=entry_contract,
+        gas_limit=gas_limit,
     )
 
+    expected_depth = 5
+    for i, contract in enumerate(
+        recursive_create_calculator(entry_contract, depth=expected_depth + 1)
+    ):
+        if pre_fund_deploy_addresses:
+            pre.fund_address(contract, 1)
+        if i == expected_depth - 1:
+            last_expected_contract = contract
+        elif i == expected_depth:
+            first_unexpected_contract = contract
+
+    first_unexpected_contract_account = Account.NONEXISTENT
+    if pre_fund_deploy_addresses:
+        first_unexpected_contract_account = Account(balance=1, code=b"")
+
     post = {
-        contract_0: Account(storage={2: contract_0}, balance=1, nonce=41),
-        Address(
-            0x1A4C83E1A9834CDC7E4A905FF7F0CF44AED73180
-        ): Account.NONEXISTENT,
-        Address(
-            0x8E3411C91D5DD4081B4846FA2F93808F5AD19686
-        ): Account.NONEXISTENT,
+        entry_contract: Account(
+            storage={2: entry_contract}, balance=0, nonce=2
+        ),
+        last_expected_contract: Account(
+            storage={2: last_expected_contract},
+            balance=1 if pre_fund_deploy_addresses else 0,
+            nonce=2,
+        ),
+        first_unexpected_contract: first_unexpected_contract_account,
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

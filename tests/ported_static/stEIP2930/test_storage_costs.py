@@ -3,6 +3,20 @@ Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/stEIP2930/storageCostsFiller.yml
+
+@manually-enhanced: Do not overwrite. The SSTORE gas measurements in
+this test were authored against the Cancun-era SSTORE-set base cost
+of 20 000 (per EIP-2200). EIP-8037 splits that cost into a smaller
+regular portion (~2 900) plus a per-storage state-gas charge of
+`STATE_BYTES_PER_STORAGE_SET (32) * COST_PER_STATE_BYTE (1174) =
+37 568`. When the state-gas reservoir is empty — as it is here, since
+the tests don't pre-allocate state-gas budget — the full state-gas
+spills back into regular gas, so `Op.GAS` observes
+`+37 568 - 17 100 = +20 468` regular gas per fresh SSTORE-set
+compared to Cancun. Bake that fork-conditional delta into the
+expected post-state values for the 10 parametrizations whose measured
+SSTORE writes triggered the spill; the remaining entries (SLOAD-only,
+no-op SSTOREs) are unaffected.
 """
 
 import pytest
@@ -282,7 +296,6 @@ def test_storage_costs(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=71794957647893862,
     )
 
     # Source: lll
@@ -648,16 +661,38 @@ def test_storage_costs(
         address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
 
+    # EIP-8037 splits the SSTORE-set base cost (Cancun: 20 000 regular)
+    # into a smaller regular portion plus per-storage state-gas. When
+    # the state-gas reservoir is empty for these tests, the full state
+    # gas spills into regular gas, so Op.GAS sees +20 468 per fresh
+    # SSTORE-set compared to Cancun (=37 568 state-gas - 17 100 base
+    # regular drop). Apply that delta to the 10 measurements that
+    # trigger a fresh-set spill; the SLOAD-only and no-op SSTORE
+    # entries below are unchanged.
+    sstore_set_delta = (
+        (Op.SSTORE(new_value=1).state_cost(fork) - 17100)
+        if fork.is_eip_enabled(8037)
+        else 0
+    )
+
     expect_entries_: list[dict] = [
         {
             "indexes": {"data": [0, 35], "gas": -1, "value": -1},
             "network": [">=Cancun"],
-            "result": {contract_0: Account(storage={0: 2, 1: 20003})},
+            "result": {
+                contract_0: Account(
+                    storage={0: 2, 1: 20003 + sstore_set_delta}
+                )
+            },
         },
         {
             "indexes": {"data": [6, 12, 18], "gas": -1, "value": -1},
             "network": [">=Cancun"],
-            "result": {contract_0: Account(storage={0: 2, 1: 22103})},
+            "result": {
+                contract_0: Account(
+                    storage={0: 2, 1: 22103 + sstore_set_delta}
+                )
+            },
         },
         {
             "indexes": {"data": [3], "gas": -1, "value": -1},
@@ -722,7 +757,11 @@ def test_storage_costs(
         {
             "indexes": {"data": [28, 29], "gas": -1, "value": -1},
             "network": [">=Cancun"],
-            "result": {contract_8: Account(storage={0: 2, 1: 20000})},
+            "result": {
+                contract_8: Account(
+                    storage={0: 2, 1: 20000 + sstore_set_delta}
+                )
+            },
         },
         {
             "indexes": {"data": [30, 31], "gas": -1, "value": -1},
@@ -734,7 +773,12 @@ def test_storage_costs(
             "network": [">=Cancun"],
             "result": {
                 contract_10: Account(
-                    storage={0: 2, 1: 100, 2: 20000, 24743: 57005}
+                    storage={
+                        0: 2,
+                        1: 100,
+                        2: 20000 + sstore_set_delta,
+                        24743: 57005,
+                    }
                 )
             },
         },
@@ -743,7 +787,12 @@ def test_storage_costs(
             "network": [">=Cancun"],
             "result": {
                 contract_10: Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
+                    storage={
+                        0: 2,
+                        1: 2100,
+                        2: 22100 + sstore_set_delta,
+                        24743: 57005,
+                    }
                 ),
             },
         },
@@ -789,7 +838,15 @@ def test_storage_costs(
         Bytes("693c6139") + Hash(0xFFF),
         Bytes("693c6139") + Hash(0x0),
     ]
-    tx_gas = [400000]
+    # The test's CALL chain does two SSTORE-sets in each measured
+    # contract; EIP-8037 spills both state-gas charges into regular gas
+    # when the reservoir is empty, pushing total consumption over the
+    # original 400 000 budget. Bump on EIP-8037; pre-EIP-8037 keeps the
+    # original value.
+    outer_tx_gas = 400_000
+    if fork.is_eip_enabled(8037):
+        outer_tx_gas = 1_000_000
+    tx_gas = [outer_tx_gas]
     tx_value = [100000]
     tx_access_lists: dict[int, list] = {
         0: [

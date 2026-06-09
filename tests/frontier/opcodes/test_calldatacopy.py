@@ -189,9 +189,13 @@ def test_calldatacopy(
         ),
     )
 
+    gas_limit = 100_000
+    if fork.is_eip_enabled(8037):
+        gas_limit = 500_000
+
     tx = Transaction(
         data=tx_data,
-        gas_limit=100_000,
+        gas_limit=gas_limit,
         gas_price=0x0A,
         protected=fork.supports_protected_txs(),
         sender=pre.fund_eoa(),

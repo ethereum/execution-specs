@@ -38,7 +38,8 @@ def test_max_code_size_fork_transition(
     fork: TransitionFork,
 ) -> None:
     """Ensure the new max code size limit activates at the fork boundary."""
-    code_size = fork.transitions_to().max_code_size()
+    post_fork = fork.transitions_to()
+    code_size = post_fork.max_code_size()
     deploy_code = Op.JUMPDEST * code_size
     initcode = Initcode(deploy_code=deploy_code)
 
@@ -48,6 +49,9 @@ def test_max_code_size_fork_transition(
     create_address_pre = compute_create_address(address=alice, nonce=0)
     create_address_post = compute_create_address(address=bob, nonce=0)
 
+    post_fork_gas_limit = (
+        post_fork.transaction_gas_limit_cap() or 0
+    ) + post_fork.create_state_gas(code_size=code_size)
     blocks = [
         Block(
             timestamp=14_999,
@@ -67,7 +71,7 @@ def test_max_code_size_fork_transition(
                     sender=bob,
                     to=None,
                     data=initcode,
-                    gas_limit=fork.transitions_to().transaction_gas_limit_cap(),
+                    gas_limit=post_fork_gas_limit,
                 )
             ],
         ),
@@ -89,7 +93,8 @@ def test_max_code_size_via_create_fork_transition(
     create_opcode: Op,
 ) -> None:
     """Ensure the new max code size limit activates at the fork via opcodes."""
-    code_size = fork.transitions_to().max_code_size()
+    post_fork = fork.transitions_to()
+    code_size = post_fork.max_code_size()
     deploy_code = Op.JUMPDEST * code_size
     initcode = Initcode(deploy_code=deploy_code)
     initcode_bytes = bytes(initcode)
@@ -148,7 +153,10 @@ def test_max_code_size_via_create_fork_transition(
                     sender=bob,
                     to=factory_post,
                     data=initcode_bytes,
-                    gas_limit=fork.transitions_to().transaction_gas_limit_cap(),
+                    gas_limit=(
+                        (post_fork.transaction_gas_limit_cap() or 0)
+                        + post_fork.create_state_gas(code_size=code_size)
+                    ),
                 )
             ],
         ),
@@ -311,10 +319,12 @@ def test_max_code_size_with_max_initcode_fork_transition(
     fork: TransitionFork,
 ) -> None:
     """Ensure max code + max initcode activates at the fork boundary."""
-    deploy_code = Op.JUMPDEST * fork.transitions_to().max_code_size()
+    post_fork = fork.transitions_to()
+    code_size = post_fork.max_code_size()
+    deploy_code = Op.JUMPDEST * code_size
     initcode = Initcode(
         deploy_code=deploy_code,
-        initcode_length=fork.transitions_to().max_initcode_size(),
+        initcode_length=post_fork.max_initcode_size(),
     )
 
     alice = pre.fund_eoa()
@@ -345,7 +355,10 @@ def test_max_code_size_with_max_initcode_fork_transition(
                     sender=bob,
                     to=None,
                     data=initcode,
-                    gas_limit=fork.transitions_to().transaction_gas_limit_cap(),
+                    gas_limit=(
+                        (post_fork.transaction_gas_limit_cap() or 0)
+                        + post_fork.create_state_gas(code_size=code_size)
+                    ),
                 )
             ],
         ),
@@ -367,6 +380,7 @@ def test_parent_max_code_size_across_fork(
     parent = fork.transitions_from()
     assert parent is not None, "Parent fork must be defined for this test"
 
+    post_fork = fork.transitions_to()
     code_size = parent.max_code_size()
     deploy_code = Op.JUMPDEST * code_size
     initcode = Initcode(deploy_code=deploy_code)
@@ -396,7 +410,10 @@ def test_parent_max_code_size_across_fork(
                     sender=bob,
                     to=None,
                     data=initcode,
-                    gas_limit=fork.transitions_to().transaction_gas_limit_cap(),
+                    gas_limit=(
+                        (post_fork.transaction_gas_limit_cap() or 0)
+                        + post_fork.create_state_gas(code_size=code_size)
+                    ),
                 )
             ],
         ),

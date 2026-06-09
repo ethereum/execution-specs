@@ -20,11 +20,13 @@ from ...state_tracker import (
     set_storage,
     set_transient_storage,
 )
-from .. import Evm
+from .. import Evm, credit_state_gas_refund
 from ..exceptions import WriteInStaticContext
 from ..gas import (
     GasCosts,
+    StateGasCosts,
     charge_gas,
+    charge_state_gas,
     check_gas,
 )
 from ..stack import pop, push
@@ -88,18 +90,16 @@ def sstore(evm: Evm) -> None:
     current_value = get_storage(tx_state, evm.message.current_target, key)
 
     gas_cost = Uint(0)
+    state_gas = Uint(0)
 
     if (evm.message.current_target, key) not in evm.accessed_storage_keys:
         evm.accessed_storage_keys.add((evm.message.current_target, key))
         gas_cost += GasCosts.COLD_STORAGE_ACCESS
 
     if original_value == current_value and current_value != new_value:
-        if original_value == 0:
-            gas_cost += GasCosts.STORAGE_SET
-        else:
-            gas_cost += (
-                GasCosts.COLD_STORAGE_WRITE - GasCosts.COLD_STORAGE_ACCESS
-            )
+        # charge regular cost for the operation, even when we
+        # already charge state gas for state creation
+        gas_cost += GasCosts.COLD_STORAGE_WRITE - GasCosts.COLD_STORAGE_ACCESS
     else:
         gas_cost += GasCosts.WARM_ACCESS
 
@@ -115,20 +115,26 @@ def sstore(evm: Evm) -> None:
 
         if original_value == new_value:
             # Storage slot being restored to its original value
-            if original_value == 0:
-                # Slot was originally empty and was SET earlier
-                evm.refund_counter += int(
-                    GasCosts.STORAGE_SET - GasCosts.WARM_ACCESS
-                )
-            else:
-                # Slot was originally non-empty and was UPDATED earlier
-                evm.refund_counter += int(
-                    GasCosts.COLD_STORAGE_WRITE
-                    - GasCosts.COLD_STORAGE_ACCESS
-                    - GasCosts.WARM_ACCESS
-                )
+            evm.refund_counter += int(
+                GasCosts.COLD_STORAGE_WRITE
+                - GasCosts.COLD_STORAGE_ACCESS
+                - GasCosts.WARM_ACCESS
+            )
 
+    if original_value == current_value and current_value != new_value:
+        if original_value == 0:
+            state_gas = StateGasCosts.STORAGE_SET
+
+    if current_value != new_value and original_value == new_value:
+        if original_value == 0:
+            # Slot set then cleared: refund the state gas charge.
+            credit_state_gas_refund(evm, StateGasCosts.STORAGE_SET)
+
+    # Charge regular gas before state gas so that a regular-gas OOG
+    # does not consume state gas that would inflate the parent's
+    # reservoir on frame failure.
     charge_gas(evm, gas_cost)
+    charge_state_gas(evm, state_gas)
     set_storage(tx_state, evm.message.current_target, key, new_value)
 
     # PROGRAM COUNTER

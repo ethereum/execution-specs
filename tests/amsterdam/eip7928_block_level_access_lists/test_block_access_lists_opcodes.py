@@ -2051,10 +2051,11 @@ def test_bal_create_oog_code_deposit(
         access_list=[],
     )
 
+    # NEW_ACCOUNT keeps the budget CPSB-agnostic but short of the deposit.
     tx = Transaction(
         sender=alice,
         to=factory,
-        gas_limit=intrinsic_gas + 500_000,  # insufficient for deposit
+        gas_limit=(intrinsic_gas + 500_000 + fork.gas_costs().NEW_ACCOUNT),
     )
 
     # BAL expectations:
@@ -2556,6 +2557,7 @@ def test_bal_create_contract_init_revert(
 def test_bal_call_revert_insufficient_funds(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    fork: Fork,
     call_opcode: Op,
     delegated: bool,
     target_is_warm: bool,
@@ -2567,12 +2569,10 @@ def test_bal_call_revert_insufficient_funds(
 
     Caller (balance=100): SLOAD(0x01) → call_opcode(target, value=1000)
     → SSTORE(0x02, result). The call fails because 1000 > 100. The
-    failure happens after delegation resolution. However, the delegation
-    target's account has not been read yet.
-    So when the target is a 7702-delegated EOA, the target itself appears in
-    the BAL since it is already read. The delegation target however,
-    does not appear in the BAL, since it does not need to be read
-    for verifying sufficient balance.
+    failure happens after delegation resolution. Under EIP-8037 the
+    call family reads the delegation target's code before the balance
+    check fails, so both the target and the delegation target appear in
+    the BAL. Pre-8037 forks defer that read, so only the target appears.
 
     Access-list warming does NOT add to BAL on its own — only EVM
     access does — so the BAL is identical across warm/cold variants.
@@ -2644,10 +2644,17 @@ def test_bal_call_revert_insufficient_funds(
 
     if delegated:
         assert delegation_target is not None
-        # Delegation target must NOT appear in the BAL — get_account
-        # for code_address only runs inside generic_call, which is
-        # never invoked when the balance check fails.
-        account_expectations[delegation_target] = None
+        # Under EIP-8037 the call family reads the delegation target's
+        # code before the balance check fails, so it appears in the
+        # BAL. Pre-8037 forks defer that read and it stays out.
+        # TODO: drop this fork split once #2473 (defer get_code into
+        # generic_call) is consolidated into amsterdam.
+        if fork.is_eip_enabled(8037):
+            account_expectations[delegation_target] = (
+                BalAccountExpectation.empty()
+            )
+        else:
+            account_expectations[delegation_target] = None
 
     block = Block(
         txs=[tx],
@@ -2673,6 +2680,7 @@ def test_bal_call_revert_insufficient_funds(
 def test_bal_create_selfdestruct_to_self_with_call(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    fork: Fork,
 ) -> None:
     """
     Test BAL with init code that CALLs Oracle, writes storage, then
@@ -2700,9 +2708,12 @@ def test_bal_create_selfdestruct_to_self_with_call(
     # 1. Calls Oracle (which writes to its slot 0x01)
     # 2. Writes 0x42 to own slot 0x01
     # 3. Selfdestructs to self
+    #
+    # Forward enough gas for Oracle's first-time SSTORE
+    # (regular base + state gas, CPSB-agnostic).
+    oracle_call_gas = 100_000 + Op.SSTORE(new_value=1).state_cost(fork)
     initcode_runtime = (
-        # CALL(gas, Oracle, value=0, ...)
-        Op.CALL(100_000, oracle, 0, 0, 0, 0, 0)
+        Op.CALL(oracle_call_gas, oracle, 0, 0, 0, 0, 0)
         + Op.POP
         # Write to own storage slot 0x01
         + Op.SSTORE(0x01, 0x42)
@@ -2763,10 +2774,17 @@ def test_bal_create_selfdestruct_to_self_with_call(
         opcode=Op.CREATE2,
     )
 
+    # Budget for CREATE2 + 3 first-time SSTOREs, CPSB-agnostic via state gas.
+    gas_limit = (
+        1_000_000
+        + fork.gas_costs().NEW_ACCOUNT
+        + 3 * Op.SSTORE(new_value=1).state_cost(fork)
+    )
+
     tx = Transaction(
         sender=alice,
         to=factory,
-        gas_limit=1_000_000,
+        gas_limit=gas_limit,
     )
 
     block = Block(
@@ -3600,6 +3618,7 @@ def test_bal_create_storage_op_then_selfdestruct_same_tx(
 def test_bal_create2_selfdestruct_then_recreate_same_block(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    fork: Fork,
     pre_balance: int,
 ) -> None:
     """
@@ -3654,17 +3673,19 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
     if pre_balance > 0:
         pre.fund_address(target_a, pre_balance)
 
+    # Headroom for the self-destruct to fund a fresh beneficiary.
+    gas_limit = (fork.transaction_gas_limit_cap() or 0) + 2_000_000
     tx1 = Transaction(
         sender=alice,
         to=factory,
         data=initcode_bytes,
-        gas_limit=500_000,
+        gas_limit=gas_limit,
     )
     tx2 = Transaction(
         sender=alice,
         to=factory,
         data=initcode_bytes,
-        gas_limit=500_000,
+        gas_limit=gas_limit,
     )
 
     target_a_balance_changes = []

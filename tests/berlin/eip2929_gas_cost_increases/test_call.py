@@ -27,32 +27,32 @@ def test_call_insufficient_balance(
     """
     destination = pre.fund_eoa(1)
     warm_code = Op.BALANCE(destination, address_warm=True)
-    contract_address = pre.deploy_contract(
-        # Perform the aborted external calls
-        Op.SSTORE(
-            0,
-            Op.CALL(
-                gas=Op.GAS,
-                address=destination,
-                value=1,
-                args_offset=0,
-                args_size=0,
-                ret_offset=0,
-                ret_size=0,
-            ),
-        )
-        # Measure the gas cost for BALANCE operation
-        + CodeGasMeasure(
-            code=warm_code,
-            extra_stack_items=1,  # BALANCE puts balance on stack
-            sstore_key=1,
+    contract_code = Op.SSTORE(
+        0,
+        Op.CALL(
+            gas=Op.GAS,
+            address=destination,
+            value=1,
+            args_offset=0,
+            args_size=0,
+            ret_offset=0,
+            ret_size=0,
         ),
-        balance=0,
+    ) + CodeGasMeasure(
+        code=warm_code,
+        extra_stack_items=1,  # BALANCE puts balance on stack
+        sstore_key=1,
     )
+    contract_address = pre.deploy_contract(contract_code, balance=0)
 
+    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
     tx = Transaction(
         to=contract_address,
-        gas_limit=100_000,
+        gas_limit=(
+            intrinsic_calc()
+            + contract_code.gas_cost(fork)
+            + Op.SSTORE(new_value=1).state_cost(fork)
+        ),
         sender=pre.fund_eoa(),
     )
 

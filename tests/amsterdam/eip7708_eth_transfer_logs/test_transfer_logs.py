@@ -180,6 +180,7 @@ def test_contract_creation_tx_collision(
     state_test: StateTestFiller,
     env: Environment,
     pre: Alloc,
+    fork: Fork,
     collision_nonce: int,
     collision_code: bytes,
 ) -> None:
@@ -192,11 +193,17 @@ def test_contract_creation_tx_collision(
     value transfer, so EIP-7708 emits no Transfer log.
     """
     sender = pre.fund_eoa()
+    # EIP-8037: a contract-creating tx charges intrinsic state gas for the
+    # new account, so the gas limit must cover it on top of the regular
+    # intrinsic cost.
+    gas_limit = 200_000
+    if fork.is_eip_enabled(8037):
+        gas_limit += fork.create_state_gas()
     tx = Transaction(
         sender=sender,
         to=None,
         value=1000,
-        gas_limit=200_000,
+        gas_limit=gas_limit,
         data=bytes(Op.RETURN(0, 0)),
         expected_receipt=TransactionReceipt(logs=[]),
     )
@@ -1081,6 +1088,7 @@ def test_nested_calls_log_order(
     state_test: StateTestFiller,
     env: Environment,
     pre: Alloc,
+    fork: Fork,
     sender: EOA,
     call_depth: int,
 ) -> None:
@@ -1091,11 +1099,14 @@ def test_nested_calls_log_order(
     # Build the chain from innermost outward by prepending each new caller.
     # Once finished, accounts[0] is the entry contract (the tx target) and
     # accounts[-1] is the final recipient.
+    # Forward all gas (`Op.GAS`) rather than a fixed amount: under EIP-8037
+    # each frame's per-frame `SSTORE` and the deepest `NEW_ACCOUNT` charge
+    # make a fixed forward too small to reach the chain depth.
     accounts: list[Address] = [pre.nonexistent_account()]
     for _ in range(call_depth):
         contract_code = Op.SSTORE(
             0,
-            Op.CALL(gas=500_000, address=accounts[0], value=transfer_value),
+            Op.CALL(gas=Op.GAS, address=accounts[0], value=transfer_value),
         )
         accounts.insert(
             0, pre.deploy_contract(contract_code, balance=transfer_value)
@@ -1116,7 +1127,7 @@ def test_nested_calls_log_order(
         sender=sender,
         to=entry_contract,
         value=tx_value,
-        gas_limit=1_000_000,
+        gas_limit=fork.transaction_gas_limit_cap(),
         expected_receipt=TransactionReceipt(logs=expected_logs),
     )
 
@@ -1258,6 +1269,7 @@ def test_transfer_with_all_tx_types(
     state_test: StateTestFiller,
     env: Environment,
     pre: Alloc,
+    fork: Fork,
     sender: EOA,
     typed_transaction: Transaction,
 ) -> None:
@@ -1265,9 +1277,12 @@ def test_transfer_with_all_tx_types(
     recipient = pre.nonexistent_account()
     transfer_amount = 1000
 
+    # Sending value to a nonexistent recipient charges NEW_ACCOUNT
+    # state gas under EIP-8037 (0 otherwise).
     tx = typed_transaction.copy(
         to=recipient,
         value=transfer_amount,
+        gas_limit=typed_transaction.gas_limit + fork.gas_costs().NEW_ACCOUNT,
         expected_receipt=TransactionReceipt(
             logs=[transfer_log(sender, recipient, transfer_amount)]
         ),

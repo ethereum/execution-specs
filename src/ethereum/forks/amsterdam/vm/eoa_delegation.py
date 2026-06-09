@@ -10,7 +10,7 @@ from ethereum_types.numeric import U64, U256, Uint
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import InvalidBlock, InvalidSignatureError
-from ethereum.state import Address
+from ethereum.state import EMPTY_CODE_HASH, Address
 
 from ..fork_types import Authorization
 from ..state_tracker import (
@@ -21,14 +21,16 @@ from ..state_tracker import (
     set_code,
 )
 from ..utils.hexadecimal import hex_to_address
-from ..vm.gas import GasCosts
+from ..vm.gas import (
+    GasCosts,
+    StateGasCosts,
+)
 from . import Evm, Message
 
 SET_CODE_TX_MAGIC = b"\x05"
 EOA_DELEGATION_MARKER = b"\xef\x01\x00"
 EOA_DELEGATION_MARKER_LENGTH = len(EOA_DELEGATION_MARKER)
 EOA_DELEGATED_CODE_LENGTH = 23
-REFUND_AUTH_PER_EXISTING_ACCOUNT = 12500
 NULL_ADDRESS = hex_to_address("0x0000000000000000000000000000000000000000")
 
 
@@ -155,9 +157,14 @@ def calculate_delegation_cost(
     return True, delegated_address, delegation_gas_cost
 
 
-def set_delegation(message: Message) -> U256:
+def set_delegation(message: Message) -> Uint:
     """
     Set the delegation code for the authorities in the message.
+
+    Refills `StateGasCosts.NEW_ACCOUNT` when the authority's account
+    leaf already exists, and `StateGasCosts.AUTH_BASE` when its code
+    slot already holds a delegation indicator. The total is returned
+    so block accounting can subtract it from `tx_state_gas`.
 
     Parameters
     ----------
@@ -166,12 +173,12 @@ def set_delegation(message: Message) -> U256:
 
     Returns
     -------
-    refund_counter: `U256`
-        Refund from authority which already exists in state.
+    state_refund : `Uint`
+        Total state gas refunded across all processed authorizations.
 
     """
     tx_state = message.tx_env.state
-    refund_counter = U256(0)
+    state_refund = Uint(0)
     for auth in message.tx_env.authorizations:
         if auth.chain_id not in (message.block_env.chain_id, U256(0)):
             continue
@@ -197,10 +204,20 @@ def set_delegation(message: Message) -> U256:
             continue
 
         if account_exists(tx_state, authority):
-            refund_counter += U256(
-                GasCosts.AUTH_PER_EMPTY_ACCOUNT
-                - REFUND_AUTH_PER_EXISTING_ACCOUNT
-            )
+            refund = StateGasCosts.NEW_ACCOUNT
+            message.state_gas_reservoir += refund
+            state_refund += refund
+
+        # No new delegation indicator bytes are written: either the
+        # authority already has one (overwrite in place / clear) or
+        # this auth clears against an authority with no prior code.
+        if (
+            authority_account.code_hash != EMPTY_CODE_HASH
+            or auth.address == NULL_ADDRESS
+        ):
+            refund = StateGasCosts.AUTH_BASE
+            message.state_gas_reservoir += refund
+            state_refund += refund
 
         if auth.address == NULL_ADDRESS:
             code_to_set = b""
@@ -218,4 +235,4 @@ def set_delegation(message: Message) -> U256:
         get_account(tx_state, message.code_address).code_hash,
     )
 
-    return refund_counter
+    return state_refund

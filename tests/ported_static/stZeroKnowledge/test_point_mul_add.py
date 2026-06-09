@@ -273,7 +273,6 @@ def test_point_mul_add(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=4012015,
     )
 
     pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)

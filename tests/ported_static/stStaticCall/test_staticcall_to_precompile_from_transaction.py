@@ -19,6 +19,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -36,6 +37,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_staticcall_to_precompile_from_transaction(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """STATICCALL to precompiled contracts from transaction code."""
     coinbase = Address(0xCAFE000000000000000000000000000000000001)
@@ -337,11 +339,14 @@ def test_staticcall_to_precompile_from_transaction(
         address=Address(0xA000000000000000000000000000000000000000),  # noqa: E501
     )
 
+    gas_limit = 1000000
+    if fork.is_eip_enabled(8037):
+        gas_limit += 21 * Op.SSTORE(new_value=1).state_cost(fork)
     tx = Transaction(
         sender=sender,
         to=contract_0,
         data=Bytes(""),
-        gas_limit=1000000,
+        gas_limit=gas_limit,
         value=100,
     )
 

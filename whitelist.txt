@@ -268,6 +268,7 @@ CD
 cd
 CE
 ce
+ceil32
 CF
 cf
 CFI'd
@@ -994,6 +995,7 @@ q1
 qGpsxSA
 qs
 qube
+quantized
 questionary
 quickstart
 qx

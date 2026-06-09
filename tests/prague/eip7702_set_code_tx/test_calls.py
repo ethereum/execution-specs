@@ -9,6 +9,7 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Fork,
     Op,
     StateTestFiller,
     Transaction,
@@ -84,6 +85,7 @@ def target_address(
 def test_delegate_call_targets(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     target_account_type: TargetAccountType,
     target_address: Address,
     delegate: bool,
@@ -109,6 +111,28 @@ def test_delegate_call_targets(
         slot_call_result, Op.DELEGATECALL(address=target_address)
     ) + Op.SSTORE(slot_code_worked, value_code_worked)
 
+    intrinsic = fork.transaction_intrinsic_cost_calculator()
+    # The DELEGATECALL forwards 63/64 of remaining gas; LEGACY_CONTRACT_INVALID
+    # consumes the lot, leaving only 1/64 to host the caller's two SSTORE state
+    # writes. Lift gas_limit past the EIP-7825 cap so the EIP-8037 reservoir
+    # holds the SSTORE state work and the inner-call burn doesn't drain it.
+    gas_cap = fork.transaction_gas_limit_cap()
+    state_needed = delegate_call_code.state_cost(fork) + 2 * Op.SSTORE(
+        new_value=1
+    ).state_cost(fork)
+    base_gas = (
+        intrinsic(
+            calldata=delegate_call_code,
+            contract_creation=call_from_initcode,
+        )
+        + delegate_call_code.gas_cost(fork)
+        + 4_000_000  # forwarded inner-call envelope
+    )
+    if gas_cap is not None and state_needed > 0:
+        gas_limit = gas_cap + state_needed
+    else:
+        gas_limit = base_gas
+
     if call_from_initcode:
         # Call from initcode
         caller_contract = delegate_call_code + Op.RETURN(0, 0)
@@ -116,7 +140,7 @@ def test_delegate_call_targets(
             sender=sender_address,
             to=None,
             data=caller_contract,
-            gas_limit=4_000_000,
+            gas_limit=gas_limit,
         )
         calling_contract_address = tx.created_contract
     else:
@@ -127,7 +151,7 @@ def test_delegate_call_targets(
         tx = Transaction(
             sender=sender_address,
             to=calling_contract_address,
-            gas_limit=4_000_000,
+            gas_limit=gas_limit,
         )
 
     calling_storage = {

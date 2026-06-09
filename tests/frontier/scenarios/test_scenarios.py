@@ -224,6 +224,11 @@ def test_scenarios(
         tx_max_gas = 1_000_000
         if test_program.id == ProgramInvalidOpcode().id:
             tx_max_gas = 10_000_000 if fork.is_eip_enabled(8037) else 7_000_000
+        if (
+            test_program.id == ProgramAllFrontierOpcodes().id
+            and fork.is_eip_enabled(8037)
+        ):
+            tx_max_gas = 10_000_000
         if scenario.category == "double_call_combinations":
             tx_max_gas *= 2
 

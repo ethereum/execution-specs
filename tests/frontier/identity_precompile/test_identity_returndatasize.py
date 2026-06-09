@@ -37,8 +37,8 @@ def test_identity_precompile_returndata(
     expected_returndatasize: int,
 ) -> None:
     """
-    Test identity precompile RETURNDATA is sized correctly based on the input
-    size.
+    Test identity precompile RETURNDATASIZE matches the input size regardless
+    of the output buffer size.
     """
     env = Environment()
     storage = Storage()

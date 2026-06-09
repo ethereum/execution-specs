@@ -13,7 +13,10 @@ from execution_testing import (
     TransitionFork,
 )
 
-from .helpers import WithdrawalRequest, WithdrawalRequestInteractionBase
+from .helpers import (
+    WithdrawalRequest,
+    WithdrawalRequestInteractionBase,
+)
 from .spec import Spec
 
 
@@ -105,11 +108,12 @@ def blocks(
         included_requests,
         fillvalue=[],
     ):
-        header_verify: Header | None = None
-        if fork.fork_at(
+        block_fork = fork.fork_at(
             block_number=len(blocks) + 1,
             timestamp=timestamp,
-        ).header_requests_required():
+        )
+        header_verify: Header | None = None
+        if block_fork.header_requests_required():
             header_verify = Header(
                 requests_hash=Requests(
                     *block_included_requests,
@@ -119,7 +123,9 @@ def blocks(
             assert not block_included_requests
         blocks.append(
             Block(
-                txs=sum((r.transactions() for r in block_requests), []),
+                txs=sum(
+                    (r.transactions(block_fork) for r in block_requests), []
+                ),
                 header_verify=header_verify,
                 timestamp=timestamp,
             )

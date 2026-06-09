@@ -90,6 +90,8 @@ def test_account_storage_warm_cold_state(
 
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
 
+    # CodeGasMeasure SSTOREs the measured cost; budget for one
+    # first-time SSTORE whose state gas scales with cpsb on Amsterdam.
     tx_gas_limit = (
         intrinsic_gas_calculator(
             calldata=tx_data,
@@ -97,6 +99,7 @@ def test_account_storage_warm_cold_state(
             access_list=access_lists,
         )
         + 100_000
+        + Op.SSTORE(new_value=1).state_cost(fork)
     )
 
     tx = Transaction(
@@ -227,7 +230,7 @@ def test_transaction_intrinsic_gas_cost(
     access_lists: List[AccessList],
     enough_gas: bool,
 ) -> None:
-    """Test type 1 transaction."""
+    """Test type 1 transaction intrinsic gas cost with access lists."""
     env = Environment()
 
     contract_start_balance = 3

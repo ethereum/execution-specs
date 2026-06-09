@@ -14,6 +14,7 @@ from execution_testing import (
     Bytecode,
     CodeGasMeasure,
     Environment,
+    Fork,
     Op,
     StateTestFiller,
     Transaction,
@@ -83,12 +84,25 @@ def test_push0_contracts(
     pre: Alloc,
     post: Alloc,
     sender: EOA,
+    fork: Fork,
     contract_code: Bytecode,
     expected_storage: Account,
 ) -> None:
     """Tests PUSH0 within various deployed contracts."""
     push0_contract = pre.deploy_contract(contract_code)
-    tx = Transaction(to=push0_contract, gas_limit=100_000, sender=sender)
+    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
+    tx = Transaction(
+        to=push0_contract,
+        # `contract_code.gas_cost(fork)` covers regular + (under EIP-8037)
+        # state work for the parametrized snippets; add EIP-1706 slack for
+        # the trailing SSTORE.
+        gas_limit=(
+            intrinsic_calc()
+            + contract_code.gas_cost(fork)
+            + Op.SSTORE(new_value=1).state_cost(fork)
+        ),
+        sender=sender,
+    )
     post[push0_contract] = expected_storage
     state_test(env=env, pre=pre, post=post, tx=tx)
 
@@ -115,24 +129,36 @@ class TestPush0CallContext:
         )
         return push0_contract
 
+    PUSH0_CALL_FORWARDED_GAS = 100_000
+
+    @pytest.fixture
+    def push0_contract_caller_code(
+        self, call_opcode: Op, push0_contract_callee: Address
+    ) -> Bytecode:
+        """Bytecode for the caller contract."""
+        return (
+            Op.SSTORE(
+                0,
+                call_opcode(
+                    gas=self.PUSH0_CALL_FORWARDED_GAS,
+                    address=push0_contract_callee,
+                ),
+            )
+            + Op.SSTORE(0, 1)
+            + Op.RETURNDATACOPY(0x1F, 0, 1)
+            + Op.SSTORE(1, Op.MLOAD(0))
+        )
+
     @pytest.fixture
     def push0_contract_caller(
-        self, pre: Alloc, call_opcode: Op, push0_contract_callee: Address
+        self, pre: Alloc, push0_contract_caller_code: Bytecode
     ) -> Address:
         """
         Deploy the contract that calls the callee PUSH0 contract into `pre`.
 
         This fixture returns its address.
         """
-        call_code = (
-            Op.SSTORE(
-                0, call_opcode(gas=100_000, address=push0_contract_callee)
-            )
-            + Op.SSTORE(0, 1)
-            + Op.RETURNDATACOPY(0x1F, 0, 1)
-            + Op.SSTORE(1, Op.MLOAD(0))
-        )
-        return pre.deploy_contract(call_code)
+        return pre.deploy_contract(push0_contract_caller_code)
 
     @pytest.mark.xdist_group(name="bigmem")
     @pytest.mark.parametrize(
@@ -153,10 +179,23 @@ class TestPush0CallContext:
         post: Alloc,
         sender: EOA,
         push0_contract_caller: Address,
+        push0_contract_caller_code: Bytecode,
+        fork: Fork,
     ) -> None:
         """Test PUSH0 during various call contexts."""
+        intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
         tx = Transaction(
-            to=push0_contract_caller, gas_limit=100_000, sender=sender
+            to=push0_contract_caller,
+            # Caller's static cost (3 SSTOREs + CALL static + RETURNDATACOPY
+            # + MLOAD) plus the forwarded inner-call gas, plus EIP-1706
+            # stipend slack on the trailing SSTORE.
+            gas_limit=(
+                intrinsic_calc()
+                + push0_contract_caller_code.gas_cost(fork)
+                + self.PUSH0_CALL_FORWARDED_GAS
+                + Op.SSTORE(new_value=1).state_cost(fork)
+            ),
+            sender=sender,
         )
         post[push0_contract_caller] = Account(storage={0x00: 0x01, 0x01: 0xFF})
         state_test(env=env, pre=pre, post=post, tx=tx)
