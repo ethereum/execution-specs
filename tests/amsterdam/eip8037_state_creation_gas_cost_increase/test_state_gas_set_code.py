@@ -90,6 +90,74 @@ def test_authorization_state_gas_scaling(
     state_test(env=env, pre=pre, post={}, tx=tx)
 
 
+@pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "num_auths",
+    [
+        pytest.param(1, id="single_auth"),
+        pytest.param(2, id="two_auths"),
+        pytest.param(3, id="three_auths"),
+    ],
+)
+@pytest.mark.parametrize(
+    "extra_gas",
+    [
+        pytest.param(0, id="at_regular_intrinsic"),
+        pytest.param(1, id="one_above_regular_intrinsic"),
+        pytest.param(-1, id="one_below_total_intrinsic"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_set_code_tx_below_total_intrinsic(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    num_auths: int,
+    extra_gas: int,
+) -> None:
+    """
+    Reject set_code tx when gas_limit covers regular but not state intrinsic.
+
+    EIP-8037 charges each authorization a state component
+    `(STATE_BYTES_PER_NEW_ACCOUNT + STATE_BYTES_PER_AUTH_BASE) *
+    COST_PER_STATE_BYTE`; total intrinsic = `regular + N * state` for
+    N authorizations. Sweep N = 1, 2, 3 and pin gas_limit at the
+    lower end of the rejected interval to catch implementations that
+    omit the state component from the pre-validate check.
+    """
+    intrinsic_state = fork.transaction_intrinsic_state_gas(
+        authorization_count=num_auths,
+    )
+    total_intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        authorization_list_or_count=num_auths,
+    )
+    intrinsic_regular = total_intrinsic - intrinsic_state
+    gas_limit = (
+        intrinsic_regular if extra_gas >= 0 else total_intrinsic
+    ) + extra_gas
+    assert gas_limit < total_intrinsic
+
+    contract = pre.deploy_contract(code=Op.STOP)
+    authorization_list = [
+        AuthorizationTuple(
+            address=contract,
+            nonce=1,
+            signer=pre.fund_eoa(),
+        )
+        for _ in range(num_auths)
+    ]
+
+    tx = Transaction(
+        to=contract,
+        gas_limit=gas_limit,
+        authorization_list=authorization_list,
+        sender=pre.fund_eoa(),
+        error=TransactionException.INTRINSIC_GAS_TOO_LOW,
+    )
+
+    state_test(pre=pre, post={}, tx=tx)
+
+
 @pytest.mark.valid_from("EIP8037")
 def test_existing_account_refund(
     state_test: StateTestFiller,

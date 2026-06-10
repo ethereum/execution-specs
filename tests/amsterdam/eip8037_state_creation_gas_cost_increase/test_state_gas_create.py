@@ -520,6 +520,51 @@ def test_create_tx_intrinsic_gas_boundary(
     state_test(pre=pre, post={}, tx=tx)
 
 
+@pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "extra_gas",
+    [
+        pytest.param(0, id="at_regular_intrinsic"),
+        pytest.param(1, id="one_above_regular_intrinsic"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_create_tx_below_total_intrinsic(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    extra_gas: int,
+) -> None:
+    """
+    Reject CREATE tx when gas_limit covers regular but not state intrinsic.
+
+    EIP-8037 splits the CREATE intrinsic into regular and state
+    components (`STATE_BYTES_PER_NEW_ACCOUNT * COST_PER_STATE_BYTE`).
+    `test_create_tx_intrinsic_gas_boundary` pins the upper boundary
+    (`total - 1`); this pins the lower end — `intrinsic_regular` and
+    one gas above — to catch implementations that omit the state
+    component from the pre-validate check.
+    """
+    total_intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        contract_creation=True,
+    )
+    intrinsic_state = fork.transaction_intrinsic_state_gas(
+        contract_creation=True,
+    )
+    intrinsic_regular = total_intrinsic - intrinsic_state
+    gas_limit = intrinsic_regular + extra_gas
+    assert gas_limit < total_intrinsic
+
+    tx = Transaction(
+        to=None,
+        gas_limit=gas_limit,
+        sender=pre.fund_eoa(),
+        error=TransactionException.INTRINSIC_GAS_TOO_LOW,
+    )
+
+    state_test(pre=pre, post={}, tx=tx)
+
+
 @pytest.mark.valid_from("EIP8037")
 def test_code_deposit_oog_preserves_parent_reservoir(
     state_test: StateTestFiller,
