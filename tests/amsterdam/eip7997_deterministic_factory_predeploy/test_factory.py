@@ -45,31 +45,11 @@ def test_factory_predeploy_account(
     `SHA3`, and `BALANCE`.
     """
     caller = pre.deploy_contract(
-        Op.SSTORE(
-            0,
-            Op.EXTCODESIZE(FACTORY),
-            original_value=0,
-            new_value=1,
-        )
-        + Op.SSTORE(
-            1,
-            Op.EXTCODEHASH(FACTORY),
-            original_value=0,
-            new_value=1,
-        )
+        Op.SSTORE(0, Op.EXTCODESIZE(FACTORY))
+        + Op.SSTORE(1, Op.EXTCODEHASH(FACTORY))
         + Op.EXTCODECOPY(FACTORY, 0, 0, Op.EXTCODESIZE(FACTORY))
-        + Op.SSTORE(
-            2,
-            Op.SHA3(0, Op.EXTCODESIZE(FACTORY)),
-            original_value=0,
-            new_value=1,
-        )
-        + Op.SSTORE(
-            3,
-            Op.BALANCE(FACTORY),
-            original_value=0,
-            new_value=0,
-        )
+        + Op.SSTORE(2, Op.SHA3(0, Op.EXTCODESIZE(FACTORY)))
+        + Op.SSTORE(3, Op.BALANCE(FACTORY))
         + Op.STOP,
     )
     state_test(
@@ -134,14 +114,10 @@ def test_factory_deploys_contract(
                 ret_offset=12,
                 ret_size=20,
             ),
-            original_value=0,
-            new_value=1,
         )
         + Op.SSTORE(
             storage.store_next(expected_address, "returned_address"),
             Op.MLOAD(0),
-            original_value=0,
-            new_value=1,
         )
         + Op.STOP,
         balance=forwarded_value,
@@ -194,8 +170,6 @@ def test_factory_address_collision_reverts(
                 ret_offset=0x100,
                 ret_size=32,
             ),
-            original_value=0,
-            new_value=1,
         )
         + Op.SSTORE(
             storage.store_next(0, "second_call_failed"),
@@ -208,8 +182,6 @@ def test_factory_address_collision_reverts(
                 ret_offset=0x100,
                 ret_size=32,
             ),
-            original_value=0,
-            new_value=0,
         )
         + Op.STOP,
     )
@@ -263,10 +235,8 @@ def test_factory_different_salts_produce_different_addresses(
                 ret_offset=0x20C,
                 ret_size=20,
             ),
-            original_value=0,
-            new_value=1,
         )
-        + Op.SSTORE(1, Op.MLOAD(0x200), original_value=0, new_value=1)
+        + Op.SSTORE(1, Op.MLOAD(0x200))
         + Op.MSTORE(0, salt_b)
         + Op.SSTORE(
             2,
@@ -279,10 +249,8 @@ def test_factory_different_salts_produce_different_addresses(
                 ret_offset=0x20C,
                 ret_size=20,
             ),
-            original_value=0,
-            new_value=1,
         )
-        + Op.SSTORE(3, Op.MLOAD(0x200), original_value=0, new_value=1)
+        + Op.SSTORE(3, Op.MLOAD(0x200))
         + Op.STOP,
     )
 
@@ -357,8 +325,6 @@ def test_factory_staticcall_reverts(
                 ret_offset=0x100,
                 ret_size=32,
             ),
-            original_value=0,
-            new_value=0,
         )
         + Op.STOP,
     )
@@ -406,8 +372,8 @@ def test_factory_in_caller_context(
 
     caller = pre.deploy_contract(
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-        + Op.SSTORE(0, call_op, original_value=0, new_value=1)
-        + Op.SSTORE(1, Op.MLOAD(0x100), original_value=0, new_value=1)
+        + Op.SSTORE(0, call_op)
+        + Op.SSTORE(1, Op.MLOAD(0x100))
         + Op.STOP,
     )
     caller_derived = compute_create2_address(caller, salt, initcode)
@@ -459,8 +425,6 @@ def test_factory_deploys_to_pre_funded_address(
                 ret_offset=0x100,
                 ret_size=32,
             ),
-            original_value=0,
-            new_value=1,
         )
         + Op.STOP,
     )
@@ -521,15 +485,9 @@ def test_factory_access_list_prewarming(
         # delta = cost1 - cost2.
         + Op.SWAP1
         + Op.SUB
-        # Stack: [delta]. Capture to memory so we can SSTORE with metadata.
-        + Op.PUSH1(0)
-        + Op.MSTORE
-        + Op.SSTORE(
-            storage.store_next(expected_delta, "first_minus_second"),
-            Op.MLOAD(0),
-            original_value=0,
-            new_value=1 if expected_delta else 0,
-        )
+        # Stack: [delta]. SSTORE pops [key, value], so push the key.
+        + Op.PUSH1(storage.store_next(expected_delta, "first_minus_second"))
+        + Op.SSTORE
         + Op.STOP,
     )
 
@@ -582,8 +540,6 @@ def test_factory_receives_balance_via_selfdestruct(
         + Op.SSTORE(
             storage.store_next(forwarded_value, "factory_balance_after_sd"),
             Op.BALANCE(FACTORY),
-            original_value=0,
-            new_value=1,
         )
         + Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
         + Op.SSTORE(
@@ -597,8 +553,6 @@ def test_factory_receives_balance_via_selfdestruct(
                 ret_offset=0x100,
                 ret_size=32,
             ),
-            original_value=0,
-            new_value=1,
         )
         + Op.STOP,
     )
