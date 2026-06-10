@@ -4,7 +4,13 @@ EIP-8037: State Creation Gas Cost Increase.
 Harmonization, increase and separate metering of state creation gas costs to
 mitigate state growth and unblock scaling.
 
+This mixin also folds in the EIP-8038 state-access gas repricing: the two EIPs
+ship together in Amsterdam and share one gas schedule, and the MRO places this
+(highest-numbered) mixin too low to be overridden by a separate EIP-8038 mixin.
+The EIP-8038 values are provisional (see the `gas_costs` override below).
+
 https://eips.ethereum.org/EIPS/eip-8037
+https://eips.ethereum.org/EIPS/eip-8038
 """
 
 from dataclasses import replace
@@ -22,9 +28,6 @@ from ....gas_costs import GasCosts
 STATE_BYTES_PER_NEW_ACCOUNT = 120
 STATE_BYTES_PER_STORAGE_SET = 64
 STATE_BYTES_PER_AUTH_BASE = 23
-
-PER_AUTH_BASE_COST = 7_500
-REGULAR_GAS_CREATE = 9_000
 
 SYSTEM_MAX_SSTORES_PER_CALL = 16
 
@@ -74,30 +77,99 @@ class EIP8037(BaseFork):
     @classmethod
     def gas_costs(cls) -> GasCosts:
         """
-        Return gas costs updated for two-dimensional gas metering,
-        with state gas folded into the relevant totals.
+        Return gas costs for Amsterdam's combined EIP-8037 (state
+        creation) and EIP-8038 (state access) repricing, with state gas
+        folded into the relevant totals. EIP-8038 values are provisional.
         """
         cpsb = cls.cost_per_state_byte()
         parent = super(EIP8037, cls).gas_costs()
         new_acct = STATE_BYTES_PER_NEW_ACCOUNT * cpsb
+
+        # EIP-8038 state-access repricing (provisional values).
+        warm_access = 300
+        cold_account_access = 7_800
+        cold_storage_access = 6_300
+        storage_write = 8_400
+        # The framework models the SSTORE write via the compound
+        # COLD_STORAGE_WRITE (access + write), so preserve the invariant
+        # COLD_STORAGE_WRITE - COLD_STORAGE_ACCESS == STORAGE_WRITE.
+        cold_storage_write = cold_storage_access + storage_write
+        account_write = 20_100
+        create_access = 21_000
+        # ecRecover stays PRECOMPILE_ECRECOVER (3000) until EIP-7904 lands.
+        regular_per_auth_base_cost = (
+            1_616 + 3_000 + cold_account_access + 2 * warm_access
+        )
+
         return replace(
             parent,
+            WARM_ACCESS=warm_access,
+            WARM_SLOAD=warm_access,
+            COLD_ACCOUNT_ACCESS=cold_account_access,
+            COLD_STORAGE_ACCESS=cold_storage_access,
+            COLD_STORAGE_WRITE=cold_storage_write,
+            ACCOUNT_WRITE=account_write,
+            CALL_VALUE=account_write + 2_300,  # ACCOUNT_WRITE + CALL_STIPEND
+            REFUND_STORAGE_CLEAR=14_400,
+            TX_ACCESS_LIST_ADDRESS=7_200,
+            TX_ACCESS_LIST_STORAGE_KEY=5_700,
             BLOCK_ACCESS_LIST_ITEM=2000,
-            STORAGE_SET=(
-                parent.COLD_STORAGE_WRITE
-                - parent.COLD_STORAGE_ACCESS
-                + STATE_BYTES_PER_STORAGE_SET * cpsb
-            ),
+            STORAGE_SET=(storage_write + STATE_BYTES_PER_STORAGE_SET * cpsb),
             NEW_ACCOUNT=new_acct,
-            OPCODE_CREATE_BASE=REGULAR_GAS_CREATE,
-            TX_CREATE=(REGULAR_GAS_CREATE + new_acct),
+            OPCODE_CREATE_BASE=create_access,
+            TX_CREATE=(create_access + new_acct),
             AUTH_PER_EMPTY_ACCOUNT=(
-                PER_AUTH_BASE_COST
+                account_write
+                + regular_per_auth_base_cost
                 + (STATE_BYTES_PER_NEW_ACCOUNT + STATE_BYTES_PER_AUTH_BASE)
                 * cpsb
             ),
             REFUND_AUTH_PER_EXISTING_ACCOUNT=new_acct,
         )
+
+    @classmethod
+    def opcode_gas_map(
+        cls,
+    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
+        """
+        Return the opcode gas map with the EIP-8038 `EXT*` update:
+        `EXTCODESIZE` and `EXTCODECOPY` charge an extra `WARM_ACCESS`
+        for the second database read (the code).
+        """
+        gas_costs = cls.gas_costs()
+        opcode_gas_map = dict(super(EIP8037, cls).opcode_gas_map())
+
+        def with_extra_warm_access(
+            inner: int | Callable[[OpcodeBase], int],
+        ) -> Callable[[OpcodeBase], int]:
+            def fn(opcode: OpcodeBase) -> int:
+                inner_gas = inner(opcode) if callable(inner) else inner
+                return inner_gas + gas_costs.WARM_ACCESS
+
+            return fn
+
+        for opcode in (Opcodes.EXTCODESIZE, Opcodes.EXTCODECOPY):
+            opcode_gas_map[opcode] = with_extra_warm_access(
+                opcode_gas_map[opcode]
+            )
+        return opcode_gas_map
+
+    @classmethod
+    def _calculate_selfdestruct_gas(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """
+        Calculate the regular SELFDESTRUCT gas cost. EIP-8038 adds
+        `ACCOUNT_WRITE` when a positive balance is sent to an empty
+        account, on top of the inherited cost (where `NEW_ACCOUNT`
+        holds the EIP-8037 state-gas portion).
+        """
+        gas_cost = super(EIP8037, cls)._calculate_selfdestruct_gas(
+            opcode, gas_costs
+        )
+        if opcode.metadata["account_new"]:
+            gas_cost += gas_costs.ACCOUNT_WRITE
+        return gas_cost
 
     @classmethod
     def opcode_gas_calculator(cls) -> OpcodeGasCalculator:
@@ -256,10 +328,11 @@ class EIP8037(BaseFork):
     ) -> int:
         """
         Calculate the regular SSTORE gas cost. The state portion is
-        returned separately by `_calculate_sstore_state_gas`. A cold
-        slot adds `COLD_STORAGE_ACCESS`, a write to an unchanged
-        original adds `COLD_STORAGE_WRITE` minus `COLD_STORAGE_ACCESS`,
-        and every other case adds `WARM_SLOAD`.
+        returned separately by `_calculate_sstore_state_gas`. Under
+        EIP-8038 the access cost (`COLD_STORAGE_ACCESS` when cold, else
+        `WARM_SLOAD`) is always charged, and a first-time change to the
+        slot additionally charges the write cost `STORAGE_WRITE`
+        (modeled as `COLD_STORAGE_WRITE` minus `COLD_STORAGE_ACCESS`).
         """
         metadata = opcode.metadata
 
@@ -269,14 +342,16 @@ class EIP8037(BaseFork):
             current_value = original_value
         new_value = metadata["new_value"]
 
-        gas_cost = 0 if metadata["key_warm"] else gas_costs.COLD_STORAGE_ACCESS
+        gas_cost = (
+            gas_costs.WARM_SLOAD
+            if metadata["key_warm"]
+            else gas_costs.COLD_STORAGE_ACCESS
+        )
 
         if original_value == current_value and current_value != new_value:
             gas_cost += (
                 gas_costs.COLD_STORAGE_WRITE - gas_costs.COLD_STORAGE_ACCESS
             )
-        else:
-            gas_cost += gas_costs.WARM_SLOAD
 
         return gas_cost
 
@@ -332,10 +407,11 @@ class EIP8037(BaseFork):
                 refund -= gas_costs.REFUND_STORAGE_CLEAR
 
             if original_value == new_value:
+                # Refund the STORAGE_WRITE charged on the first-time
+                # change earlier in the transaction.
                 refund += (
                     gas_costs.COLD_STORAGE_WRITE
                     - gas_costs.COLD_STORAGE_ACCESS
-                    - gas_costs.WARM_SLOAD
                 )
 
         return refund
