@@ -97,11 +97,15 @@ def max_refund(fork: Fork, refund_type: RefundTypes) -> int:
         if refund_type == RefundTypes.STORAGE_CLEAR
         else 0
     )
-    if (
-        not fork.is_eip_enabled(8037)
-        and refund_type == RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY
-    ):
-        max_refund += gas_costs.REFUND_AUTH_PER_EXISTING_ACCOUNT
+    if refund_type == RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY:
+        if fork.is_eip_enabled(8037):
+            # The worst-case `ACCOUNT_WRITE` charged at intrinsic time
+            # is refunded via the refund counter when the authority's
+            # account leaf already exists; the state-gas portion is
+            # refilled separately and is not subject to the cap.
+            max_refund += gas_costs.ACCOUNT_WRITE
+        else:
+            max_refund += gas_costs.REFUND_AUTH_PER_EXISTING_ACCOUNT
     return max_refund
 
 
