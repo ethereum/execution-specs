@@ -68,13 +68,11 @@ class GasCosts:
     COLD_STORAGE_ACCESS: Final[Uint] = Uint(2100)
 
     # Storage
-    STORAGE_SET: Final[Uint] = Uint(20000)
     COLD_STORAGE_WRITE: Final[Uint] = Uint(5000)
 
     # Call
     CALL_VALUE: Final[Uint] = Uint(9000)
     CALL_STIPEND: Final[Uint] = Uint(2300)
-    NEW_ACCOUNT: Final[Uint] = Uint(25000)
 
     # Contract Creation
     CODE_DEPOSIT_PER_BYTE: Final[Uint] = Uint(200)
@@ -82,7 +80,6 @@ class GasCosts:
     REGULAR_GAS_CREATE: Final[Uint] = Uint(9000)
 
     # Authorization
-    AUTH_PER_EMPTY_ACCOUNT: Final[int] = 25000
     PER_AUTH_BASE_COST: Final[Uint] = Uint(7500)
 
     # Utility
@@ -218,7 +215,6 @@ class GasCosts:
     OPCODE_LOG_DATA_PER_BYTE: Final[Uint] = Uint(8)
     OPCODE_LOG_TOPIC: Final[Uint] = Uint(375)
     OPCODE_SELFDESTRUCT_BASE: Final[Uint] = Uint(5000)
-    OPCODE_SELFDESTRUCT_NEW_ACCOUNT: Final[Uint] = Uint(25000)
 
 
 @final
