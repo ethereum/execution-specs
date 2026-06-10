@@ -48,7 +48,10 @@ class Spec:
     STATE_BYTES_PER_STORAGE_SET = 64
     STATE_BYTES_PER_AUTH_BASE = 23
 
-    # Regular gas constants (EIP-8037 replaces old combined costs)
-    REGULAR_GAS_CREATE = 9000
-    PER_AUTH_BASE_COST = 7500
-    GAS_COLD_STORAGE_WRITE = 5000
+    # Regular gas constants. EIP-8037 separated state from regular gas;
+    # EIP-8038 then repriced them (provisional values).
+    REGULAR_GAS_CREATE = 21000
+    # Total regular intrinsic per EIP-7702 authorization:
+    # ACCOUNT_WRITE (20100) + REGULAR_PER_AUTH_BASE_COST (13016).
+    PER_AUTH_BASE_COST = 33116
+    GAS_COLD_STORAGE_WRITE = 14700
