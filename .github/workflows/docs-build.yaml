@@ -85,6 +85,7 @@ jobs:
       branch_artifact_name: ${{ steps.check.outputs.branch_artifact_name }}
       commit_sha: ${{ steps.check.outputs.commit_sha }}
       default_branch: ${{ steps.check.outputs.default_branch }}
+      site_url: ${{ steps.check.outputs.site_url }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -134,6 +135,20 @@ jobs:
           fi
           echo "should_publish=$SHOULD_PUBLISH" >> "$GITHUB_OUTPUT"
 
+          # Resolve SITE_URL once so downstream consumers don't re-derive it.
+          # Default branch publishes at the root of /docs/execution-specs/ so
+          # canonical/OG/sitemap URLs omit the <branch>/ segment.
+          if [ "$SHOULD_PUBLISH" = "true" ]; then
+            if [ "$BRANCH_INPUT" = "$DEFAULT_BRANCH" ]; then
+              SITE_URL="https://steel.ethereum.foundation/docs/execution-specs/"
+            else
+              SITE_URL="https://steel.ethereum.foundation/docs/execution-specs/${BRANCH_INPUT}/"
+            fi
+          else
+            SITE_URL="https://example.com/docs/${BRANCH_INPUT}/"
+          fi
+          echo "site_url=$SITE_URL" >> "$GITHUB_OUTPUT"
+
           # Resolve the concrete SHA we will build, so metadata.json and the
           # aggregator dispatch payload match what the build jobs check out.
           #
@@ -177,11 +192,9 @@ jobs:
             if [ "$EVENT_NAME" = "pull_request" ]; then
               echo "-> **Build only** -- pull request; artifacts are not published."
             elif [ "$SHOULD_PUBLISH" = "true" ]; then
-              if [ "$BRANCH_INPUT" = "$DEFAULT_BRANCH" ]; then
-                echo "-> **Will publish** at <https://steel.ethereum.foundation/docs/execution-specs/> (default branch; deployed at root)"
-              else
-                echo "-> **Will publish** at <https://steel.ethereum.foundation/docs/execution-specs/${BRANCH_INPUT}/>"
-              fi
+              SUFFIX=""
+              [ "$BRANCH_INPUT" = "$DEFAULT_BRANCH" ] && SUFFIX=" (default branch; deployed at root)"
+              echo "-> **Will publish** at <$SITE_URL>$SUFFIX"
               echo ""
               echo "_Note: the URL only resolves if \`${BRANCH_INPUT}\` is also configured in steel-website's \`BRANCH_CONFIG\` (\`deploy.yml\`). If not, the aggregator will receive the dispatch but drop the artifact._"
             else
@@ -212,22 +225,8 @@ jobs:
 
       - name: Build MkDocs documentation
         env:
-          BRANCH: ${{ needs.check-should-publish.outputs.branch }}
-          DEFAULT_BRANCH: ${{ needs.check-should-publish.outputs.default_branch }}
-          SHOULD_PUBLISH: ${{ needs.check-should-publish.outputs.should_publish }}
+          SITE_URL: ${{ needs.check-should-publish.outputs.site_url }}
         run: |
-          if [ "$SHOULD_PUBLISH" = "true" ]; then
-            if [ "$BRANCH" = "$DEFAULT_BRANCH" ]; then
-              # Default branch is deployed at /docs/execution-specs/ (no branch
-              # segment), so canonical/OG/sitemap URLs must omit it too.
-              export SITE_URL="https://steel.ethereum.foundation/docs/execution-specs/"
-            else
-              export SITE_URL="https://steel.ethereum.foundation/docs/execution-specs/${BRANCH}/"
-            fi
-          else
-            export SITE_URL="https://example.com/docs/${BRANCH}/"
-          fi
-
           echo "Building MkDocs with SITE_URL=$SITE_URL"
           just docs
 
