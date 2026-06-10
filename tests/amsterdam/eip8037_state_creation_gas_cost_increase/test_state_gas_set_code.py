@@ -104,6 +104,7 @@ def test_authorization_state_gas_scaling(
     [
         pytest.param(0, id="at_regular_intrinsic"),
         pytest.param(1, id="one_above_regular_intrinsic"),
+        pytest.param(-1, id="one_below_total_intrinsic"),
     ],
 )
 @pytest.mark.valid_from("EIP8037")
