@@ -706,8 +706,9 @@ def test_parent_state_gas_after_child_failure(
     # Factory bytecode shape costs, derived from fork.gas_costs():
     #   pre-CREATE: PUSH32 + PUSH1 + MSTORE (with 1-word expansion)
     #               + 3 PUSHes for CREATE inputs
-    #   post-CREATE: PUSH key + SSTORE (no-op) + 2 PUSHes + SSTORE
-    #                (zero-to-nonzero regular)
+    #   post-CREATE: PUSH key + SSTORE (cold no-op: access cost only)
+    #                + 2 PUSHes + SSTORE (cold zero-to-nonzero:
+    #                access + write, the compound COLD_STORAGE_WRITE)
     factory_pre_create_regular = (
         gas_costs.VERY_LOW * 2
         + gas_costs.OPCODE_MSTORE_BASE
@@ -717,7 +718,6 @@ def test_parent_state_gas_after_child_failure(
     factory_post_create_regular = (
         gas_costs.VERY_LOW
         + gas_costs.COLD_STORAGE_ACCESS
-        + gas_costs.WARM_ACCESS
         + gas_costs.VERY_LOW * 2
         + gas_costs.COLD_STORAGE_WRITE
     )
