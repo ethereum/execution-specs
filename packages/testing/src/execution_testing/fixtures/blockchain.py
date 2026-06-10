@@ -560,6 +560,7 @@ class FixtureEngineNewPayload(CamelModel):
             suggested_fee_recipient=execution_payload.fee_recipient,
             withdrawals=execution_payload.withdrawals,
             parent_beacon_block_root=parent_beacon_block_root,
+            slot_number=execution_payload.slot_number,
         )
 
     @staticmethod
