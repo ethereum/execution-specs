@@ -1933,6 +1933,66 @@ def test_create_tx_collision_refunds_intrinsic_new_account(
     )
 
 
+@pytest.mark.pre_alloc_mutable()
+@pytest.mark.execute(pytest.mark.skip(reason="Requires specific gas price"))
+@pytest.mark.valid_from("EIP8037")
+def test_create_tx_collision_refunds_reservoir(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify the state-gas reservoir is refunded on a depth-0 CREATE-tx
+    address collision when `gas_limit > TX_MAX_GAS_LIMIT`.
+
+    EIP-8037 splits `gas_limit` into the capped regular budget and a
+    state-gas reservoir. On collision the inner regular gas is burnt
+    and `intrinsic_state_gas` is refunded; the reservoir must also
+    be refunded to the sender. `header.gas_used` is fixed at the
+    regular cap regardless of reservoir handling, so the sender's
+    post-balance is the primary discriminating assertion.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+
+    init_code = Op.STOP
+    # +1 above intrinsic_state_gas (= create_state_gas(code_size=0)
+    # for empty-code CREATE-tx) makes message.state_gas_reservoir > 0.
+    reservoir = fork.create_state_gas(code_size=0) + 1
+    gas_limit = gas_limit_cap + reservoir
+    initial_fund = 10**18
+
+    sender = pre.fund_eoa(initial_fund)
+    collision_target = compute_create_address(address=sender, nonce=0)
+    pre[collision_target] = Account(nonce=1)
+
+    tx_gas_price = 7
+    tx = Transaction(
+        to=None,
+        data=init_code,
+        gas_limit=gas_limit,
+        sender=sender,
+        gas_price=tx_gas_price,
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=gas_limit_cap),
+            ),
+        ],
+        post={
+            sender: Account(
+                balance=initial_fund - gas_limit_cap * tx_gas_price,
+                nonce=1,
+            ),
+            collision_target: Account(nonce=1, code=b"", storage={}),
+        },
+    )
+
+
 @pytest.mark.parametrize(
     "initcode_size_delta",
     [
