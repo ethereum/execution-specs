@@ -66,7 +66,10 @@ def build_refund_tx(
     auth_state_gas = 0
     auth_state_refund = 0
 
-    for refund_type in refund_types:
+    # Sort by name so iteration order is deterministic across Python
+    # invocations (set iteration over enum members depends on Python's
+    # per-process hash randomization).
+    for refund_type in sorted(refund_types, key=lambda r: r.name):
         match refund_type:
             case RefundTypes.STORAGE_CLEAR:
                 for slot in storage_slots:
