@@ -403,7 +403,6 @@ def test_factory_in_caller_context(
     )
 
 
-@pytest.mark.pre_alloc_mutable
 def test_factory_deploys_to_pre_funded_address(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -418,11 +417,16 @@ def test_factory_deploys_to_pre_funded_address(
     expected_address = compute_create2_address(FACTORY, salt, initcode)
     pre_balance = 1
 
-    pre[expected_address] = Account(balance=pre_balance)
-
     storage = Storage()
     caller = pre.deploy_contract(
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.POP(
+            Op.CALL(
+                gas=Op.GAS,
+                address=expected_address,
+                value=pre_balance,
+            )
+        )
         + Op.SSTORE(
             storage.store_next(1, "factory_call_success"),
             Op.CALL(
@@ -436,6 +440,7 @@ def test_factory_deploys_to_pre_funded_address(
             ),
         )
         + Op.STOP,
+        balance=pre_balance,
     )
 
     state_test(
@@ -518,7 +523,6 @@ def test_factory_access_list_prewarming(
     )
 
 
-@pytest.mark.pre_alloc_mutable
 def test_factory_receives_balance_via_selfdestruct(
     state_test: StateTestFiller,
     pre: Alloc,
