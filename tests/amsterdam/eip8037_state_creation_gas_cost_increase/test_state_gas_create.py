@@ -2287,7 +2287,9 @@ def test_selfdestruct_in_create_tx_initcode(
     create_state_gas = fork.create_state_gas(code_size=0)
 
     beneficiary = 0xDEAD
-    initcode = Op.SELFDESTRUCT(beneficiary)
+    # `account_new` folds the beneficiary's `ACCOUNT_WRITE` regular
+    # cost and account-creation state gas into `gas_cost`.
+    initcode = Op.SELFDESTRUCT(beneficiary, account_new=True)
 
     sender = pre.fund_eoa()
     intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
@@ -2298,7 +2300,7 @@ def test_selfdestruct_in_create_tx_initcode(
     expected_state = create_state_gas + gas_costs.NEW_ACCOUNT
 
     initcode_gas = initcode.gas_cost(fork)
-    gas_limit = intrinsic_total + initcode_gas + gas_costs.NEW_ACCOUNT + 1000
+    gas_limit = intrinsic_total + initcode_gas + 1000
 
     tx = Transaction(
         sender=sender,
