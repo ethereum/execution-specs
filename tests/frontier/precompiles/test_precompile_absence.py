@@ -37,13 +37,10 @@ def test_precompile_absence(
     fork.
     """
     active_precompiles = fork.precompiles()
-    factory_address = fork.deterministic_factory_predeploy_address()
     storage = Storage()
     call_code = Bytecode()
     for address in range(1, UPPER_BOUND + 1):
         if Address(address) in active_precompiles:
-            continue
-        if factory_address is not None and Address(address) == factory_address:
             continue
         call_code += Op.SSTORE(
             address,

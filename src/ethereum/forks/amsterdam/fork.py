@@ -32,13 +32,10 @@ from ethereum.forks.bpo5.blocks import Header as PreviousHeader
 from ethereum.merkle_patricia_trie import root, trie_set
 from ethereum.state import (
     EMPTY_CODE_HASH,
-    Account,
     Address,
     BlockDiff,
     State,
     apply_changes_to_state,
-    set_account,
-    store_code,
 )
 from ethereum.utils.byte import left_pad_zero_bytes
 
@@ -138,14 +135,6 @@ CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS = hex_to_address(
 HISTORY_STORAGE_ADDRESS = hex_to_address(
     "0x0000F90827F1C53a10cb7A02335B175320002935"
 )
-DETERMINISTIC_FACTORY_ADDRESS = hex_to_address(
-    "0x4e59b44847b379578588920ca78fbf26c0b4956c"
-)
-DETERMINISTIC_FACTORY_CODE = bytes.fromhex(
-    "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0"
-    "3601600081602082378035828234f58015156039578182fd"
-    "5b8082525050506014600cf3"
-)
 MAX_BLOCK_SIZE = 10_485_760
 SAFETY_MARGIN = 2_097_152
 MAX_RLP_BLOCK_SIZE = MAX_BLOCK_SIZE - SAFETY_MARGIN
@@ -191,12 +180,6 @@ def apply_fork(old: BlockChain) -> BlockChain:
     is used to handle the irregularity. See the :ref:`DAO Fork <dao-fork>` for
     an example.
 
-    EIP-7997 introduces a deterministic `CREATE2` factory at
-    [`DETERMINISTIC_FACTORY_ADDRESS`]. The factory bytecode is injected
-    directly into state at fork activation so the same factory address is
-    available across chains without relying on a one-shot deployment
-    transaction.
-
     Parameters
     ----------
     old :
@@ -207,16 +190,7 @@ def apply_fork(old: BlockChain) -> BlockChain:
     new : `BlockChain`
         Upgraded block chain object for this hard fork.
 
-    [`DETERMINISTIC_FACTORY_ADDRESS`]:
-        ref:ethereum.forks.amsterdam.fork.DETERMINISTIC_FACTORY_ADDRESS
-
     """
-    code_hash = store_code(old.state, DETERMINISTIC_FACTORY_CODE)
-    set_account(
-        old.state,
-        DETERMINISTIC_FACTORY_ADDRESS,
-        Account(nonce=Uint(1), balance=U256(0), code_hash=code_hash),
-    )
     return old
 
 
