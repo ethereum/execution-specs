@@ -255,6 +255,12 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
         TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
             "TransactionGasLimitExceededError"
         ),
+        TransactionException.INTRINSIC_GAS_COST_EXCEEDS_MAXIMUM: (
+            "IntrinsicGasCostExceedsMaximumError"
+        ),
+        TransactionException.FLOOR_GAS_EXCEEDS_MAXIMUM: (
+            "FloorGasExceedsMaximumError"
+        ),
         BlockException.SYSTEM_CONTRACT_EMPTY: "System contract address",
         BlockException.SYSTEM_CONTRACT_CALL_FAILED: "call failed:",
         BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: "deposit",

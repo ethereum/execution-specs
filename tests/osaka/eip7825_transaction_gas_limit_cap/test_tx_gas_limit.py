@@ -733,9 +733,10 @@ def test_tx_gas_limit_cap_authorized_tx(
         sender=pre.fund_eoa(),
         access_list=access_list,
         authorization_list=auth_tuples,
-        # EIP-8037 reports a cap overflow as INTRINSIC_GAS_TOO_LOW.
+        # EIP-8037 caps the intrinsic regular gas at TX_MAX_GAS_LIMIT and
+        # reports the overflow with a distinct exception.
         error=(
-            TransactionException.INTRINSIC_GAS_TOO_LOW
+            TransactionException.INTRINSIC_GAS_COST_EXCEEDS_MAXIMUM
             if fork.is_eip_enabled(8037)
             else TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM
         )

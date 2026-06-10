@@ -177,6 +177,16 @@ class TransactionException(ExceptionBase):
     """
     Transaction gas limit exceeds the maximum allowed limit for the given fork.
     """
+    INTRINSIC_GAS_COST_EXCEEDS_MAXIMUM = auto()
+    """
+    Transaction intrinsic regular gas cost exceeds the maximum allowed
+    transaction gas limit for the given fork.
+    """
+    FLOOR_GAS_EXCEEDS_MAXIMUM = auto()
+    """
+    Transaction calldata floor gas cost exceeds the maximum allowed
+    transaction gas limit for the given fork.
+    """
     TYPE_3_TX_ZERO_BLOBS = auto()
     """Transaction is type 3, but has no blobs."""
     TYPE_4_EMPTY_AUTHORIZATION_LIST = auto()

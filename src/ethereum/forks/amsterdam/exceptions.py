@@ -145,6 +145,30 @@ class TransactionGasLimitExceededError(InvalidTransaction):
     """
 
 
+class IntrinsicGasCostExceedsMaximumError(InvalidTransaction):
+    """
+    The transaction's intrinsic regular gas exceeds the maximum allowed
+    transaction gas limit (`TX_MAX_GAS_LIMIT`).
+
+    Per [EIP-8037], inclusion requires
+    `max(intrinsic_regular_gas, calldata_floor_gas_cost) <= TX_MAX_GAS_LIMIT`.
+
+    [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
+    """
+
+
+class FloorGasExceedsMaximumError(InvalidTransaction):
+    """
+    The transaction's calldata floor gas cost exceeds the maximum allowed
+    transaction gas limit (`TX_MAX_GAS_LIMIT`).
+
+    Per [EIP-8037], inclusion requires
+    `max(intrinsic_regular_gas, calldata_floor_gas_cost) <= TX_MAX_GAS_LIMIT`.
+
+    [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
+    """
+
+
 class BlockAccessListGasLimitExceededError(InvalidBlock):
     """
     The block access list exceeds the gas limit constraint.

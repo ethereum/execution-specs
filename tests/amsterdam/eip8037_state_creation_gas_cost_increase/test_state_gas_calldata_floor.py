@@ -208,7 +208,7 @@ def test_calldata_floor_exceeding_tx_gas_limit_cap(
         data=calldata,
         gas_limit=gas_limit,
         sender=pre.fund_eoa(),
-        error=TransactionException.INTRINSIC_GAS_TOO_LOW
+        error=TransactionException.FLOOR_GAS_EXCEEDS_MAXIMUM
         if exceeds_cap
         else None,
     )

@@ -22,7 +22,9 @@ from ethereum.exceptions import (
 from ethereum.state import Address
 
 from .exceptions import (
+    FloorGasExceedsMaximumError,
     InitCodeTooLargeError,
+    IntrinsicGasCostExceedsMaximumError,
     TransactionTypeError,
 )
 from .fork_types import Authorization, RegularGas, VersionedHash
@@ -605,11 +607,11 @@ def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
     if tx.to == Bytes0(b"") and len(tx.data) > MAX_INIT_CODE_SIZE:
         raise InitCodeTooLargeError("Code size too large")
     if intrinsic.regular > TX_MAX_GAS_LIMIT:
-        raise InsufficientTransactionGasError(
+        raise IntrinsicGasCostExceedsMaximumError(
             "Intrinsic regular gas exceeds TX_MAX_GAS_LIMIT"
         )
     if intrinsic.calldata_floor > TX_MAX_GAS_LIMIT:
-        raise InsufficientTransactionGasError(
+        raise FloorGasExceedsMaximumError(
             "Intrinsic calldata floor exceeds TX_MAX_GAS_LIMIT"
         )
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):

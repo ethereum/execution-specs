@@ -29,13 +29,13 @@ REFERENCE_SPEC_VERSION = ref_spec_8037.version
     [
         pytest.param(
             "floor_binds",
-            TransactionException.INTRINSIC_GAS_TOO_LOW,
+            TransactionException.FLOOR_GAS_EXCEEDS_MAXIMUM,
             id="floor_binds",
             marks=pytest.mark.exception_test,
         ),
         pytest.param(
             "intrinsic_binds",
-            TransactionException.INTRINSIC_GAS_TOO_LOW,
+            TransactionException.INTRINSIC_GAS_COST_EXCEEDS_MAXIMUM,
             id="intrinsic_binds",
             marks=pytest.mark.exception_test,
         ),
@@ -68,19 +68,23 @@ def test_intrinsic_or_floor_cap_at_validation(
         gas_costs.TX_DATA_TOKEN_FLOOR * gas_costs.TX_DATA_TOKEN_STANDARD
     )
 
+    gas_limit = cap + 1
+    data = b""
+    access_list: list[AccessList] = []
     if scenario == "floor_binds":
         data = b"\x01" * ((cap - gas_costs.TX_BASE) // floor_per_byte + 1)
-        access_list = []
+        gas_limit = fork.transaction_data_floor_cost_calculator()(
+            data=data, access_list=access_list
+        )
     elif scenario == "intrinsic_binds":
-        data = b""
         n = (cap - gas_costs.TX_BASE) // gas_costs.TX_ACCESS_LIST_ADDRESS + 1
         access_list = [
             AccessList(address=Address(i + 1), storage_keys=[])
             for i in range(n)
         ]
-    else:
-        data = b""
-        access_list = []
+        gas_limit = fork.transaction_intrinsic_cost_calculator()(
+            calldata=data, access_list=access_list
+        )
 
     contract = pre.deploy_contract(Op.STOP)
     sender = pre.fund_eoa()
@@ -90,7 +94,7 @@ def test_intrinsic_or_floor_cap_at_validation(
         to=contract,
         data=data,
         access_list=access_list,
-        gas_limit=cap + 1,
+        gas_limit=gas_limit,
         error=expected_exception,
     )
     post = (

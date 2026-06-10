@@ -342,7 +342,7 @@ def test_intrinsic_regular_gas_exceeds_cap(
         gas_limit=tx_gas,
         access_list=access_list,
         sender=pre.fund_eoa(),
-        error=TransactionException.INTRINSIC_GAS_TOO_LOW,
+        error=TransactionException.INTRINSIC_GAS_COST_EXCEEDS_MAXIMUM,
     )
     state_test(pre=pre, post={}, tx=tx)
 
@@ -391,7 +391,7 @@ def test_intrinsic_regular_gas_exceeds_cap_with_floor_below_cap(
         gas_limit=tx_gas,
         access_list=access_list,
         sender=pre.fund_eoa(),
-        error=TransactionException.INTRINSIC_GAS_TOO_LOW,
+        error=TransactionException.INTRINSIC_GAS_COST_EXCEEDS_MAXIMUM,
     )
     state_test(pre=pre, post={}, tx=tx)
 
