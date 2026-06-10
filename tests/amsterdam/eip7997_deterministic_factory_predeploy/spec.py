@@ -13,7 +13,7 @@ class ReferenceSpec:
 
 ref_spec_7997 = ReferenceSpec(
     git_path="EIPS/eip-7997.md",
-    version="ec05b85e530a7ea97ea52a1f0312d88eb0eb1be2",
+    version="a0a7f5adb491fc6ad4b008f307899c30f348db22",
 )
 
 
@@ -21,11 +21,9 @@ ref_spec_7997 = ReferenceSpec(
 class Spec:
     """Constants from EIP-7997."""
 
-    FACTORY_ADDRESS: int = 0x12
+    FACTORY_ADDRESS: int = 0x4E59B44847B379578588920CA78FBF26C0B4956C
     FACTORY_BYTECODE: bytes = bytes.fromhex(
-        "60203610602f57"
-        "60003560203603806020600037600034f5"
-        "806026573d600060003e3d6000fd"
-        "5b60005260206000f3"
-        "5b60006000fd"
+        "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0"
+        "3601600081602082378035828234f58015156039578182fd"
+        "5b8082525050506014600cf3"
     )

@@ -1,11 +1,12 @@
 """
 Tests for [EIP-7997: Deterministic Factory Predeploy](https://eips.ethereum.org/EIPS/eip-7997).
 
-The factory at `0x12` interprets calldata as `salt (32) || initcode` and
-invokes `CREATE2` with the call value forwarded. It returns the created
-address (left-padded to 32 bytes) on success, reverts with the creation-frame
-return data on `CREATE2` failure, and reverts with empty data when calldata
-is shorter than 32 bytes.
+The factory (the Arachnid deterministic deployment proxy) interprets
+calldata as `salt (32) || initcode` and invokes `CREATE2` with the call
+value forwarded. It returns the created address (20 bytes) on success
+and reverts on `CREATE2` failure. With calldata shorter than 32 bytes,
+the factory's `CALLDATASIZE - 32` underflow triggers a copy of nearly
+2^256 bytes and reverts via OOG.
 """
 
 import pytest
@@ -38,9 +39,10 @@ def test_factory_predeploy_account(
     pre: Alloc,
 ) -> None:
     """
-    The factory bytecode is present at `0x12` with nonce 1 and balance 0.
-    Verifies EVM-observable views of the predeploy via `EXTCODESIZE`,
-    `EXTCODEHASH`, `EXTCODECOPY` + `SHA3`, and `BALANCE`.
+    The factory bytecode is present at the canonical Arachnid factory
+    address with nonce 1 and balance 0. Verifies EVM-observable views of
+    the predeploy via `EXTCODESIZE`, `EXTCODEHASH`, `EXTCODECOPY` +
+    `SHA3`, and `BALANCE`.
     """
     caller = pre.deploy_contract(
         Op.SSTORE(
@@ -129,8 +131,8 @@ def test_factory_deploys_contract(
                 value=forwarded_value,
                 args_offset=0,
                 args_size=Op.CALLDATASIZE,
-                ret_offset=0,
-                ret_size=32,
+                ret_offset=12,
+                ret_size=20,
             ),
         )
         + Op.SSTORE(
@@ -174,8 +176,9 @@ def test_factory_reverts_short_calldata(
     calldata: bytes,
 ) -> None:
     """
-    Calldata shorter than 32 bytes makes the factory revert with empty
-    return data and no contract is deployed.
+    Calldata shorter than 32 bytes makes the factory revert: the
+    `CALLDATASIZE - 32` underflow causes a 2^256-sized CALLDATACOPY that
+    OOGs, returning 0 from the outer CALL. No contract is deployed.
     """
     storage = Storage()
     caller = pre.deploy_contract(
@@ -235,8 +238,8 @@ def test_factory_exactly_32_bytes(
                 value=0,
                 args_offset=0,
                 args_size=Op.CALLDATASIZE,
-                ret_offset=0,
-                ret_size=32,
+                ret_offset=12,
+                ret_size=20,
             ),
         )
         + Op.SSTORE(
@@ -266,14 +269,11 @@ def test_factory_propagates_initcode_revert(
     pre: Alloc,
 ) -> None:
     """
-    When the initcode reverts with data, the factory reverts with the same
-    return data, and no contract is deployed.
+    When the initcode reverts, the factory's `CREATE2` returns 0, the
+    factory reverts with empty return data, and no contract is deployed.
     """
     salt = 0x99
-    revert_data = bytes.fromhex("deadbeef") + b"\x00" * 28
-    initcode = Op.MSTORE(0, int.from_bytes(revert_data, "big")) + Op.REVERT(
-        offset=0, size=32
-    )
+    initcode = Op.REVERT(offset=0, size=0)
     expected_address = compute_create2_address(FACTORY, salt, initcode)
 
     storage = Storage()
@@ -292,15 +292,8 @@ def test_factory_propagates_initcode_revert(
             ),
         )
         + Op.SSTORE(
-            storage.store_next(32, "returndatasize"),
+            storage.store_next(0, "returndatasize"),
             Op.RETURNDATASIZE,
-        )
-        + Op.RETURNDATACOPY(0, 0, Op.RETURNDATASIZE)
-        + Op.SSTORE(
-            storage.store_next(
-                int.from_bytes(revert_data, "big"), "revert_payload"
-            ),
-            Op.MLOAD(0),
         )
         + Op.STOP,
     )
@@ -410,8 +403,8 @@ def test_factory_different_salts_produce_different_addresses(
                 value=0,
                 args_offset=0,
                 args_size=args_size,
-                ret_offset=0x200,
-                ret_size=32,
+                ret_offset=0x20C,
+                ret_size=20,
             ),
         )
         + Op.SSTORE(1, Op.MLOAD(0x200))
@@ -424,8 +417,8 @@ def test_factory_different_salts_produce_different_addresses(
                 value=0,
                 args_offset=0,
                 args_size=args_size,
-                ret_offset=0x200,
-                ret_size=32,
+                ret_offset=0x20C,
+                ret_size=20,
             ),
         )
         + Op.SSTORE(3, Op.MLOAD(0x200))
@@ -544,8 +537,8 @@ def test_factory_in_caller_context(
         address=FACTORY,
         args_offset=0,
         args_size=Op.CALLDATASIZE,
-        ret_offset=0x100,
-        ret_size=32,
+        ret_offset=0x10C,
+        ret_size=20,
     )
 
     caller = pre.deploy_contract(
@@ -702,34 +695,18 @@ def test_factory_access_list_prewarming(
     expected_delta: int,
 ) -> None:
     """
-    Measure the gas-cost difference between a first and second `CALL` to
-    the factory in the same transaction. Both calls send empty calldata
-    so the factory reverts immediately, eliminating variability from the
-    inner `CREATE2`.
+    Measure the gas-cost difference between a first and second
+    `EXTCODESIZE` of the factory in the same transaction. The opcode has
+    deterministic gas cost (no inner frame), so the difference isolates
+    the cold-vs-warm address access cost.
 
     - Without access list: difference is 2,500.
     - With access list including the factory: difference is 0.
     """
-    # Identical measurement block around each call: GAS, CALL, POP, GAS,
-    # SWAP1, SUB. Leaves the call's gas cost on top of the stack. Doing
-    # the same operations on both sides means any opcode overhead cancels
-    # out exactly in the difference.
+    # Identical measurement block around each EXTCODESIZE: GAS, op, POP,
+    # GAS, SWAP1, SUB. Same operations on both sides cancels overhead.
     measure = (
-        Op.GAS
-        + Op.POP(
-            Op.CALL(
-                gas=Op.GAS,
-                address=FACTORY,
-                value=0,
-                args_offset=0,
-                args_size=0,
-                ret_offset=0x100,
-                ret_size=0,
-            )
-        )
-        + Op.GAS
-        + Op.SWAP1
-        + Op.SUB
+        Op.GAS + Op.POP(Op.EXTCODESIZE(FACTORY)) + Op.GAS + Op.SWAP1 + Op.SUB
     )
 
     storage = Storage()

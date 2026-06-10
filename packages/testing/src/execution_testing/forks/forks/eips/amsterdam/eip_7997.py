@@ -1,8 +1,10 @@
 """
 EIP-7997: Deterministic Factory Predeploy.
 
-Predeploy a minimal `CREATE2` factory at address `0x12` so deterministic
-deployments are available across chains without bootstrapping transactions.
+Predeploy the Arachnid `CREATE2` factory at
+`0x4e59b44847b379578588920ca78fbf26c0b4956c` so deterministic
+deployments are available across chains without bootstrapping
+transactions.
 
 https://eips.ethereum.org/EIPS/eip-7997
 """
@@ -13,13 +15,13 @@ from execution_testing.base_types import Address
 
 from ....base_fork import BaseFork
 
-DETERMINISTIC_FACTORY_PREDEPLOY_ADDRESS = 0x12
+DETERMINISTIC_FACTORY_PREDEPLOY_ADDRESS = (
+    0x4E59B44847B379578588920CA78FBF26C0B4956C
+)
 DETERMINISTIC_FACTORY_PREDEPLOY_BYTECODE = bytes.fromhex(
-    "60203610602f57"
-    "60003560203603806020600037600034f5"
-    "806026573d600060003e3d6000fd"
-    "5b60005260206000f3"
-    "5b60006000fd"
+    "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0"
+    "3601600081602082378035828234f58015156039578182fd"
+    "5b8082525050506014600cf3"
 )
 
 

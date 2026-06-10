@@ -32,7 +32,7 @@ def test_factory_absent_pre_fork(
 ) -> None:
     """
     Verify pre-Amsterdam blocks observe no contract at the factory address
-    (calls to `0x12` look like calls to an empty EOA).
+    (calls to the factory look like calls to an empty EOA).
 
     The test framework auto-allocates the factory at genesis when the
     destination fork is Amsterdam; this test uses `pre_alloc_mutable` to
