@@ -3744,3 +3744,209 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
             factory: Account(nonce=3, storage={0: target_a, 1: 1}),
         },
     )
+
+
+@pytest.mark.parametrize(
+    "destruction_successful,oracle_suffix",
+    [
+        pytest.param(True, Op.STOP, id="destruction_succeeds"),
+        pytest.param(False, Op.REVERT(0, 0), id="destruction_reverts"),
+    ],
+)
+@pytest.mark.with_all_create_opcodes
+def test_bal_dirty_account_selfdestruct(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    create_opcode: Op,
+    destruction_successful: bool,
+    oracle_suffix: Bytecode,
+) -> None:
+    """
+    BAL records dirty state changes on an ephemeral contract only when
+    its same-tx SELFDESTRUCT is rolled back by a reverting parent
+    frame.
+
+    The factory deploys the ephemeral with non-zero endowment (balance
+    dirty), initcode SSTOREs and SLOADs own slots (storage dirty),
+    invokes an empty CREATE so the ephemeral's own nonce bumps 1→2
+    (nonce dirty), and returns runtime (code dirty). The factory then
+    CALLs an oracle which CALLs the ephemeral's runtime
+    (SELFDESTRUCTs), and either STOPs or REVERTs.
+
+    - destruction_succeeds: oracle STOPs; per EIP-6780 the same-tx
+      selfdestruct fully removes the ephemeral; per EIP-7928 its BAL
+      entry must contain no balance/nonce/code/storage changes — only
+      `storage_reads` for the demoted slots.
+
+    - destruction_reverts: oracle REVERTs; the SELFDESTRUCT (and the
+      balance transfer to the beneficiary) are rolled back. The
+      ephemeral persists with all four dirtied fields, which BAL must
+      now record.
+    """
+    alice = pre.fund_eoa()
+    beneficiary = pre.nonexistent_account()
+    factory_balance = 1000
+    endowment = 100
+    slot_write = 0x07
+    slot_read = 0x09
+
+    init_code = Initcode(
+        deploy_code=Op.SELFDESTRUCT(beneficiary),
+        initcode_prefix=(
+            Op.SSTORE(slot_write, 0xCAFE)
+            + Op.POP(Op.SLOAD(slot_read))
+            + Op.POP(create_opcode(value=0, offset=0, size=0))
+        ),
+    )
+
+    # Oracle CALLs whatever address it receives as calldata, then
+    # either STOPs (destruction succeeds) or REVERTs (destruction
+    # rolled back). Pre-deployed so its own creation doesn't appear
+    # in the block's BAL.
+    oracle = pre.deploy_contract(
+        code=Op.POP(Op.CALL(Op.GAS, Op.CALLDATALOAD(0), 0, 0, 0, 0, 0))
+        + oracle_suffix,
+    )
+
+    factory_code = (
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.SSTORE(
+            0,
+            create_opcode(value=endowment, offset=0, size=Op.CALLDATASIZE),
+        )
+        + Op.MSTORE(0, Op.SLOAD(0))
+        + Op.POP(Op.CALL(Op.GAS, oracle, 0, 0, 32, 0, 0))
+        + Op.STOP
+    )
+    factory = pre.deploy_contract(code=factory_code, balance=factory_balance)
+
+    ephemeral = compute_create_address(
+        address=factory,
+        nonce=1,
+        initcode=init_code,
+        opcode=create_opcode,
+    )
+    zombie = compute_create_address(
+        address=ephemeral,
+        nonce=1,
+        initcode=b"",
+        opcode=create_opcode,
+    )
+
+    expected_ephemeral_post: Account | None
+    expected_beneficiary_post: Account | None
+    if destruction_successful:
+        expected_ephemeral_bal = BalAccountExpectation(
+            balance_changes=[],
+            nonce_changes=[],
+            code_changes=[],
+            storage_changes=[],
+            storage_reads=[slot_write, slot_read],
+        )
+        expected_beneficiary_bal = BalAccountExpectation(
+            balance_changes=[
+                BalBalanceChange(block_access_index=1, post_balance=endowment)
+            ],
+        )
+        expected_ephemeral_post = Account.NONEXISTENT
+        expected_beneficiary_post = Account(balance=endowment)
+    else:
+        expected_ephemeral_bal = BalAccountExpectation(
+            balance_changes=[
+                BalBalanceChange(block_access_index=1, post_balance=endowment)
+            ],
+            nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=2)],
+            code_changes=[
+                BalCodeChange(
+                    block_access_index=1, new_code=init_code.deploy_code
+                )
+            ],
+            storage_changes=[
+                BalStorageSlot(
+                    slot=slot_write,
+                    slot_changes=[
+                        BalStorageChange(
+                            block_access_index=1, post_value=0xCAFE
+                        )
+                    ],
+                )
+            ],
+            storage_reads=[slot_read],
+        )
+        expected_beneficiary_bal = BalAccountExpectation.empty()
+        expected_ephemeral_post = Account(
+            nonce=2,
+            balance=endowment,
+            code=init_code.deploy_code,
+            storage={slot_write: 0xCAFE},
+        )
+        expected_beneficiary_post = Account.NONEXISTENT
+
+    tx = Transaction(
+        sender=alice,
+        to=factory,
+        data=init_code,
+        gas_limit=1_000_000,
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                factory: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=2)
+                    ],
+                    balance_changes=[
+                        BalBalanceChange(
+                            block_access_index=1,
+                            post_balance=factory_balance - endowment,
+                        )
+                    ],
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=1,
+                                    post_value=ephemeral,
+                                )
+                            ],
+                        )
+                    ],
+                ),
+                ephemeral: expected_ephemeral_bal,
+                # The zombie is ALWAYS crated
+                # since it was deployed inside the factory's frame,
+                # which never reverts.
+                zombie: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                oracle: BalAccountExpectation.empty(),
+                beneficiary: expected_beneficiary_bal,
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1),
+            beneficiary: expected_beneficiary_post,
+            factory: Account(
+                nonce=2,
+                balance=factory_balance - endowment,
+                storage={0: ephemeral},
+            ),
+            ephemeral: expected_ephemeral_post,
+            zombie: Account(nonce=1),
+        },
+    )
