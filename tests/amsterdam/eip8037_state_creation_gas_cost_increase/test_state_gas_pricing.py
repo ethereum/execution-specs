@@ -16,7 +16,9 @@ Tests for [EIP-8037: State Creation Gas Cost Increase]
 
 import pytest
 from execution_testing import (
+    AccessList,
     Account,
+    Address,
     Alloc,
     AuthorizationTuple,
     Environment,
@@ -29,7 +31,7 @@ from execution_testing import (
 )
 from execution_testing.checklists import EIPChecklist
 
-from .spec import Spec, ref_spec_8037
+from .spec import ref_spec_8037
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
@@ -266,6 +268,36 @@ def test_refund_with_reservoir_state_gas(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
+def _access_list_over_regular_cap(
+    fork: Fork, cap: int, *, margin_num: int = 1, margin_den: int = 1
+) -> list[AccessList]:
+    """
+    Build an access list whose intrinsic *regular* gas exceeds ``cap`` by
+    roughly the factor ``margin_num / margin_den``.
+
+    Each access-list address adds a fixed amount to the regular intrinsic
+    (the EIP-2930 address cost plus the EIP-7981 floor-token surcharge) and
+    a much smaller amount to the calldata floor, so the list raises the
+    regular operand of ``max(intrinsic_regular, calldata_floor)`` over the
+    cap while the floor stays below it. No state gas is incurred.
+    """
+    intrinsic = fork.transaction_intrinsic_cost_calculator()
+    base_regular = intrinsic(return_cost_deducted_prior_execution=True)
+    per_address_regular = (
+        intrinsic(
+            access_list=[AccessList(address=Address(0x100), storage_keys=[])],
+            return_cost_deducted_prior_execution=True,
+        )
+        - base_regular
+    )
+    assert per_address_regular > 0
+    num_entries = (cap * margin_num) // (per_address_regular * margin_den) + 1
+    return [
+        AccessList(address=Address(0x10000 + i), storage_keys=[])
+        for i in range(num_entries)
+    ]
+
+
 @pytest.mark.exception_test
 @pytest.mark.valid_from("EIP8037")
 def test_intrinsic_regular_gas_exceeds_cap(
@@ -274,30 +306,43 @@ def test_intrinsic_regular_gas_exceeds_cap(
     fork: Fork,
 ) -> None:
     """
-    Test that tx is rejected when intrinsic regular gas exceeds cap.
+    Reject a transaction whose intrinsic *regular* gas exceeds the cap.
 
-    validate_transaction checks that the intrinsic regular gas (or
-    calldata floor) does not exceed the transaction gas limit cap.
-    A transaction with enough calldata to push intrinsic cost above
-    the cap is invalid even with a high gas_limit.
+    EIP-8037 enforces ``max(intrinsic_regular, calldata_floor) <=
+    TX_MAX_GAS_LIMIT`` after the separate sufficiency check
+    ``max(intrinsic_total, calldata_floor) <= tx.gas``. A large access list
+    raises the regular intrinsic over the cap while adding no state gas and
+    keeping the calldata floor below the cap. ``gas_limit`` is set above the
+    total intrinsic so the sufficiency check passes and the cap is the only
+    reason the transaction is rejected; a client that compares the intrinsic
+    against ``tx.gas`` but never against the cap would wrongly accept it.
     """
-    gas_costs = fork.gas_costs()
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    # One more non-zero byte than needed to exceed the cap
-    calldata_len = gas_limit_cap // gas_costs.TX_DATA_PER_NON_ZERO + 1
-    calldata = b"\x01" * calldata_len
+    cap = fork.transaction_gas_limit_cap()
+    assert cap is not None
+    floor_cost = fork.transaction_data_floor_cost_calculator()
+    intrinsic = fork.transaction_intrinsic_cost_calculator()
 
-    contract = pre.deploy_contract(code=Op.STOP)
+    access_list = _access_list_over_regular_cap(fork, cap)
+    regular = intrinsic(
+        access_list=access_list,
+        return_cost_deducted_prior_execution=True,
+    )
+    floor = floor_cost(data=b"", access_list=access_list)
+    state = fork.transaction_intrinsic_state_gas()
+    tx_gas = regular + state + 1_000_000
+
+    assert max(regular, floor) > cap, "cap check must fire"
+    assert regular + state <= tx_gas, "sufficiency check must not fire"
+    assert floor <= tx_gas
 
     tx = Transaction(
-        to=contract,
-        gas_limit=gas_limit_cap * 2,
-        data=calldata,
+        ty=1,
+        to=pre.deploy_contract(code=Op.STOP),
+        gas_limit=tx_gas,
+        access_list=access_list,
         sender=pre.fund_eoa(),
         error=TransactionException.INTRINSIC_GAS_TOO_LOW,
     )
-
     state_test(pre=pre, post={}, tx=tx)
 
 
@@ -309,44 +354,94 @@ def test_intrinsic_regular_gas_exceeds_cap_with_floor_below_cap(
     fork: Fork,
 ) -> None:
     """
-    Test rejection when intrinsic regular gas exceeds the per-tx gas
-    cap while the calldata floor stays below the cap.
+    Reject when intrinsic *regular* gas exceeds the cap while the calldata
+    floor stays below it, isolating the regular operand of
+    ``max(intrinsic_regular, calldata_floor)``.
 
-    EIP-7825/8037 applies the cap to both intrinsic dimensions
-    independently. The companion `test_intrinsic_regular_gas_exceeds_cap`
-    pushes both dimensions above the cap with non-zero calldata, so an
-    implementation that only checks `max(regular, floor)` against the
-    cap would still pass. This test isolates the regular-only case via
-    a large EIP-7702 authorization list and minimal calldata.
+    A large access list with no calldata pushes the regular intrinsic over
+    the cap while the floor stays well below it, and ``gas_limit`` covers
+    the total intrinsic so the sufficiency check passes. The explicit
+    ``floor < cap`` assertion guarantees the rejection comes from the
+    regular operand, so a client that compares only the calldata floor
+    against the cap would wrongly accept the transaction.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
+    cap = fork.transaction_gas_limit_cap()
+    assert cap is not None
+    floor_cost = fork.transaction_data_floor_cost_calculator()
+    intrinsic = fork.transaction_intrinsic_cost_calculator()
 
-    # Authorizations contribute to regular intrinsic only (not floor).
-    # Pick enough to push regular > cap by a comfortable margin.
-    auth_count = (gas_limit_cap // Spec.PER_AUTH_BASE_COST) + 1
-    calldata = b"\x01" * 4  # tiny: floor stays << cap.
+    access_list = _access_list_over_regular_cap(
+        fork, cap, margin_num=5, margin_den=4
+    )
+    regular = intrinsic(
+        access_list=access_list,
+        return_cost_deducted_prior_execution=True,
+    )
+    floor = floor_cost(data=b"", access_list=access_list)
+    state = fork.transaction_intrinsic_state_gas()
+    tx_gas = regular + state + 1_000_000
 
-    target = pre.deploy_contract(code=Op.STOP)
-    authorizations = [
-        AuthorizationTuple(
-            address=target,
-            nonce=0,
-            signer=pre.fund_eoa(),
-        )
-        for _ in range(auth_count)
-    ]
+    assert regular > cap, "regular operand must exceed the cap"
+    assert floor < cap, "calldata floor must stay below the cap"
+    assert regular + state <= tx_gas, "sufficiency check must not fire"
 
     tx = Transaction(
-        ty=4,
-        to=target,
-        gas_limit=gas_limit_cap * 2,
-        data=calldata,
-        authorization_list=authorizations,
+        ty=1,
+        to=pre.deploy_contract(code=Op.STOP),
+        gas_limit=tx_gas,
+        access_list=access_list,
         sender=pre.fund_eoa(),
         error=TransactionException.INTRINSIC_GAS_TOO_LOW,
     )
     state_test(pre=pre, post={}, tx=tx)
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_intrinsic_within_cap_gas_limit_above_cap(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Accept a transaction whose ``gas_limit`` exceeds the cap when both
+    intrinsic operands stay below it.
+
+    EIP-8037 relaxes the EIP-7825 cap on ``tx.gas`` itself; only
+    ``max(intrinsic_regular, calldata_floor)`` is capped. This positive
+    control sets ``gas_limit`` above the cap with a small access list so
+    both operands are far below it, and the transaction must execute. It is
+    the accepting counterpart to the cap-rejection tests above.
+    """
+    cap = fork.transaction_gas_limit_cap()
+    assert cap is not None
+    floor_cost = fork.transaction_data_floor_cost_calculator()
+    intrinsic = fork.transaction_intrinsic_cost_calculator()
+
+    access_list = [
+        AccessList(address=Address(0x10000 + i), storage_keys=[])
+        for i in range(16)
+    ]
+    regular = intrinsic(
+        access_list=access_list,
+        return_cost_deducted_prior_execution=True,
+    )
+    floor = floor_cost(data=b"", access_list=access_list)
+    assert regular <= cap
+    assert floor <= cap
+
+    storage = Storage()
+    contract = pre.deploy_contract(
+        code=Op.SSTORE(storage.store_next(1), 1),
+    )
+
+    tx = Transaction(
+        ty=1,
+        to=contract,
+        gas_limit=cap + 3_000_000,
+        access_list=access_list,
+        sender=pre.fund_eoa(),
+    )
+    state_test(pre=pre, post={contract: Account(storage=storage)}, tx=tx)
 
 
 @pytest.mark.parametrize(

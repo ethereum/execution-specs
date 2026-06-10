@@ -148,24 +148,30 @@ def test_calldata_floor_exceeding_tx_gas_limit_cap(
     exceeds_cap: bool,
 ) -> None:
     """
-    Verify calldata floor > TX_MAX_GAS_LIMIT rejects the transaction.
+    Reject a transaction whose calldata floor exceeds the cap, isolating
+    the cap check from the sufficiency check.
 
-    When the EIP-7623 calldata floor cost exceeds the EIP-7825 transaction
-    gas limit cap, the transaction must be rejected at validation —
-    even though the regular intrinsic gas may be within the cap.
+    EIP-8037 caps ``max(intrinsic_regular, calldata_floor)`` at
+    ``TX_MAX_GAS_LIMIT``. When the EIP-7976 calldata floor crosses the cap
+    the transaction must be rejected even though the regular intrinsic gas
+    is within the cap. For the rejection case ``gas_limit`` is set above the
+    floor so the sufficiency check ``max(intrinsic_total, floor) <= tx.gas``
+    passes and the cap is the only reason for rejection — the exact shape a
+    client with the sufficiency gate but no cap gate would wrongly execute.
 
     at_cap: tightest calldata floor that fits within the cap —
     transaction accepted.
-    exceeds_cap: one zero byte more tips the floor over the cap —
+    exceeds_cap: one byte more tips the floor over the cap —
     transaction rejected.
     """
     gas_costs = fork.gas_costs()
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
+    cap = fork.transaction_gas_limit_cap()
+    assert cap is not None
+    floor_cost = fork.transaction_data_floor_cost_calculator()
 
     floor_token = gas_costs.TX_DATA_TOKEN_FLOOR
     tx_base = gas_costs.TX_BASE
-    max_tokens = (gas_limit_cap - tx_base) // floor_token
+    max_tokens = (cap - tx_base) // floor_token
 
     if fork.is_eip_enabled(7976):
         # EIP-7976: all bytes contribute 4 floor tokens regardless of
@@ -183,12 +189,29 @@ def test_calldata_floor_exceeding_tx_gas_limit_cap(
         if exceeds_cap:
             zero_bytes += 1
         calldata = b"\x01" * nonzero_bytes + b"\x00" * zero_bytes
+
     contract = pre.deploy_contract(Op.STOP)
+    floor = floor_cost(data=calldata)
+
+    if exceeds_cap:
+        intrinsic = fork.transaction_intrinsic_cost_calculator()
+        regular = intrinsic(
+            calldata=calldata,
+            return_cost_deducted_prior_execution=True,
+        )
+        assert floor > cap, "calldata floor must exceed the cap"
+        assert regular < cap, "regular intrinsic must stay below the cap"
+        # Fund the floor in full so the sufficiency check cannot reject the
+        # transaction first; only the cap check can.
+        gas_limit = floor + 1_000_000
+    else:
+        assert floor <= cap
+        gas_limit = cap
 
     tx = Transaction(
         to=contract,
         data=calldata,
-        gas_limit=gas_limit_cap,
+        gas_limit=gas_limit,
         sender=pre.fund_eoa(),
         error=TransactionException.INTRINSIC_GAS_TOO_LOW
         if exceeds_cap
