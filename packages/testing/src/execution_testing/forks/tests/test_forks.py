@@ -712,6 +712,18 @@ class TestSelectedForkSetWithTransitionBoundaries:
             Amsterdam,
         }
 
+    def test_until_amsterdam_bpo_siblings_disabled(self) -> None:
+        """`bpo_siblings=False` keeps the parallel BPO branch out."""
+        result = get_selected_fork_set(
+            single_fork=set(),
+            forks_from=set(),
+            forks_until={Amsterdam},
+            bpo_siblings=False,
+        )
+        normal = self._normal_forks(result)
+        assert {BPO1, BPO2, Amsterdam} <= normal
+        assert not ({BPO3, BPO4, BPO5} & normal)
+
     def test_until_bpo2_excludes_later_bpo_siblings(self) -> None:
         """`--until=BPO2` must not pull in the later BPO branch."""
         result = get_selected_fork_set(

@@ -233,6 +233,7 @@ def get_selected_fork_set(
     forks_from: Set[Type[BaseFork]],
     forks_until: Set[Type[BaseFork]],
     transition_forks: bool = True,
+    bpo_siblings: bool = True,
 ) -> Set[Type[BaseFork | TransitionBaseClass]]:
     """
     Process sets derived from `--fork`, `--until` and `--from` to return an
@@ -257,9 +258,10 @@ def get_selected_fork_set(
         for fork_until in forks_until:
             if issubclass(fork_until, TransitionBaseClass):
                 selected_fork_set.discard(fork_until.transitions_to())
-        selected_fork_set |= get_bpo_sibling_forks(
-            ALL_FORKS, forks_from, forks_until
-        )
+        if bpo_siblings:
+            selected_fork_set |= get_bpo_sibling_forks(
+                ALL_FORKS, forks_from, forks_until
+            )
     selected_fork_set_with_transitions: Set[
         Type[BaseFork | TransitionBaseClass]
     ] = set() | selected_fork_set
