@@ -132,7 +132,9 @@ def test_set_code_tx_below_total_intrinsic(
         authorization_list_or_count=num_auths,
     )
     intrinsic_regular = total_intrinsic - intrinsic_state
-    gas_limit = intrinsic_regular + extra_gas
+    gas_limit = (
+        intrinsic_regular if extra_gas >= 0 else total_intrinsic
+    ) + extra_gas
     assert gas_limit < total_intrinsic
 
     contract = pre.deploy_contract(code=Op.STOP)
