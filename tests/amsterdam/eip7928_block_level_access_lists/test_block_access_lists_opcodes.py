@@ -3804,7 +3804,7 @@ def test_bal_dirty_account_selfdestruct(
     # rolled back). Pre-deployed so its own creation doesn't appear
     # in the block's BAL.
     oracle = pre.deploy_contract(
-        code=Op.POP(Op.CALL(50_000, Op.CALLDATALOAD(0), 0, 0, 0, 0, 0))
+        code=Op.POP(Op.CALL(Op.GAS, Op.CALLDATALOAD(0), 0, 0, 0, 0, 0))
         + oracle_suffix,
     )
 
@@ -3815,7 +3815,7 @@ def test_bal_dirty_account_selfdestruct(
             create_opcode(value=endowment, offset=0, size=Op.CALLDATASIZE),
         )
         + Op.MSTORE(0, Op.SLOAD(0))
-        + Op.POP(Op.CALL(100_000, oracle, 0, 0, 32, 0, 0))
+        + Op.POP(Op.CALL(Op.GAS, oracle, 0, 0, 32, 0, 0))
         + Op.STOP
     )
     factory = pre.deploy_contract(code=factory_code, balance=factory_balance)
