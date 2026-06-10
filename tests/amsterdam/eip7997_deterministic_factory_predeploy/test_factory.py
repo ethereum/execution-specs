@@ -16,6 +16,12 @@ from execution_testing import (
     Address,
     Alloc,
     AuthorizationTuple,
+    BalAccountExpectation,
+    BalCodeChange,
+    BalNonceChange,
+    BlockAccessListExpectation,
+    Bytes,
+    Fork,
     Hash,
     Initcode,
     Op,
@@ -645,4 +651,158 @@ def test_factory_via_eip7702_delegation(
                 code=Spec.FACTORY_BYTECODE,
             ),
         },
+    )
+
+
+def test_factory_rejects_ef_prefix_deployment(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    EIP-3541: deploying code that begins with `0xEF` is rejected. The
+    factory's `CREATE2` fails when the initcode would return such code;
+    the factory reverts and no contract is deployed.
+    """
+    salt = 0x3541
+    deploy_code = Bytes(b"\xef\x00")
+    initcode = Initcode(deploy_code=deploy_code)
+    expected_address = compute_create2_address(FACTORY, salt, initcode)
+
+    storage = Storage()
+    caller = pre.deploy_contract(
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.SSTORE(
+            storage.store_next(0, "factory_call_failed"),
+            Op.CALL(
+                gas=Op.GAS,
+                address=FACTORY,
+                value=0,
+                args_offset=0,
+                args_size=Op.CALLDATASIZE,
+            ),
+        )
+        + Op.STOP,
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(
+            sender=pre.fund_eoa(),
+            to=caller,
+            data=Hash(salt) + bytes(initcode),
+            gas_limit=500_000,
+        ),
+        post={
+            caller: Account(storage=storage),
+            expected_address: Account.NONEXISTENT,
+        },
+    )
+
+
+def test_factory_rejects_oversized_initcode(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    EIP-3860: initcode larger than the fork's max initcode size is
+    rejected. The factory's `CREATE2` fails for oversized initcode and
+    the factory reverts.
+    """
+    salt = 0x55
+    initcode = Initcode(
+        deploy_code=Op.STOP,
+        initcode_length=fork.max_initcode_size() + 1,
+    )
+    expected_address = compute_create2_address(FACTORY, salt, initcode)
+
+    storage = Storage()
+    caller = pre.deploy_contract(
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.SSTORE(
+            storage.store_next(0, "factory_call_failed"),
+            Op.CALL(
+                gas=Op.GAS,
+                address=FACTORY,
+                value=0,
+                args_offset=0,
+                args_size=Op.CALLDATASIZE,
+            ),
+        )
+        + Op.STOP,
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(
+            sender=pre.fund_eoa(),
+            to=caller,
+            data=Hash(salt) + bytes(initcode),
+            gas_limit=5_000_000,
+        ),
+        post={
+            caller: Account(storage=storage),
+            expected_address: Account.NONEXISTENT,
+        },
+    )
+
+
+def test_factory_block_access_list(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    EIP-7928: a factory deployment is captured in the block-level
+    access list. The factory's nonce bump from `CREATE2` and the
+    deployed contract's `nonce`/`code` initialization both appear
+    under their respective accounts.
+    """
+    salt = 0x42
+    runtime_code = Op.PUSH1(0x01) + Op.PUSH1(0x00) + Op.RETURN
+    initcode = Initcode(deploy_code=runtime_code)
+    expected_address = compute_create2_address(FACTORY, salt, initcode)
+
+    sender = pre.fund_eoa()
+
+    state_test(
+        pre=pre,
+        tx=Transaction(
+            sender=sender,
+            to=Address(FACTORY),
+            data=Hash(salt) + bytes(initcode),
+            gas_limit=500_000,
+        ),
+        post={
+            FACTORY: Account(
+                nonce=2,
+                balance=0,
+                code=Spec.FACTORY_BYTECODE,
+            ),
+            expected_address: Account(nonce=1, code=bytes(runtime_code)),
+        },
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                sender: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1),
+                    ],
+                ),
+                Address(FACTORY): BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=2),
+                    ],
+                ),
+                expected_address: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1),
+                    ],
+                    code_changes=[
+                        BalCodeChange(
+                            block_access_index=1,
+                            new_code=bytes(runtime_code),
+                        ),
+                    ],
+                ),
+            },
+        ),
     )
