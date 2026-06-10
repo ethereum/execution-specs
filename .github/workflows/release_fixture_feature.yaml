@@ -142,7 +142,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - name: Draft release on EELS (canonical)
+      - name: Draft release on EELS
         run: |
           FEATURE_PREFIX="${TAG_NAME%%@*}"
           PREV_TAG=$(
@@ -163,17 +163,3 @@ jobs:
           TAG_NAME: ${{ github.ref_name }}
           FEATURE_NAME: ${{ needs.setup.outputs.feature_name }}
           GH_TOKEN: ${{ github.token }}
-
-      - name: Draft release on EEST (mirror)
-        run: |
-          EEST_TAG="${TAG_NAME#tests-}"
-          RELEASE_ARGS=(--repo ethereum/execution-spec-tests --draft)
-          if [ "$FEATURE_NAME" != "mainnet" ]; then
-            RELEASE_ARGS+=(--prerelease)
-          fi
-          RELEASE_ARGS+=(--notes "This release is mirrored from [ethereum/execution-specs ${TAG_NAME}](https://github.com/ethereum/execution-specs/releases/tag/${TAG_NAME}).")
-          gh release create "$EEST_TAG" "${RELEASE_ARGS[@]}" ./artifacts/**/*.tar.gz
-        env:
-          TAG_NAME: ${{ github.ref_name }}
-          FEATURE_NAME: ${{ needs.setup.outputs.feature_name }}
-          GH_TOKEN: ${{ secrets.EEST_RELEASE_TOKEN }}
