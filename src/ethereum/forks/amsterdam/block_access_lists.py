@@ -28,6 +28,14 @@ from .exceptions import BlockAccessListGasLimitExceededError
 from .fork_types import BlockAccessIndex
 from .state_tracker import BlockState, TransactionState, get_code
 
+StorageRoot: TypeAlias = Bytes | Bytes32
+"""
+Post-block storage trie root encoded in an account's block access list entry.
+
+Empty post-block storage tries are encoded as the empty byte string. Non-empty
+storage tries are encoded as their 32-byte trie root.
+"""
+
 
 @final
 @slotted_freezable
@@ -213,12 +221,13 @@ class AccountChanges:
     [`Account`]: ref:ethereum.state.Account
     """
 
-    storage_root: Optional[Bytes]
+    storage_root: Optional[StorageRoot]
     """
     Root of the associated [`Account`]'s post-block storage trie.
 
     Present only when at least one state-change list is non-empty. Empty
-    post-block storage tries are encoded as the empty byte string.
+    post-block storage tries are encoded as the empty byte string; non-empty
+    storage tries are encoded as bytes32.
 
     [`Account`]: ref:ethereum.state.Account
     """
@@ -620,13 +629,13 @@ def _build_from_builder(
         storage_changes.sort(key=lambda x: x.slot)
         storage_reads.sort()
 
-        storage_root: Optional[Bytes] = None
+        storage_root: Optional[StorageRoot] = None
         if storage_changes or balance_changes or nonce_changes or code_changes:
             trie_root = storage_roots[address]
             if trie_root == EMPTY_TRIE_ROOT:
                 storage_root = Bytes()
             else:
-                storage_root = Bytes(trie_root)
+                storage_root = Bytes32(trie_root)
 
         account_change = AccountChanges(
             address=address,
