@@ -133,6 +133,14 @@ class PreState(Protocol):
         """
         ...
 
+    def copy_storage_trie(self, address: Address) -> Trie[Bytes32, U256]:
+        """
+        Copy an account's storage trie.
+
+        Return an empty storage trie if the account has no storage.
+        """
+        ...
+
     def compute_state_root_and_trie_changes(
         self,
         account_changes: Dict[Address, Optional[Account]],
@@ -148,24 +156,6 @@ class PreState(Protocol):
 
         Return the new state root together with the internal trie nodes
         that were created or modified.
-        """
-        ...
-
-    def compute_storage_roots(
-        self,
-        storage_changes: Dict[Address, Dict[Bytes32, U256]],
-        storage_clears: AbstractSet[Address] = frozenset(),
-        addresses: AbstractSet[Address] = frozenset(),
-    ) -> Dict[Address, Root]:
-        """
-        Compute post-change storage roots for changed accounts.
-
-        ``storage_clears`` lists addresses whose pre-existing storage
-        tries must be dropped before ``storage_changes`` is applied.
-
-        Return a mapping containing every address in ``storage_changes``,
-        ``storage_clears``, and ``addresses``. Addresses with empty
-        post-change storage are mapped to ``EMPTY_TRIE_ROOT``.
         """
         ...
 
@@ -228,6 +218,15 @@ class State:
         """
         return address in self._storage_tries
 
+    def copy_storage_trie(self, address: Address) -> Trie[Bytes32, U256]:
+        """
+        Copy an account's storage trie.
+        """
+        trie = self._storage_tries.get(address)
+        if trie is None:
+            return Trie(secured=True, default=U256(0))
+        return copy_trie(trie)
+
     def compute_state_root_and_trie_changes(
         self,
         account_changes: Dict[Address, Optional[Account]],
@@ -272,42 +271,6 @@ class State:
         state_root_value = root(main_trie, get_storage_root=get_storage_root)
 
         return state_root_value, []
-
-    def compute_storage_roots(
-        self,
-        storage_changes: Dict[Address, Dict[Bytes32, U256]],
-        storage_clears: AbstractSet[Address] = frozenset(),
-        addresses: AbstractSet[Address] = frozenset(),
-    ) -> Dict[Address, Root]:
-        """
-        Compute post-change storage roots for changed accounts.
-        """
-        storage_tries = {
-            k: copy_trie(v)
-            for k, v in self._storage_tries.items()
-            if k not in storage_clears
-        }
-
-        for address, slots in storage_changes.items():
-            trie = storage_tries.get(address)
-            if trie is None:
-                trie = Trie(secured=True, default=U256(0))
-                storage_tries[address] = trie
-            for key, value in slots.items():
-                trie_set(trie, key, value)
-            if trie._data == {}:
-                del storage_tries[address]
-
-        storage_roots: Dict[Address, Root] = {}
-        for address in (
-            set(storage_changes) | set(storage_clears) | set(addresses)
-        ):
-            if address in storage_tries:
-                storage_roots[address] = root(storage_tries[address])
-            else:
-                storage_roots[address] = EMPTY_TRIE_ROOT
-
-        return storage_roots
 
 
 def close_state(state: State) -> None:

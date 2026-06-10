@@ -21,7 +21,7 @@ from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U64, U256, Uint, ulen
 
 from ethereum.crypto.hash import Hash32, keccak256
-from ethereum.merkle_patricia_trie import EMPTY_TRIE_ROOT
+from ethereum.merkle_patricia_trie import root, trie_set
 from ethereum.state import EMPTY_CODE_HASH, Account, Address, PreState
 
 from .exceptions import BlockAccessListGasLimitExceededError
@@ -579,9 +579,27 @@ def block_access_list_to_rlp(
     return tuple(encoded_accounts)
 
 
+def post_block_storage_root(
+    block_state: BlockState,
+    address: Address,
+) -> StorageRoot:
+    """
+    Compute the account's post-block storage trie root for EIP-8268.
+    """
+    storage_trie = block_state.pre_state.copy_storage_trie(address)
+
+    for key, value in block_state.storage_writes.get(address, {}).items():
+        trie_set(storage_trie, key, value)
+
+    if storage_trie._data == {}:
+        return Bytes()
+
+    return Bytes32(root(storage_trie))
+
+
 def _build_from_builder(
     builder: BlockAccessListBuilder,
-    storage_roots: Dict[Address, Hash32],
+    block_state: BlockState,
 ) -> BlockAccessList:
     """
     Build the final [`BlockAccessList`] from a builder (internal helper).
@@ -631,11 +649,7 @@ def _build_from_builder(
 
         storage_root: Optional[StorageRoot] = None
         if storage_changes or balance_changes or nonce_changes or code_changes:
-            trie_root = storage_roots[address]
-            if trie_root == EMPTY_TRIE_ROOT:
-                storage_root = Bytes()
-            else:
-                storage_root = Bytes32(trie_root)
+            storage_root = post_block_storage_root(block_state, address)
 
         account_change = AccountChanges(
             address=address,
@@ -766,21 +780,7 @@ def build_block_access_list(
     for address in block_state.account_reads:
         add_touched_account(builder, address)
 
-    state_changed_addresses = {
-        address
-        for address, account_data in builder.accounts.items()
-        if (
-            account_data.storage_changes
-            or account_data.balance_changes
-            or account_data.nonce_changes
-            or account_data.code_changes
-        )
-    }
-    storage_roots = block_state.pre_state.compute_storage_roots(
-        block_state.storage_writes, addresses=state_changed_addresses
-    )
-
-    return _build_from_builder(builder, storage_roots)
+    return _build_from_builder(builder, block_state)
 
 
 def hash_block_access_list(
