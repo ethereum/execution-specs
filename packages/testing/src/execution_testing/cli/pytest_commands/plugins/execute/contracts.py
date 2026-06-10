@@ -20,6 +20,13 @@ from .rpc.chain_builder_eth_rpc import ChainBuilderEthRPC
 logger = get_logger(__name__)
 
 
+class DeterministicFactoryNotDeployableError(Exception):
+    """
+    Raised when the deterministic proxy cannot deploy.
+    Example: fixed gas limit insufficient for network creation cost.
+    """
+
+
 def check_deterministic_factory_deployment(
     *,
     eth_rpc: EthRPC,
@@ -96,6 +103,28 @@ def deploy_deterministic_factory_contract(
     ).with_signature_and_sender()
     deploy_tx_sender = deploy_tx.sender
     assert deploy_tx_sender is not None
+
+    # Pre-flight: skip deploy if network gas > fixed limit.
+    # Gas limit is fixed as changing it alters sender/factory address.
+    # If network requires more gas, transaction can never be included.
+    try:
+        required_gas = eth_rpc.estimate_gas(
+            transaction={
+                "from": f"{deploy_tx_sender}",
+                "input": f"{deploy_tx.data}",
+            }
+        )
+    except Exception:
+        # If the estimate itself is unavailable, fall through and attempt the
+        # deploy as before (failures are still handled by the caller).
+        required_gas = None
+    if required_gas is not None and required_gas > deploy_tx_gas_limit:
+        raise DeterministicFactoryNotDeployableError(
+            f"network requires {required_gas} gas to create the deterministic "
+            f"deployment proxy, exceeding the keyless transaction's fixed gas "
+            f"limit of {deploy_tx_gas_limit}"
+        )
+
     required_deployer_balance = deploy_tx_gas_price * deploy_tx_gas_limit
     current_balance = eth_rpc.get_balance(deploy_tx_sender)
     if current_balance < required_deployer_balance:
