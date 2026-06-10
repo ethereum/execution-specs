@@ -146,3 +146,5 @@ class GasCosts:
     OPCODE_BLOBHASH: int = 0
     OPCODE_MCOPY_BASE: int = 0
     OPCODE_CLZ: int = 0
+    OPCODE_TLOAD: int = 0
+    OPCODE_TSTORE: int = 0
