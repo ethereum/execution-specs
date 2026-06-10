@@ -13,7 +13,9 @@ import pytest
 from execution_testing import (
     AccessList,
     Account,
+    Address,
     Alloc,
+    AuthorizationTuple,
     Hash,
     Initcode,
     Op,
@@ -24,6 +26,7 @@ from execution_testing import (
     keccak256,
 )
 
+from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .spec import Spec, ref_spec_7997
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7997.git_path
@@ -575,6 +578,71 @@ def test_factory_receives_balance_via_selfdestruct(
             expected_address: Account(
                 nonce=1,
                 code=bytes(runtime_code),
+            ),
+        },
+    )
+
+
+def test_factory_via_eip7702_delegation(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    An EOA delegates its code to the factory via an EIP-7702
+    authorization. When the EOA is then called with `salt || initcode`,
+    the factory bytecode runs in the EOA's context, so `CREATE2` treats
+    the EOA as the deployer. The deterministic address therefore
+    derives from the EOA, not from the factory.
+    """
+    auth_signer = pre.fund_eoa()
+    auth_signer_nonce = auth_signer.nonce
+
+    salt = 0x42
+    runtime_code = Op.PUSH1(0x01) + Op.PUSH1(0x00) + Op.RETURN
+    initcode = Initcode(deploy_code=runtime_code)
+    expected_address = compute_create2_address(auth_signer, salt, initcode)
+
+    caller = pre.deploy_contract(
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.POP(
+            Op.CALL(
+                gas=Op.GAS,
+                address=auth_signer,
+                value=0,
+                args_offset=0,
+                args_size=Op.CALLDATASIZE,
+                ret_offset=0x100,
+                ret_size=20,
+            ),
+        )
+        + Op.STOP,
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(
+            sender=pre.fund_eoa(),
+            to=caller,
+            data=Hash(salt) + bytes(initcode),
+            gas_limit=500_000,
+            authorization_list=[
+                AuthorizationTuple(
+                    address=Address(FACTORY),
+                    nonce=auth_signer_nonce,
+                    signer=auth_signer,
+                ),
+            ],
+        ),
+        post={
+            auth_signer: Account(
+                nonce=auth_signer_nonce + 2,
+                code=Spec7702.delegation_designation(Address(FACTORY)),
+            ),
+            expected_address: Account(nonce=1, code=bytes(runtime_code)),
+            FACTORY: Account(
+                nonce=1,
+                balance=0,
+                code=Spec.FACTORY_BYTECODE,
             ),
         },
     )
