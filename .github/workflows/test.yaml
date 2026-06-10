@@ -145,6 +145,12 @@ jobs:
         run: just json-loader
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
+        with:
+          files: .just/json-loader/coverage.xml
+          flags: unittests
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   test-tests:
     runs-on: [self-hosted-ghr, size-xl-x64]
