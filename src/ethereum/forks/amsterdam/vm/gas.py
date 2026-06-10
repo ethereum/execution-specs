@@ -63,24 +63,25 @@ class GasCosts:
     HIGH: Final[Uint] = Uint(10)
 
     # Access
-    WARM_ACCESS: Final[Uint] = Uint(100)
-    COLD_ACCOUNT_ACCESS: Final[Uint] = Uint(2600)
-    COLD_STORAGE_ACCESS: Final[Uint] = Uint(2100)
+    WARM_ACCESS: Final[Uint] = Uint(300)
+    COLD_ACCOUNT_ACCESS: Final[Uint] = Uint(7800)
+    COLD_STORAGE_ACCESS: Final[Uint] = Uint(6300)
 
     # Storage
-    COLD_STORAGE_WRITE: Final[Uint] = Uint(5000)
+    STORAGE_WRITE: Final[Uint] = Uint(8400)
 
     # Call
-    CALL_VALUE: Final[Uint] = Uint(9000)
+    CALL_VALUE: Final[Uint] = Uint(22400)  # ACCOUNT_WRITE + CALL_STIPEND
     CALL_STIPEND: Final[Uint] = Uint(2300)
+    ACCOUNT_WRITE: Final[Uint] = Uint(20100)
 
     # Contract Creation
     CODE_DEPOSIT_PER_BYTE: Final[Uint] = Uint(200)
     CODE_INIT_PER_WORD: Final[Uint] = Uint(2)
-    REGULAR_GAS_CREATE: Final[Uint] = Uint(9000)
-
-    # Authorization
-    PER_AUTH_BASE_COST: Final[Uint] = Uint(7500)
+    # Provisional value (flat 3x of legacy 7000). The EIP derives
+    # CREATE_ACCESS = ACCOUNT_WRITE + COLD_STORAGE_ACCESS (= 26400); the
+    # provisional table keeps the legacy decomposition instead.
+    CREATE_ACCESS: Final[Uint] = Uint(21000)
 
     # Utility
     ZERO: Final[Uint] = Uint(0)
@@ -88,7 +89,9 @@ class GasCosts:
     FAST_STEP: Final[Uint] = Uint(5)
 
     # Refunds
-    REFUND_STORAGE_CLEAR: Final[int] = 4800
+    # Provisional value (flat 3x of legacy 4800). EIP derivation:
+    # (STORAGE_WRITE + COLD_STORAGE_ACCESS) x 4800/5000 = 14112.
+    REFUND_STORAGE_CLEAR: Final[int] = 14400
 
     # Precompiles
     PRECOMPILE_ECRECOVER: Final[Uint] = Uint(3000)
@@ -112,6 +115,19 @@ class GasCosts:
     PRECOMPILE_ECPAIRING_BASE: Final[Uint] = Uint(45000)
     PRECOMPILE_ECPAIRING_PER_POINT: Final[Uint] = Uint(34000)
 
+    # Authorization
+    # Regular-gas charged per EIP-7702 authorization, in addition to
+    # ACCOUNT_WRITE. Sum of: 1616 calldata (101 bytes x TX_DATA_TOKEN_FLOOR),
+    # ecRecover (PRECOMPILE_ECRECOVER, updated by EIP-7904), one cold
+    # authority read (COLD_ACCOUNT_ACCESS), and two warm writes
+    # (2 x WARM_ACCESS).
+    REGULAR_PER_AUTH_BASE_COST: Final[Uint] = (
+        Uint(1616)
+        + PRECOMPILE_ECRECOVER
+        + COLD_ACCOUNT_ACCESS
+        + Uint(2) * WARM_ACCESS
+    )
+
     # Blobs
     PER_BLOB: Final[U64] = U64(2**17)
     BLOB_SCHEDULE_TARGET: Final[U64] = U64(14)
@@ -129,8 +145,11 @@ class GasCosts:
     TX_CREATE: Final[Uint] = Uint(32000)
     TX_DATA_TOKEN_STANDARD: Final[Uint] = Uint(4)
     TX_DATA_TOKEN_FLOOR: Final[Uint] = Uint(16)
-    TX_ACCESS_LIST_ADDRESS: Final[Uint] = Uint(2400)
-    TX_ACCESS_LIST_STORAGE_KEY: Final[Uint] = Uint(1900)
+    # Provisional values (flat 3x). EIP derivation sets these equal to the
+    # access costs: ADDRESS = COLD_ACCOUNT_ACCESS (7800), STORAGE_KEY =
+    # COLD_STORAGE_ACCESS (6300).
+    TX_ACCESS_LIST_ADDRESS: Final[Uint] = Uint(7200)
+    TX_ACCESS_LIST_STORAGE_KEY: Final[Uint] = Uint(5700)
 
     # Block
     LIMIT_ADJUSTMENT_FACTOR: Final[Uint] = Uint(1024)

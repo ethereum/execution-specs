@@ -92,16 +92,16 @@ def sstore(evm: Evm) -> None:
     gas_cost = Uint(0)
     state_gas = Uint(0)
 
+    # Access cost: cold or warm, always charged.
     if (evm.message.current_target, key) not in evm.accessed_storage_keys:
         evm.accessed_storage_keys.add((evm.message.current_target, key))
         gas_cost += GasCosts.COLD_STORAGE_ACCESS
-
-    if original_value == current_value and current_value != new_value:
-        # charge regular cost for the operation, even when we
-        # already charge state gas for state creation
-        gas_cost += GasCosts.COLD_STORAGE_WRITE - GasCosts.COLD_STORAGE_ACCESS
     else:
         gas_cost += GasCosts.WARM_ACCESS
+
+    # Write cost: charged on the first change to the slot this transaction.
+    if original_value == current_value and current_value != new_value:
+        gas_cost += GasCosts.STORAGE_WRITE
 
     # Refund Counter Calculation
     if current_value != new_value:
@@ -114,12 +114,9 @@ def sstore(evm: Evm) -> None:
             evm.refund_counter -= GasCosts.REFUND_STORAGE_CLEAR
 
         if original_value == new_value:
-            # Storage slot being restored to its original value
-            evm.refund_counter += int(
-                GasCosts.COLD_STORAGE_WRITE
-                - GasCosts.COLD_STORAGE_ACCESS
-                - GasCosts.WARM_ACCESS
-            )
+            # Slot restored to its original value: refund the STORAGE_WRITE
+            # charged on the first-time change earlier this transaction.
+            evm.refund_counter += int(GasCosts.STORAGE_WRITE)
 
     if original_value == current_value and current_value != new_value:
         if original_value == 0:
