@@ -14,6 +14,7 @@ from ..forks.forks import (
     BPO2,
     BPO3,
     BPO4,
+    BPO5,
     Amsterdam,
     Berlin,
     Cancun,
@@ -682,6 +683,67 @@ class TestSelectedForkSetWithTransitionBoundaries:
         assert OsakaToBPO1AtTime15k in result
         assert BPO1ToBPO2AtTime15k in result
         assert BPO2ToAmsterdamAtTime15k not in result
+
+    def test_until_amsterdam_includes_bpo_siblings(self) -> None:
+        """`--until=Amsterdam` pulls in the parallel BPO branch."""
+        result = get_selected_fork_set(
+            single_fork=set(),
+            forks_from=set(),
+            forks_until={Amsterdam},
+        )
+        normal = self._normal_forks(result)
+        assert {BPO1, BPO2, BPO3, BPO4, BPO5, Amsterdam} <= normal
+        assert BPO2ToBPO3AtTime15k in result
+        assert BPO3ToBPO4AtTime15k in result
+
+    def test_from_osaka_until_amsterdam_spans_bpo_branch(self) -> None:
+        """`--from=Osaka --until=Amsterdam` spans the full BPO branch."""
+        result = get_selected_fork_set(
+            single_fork=set(),
+            forks_from={Osaka},
+            forks_until={Amsterdam},
+        )
+        assert self._normal_forks(result) == {
+            Osaka,
+            BPO1,
+            BPO2,
+            BPO3,
+            BPO4,
+            BPO5,
+            Amsterdam,
+        }
+
+    def test_until_amsterdam_bpo_siblings_disabled(self) -> None:
+        """`bpo_siblings=False` keeps the parallel BPO branch out."""
+        result = get_selected_fork_set(
+            single_fork=set(),
+            forks_from=set(),
+            forks_until={Amsterdam},
+            bpo_siblings=False,
+        )
+        normal = self._normal_forks(result)
+        assert {BPO1, BPO2, Amsterdam} <= normal
+        assert not ({BPO3, BPO4, BPO5} & normal)
+
+    def test_until_bpo2_excludes_later_bpo_siblings(self) -> None:
+        """`--until=BPO2` must not pull in the later BPO branch."""
+        result = get_selected_fork_set(
+            single_fork=set(),
+            forks_from=set(),
+            forks_until={BPO2},
+        )
+        normal = self._normal_forks(result)
+        assert {BPO1, BPO2} <= normal
+        assert not ({BPO3, BPO4, BPO5} & normal)
+
+    def test_from_amsterdam_until_amsterdam_excludes_bpos(self) -> None:
+        """`--from=Amsterdam --until=Amsterdam` stays Amsterdam-only."""
+        result = get_selected_fork_set(
+            single_fork=set(),
+            forks_from={Amsterdam},
+            forks_until={Amsterdam},
+        )
+        assert self._normal_forks(result) == {Amsterdam}
 
 
 def test_blob_constants() -> None:  # noqa: D103
