@@ -636,6 +636,13 @@ class Transaction(
                     if tx_gas_limit > transaction_gas_limit_cap:
                         tx_gas_limit = transaction_gas_limit_cap
         else:
+            if self.state_gas_reservoir > 0:
+                raise Exception(
+                    "test correctness: transaction requests a state gas "
+                    f"reservoir of {self.state_gas_reservoir} but the fork "
+                    "does not enable the state gas reservoir; the request "
+                    "would be silently ignored."
+                )
             if (
                 transaction_gas_limit_cap is not None
                 and tx_gas_limit > transaction_gas_limit_cap
