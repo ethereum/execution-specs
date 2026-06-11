@@ -870,8 +870,16 @@ class Transaction(
             else:
                 available_gas -= int(tx.gas_limit)
 
-        if unset_gas_limit_tx_count == 0 or available_gas <= 0:
+        if unset_gas_limit_tx_count == 0:
             return 0
+
+        if available_gas <= 0:
+            raise Exception(
+                "test correctness: unable to automatically calculate gas "
+                "limit for transactions (no remaining gas: explicit "
+                "transaction gas limits already consume the full "
+                f"environment gas limit of {env_gas_limit})."
+            )
 
         max_tx_gas_limit = available_gas // unset_gas_limit_tx_count
         if state_gas_reservoir_enabled:
