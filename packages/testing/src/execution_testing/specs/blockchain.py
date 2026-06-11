@@ -824,7 +824,7 @@ class BlockchainTest(BaseTest):
         )
         env = env.set_fork_requirements(fork)
         txs = block.txs[:]
-        if any(tx.gas_limit is None for tx in block.txs):
+        if any("gas_limit" not in tx.model_fields_set for tx in block.txs):
             max_tx_gas_limit = Transaction.calculate_max_gas_limit(
                 txs=txs,
                 env_gas_limit=int(env.gas_limit),

@@ -978,9 +978,8 @@ class Alloc(SharedAlloc):
                 max_priority_fee_per_gas=max_priority_fee_per_gas,
                 max_fee_per_blob_gas=max_fee_per_blob_gas,
             )
-            tx_gas_limit = tx.gas_limit
-            assert tx_gas_limit, "tx gas limit not set"
-            gas_consumption += tx_gas_limit
+            assert "gas_limit" in tx.model_fields_set, "tx gas limit not set"
+            gas_consumption += tx.gas_limit
             minimum_balance += tx.signer_minimum_balance(fork=fork)
         return minimum_balance + gas_consumption * gas_price, gas_consumption
 

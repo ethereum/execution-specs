@@ -310,8 +310,8 @@ class Transaction(
                 data.pop("hash", None)
         return data
 
-    gas_limit: HexNumber | None = Field(  # type: ignore
-        None,
+    gas_limit: HexNumber = Field(
+        HexNumber(21_000),
         serialization_alias="gas",
         validation_alias=AliasChoices("gas_limit", "gasLimit", "gas"),
     )
@@ -601,9 +601,6 @@ class Transaction(
         if self.secret_key is None:
             raise ValueError("secret_key must be set to sign a transaction")
 
-        if self.gas_limit is None:
-            raise ValueError("gas_limit must be set to sign a transaction")
-
         # Get the signing bytes
         signing_hash = self.rlp_signing_bytes().keccak256()
 
@@ -817,7 +814,7 @@ class Transaction(
         available_gas = env_gas_limit
         unset_gas_limit_tx_count = 0
         for tx in txs:
-            if tx.gas_limit is None:
+            if "gas_limit" not in tx.model_fields_set:
                 unset_gas_limit_tx_count += 1
             else:
                 available_gas -= int(tx.gas_limit)
@@ -881,7 +878,7 @@ class Transaction(
         state_gas_reservoir_enabled: bool = False,
     ) -> None:
         """Set the transaction gas limit if unset."""
-        if "gas_limit" not in self.model_fields_set or self.gas_limit is None:
+        if "gas_limit" not in self.model_fields_set:
             tx_gas_limit = max_gas_limit
             if state_gas_reservoir_enabled:
                 if "state_gas_reservoir" in self.model_fields_set:
@@ -913,9 +910,8 @@ class Transaction(
         assert gas_price is not None, (
             "Impossible to calculate minimum balance without gas price"
         )
-        gas_limit = self.gas_limit
-        assert gas_limit is not None, (
-            "Impossible to calculate minimum balance without gas limit"
+        assert "gas_limit" in self.model_fields_set, (
+            "Impossible to calculate minimum balance without a set gas limit"
         )
         if self.ty == 3 and self.blob_versioned_hashes is not None:
             max_fee_per_blob_gas = self.max_fee_per_blob_gas
@@ -924,13 +920,13 @@ class Transaction(
                 "max_fee_per_blob_gas"
             )
             return (
-                gas_price * gas_limit
+                gas_price * self.gas_limit
                 + self.value
                 + max_fee_per_blob_gas
                 * (fork.blob_gas_per_blob() * len(self.blob_versioned_hashes))
             )
         else:
-            return gas_price * gas_limit + self.value
+            return gas_price * self.gas_limit + self.value
 
     def _format_field_value(self, value: Any) -> str:
         """
