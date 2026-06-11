@@ -883,7 +883,7 @@ class Transaction(
             if state_gas_reservoir_enabled:
                 if "state_gas_reservoir" in self.model_fields_set:
                     assert transaction_gas_limit_cap is not None, (
-                        "Impossible to set calculate the tx gas limit for the "
+                        "Impossible to calculate the tx gas limit for the "
                         "required state gas reservoir without a gas limit cap"
                     )
                     if self.state_gas_reservoir > 0:
