@@ -2838,13 +2838,18 @@ def test_bal_create_selfdestruct_to_self_with_call(
                 ),
                 # Created address: ephemeral (created and destroyed same tx)
                 # - storage_reads for slot 0x01 (aborted write becomes read)
-                # - NO nonce/code/storage/balance changes
+                # - NO nonce/code/storage changes
+                # - Balance remains per eip-8246
                 created_address: BalAccountExpectation(
                     storage_reads=[0x01],
                     storage_changes=[],
                     nonce_changes=[],
                     code_changes=[],
-                    balance_changes=[],
+                    balance_changes=[
+                        BalBalanceChange(
+                            block_access_index=1, post_balance=endowment
+                        )
+                    ],
                 ),
             }
         ),
@@ -2857,8 +2862,9 @@ def test_bal_create_selfdestruct_to_self_with_call(
             alice: Account(nonce=1),
             factory: Account(nonce=2, balance=factory_balance - endowment),
             oracle: Account(storage={0x01: 0x42}),
-            # Created address doesn't exist - destroyed in same tx
-            created_address: Account.NONEXISTENT,
+            created_address: Account(
+                balance=endowment, nonce=0, code=b"", storage={}
+            ),
         },
     )
 

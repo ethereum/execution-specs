@@ -34,6 +34,7 @@ def test_transaction_create_suicide_in_initcode(
     state_test: StateTestFiller,
     fork: Fork,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_transaction_create_suicide_in_initcode."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
@@ -50,6 +51,7 @@ def test_transaction_create_suicide_in_initcode(
 
     pre[coinbase] = Account(balance=0, nonce=1)
 
+    tx_value = 1
     tx = Transaction(
         sender=sender,
         to=None,
@@ -58,8 +60,14 @@ def test_transaction_create_suicide_in_initcode(
         value=1,
     )
 
+    # per EIP-8246
+    created_address = compute_create_address(address=sender, nonce=0)
     post = {
-        compute_create_address(address=sender, nonce=0): Account.NONEXISTENT,
+        created_address: (
+            Account(balance=tx_value, nonce=0, code=b"", storage={})
+            if fork.is_eip_enabled(8246)
+            else Account.NONEXISTENT
+        ),
         sender: Account(nonce=1),
     }
 

@@ -347,14 +347,15 @@ def test_create_selfdestruct_same_tx(
             sendall_final_balances[sendall_recipient] += (
                 selfdestruct_contract_current_balance
             )
-
-        # Self-destructing contract must always have zero balance after the
-        # call because the self-destruct always happens in the same transaction
-        # in this test
-        selfdestruct_contract_current_balance = 0
+            selfdestruct_contract_current_balance = 0
+        elif not fork.is_eip_enabled(8246):
+            # per EIP-8246
+            selfdestruct_contract_current_balance = 0
 
         entry_code += Op.SSTORE(
-            entry_code_storage.store_next(0),
+            entry_code_storage.store_next(
+                selfdestruct_contract_current_balance
+            ),
             Op.BALANCE(selfdestruct_contract_address),
         )
 
@@ -392,7 +393,16 @@ def test_create_selfdestruct_same_tx(
     for address, balance in sendall_final_balances.items():
         post[address] = Account(balance=balance, storage={0: 1})
 
-    post[selfdestruct_contract_address] = Account.NONEXISTENT  # type: ignore
+    if fork.is_eip_enabled(8246) and selfdestruct_contract_current_balance > 0:
+        # per EIP-8246
+        post[selfdestruct_contract_address] = Account(
+            balance=selfdestruct_contract_current_balance,
+            nonce=0,
+            code=b"",
+            storage={},
+        )
+    else:
+        post[selfdestruct_contract_address] = Account.NONEXISTENT  # type: ignore
 
     if fork.is_eip_enabled(7708):
         expected_logs = []
@@ -789,9 +799,25 @@ def test_recreate_self_destructed_contract_different_txs(
         entry_code_address: Account(
             storage=entry_code_storage,
         ),
-        selfdestruct_contract_address: Account.NONEXISTENT,  # type: ignore
     }
-    if sendall_recipient_addresses[0] != selfdestruct_contract_address:
+    self_target = (
+        sendall_recipient_addresses[0] == selfdestruct_contract_address
+    )
+    if (
+        fork.is_eip_enabled(8246)
+        and self_target
+        and selfdestruct_contract_initial_balance > 0
+    ):
+        # per EIP-8246
+        post[selfdestruct_contract_address] = Account(
+            balance=selfdestruct_contract_initial_balance,
+            nonce=0,
+            code=b"",
+            storage={},
+        )
+    else:
+        post[selfdestruct_contract_address] = Account.NONEXISTENT  # type: ignore
+    if not self_target:
         post[sendall_recipient_addresses[0]] = Account(
             balance=sendall_amount, storage={0: 1}
         )
