@@ -179,9 +179,6 @@ def create(evm: Evm) -> None:
         The current EVM frame.
 
     """
-    # Check static context before regular and state gas charges, so a
-    # spillover-funded state gas charge cannot inflate the parent's
-    # reservoir on the exceptional halt.
     if evm.message.is_static:
         raise WriteInStaticContext
 
@@ -234,9 +231,6 @@ def create2(evm: Evm) -> None:
         The current EVM frame.
 
     """
-    # Check static context before regular and state gas charges, so a
-    # spillover-funded state gas charge cannot inflate the parent's
-    # reservoir on the exceptional halt.
     if evm.message.is_static:
         raise WriteInStaticContext
 
