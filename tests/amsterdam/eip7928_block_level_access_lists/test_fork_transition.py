@@ -147,10 +147,7 @@ def test_invalid_post_fork_block_without_bal_hash_field(
                 rlp_modifier=Header(
                     block_access_list_hash=Header.REMOVE_FIELD,
                 ),
-                exception=[
-                    BlockException.INVALID_BAL_HASH,
-                    BlockException.INVALID_BLOCK_HASH,
-                ],
+                exception=BlockException.INVALID_BAL_HASH,
                 engine_api_error_code=EngineAPIError.InvalidParams,
             ),
         ],
