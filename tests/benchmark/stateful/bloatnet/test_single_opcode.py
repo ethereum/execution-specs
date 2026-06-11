@@ -691,9 +691,7 @@ def test_sstore_bloated(
         setup=setup,
         iterating=loop,
         cleanup=Op.STOP,
-        iterating_state_gas=fork.sstore_state_gas()
-        if (not existing_slots and write_new_value)
-        else 0,
+        iterating_state_gas=loop.state_cost(fork),
     )
 
     authority = pre.stub_eoa(token_name)
