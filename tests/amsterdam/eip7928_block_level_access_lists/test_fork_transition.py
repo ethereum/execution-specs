@@ -12,6 +12,7 @@ from execution_testing import (
     BlockchainTestFiller,
     BlockException,
     EIPChecklist,
+    EngineAPIError,
     Environment,
     Hash,
     Header,
@@ -93,6 +94,10 @@ def test_invalid_pre_fork_block_with_bal_hash_field(
     """
     Reject a pre-Amsterdam block whose header carries
     `block_access_list_hash`.
+
+    The engine fixture sends a pre-Amsterdam `newPayload` carrying an
+    empty `blockAccessList` param; the client's reconstructed header
+    omits the hash, so the block hash check fails.
     """
     sender = pre.fund_eoa()
     receiver = pre.fund_eoa(amount=0)
@@ -123,6 +128,9 @@ def test_invalid_post_fork_block_without_bal_hash_field(
     """
     Reject an Amsterdam activation block whose header is missing
     `block_access_list_hash`.
+
+    The engine fixture sends `newPayloadV5` with the `blockAccessList`
+    param omitted, which must return `-32602: Invalid params`.
     """
     sender = pre.fund_eoa()
     receiver = pre.fund_eoa(amount=0)
@@ -143,6 +151,7 @@ def test_invalid_post_fork_block_without_bal_hash_field(
                     BlockException.INVALID_BAL_HASH,
                     BlockException.INVALID_BLOCK_HASH,
                 ],
+                engine_api_error_code=EngineAPIError.InvalidParams,
             ),
         ],
     )
