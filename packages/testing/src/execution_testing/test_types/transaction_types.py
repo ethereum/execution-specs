@@ -801,6 +801,37 @@ class Transaction(
             for blob_versioned_hash in tx.blob_versioned_hashes
         ]
 
+    @staticmethod
+    def calculate_max_gas_limit(
+        *,
+        txs: List["Transaction"],
+        env_gas_limit: int,
+        transaction_gas_limit_cap: int | None,
+        state_gas_reservoir_enabled: bool,
+    ) -> int:
+        """
+        Calculate the maximum gas limit that can be set in a transaction
+        given a list of transactions with and without gas-limits set
+        and a maximum available environment gas.
+        """
+        available_gas = env_gas_limit
+        unset_gas_limit_tx_count = 0
+        for tx in txs:
+            if tx.gas_limit is None:
+                unset_gas_limit_tx_count += 1
+            else:
+                available_gas -= int(tx.gas_limit)
+
+        if unset_gas_limit_tx_count == 0 or available_gas <= 0:
+            return 0
+
+        max_tx_gas_limit = available_gas // unset_gas_limit_tx_count
+        if state_gas_reservoir_enabled:
+            transaction_gas_limit_cap = None
+        if transaction_gas_limit_cap:
+            max_tx_gas_limit = min(max_tx_gas_limit, transaction_gas_limit_cap)
+        return max_tx_gas_limit
+
     @cached_property
     def created_contract(self) -> Address:
         """Return address of the contract created by the transaction."""

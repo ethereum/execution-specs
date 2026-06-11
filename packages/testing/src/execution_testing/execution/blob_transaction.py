@@ -167,8 +167,11 @@ class BlobTransaction(BaseExecute):
                 txs.append(tx.tx)
             else:
                 txs.append(tx)
-        max_tx_gas_limit = self.calculate_max_transaction_gas_limit(
-            txs, env, fork
+        max_tx_gas_limit = Transaction.calculate_max_gas_limit(
+            txs=txs,
+            env_gas_limit=int(env.gas_limit),
+            transaction_gas_limit_cap=fork.transaction_gas_limit_cap(),
+            state_gas_reservoir_enabled=fork.state_gas_reservoir_enabled(),
         )
         for tx in txs:
             tx.set_gas_limit(

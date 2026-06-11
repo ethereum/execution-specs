@@ -52,8 +52,11 @@ class TransactionPost(BaseExecute):
     ) -> None:
         """Prepare transactions by setting their final gas properties."""
         for block in self.blocks:
-            max_tx_gas_limit = self.calculate_max_transaction_gas_limit(
-                block, env, fork
+            max_tx_gas_limit = Transaction.calculate_max_gas_limit(
+                txs=block,
+                env_gas_limit=int(env.gas_limit),
+                transaction_gas_limit_cap=fork.transaction_gas_limit_cap(),
+                state_gas_reservoir_enabled=fork.state_gas_reservoir_enabled(),
             )
             for tx in block:
                 tx.set_gas_limit(

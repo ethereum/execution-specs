@@ -1,7 +1,7 @@
 """Ethereum test execution base types."""
 
 from abc import abstractmethod
-from typing import Annotated, Any, ClassVar, Dict, List, Type
+from typing import Annotated, Any, ClassVar, Dict, Type
 
 from pydantic import PlainSerializer, PlainValidator
 from pytest import FixtureRequest
@@ -9,7 +9,7 @@ from pytest import FixtureRequest
 from execution_testing.base_types import Address, CamelModel
 from execution_testing.forks import Fork
 from execution_testing.rpc import EngineRPC, EthRPC
-from execution_testing.test_types import Environment, Transaction
+from execution_testing.test_types import Environment
 
 
 class ExecuteResult(CamelModel):
@@ -42,34 +42,6 @@ class BaseExecute(CamelModel):
         if cls.format_name:
             # Register the new execute format
             BaseExecute.formats[cls.format_name] = cls
-
-    @staticmethod
-    def calculate_max_transaction_gas_limit(
-        txs: List[Transaction], env: Environment, fork: Fork
-    ) -> int:
-        """
-        Calculate the maximum gas limit that can be set in a transaction
-        given a list of transactions with and without gas-limits set
-        and a maximum available environment gas.
-        """
-        available_gas = int(env.gas_limit)
-        unset_gas_limit_tx_count = 0
-        for tx in txs:
-            if tx.gas_limit is None:
-                unset_gas_limit_tx_count += 1
-            else:
-                available_gas -= int(tx.gas_limit)
-
-        if unset_gas_limit_tx_count == 0 or available_gas <= 0:
-            return 0
-
-        max_gas_limit = available_gas // unset_gas_limit_tx_count
-        tx_gas_limit_cap = fork.transaction_gas_limit_cap()
-        if fork.state_gas_reservoir_enabled():
-            tx_gas_limit_cap = None
-        if tx_gas_limit_cap:
-            max_gas_limit = min(max_gas_limit, tx_gas_limit_cap)
-        return max_gas_limit
 
     def prepare_transactions(
         self,
