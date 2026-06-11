@@ -20,7 +20,6 @@ from typing import Any, Generator, List, Tuple
 from urllib.parse import urlparse, urlunparse
 
 import pytest
-from ethereum.crypto.hash import keccak256
 from filelock import FileLock
 
 from execution_testing.base_types import (
@@ -47,6 +46,10 @@ from execution_testing.specs.blockchain import (
 from execution_testing.test_types import EOA
 
 from ..execute import contracts
+from ..execute.pre_alloc import (
+    UNCACHED_EOA_BASE_KEY,
+    UNCACHED_EOA_POOL_SIZE,
+)
 from ..execute.rpc.chain_builder_eth_rpc import ChainBuilderEthRPC
 from ..shared.benchmarking import default_environment, is_benchmark_item
 from ..shared.helpers import is_help_or_collectonly_mode
@@ -56,12 +59,8 @@ from .hive_session import configure_hive, teardown_hive
 # 1B ETH for seed account
 SEED_FUNDING_WEI = 10**9 * 10**18
 
-# 1 ETH per deterministic sender-pool account.
+# 1 ETH per uncached-pool account.
 POOL_FUNDING_WEI = 10**18
-
-SENDER_BASE_KEY = int.from_bytes(
-    keccak256(b"gas-repricings-private-key"), "big"
-)
 
 logger = get_logger(__name__)
 
@@ -124,17 +123,6 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help=(
             "Target block gas limit (raised pre-setup via empty blocks). "
             "Defaults to benchmark limit or environment default."
-        ),
-    )
-    group.addoption(
-        "--sender-pool-size",
-        action="store",
-        dest="sender_pool_size",
-        default=15000,
-        type=int,
-        help=(
-            "Sender-pool accounts to fund via CL withdrawals for 1 ETH"
-            "Default: 15000."
         ),
     )
     group.addoption(
@@ -468,19 +456,20 @@ def _session_pre_run(
             f"{len(bump_payloads)} empty blocks"
         )
 
-    # Fund the seed key and the deterministic sender pool
-    pool_size = request.config.getoption("sender_pool_size")
+    # Fund the seed key and the deterministic uncached-EOA pool
     funding_targets: List[Tuple[Address, int]] = [
         (Address(session_worker_key), SEED_FUNDING_WEI)
     ]
     funding_targets += [
-        (Address(EOA(key=SENDER_BASE_KEY + i)), POOL_FUNDING_WEI)
-        for i in range(pool_size)
+        (Address(EOA(key=UNCACHED_EOA_BASE_KEY + i)), POOL_FUNDING_WEI)
+        for i in range(UNCACHED_EOA_POOL_SIZE)
     ]
     fund_payload = eth_rpc.fund_via_withdrawals(funding_targets)
     if fund_payload is not None:
         captured.append(fund_payload)
-    logger.info(f"Funded seed key and {pool_size} sender pool accounts")
+    logger.info(
+        f"Funded seed key and {UNCACHED_EOA_POOL_SIZE} uncached pool accounts"
+    )
 
     # 4. Deploy deterministic factory if needed.
     lock_file = session_temp_folder / "fill_stateful_setup.lock"

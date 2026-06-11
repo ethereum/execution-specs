@@ -7,6 +7,7 @@ from random import randint
 from typing import Any, Dict, Generator, Iterator, List, Literal, Tuple
 
 import pytest
+from ethereum.crypto.hash import keccak256
 from filelock import FileLock
 from pydantic import PrivateAttr
 
@@ -54,6 +55,11 @@ from .contracts import (
 )
 
 logger = get_logger(__name__)
+
+UNCACHED_EOA_BASE_KEY = int.from_bytes(
+    keccak256(b"gas-repricings-private-key"), "big"
+)
+UNCACHED_EOA_POOL_SIZE = 50_000
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -301,6 +307,7 @@ class Alloc(SharedAlloc):
     )
     _block_number: int = PrivateAttr()
     _timestamp: int = PrivateAttr()
+    _uncached_eoa_count: int = PrivateAttr(0)
 
     def __init__(
         self,
@@ -740,6 +747,21 @@ class Alloc(SharedAlloc):
             f"EOA {eoa} funding tx created (label={label}):"
             f"tx_nonce={eoa.nonce}, balance={balance_str}"
         )
+        return eoa
+
+    def uncached_eoa(self) -> EOA:
+        """
+        Return the next EOA from the session-funded uncached pool.
+
+        Pool accounts are untracked in the pre-allocation so they stay
+        out of the setup block and remain uncached on the client.
+        """
+        assert self._uncached_eoa_count < UNCACHED_EOA_POOL_SIZE, (
+            f"uncached EOA pool exhausted ({UNCACHED_EOA_POOL_SIZE} "
+            "accounts); increase UNCACHED_EOA_POOL_SIZE"
+        )
+        eoa = EOA(key=UNCACHED_EOA_BASE_KEY + self._uncached_eoa_count)
+        self._uncached_eoa_count += 1
         return eoa
 
     def _fund_address(

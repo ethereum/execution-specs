@@ -6,7 +6,6 @@ from typing import Generator
 import pytest
 from execution_testing import (
     DETERMINISTIC_FACTORY_ADDRESS,
-    EOA,
     Address,
     Alloc,
     BenchmarkTestFiller,
@@ -16,21 +15,7 @@ from execution_testing import (
     Transaction,
     compute_create2_address,
     compute_create_address,
-    keccak256,
 )
-
-# Deterministic sender pool of 15K accounts.
-# Funded via system contract withdrawals (funding.txt) in payload generation.
-# Placed outside pre-allocation to ensure accounts remain uncached.
-SENDER_BASE_KEY = int.from_bytes(
-    keccak256(b"gas-repricings-private-key"), "big"
-)
-
-
-def yield_distinct_sender() -> Generator[EOA, None, None]:
-    """Yield deterministic sender EOAs pre-funded on-chain."""
-    for i in itertools.count(0):
-        yield EOA(key=SENDER_BASE_KEY + i)
 
 
 def build_unique_contract_initcode() -> bytes:
@@ -158,7 +143,6 @@ def test_ether_transfers_onchain_receivers(
     - diff_to_unique_code_jumpdest_contract: distinct CREATE2 contract
       receivers each holding unique deployed code
     """
-    senders = yield_distinct_sender()
     receiver_execution_gas = 0
     if case_id == "diff_to_nonexistent":
         receivers = yield_distinct_nonexistent_receiver()
@@ -194,7 +178,7 @@ def test_ether_transfers_onchain_receivers(
             to=next(receivers),
             value=transfer_amount,
             gas_limit=iteration_cost,
-            sender=next(senders),
+            sender=pre.uncached_eoa(),
         )
         for _ in range(iteration_count)
     ]
