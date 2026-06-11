@@ -546,23 +546,26 @@ BENCHMARKING_MAX_GAS = 1_000_000_000_000
 BENCHMARK_DIR = Path("tests") / "benchmark"
 
 
-def _is_benchmark_test(request: pytest.FixtureRequest) -> bool:
-    """Check if the test is under the benchmark directory."""
-    benchmark_path = Path(request.config.rootpath) / BENCHMARK_DIR
-    return benchmark_path in Path(request.node.fspath).parents
+def is_benchmark_item(item: pytest.Item) -> bool:
+    """Check if the collected item is benchmark test."""
+    benchmark_path = Path(item.config.rootpath) / BENCHMARK_DIR
+    return benchmark_path in Path(item.fspath).parents
+
+
+def default_environment(*, benchmark: bool) -> Environment:
+    """Return the configured test Environment."""
+    if benchmark:
+        return Environment(gas_limit=BENCHMARKING_MAX_GAS)
+    return Environment()
 
 
 @pytest.fixture
 def genesis_environment(request: pytest.FixtureRequest) -> Environment:
     """Return an Environment with appropriate gas limit."""
-    if _is_benchmark_test(request):
-        return Environment(gas_limit=BENCHMARKING_MAX_GAS)
-    return Environment()
+    return default_environment(benchmark=is_benchmark_item(request.node))
 
 
 @pytest.fixture
 def env(request: pytest.FixtureRequest) -> Environment:
     """Return an Environment with appropriate gas limit."""
-    if _is_benchmark_test(request):
-        return Environment(gas_limit=BENCHMARKING_MAX_GAS)
-    return Environment()
+    return default_environment(benchmark=is_benchmark_item(request.node))

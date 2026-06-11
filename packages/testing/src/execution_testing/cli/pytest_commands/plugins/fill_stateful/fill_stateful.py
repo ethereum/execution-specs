@@ -48,6 +48,7 @@ from execution_testing.test_types import EOA
 
 from ..execute import contracts
 from ..execute.rpc.chain_builder_eth_rpc import ChainBuilderEthRPC
+from ..shared.benchmarking import default_environment, is_benchmark_item
 from ..shared.helpers import is_help_or_collectonly_mode
 from ..shared.live_client_flags import FEE_BUMP_MULTIPLIER
 from .hive_session import configure_hive, teardown_hive
@@ -115,15 +116,14 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         ),
     )
     group.addoption(
-        "--gas-bump-blocks",
+        "--block-gas-limit",
         action="store",
-        dest="gas_bump_blocks",
-        default=5000,
+        dest="block_gas_limit",
+        default=None,
         type=int,
         help=(
-            "Empty blocks at start to increase block gas limit."
-            "Each block increase ≤ parent_gas_limit/1024."
-            "Default: 5000 blocks."
+            "Target block gas limit (raised pre-setup via empty blocks). "
+            "Defaults to benchmark limit or environment default."
         ),
     )
     group.addoption(
@@ -412,6 +412,21 @@ def snapshot_block(
     return block
 
 
+@pytest.fixture(scope="session")
+def target_block_gas_limit(request: pytest.FixtureRequest) -> int:
+    """
+    Determine the block gas limit for the pre-setup ramping phase.
+
+    --block-gas-limit takes precedence if provided; otherwise, uses the
+    default gas limit from the env fixture
+    """
+    explicit = request.config.getoption("block_gas_limit")
+    if explicit is not None:
+        return explicit
+    benchmark = any(is_benchmark_item(item) for item in request.session.items)
+    return int(default_environment(benchmark=benchmark).gas_limit)
+
+
 @pytest.fixture(scope="session", autouse=True)
 def _session_pre_run(
     client_backend: ClientBackend,
@@ -421,6 +436,7 @@ def _session_pre_run(
     snapshot_block: Any,
     sender_funding_transactions_gas_price: int,
     session_temp_folder: Path,
+    target_block_gas_limit: int,
     request: pytest.FixtureRequest,
 ) -> None:
     """
@@ -443,14 +459,13 @@ def _session_pre_run(
 
     captured: List[EnginePayloadMetadata] = []
 
-    # Ramp gas limit (empty blocks) via empty blocks.
-    bump_payloads = eth_rpc.bump_block_gas_limit(
-        request.config.getoption("gas_bump_blocks")
-    )
+    # Ramp gas limit to the target by building empty blocks.
+    bump_payloads = eth_rpc.bump_block_gas_limit(target_block_gas_limit)
     captured.extend(bump_payloads)
     if bump_payloads:
         logger.info(
-            f"Ramped block gas limit with {len(bump_payloads)} empty blocks"
+            f"Ramped block gas limit to {target_block_gas_limit} with "
+            f"{len(bump_payloads)} empty blocks"
         )
 
     # Fund the seed key and the deterministic sender pool

@@ -337,27 +337,27 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
 
     def bump_block_gas_limit(
         self,
-        block_count: int,
+        target_gas_limit: int,
     ) -> List[EnginePayloadMetadata]:
         """
         Build empty block to increase the block gas limit to target.
         """
-        if block_count <= 0:
-            return []
         assert self.testing_rpc is not None, (
             "bump_block_gas_limit requires testing_rpc"
         )
         captured: List[EnginePayloadMetadata] = []
         with self.block_building_lock:
-            for _ in range(block_count):
-                head_block = self.get_block_by_number("latest")
-                assert head_block is not None
-                next_timestamp = int(HexNumber(head_block["timestamp"]) + 1)
+            head_block = self.get_block_by_number("latest")
+            assert head_block is not None
+            parent_hash = Hash(head_block["hash"])
+            parent_timestamp = int(HexNumber(head_block["timestamp"]))
+            gas_limit = int(HexNumber(head_block["gasLimit"]))
+            while gas_limit < target_gas_limit:
                 payload_attributes = self._payload_attributes(
-                    next_timestamp=next_timestamp,
+                    next_timestamp=parent_timestamp + 1,
                 )
                 new_payload = self.testing_rpc.build_block(
-                    parent_block_hash=Hash(head_block["hash"]),
+                    parent_block_hash=parent_hash,
                     payload_attributes=payload_attributes,
                     transactions=[],
                     extra_data=Bytes(b""),
@@ -368,6 +368,14 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
                         payload_attributes.parent_beacon_block_root,
                     )
                 )
+                new_gas_limit = int(new_payload.execution_payload.gas_limit)
+                assert new_gas_limit > gas_limit, (
+                    f"block gas limit stalled at {new_gas_limit} before "
+                    f"reaching target {target_gas_limit};"
+                )
+                gas_limit = new_gas_limit
+                parent_hash = new_payload.execution_payload.block_hash
+                parent_timestamp = int(new_payload.execution_payload.timestamp)
         return captured
 
     def set_canonical_head(self, head_block_hash: Hash) -> None:
