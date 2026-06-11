@@ -43,3 +43,53 @@ def test_zero_gas_price_and_touching(
         tx=tx,
         post={contract: Account(storage={0: value})},
     )
+
+
+@pytest.mark.valid_from("Frontier")
+@pytest.mark.valid_before("EIP1559")
+@pytest.mark.eels_base_coverage
+def test_zero_gas_price_nonexistent_sender(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test a zero gasprice, zero value transaction from a sender that does not
+    exist in the pre-state.
+
+    Because the transaction is free (gas_price=0) and transfers no value, no
+    balance is ever deducted from the sender, so the sender account is only
+    materialized when its nonce is incremented. Clients must create the sender
+    account in this case rather than failing on a missing account.
+
+    Triggers a Nethermind state-test-runner crash: the runner identifies the
+    sender by secret key but signs the tx with a placeholder signature. When
+    the sender is absent from the pre-state, RecoverSenderIfNeeded re-recovers
+    a bogus sender from that placeholder, never creates it, and the nonce
+    increment then dereferences a null account. Not reachable in production,
+    where the real signature recovers the correct (and created) sender.
+    """
+    # amount=0 means the sender is NOT added to the pre-alloc.
+    sender = pre.fund_eoa(amount=0)
+
+    contract = pre.deploy_contract(
+        code=(Op.SSTORE(0, 0x01) + Op.STOP),
+    )
+
+    tx = Transaction(
+        gas_limit=500_000,
+        to=contract,
+        gas_price=0,  # Part of the test, do not change.
+        value=0,  # Part of the test, do not change.
+        sender=sender,
+        protected=False,
+    )
+
+    state_test(
+        env=Environment(),
+        pre=pre,
+        tx=tx,
+        post={
+            contract: Account(storage={0: 0x01}),
+            sender: Account(nonce=1, balance=0),
+        },
+    )
