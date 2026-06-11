@@ -573,6 +573,57 @@ class Transaction(
                 # Signer remains `None` in this case
                 pass
 
+    def _calculate_gas_limit(
+        self,
+        *,
+        max_gas_limit: int,
+        transaction_gas_limit_cap: int | None,
+        state_gas_reservoir_enabled: bool = False,
+    ) -> HexNumber:
+        """Calculate the gas limit given the current external factors."""
+        tx_gas_limit = max_gas_limit
+        if state_gas_reservoir_enabled:
+            if "state_gas_reservoir" in self.model_fields_set:
+                assert transaction_gas_limit_cap is not None, (
+                    "Impossible to calculate the tx gas limit for the "
+                    "required state gas reservoir without a gas limit cap"
+                )
+                if self.state_gas_reservoir > 0:
+                    minimum_gas_with_reservoir = (
+                        transaction_gas_limit_cap + self.state_gas_reservoir
+                    )
+                    assert tx_gas_limit >= minimum_gas_with_reservoir
+                    tx_gas_limit = minimum_gas_with_reservoir
+                else:
+                    if tx_gas_limit > transaction_gas_limit_cap:
+                        tx_gas_limit = transaction_gas_limit_cap
+        else:
+            if (
+                transaction_gas_limit_cap is not None
+                and tx_gas_limit > transaction_gas_limit_cap
+            ):
+                tx_gas_limit = transaction_gas_limit_cap
+        return HexNumber(tx_gas_limit)
+
+    def with_gas_limit(
+        self,
+        *,
+        max_gas_limit: int,
+        transaction_gas_limit_cap: int | None,
+        state_gas_reservoir_enabled: bool = False,
+    ) -> Self:
+        """Return copy of the transaction with the set gas limit."""
+        updated_values: Dict[str, Any] = {}
+
+        if "gas_limit" not in self.model_fields_set:
+            updated_values["gas_limit"] = self._calculate_gas_limit(
+                max_gas_limit=max_gas_limit,
+                transaction_gas_limit_cap=transaction_gas_limit_cap,
+                state_gas_reservoir_enabled=state_gas_reservoir_enabled,
+            )
+
+        return self.model_copy(update=updated_values)
+
     def with_signature_and_sender(
         self, *, keep_secret_key: bool = False
     ) -> Self:
@@ -879,30 +930,11 @@ class Transaction(
     ) -> None:
         """Set the transaction gas limit if unset."""
         if "gas_limit" not in self.model_fields_set:
-            tx_gas_limit = max_gas_limit
-            if state_gas_reservoir_enabled:
-                if "state_gas_reservoir" in self.model_fields_set:
-                    assert transaction_gas_limit_cap is not None, (
-                        "Impossible to calculate the tx gas limit for the "
-                        "required state gas reservoir without a gas limit cap"
-                    )
-                    if self.state_gas_reservoir > 0:
-                        minimum_gas_with_reservoir = (
-                            transaction_gas_limit_cap
-                            + self.state_gas_reservoir
-                        )
-                        assert tx_gas_limit >= minimum_gas_with_reservoir
-                        tx_gas_limit = minimum_gas_with_reservoir
-                    else:
-                        if tx_gas_limit > transaction_gas_limit_cap:
-                            tx_gas_limit = transaction_gas_limit_cap
-            else:
-                if (
-                    transaction_gas_limit_cap is not None
-                    and tx_gas_limit > transaction_gas_limit_cap
-                ):
-                    tx_gas_limit = transaction_gas_limit_cap
-            self.gas_limit = HexNumber(tx_gas_limit)
+            self.gas_limit = self._calculate_gas_limit(
+                max_gas_limit=max_gas_limit,
+                transaction_gas_limit_cap=transaction_gas_limit_cap,
+                state_gas_reservoir_enabled=state_gas_reservoir_enabled,
+            )
 
     def signer_minimum_balance(self, *, fork: Fork) -> int:
         """Return minimum balance of the signer."""

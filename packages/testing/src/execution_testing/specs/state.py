@@ -356,13 +356,11 @@ class StateTest(BaseTest):
         )
 
         env = self.env.set_fork_requirements(fork)
-        tx = self.tx
-        tx.set_gas_limit(
+        tx = self.tx.with_gas_limit(
             max_gas_limit=env.gas_limit,
             transaction_gas_limit_cap=fork.transaction_gas_limit_cap(),
             state_gas_reservoir_enabled=fork.state_gas_reservoir_enabled(),
-        )
-        tx = tx.with_signature_and_sender(keep_secret_key=True)
+        ).with_signature_and_sender(keep_secret_key=True)
         pre_alloc = Alloc.merge(
             Alloc.model_validate(fork.pre_allocation()),
             self.pre,

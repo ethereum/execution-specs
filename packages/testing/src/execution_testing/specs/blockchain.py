@@ -836,12 +836,14 @@ class BlockchainTest(BaseTest):
                     "test correctness: unable to automatically calculate gas "
                     "limit for transactions (No remaining gas)."
                 )
-            for tx in txs:
-                tx.set_gas_limit(
+            txs = [
+                tx.with_gas_limit(
                     max_gas_limit=max_tx_gas_limit,
                     transaction_gas_limit_cap=fork.transaction_gas_limit_cap(),
                     state_gas_reservoir_enabled=fork.state_gas_reservoir_enabled(),
                 )
+                for tx in txs
+            ]
         txs = [tx.with_signature_and_sender() for tx in txs]
 
         if failing_tx_count := len([tx for tx in txs if tx.error]) > 0:
