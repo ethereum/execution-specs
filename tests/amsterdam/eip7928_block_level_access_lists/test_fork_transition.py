@@ -12,6 +12,7 @@ from execution_testing import (
     BlockchainTestFiller,
     BlockException,
     EIPChecklist,
+    EngineAPIError,
     Environment,
     Hash,
     Header,
@@ -143,6 +144,7 @@ def test_invalid_post_fork_block_without_bal_hash_field(
                     BlockException.INVALID_BAL_HASH,
                     BlockException.INVALID_BLOCK_HASH,
                 ],
+                engine_api_error_code=EngineAPIError.InvalidParams,
             ),
         ],
     )
