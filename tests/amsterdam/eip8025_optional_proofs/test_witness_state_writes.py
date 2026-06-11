@@ -6,6 +6,7 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    Bytes,
     ExecutionWitnessStateExpectation,
     Op,
     Transaction,
@@ -160,8 +161,8 @@ def test_witness_state_sstore_into_empty_storage_omits_post_state_nodes(
     """
     Empty pre-state storage should not require any storage proof nodes.
 
-    The nodes created solely by the insertion are post-state material and
-    must not appear in the witness.
+    The empty-trie RLP sentinel and nodes created solely by the insertion
+    are not pre-state material and must not appear in the witness.
     """
     insert_slot = 1
     insert_value = large_storage_value(insert_slot)
@@ -176,6 +177,7 @@ def test_witness_state_sstore_into_empty_storage_omits_post_state_nodes(
     )
     assert not proof_nodes
     assert post_state_only_nodes
+    empty_trie_sentinel = Bytes(b"\x80")
 
     contract = pre.deploy_contract(
         code=Op.SSTORE(insert_slot, insert_value) + Op.STOP,
@@ -191,7 +193,8 @@ def test_witness_state_sstore_into_empty_storage_omits_post_state_nodes(
                 txs=[tx],
                 expected_execution_witness_state=(
                     ExecutionWitnessStateExpectation(
-                        nodes_absent=post_state_only_nodes,
+                        nodes_absent=post_state_only_nodes
+                        + [empty_trie_sentinel],
                     )
                 ),
             )
