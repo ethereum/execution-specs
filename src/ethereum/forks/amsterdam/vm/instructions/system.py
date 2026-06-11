@@ -99,9 +99,6 @@ def generic_create(
     create_message_gas = max_message_call_gas(Uint(evm.gas_left))
     evm.gas_left -= create_message_gas
 
-    if evm.message.is_static:
-        raise WriteInStaticContext
-
     # Move full reservoir to child (no 63/64 rule for state gas). Parent's
     # `state_gas_left` is zeroed and restored when the child returns.
     create_message_state_gas_reservoir = evm.state_gas_left
@@ -182,6 +179,12 @@ def create(evm: Evm) -> None:
         The current EVM frame.
 
     """
+    # Check static context before regular and state gas charges, so a
+    # spillover-funded state gas charge cannot inflate the parent's
+    # reservoir on the exceptional halt.
+    if evm.message.is_static:
+        raise WriteInStaticContext
+
     # STACK
     endowment = pop(evm.stack)
     memory_start_position = pop(evm.stack)
@@ -231,6 +234,12 @@ def create2(evm: Evm) -> None:
         The current EVM frame.
 
     """
+    # Check static context before regular and state gas charges, so a
+    # spillover-funded state gas charge cannot inflate the parent's
+    # reservoir on the exceptional halt.
+    if evm.message.is_static:
+        raise WriteInStaticContext
+
     # STACK
     endowment = pop(evm.stack)
     memory_start_position = pop(evm.stack)
