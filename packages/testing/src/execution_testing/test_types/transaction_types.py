@@ -646,19 +646,24 @@ class Transaction(
                     if tx_gas_limit > transaction_gas_limit_cap:
                         tx_gas_limit = transaction_gas_limit_cap
         else:
-            if self.state_gas_reservoir > 0:
-                raise Exception(
-                    "test correctness: transaction requests a state gas "
-                    f"reservoir of {self.state_gas_reservoir} but the fork "
-                    "does not enable the state gas reservoir; the request "
-                    "would be silently ignored."
-                )
             if (
                 transaction_gas_limit_cap is not None
                 and tx_gas_limit > transaction_gas_limit_cap
             ):
                 tx_gas_limit = transaction_gas_limit_cap
         return HexNumber(tx_gas_limit)
+
+    def _check_state_gas_reservoir_supported(
+        self, *, state_gas_reservoir_enabled: bool
+    ) -> None:
+        """Raise if a positive reservoir is requested but unsupported."""
+        if not state_gas_reservoir_enabled and self.state_gas_reservoir > 0:
+            raise Exception(
+                "test correctness: transaction requests a state gas "
+                f"reservoir of {self.state_gas_reservoir} but the fork "
+                "does not enable the state gas reservoir; the request "
+                "would be silently ignored."
+            )
 
     def with_gas_limit(
         self,
@@ -670,6 +675,9 @@ class Transaction(
         """Return copy of the transaction with the set gas limit."""
         updated_values: Dict[str, Any] = {}
 
+        self._check_state_gas_reservoir_supported(
+            state_gas_reservoir_enabled=state_gas_reservoir_enabled
+        )
         if "gas_limit" not in self.model_fields_set:
             updated_values["gas_limit"] = self._calculate_implicit_gas_limit(
                 max_gas_limit=max_gas_limit,
@@ -706,6 +714,9 @@ class Transaction(
 
         if self.secret_key is None:
             raise ValueError("secret_key must be set to sign a transaction")
+
+        if "gas_limit" not in self.model_fields_set:
+            raise ValueError("gas_limit must be set to sign a transaction")
 
         # Get the signing bytes
         signing_hash = self.rlp_signing_bytes().keccak256()
@@ -992,6 +1003,9 @@ class Transaction(
         state_gas_reservoir_enabled: bool = False,
     ) -> None:
         """Set the transaction gas limit if unset."""
+        self._check_state_gas_reservoir_supported(
+            state_gas_reservoir_enabled=state_gas_reservoir_enabled
+        )
         if "gas_limit" not in self.model_fields_set:
             self.gas_limit = self._calculate_implicit_gas_limit(
                 max_gas_limit=max_gas_limit,
