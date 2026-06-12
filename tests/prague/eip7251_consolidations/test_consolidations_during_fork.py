@@ -116,9 +116,7 @@ def test_consolidation_requests_during_fork(
 
     tx_gas_price = deploy_tx.gas_price
     assert tx_gas_price is not None
-    tx_gas_limit = deploy_tx.gas_limit
-    assert tx_gas_limit is not None
-    deployer_required_balance = tx_gas_limit * tx_gas_price
+    deployer_required_balance = deploy_tx.gas_limit * tx_gas_price
 
     pre.fund_address(
         Spec.CONSOLIDATION_REQUEST_PREDEPLOY_SENDER, deployer_required_balance

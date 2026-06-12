@@ -155,9 +155,7 @@ def generate_system_contract_deploy_test(
     deploy_tx = Transaction.model_validate(tx_json).with_signature_and_sender()
     gas_price = deploy_tx.gas_price
     assert gas_price is not None
-    gas_limit = deploy_tx.gas_limit
-    assert gas_limit is not None
-    deployer_required_balance = gas_limit * gas_price
+    deployer_required_balance = deploy_tx.gas_limit * gas_price
     deployer_address = deploy_tx.sender
     if "hash" in tx_json:
         assert deploy_tx.hash == Hash(tx_json["hash"])

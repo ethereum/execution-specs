@@ -159,7 +159,6 @@ def pack_transactions_into_blocks(
 
     for tx in transactions:
         tx_gas_limit = tx.gas_limit
-        assert tx_gas_limit is not None
         if current_gas + tx_gas_limit > gas_limit and current_txs:
             blocks.append(Block(txs=current_txs))
             current_txs = []

@@ -391,17 +391,16 @@ def test_sstore_state_gas_all_tx_types(
     """
     Test SSTORE state gas works across all transaction types.
 
-    Different tx types (legacy, access list, EIP-1559, blob, SetCode)
-    have different intrinsic costs, which affects the gas split between
-    gas_left and state_gas_reservoir. Verify SSTORE succeeds with
-    each type.
+    With the gas limit pinned to the cap (zero reservoir), each tx
+    type's SSTORE state gas spills into gas_left despite differing
+    intrinsic costs.
     """
     storage = Storage()
     contract = pre.deploy_contract(
         code=Op.SSTORE(storage.store_next(1), 1),
     )
 
-    tx = typed_transaction.copy(to=contract)
+    tx = typed_transaction.copy(to=contract, state_gas_reservoir=0)
 
     post = {contract: Account(storage=storage)}
     state_test(pre=pre, post=post, tx=tx)

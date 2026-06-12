@@ -286,6 +286,8 @@ class DepositTransaction(DepositInteractionBase):
 class DepositContract(DepositInteractionBase):
     """Class used to describe a deposit originated from a contract."""
 
+    tx_gas_limit: int | None = None
+    """Gas limit for the transaction. `None` uses the implicit gas limit."""
     tx_value: int = 0
     """Value to send with the transaction."""
 
@@ -337,6 +339,7 @@ class DepositContract(DepositInteractionBase):
         """Return a transaction for the deposit request."""
         return [
             Transaction(
+                gas_limit=self.tx_gas_limit,
                 to=self.entry_address,
                 value=self.tx_value,
                 data=b"".join(r.calldata for r in self.requests),

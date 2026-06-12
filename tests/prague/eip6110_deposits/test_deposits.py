@@ -486,16 +486,11 @@ pytestmark = pytest.mark.valid_from("Prague")
                         )
                         for i in range(450)
                     ],
+                    tx_gas_limit=10_000_000,
                 ),
             ],
             id="many_deposits_from_contract_oog",
-            marks=[
-                pytest.mark.slow,
-                pytest.mark.xfail(
-                    reason="Test needs update: amount of successful deposits "
-                    "depends on fork gas schedule"
-                ),
-            ],
+            marks=pytest.mark.slow,
         ),
         pytest.param(
             [

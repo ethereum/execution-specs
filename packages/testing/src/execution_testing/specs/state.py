@@ -419,10 +419,7 @@ class StateTest(BaseTest):
             # First try reducing the gas limit only by one, if the validation
             # fails, it means that the traces change even with the slightest
             # modification to the gas.
-            tx_gas_limit = (
-                int(tx.gas_limit) if tx.gas_limit is not None else None
-            )
-            assert tx_gas_limit is not None
+            tx_gas_limit = int(tx.gas_limit)
 
             if self.verify_modified_gas_limit(
                 t8n=t8n,

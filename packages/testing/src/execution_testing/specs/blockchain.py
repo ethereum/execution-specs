@@ -1403,7 +1403,7 @@ class BlockchainTest(BaseTest):
                     f"max_fee_per_blob_gas={max_fee_per_blob_gas}."
                 )
             execute_plan.prepare_transactions(
-                env=self.genesis_environment,
+                env=Environment(gas_limit=HexNumber(start_block["gasLimit"])),
                 gas_price=gas_price,
                 max_fee_per_gas=max_fee_per_gas,
                 max_priority_fee_per_gas=max_priority_fee_per_gas,

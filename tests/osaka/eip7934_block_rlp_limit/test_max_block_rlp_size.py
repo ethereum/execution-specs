@@ -560,9 +560,7 @@ def _exact_size_transactions_impl(
 
         transactions.append(last_tx)
         nonce += 1
-        last_tx_gas_limit = last_tx.gas_limit
-        assert last_tx_gas_limit is not None
-        total_gas_used += last_tx_gas_limit
+        total_gas_used += last_tx.gas_limit
 
     current_size = get_block_rlp_size(
         fork,

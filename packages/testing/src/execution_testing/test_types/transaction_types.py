@@ -310,6 +310,16 @@ class Transaction(
                 data.pop("hash", None)
         return data
 
+    @model_validator(mode="before")
+    @classmethod
+    def treat_none_gas_limit_as_unset(cls, data: Any) -> Any:
+        """Treat a `None` gas limit (any alias) as unset."""
+        if isinstance(data, dict):
+            for alias in ("gas_limit", "gasLimit", "gas"):
+                if alias in data and data[alias] is None:
+                    del data[alias]
+        return data
+
     gas_limit: HexNumber = Field(
         HexNumber(21_000),
         serialization_alias="gas",
