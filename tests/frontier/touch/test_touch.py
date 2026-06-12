@@ -61,12 +61,6 @@ def test_zero_gas_price_nonexistent_sender(
     materialized when its nonce is incremented. Clients must create the sender
     account in this case rather than failing on a missing account.
 
-    Triggers a Nethermind state-test-runner crash: the runner identifies the
-    sender by secret key but signs the tx with a placeholder signature. When
-    the sender is absent from the pre-state, RecoverSenderIfNeeded re-recovers
-    a bogus sender from that placeholder, never creates it, and the nonce
-    increment then dereferences a null account. Not reachable in production,
-    where the real signature recovers the correct (and created) sender.
     """
     # amount=0 means the sender is NOT added to the pre-alloc.
     sender = pre.fund_eoa(amount=0)
