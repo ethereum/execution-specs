@@ -47,7 +47,6 @@ def test_zero_gas_price_and_touching(
 
 @pytest.mark.valid_from("Frontier")
 @pytest.mark.valid_before("EIP1559")
-@pytest.mark.eels_base_coverage
 def test_zero_gas_price_nonexistent_sender(
     state_test: StateTestFiller,
     pre: Alloc,
