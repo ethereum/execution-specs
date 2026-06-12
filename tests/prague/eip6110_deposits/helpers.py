@@ -255,16 +255,26 @@ class DepositTransaction(DepositInteractionBase):
         assert self.sender_account is not None, (
             "Sender account not initialized"
         )
-        return [
-            Transaction(
-                gas_limit=request.gas_limit,
-                to=request.interaction_contract_address,
-                value=request.value,
-                data=request.calldata,
-                sender=self.sender_account,
-            )
-            for request in self.requests
-        ]
+        txs: List[Transaction] = []
+        for request in self.requests:
+            gas_limit = request.gas_limit
+            if gas_limit is not None:
+                tx = Transaction(
+                    gas_limit=request.gas_limit,
+                    to=request.interaction_contract_address,
+                    value=request.value,
+                    data=request.calldata,
+                    sender=self.sender_account,
+                )
+            else:
+                tx = Transaction(
+                    to=request.interaction_contract_address,
+                    value=request.value,
+                    data=request.calldata,
+                    sender=self.sender_account,
+                )
+            txs.append(tx)
+        return txs
 
     def update_pre(self, pre: Alloc) -> Self:
         """Return a copy of self with `sender_account` populated."""
