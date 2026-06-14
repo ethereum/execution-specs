@@ -115,3 +115,56 @@ def test_jumpdests(
         target_opcode=Op.JUMPDEST,
         code_generator=JumpLoopGenerator(attack_block=Op.JUMPDEST),
     )
+
+
+def test_jump_to_invalid_destination(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Benchmark JUMP instruction targeting an invalid destination.
+
+    A JUMP to a position that is not a JUMPDEST must raise
+    InvalidJumpDestError and halt execution. This test verifies
+    the error path is exercised correctly under the execution spec.
+    """
+    tx = Transaction(
+        to=pre.deploy_contract(
+            code=(
+                Op.PUSH1(0x03)  # push invalid destination (not a JUMPDEST)
+                + Op.JUMP  # attempt jump — must raise InvalidJumpDestError
+            )
+        ),
+        sender=pre.fund_eoa(),
+    )
+    benchmark_test(
+        target_opcode=Op.JUMP,
+        tx=tx,
+    )
+
+
+def test_jumpi_to_invalid_destination(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Benchmark JUMPI instruction targeting an invalid destination.
+
+    A JUMPI with a non-zero condition and a destination that is not a
+    JUMPDEST must raise InvalidJumpDestError. This test verifies the
+    conditional branch error path under the execution spec.
+    """
+    tx = Transaction(
+        to=pre.deploy_contract(
+            code=(
+                Op.PUSH1(0x01)  # condition = true (non-zero)
+                + Op.PUSH1(0x05)  # invalid destination (not a JUMPDEST)
+                + Op.JUMPI  # attempt conditional jump — must raise
+            )
+        ),
+        sender=pre.fund_eoa(),
+    )
+    benchmark_test(
+        target_opcode=Op.JUMPI,
+        tx=tx,
+    )
