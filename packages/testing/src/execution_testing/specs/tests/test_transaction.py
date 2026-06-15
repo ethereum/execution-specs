@@ -20,7 +20,7 @@ FIXTURES_FOLDER = CURRENT_FOLDER / "fixtures"
 @pytest.mark.parametrize(
     "name, tx, fork",
     [
-        pytest.param("simple_type_0", Transaction(), Shanghai),
+        pytest.param("simple_type_0", Transaction(gas_limit=0x5208), Shanghai),
     ],
 )
 def test_transaction_test_filling(

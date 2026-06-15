@@ -1,13 +1,7 @@
 """Tests ecrecover precompiled contract."""
 
 import pytest
-from execution_testing import (
-    Account,
-    Alloc,
-    Environment,
-    StateTestFiller,
-    Transaction,
-)
+from execution_testing import Account, Alloc, StateTestFiller, Transaction
 from execution_testing.forks.helpers import Fork
 from execution_testing.vm import Opcodes as Op
 
@@ -408,8 +402,6 @@ def test_precompiles(
     """
     Tests the behavior of `ecrecover` precompiled contract.
     """
-    env = Environment()
-
     # Memory
     hash_offset = 0
     v_offset = 32
@@ -438,10 +430,9 @@ def test_precompiles(
     tx = Transaction(
         to=account,
         sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
         protected=fork.supports_protected_txs(),
     )
 
     post = {account: Account(storage={0: output})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

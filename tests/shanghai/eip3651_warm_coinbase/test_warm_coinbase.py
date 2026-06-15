@@ -91,15 +91,8 @@ def test_warm_coinbase_call_out_of_gas(
     )
     caller_address = pre.deploy_contract(caller_code)
 
-    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
     tx = Transaction(
         to=caller_address,
-        gas_limit=(
-            intrinsic_calc()
-            + caller_code.gas_cost(fork)
-            + call_gas_exact
-            + Op.SSTORE(new_value=1).state_cost(fork)
-        ),
         sender=sender,
     )
 
@@ -191,14 +184,8 @@ def test_warm_coinbase_gas_usage(
     # Coinbase is warm after EIP-3651 (Shanghai+), cold before
     expected_gas = Op.BALANCE(address_warm=(fork >= Shanghai)).gas_cost(fork)
 
-    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
     tx = Transaction(
         to=measure_address,
-        gas_limit=(
-            intrinsic_calc()
-            + code_gas_measure.gas_cost(fork)
-            + Op.SSTORE(new_value=1).state_cost(fork)
-        ),
         sender=sender,
     )
 
@@ -210,4 +197,9 @@ def test_warm_coinbase_gas_usage(
         )
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(
+        env=env,
+        pre=pre,
+        post=post,
+        tx=tx,
+    )

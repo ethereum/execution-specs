@@ -9,7 +9,6 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
-    Fork,
     Hash,
     Op,
     Transaction,
@@ -25,7 +24,6 @@ REFERENCE_SPEC_VERSION = ref_spec_1014.version
 def test_deterministic_deployment(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """
     Test deterministic deployments for contracts using
@@ -39,27 +37,15 @@ def test_deterministic_deployment(
 
     sender = pre.fund_eoa()
 
-    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
-    # Sized for the set-tx (Hash(1) calldata, with a nonzero byte) since
-    # its intrinsic is the larger of the two; `deploy_code.gas_cost(fork)`
-    # defaults SSTORE to cold zero->non-zero which slightly over-estimates
-    # the reset-tx (already-zero) — harmless.
-    tx_gas = (
-        intrinsic_calc(calldata=Hash(1))
-        + deploy_code.gas_cost(fork)
-        + Op.SSTORE(new_value=1).state_cost(fork)
-    )
     reset_tx = Transaction(
         sender=sender,
         to=contract_address,
         data=Hash(0),
-        gas_limit=tx_gas,
     )
     set_tx = Transaction(
         sender=sender,
         to=contract_address,
         data=Hash(1),
-        gas_limit=tx_gas,
     )
 
     post = {

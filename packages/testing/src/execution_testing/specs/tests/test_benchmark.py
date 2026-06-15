@@ -55,40 +55,39 @@ def test_split_transaction(
         f"{gas_benchmark_value_millions}M gas, got {len(split_txs)}"
     )
 
+    total_gas = 0
+    for i, tx in enumerate(split_txs):
+        tx_gas_limit = tx.gas_limit
+        assert tx_gas_limit is not None, f"Unexpected `None` gas_limit: {tx}"
+        total_gas += tx_gas_limit
+        # Verify no tx exceeds the cap
+        assert tx_gas_limit <= gas_limit_cap, (
+            f"Transaction {i} gas limit {tx_gas_limit} "
+            f"exceeds cap {gas_limit_cap}"
+        )
+        # Verify gas distribution
+        if i < len(split_txs) - 1:  # All but last should be at cap
+            assert tx_gas_limit == gas_limit_cap, (
+                f"Transaction {i} should have gas limit {gas_limit_cap}, "
+                f"got {tx_gas_limit}"
+            )
+        else:
+            # Last transaction should have the remainder
+            if expected_splits > 1:
+                expected_last_gas = gas_benchmark_value - (
+                    gas_limit_cap * (expected_splits - 1)
+                )
+                assert tx_gas_limit == expected_last_gas, (
+                    f"Last transaction should have {expected_last_gas} gas, "
+                    f"got {tx_gas_limit}"
+                )
+        # Verify nonces increment correctly
+        assert tx.nonce == i, f"Transaction {i} has incorrect nonce {tx.nonce}"
     # Verify total gas equals the benchmark value
-    total_gas = sum(tx.gas_limit for tx in split_txs)
     assert total_gas == gas_benchmark_value, (
         f"Total gas {total_gas} doesn't match benchmark "
         f"value {gas_benchmark_value}"
     )
-
-    # Verify no transaction exceeds the cap
-    for i, tx in enumerate(split_txs):
-        assert tx.gas_limit <= gas_limit_cap, (
-            f"Transaction {i} gas limit {tx.gas_limit} "
-            f"exceeds cap {gas_limit_cap}"
-        )
-
-    # Verify nonces increment correctly
-    for i, tx in enumerate(split_txs):
-        assert tx.nonce == i, f"Transaction {i} has incorrect nonce {tx.nonce}"
-
-    # Verify gas distribution
-    for i, tx in enumerate(split_txs[:-1]):  # All but last should be at cap
-        assert tx.gas_limit == gas_limit_cap, (
-            f"Transaction {i} should have gas limit {gas_limit_cap}, "
-            f"got {tx.gas_limit}"
-        )
-
-    # Last transaction should have the remainder
-    if expected_splits > 1:
-        expected_last_gas = gas_benchmark_value - (
-            gas_limit_cap * (expected_splits - 1)
-        )
-        assert split_txs[-1].gas_limit == expected_last_gas, (
-            f"Last transaction should have {expected_last_gas} gas, "
-            f"got {split_txs[-1].gas_limit}"
-        )
 
 
 @pytest.mark.parametrize(
@@ -132,6 +131,10 @@ def test_split_transaction_edge_cases(
         # When cap > benchmark, gas_limit should be
         # min of tx.gas_limit and benchmark
         assert benchmark_test.tx is not None, "Transaction should not be None"
+        benchmark_test_tx_gas_limit = benchmark_test.tx.gas_limit
+        assert benchmark_test_tx_gas_limit is not None, (
+            "Transaction gas limit should not be None"
+        )
         assert split_txs[0].gas_limit == min(
-            benchmark_test.tx.gas_limit, gas_benchmark_value
+            benchmark_test_tx_gas_limit, gas_benchmark_value
         )

@@ -62,11 +62,7 @@ def test_system_contract_deployment(
     )
     deployed_contract = pre.deploy_contract(code)
 
-    tx = Transaction(
-        to=deployed_contract,
-        gas_limit=10_000_000,
-        sender=pre.fund_eoa(),
-    )
+    tx = Transaction(to=deployed_contract, sender=pre.fund_eoa())
 
     yield Block(txs=[tx])
 

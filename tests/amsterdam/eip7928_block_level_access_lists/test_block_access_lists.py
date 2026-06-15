@@ -98,14 +98,15 @@ def test_bal_balance_changes(
         contract_creation=False,
         access_list=[],
     )
-    tx_gas_limit = intrinsic_gas_cost + 1000  # add a small buffer
+    # Hard-coded gas price allows to calculate the tx final price
+    gas_price = 1_000_000_000
+    tx_value = 100
 
     tx = Transaction(
         sender=alice,
         to=bob,
-        value=100,
-        gas_limit=tx_gas_limit,
-        gas_price=1_000_000_000,
+        value=tx_value,
+        gas_price=gas_price,
     )
 
     alice_account = pre[alice]
@@ -114,7 +115,7 @@ def test_bal_balance_changes(
 
     # Account for both the value sent and gas cost (gas_price * gas_used)
     alice_final_balance = (
-        alice_initial_balance - 100 - (intrinsic_gas_cost * 1_000_000_000)
+        alice_initial_balance - tx_value - (intrinsic_gas_cost * gas_price)
     )
 
     block = Block(
@@ -195,7 +196,6 @@ def test_bal_code_changes(
     tx = Transaction(
         sender=alice,
         to=factory_contract,
-        gas_limit=500000,
     )
 
     created_contract = compute_create_address(
@@ -289,9 +289,7 @@ def test_bal_account_access_target(
         code=account_access_opcode(target_contract),
     )
 
-    tx = Transaction(
-        sender=alice, to=oracle_contract, gas_limit=5_000_000, gas_price=0xA
-    )
+    tx = Transaction(sender=alice, to=oracle_contract)
 
     block = Block(
         txs=[tx],
@@ -314,7 +312,6 @@ def test_bal_account_access_target(
 def test_bal_callcode_nested_value_transfer(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    fork: Fork,
 ) -> None:
     """
     Ensure BAL captures balance changes from nested value transfers
@@ -327,16 +324,11 @@ def test_bal_callcode_nested_value_transfer(
     target_code = Op.CALL(0, bob, 100, 0, 0, 0, 0)
     target_contract = pre.deploy_contract(code=target_code)
 
-    callcode_gas = 50_000
-    if fork.is_eip_enabled(8037):
-        callcode_gas = 500_000
     # Oracle contract that uses CALLCODE to execute TargetContract's code
-    oracle_code = Op.CALLCODE(callcode_gas, target_contract, 100, 0, 0, 0, 0)
+    oracle_code = Op.CALLCODE(address=target_contract, value=100)
     oracle_contract = pre.deploy_contract(code=oracle_code, balance=200)
 
-    tx = Transaction(
-        sender=alice, to=oracle_contract, gas_limit=1_000_000, gas_price=0xA
-    )
+    tx = Transaction(sender=alice, to=oracle_contract)
 
     block = Block(
         txs=[tx],
@@ -372,25 +364,14 @@ def test_bal_callcode_nested_value_transfer(
 @pytest.mark.parametrize(
     "delegated_opcode",
     [
-        pytest.param(
-            lambda target_addr, inner_gas: Op.DELEGATECALL(
-                inner_gas, target_addr, 0, 0, 0, 0
-            ),
-            id="delegatecall",
-        ),
-        pytest.param(
-            lambda target_addr, inner_gas: Op.CALLCODE(
-                inner_gas, target_addr, 0, 0, 0, 0, 0
-            ),
-            id="callcode",
-        ),
+        pytest.param(Op.DELEGATECALL, id="delegatecall"),
+        pytest.param(Op.CALLCODE, id="callcode"),
     ],
 )
 def test_bal_delegated_storage_writes(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    delegated_opcode: Callable[[Address, int], Op],
-    fork: Fork,
+    delegated_opcode: Op,
 ) -> None:
     """
     Ensure BAL captures delegated storage writes via
@@ -398,33 +379,16 @@ def test_bal_delegated_storage_writes(
     """
     alice = pre.fund_eoa()
 
-    # TargetContract that writes 0x42 to slot 0x01.
-    # Metadata pins the 0->0x42 transition so the gas calculator
-    # accounts for SSTORE state gas under EIP-8037.
-    target_code = Op.SSTORE.with_metadata(
-        key_warm=False,
-        original_value=0,
-        current_value=0,
-        new_value=0x42,
-    )(0x01, 0x42)
+    # TargetContract that writes 0x42 to slot 0x01
+    target_code = Op.SSTORE(0x01, 0x42)
     target_contract = pre.deploy_contract(code=target_code)
-
-    # Forward enough inner gas to cover both the regular and (under
-    # EIP-8037) the spilled state-gas portion of the SSTORE — the
-    # oracle frame inherits `state_gas_reservoir=0` since the outer
-    # tx_gas stays below TX_MAX_GAS_LIMIT.
-    inner_gas = target_code.gas_cost(fork) + 100  # small buffer
 
     # Oracle contract that uses delegated opcode to execute
     # TargetContract's code
-    oracle_code = delegated_opcode(target_contract, inner_gas)
+    oracle_code = delegated_opcode(address=target_contract)
     oracle_contract = pre.deploy_contract(code=oracle_code)
 
-    tx = Transaction(
-        sender=alice,
-        to=oracle_contract,
-        gas_limit=1_000_000,
-    )
+    tx = Transaction(sender=alice, to=oracle_contract)
 
     block = Block(
         txs=[tx],
@@ -495,7 +459,6 @@ def test_bal_delegated_storage_reads(
     tx = Transaction(
         sender=alice,
         to=oracle_contract,
-        gas_limit=1_000_000,
     )
 
     block = Block(
@@ -524,8 +487,6 @@ def test_bal_block_rewards(
     fork: Fork,
 ) -> None:
     """Ensure BAL captures fee recipient balance changes from block rewards."""
-    alice_initial_balance = 1_000_000
-    alice = pre.fund_eoa(amount=alice_initial_balance)
     bob = pre.fund_eoa(amount=0)
     charlie = pre.fund_eoa(amount=0)  # fee recipient
 
@@ -537,11 +498,18 @@ def test_bal_block_rewards(
     )
     tx_gas_limit = intrinsic_gas + 1000  # add a small buffer
     gas_price = 0xA
+    tx_value = 100
+    extra_balance = 1000
+
+    alice_initial_balance = (
+        (tx_gas_limit * gas_price) + tx_value + extra_balance
+    )
+    alice = pre.fund_eoa(amount=alice_initial_balance)
 
     tx = Transaction(
         sender=alice,
         to=bob,
-        value=100,
+        value=tx_value,
         gas_limit=tx_gas_limit,
         gas_price=gas_price,
     )
@@ -559,7 +527,7 @@ def test_bal_block_rewards(
     )
     tip_to_charlie = (gas_price - base_fee_per_gas) * intrinsic_gas
 
-    alice_final_balance = alice_initial_balance - 100 - total_gas_cost
+    alice_final_balance = alice_initial_balance - tx_value - total_gas_cost
 
     block = Block(
         txs=[tx],
@@ -610,7 +578,6 @@ def test_bal_block_rewards(
 def test_bal_selfdestruct_to_coinbase(
     pre: Alloc,
     state_test: StateTestFiller,
-    fork: Fork,
     same_tx: bool,
 ) -> None:
     """
@@ -632,7 +599,6 @@ def test_bal_selfdestruct_to_coinbase(
         base_fee_per_gas=base_fee_per_gas, fee_recipient=coinbase
     )
 
-    tx_gas_limit = fork.transaction_gas_limit_cap()
     account_expectations: dict[Address, BalAccountExpectation]
 
     if same_tx:
@@ -698,7 +664,6 @@ def test_bal_selfdestruct_to_coinbase(
     tx = Transaction(
         sender=alice,
         to=tx_target,
-        gas_limit=tx_gas_limit,
         gas_price=base_fee_per_gas,
     )
 
@@ -730,13 +695,10 @@ def test_bal_2930_account_listed_but_untouched(
         storage_keys=[Hash(0x1)],
     )
 
-    gas_limit = 1_000_000
-
     tx = Transaction(
         ty=1,
         sender=alice,
         to=bob,
-        gas_limit=gas_limit,
         access_list=[access_list],
     )
 
@@ -767,7 +729,6 @@ def test_bal_2930_account_listed_but_untouched(
 def test_bal_2930_slot_listed_but_untouched(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    fork: Fork,
 ) -> None:
     """Ensure BAL excludes untouched access list storage slots."""
     alice = pre.fund_eoa()
@@ -781,21 +742,10 @@ def test_bal_2930_slot_listed_but_untouched(
         storage_keys=[Hash(0x1)],
     )
 
-    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-    gas_limit = (
-        intrinsic_gas_calculator(
-            calldata=b"",
-            contract_creation=False,
-            access_list=[access_list],
-        )
-        + 1000
-    )  # intrinsic + buffer
-
     tx = Transaction(
         ty=1,
         sender=alice,
         to=pure_calculator,
-        gas_limit=gas_limit,
         access_list=[access_list],
     )
 
@@ -826,7 +776,6 @@ def test_bal_2930_slot_listed_but_untouched(
 def test_bal_2930_slot_listed_and_unlisted_writes(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    fork: Fork,
 ) -> None:
     """
     Ensure BAL includes storage writes regardless of access list presence.
@@ -843,24 +792,10 @@ def test_bal_2930_slot_listed_and_unlisted_writes(
         storage_keys=[Hash(0x01)],
     )
 
-    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-    gas_buffer = 50_000
-    if fork.is_eip_enabled(8037):
-        gas_buffer = 500_000
-    gas_limit = (
-        intrinsic_gas_calculator(
-            calldata=b"",
-            contract_creation=False,
-            access_list=[access_list],
-        )
-        + gas_buffer
-    )  # intrinsic + buffer for storage writes
-
     tx = Transaction(
         ty=1,
         sender=alice,
         to=storage_writer,
-        gas_limit=gas_limit,
         access_list=[access_list],
     )
 
@@ -910,7 +845,6 @@ def test_bal_2930_slot_listed_and_unlisted_writes(
 def test_bal_2930_slot_listed_and_unlisted_reads(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    fork: Fork,
 ) -> None:
     """Ensure BAL includes storage reads regardless of access list presence."""
     alice = pre.fund_eoa()
@@ -926,21 +860,10 @@ def test_bal_2930_slot_listed_and_unlisted_reads(
         storage_keys=[Hash(0x01)],
     )
 
-    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-    gas_limit = (
-        intrinsic_gas_calculator(
-            calldata=b"",
-            contract_creation=False,
-            access_list=[access_list],
-        )
-        + 50000
-    )  # intrinsic + buffer for storage reads
-
     tx = Transaction(
         ty=1,
         sender=alice,
         to=storage_reader,
-        gas_limit=gas_limit,
         access_list=[access_list],
     )
 
@@ -1107,11 +1030,7 @@ def test_bal_net_zero_balance_transfer(
     )
 
     tx = Transaction(
-        sender=alice,
-        to=net_zero_bal_contract,
-        value=transfer_amount,
-        gas_limit=1_000_000,
-        gas_price=0xA,
+        sender=alice, to=net_zero_bal_contract, value=transfer_amount
     )
 
     expected_balance_in_slot = initial_balance + transfer_amount
@@ -1180,18 +1099,12 @@ def test_bal_net_zero_balance_transfer(
 def test_bal_pure_contract_call(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    fork: Fork,
 ) -> None:
     """Test that BAL captures contract access for pure computation calls."""
     alice = pre.fund_eoa()
     pure_contract = pre.deploy_contract(code=Op.ADD(0x3, 0x2))
 
-    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-    gas_limit = intrinsic_gas_calculator() + 5_000  # Buffer
-
-    tx = Transaction(
-        sender=alice, to=pure_contract, gas_limit=gas_limit, gas_price=0xA
-    )
+    tx = Transaction(sender=alice, to=pure_contract)
 
     block = Block(
         txs=[tx],
@@ -1214,7 +1127,6 @@ def test_bal_pure_contract_call(
 def test_bal_noop_storage_write(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    fork: Fork,
 ) -> None:
     """Test that BAL correctly handles no-op storage write."""
     alice = pre.fund_eoa()
@@ -1223,12 +1135,7 @@ def test_bal_noop_storage_write(
     )
     storage_contract = pre.deploy_contract(code=code, storage={0x01: 0x42})
 
-    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-    gas_limit = intrinsic_gas_calculator() + code.gas_cost(fork)
-
-    tx = Transaction(
-        sender=alice, to=storage_contract, gas_limit=gas_limit, gas_price=0xA
-    )
+    tx = Transaction(sender=alice, to=storage_contract)
 
     block = Block(
         txs=[tx],
@@ -1267,9 +1174,7 @@ def test_bal_aborted_storage_access(
         storage={0x01: 0x10},  # Pre-existing value in slot 0x01
     )
 
-    tx = Transaction(
-        sender=alice, to=storage_contract, gas_limit=5_000_000, gas_price=0xA
-    )
+    tx = Transaction(sender=alice, to=storage_contract)
 
     block = Block(
         txs=[tx],
@@ -1351,9 +1256,7 @@ def test_bal_aborted_account_access(
         code=account_access_opcode(target_contract) + abort_opcode,
     )
 
-    tx = Transaction(
-        sender=alice, to=abort_contract, gas_limit=5_000_000, gas_price=0xA
-    )
+    tx = Transaction(sender=alice, to=abort_contract)
 
     block = Block(
         txs=[tx],
@@ -1391,7 +1294,6 @@ def test_bal_aborted_account_access(
 def test_bal_parent_revert_state_access(
     pre: Alloc,
     state_test: StateTestFiller,
-    fork: Fork,
     inner_action: str,
     outer_abort: Op,
 ) -> None:
@@ -1425,9 +1327,7 @@ def test_bal_parent_revert_state_access(
         code=Op.CALL(gas=Op.GAS, address=inner) + outer_abort
     )
 
-    tx = Transaction(
-        sender=alice, to=outer, gas_limit=fork.transaction_gas_limit_cap()
-    )
+    tx = Transaction(sender=alice, to=outer)
 
     account_expectations: dict[Address, BalAccountExpectation]
     if inner_action in ("sstore", "sload"):
@@ -1465,7 +1365,6 @@ def test_bal_parent_revert_state_access(
 def test_bal_outer_revert_with_inner_insufficient_funds(
     pre: Alloc,
     state_test: StateTestFiller,
-    fork: Fork,
     inner_op: str,
 ) -> None:
     """
@@ -1531,9 +1430,7 @@ def test_bal_outer_revert_with_inner_insufficient_funds(
         code=Op.CALL(gas=Op.GAS, address=inner) + Op.REVERT(0, 0)
     )
 
-    tx = Transaction(
-        sender=alice, to=outer, gas_limit=fork.transaction_gas_limit_cap()
-    )
+    tx = Transaction(sender=alice, to=outer)
 
     state_test(
         pre=pre,
@@ -1577,9 +1474,7 @@ def test_bal_fully_unmutated_account(
         storage={0x01: 0x42},  # Pre-existing value
     )
 
-    tx = Transaction(
-        sender=alice, to=oracle, gas_limit=1_000_000, value=0, gas_price=0xA
-    )
+    tx = Transaction(sender=alice, to=oracle, value=0, gas_price=0xA)
 
     block = Block(
         txs=[tx],
@@ -1635,8 +1530,6 @@ def test_bal_coinbase_zero_tip(
     fork: Fork,
 ) -> None:
     """Ensure BAL includes coinbase even when priority fee is zero."""
-    alice_initial_balance = 1_000_000
-    alice = pre.fund_eoa(amount=alice_initial_balance)
     bob = pre.fund_eoa(amount=0)
     coinbase = pre.fund_eoa(amount=0)  # fee recipient
 
@@ -1657,16 +1550,19 @@ def test_bal_coinbase_zero_tip(
     )
 
     # Set gas_price equal to base_fee so tip = 0
+    tx_value = 5
+    alice_initial_balance = (tx_gas_limit * base_fee_per_gas) + tx_value
+    alice = pre.fund_eoa(amount=alice_initial_balance)
     tx = Transaction(
         sender=alice,
         to=bob,
-        value=5,
+        value=tx_value,
         gas_limit=tx_gas_limit,
         gas_price=base_fee_per_gas,
     )
 
     alice_final_balance = (
-        alice_initial_balance - 5 - (intrinsic_gas * base_fee_per_gas)
+        alice_initial_balance - tx_value - (intrinsic_gas * base_fee_per_gas)
     )
 
     block = Block(
@@ -1789,7 +1685,6 @@ def test_bal_precompile_funded(
         sender=alice,
         to=precompile,
         value=value,
-        gas_limit=5_000_000,
         data=tx_data,
     )
 
@@ -1846,15 +1741,10 @@ def test_bal_precompile_call_opcode(
     alice = pre.fund_eoa()
 
     oracle = pre.deploy_contract(
-        code=call_opcode(gas=100_000, address=precompile) + Op.STOP
+        code=call_opcode(address=precompile) + Op.STOP
     )
 
-    tx = Transaction(
-        sender=alice,
-        to=oracle,
-        gas_limit=200_000,
-        gas_price=0xA,
-    )
+    tx = Transaction(sender=alice, to=oracle)
 
     block = Block(
         txs=[tx],
@@ -1884,7 +1774,7 @@ def test_bal_precompile_call_opcode(
     "value",
     [
         pytest.param(0, id="zero_value"),
-        pytest.param(10**18, id="positive_value"),
+        pytest.param(1, id="positive_value"),
     ],
 )
 def test_bal_nonexistent_value_transfer(
@@ -1898,14 +1788,9 @@ def test_bal_nonexistent_value_transfer(
     Alice sends value directly to non-existent Bob.
     """
     alice = pre.fund_eoa()
-    bob = Address(0xB0B)
+    bob = pre.nonexistent_account()
 
-    tx = Transaction(
-        sender=alice,
-        to=bob,
-        value=value,
-        gas_limit=100_000,
-    )
+    tx = Transaction(sender=alice, to=bob, value=value)
 
     block = Block(
         txs=[tx],
@@ -1981,17 +1866,13 @@ def test_bal_nonexistent_account_access_read_only(
     STATICCALL, DELEGATECALL).
     """
     alice = pre.fund_eoa()
-    bob = Address(0xB0B)
+    bob = pre.nonexistent_account()
     oracle_balance = 2 * 10**18
 
     oracle_code = account_access_opcode(bob)
     oracle = pre.deploy_contract(code=oracle_code, balance=oracle_balance)
 
-    tx = Transaction(
-        sender=alice,
-        to=oracle,
-        gas_limit=1_000_000,
-    )
+    tx = Transaction(sender=alice, to=oracle)
 
     block = Block(
         txs=[tx],
@@ -2020,18 +1901,23 @@ def test_bal_nonexistent_account_access_read_only(
 
 
 @pytest.mark.parametrize(
-    "opcode_type,value",
+    "opcode",
     [
-        pytest.param("call", 0, id="call_zero_value"),
-        pytest.param("call", 10**18, id="call_positive_value"),
-        pytest.param("callcode", 0, id="callcode_zero_value"),
-        pytest.param("callcode", 10**18, id="callcode_positive_value"),
+        pytest.param(Op.CALL),
+        pytest.param(Op.CALLCODE),
+    ],
+)
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param(0, id="zero_value"),
+        pytest.param(10**18, id="positive_value"),
     ],
 )
 def test_bal_nonexistent_account_access_value_transfer(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    opcode_type: str,
+    opcode: Op,
     value: int,
 ) -> None:
     """
@@ -2044,30 +1930,23 @@ def test_bal_nonexistent_account_access_value_transfer(
     - CALLCODE: Self-transfer (net zero), Bob accessed for code
     """
     alice = pre.fund_eoa()
-    bob = Address(0xB0B)
-    oracle_balance = 2 * 10**18
+    bob = pre.nonexistent_account()
+    oracle_balance = value + 10**18
 
-    if opcode_type == "call":
-        oracle_code = Op.CALL(100_000, bob, value, 0, 0, 0, 0)
-    else:  # callcode
-        oracle_code = Op.CALLCODE(100_000, bob, value, 0, 0, 0, 0)
+    oracle_code = opcode(gas=0, address=bob, value=value)
 
     oracle = pre.deploy_contract(code=oracle_code, balance=oracle_balance)
 
-    tx = Transaction(
-        sender=alice,
-        to=oracle,
-        gas_limit=1_000_000,
-    )
+    tx = Transaction(sender=alice, to=oracle)
 
     # Calculate expected balances
-    if opcode_type == "call" and value > 0:
+    if opcode == Op.CALL and value > 0:
         # CALL: Oracle loses value, Bob gains value
         oracle_final_balance = oracle_balance - value
         bob_final_balance = value
         bob_has_balance_change = True
         oracle_has_balance_change = True
-    elif opcode_type == "callcode" and value > 0:
+    elif opcode == Op.CALLCODE and value > 0:
         # CALLCODE: Self-transfer (net zero), Bob just accessed for code
         oracle_final_balance = oracle_balance
         bob_final_balance = 0
@@ -2396,7 +2275,6 @@ def test_bal_nested_delegatecall_storage_writes_net_zero(
 def test_bal_create_transaction_empty_code(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    fork: Fork,
 ) -> None:
     """
     Ensure BAL does not record spurious code changes when a CREATE transaction
@@ -2405,15 +2283,10 @@ def test_bal_create_transaction_empty_code(
     alice = pre.fund_eoa()
     contract_address = compute_create_address(address=alice, nonce=0)
 
-    gas_limit = 100_000
-    if fork.is_eip_enabled(8037):
-        gas_limit = 500_000
-
     tx = Transaction(
         sender=alice,
         to=None,
         data=b"",
-        gas_limit=gas_limit,
     )
 
     account_expectations = {
@@ -2454,7 +2327,6 @@ def test_bal_cross_tx_storage_write(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
     tx2_value: int,
-    fork: Fork,
 ) -> None:
     """
     Tx1's storage_change must be preserved regardless of tx2's write.
@@ -2469,40 +2341,16 @@ def test_bal_cross_tx_storage_write(
 
     contract = pre.deploy_contract(code=Op.SSTORE(0, Op.CALLDATALOAD(0)))
 
-    # Size each tx_gas_limit precisely against its SSTORE transition
-    # under EIP-8037's 2D gas model (regular + state).
-    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
-    tx1_data = Hash(tx1_value)
-    tx2_data = Hash(tx2_value)
-    tx1_code = Op.SSTORE.with_metadata(
-        key_warm=False,
-        original_value=0,
-        current_value=0,
-        new_value=tx1_value,
-    )(0, Op.CALLDATALOAD(0))
-    tx2_code = Op.SSTORE.with_metadata(
-        key_warm=False,
-        original_value=tx1_value,
-        current_value=tx1_value,
-        new_value=tx2_value,
-    )(0, Op.CALLDATALOAD(0))
-
     tx1 = Transaction(
         sender=alice,
         to=contract,
-        data=tx1_data,
-        gas_limit=(
-            intrinsic_calc(calldata=tx1_data) + tx1_code.gas_cost(fork)
-        ),
+        data=Hash(tx1_value),
     )
 
     tx2 = Transaction(
         sender=alice,
         to=contract,
-        data=tx2_data,
-        gas_limit=(
-            intrinsic_calc(calldata=tx2_data) + tx2_code.gas_cost(fork)
-        ),
+        data=Hash(tx2_value),
     )
 
     slot_changes = [
@@ -2548,7 +2396,6 @@ def test_bal_cross_tx_storage_write(
 def test_bal_cross_tx_storage_chain(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    fork: Fork,
 ) -> None:
     """
     Verify clients apply BAL state changes from prior transactions before
@@ -2590,7 +2437,6 @@ def test_bal_cross_tx_storage_chain(
                 sender=sender,
                 to=contract,
                 data=Hash(i),
-                gas_limit=fork.transaction_gas_limit_cap(),
             )
         )
 
@@ -2643,7 +2489,6 @@ def test_bal_cross_tx_deploy_then_call(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
     create_opcode: Op,
-    fork: Fork,
 ) -> None:
     """
     Verify clients apply Tx1's CREATE to their state view before
@@ -2687,12 +2532,10 @@ def test_bal_cross_tx_deploy_then_call(
         sender=alice,
         to=factory,
         data=initcode_bytes,
-        gas_limit=fork.transaction_gas_limit_cap(),
     )
     tx_call = Transaction(
         sender=bob,
         to=target,
-        gas_limit=fork.transaction_gas_limit_cap(),
     )
 
     account_expectations = {
@@ -2903,7 +2746,6 @@ def test_bal_cross_tx_balance_dependency(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
     funding_method: str,
-    fork: Fork,
 ) -> None:
     """
     Verify clients apply Tx1's balance change before executing Tx2 in
@@ -2931,23 +2773,14 @@ def test_bal_cross_tx_balance_dependency(
     )
 
     if funding_method == "direct_call":
-        tx_send = Transaction(
-            sender=alice,
-            to=contract,
-            value=transferred,
-            gas_limit=fork.transaction_gas_limit_cap(),
-        )
+        tx_send = Transaction(sender=alice, to=contract, value=transferred)
         send_expectations: dict = {}
     elif funding_method == "selfdestruct":
         killer = pre.deploy_contract(
             code=Op.SELFDESTRUCT(contract),
             balance=transferred,
         )
-        tx_send = Transaction(
-            sender=alice,
-            to=killer,
-            gas_limit=fork.transaction_gas_limit_cap(),
-        )
+        tx_send = Transaction(sender=alice, to=killer)
         send_expectations = {
             killer: BalAccountExpectation(
                 balance_changes=[
@@ -2958,12 +2791,7 @@ def test_bal_cross_tx_balance_dependency(
     else:
         raise ValueError(f"unknown funding_method: {funding_method}")
 
-    tx_read = Transaction(
-        sender=bob,
-        to=contract,
-        data=b"\x01",
-        gas_limit=fork.transaction_gas_limit_cap(),
-    )
+    tx_read = Transaction(sender=bob, to=contract, data=b"\x01")
 
     account_expectations = {
         contract: BalAccountExpectation(
@@ -3267,13 +3095,7 @@ def test_bal_cross_block_ripemd160_state_leak(
 
     # Block 1: Call RIPEMD-160 successfully
     block1 = Block(
-        txs=[
-            Transaction(
-                sender=alice,
-                to=ripemd_caller,
-                gas_limit=100_000,
-            )
-        ],
+        txs=[Transaction(sender=alice, to=ripemd_caller)],
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
                 alice: BalAccountExpectation(
@@ -3292,13 +3114,7 @@ def test_bal_cross_block_ripemd160_state_leak(
     # If internal state leaked from Block 1, RIPEMD-160 would incorrectly
     # appear in Block 2's BAL.
     block2 = Block(
-        txs=[
-            Transaction(
-                sender=bob,
-                to=exception_contract,
-                gas_limit=100_000,
-            )
-        ],
+        txs=[Transaction(sender=bob, to=exception_contract)],
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
                 alice: None,
@@ -3328,7 +3144,6 @@ def test_bal_cross_block_ripemd160_state_leak(
 def test_bal_all_transaction_types(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    fork: Fork,
 ) -> None:
     """
     Test BAL with all 5 tx types in single block.
@@ -3344,10 +3159,6 @@ def test_bal_all_transaction_types(
     - Oracle: empty (delegation target, accessed)
     """
     from tests.prague.eip7702_set_code_tx.spec import Spec as Spec7702
-
-    gas_limit = 100_000
-    if fork.is_eip_enabled(8037):
-        gas_limit = 500_000
 
     # Create senders for each transaction type
     sender_0 = pre.fund_eoa()  # Type 0 - Legacy
@@ -3375,7 +3186,6 @@ def test_bal_all_transaction_types(
         ty=0,
         sender=sender_0,
         to=contract_0,
-        gas_limit=gas_limit,
         gas_price=10,
         data=Hash(0x01),  # Value to store
     )
@@ -3385,7 +3195,6 @@ def test_bal_all_transaction_types(
         ty=1,
         sender=sender_1,
         to=contract_1,
-        gas_limit=gas_limit,
         gas_price=10,
         data=Hash(0x02),
         access_list=[
@@ -3401,7 +3210,6 @@ def test_bal_all_transaction_types(
         ty=2,
         sender=sender_2,
         to=contract_2,
-        gas_limit=gas_limit,
         max_fee_per_gas=50,
         max_priority_fee_per_gas=5,
         data=Hash(0x03),
@@ -3414,7 +3222,6 @@ def test_bal_all_transaction_types(
         ty=3,
         sender=sender_3,
         to=contract_3,
-        gas_limit=gas_limit,
         max_fee_per_gas=50,
         max_priority_fee_per_gas=5,
         max_fee_per_blob_gas=10,
@@ -3427,7 +3234,6 @@ def test_bal_all_transaction_types(
         ty=4,
         sender=sender_4,
         to=alice,
-        gas_limit=gas_limit,
         max_fee_per_gas=50,
         max_priority_fee_per_gas=5,
         authorization_list=[
@@ -3642,11 +3448,7 @@ def test_bal_lexicographic_address_ordering(
 
     contract = pre.deploy_contract(code=contract_code)
 
-    tx = Transaction(
-        sender=alice,
-        to=contract,
-        gas_limit=1_000_000,
-    )
+    tx = Transaction(sender=alice, to=contract)
 
     # BAL must be sorted lexicographically by address bytes
     # Order: low < mid < high < endian_low < endian_high
@@ -3755,7 +3557,6 @@ def test_bal_gas_limit_boundary(
                 sender=alice,
                 to=bob,
                 value=1,
-                gas_limit=21_000,
                 gas_price=base_fee_per_gas,
             )
         )
@@ -3837,18 +3638,14 @@ def test_bal_intra_tx_multiple_sstores_same_slot(
     single storage change with the final post-value; intermediate writes
     (0xAA, 0xBB) must not appear in the BAL.
     """
-    alice = pre.fund_eoa(amount=10**18)
+    alice = pre.fund_eoa()
 
     code = (
         Op.SSTORE(0x01, 0xAA) + Op.SSTORE(0x01, 0xBB) + Op.SSTORE(0x01, 0xCC)
     )
     contract = pre.deploy_contract(code=code, storage={0x01: pre_value})
 
-    tx = Transaction(
-        sender=alice,
-        to=contract,
-        gas_limit=200_000,
-    )
+    tx = Transaction(sender=alice, to=contract)
 
     blockchain_test(
         pre=pre,
@@ -3930,18 +3727,14 @@ def test_bal_intra_tx_sstores_same_slot_net_zero(
     net-zero result are filtered: the slot must appear in storage_reads
     (it was accessed) but must not appear in storage_changes.
     """
-    alice = pre.fund_eoa(amount=10**18)
+    alice = pre.fund_eoa()
 
     code = Op.SSTORE(0x01, writes[0])
     for v in writes[1:]:
         code += Op.SSTORE(0x01, v)
     contract = pre.deploy_contract(code=code, storage={0x01: pre_value})
 
-    tx = Transaction(
-        sender=alice,
-        to=contract,
-        gas_limit=200_000,
-    )
+    tx = Transaction(sender=alice, to=contract)
 
     blockchain_test(
         pre=pre,

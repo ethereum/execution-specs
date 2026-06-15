@@ -19,7 +19,6 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     CalldataCase,
-    Fork,
     Initcode,
     Op,
     Switch,
@@ -30,7 +29,7 @@ from execution_testing import (
 
 @pytest.mark.valid_from("Constantinople")
 def test_tx_selfdestruct_balance_bug(
-    blockchain_test: BlockchainTestFiller, pre: Alloc, fork: Fork
+    blockchain_test: BlockchainTestFiller, pre: Alloc
 ) -> None:
     """
     Test that the vulnerability is not present by checking the balance of the
@@ -96,56 +95,31 @@ def test_tx_selfdestruct_balance_bug(
 
     sender = pre.fund_eoa()
 
-    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
-    inner_call_gas = 100_000  # cc forwards this to each aa CALL
-    # Tx1 budget: cc bytecode + CREATE'd initcode execution + NEW_ACCOUNT
-    # state for the CREATE + the two forwarded inner CALL gas envelopes,
-    # plus EIP-1706 stipend slack for the trailing SSTORE.
-    cc_tx_gas = (
-        intrinsic_calc(calldata=aa_code)
-        + cc_code.gas_cost(fork)
-        + aa_code.gas_cost(fork)
-        + fork.gas_costs().NEW_ACCOUNT
-        + 2 * inner_call_gas
-        + Op.SSTORE(new_value=1).state_cost(fork)
-    )
-    # Balance-check tx: one zero->non-zero SSTORE.
-    balance_tx_gas = (
-        intrinsic_calc()
-        + balance_code.gas_cost(fork)
-        + Op.SSTORE(new_value=1).state_cost(fork)
-    )
-    # Plain value transfer to a (post-EIP-6780) non-existent account.
-    aa_value_tx_gas = intrinsic_calc()
-
     blocks = [
         Block(
             txs=[
-                # Sender invokes caller, caller invokes 0xaa.
+                # Sender invokes caller, caller invokes 0xaa:
+                # calling with 1 wei call
                 Transaction(
                     sender=sender,
                     to=cc_address,
                     data=aa_code,
-                    gas_limit=cc_tx_gas,
                 ),
-                # Capture aa's balance after tx 1 (post selfdestruct).
+                # Dummy tx to store balance of 0xaa after first TX.
                 Transaction(
                     sender=sender,
                     to=balance_address_1,
-                    gas_limit=balance_tx_gas,
                 ),
-                # Sender calls aa with 5 wei; aa no longer has code.
+                # Sender calls 0xaa with 5 wei.
                 Transaction(
                     sender=sender,
                     to=aa_location,
-                    gas_limit=aa_value_tx_gas,
                     value=5,
                 ),
-                # Capture aa's balance after tx 3.
+                # Dummy tx to store balance of 0xaa after second TX.
                 Transaction(
                     sender=sender,
                     to=balance_address_2,
-                    gas_limit=balance_tx_gas,
                 ),
             ],
         ),

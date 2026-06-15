@@ -4,9 +4,7 @@ Test_callcallcode_01_suicide_end.
 Ported from:
 state_tests/stCallDelegateCodesHomestead/callcallcode_01_SuicideEndFiller.json
 
-@manually-enhanced: Do not overwrite. The hardcoded inner-CALL gas
-values (50k / 100k / 150k) were tuned to the pre-EIP-8037 gas budget.
-
+@manually-enhanced: Do not overwrite. Explicit gas values removed.
 """
 
 import pytest
@@ -19,7 +17,6 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -36,18 +33,8 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_callcallcode_01_suicide_end(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """Test_callcallcode_01_suicide_end."""
-    # EIP-8037 inner-CALL gas bumps: original values restored for
-    # pre-EIP-8037 forks; bumped values cover the per-storage state-
-    # gas spill into regular gas on Amsterdam.
-    outer_call_gas = 150000
-    inner_call_gas = 50000
-    if fork.is_eip_enabled(8037):
-        outer_call_gas = 1000000
-        inner_call_gas = 100000
-
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
@@ -74,7 +61,6 @@ def test_callcallcode_01_suicide_end(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALL(
-                gas=outer_call_gas,
                 address=0x1CCA6E93108EC94304AE5EB121D323E6C317FE7A,
                 value=0x0,
                 args_offset=0x0,
@@ -94,7 +80,6 @@ def test_callcallcode_01_suicide_end(
         code=Op.SSTORE(
             key=0x1,
             value=Op.DELEGATECALL(
-                gas=inner_call_gas,
                 address=0x703B936FD4D674F0FF5D6957F61097152F8781B8,
                 args_offset=0x0,
                 args_size=0x40,
@@ -109,12 +94,7 @@ def test_callcallcode_01_suicide_end(
         address=Address(0x1CCA6E93108EC94304AE5EB121D323E6C317FE7A),  # noqa: E501
     )
 
-    tx = Transaction(
-        sender=sender,
-        to=target,
-        data=Bytes(""),
-        gas_limit=3000000,
-    )
+    tx = Transaction(sender=sender, to=target, data=Bytes(""))
 
     post = {
         target: Account(storage={0: 1, 2: 0}),

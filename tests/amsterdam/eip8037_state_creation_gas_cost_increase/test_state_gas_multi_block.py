@@ -53,8 +53,6 @@ def test_exact_coinbase_fee_simple_sstore(
     where clients diverged on cumulative `receipt_gas_used`.
     """
     gas_costs = fork.gas_costs()
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     # Gas breakdown for tx 1 (SSTORE zero-to-nonzero, no calldata):
@@ -83,14 +81,14 @@ def test_exact_coinbase_fee_simple_sstore(
             txs=[
                 Transaction(
                     to=sstore_contract,
-                    gas_limit=(gas_limit_cap + sstore_state_gas),
+                    state_gas_reservoir=sstore_state_gas,
                     max_priority_fee_per_gas=1,
                     max_fee_per_gas=8,
                     sender=pre.fund_eoa(),
                 ),
                 Transaction(
                     to=reporter,
-                    gas_limit=gas_limit_cap,
+                    state_gas_reservoir=0,
                     max_priority_fee_per_gas=1,
                     max_fee_per_gas=8,
                     sender=pre.fund_eoa(),
@@ -122,8 +120,6 @@ def test_multi_block_mixed_state_operations(
     This mixed scenario tests that `receipt_gas_used` is consistent
     across different state gas paths within a multi-block chain.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     reverting_child = pre.deploy_contract(
@@ -148,7 +144,7 @@ def test_multi_block_mixed_state_operations(
         block1_txs.append(
             Transaction(
                 to=contract,
-                gas_limit=(gas_limit_cap + sstore_state_gas),
+                state_gas_reservoir=sstore_state_gas,
                 max_priority_fee_per_gas=1,
                 max_fee_per_gas=8,
                 sender=pre.fund_eoa(),
@@ -175,7 +171,7 @@ def test_multi_block_mixed_state_operations(
         block2_txs.append(
             Transaction(
                 to=parent,
-                gas_limit=(gas_limit_cap + sstore_state_gas),
+                state_gas_reservoir=sstore_state_gas,
                 max_priority_fee_per_gas=1,
                 max_fee_per_gas=8,
                 sender=pre.fund_eoa(),
@@ -202,7 +198,7 @@ def test_multi_block_mixed_state_operations(
         block3_txs.append(
             Transaction(
                 to=parent,
-                gas_limit=(gas_limit_cap + sstore_state_gas),
+                state_gas_reservoir=sstore_state_gas,
                 max_priority_fee_per_gas=1,
                 max_fee_per_gas=8,
                 sender=pre.fund_eoa(),
@@ -244,8 +240,6 @@ def test_multi_block_observed_coinbase_balance(
       (coinbase earns fee through different code path).
       Tx 4: Store `BALANCE(COINBASE)` in slot 0.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     reporter1 = pre.deploy_contract(
@@ -278,14 +272,14 @@ def test_multi_block_observed_coinbase_balance(
             txs=[
                 Transaction(
                     to=sstore_contract,
-                    gas_limit=(gas_limit_cap + sstore_state_gas),
+                    state_gas_reservoir=sstore_state_gas,
                     max_priority_fee_per_gas=1,
                     max_fee_per_gas=8,
                     sender=pre.fund_eoa(),
                 ),
                 Transaction(
                     to=reporter1,
-                    gas_limit=gas_limit_cap,
+                    state_gas_reservoir=0,
                     max_priority_fee_per_gas=1,
                     max_fee_per_gas=8,
                     sender=pre.fund_eoa(),
@@ -296,14 +290,14 @@ def test_multi_block_observed_coinbase_balance(
             txs=[
                 Transaction(
                     to=spill_parent,
-                    gas_limit=(gas_limit_cap + sstore_state_gas),
+                    state_gas_reservoir=sstore_state_gas,
                     max_priority_fee_per_gas=1,
                     max_fee_per_gas=8,
                     sender=pre.fund_eoa(),
                 ),
                 Transaction(
                     to=reporter2,
-                    gas_limit=gas_limit_cap,
+                    state_gas_reservoir=0,
                     max_priority_fee_per_gas=1,
                     max_fee_per_gas=8,
                     sender=pre.fund_eoa(),

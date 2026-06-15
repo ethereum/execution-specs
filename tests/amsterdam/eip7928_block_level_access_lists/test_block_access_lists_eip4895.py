@@ -267,12 +267,7 @@ def test_bal_withdrawal_and_state_access_same_account(
         storage={0x01: 0x42},
     )
 
-    tx = Transaction(
-        sender=alice,
-        to=oracle,
-        gas_limit=1_000_000,
-        gas_price=0xA,
-    )
+    tx = Transaction(sender=alice, to=oracle)
 
     block = Block(
         txs=[tx],
@@ -449,12 +444,7 @@ def test_bal_withdrawal_and_selfdestruct(
         code=Op.SELFDESTRUCT(bob),
     )
 
-    tx = Transaction(
-        sender=alice,
-        to=oracle,
-        gas_limit=1_000_000,
-        gas_price=0xA,
-    )
+    tx = Transaction(sender=alice, to=oracle)
 
     block = Block(
         txs=[tx],
@@ -525,8 +515,6 @@ def test_bal_withdrawal_and_new_contract(
         to=None,
         data=initcode,
         value=5 * GWEI,
-        gas_limit=1_000_000,
-        gas_price=0xA,
     )
 
     block = Block(
@@ -724,10 +712,12 @@ def test_bal_withdrawal_largest_amount(
     )
 
 
+@pytest.mark.parametrize("tx_type", [0, 2])
 def test_bal_withdrawal_to_coinbase(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
     fork: Fork,
+    tx_type: int,
 ) -> None:
     """
     Ensure BAL captures withdrawal to coinbase address.
@@ -741,16 +731,6 @@ def test_bal_withdrawal_to_coinbase(
 
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     intrinsic_gas = intrinsic_gas_calculator()
-    tx_gas_limit = intrinsic_gas + 1000
-    gas_price = 0xA
-
-    tx = Transaction(
-        sender=alice,
-        to=bob,
-        value=5,
-        gas_limit=tx_gas_limit,
-        gas_price=gas_price,
-    )
 
     # Calculate tip to coinbase
     genesis_env = Environment(base_fee_per_gas=0x7)
@@ -759,8 +739,29 @@ def test_bal_withdrawal_to_coinbase(
         parent_gas_used=0,
         parent_gas_limit=genesis_env.gas_limit,
     )
-    tip_to_coinbase = (gas_price - base_fee_per_gas) * intrinsic_gas
-    coinbase_final_balance = tip_to_coinbase + (10 * GWEI)
+    priority_fee = 1
+
+    tx_kwargs = {}
+    if tx_type == 2:
+        tx_kwargs["ty"] = 2
+        tx_kwargs["max_fee_per_gas"] = base_fee_per_gas + priority_fee
+        tx_kwargs["max_priority_fee_per_gas"] = base_fee_per_gas + priority_fee
+    else:
+        tx_kwargs["ty"] = 0
+        tx_kwargs["gas_price"] = base_fee_per_gas + priority_fee
+
+    tx_value = 5
+    tx = Transaction(
+        sender=alice,
+        to=bob,
+        value=tx_value,
+        gas_limit=intrinsic_gas,
+        **tx_kwargs,
+    )
+
+    tip_to_coinbase = priority_fee * intrinsic_gas
+    withdrawal_amount = 10
+    coinbase_final_balance = tip_to_coinbase + (withdrawal_amount * GWEI)
 
     block = Block(
         txs=[tx],
@@ -771,7 +772,7 @@ def test_bal_withdrawal_to_coinbase(
                 index=0,
                 validator_index=0,
                 address=coinbase,
-                amount=10,
+                amount=withdrawal_amount,
             )
         ],
         expected_block_access_list=BlockAccessListExpectation(
@@ -783,7 +784,9 @@ def test_bal_withdrawal_to_coinbase(
                 ),
                 bob: BalAccountExpectation(
                     balance_changes=[
-                        BalBalanceChange(block_access_index=1, post_balance=5)
+                        BalBalanceChange(
+                            block_access_index=1, post_balance=tx_value
+                        )
                     ],
                 ),
                 coinbase: BalAccountExpectation(
@@ -806,7 +809,7 @@ def test_bal_withdrawal_to_coinbase(
         blocks=[block],
         post={
             alice: Account(nonce=1),
-            bob: Account(balance=5),
+            bob: Account(balance=tx_value),
             coinbase: Account(balance=coinbase_final_balance),
         },
         genesis_environment=genesis_env,

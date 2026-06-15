@@ -237,8 +237,6 @@ def test_block_gas_refund_eip7778_no_block_reduction(
     (EIP-7778). State gas refund goes to the reservoir and DOES reduce
     `block_state_gas_used` (net zero state growth).
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
 
@@ -258,7 +256,7 @@ def test_block_gas_refund_eip7778_no_block_reduction(
         txs.append(
             Transaction(
                 to=contract,
-                gas_limit=gas_limit_cap + sstore_state_gas,
+                state_gas_reservoir=sstore_state_gas,
                 sender=pre.fund_eoa(),
             )
         )
@@ -364,8 +362,6 @@ def test_block_gas_used_call_new_account(
     GAS_NEW_ACCOUNT state gas) then SSTORE. Combined with a STOP tx,
     the 2D max must reflect state gas from account creation.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
@@ -383,9 +379,7 @@ def test_block_gas_used_call_new_account(
     txs = [
         Transaction(
             to=parent,
-            gas_limit=(
-                gas_limit_cap + new_account_state_gas + sstore_state_gas
-            ),
+            state_gas_reservoir=new_account_state_gas + sstore_state_gas,
             sender=pre.fund_eoa(),
         ),
     ] + stop_txs(pre, fork, 1)
@@ -409,8 +403,6 @@ def test_block_gas_used_create_tx(
     Contract creation charges GAS_NEW_ACCOUNT as intrinsic state gas.
     Combined with a STOP tx, verify the 2D max is correct.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
     create_state_gas = fork.create_state_gas(code_size=0)
 
@@ -430,7 +422,7 @@ def test_block_gas_used_create_tx(
         Transaction(
             to=None,
             data=init_code,
-            gas_limit=gas_limit_cap + create_state_gas,
+            state_gas_reservoir=create_state_gas,
             sender=pre.fund_eoa(),
         ),
     ] + stop_txs(pre, fork, 1)
@@ -624,9 +616,7 @@ def test_receipt_cumulative_differs_from_header_gas_used(
     tx_regular, tx_state = sstore_tx_gas(fork)
     num_txs = 3
 
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    tx_gas_limit = gas_limit_cap + Op.SSTORE(new_value=1).state_cost(fork)
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     per_tx_gas_used = tx_regular + tx_state
 
     txs: list[Transaction] = []
@@ -639,7 +629,7 @@ def test_receipt_cumulative_differs_from_header_gas_used(
         txs.append(
             Transaction(
                 to=contract,
-                gas_limit=tx_gas_limit,
+                state_gas_reservoir=sstore_state_gas,
                 sender=pre.fund_eoa(),
                 expected_receipt=TransactionReceipt(
                     cumulative_gas_used=(i + 1) * per_tx_gas_used,

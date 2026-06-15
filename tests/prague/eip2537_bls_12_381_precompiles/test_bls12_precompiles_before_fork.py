@@ -49,28 +49,6 @@ def precompile_gas(
     return calculated_gas
 
 
-@pytest.fixture
-def tx_gas_limit(
-    fork: TransitionFork, input_data: bytes, precompile_gas: int
-) -> int:
-    """
-    Transaction gas limit used for the test (Can be overridden in the test).
-    """
-    intrinsic_gas_cost_calculator = (
-        fork.transitions_from().transaction_intrinsic_cost_calculator()
-    )
-    memory_expansion_gas_calculator = (
-        fork.transitions_from().memory_expansion_gas_calculator()
-    )
-    extra_gas = 100_000
-    return (
-        extra_gas
-        + intrinsic_gas_cost_calculator(calldata=input_data)
-        + memory_expansion_gas_calculator(new_bytes=len(input_data))
-        + precompile_gas
-    )
-
-
 @pytest.mark.parametrize(
     "precompile_address,input_data",
     [

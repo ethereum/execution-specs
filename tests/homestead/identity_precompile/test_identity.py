@@ -5,7 +5,6 @@ from execution_testing import (
     Account,
     Alloc,
     Environment,
-    Fork,
     Op,
     StateTestFiller,
     Transaction,
@@ -18,7 +17,6 @@ from execution_testing import (
 def test_identity_return_overwrite(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
     call_opcode: Op,
 ) -> None:
     """
@@ -43,15 +41,9 @@ def test_identity_return_overwrite(
     contract_address = pre.deploy_contract(
         code=code,
     )
-    intrinsic = fork.transaction_intrinsic_cost_calculator()
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=contract_address,
-        gas_limit=(
-            intrinsic()
-            + code.gas_cost(fork)
-            + Op.SSTORE(new_value=1).state_cost(fork)
-        ),
     )
 
     post = {
@@ -70,7 +62,6 @@ def test_identity_return_overwrite(
 def test_identity_return_buffer_modify(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
     call_opcode: Op,
 ) -> None:
     """
@@ -97,15 +88,9 @@ def test_identity_return_buffer_modify(
     contract_address = pre.deploy_contract(
         code=code,
     )
-    intrinsic = fork.transaction_intrinsic_cost_calculator()
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=contract_address,
-        gas_limit=(
-            intrinsic()
-            + code.gas_cost(fork)
-            + Op.SSTORE(new_value=1).state_cost(fork)
-        ),
     )
 
     post = {

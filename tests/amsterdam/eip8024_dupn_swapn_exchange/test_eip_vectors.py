@@ -57,7 +57,7 @@ def test_eip_vector_dupn_duplicate_bottom(
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     post = {
         contract_address: Account(
@@ -111,7 +111,7 @@ def test_eip_vector_swapn_swap_with_bottom(
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     post = {
         contract_address: Account(
@@ -152,7 +152,7 @@ def test_eip_vector_exchange_swap_positions(
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     post = {
         contract_address: Account(
@@ -190,7 +190,7 @@ def test_eip_vector_swapn_invalid_immediate_reverts(
     assert bytes(code) == bytes.fromhex("e75b")
 
     contract_address = pre.deploy_contract(code=code)
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     # Transaction should fail, storage unchanged
     post = {contract_address: Account(storage={})}
@@ -230,7 +230,7 @@ def test_eip_vector_jump_over_invalid_dupn(
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     # Transaction should succeed
     post = {contract_address: Account(storage={0: 1})}
@@ -266,7 +266,7 @@ def test_eip_vector_exchange_with_iszero(
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     post = {
         contract_address: Account(
@@ -308,7 +308,7 @@ def test_eip_vector_dupn_stack_underflow(
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     # Transaction should fail, storage unchanged
     post = {contract_address: Account(storage={})}
@@ -346,7 +346,7 @@ def test_vector_dupn_followed_by_jumpdest(
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     # DUPN should duplicate position 17 (marker_value)
     post = {contract_address: Account(storage={0: marker_value})}
@@ -381,7 +381,7 @@ def test_vector_dupn_invalid_0x60(
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=10_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     # Transaction should fail, storage unchanged
     post = {contract_address: Account(storage={})}
@@ -416,7 +416,7 @@ def test_vector_swapn_invalid_0x61(
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=10_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     # Transaction should fail, storage unchanged
     post = {contract_address: Account(storage={})}
@@ -450,7 +450,7 @@ def test_vector_dupn_invalid_0x5f(
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=10_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     # Transaction should fail, storage unchanged
     post = {contract_address: Account(storage={})}
@@ -490,7 +490,7 @@ def test_vector_exchange_0x9d(
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     # After EXCHANGE[0x9d]: positions 3 and 4 are swapped
     post = {
@@ -544,7 +544,7 @@ def test_vector_exchange_0x2f(
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     # After EXCHANGE[0x2f]: positions 2 and 20 are swapped
     post = {
@@ -596,7 +596,7 @@ def test_vector_exchange_valid_0x50(
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     post = {
         contract_address: Account(
@@ -644,7 +644,7 @@ def test_vector_exchange_valid_0x51(
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     post = {
         contract_address: Account(
@@ -694,7 +694,7 @@ def test_eip_vector_exchange_end_of_code(
     contract_address = pre.deploy_contract(
         code=Op.SSTORE(0, 0x42) + code + Op.STOP
     )
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     # Verify marker was stored (tx succeeded)
     post = {contract_address: Account(storage={0: 0x42})}
@@ -737,7 +737,7 @@ def test_eip_vector_exchange_30_items(
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     post = {
         contract_address: Account(
@@ -778,7 +778,7 @@ def test_vector_exchange_invalid_0x52(
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     # Transaction should fail, storage unchanged
     post = {contract_address: Account(storage={})}
@@ -824,7 +824,7 @@ def test_eip_vector_end_of_code(
     )
     contract_address = pre.deploy_contract(code=code)
 
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     # verify marker was stored (tx succeeded)
     post = {contract_address: Account(storage={0: marker_value})}

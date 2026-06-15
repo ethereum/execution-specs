@@ -73,7 +73,6 @@ def test_extcodecopy_bounds(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=400_000,
         protected=fork.supports_protected_txs(),
     )
 

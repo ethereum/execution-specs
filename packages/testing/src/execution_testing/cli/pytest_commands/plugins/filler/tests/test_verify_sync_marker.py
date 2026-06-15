@@ -23,7 +23,7 @@ test_module_with_verify_sync = textwrap.dedent(
         blockchain_test(
             pre={TestAddress: TEST_ADDRESS},
             post={},
-            blocks=[Block(txs=[Transaction()])]
+            blocks=[Block(txs=[Transaction(gas_limit=0x5208)])]
         )
 
 
@@ -33,7 +33,7 @@ test_module_with_verify_sync = textwrap.dedent(
         blockchain_test(
             pre={TestAddress: TEST_ADDRESS},
             post={},
-            blocks=[Block(txs=[Transaction()])]
+            blocks=[Block(txs=[Transaction(gas_limit=0x5208)])]
         )
 
     @pytest.mark.valid_at("Cancun")
@@ -52,7 +52,7 @@ test_module_with_verify_sync = textwrap.dedent(
             post={},
             blocks=[
                 Block(
-                    txs=[Transaction()],
+                    txs=[Transaction(gas_limit=0x5208)],
                     rlp_modifier=Header(gas_limit=0) if has_exception else None,
                     exception=BlockException.INCORRECT_BLOCK_FORMAT if has_exception else None,
                 )

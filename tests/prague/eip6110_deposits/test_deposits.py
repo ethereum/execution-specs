@@ -13,7 +13,6 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     BlockException,
-    Environment,
     Macros,
     Op,
 )
@@ -58,7 +57,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             index=0x0,
                         )
                     ],
-                    sender_balance=120_000_001_000_000_000 * 10**9,
                 ),
             ],
             id="single_deposit_from_eoa_huge_amount",
@@ -319,7 +317,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                         )
                         for i in range(450)
                     ],
-                    tx_gas_limit=16_777_216,
                 ),
             ],
             id="many_deposits_from_contract",
@@ -391,7 +388,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             withdrawal_credentials=0x02,
                             amount=1_000_000_000,
                             signature=0x03,
-                            gas_limit=1_000_000,
                             index=0x0,
                         ),
                     ],
@@ -409,7 +405,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             amount=1_000_000_000,
                             signature=0x03,
                             index=0x0,
-                            gas_limit=1_000_000,
                         ),
                         DepositRequest(
                             pubkey=0x01,
@@ -712,7 +707,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                         )
                     ],
                     call_depth=271,
-                    tx_gas_limit=16_777_216,
                 ),
             ],
             id="single_deposit_from_contract_call_depth_high",
@@ -923,12 +917,7 @@ def test_deposit(
     blocks: List[Block],
 ) -> None:
     """Test making a deposit to the beacon chain deposit contract."""
-    total_gas_limit = sum(tx.gas_limit for tx in blocks[0].txs)
-    env = Environment()
-    if total_gas_limit > env.gas_limit:
-        env = Environment(gas_limit=total_gas_limit)
     blockchain_test(
-        genesis_environment=env,
         pre=pre,
         post={},
         blocks=blocks,

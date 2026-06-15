@@ -22,7 +22,6 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
-    Environment,
     Fork,
     Header,
     Op,
@@ -53,9 +52,6 @@ def test_child_call_uses_reservoir(
     (zero-to-nonzero). The state gas for the SSTORE is drawn from
     the reservoir passed from the parent.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     child_storage = Storage()
@@ -75,7 +71,7 @@ def test_child_call_uses_reservoir(
 
     tx = Transaction(
         to=parent,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -83,14 +79,13 @@ def test_child_call_uses_reservoir(
         parent: Account(storage=parent_storage),
         child: Account(storage=child_storage),
     }
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
 def test_delegatecall_child_spill_not_double_charged(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """
     Test DELEGATECALL child state gas paid from `gas_left` is not recharged.
@@ -100,8 +95,6 @@ def test_delegatecall_child_spill_not_double_charged(
     `gas_left`. The parent frame must not charge the same state growth again
     at frame end.
     """
-    env = Environment()
-
     child_code = sum(Op.SSTORE(i, i + 1) for i in range(6)) + Op.STOP
     child = pre.deploy_contract(code=child_code)
 
@@ -127,7 +120,7 @@ def test_delegatecall_child_spill_not_double_charged(
     post = {
         caller: Account(storage={i: i + 1 for i in range(6)}),
     }
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -142,9 +135,6 @@ def test_reservoir_returned_on_revert(
     The child contract reverts. The parent should recover the
     reservoir and be able to use it for its own SSTORE.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     child = pre.deploy_contract(code=Op.REVERT(0, 0))
@@ -161,12 +151,12 @@ def test_reservoir_returned_on_revert(
 
     tx = Transaction(
         to=parent,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
     post = {parent: Account(storage=parent_storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -181,9 +171,6 @@ def test_reservoir_returned_on_oog(
     The child runs out of regular gas. The parent recovers the
     reservoir and can use it for its own state operations.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     # Child that consumes all gas
@@ -201,12 +188,12 @@ def test_reservoir_returned_on_oog(
 
     tx = Transaction(
         to=parent,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
     post = {parent: Account(storage=parent_storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -225,9 +212,6 @@ def test_reservoir_restored_after_child_spill_and_revert(
     restored to the parent's reservoir. The parent can then perform
     two SSTOREs using only the recovered reservoir.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     # Child does two SSTOREs then reverts — the second SSTORE's
@@ -250,12 +234,12 @@ def test_reservoir_restored_after_child_spill_and_revert(
     # Reservoir = 1 SSTORE's worth of state gas — child will spill
     tx = Transaction(
         to=parent,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
     post = {parent: Account(storage=parent_storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -275,9 +259,6 @@ def test_reservoir_restored_after_child_spill_and_halt(
     The parent does two SSTOREs: the first drains the recovered
     reservoir, the second spills from the parent's own `gas_left`.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     # Child does two SSTOREs then halts
@@ -300,12 +281,12 @@ def test_reservoir_restored_after_child_spill_and_halt(
     # Reservoir = 1 SSTORE's worth of state gas — child will spill
     tx = Transaction(
         to=parent,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
     post = {parent: Account(storage=parent_storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -321,9 +302,6 @@ def test_reservoir_restored_after_child_full_drain_and_revert(
     (no spill into gas_left), then REVERTs. The full reservoir is
     returned to the parent.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     child = pre.deploy_contract(
@@ -340,12 +318,12 @@ def test_reservoir_restored_after_child_full_drain_and_revert(
 
     tx = Transaction(
         to=parent,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
     post = {parent: Account(storage=parent_storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -362,9 +340,6 @@ def test_sequential_calls_reservoir_restored_between_reverts(
     child failures restore the reservoir, so the parent can use it
     for its own SSTORE at the end.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     child = pre.deploy_contract(
@@ -385,12 +360,12 @@ def test_sequential_calls_reservoir_restored_between_reverts(
 
     tx = Transaction(
         to=parent,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
     post = {parent: Account(storage=parent_storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -406,9 +381,6 @@ def test_nested_calls_reservoir_passing(
     using the reservoir gas. After all calls return, A verifies
     success.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     c_storage = Storage()
@@ -432,7 +404,7 @@ def test_nested_calls_reservoir_passing(
 
     tx = Transaction(
         to=a,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -440,7 +412,7 @@ def test_nested_calls_reservoir_passing(
         a: Account(storage=a_storage),
         c: Account(storage=c_storage),
     }
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -456,9 +428,6 @@ def test_call_value_transfer_new_account(
     new account, charging new-account state gas of state gas.
     """
     gas_costs = fork.gas_costs()
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     new_account_state_gas = gas_costs.NEW_ACCOUNT
 
     # Target address that doesn't exist in pre-state
@@ -477,19 +446,18 @@ def test_call_value_transfer_new_account(
 
     tx = Transaction(
         to=parent,
-        gas_limit=gas_limit_cap + new_account_state_gas,
+        state_gas_reservoir=new_account_state_gas,
         sender=pre.fund_eoa(),
     )
 
     post = {parent: Account(storage=parent_storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
 def test_call_value_transfer_existing_account_no_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """
     Test CALL with value to existing account charges no state gas.
@@ -497,8 +465,6 @@ def test_call_value_transfer_existing_account_no_state_gas(
     A CALL that transfers value to an already-alive account does not
     create new state, so no state gas is charged.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     # Existing target account
     target = pre.fund_eoa(amount=0)
 
@@ -515,7 +481,7 @@ def test_call_value_transfer_existing_account_no_state_gas(
 
     tx = Transaction(
         to=parent,
-        gas_limit=gas_limit_cap,
+        state_gas_reservoir=0,
         sender=pre.fund_eoa(),
     )
 
@@ -537,9 +503,6 @@ def test_child_state_gas_tracked_in_parent(
     succeeding with enough total gas but would OOG if state gas
     wasn't tracked across frames.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     child_storage = Storage()
@@ -563,7 +526,7 @@ def test_child_state_gas_tracked_in_parent(
     # Provide enough reservoir for both SSTOREs
     tx = Transaction(
         to=parent,
-        gas_limit=gas_limit_cap + sstore_state_gas * 2,
+        state_gas_reservoir=sstore_state_gas * 2,
         sender=pre.fund_eoa(),
     )
 
@@ -571,7 +534,7 @@ def test_child_state_gas_tracked_in_parent(
         parent: Account(storage=parent_storage),
         child: Account(storage=child_storage),
     }
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -587,9 +550,6 @@ def test_delegatecall_reservoir_passing(
     The child's SSTORE writes to the parent's storage using state
     gas from the reservoir.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     # Library code that writes to slot 0 — runs in parent's context
@@ -605,12 +565,12 @@ def test_delegatecall_reservoir_passing(
 
     tx = Transaction(
         to=parent,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
     post = {parent: Account(storage=parent_storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -626,9 +586,6 @@ def test_staticcall_passes_reservoir(
     passed to the child but cannot be consumed. After the STATICCALL
     returns, the parent can still use the reservoir for its own SSTORE.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     # Child does a read-only operation
@@ -647,12 +604,12 @@ def test_staticcall_passes_reservoir(
 
     tx = Transaction(
         to=parent,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
     post = {parent: Account(storage=parent_storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -668,9 +625,6 @@ def test_gas_opcode_excludes_reservoir(
     reservoir is non-empty, the GAS return value should be less than
     the total remaining gas (gas_left + reservoir).
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     storage = Storage()
@@ -687,7 +641,7 @@ def test_gas_opcode_excludes_reservoir(
     reservoir_gas = sstore_state_gas * 100
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + reservoir_gas,
+        state_gas_reservoir=reservoir_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -696,7 +650,7 @@ def test_gas_opcode_excludes_reservoir(
     # We can't check the exact value, but we verify the SSTORE
     # succeeded and the contract executed correctly
     post = {contract: Account(storage=storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize(
@@ -723,9 +677,6 @@ def test_call_insufficient_balance_returns_reservoir(
     subsequent SSTORE.
     """
     gas_costs = fork.gas_costs()
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     target: int | Address
@@ -752,12 +703,12 @@ def test_call_insufficient_balance_returns_reservoir(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + reservoir,
+        state_gas_reservoir=reservoir,
         sender=pre.fund_eoa(),
     )
 
     post = {contract: Account(storage=storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -773,9 +724,6 @@ def test_create_insufficient_balance_returns_reservoir(
     for the endowment, the operation fails and both gas and state gas
     reservoir are returned to the parent frame.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     storage = Storage()
@@ -794,12 +742,12 @@ def test_create_insufficient_balance_returns_reservoir(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
     post = {contract: Account(storage=storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -815,9 +763,6 @@ def test_call_stack_depth_returns_reservoir(
     and gas and state gas reservoir are returned. The parent can still
     use the reservoir for state operations.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     # Contract that recursively calls itself until depth exhausted,
@@ -835,12 +780,12 @@ def test_call_stack_depth_returns_reservoir(
 
     tx = Transaction(
         to=recursive,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
     post = {recursive: Account(storage=storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -864,8 +809,6 @@ def test_call_pre_charged_costs_excluded_from_forwarding(
     the child to OOG and the SSTORE to revert.
     """
     gas_costs = fork.gas_costs()
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     # Child: SSTORE(0, 1) as proof of execution
@@ -910,7 +853,7 @@ def test_call_pre_charged_costs_excluded_from_forwarding(
     tx = Transaction(
         sender=sender,
         to=caller,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas,
     )
 
     post = {
@@ -934,8 +877,6 @@ def test_call_new_account_header_gas_used(
     correct 2D max(regular, state) accounting in the header.
     """
     gas_costs = fork.gas_costs()
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     new_account_state_gas = gas_costs.NEW_ACCOUNT
 
     target = pre.fund_eoa(amount=0)
@@ -953,7 +894,7 @@ def test_call_new_account_header_gas_used(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + new_account_state_gas,
+        state_gas_reservoir=new_account_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -993,9 +934,6 @@ def test_call_value_to_self_destructed_same_tx_account(
     the no charge behavior lives in
     `test_call_value_to_self_destructed_header_gas_used`.
     """
-    env = Environment()
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
@@ -1023,12 +961,12 @@ def test_call_value_to_self_destructed_same_tx_account(
 
     tx = Transaction(
         to=orchestrator,
-        gas_limit=gas_limit_cap + new_account_state_gas + sstore_state_gas,
+        state_gas_reservoir=new_account_state_gas + sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
     post = {orchestrator: Account(storage=storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize(
@@ -1065,8 +1003,6 @@ def test_call_value_to_self_destructed_header_gas_used(
     targeted itself or an external beneficiary, so the no charge
     behavior holds across both cases.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
 
     if selfdestruct_beneficiary == "self":
@@ -1095,7 +1031,7 @@ def test_call_value_to_self_destructed_header_gas_used(
 
     tx = Transaction(
         to=orchestrator,
-        gas_limit=gas_limit_cap + new_account_state_gas,
+        state_gas_reservoir=new_account_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -1138,8 +1074,6 @@ def test_call_value_to_self_destructed_burns_value(
     address. At the end of the transaction the account is removed
     and the accumulated balance is lost.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
 
     inner_code = Op.SELFDESTRUCT(Op.ADDRESS)
@@ -1182,7 +1116,7 @@ def test_call_value_to_self_destructed_burns_value(
 
     tx = Transaction(
         to=orchestrator,
-        gas_limit=gas_limit_cap + new_account_state_gas,
+        state_gas_reservoir=new_account_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -1220,8 +1154,6 @@ def test_call_zero_value_to_self_destructed_same_tx_account(
     value CALL (value gate broken) would double the state gas
     component.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
 
     inner_code = Op.SELFDESTRUCT(Op.ADDRESS)
@@ -1244,7 +1176,7 @@ def test_call_zero_value_to_self_destructed_same_tx_account(
 
     tx = Transaction(
         to=orchestrator,
-        gas_limit=gas_limit_cap + new_account_state_gas,
+        state_gas_reservoir=new_account_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -1284,8 +1216,6 @@ def test_call_value_to_pre_existing_selfdestructed_account(
     new account charge on the value bearing CALL would push the
     header up by that charge, breaking the assertion.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     # Enough probes that the combined probe state gas dominates the
@@ -1320,7 +1250,7 @@ def test_call_value_to_pre_existing_selfdestructed_account(
 
     tx = Transaction(
         to=orchestrator,
-        gas_limit=gas_limit_cap + probe_state_gas,
+        state_gas_reservoir=probe_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -1397,7 +1327,7 @@ def test_top_level_halt_refunds_total_state_gas(
 
     tx = Transaction(
         to=parent,
-        gas_limit=tx_gas,
+        state_gas_reservoir=reservoir,
         sender=pre.fund_eoa(),
     )
 
@@ -1429,8 +1359,6 @@ def test_callcode_value_no_new_account_state_gas(
     Verify CALLCODE with value does not charge new-account state
     gas, since the value stays with the caller.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     target = pre.fund_eoa(amount=0)
@@ -1452,7 +1380,7 @@ def test_callcode_value_no_new_account_state_gas(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -1477,8 +1405,6 @@ def test_create_oog_during_state_gas_charge(
     SSTORE is forwarded only its regular stipend, so it succeeds
     only if the refund landed in the reservoir (not in `gas_left`).
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     gas_costs = fork.gas_costs()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
@@ -1514,7 +1440,7 @@ def test_create_oog_during_state_gas_charge(
 
     tx = Transaction(
         to=parent,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -1589,8 +1515,6 @@ def test_child_failure_refunds_state_gas_to_reservoir_not_gas_left(
     tight regular stipend. Covers SSTORE and CALL-value (new
     account) state-gas charge paths.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     gas_costs = fork.gas_costs()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
@@ -1630,7 +1554,7 @@ def test_child_failure_refunds_state_gas_to_reservoir_not_gas_left(
 
     tx = Transaction(
         to=parent,
-        gas_limit=gas_limit_cap + reservoir,
+        state_gas_reservoir=reservoir,
         sender=pre.fund_eoa(),
     )
 

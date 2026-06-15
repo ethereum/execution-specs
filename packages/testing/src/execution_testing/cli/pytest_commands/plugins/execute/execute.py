@@ -11,12 +11,14 @@ from pytest_metadata.plugin import metadata_key
 
 from execution_testing.base_types import Account
 from execution_testing.base_types import Alloc as BaseAlloc
+from execution_testing.base_types.base_types import HexNumber
 from execution_testing.execution import BaseExecute
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.logging import get_logger
 from execution_testing.rpc import EngineRPC, EthRPC
 from execution_testing.specs import BaseTest
 from execution_testing.test_types import (
+    Environment,
     EnvironmentDefaults,
 )
 
@@ -271,6 +273,17 @@ def gas_limit_accumulator() -> Generator[GasInfoAccumulator, None, None]:
     logger.info(f"Total minimum balance: {total_min_eth:.18f}")
 
 
+@pytest.fixture(scope="session")
+def env_gas_limit(eth_rpc: EthRPC) -> HexNumber:
+    """
+    Return the environment gas limit derived from the head block before
+    tests start running.
+    """
+    head_block = eth_rpc.get_block_by_number()
+    assert head_block is not None, "Unable to obtain head block from RPC"
+    return HexNumber(head_block["gasLimit"])
+
+
 def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
     """
     Generate pytest.fixture for a given BaseTest subclass.
@@ -288,7 +301,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
     )
     def base_test_parametrizer_func(
         request: Any,
-        fork: Fork | TransitionFork,
+        fork: Fork,
         pre: Alloc,
         eth_rpc: EthRPC,
         engine_rpc: EngineRPC | None,
@@ -302,6 +315,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         max_fee_per_blob_gas: int,
         max_gas_limit_per_test: int | None,
         gas_limit_accumulator: GasInfoAccumulator,
+        env_gas_limit: HexNumber,
         is_tx_gas_heavy_test: bool,
         is_exception_test: bool,
     ) -> Type[BaseTest]:
@@ -348,24 +362,23 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     if p not in kwargs
                 }
 
-                # TODO: get values from network
-                timestamp = 0
-                block_number = 0
-
                 request.node.config.sender_address = str(pre._sender)
 
                 super(BaseTestWrapper, self).__init__(*args, **kwargs)
                 execute = self.execute(execute_format=execute_format)
 
-                # get balances of required sender accounts
-                required_balances = execute.get_required_sender_balances(
+                execute.prepare_transactions(
+                    env=Environment(gas_limit=env_gas_limit),
                     gas_price=gas_price,
                     max_fee_per_gas=max_fee_per_gas,
                     max_priority_fee_per_gas=max_priority_fee_per_gas,
                     max_fee_per_blob_gas=max_fee_per_blob_gas,
-                    fork=fork.fork_at(
-                        block_number=block_number, timestamp=timestamp
-                    ),
+                    fork=fork,
+                )
+
+                # get balances of required sender accounts
+                required_balances = execute.get_required_sender_balances(
+                    fork=fork,
                 )
 
                 pre.resolve_deferred_checks()
@@ -432,9 +445,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 )
 
                 execute_result = execute.execute(
-                    fork=fork.fork_at(
-                        block_number=block_number, timestamp=timestamp
-                    ),
+                    fork=fork,
                     eth_rpc=eth_rpc,
                     engine_rpc=engine_rpc,
                     request=request,

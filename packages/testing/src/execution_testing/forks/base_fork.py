@@ -844,6 +844,14 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def state_gas_reservoir_enabled(cls) -> bool:
+        """
+        Return True if the fork enables a state gas reservoir.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
     def code_deposit_state_gas(cls, *, code_size: int) -> int:
         """Return state gas for code deposit of the given size."""
         pass

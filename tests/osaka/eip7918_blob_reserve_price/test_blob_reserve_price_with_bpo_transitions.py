@@ -262,7 +262,9 @@ def parent_block_txs(
         parent_base_fee_per_gas=parent_base_fee_per_gas,
         required_base_fee_per_gas=transition_block_base_fee_per_gas,
     )
-    blob_txs_execution_gas = sum(tx.gas_limit for tx in parent_block_blob_txs)
+    blob_txs_execution_gas = 0
+    for tx in parent_block_blob_txs:
+        blob_txs_execution_gas += tx.gas_limit
     assert blob_txs_execution_gas <= required_gas_used
     extra_tx_gas_limit = required_gas_used - blob_txs_execution_gas
     assert extra_tx_gas_limit >= 21_000

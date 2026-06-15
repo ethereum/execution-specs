@@ -202,7 +202,6 @@ def test_blobhash_gas_cost(
         "sender": sender,
         "to": address,
         "data": Hash(0),
-        "gas_limit": 500_000,
         "max_fee_per_blob_gas": (fork.min_base_fee_per_blob_gas() * 10)
         if tx_type == 3
         else None,
@@ -265,10 +264,6 @@ def test_blobhash_scenarios(
     )
     sender = pre.fund_eoa()
 
-    gas_limit = 500_000
-    if fork.is_eip_enabled(8037):
-        gas_limit = 5_000_000
-
     blocks: List[Block] = []
     post = {}
     for i in range(total_blocks):
@@ -281,7 +276,6 @@ def test_blobhash_scenarios(
                         sender=sender,
                         to=address,
                         data=Hash(0),
-                        gas_limit=gas_limit,
                         access_list=[],
                         max_fee_per_blob_gas=(
                             fork.min_base_fee_per_blob_gas() * 10
@@ -333,11 +327,6 @@ def test_blobhash_invalid_blob_index(
         scenario_name=scenario, max_blobs_per_tx=max_blobs_per_tx
     )
     sender = pre.fund_eoa()
-
-    gas_limit = 500_000
-    if fork.is_eip_enabled(8037):
-        gas_limit = 5_000_000
-
     blocks: List[Block] = []
     post = {}
     for i in range(total_blocks):
@@ -351,7 +340,6 @@ def test_blobhash_invalid_blob_index(
                         ty=Spec.BLOB_TX_TYPE,
                         sender=sender,
                         to=address,
-                        gas_limit=gas_limit,
                         data=Hash(0),
                         access_list=[],
                         max_fee_per_blob_gas=(
@@ -399,17 +387,12 @@ def test_blobhash_multiple_txs_in_block(
     addresses = [pre.deploy_contract(blobhash_bytecode) for _ in range(4)]
     sender = pre.fund_eoa()
 
-    gas_limit = 500_000
-    if fork.is_eip_enabled(8037):
-        gas_limit = 5_000_000
-
     def blob_tx(address: Address, tx_type: int) -> Transaction:
         return Transaction(
             ty=tx_type,
             sender=sender,
             to=address,
             data=Hash(0),
-            gas_limit=gas_limit,
             access_list=[] if tx_type >= 1 else None,
             max_fee_per_blob_gas=(fork.min_base_fee_per_blob_gas() * 10)
             if tx_type >= 3

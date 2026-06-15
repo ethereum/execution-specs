@@ -72,7 +72,7 @@ def test_end_of_code_stack_underflow(
     )
     contract_address = pre.deploy_contract(code=code)
 
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     # Transaction must fail (stack underflow), leaving storage untouched.
     post = {contract_address: Account(storage={})}

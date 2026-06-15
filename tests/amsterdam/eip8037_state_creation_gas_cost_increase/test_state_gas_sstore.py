@@ -20,7 +20,6 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
-    Environment,
     Fork,
     Header,
     Op,
@@ -41,7 +40,6 @@ REFERENCE_SPEC_VERSION = ref_spec_8037.version
 def test_sstore_zero_to_nonzero(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """
     Test SSTORE zero-to-nonzero charges state gas.
@@ -50,8 +48,6 @@ def test_sstore_zero_to_nonzero(
     STATE_BYTES_PER_STORAGE_SET * cost_per_state_byte of state gas
     in addition to regular gas.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     storage = Storage()
     contract = pre.deploy_contract(
         code=Op.SSTORE(storage.store_next(1), 1),
@@ -59,7 +55,7 @@ def test_sstore_zero_to_nonzero(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap,
+        state_gas_reservoir=0,
         sender=pre.fund_eoa(),
     )
 
@@ -71,7 +67,6 @@ def test_sstore_zero_to_nonzero(
 def test_sstore_nonzero_to_nonzero(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """
     Test SSTORE nonzero-to-nonzero charges no state gas.
@@ -79,8 +74,6 @@ def test_sstore_nonzero_to_nonzero(
     Updating a slot that already holds a nonzero value to a different
     nonzero value does not create new state, so no state gas is charged.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     storage = Storage()
     contract = pre.deploy_contract(
         code=Op.SSTORE(storage.store_next(2), 2),
@@ -89,7 +82,7 @@ def test_sstore_nonzero_to_nonzero(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap,
+        state_gas_reservoir=0,
         sender=pre.fund_eoa(),
     )
 
@@ -101,7 +94,6 @@ def test_sstore_nonzero_to_nonzero(
 def test_sstore_nonzero_to_zero(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """
     Test SSTORE nonzero-to-zero charges no state gas.
@@ -109,8 +101,6 @@ def test_sstore_nonzero_to_zero(
     Clearing a storage slot (setting to zero) does not grow state and
     earns a regular gas refund (GAS_STORAGE_CLEAR_REFUND).
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     storage = Storage()
     contract = pre.deploy_contract(
         code=Op.SSTORE(storage.store_next(0), 0),
@@ -119,7 +109,7 @@ def test_sstore_nonzero_to_zero(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap,
+        state_gas_reservoir=0,
         sender=pre.fund_eoa(),
     )
 
@@ -131,7 +121,6 @@ def test_sstore_nonzero_to_zero(
 def test_sstore_zero_to_zero(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """
     Test SSTORE zero-to-zero charges no state gas.
@@ -139,8 +128,6 @@ def test_sstore_zero_to_zero(
     Writing zero to an already-zero slot creates no new state. Only
     the warm access regular gas cost is charged.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     storage = Storage()
     contract = pre.deploy_contract(
         code=Op.SSTORE(storage.store_next(0), 0),
@@ -148,7 +135,7 @@ def test_sstore_zero_to_zero(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap,
+        state_gas_reservoir=0,
         sender=pre.fund_eoa(),
     )
 
@@ -250,7 +237,6 @@ def test_sstore_restoration_refund_credits_local_reservoir(
 def test_sstore_restoration_refund(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """
     Test SSTORE zero-to-nonzero-to-zero restoration refunds state gas.
@@ -260,15 +246,13 @@ def test_sstore_restoration_refund(
     (STATE_BYTES_PER_STORAGE_SET * cost_per_state_byte) is refunded
     via refund_counter along with the regular gas write cost.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     contract = pre.deploy_contract(
         code=(Op.SSTORE(0, 1) + Op.SSTORE(0, 0)),
     )
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap,
+        state_gas_reservoir=0,
         sender=pre.fund_eoa(),
     )
 
@@ -281,7 +265,6 @@ def test_sstore_restoration_refund(
 def test_sstore_restoration_nonzero_no_state_refund(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """
     Test nonzero-to-nonzero-to-original restoration has no state gas refund.
@@ -290,8 +273,6 @@ def test_sstore_restoration_nonzero_no_state_refund(
     restoring it never involves state gas (no state growth occurred),
     so only regular gas refunds apply.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     contract = pre.deploy_contract(
         code=(Op.SSTORE(0, 2) + Op.SSTORE(0, 1)),
         storage={0: 1},
@@ -299,7 +280,7 @@ def test_sstore_restoration_nonzero_no_state_refund(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap,
+        state_gas_reservoir=0,
         sender=pre.fund_eoa(),
     )
 
@@ -311,7 +292,6 @@ def test_sstore_restoration_nonzero_no_state_refund(
 def test_sstore_clear_refund_reversal(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """
     Test clearing a nonzero slot then un-clearing reverses the refund.
@@ -320,8 +300,6 @@ def test_sstore_clear_refund_reversal(
     the clear refund is granted. If the slot is then set back to a
     nonzero value, the clear refund is reversed via refund_counter.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     contract = pre.deploy_contract(
         code=(Op.SSTORE(0, 0) + Op.SSTORE(0, 2)),
         storage={0: 1},
@@ -329,7 +307,7 @@ def test_sstore_clear_refund_reversal(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap,
+        state_gas_reservoir=0,
         sender=pre.fund_eoa(),
     )
 
@@ -350,7 +328,6 @@ def test_sstore_multiple_slots(
     state_test: StateTestFiller,
     pre: Alloc,
     num_slots: int,
-    fork: Fork,
 ) -> None:
     """
     Test multiple zero-to-nonzero SSTOREs each charge state gas.
@@ -358,8 +335,6 @@ def test_sstore_multiple_slots(
     Each slot written from zero to nonzero independently charges
     STATE_BYTES_PER_STORAGE_SET * cost_per_state_byte of state gas.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     storage = Storage()
     code = Bytecode()
     for _ in range(num_slots):
@@ -368,7 +343,7 @@ def test_sstore_multiple_slots(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap,
+        state_gas_reservoir=0,
         sender=pre.fund_eoa(),
     )
 
@@ -389,9 +364,6 @@ def test_sstore_state_gas_drawn_from_reservoir(
     SSTORE state gas from the reservoir, leaving gas_left untouched
     by the state gas charge.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     storage = Storage()
@@ -401,12 +373,12 @@ def test_sstore_state_gas_drawn_from_reservoir(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
     post = {contract: Account(storage=storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.with_all_typed_transactions
@@ -415,27 +387,20 @@ def test_sstore_state_gas_all_tx_types(
     state_test: StateTestFiller,
     pre: Alloc,
     typed_transaction: Transaction,
-    fork: Fork,
 ) -> None:
     """
     Test SSTORE state gas works across all transaction types.
 
-    Different tx types (legacy, access list, EIP-1559, blob, SetCode)
-    have different intrinsic costs, which affects the gas split between
-    gas_left and state_gas_reservoir. Verify SSTORE succeeds with
-    each type.
+    With the gas limit pinned to the cap (zero reservoir), each tx
+    type's SSTORE state gas spills into gas_left despite differing
+    intrinsic costs.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     storage = Storage()
     contract = pre.deploy_contract(
         code=Op.SSTORE(storage.store_next(1), 1),
     )
 
-    tx = typed_transaction.copy(
-        to=contract,
-        gas_limit=gas_limit_cap,
-    )
+    tx = typed_transaction.copy(to=contract, state_gas_reservoir=0)
 
     post = {contract: Account(storage=storage)}
     state_test(pre=pre, post=post, tx=tx)
@@ -502,12 +467,10 @@ def test_sstore_stipend_check_excludes_reservoir(
         )
     )
 
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=caller,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas,
     )
 
     post = {caller: Account(storage=caller_storage)}
@@ -535,8 +498,6 @@ def test_sstore_restoration_block_state_gas_zero(
     `state_gas_reservoir` rather than `refund_counter`, so block
     state gas is not inflated by the charges.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
 
@@ -555,7 +516,7 @@ def test_sstore_restoration_block_state_gas_zero(
     contract = pre.deploy_contract(code=code)
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + num_cycles * sstore_state_gas,
+        state_gas_reservoir=num_cycles * sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -587,8 +548,6 @@ def test_sstore_restoration_mixed_with_genuine_sstore(
     persists, contributing exactly one `sstore_state_gas` to block
     state gas.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
 
@@ -611,7 +570,7 @@ def test_sstore_restoration_mixed_with_genuine_sstore(
     contract = pre.deploy_contract(code=code)
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + num_0_to_1 * sstore_state_gas,
+        state_gas_reservoir=num_0_to_1 * sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -638,8 +597,6 @@ def test_sstore_restoration_intermediate_values(
     first 0 to x; no charge for nonzero-to-nonzero; refund to reservoir
     at y to 0.  Net block state gas is zero.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
 
@@ -663,7 +620,7 @@ def test_sstore_restoration_intermediate_values(
     contract = pre.deploy_contract(code=code)
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -687,8 +644,6 @@ def test_sstore_restoration_then_reset(
     the subsequent 0 to 1 re-charges state gas.  Net: one charge
     remains, one state gas worth counted in block state gas.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
 
@@ -713,7 +668,7 @@ def test_sstore_restoration_then_reset(
     contract = pre.deploy_contract(code=code)
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -737,8 +692,6 @@ def test_sstore_restoration_reservoir_replenished_inline(
     on slot 0, the reservoir refill allows a second 0 to 1 on slot 1
     to draw from it.  Block state gas reflects only slot 1.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
 
@@ -758,7 +711,7 @@ def test_sstore_restoration_reservoir_replenished_inline(
     contract = pre.deploy_contract(code=code)
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -788,8 +741,6 @@ def test_sstore_restoration_cross_frame(
     applies regardless of storage ownership.  Net block state gas is
     zero.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
 
@@ -814,7 +765,7 @@ def test_sstore_restoration_cross_frame(
 
     tx = Transaction(
         to=parent,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -856,8 +807,6 @@ def test_sstore_restoration_charge_in_ancestor(
     refund must propagate up the chain to the ancestor that charged
     the 0 to x.  A probe SSTORE sized to OOG by 1 detects any loss.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     gas_costs = fork.gas_costs()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     probe_gas = (
@@ -903,7 +852,7 @@ def test_sstore_restoration_charge_in_ancestor(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=parent,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas,
     )
 
     post = {parent: Account(storage=parent_storage)}
@@ -958,7 +907,7 @@ def test_sstore_restoration_sub_frame_revert(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=caller,
-        gas_limit=fork.transaction_gas_limit_cap(),
+        state_gas_reservoir=0,
     )
 
     post = {caller: Account(storage=caller_storage)}
@@ -1042,7 +991,7 @@ def test_sstore_restoration_ancestor_revert(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=caller,
-        gas_limit=fork.transaction_gas_limit_cap(),
+        state_gas_reservoir=0,
     )
 
     state_test(
@@ -1075,8 +1024,6 @@ def test_sstore_restoration_charge_in_ancestor_intermediate_revert(
     """
     gas_costs = fork.gas_costs()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
     # Probe SSTORE(0, 1): 2 pushes + cold storage write + state gas - 1,
     # so it OOGs by 1 when the reservoir is 0 and succeeds otherwise.
@@ -1142,7 +1089,7 @@ def test_sstore_restoration_charge_in_ancestor_intermediate_revert(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=caller,
-        gas_limit=gas_limit_cap + 2 * sstore_state_gas,
+        state_gas_reservoir=2 * sstore_state_gas,
     )
 
     state_test(
@@ -1219,7 +1166,7 @@ def test_sstore_restoration_create_init_revert(
     # gas_limit at the cap means the caller's reservoir starts at 0.
     tx = Transaction(
         to=caller,
-        gas_limit=fork.transaction_gas_limit_cap(),
+        state_gas_reservoir=0,
         sender=pre.fund_eoa(),
     )
 
@@ -1243,8 +1190,6 @@ def test_sstore_restoration_create_init_success(
     restoration path works inside init and the refund doesn't disturb
     deployment.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     create_state_gas = fork.create_state_gas(code_size=0)
 
@@ -1281,7 +1226,7 @@ def test_sstore_restoration_create_init_success(
 
     tx = Transaction(
         to=caller,
-        gas_limit=gas_limit_cap + create_state_gas + sstore_state_gas,
+        state_gas_reservoir=create_state_gas + sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -1303,8 +1248,6 @@ def test_sstore_restoration_reservoir_spillover(
     `state_gas_reservoir` (not back to gas_left), moving gas between
     buckets.  Block state gas is zero.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
 
@@ -1319,7 +1262,7 @@ def test_sstore_restoration_reservoir_spillover(
     contract = pre.deploy_contract(code=code)
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap,
+        state_gas_reservoir=0,
         sender=pre.fund_eoa(),
     )
 

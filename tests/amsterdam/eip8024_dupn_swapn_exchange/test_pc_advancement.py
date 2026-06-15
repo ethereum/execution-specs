@@ -67,7 +67,7 @@ def test_dupn_pc_advances_by_2(
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     # The difference should be:
     # PUSH1(2) + SSTORE(1) + DUPN(2) + PC(1) = 6
@@ -127,7 +127,7 @@ def test_swapn_pc_advances_by_2(
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     post = {
         contract_address: Account(
@@ -183,7 +183,7 @@ def test_exchange_pc_advances_by_2(
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     post = {
         contract_address: Account(
@@ -241,7 +241,7 @@ def test_dupn_multiple_consecutive_pc_advancement(
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     post = {
         contract_address: Account(
@@ -299,7 +299,7 @@ def test_mixed_opcodes_pc_advancement(
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     post = {
         contract_address: Account(

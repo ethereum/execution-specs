@@ -24,8 +24,6 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     Bytecode,
-    Fork,
-    Header,
     Op,
     Transaction,
 )
@@ -71,7 +69,6 @@ def test_bal_withdrawal_contract_cross_index(
         to=WITHDRAWAL_REQUEST_ADDRESS,
         value=1,
         data=withdrawal_calldata,
-        gas_limit=1_000_000,
     )
 
     blockchain_test(
@@ -144,7 +141,6 @@ def test_bal_consolidation_contract_cross_index(
         to=CONSOLIDATION_REQUEST_ADDRESS,
         value=1,
         data=consolidation_calldata,
-        gas_limit=1_000_000,
     )
 
     blockchain_test(
@@ -199,7 +195,6 @@ def test_bal_consolidation_contract_cross_index(
 def test_bal_noop_write_filtering(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    fork: Fork,
 ) -> None:
     """
     Test that NOOP writes (writing same value or 0 to empty) are filtered.
@@ -209,37 +204,15 @@ def test_bal_noop_write_filtering(
     2. Writing the same value to a slot doesn't appear in BAL
     3. Only actual changes are tracked
     """
-    # Metadata pins each SSTORE's actual transition so the gas
-    # calculator picks the right branch under EIP-8037's 2D model.
     test_code = Bytecode(
         # Write 0 to uninitialized slot 1 (noop)
-        Op.SSTORE.with_metadata(
-            key_warm=False,
-            original_value=0,
-            current_value=0,
-            new_value=0,
-        )(1, 0)
-        # Write 42 to slot 2 (0->42, charges sstore_state_gas)
-        + Op.SSTORE.with_metadata(
-            key_warm=False,
-            original_value=0,
-            current_value=0,
-            new_value=42,
-        )(2, 42)
-        # Write 100 to slot 3 (same as pre-state, should be filtered)
-        + Op.SSTORE.with_metadata(
-            key_warm=False,
-            original_value=100,
-            current_value=100,
-            new_value=100,
-        )(3, 100)
-        # Write 200 to slot 4 (150->200, regular update)
-        + Op.SSTORE.with_metadata(
-            key_warm=False,
-            original_value=150,
-            current_value=150,
-            new_value=200,
-        )(4, 200)
+        Op.SSTORE(1, 0)
+        # Write 42 to slot 2
+        + Op.SSTORE(2, 42)
+        # Write 100 to slot 3 (will be same as pre-state, should be filtered)
+        + Op.SSTORE(3, 100)
+        # Write 200 to slot 4 (different from pre-state 150, should appear)
+        + Op.SSTORE(4, 200)
     )
 
     sender = pre.fund_eoa()
@@ -248,12 +221,7 @@ def test_bal_noop_write_filtering(
         storage={3: 100, 4: 150},
     )
 
-    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
-    tx = Transaction(
-        sender=sender,
-        to=test_address,
-        gas_limit=intrinsic_cost + test_code.gas_cost(fork),
-    )
+    tx = Transaction(sender=sender, to=test_address)
 
     # Expected BAL should only show actual changes
     expected_block_access_list = BlockAccessListExpectation(
@@ -281,17 +249,9 @@ def test_bal_noop_write_filtering(
         }
     )
 
-    # Header `gas_used = max(regular, state)` for the single tx; the
-    # SSTORE metadata pins each transition so `regular_cost`/`state_cost`
-    # return the actual fork-priced amount.
-    expected_regular = intrinsic_cost + test_code.regular_cost(fork)
-    expected_state = test_code.state_cost(fork)
     block = Block(
         txs=[tx],
         expected_block_access_list=expected_block_access_list,
-        header_verify=Header(
-            gas_used=max(expected_regular, expected_state),
-        ),
     )
 
     blockchain_test(
@@ -334,8 +294,8 @@ def test_bal_intra_tx_round_trip_after_prior_tx_write(
 
     # Both txs go into the same block; tx 1 makes the real 0 -> 0x42
     # change, tx 2 starts from 0x42 and ends at 0x42 (per-tx no-op).
-    tx_1 = Transaction(sender=sender_a, to=contract, gas_limit=200_000)
-    tx_2 = Transaction(sender=sender_b, to=contract, gas_limit=200_000)
+    tx_1 = Transaction(sender=sender_a, to=contract)
+    tx_2 = Transaction(sender=sender_b, to=contract)
 
     expected_block_access_list = BlockAccessListExpectation(
         account_expectations={
@@ -415,7 +375,6 @@ def test_bal_system_contract_noop_filtering(
         sender=sender,
         to=receiver,
         value=100,
-        gas_limit=21_000,
     )
 
     # withdrawal and consolidation contracts should NOT have any storage
@@ -495,14 +454,9 @@ def test_bal_withdrawal_predeploy_balance_observed_cross_tx(
         to=WITHDRAWAL_REQUEST_ADDRESS,
         value=fee,
         data=withdrawal_calldata,
-        gas_limit=1_000_000,
     )
 
-    tx_read_balance = Transaction(
-        sender=sender_1,
-        to=reader,
-        gas_limit=200_000,
-    )
+    tx_read_balance = Transaction(sender=sender_1, to=reader)
 
     expected_block_access_list = BlockAccessListExpectation(
         account_expectations={

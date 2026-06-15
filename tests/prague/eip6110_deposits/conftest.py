@@ -12,6 +12,7 @@ from execution_testing import (
     Requests,
     Transaction,
 )
+from execution_testing.base_types import HexNumber
 
 from .helpers import DepositInteractionBase, DepositRequest
 
@@ -34,26 +35,18 @@ def txs(
     prepared_requests: List[DepositInteractionBase],
 ) -> List[Transaction]:
     """List of transactions to include in the block."""
+    floor_cost = fork.transaction_data_floor_cost_calculator()
     txs = []
     for r in prepared_requests:
         txs += r.transactions()
-    # EIP-7976 (enabled with EIP-8037 on Amsterdam) raises calldata
-    # floor cost, pushing the intrinsic above the hardcoded
-    # tx_gas_limit of the large-calldata OOG fixtures. Lift each
-    # tx's gas_limit to the new intrinsic only when it falls below;
-    # the tx still OOGs on its first execution opcode, preserving
-    # the fixture's no-deposits-applied outcome.
-    if not (fork.is_eip_enabled(7976) and fork.is_eip_enabled(8037)):
-        return txs
-    current_calc = fork.transaction_intrinsic_cost_calculator()
-    bumped: List[Transaction] = []
     for tx in txs:
-        current_intrinsic = current_calc(calldata=tx.data)
-        if tx.gas_limit < current_intrinsic:
-            bumped.append(tx.copy(gas_limit=current_intrinsic))
-        else:
-            bumped.append(tx)
-    return bumped
+        if "gas_limit" in tx.model_fields_set and tx.error is None:
+            # Keep explicit limits above the fork's calldata floor
+            # (EIP-8037 repricing). Error tests keep their exact limit.
+            tx.gas_limit = HexNumber(
+                max(int(tx.gas_limit), floor_cost(data=tx.data) + 1)
+            )
+    return txs
 
 
 @pytest.fixture
