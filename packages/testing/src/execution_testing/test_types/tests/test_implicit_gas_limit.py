@@ -68,9 +68,7 @@ class TestTreatNoneGasLimitAsUnset:
         explicit_none = Transaction(gas_limit=None)
         omitted = Transaction()
         assert explicit_none.gas_limit == omitted.gas_limit
-        assert (
-            explicit_none.model_fields_set == omitted.model_fields_set
-        )
+        assert explicit_none.model_fields_set == omitted.model_fields_set
 
     def test_explicit_value_is_set(self) -> None:
         """An explicit integer gas limit remains in `model_fields_set`."""

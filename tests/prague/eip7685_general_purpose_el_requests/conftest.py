@@ -11,6 +11,7 @@ from execution_testing import (
     EngineAPIError,
     Header,
     Requests,
+    SystemContractRequest,
 )
 
 from ..eip6110_deposits.helpers import DepositInteractionBase, DepositRequest
@@ -91,20 +92,12 @@ def blocks(
     engine_api_error_code: EngineAPIError | None,
 ) -> List[Block]:
     """List of blocks that comprise the test."""
-    valid_requests_list: List[
-        DepositRequest | WithdrawalRequest | ConsolidationRequest
-    ] = []
-    # Single block therefore base fee
-    withdrawal_request_fee = 1
-    consolidation_request_fee = 1
+    valid_requests_list: List[SystemContractRequest] = []
+    # Every request here is constructed with a sufficient value, so no fee
+    # filter is needed: each interaction returns all of its `valid` requests.
     prepared = [r.update_pre(pre) for r in requests]
     for r in prepared:
-        if isinstance(r, DepositInteractionBase):
-            valid_requests_list += r.valid_requests(10**18)
-        elif isinstance(r, WithdrawalRequestInteractionBase):
-            valid_requests_list += r.valid_requests(withdrawal_request_fee)
-        elif isinstance(r, ConsolidationRequestInteractionBase):
-            valid_requests_list += r.valid_requests(consolidation_request_fee)
+        valid_requests_list += r.valid_requests()
 
     valid_requests = Requests(*valid_requests_list)
 

@@ -10,10 +10,11 @@ from execution_testing import (
     Fork,
     Header,
     Requests,
+    SystemContractRequest,
     TransitionFork,
 )
 
-from .helpers import ConsolidationRequest, ConsolidationRequestInteractionBase
+from .helpers import ConsolidationRequestInteractionBase
 from .spec import Spec
 
 
@@ -41,14 +42,14 @@ def included_requests(
     prepared_blocks_consolidation_requests: List[
         List[ConsolidationRequestInteractionBase]
     ],
-) -> List[List[ConsolidationRequest]]:
+) -> List[List[SystemContractRequest]]:
     """
     Return the list of consolidation requests that should be included in each
     block.
     """
     excess_consolidation_requests = 0
-    carry_over_requests: List[ConsolidationRequest] = []
-    per_block_included_requests: List[List[ConsolidationRequest]] = []
+    carry_over_requests: List[SystemContractRequest] = []
+    per_block_included_requests: List[List[SystemContractRequest]] = []
     for block_consolidation_requests in prepared_blocks_consolidation_requests:
         # Get fee for the current block
         current_minimum_fee = Spec.get_fee(excess_consolidation_requests)
@@ -98,7 +99,7 @@ def blocks(
     prepared_blocks_consolidation_requests: List[
         List[ConsolidationRequestInteractionBase]
     ],
-    included_requests: List[List[ConsolidationRequest]],
+    included_requests: List[List[SystemContractRequest]],
     timestamp: int,
 ) -> List[Block]:
     """Return the list of blocks that should be included in the test."""

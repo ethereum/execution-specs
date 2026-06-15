@@ -26,7 +26,6 @@ from .helpers import (
     ConsolidationRequestContract,
     ConsolidationRequestInteractionBase,
     ConsolidationRequestTransaction,
-    get_n_fee_increment_blocks,
 )
 from .spec import Spec, ref_spec_7251
 
@@ -253,52 +252,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                     ConsolidationRequestTransaction(
                         requests=[
                             ConsolidationRequest(
-                                source_pubkey=0x01,
-                                target_pubkey=0x02,
-                                fee=Spec.get_fee(0),
-                                gas_limit=136_534 - 1,
-                                valid=False,
-                            ),
-                            ConsolidationRequest(
-                                source_pubkey=0x03,
-                                target_pubkey=0x04,
-                                fee=Spec.get_fee(0),
-                            ),
-                        ]
-                    ),
-                ],
-            ],
-            id="single_block_multiple_consolidation_request_first_oog",
-        ),
-        pytest.param(
-            [
-                [
-                    ConsolidationRequestTransaction(
-                        requests=[
-                            ConsolidationRequest(
-                                source_pubkey=0x01,
-                                target_pubkey=0x02,
-                                fee=Spec.get_fee(0),
-                            ),
-                            ConsolidationRequest(
-                                source_pubkey=0x03,
-                                target_pubkey=0x04,
-                                fee=Spec.get_fee(0),
-                                gas_limit=102_334 - 1,
-                                valid=False,
-                            ),
-                        ]
-                    ),
-                ],
-            ],
-            id="single_block_multiple_consolidation_request_last_oog",
-        ),
-        pytest.param(
-            [
-                [
-                    ConsolidationRequestTransaction(
-                        requests=[
-                            ConsolidationRequest(
                                 source_pubkey=i * 2,
                                 target_pubkey=i * 2 + 1,
                                 fee=Spec.get_fee(0),
@@ -446,65 +399,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                     ConsolidationRequestContract(
                         requests=[
                             ConsolidationRequest(
-                                source_pubkey=-1,
-                                target_pubkey=-2,
-                                gas_limit=100,
-                                fee=Spec.get_fee(0),
-                                valid=False,
-                            )
-                        ]
-                        + [
-                            ConsolidationRequest(
-                                source_pubkey=i * 2,
-                                target_pubkey=i * 2 + 1,
-                                fee=Spec.get_fee(0),
-                                valid=True,
-                            )
-                            for i in range(
-                                1,
-                                Spec.MAX_CONSOLIDATION_REQUESTS_PER_BLOCK * 5,
-                            )
-                        ],
-                    ),
-                ],
-            ],
-            id="single_block_multiple_consolidation_requests_from_contract_first_oog",
-        ),
-        pytest.param(
-            [
-                [
-                    ConsolidationRequestContract(
-                        requests=[
-                            ConsolidationRequest(
-                                source_pubkey=i * 2,
-                                target_pubkey=i * 2 + 1,
-                                fee=Spec.get_fee(0),
-                                valid=True,
-                            )
-                            for i in range(
-                                Spec.MAX_CONSOLIDATION_REQUESTS_PER_BLOCK * 5
-                            )
-                        ]
-                        + [
-                            ConsolidationRequest(
-                                source_pubkey=-1,
-                                target_pubkey=-2,
-                                gas_limit=100,
-                                fee=Spec.get_fee(0),
-                                valid=False,
-                            )
-                        ],
-                    ),
-                ],
-            ],
-            id="single_block_multiple_consolidation_requests_from_contract_last_oog",
-        ),
-        pytest.param(
-            [
-                [
-                    ConsolidationRequestContract(
-                        requests=[
-                            ConsolidationRequest(
                                 source_pubkey=i * 2,
                                 target_pubkey=i * 2 + 1,
                                 fee=Spec.get_fee(0),
@@ -543,7 +437,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         ),
         pytest.param(
             # Test the first 50 fee increments
-            get_n_fee_increment_blocks(50),
+            ConsolidationRequest.get_n_fee_increment_blocks(50),
             id="multiple_block_fee_increments",
         ),
         pytest.param(

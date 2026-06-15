@@ -10,10 +10,11 @@ from execution_testing import (
     Fork,
     Header,
     Requests,
+    SystemContractRequest,
     TransitionFork,
 )
 
-from .helpers import WithdrawalRequest, WithdrawalRequestInteractionBase
+from .helpers import WithdrawalRequestInteractionBase
 from .spec import Spec
 
 
@@ -39,14 +40,14 @@ def included_requests(
     prepared_blocks_withdrawal_requests: List[
         List[WithdrawalRequestInteractionBase]
     ],
-) -> List[List[WithdrawalRequest]]:
+) -> List[List[SystemContractRequest]]:
     """
     Return the list of withdrawal requests that should be included in each
     block.
     """
     excess_withdrawal_requests = 0
-    carry_over_requests: List[WithdrawalRequest] = []
-    per_block_included_requests: List[List[WithdrawalRequest]] = []
+    carry_over_requests: List[SystemContractRequest] = []
+    per_block_included_requests: List[List[SystemContractRequest]] = []
     for block_withdrawal_requests in prepared_blocks_withdrawal_requests:
         # Get fee for the current block
         current_minimum_fee = Spec.get_fee(excess_withdrawal_requests)
@@ -94,7 +95,7 @@ def blocks(
     prepared_blocks_withdrawal_requests: List[
         List[WithdrawalRequestInteractionBase]
     ],
-    included_requests: List[List[WithdrawalRequest]],
+    included_requests: List[List[SystemContractRequest]],
     timestamp: int,
 ) -> List[Block]:
     """Return the list of blocks that should be included in the test."""

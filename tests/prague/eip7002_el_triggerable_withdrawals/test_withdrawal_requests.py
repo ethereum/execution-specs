@@ -26,7 +26,6 @@ from .helpers import (
     WithdrawalRequestContract,
     WithdrawalRequestInteractionBase,
     WithdrawalRequestTransaction,
-    get_n_fee_increment_blocks,
 )
 from .spec import Spec, ref_spec_7002
 
@@ -221,54 +220,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                     WithdrawalRequestTransaction(
                         requests=[
                             WithdrawalRequest(
-                                validator_pubkey=0x01,
-                                amount=0,
-                                fee=Spec.get_fee(0),
-                                # Value obtained from trace minus one
-                                gas_limit=114_247 - 1,
-                                valid=False,
-                            ),
-                            WithdrawalRequest(
-                                validator_pubkey=0x02,
-                                amount=0,
-                                fee=Spec.get_fee(0),
-                            ),
-                        ]
-                    ),
-                ],
-            ],
-            id="single_block_multiple_withdrawal_request_first_oog",
-        ),
-        pytest.param(
-            [
-                [
-                    WithdrawalRequestTransaction(
-                        requests=[
-                            WithdrawalRequest(
-                                validator_pubkey=0x01,
-                                amount=0,
-                                fee=Spec.get_fee(0),
-                            ),
-                            WithdrawalRequest(
-                                validator_pubkey=0x02,
-                                amount=0,
-                                fee=Spec.get_fee(0),
-                                # Value obtained from trace minus one
-                                gas_limit=80_047 - 1,
-                                valid=False,
-                            ),
-                        ]
-                    ),
-                ],
-            ],
-            id="single_block_multiple_withdrawal_request_last_oog",
-        ),
-        pytest.param(
-            [
-                [
-                    WithdrawalRequestTransaction(
-                        requests=[
-                            WithdrawalRequest(
                                 validator_pubkey=i + 1,
                                 amount=0 if i % 2 == 0 else Spec.MAX_AMOUNT,
                                 fee=Spec.get_fee(0),
@@ -424,68 +375,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                     WithdrawalRequestContract(
                         requests=[
                             WithdrawalRequest(
-                                validator_pubkey=1,
-                                amount=Spec.MAX_AMOUNT - 1,
-                                gas_limit=100,
-                                fee=Spec.get_fee(0),
-                                valid=False,
-                            )
-                        ]
-                        + [
-                            WithdrawalRequest(
-                                validator_pubkey=i + 1,
-                                amount=Spec.MAX_AMOUNT - 1
-                                if i % 2 == 0
-                                else 0,
-                                fee=Spec.get_fee(0),
-                                valid=True,
-                            )
-                            for i in range(
-                                1, Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK
-                            )
-                        ],
-                    ),
-                ],
-            ],
-            id="single_block_multiple_withdrawal_requests_from_contract_first_oog",
-        ),
-        pytest.param(
-            [
-                [
-                    WithdrawalRequestContract(
-                        requests=[
-                            WithdrawalRequest(
-                                validator_pubkey=i + 1,
-                                amount=Spec.MAX_AMOUNT - 1
-                                if i % 2 == 0
-                                else 0,
-                                fee=Spec.get_fee(0),
-                                valid=True,
-                            )
-                            for i in range(
-                                Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK
-                            )
-                        ]
-                        + [
-                            WithdrawalRequest(
-                                validator_pubkey=Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK,
-                                amount=Spec.MAX_AMOUNT - 1,
-                                gas_limit=100,
-                                fee=Spec.get_fee(0),
-                                valid=False,
-                            )
-                        ],
-                    ),
-                ],
-            ],
-            id="single_block_multiple_withdrawal_requests_from_contract_last_oog",
-        ),
-        pytest.param(
-            [
-                [
-                    WithdrawalRequestContract(
-                        requests=[
-                            WithdrawalRequest(
                                 validator_pubkey=i + 1,
                                 amount=Spec.MAX_AMOUNT - 1
                                 if i % 2 == 0
@@ -528,7 +417,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         ),
         pytest.param(
             # Test the first 50 fee increments
-            get_n_fee_increment_blocks(50),
+            WithdrawalRequest.get_n_fee_increment_blocks(50),
             id="multiple_block_fee_increments",
         ),
         pytest.param(

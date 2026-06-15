@@ -10,6 +10,7 @@ from execution_testing import (
     Fork,
     Header,
     Requests,
+    SystemContractRequest,
     Transaction,
 )
 from execution_testing.base_types import HexNumber
@@ -67,11 +68,11 @@ def exception() -> BlockException | None:
 @pytest.fixture
 def included_requests(
     prepared_requests: List[DepositInteractionBase],
-) -> List[DepositRequest]:
+) -> List[SystemContractRequest]:
     """
     Return the list of deposit requests that should be included in each block.
     """
-    valid_requests: List[DepositRequest] = []
+    valid_requests: List[SystemContractRequest] = []
 
     for d in prepared_requests:
         valid_requests += d.valid_requests(10**18)
@@ -82,7 +83,7 @@ def included_requests(
 @pytest.fixture
 def blocks(
     fork: Fork,
-    included_requests: List[DepositRequest],
+    included_requests: List[SystemContractRequest],
     block_body_override_requests: List[DepositRequest] | None,
     txs: List[Transaction],
     exception: BlockException | None,

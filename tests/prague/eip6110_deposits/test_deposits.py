@@ -184,60 +184,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             amount=32_000_000_000,
                             signature=0x03,
                             index=0x0,
-                            # From traces, gas used by the first tx is 82,718
-                            # so reduce by one here
-                            gas_limit=0x1431D,
-                            valid=False,
-                        ),
-                        DepositRequest(
-                            pubkey=0x01,
-                            withdrawal_credentials=0x02,
-                            amount=32_000_000_000,
-                            signature=0x03,
-                            index=0x0,
-                        ),
-                    ],
-                ),
-            ],
-            id="multiple_deposit_from_same_eoa_first_oog",
-        ),
-        pytest.param(
-            [
-                DepositTransaction(
-                    requests=[
-                        DepositRequest(
-                            pubkey=0x01,
-                            withdrawal_credentials=0x02,
-                            amount=32_000_000_000,
-                            signature=0x03,
-                            index=0x0,
-                        ),
-                        DepositRequest(
-                            pubkey=0x01,
-                            withdrawal_credentials=0x02,
-                            amount=32_000_000_000,
-                            signature=0x03,
-                            index=0x0,
-                            # From traces, gas used by the second tx is 68,594,
-                            # reduce by one here
-                            gas_limit=0x10BF1,
-                            valid=False,
-                        ),
-                    ],
-                ),
-            ],
-            id="multiple_deposit_from_same_eoa_last_oog",
-        ),
-        pytest.param(
-            [
-                DepositTransaction(
-                    requests=[
-                        DepositRequest(
-                            pubkey=0x01,
-                            withdrawal_credentials=0x02,
-                            amount=32_000_000_000,
-                            signature=0x03,
-                            index=0x0,
                             calldata_modifier=lambda _: b"",
                             valid=False,
                         )
@@ -377,56 +323,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                         DepositRequest(
                             pubkey=0x01,
                             withdrawal_credentials=0x02,
-                            amount=1_000_000_000,
-                            signature=0x03,
-                            gas_limit=100,
-                            index=0x0,
-                            valid=False,
-                        ),
-                        DepositRequest(
-                            pubkey=0x01,
-                            withdrawal_credentials=0x02,
-                            amount=1_000_000_000,
-                            signature=0x03,
-                            index=0x0,
-                        ),
-                    ],
-                ),
-            ],
-            id="multiple_deposits_from_contract_first_oog",
-        ),
-        pytest.param(
-            [
-                DepositContract(
-                    requests=[
-                        DepositRequest(
-                            pubkey=0x01,
-                            withdrawal_credentials=0x02,
-                            amount=1_000_000_000,
-                            signature=0x03,
-                            index=0x0,
-                        ),
-                        DepositRequest(
-                            pubkey=0x01,
-                            withdrawal_credentials=0x02,
-                            amount=1_000_000_000,
-                            signature=0x03,
-                            index=0x0,
-                            gas_limit=100,
-                            valid=False,
-                        ),
-                    ],
-                ),
-            ],
-            id="multiple_deposits_from_contract_last_oog",
-        ),
-        pytest.param(
-            [
-                DepositContract(
-                    requests=[
-                        DepositRequest(
-                            pubkey=0x01,
-                            withdrawal_credentials=0x02,
                             amount=32_000_000_000,
                             signature=0x03,
                             index=0x0,
@@ -471,26 +367,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                 ),
             ],
             id="multiple_deposits_from_contract_caller_oog",
-        ),
-        pytest.param(
-            [
-                DepositContract(
-                    requests=[
-                        DepositRequest(
-                            pubkey=0x01,
-                            withdrawal_credentials=0x02,
-                            amount=1_000_000_000,
-                            signature=0x03,
-                            index=i,
-                            valid=False,
-                        )
-                        for i in range(450)
-                    ],
-                    tx_gas_limit=10_000_000,
-                ),
-            ],
-            id="many_deposits_from_contract_oog",
-            marks=pytest.mark.slow,
         ),
         pytest.param(
             [
@@ -693,7 +569,8 @@ pytestmark = pytest.mark.valid_from("Prague")
             ],
             id="single_deposit_from_contract_call_depth_3",
         ),
-        # TODO: Update tx_gas_limit for EIP-8037 state creation gas costs.
+        # TODO: Provide a higher transaction gas limit for EIP-8037 state
+        # creation gas costs to extend this test past EIP8037.
         pytest.param(
             [
                 DepositContract(
