@@ -291,6 +291,50 @@ EXPECTED_BPO5 = json.loads("""
 }
 """)
 EXPECTED_BPO5_FORK_ID = ForkHash("0xd3a4880b")
+EXPECTED_AMSTERDAM = json.loads("""
+{
+    "activationTime": 1753987560,
+    "blobSchedule": {
+    "baseFeeUpdateFraction": 5007716,
+    "max": 20,
+    "target": 15
+    },
+    "chainId": "0x88bb0",
+    "forkId": "0x474d65ed",
+    "precompiles": {
+    "BLAKE2F": "0x0000000000000000000000000000000000000009",
+    "BLS12_G1ADD": "0x000000000000000000000000000000000000000b",
+    "BLS12_G1MSM": "0x000000000000000000000000000000000000000c",
+    "BLS12_G2ADD": "0x000000000000000000000000000000000000000d",
+    "BLS12_G2MSM": "0x000000000000000000000000000000000000000e",
+    "BLS12_MAP_FP2_TO_G2": "0x0000000000000000000000000000000000000011",
+    "BLS12_MAP_FP_TO_G1": "0x0000000000000000000000000000000000000010",
+    "BLS12_PAIRING_CHECK": "0x000000000000000000000000000000000000000f",
+    "BN254_ADD": "0x0000000000000000000000000000000000000006",
+    "BN254_MUL": "0x0000000000000000000000000000000000000007",
+    "BN254_PAIRING": "0x0000000000000000000000000000000000000008",
+    "ECREC": "0x0000000000000000000000000000000000000001",
+    "ID": "0x0000000000000000000000000000000000000004",
+    "KZG_POINT_EVALUATION": "0x000000000000000000000000000000000000000a",
+    "MODEXP": "0x0000000000000000000000000000000000000005",
+    "P256VERIFY": "0x0000000000000000000000000000000000000100",
+    "RIPEMD160": "0x0000000000000000000000000000000000000003",
+    "SHA256": "0x0000000000000000000000000000000000000002"
+    },
+    "systemContracts": {
+    "BEACON_ROOTS_ADDRESS": "0x000f3df6d732807ef1319fb7b8bb8522d0beac02",
+    "CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS":
+                           "0x0000bbddc7ce488642fb579f8b00f3a590007251",
+    "DEPOSIT_CONTRACT_ADDRESS": "0x00000000219ab540356cbb839cbe05303d7705fa",
+    "DETERMINISTIC_FACTORY_PREDEPLOY_ADDRESS":
+                           "0x4e59b44847b379578588920ca78fbf26c0b4956c",
+    "HISTORY_STORAGE_ADDRESS": "0x0000f90827f1c53a10cb7a02335b175320002935",
+    "WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS":
+                           "0x00000961ef480eb55e80d19ad83579a64c007002"
+  }
+}
+""")
+EXPECTED_AMSTERDAM_FORK_ID = ForkHash("0x474d65ed")
 
 CURRENT_FILE = Path(realpath(__file__))
 CURRENT_FOLDER = CURRENT_FILE.parent
@@ -397,6 +441,7 @@ HoodiWithBPOs:
     BPO2:               1753674216
     BPO3:               1753772520
     BPO4:               1753889256
+    Amsterdam:          1753987560
   blobSchedule:
     Cancun:
       target: 3
@@ -423,6 +468,10 @@ HoodiWithBPOs:
       max: 9
       baseFeeUpdateFraction: 5007716
     BPO4:
+      target: 15
+      max: 20
+      baseFeeUpdateFraction: 5007716
+    Amsterdam:
       target: 15
       max: 20
       baseFeeUpdateFraction: 5007716
@@ -486,7 +535,7 @@ def eth_config(network: NetworkConfig, current_time: int) -> EthConfigResponse:
             EthConfigResponse(
                 current=EXPECTED_PRAGUE,
                 next=EXPECTED_BPO1,
-                last=EXPECTED_BPO5,
+                last=EXPECTED_AMSTERDAM,
             ),
             id="Hoodi_prague_with_bpos_1",
         ),
@@ -496,7 +545,7 @@ def eth_config(network: NetworkConfig, current_time: int) -> EthConfigResponse:
             EthConfigResponse(
                 current=EXPECTED_BPO2,
                 next=EXPECTED_BPO3,
-                last=EXPECTED_BPO5,
+                last=EXPECTED_AMSTERDAM,
             ),
             id="Hoodi_prague_with_bpos_2",
         ),
@@ -506,7 +555,7 @@ def eth_config(network: NetworkConfig, current_time: int) -> EthConfigResponse:
             EthConfigResponse(
                 current=EXPECTED_BPO3,
                 next=EXPECTED_BPO4,
-                last=EXPECTED_BPO5,
+                last=EXPECTED_AMSTERDAM,
             ),
             id="Hoodi_prague_with_bpos_3",
         ),
@@ -516,7 +565,7 @@ def eth_config(network: NetworkConfig, current_time: int) -> EthConfigResponse:
             EthConfigResponse(
                 current=EXPECTED_BPO4,
                 next=EXPECTED_BPO5,
-                last=EXPECTED_BPO5,
+                last=EXPECTED_AMSTERDAM,
             ),
             id="Hoodi_prague_with_bpos_4",
         ),
@@ -525,8 +574,18 @@ def eth_config(network: NetworkConfig, current_time: int) -> EthConfigResponse:
             1753889256,
             EthConfigResponse(
                 current=EXPECTED_BPO5,
+                next=EXPECTED_AMSTERDAM,
+                last=EXPECTED_AMSTERDAM,
             ),
             id="Hoodi_prague_with_bpos_5",
+        ),
+        pytest.param(
+            "HoodiWithBPOs",
+            1753987560,
+            EthConfigResponse(
+                current=EXPECTED_AMSTERDAM,
+            ),
+            id="Hoodi_amsterdam",
         ),
     ],
     indirect=["network"],
