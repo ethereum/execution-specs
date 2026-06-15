@@ -18,6 +18,7 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    Fork,
     Header,
     Requests,
     SystemContractInteractionContract,
@@ -170,6 +171,7 @@ def test_deposit_out_of_gas(
 def test_deposit_from_contract_transaction_out_of_gas(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test that a relay-contract transaction with an insufficient gas limit runs
@@ -193,10 +195,16 @@ def test_deposit_from_contract_transaction_out_of_gas(
         ],
     ).update_pre(pre)
 
-    # A 10M gas limit is insufficient to process all 450 deposits, so the
-    # transaction runs out of gas and emits no deposit requests.
+    # A 10M gas limit is far too little to process all 450 deposits, so the
+    # transaction runs out of gas and emits no deposit requests. The limit is
+    # raised to the fork's calldata floor when that is higher (EIP-7623 /
+    # EIP-7976), so the transaction stays valid rather than being rejected for
+    # being below the floor; even then it is nowhere near enough to execute.
     txs = deposit_contract.transactions()
-    txs[0].gas_limit = HexNumber(10_000_000)
+    floor_cost = fork.transaction_data_floor_cost_calculator()
+    txs[0].gas_limit = HexNumber(
+        max(10_000_000, floor_cost(data=txs[0].data) + 1)
+    )
 
     blockchain_test(
         pre=pre,
