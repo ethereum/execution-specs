@@ -253,6 +253,7 @@ def test_selfdestruct_state_gas_refilled_on_ancestor_revert(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "num_slots",
     [
@@ -397,6 +398,7 @@ def test_create_selfdestruct_no_refund_code_deposit_state_gas(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("EIP8037")
 def test_create_selfdestruct_code_deposit_no_refund_header_check(
     blockchain_test: BlockchainTestFiller,
@@ -462,6 +464,7 @@ def test_create_selfdestruct_code_deposit_no_refund_header_check(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("EIP8037")
 def test_create_selfdestruct_sstore_restoration_refund(
     blockchain_test: BlockchainTestFiller,
@@ -525,6 +528,7 @@ def test_create_selfdestruct_sstore_restoration_refund(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("EIP8037")
 def test_selfdestruct_pre_existing_account_no_refund(
     blockchain_test: BlockchainTestFiller,
@@ -573,6 +577,7 @@ def test_selfdestruct_pre_existing_account_no_refund(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "num_hops",
     [
@@ -746,6 +751,7 @@ def test_selfdestruct_new_beneficiary_account_write_cost(
     state_test(pre=pre, post={beneficiary: Account(balance=1)}, tx=tx)
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "tx_value,beneficiary_kind",
     [

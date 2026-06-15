@@ -34,6 +34,7 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("EIP8037")
 def test_exact_coinbase_fee_simple_sstore(
     blockchain_test: BlockchainTestFiller,

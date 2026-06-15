@@ -477,6 +477,7 @@ def test_sstore_stipend_check_excludes_reservoir(
     state_test(pre=pre, tx=tx, post=post)
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "num_cycles",
     [
@@ -527,6 +528,7 @@ def test_sstore_restoration_block_state_gas_zero(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "num_cycles",
     [
@@ -583,6 +585,7 @@ def test_sstore_restoration_mixed_with_genuine_sstore(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("EIP8037")
 def test_sstore_restoration_intermediate_values(
     blockchain_test: BlockchainTestFiller,
@@ -631,6 +634,7 @@ def test_sstore_restoration_intermediate_values(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("EIP8037")
 def test_sstore_restoration_then_reset(
     blockchain_test: BlockchainTestFiller,
@@ -679,6 +683,7 @@ def test_sstore_restoration_then_reset(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("EIP8037")
 def test_sstore_restoration_reservoir_replenished_inline(
     blockchain_test: BlockchainTestFiller,
@@ -722,6 +727,7 @@ def test_sstore_restoration_reservoir_replenished_inline(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.with_all_call_opcodes(
     selector=lambda call_opcode: call_opcode != Op.STATICCALL
 )
@@ -1245,6 +1251,7 @@ def test_sstore_restoration_create_init_success(
     state_test(pre=pre, tx=tx, post=post)
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("EIP8037")
 def test_sstore_restoration_reservoir_spillover(
     blockchain_test: BlockchainTestFiller,

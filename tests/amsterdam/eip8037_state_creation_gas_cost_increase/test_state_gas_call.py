@@ -1180,6 +1180,7 @@ def test_call_zero_value_to_self_destructed_same_tx_account(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "beneficiary_type",
     [
@@ -1259,6 +1260,7 @@ def test_call_value_to_pre_existing_selfdestructed_account(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "reservoir_delta",
     [

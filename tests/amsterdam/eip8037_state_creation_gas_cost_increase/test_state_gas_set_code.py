@@ -344,6 +344,7 @@ def test_existing_account_refund_enables_sstore(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "signer_pre_state,authorize_to_null",
     [
@@ -1405,6 +1406,7 @@ def test_auth_state_gas_in_header_after_failure(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "authority_exists",
     [
