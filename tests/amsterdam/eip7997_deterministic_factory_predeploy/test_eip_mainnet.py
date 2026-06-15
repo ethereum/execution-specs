@@ -20,7 +20,7 @@ from .spec import Spec, ref_spec_7997
 REFERENCE_SPEC_GIT_PATH = ref_spec_7997.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7997.version
 
-pytestmark = [pytest.mark.valid_at("Amsterdam"), pytest.mark.mainnet]
+pytestmark = [pytest.mark.valid_at("EIP7997"), pytest.mark.mainnet]
 
 
 def test_eip_7997(

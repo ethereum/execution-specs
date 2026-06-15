@@ -53,12 +53,23 @@ def test_factory_predeploy_account(
     the predeploy via `EXTCODESIZE`, `EXTCODEHASH`, `EXTCODECOPY` +
     `SHA3`, and `BALANCE`.
     """
+    storage = Storage()
+    extcodesize_slot = storage.store_next(
+        len(Spec.FACTORY_BYTECODE), "extcodesize"
+    )
+    extcodehash_slot = storage.store_next(
+        keccak256(Spec.FACTORY_BYTECODE), "extcodehash"
+    )
+    extcodecopy_hash_slot = storage.store_next(
+        keccak256(Spec.FACTORY_BYTECODE), "extcodecopy_hash"
+    )
+    balance_slot = storage.store_next(0, "balance")
     caller = pre.deploy_contract(
-        Op.SSTORE(0, Op.EXTCODESIZE(FACTORY))
-        + Op.SSTORE(1, Op.EXTCODEHASH(FACTORY))
+        Op.SSTORE(extcodesize_slot, Op.EXTCODESIZE(FACTORY))
+        + Op.SSTORE(extcodehash_slot, Op.EXTCODEHASH(FACTORY))
         + Op.EXTCODECOPY(FACTORY, 0, 0, Op.EXTCODESIZE(FACTORY))
-        + Op.SSTORE(2, Op.SHA3(0, Op.EXTCODESIZE(FACTORY)))
-        + Op.SSTORE(3, Op.BALANCE(FACTORY))
+        + Op.SSTORE(extcodecopy_hash_slot, Op.SHA3(0, Op.EXTCODESIZE(FACTORY)))
+        + Op.SSTORE(balance_slot, Op.BALANCE(FACTORY))
         + Op.STOP,
     )
     state_test(
@@ -74,14 +85,7 @@ def test_factory_predeploy_account(
                 balance=0,
                 code=Spec.FACTORY_BYTECODE,
             ),
-            caller: Account(
-                storage={
-                    0: len(Spec.FACTORY_BYTECODE),
-                    1: keccak256(Spec.FACTORY_BYTECODE),
-                    2: keccak256(Spec.FACTORY_BYTECODE),
-                    3: 0,
-                },
-            ),
+            caller: Account(storage=storage),
         },
     )
 
@@ -230,11 +234,17 @@ def test_factory_different_salts_produce_different_addresses(
     initcode_offset = 32
     args_size = initcode_offset + len(bytes(initcode))
 
+    storage = Storage()
+    salt_a_call_slot = storage.store_next(1, "salt_a_call_success")
+    salt_a_addr_slot = storage.store_next(addr_a, "salt_a_address")
+    salt_b_call_slot = storage.store_next(1, "salt_b_call_success")
+    salt_b_addr_slot = storage.store_next(addr_b, "salt_b_address")
+
     caller = pre.deploy_contract(
         Op.CALLDATACOPY(initcode_offset, 0, Op.CALLDATASIZE)
         + Op.MSTORE(0, salt_a)
         + Op.SSTORE(
-            0,
+            salt_a_call_slot,
             Op.CALL(
                 gas=Op.GAS,
                 address=FACTORY,
@@ -245,10 +255,10 @@ def test_factory_different_salts_produce_different_addresses(
                 ret_size=20,
             ),
         )
-        + Op.SSTORE(1, Op.MLOAD(0x200))
+        + Op.SSTORE(salt_a_addr_slot, Op.MLOAD(0x200))
         + Op.MSTORE(0, salt_b)
         + Op.SSTORE(
-            2,
+            salt_b_call_slot,
             Op.CALL(
                 gas=Op.GAS,
                 address=FACTORY,
@@ -259,7 +269,7 @@ def test_factory_different_salts_produce_different_addresses(
                 ret_size=20,
             ),
         )
-        + Op.SSTORE(3, Op.MLOAD(0x200))
+        + Op.SSTORE(salt_b_addr_slot, Op.MLOAD(0x200))
         + Op.STOP,
     )
 
@@ -272,9 +282,7 @@ def test_factory_different_salts_produce_different_addresses(
             gas_limit=1_000_000,
         ),
         post={
-            caller: Account(
-                storage={0: 1, 1: addr_a, 2: 1, 3: addr_b},
-            ),
+            caller: Account(storage=storage),
             addr_a: Account(nonce=1, code=bytes(runtime_code)),
             addr_b: Account(nonce=1, code=bytes(runtime_code)),
         },
@@ -379,13 +387,18 @@ def test_factory_in_caller_context(
         ret_size=20,
     )
 
+    storage = Storage()
+    call_success_slot = storage.store_next(1, "delegated_call_success")
+    derived_addr_slot = storage.store_next(0, "caller_derived_address")
+
     caller = pre.deploy_contract(
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-        + Op.SSTORE(0, call_op)
-        + Op.SSTORE(1, Op.MLOAD(0x100))
+        + Op.SSTORE(call_success_slot, call_op)
+        + Op.SSTORE(derived_addr_slot, Op.MLOAD(0x100))
         + Op.STOP,
     )
     caller_derived = compute_create2_address(caller, salt, initcode)
+    storage[derived_addr_slot] = caller_derived
 
     state_test(
         pre=pre,
@@ -396,7 +409,7 @@ def test_factory_in_caller_context(
             gas_limit=500_000,
         ),
         post={
-            caller: Account(storage={0: 1, 1: caller_derived}),
+            caller: Account(storage=storage),
             caller_derived: Account(nonce=1, code=bytes(runtime_code)),
             factory_derived: Account.NONEXISTENT,
         },
