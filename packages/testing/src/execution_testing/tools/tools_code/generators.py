@@ -53,8 +53,11 @@ class Initcode(Bytecode):
         initcode = initcode_prefix
         code_length = len(deploy_code)
 
-        # PUSH2: length=<bytecode length>
-        initcode += Op.PUSH2(code_length)
+        # PUSHN: length=<bytecode length>. PUSH2 by default, widening to a
+        # larger PUSH only when the deploy code exceeds 64KiB - 1 bytes.
+        push_length_size = max(2, (code_length.bit_length() + 7) // 8)
+        push_length = getattr(Op, f"PUSH{push_length_size}")
+        initcode += push_length(code_length)
 
         # PUSH1: offset=0
         initcode += Op.PUSH1(0)
@@ -62,8 +65,8 @@ class Initcode(Bytecode):
         # DUP2
         initcode += Op.DUP2
 
-        # PUSH1: initcode_length=11 + len(initcode_prefix_bytes) (constant)
-        no_prefix_length = 0x0B
+        # PUSH1: initcode_length=9 + push_length_size + initcode_prefix_bytes
+        no_prefix_length = 0x09 + push_length_size
         assert no_prefix_length + len(initcode_prefix) <= 0xFF, (
             "initcode prefix too long"
         )
