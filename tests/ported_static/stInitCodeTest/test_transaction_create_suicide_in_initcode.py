@@ -34,7 +34,6 @@ def test_transaction_create_suicide_in_initcode(
     state_test: StateTestFiller,
     fork: Fork,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """Test_transaction_create_suicide_in_initcode."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)

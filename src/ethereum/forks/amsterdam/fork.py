@@ -70,10 +70,8 @@ from .requests import (
 from .state_tracker import (
     BlockState,
     TransactionState,
-    account_exists_and_is_empty,
     convert_to_balance_only_account,
     create_ether,
-    destroy_account,
     extract_block_diff,
     get_account,
     get_code,

@@ -19,6 +19,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     CalldataCase,
+    Fork,
     Initcode,
     Op,
     Switch,
@@ -29,7 +30,7 @@ from execution_testing import (
 
 @pytest.mark.valid_from("Constantinople")
 def test_tx_selfdestruct_balance_bug(
-    blockchain_test: BlockchainTestFiller, pre: Alloc
+    blockchain_test: BlockchainTestFiller, pre: Alloc, fork: Fork
 ) -> None:
     """
     Test that the vulnerability is not present by checking the balance of the
