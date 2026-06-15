@@ -44,6 +44,34 @@ None required - the existing framework supported writing these tests.
 
 ---
 
+## 2026-06 - Block Access List Storage Change Cardinality - Amsterdam
+
+### Description
+
+A stateless zkEVM client implementation was found to mishandle a single account that accumulates a large number of distinct storage changes in the block access list (EIP-7928). When preloading the transaction recipient's BAL storage keys, the client copied them into a fixed-size buffer sized for 16 slots with no bounds check. A transaction that wrote more than 16 distinct storage slots to one contract overflowed the buffer into adjacent state, corrupting the transaction's computed gas usage and therefore the block validity verdict.
+
+The bug was latent against the existing test suite: no fixture exercised more than eight distinct storage changes for a single account, and those eight were spread one-per-transaction (`test_bal_cross_tx_storage_chain`), so the per-account, per-transaction storage-change cardinality never approached the buffer boundary.
+
+### Root Cause Analysis
+
+- Existing BAL storage tests focused on the correctness of recording, ordering, and the uniqueness rules for small numbers of slots; the high-cardinality case (many distinct slots for one account in one transaction) was implicitly assumed covered or low-risk.
+- No fixture pushed a single account past a handful of storage changes, so fixed-size per-account buffers in client implementations were never stressed.
+- The block access list is a new structure in EIP-7928, so client-side handling of large per-account storage-change lists had little prior fuzzing or property-based coverage.
+
+### Steps Taken To Avoid Recurrence
+
+- Added a parametrized regression test that writes many distinct, previously-zero storage slots (17, 32, and 128) to one contract in a single transaction and asserts the BAL records every slot, in ascending order, at a single block access index.
+
+### Implemented Test Case
+
+- `tests/amsterdam/eip7928_block_level_access_lists/test_block_access_lists.py::test_bal_many_storage_writes_single_account`
+
+### Framework/Documentation Changes
+
+None required - the existing framework supported writing these tests.
+
+---
+
 ## TEMPLATE
 
 ## Date - Title - Fork

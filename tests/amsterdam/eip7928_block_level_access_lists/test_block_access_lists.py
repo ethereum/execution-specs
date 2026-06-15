@@ -2484,6 +2484,85 @@ def test_bal_cross_tx_storage_chain(
     )
 
 
+@pytest.mark.parametrize(
+    "num_slots",
+    [
+        pytest.param(17, id="17_slots"),
+        pytest.param(32, id="32_slots"),
+        pytest.param(128, id="128_slots"),
+    ],
+)
+def test_bal_many_storage_writes_single_account(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    fork: Fork,
+    num_slots: int,
+) -> None:
+    """
+    Verify the BAL records many distinct storage changes for a single
+    account written by a single transaction.
+
+    One transaction calls a contract that writes `num_slots` distinct,
+    previously-zero slots (`slot[i] = i + 1` for `i` in `0..num_slots`).
+    The account's `storage_changes` in the BAL must list every slot, in
+    ascending slot order, each at `block_access_index=1`.
+
+    Existing BAL storage tests touch at most a handful of slots per
+    account (e.g. `test_bal_cross_tx_storage_chain` writes 8 slots, one
+    per transaction). This exercises a much higher per-account,
+    per-transaction storage-change cardinality, which stresses any client
+    that records or preloads an account's BAL storage keys into a
+    fixed-size buffer.
+    """
+    contract_code = Op.SSTORE(0, 1)
+    for i in range(1, num_slots):
+        contract_code += Op.SSTORE(i, i + 1)
+    contract_code += Op.STOP
+    contract = pre.deploy_contract(code=contract_code)
+
+    alice = pre.fund_eoa()
+    tx = Transaction(
+        sender=alice,
+        to=contract,
+        gas_limit=fork.transaction_gas_limit_cap(),
+    )
+
+    account_expectations = {
+        alice: BalAccountExpectation(
+            nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
+        ),
+        contract: BalAccountExpectation(
+            storage_changes=[
+                BalStorageSlot(
+                    slot=i,
+                    slot_changes=[
+                        BalStorageChange(
+                            block_access_index=1, post_value=i + 1
+                        )
+                    ],
+                )
+                for i in range(num_slots)
+            ],
+            storage_reads=[],
+        ),
+    }
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations=account_expectations
+                ),
+            )
+        ],
+        post={
+            contract: Account(storage={i: i + 1 for i in range(num_slots)}),
+        },
+    )
+
+
 @pytest.mark.with_all_create_opcodes
 def test_bal_cross_tx_deploy_then_call(
     pre: Alloc,
