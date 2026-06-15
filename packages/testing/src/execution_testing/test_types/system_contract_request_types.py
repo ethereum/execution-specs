@@ -57,6 +57,12 @@ class SystemContractRequest(RequestBase, CamelModel):
         """Return a copy of the request with its source address set."""
         ...
 
+    @classmethod
+    @abstractmethod
+    def from_index(cls, index: int, fee: int | None = None) -> Self:
+        """Build a request from a sequential index, paying `fee`."""
+        ...
+
 
 class FeeSystemContractRequest(SystemContractRequest):
     """
@@ -100,12 +106,6 @@ class FeeSystemContractRequest(SystemContractRequest):
     def get_excess(cls, previous_excess: int, count: int) -> int:
         """Return the new excess after a block processing `count` requests."""
         return max(0, previous_excess + count - cls.target_per_block)
-
-    @classmethod
-    @abstractmethod
-    def from_index(cls, index: int, fee: int) -> Self:
-        """Build a request from a sequential index, paying `fee`."""
-        ...
 
     @classmethod
     def get_n_fee_increments(cls, n: int) -> List[int]:

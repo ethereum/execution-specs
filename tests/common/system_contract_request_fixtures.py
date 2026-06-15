@@ -1,12 +1,14 @@
 """
-Shared pytest fixtures for system-contract request tests that use the
-excess-based fee dynamic (EIP-7002, EIP-7251, and future forks).
+Shared pytest fixtures for system-contract request tests (EIP-6110, EIP-7002,
+EIP-7251, and future forks).
 
-These fixtures are request-type agnostic: they read the per-block dequeue cap
-(`max_per_block`), the fee curve (`get_fee`) and the excess update
-(`get_excess`) from each `FeeSystemContractRequest` subclass, and track the
-excess request count independently per request type. A block may therefore mix
-request types, each accounted for with its own fee and queue.
+These fixtures are request-type agnostic and track inclusion independently per
+request type. For `FeeSystemContractRequest` types (e.g. withdrawals and
+consolidations) they read the per-block dequeue cap (`max_per_block`), the fee
+curve (`get_fee`) and the excess update (`get_excess`), tracking the excess
+request count per type. Fee-less requests (e.g. deposits) are always included
+with no per-block cap. A block may therefore mix request types, each accounted
+for with its own rules.
 """
 
 from collections import defaultdict
@@ -26,7 +28,7 @@ from execution_testing import (
     TransitionFork,
 )
 
-RequestType = Type[FeeSystemContractRequest]
+RequestType = Type[SystemContractRequest]
 
 
 @pytest.fixture
@@ -66,37 +68,50 @@ def included_requests(
     per_block_included: List[List[SystemContractRequest]] = []
 
     for block_interactions in prepared_system_contract_interactions_per_block:
-        # Group this block's valid requests by type, keeping only those that
-        # meet their type's current (per-block) minimum fee.
+        # Group this block's valid requests by type. Fee requests are kept only
+        # if they meet their type's current (per-block) fee; fee-less requests
+        # (e.g. deposits) are always included.
         current: Dict[RequestType, List[SystemContractRequest]] = defaultdict(
             list
         )
         for interaction in block_interactions:
             for request in interaction.valid_requests():
-                assert isinstance(request, FeeSystemContractRequest)
                 request_type = type(request)
                 if request_type not in seen_types:
                     seen_types.append(request_type)
-                if request.value >= request_type.get_fee(excess[request_type]):
-                    current[request_type].append(request)
+                if isinstance(request, FeeSystemContractRequest):
+                    minimum_fee = type(request).get_fee(excess[request_type])
+                    if request.value < minimum_fee:
+                        continue
+                current[request_type].append(request)
 
         block_included: List[SystemContractRequest] = []
         for request_type in seen_types:
             pending = carry_over[request_type] + current[request_type]
-            block_included += pending[: request_type.max_per_block]
-            carry_over[request_type] = pending[request_type.max_per_block :]
-            excess[request_type] = request_type.get_excess(
-                excess[request_type], len(current[request_type])
-            )
+            if issubclass(request_type, FeeSystemContractRequest):
+                cap = request_type.max_per_block
+                block_included += pending[:cap]
+                carry_over[request_type] = pending[cap:]
+                excess[request_type] = request_type.get_excess(
+                    excess[request_type], len(current[request_type])
+                )
+            else:
+                # Fee-less requests (e.g. deposits) have no per-block cap.
+                block_included += pending
+                carry_over[request_type] = []
         per_block_included.append(block_included)
 
-    # Keep adding blocks until every type's queue is drained.
+    # Keep adding blocks until every type's queue is drained. Only fee requests
+    # (which are capped per block) can ever carry over.
     while any(carry_over[request_type] for request_type in seen_types):
         block_included = []
         for request_type in seen_types:
+            if not issubclass(request_type, FeeSystemContractRequest):
+                continue
             queue = carry_over[request_type]
-            block_included += queue[: request_type.max_per_block]
-            carry_over[request_type] = queue[request_type.max_per_block :]
+            cap = request_type.max_per_block
+            block_included += queue[:cap]
+            carry_over[request_type] = queue[cap:]
         per_block_included.append(block_included)
 
     return per_block_included

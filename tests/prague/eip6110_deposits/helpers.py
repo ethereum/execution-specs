@@ -2,7 +2,7 @@
 
 from functools import cached_property
 from hashlib import sha256 as sha256_hashlib
-from typing import ClassVar
+from typing import ClassVar, Self
 
 from execution_testing import Address, Hash, SystemContractRequest
 from execution_testing import DepositRequest as DepositRequestBase
@@ -197,3 +197,15 @@ class DepositRequest(DepositRequestBase, SystemContractRequest):
         """Return a copy."""
         del source_address
         return self.copy()
+
+    @classmethod
+    def from_index(cls, index: int, fee: int | None = None) -> Self:
+        """Build a request from a sequential index, paying `fee`."""
+        assert fee is None, f"Deposit requests do not require any fee: {fee}"
+        return cls(
+            pubkey=(index * 3),
+            withdrawal_credentials=(index * 3) + 1,
+            amount=1_000_000_000,
+            signature=(index * 3) + 2,
+            index=index,
+        )

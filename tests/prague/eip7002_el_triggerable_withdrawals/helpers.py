@@ -43,6 +43,8 @@ class WithdrawalRequest(WithdrawalRequestBase, FeeSystemContractRequest):
         return self.copy(source_address=source_address)
 
     @classmethod
-    def from_index(cls, index: int, fee: int) -> Self:
+    def from_index(cls, index: int, fee: int | None = None) -> Self:
         """Build a withdrawal request from a sequential index."""
+        if fee is None:
+            fee = cls.get_fee(0)
         return cls(validator_pubkey=index, amount=0, fee=fee)

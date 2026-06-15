@@ -15,9 +15,26 @@ from execution_testing import (
     SystemContractRequest,
 )
 
+from ...common.system_contract_request_fixtures import (
+    blocks,  # noqa: F401
+    included_requests,  # noqa: F401
+    prepared_system_contract_interactions_per_block,  # noqa: F401
+    timestamp,  # noqa: F401
+)
 from ..eip6110_deposits.helpers import DepositRequest
 from ..eip7002_el_triggerable_withdrawals.helpers import WithdrawalRequest
 from ..eip7251_consolidations.helpers import ConsolidationRequest
+
+
+@pytest.fixture
+def system_contract_interactions_per_block(
+    requests: List[SystemContractInteractionBase],
+) -> List[List[SystemContractInteractionBase]]:
+    """
+    Adapt the flat `requests` parametrization (one block's interactions) to the
+    per-block shape consumed by the shared request fixtures (`blocks` etc.).
+    """
+    return [requests]
 
 
 @pytest.fixture
@@ -74,19 +91,18 @@ def engine_api_error_code(
 
 
 @pytest.fixture
-def blocks(
+def override_blocks(
     pre: Alloc,
-    requests: List[
-        SystemContractInteractionBase
-        | SystemContractInteractionBase
-        | SystemContractInteractionBase
-    ],
+    requests: List[SystemContractInteractionBase],
     block_body_override_requests: List[Bytes | SupportsBytes] | None,
     correct_requests_hash_in_header: bool,
     exception: BlockException | None,
     engine_api_error_code: EngineAPIError | None,
 ) -> List[Block]:
-    """List of blocks that comprise the test."""
+    """
+    Single block whose request body / header can be overridden, used by the
+    negative tests to inject invalid requests and expect a block exception.
+    """
     valid_requests_list: List[SystemContractRequest] = []
     # Every request here is constructed with a sufficient value, so no fee
     # filter is needed: each interaction returns all of its `valid` requests.
