@@ -40,7 +40,7 @@ BLOCKS_BEFORE_FORK = 2
                             WithdrawalRequest(
                                 validator_pubkey=0x01,
                                 amount=0,
-                                fee=Spec.get_fee(10),
+                                fee=WithdrawalRequest.get_fee(10),
                                 # Pre-fork withdrawal request
                                 valid=False,
                             )
@@ -53,7 +53,7 @@ BLOCKS_BEFORE_FORK = 2
                             WithdrawalRequest(
                                 validator_pubkey=0x02,
                                 amount=0,
-                                fee=Spec.get_fee(10),
+                                fee=WithdrawalRequest.get_fee(10),
                                 # First post-fork withdrawal request, will not
                                 # be included because the inhibitor is cleared
                                 # at the end of the block
@@ -68,7 +68,6 @@ BLOCKS_BEFORE_FORK = 2
                             WithdrawalRequest(
                                 validator_pubkey=0x03,
                                 amount=0,
-                                fee=Spec.get_fee(0),
                                 # First withdrawal that is valid
                                 valid=True,
                             )

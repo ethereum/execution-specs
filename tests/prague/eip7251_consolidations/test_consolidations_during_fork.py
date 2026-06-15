@@ -40,7 +40,7 @@ BLOCKS_BEFORE_FORK = 2
                             ConsolidationRequest(
                                 source_pubkey=0x01,
                                 target_pubkey=0x02,
-                                fee=Spec.get_fee(10),
+                                fee=ConsolidationRequest.get_fee(10),
                                 # Pre-fork consolidation request
                                 valid=False,
                             )
@@ -53,7 +53,7 @@ BLOCKS_BEFORE_FORK = 2
                             ConsolidationRequest(
                                 source_pubkey=0x03,
                                 target_pubkey=0x04,
-                                fee=Spec.get_fee(10),
+                                fee=ConsolidationRequest.get_fee(10),
                                 # First post-fork consolidation request, will
                                 # not be included because the inhibitor is
                                 # cleared at the end of the block
@@ -68,7 +68,6 @@ BLOCKS_BEFORE_FORK = 2
                             ConsolidationRequest(
                                 source_pubkey=0x05,
                                 target_pubkey=0x06,
-                                fee=Spec.get_fee(0),
                                 # First consolidation that is valid
                                 valid=True,
                             )

@@ -46,7 +46,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=0x01,
                                 target_pubkey=0x02,
-                                fee=Spec.get_fee(0),
                             )
                         ],
                     ),
@@ -62,7 +61,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=0x01,
                                 target_pubkey=0x01,
-                                fee=Spec.get_fee(0),
                             )
                         ],
                     ),
@@ -78,7 +76,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=-1,
                                 target_pubkey=-2,
-                                fee=Spec.get_fee(0),
                             )
                         ],
                     ),
@@ -111,7 +108,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=0x01,
                                 target_pubkey=0x02,
-                                fee=Spec.get_fee(0),
                                 calldata_modifier=lambda x: x[:-1],
                                 valid=False,
                             )
@@ -129,7 +125,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=0x01,
                                 target_pubkey=0x02,
-                                fee=Spec.get_fee(0),
                                 calldata_modifier=lambda x: x + b"\x00",
                                 valid=False,
                             )
@@ -147,12 +142,10 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=0x01,
                                 target_pubkey=0x02,
-                                fee=Spec.get_fee(0),
                             ),
                             ConsolidationRequest(
                                 source_pubkey=0x03,
                                 target_pubkey=0x04,
-                                fee=Spec.get_fee(0),
                             ),
                         ],
                     ),
@@ -168,7 +161,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=0x01,
                                 target_pubkey=0x02,
-                                fee=Spec.get_fee(0),
                             )
                         ],
                     ),
@@ -177,7 +169,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=0x03,
                                 target_pubkey=0x04,
-                                fee=Spec.get_fee(0),
                             )
                         ],
                     ),
@@ -193,7 +184,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=i * 2,
                                 target_pubkey=i * 2 + 1,
-                                fee=Spec.get_fee(0),
                             )
                             for i in range(
                                 Spec.MAX_CONSOLIDATION_REQUESTS_PER_BLOCK
@@ -217,7 +207,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=0x03,
                                 target_pubkey=0x04,
-                                fee=Spec.get_fee(0),
                             ),
                         ]
                     ),
@@ -233,7 +222,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=0x01,
                                 target_pubkey=0x02,
-                                fee=Spec.get_fee(0),
                             ),
                             ConsolidationRequest(
                                 source_pubkey=0x03,
@@ -254,7 +242,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=i * 2,
                                 target_pubkey=i * 2 + 1,
-                                fee=Spec.get_fee(0),
                             )
                             for i in range(
                                 Spec.MAX_CONSOLIDATION_REQUESTS_PER_BLOCK * 5
@@ -273,7 +260,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=0x01,
                                 target_pubkey=0x02,
-                                fee=Spec.get_fee(0),
                             ),
                         ]
                     ),
@@ -289,7 +275,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=i * 2,
                                 target_pubkey=i * 2 + 1,
-                                fee=Spec.get_fee(0),
                             )
                             for i in range(
                                 Spec.MAX_CONSOLIDATION_REQUESTS_PER_BLOCK * 5
@@ -308,7 +293,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=i * 2,
                                 target_pubkey=i * 2 + 1,
-                                fee=Spec.get_fee(0),
                             )
                             for i in range(
                                 Spec.MAX_CONSOLIDATION_REQUESTS_PER_BLOCK * 5
@@ -328,7 +312,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=i * 2,
                                 target_pubkey=i * 2 + 1,
-                                fee=Spec.get_fee(0),
                             )
                             for i in range(
                                 Spec.MAX_CONSOLIDATION_REQUESTS_PER_BLOCK * 5
@@ -355,7 +338,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=i * 2,
                                 target_pubkey=i * 2 + 1,
-                                fee=Spec.get_fee(0),
                             )
                             for i in range(
                                 1,
@@ -375,7 +357,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=i * 2,
                                 target_pubkey=i * 2 + 1,
-                                fee=Spec.get_fee(0),
                             )
                             for i in range(
                                 Spec.MAX_CONSOLIDATION_REQUESTS_PER_BLOCK * 5
@@ -401,7 +382,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=i * 2,
                                 target_pubkey=i * 2 + 1,
-                                fee=Spec.get_fee(0),
                                 valid=False,
                             )
                             for i in range(
@@ -422,7 +402,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=i * 2,
                                 target_pubkey=i * 2 + 1,
-                                fee=Spec.get_fee(0),
                                 valid=False,
                             )
                             for i in range(
@@ -448,7 +427,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=0x01,
                                 target_pubkey=0x02,
-                                fee=Spec.get_fee(0),
                                 valid=False,
                             )
                         ],
@@ -459,7 +437,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=0x01,
                                 target_pubkey=0x02,
-                                fee=Spec.get_fee(0),
                                 valid=False,
                             )
                         ],
@@ -470,7 +447,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=0x01,
                                 target_pubkey=0x02,
-                                fee=Spec.get_fee(0),
                                 valid=False,
                             )
                         ],
@@ -488,7 +464,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=0x01,
                                 target_pubkey=0x02,
-                                fee=Spec.get_fee(0),
                                 valid=False,
                             )
                         ],
@@ -500,7 +475,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=0x01,
                                 target_pubkey=0x02,
-                                fee=Spec.get_fee(0),
                                 valid=False,
                             )
                         ],
@@ -512,7 +486,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=0x01,
                                 target_pubkey=0x02,
-                                fee=Spec.get_fee(0),
                                 valid=False,
                             )
                         ],
@@ -531,7 +504,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=0x01,
                                 target_pubkey=0x02,
-                                fee=Spec.get_fee(0),
                                 valid=False,
                             )
                         ],
@@ -543,7 +515,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=0x01,
                                 target_pubkey=0x02,
-                                fee=Spec.get_fee(0),
                                 valid=False,
                             )
                         ],
@@ -555,7 +526,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=0x01,
                                 target_pubkey=0x02,
-                                fee=Spec.get_fee(0),
                                 valid=False,
                             )
                         ],
@@ -604,7 +574,6 @@ def test_consolidation_requests(
                         ConsolidationRequest(
                             source_pubkey=0x01,
                             target_pubkey=0x02,
-                            fee=Spec.get_fee(0),
                         ),
                     ]
                 ),
@@ -620,7 +589,6 @@ def test_consolidation_requests(
                         ConsolidationRequest(
                             source_pubkey=0x01,
                             target_pubkey=0x02,
-                            fee=Spec.get_fee(0),
                         ),
                     ]
                 ),
@@ -642,7 +610,6 @@ def test_consolidation_requests(
                         ConsolidationRequest(
                             source_pubkey=0x01,
                             target_pubkey=0x02,
-                            fee=Spec.get_fee(0),
                         ),
                     ]
                 ),
@@ -664,7 +631,6 @@ def test_consolidation_requests(
                         ConsolidationRequest(
                             source_pubkey=0x01,
                             target_pubkey=0x02,
-                            fee=Spec.get_fee(0),
                         ),
                     ]
                 ),
@@ -686,7 +652,6 @@ def test_consolidation_requests(
                         ConsolidationRequest(
                             source_pubkey=0x01,
                             target_pubkey=0x02,
-                            fee=Spec.get_fee(0),
                         )
                     ],
                 ),
@@ -708,12 +673,10 @@ def test_consolidation_requests(
                         ConsolidationRequest(
                             source_pubkey=0x01,
                             target_pubkey=0x02,
-                            fee=Spec.get_fee(0),
                         ),
                         ConsolidationRequest(
                             source_pubkey=0x03,
                             target_pubkey=0x04,
-                            fee=Spec.get_fee(0),
                         ),
                     ],
                 ),
@@ -740,7 +703,6 @@ def test_consolidation_requests(
                         ConsolidationRequest(
                             source_pubkey=0x01,
                             target_pubkey=0x02,
-                            fee=Spec.get_fee(0),
                         )
                     ],
                 ),

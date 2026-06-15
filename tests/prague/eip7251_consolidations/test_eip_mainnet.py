@@ -12,7 +12,7 @@ from execution_testing import (
 )
 
 from .helpers import ConsolidationRequest, ConsolidationRequestTransaction
-from .spec import Spec, ref_spec_7251
+from .spec import ref_spec_7251
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7251.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7251.version
@@ -31,7 +31,6 @@ pytestmark = [pytest.mark.valid_at("Prague"), pytest.mark.mainnet]
                             ConsolidationRequest(
                                 source_pubkey=0x01,
                                 target_pubkey=0x02,
-                                fee=Spec.get_fee(0),
                             )
                         ],
                     ),

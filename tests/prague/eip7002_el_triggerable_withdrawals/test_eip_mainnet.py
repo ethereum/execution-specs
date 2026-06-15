@@ -12,7 +12,7 @@ from execution_testing import (
 )
 
 from .helpers import WithdrawalRequest, WithdrawalRequestTransaction
-from .spec import Spec, ref_spec_7002
+from .spec import ref_spec_7002
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7002.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7002.version
@@ -31,7 +31,6 @@ pytestmark = [pytest.mark.valid_at("Prague"), pytest.mark.mainnet]
                             WithdrawalRequest(
                                 validator_pubkey=0x01,
                                 amount=0,
-                                fee=Spec.get_fee(0),
                             )
                         ],
                     ),
