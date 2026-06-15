@@ -3,9 +3,8 @@ Test_mem32kb_single_byte_plus_31.
 
 Ported from:
 state_tests/stMemoryTest/mem32kb_singleByte+31Filler.json
-@manually-enhanced: Do not overwrite. tx `gas_limit` bumped on Amsterdam
-to cover EIP-8037 state-gas spill; pre-EIP-8037 unchanged.
 
+@manually-enhanced: Do not overwrite. tx `gas_limit` has been removed.
 """
 
 import pytest
@@ -18,7 +17,6 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -33,14 +31,8 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_mem32kb_single_byte_plus_31(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """Test_mem32kb_single_byte_plus_31."""
-    # EIP-8037 state-gas spill on Amsterdam exceeds 100k tx_gas.
-    tx_gas_limit = 100000
-    if fork.is_eip_enabled(8037):
-        tx_gas_limit = 300_000
-
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x6400000000)
 
@@ -62,13 +54,7 @@ def test_mem32kb_single_byte_plus_31(
         nonce=0,
     )
 
-    tx = Transaction(
-        sender=sender,
-        to=target,
-        data=Bytes(""),
-        gas_limit=tx_gas_limit,
-        value=10,
-    )
+    tx = Transaction(sender=sender, to=target, data=Bytes(""), value=10)
 
     post = {
         target: Account(storage={0: 32032}, nonce=0),

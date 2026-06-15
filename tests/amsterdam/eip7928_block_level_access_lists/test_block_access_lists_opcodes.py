@@ -359,11 +359,7 @@ def test_bal_account_touch_system_address(
 
     toucher = pre.deploy_contract(code=access_opcode(SYSTEM_ADDRESS) + Op.STOP)
 
-    tx = Transaction(
-        sender=alice,
-        to=toucher,
-        gas_limit=200_000,
-    )
+    tx = Transaction(sender=alice, to=toucher)
 
     block = Block(
         txs=[tx],
@@ -389,7 +385,6 @@ def test_bal_account_touch_system_address(
 def test_bal_selfdestruct_to_system_address_zero_balance(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    fork: Fork,
 ) -> None:
     """
     Ensure `SYSTEM_ADDRESS` is in BAL when accessed via `SELFDESTRUCT`,
@@ -407,8 +402,6 @@ def test_bal_selfdestruct_to_system_address_zero_balance(
         to=None,  # CREATE
         value=0,  # zero contract balance at SELFDESTRUCT time
         data=init_code,
-        gas_limit=fork.transaction_gas_limit_cap(),
-        gas_price=10,
     )
 
     block = Block(
@@ -1882,11 +1875,7 @@ def test_bal_storage_write_read_same_frame(
     )
     oracle = pre.deploy_contract(code=oracle_code, storage={0x01: 0x99})
 
-    tx = Transaction(
-        sender=alice,
-        to=oracle,
-        gas_limit=1_000_000,
-    )
+    tx = Transaction(sender=alice, to=oracle)
 
     block = Block(
         txs=[tx],
@@ -1975,11 +1964,7 @@ def test_bal_storage_write_read_cross_frame(
 
     oracle = pre.deploy_contract(code=oracle_code, storage={0x01: 0x99})
 
-    tx = Transaction(
-        sender=alice,
-        to=oracle,
-        gas_limit=1_000_000,
-    )
+    tx = Transaction(sender=alice, to=oracle)
 
     block = Block(
         txs=[tx],
@@ -2017,10 +2002,18 @@ def test_bal_storage_write_read_cross_frame(
     )
 
 
+@pytest.mark.parametrize(
+    "sufficient_gas",
+    [
+        pytest.param(False, id="insufficient_gas"),
+        pytest.param(True, id="sufficient_gas"),
+    ],
+)
 def test_bal_create_oog_code_deposit(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
     fork: Fork,
+    sufficient_gas: bool,
 ) -> None:
     """
     Ensure BAL correctly handles CREATE that runs out of gas during code
@@ -2031,31 +2024,46 @@ def test_bal_create_oog_code_deposit(
 
     # create init code that returns a very large contract to force OOG
     deposited_len = 10_000
-    initcode = Op.RETURN(0, deposited_len)
-
-    factory = pre.deploy_contract(
-        code=Op.MSTORE(0, Op.PUSH32(bytes(initcode)))
-        + Op.SSTORE(
-            1, Op.CREATE(offset=32 - len(initcode), size=len(initcode))
-        )
-        + Op.STOP,
-        storage={1: 0xDEADBEEF},
+    initcode = Op.RETURN(
+        0,
+        deposited_len,
+        old_memory_size=0,
+        new_memory_size=deposited_len,
+        code_deposit_size=deposited_len,
     )
+
+    create_code = Op.MSTORE(
+        0,
+        Op.PUSH32(bytes(initcode)),
+        new_memory_size=len(initcode),
+    ) + Op.CREATE(
+        offset=32 - len(initcode),
+        size=len(initcode),
+        init_code_size=len(initcode),
+    )
+    return_code = Op.PUSH1[0] + Op.MSTORE + Op.RETURN(0, 32)
+    factory_code = create_code + return_code
+
+    factory = pre.deploy_contract(code=factory_code)
 
     contract_address = compute_create_address(address=factory, nonce=1)
 
-    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-    intrinsic_gas = intrinsic_gas_calculator(
-        calldata=b"",
-        contract_creation=False,
-        access_list=[],
+    initcode_cost = initcode.gas_cost(fork)
+    gas = (initcode_cost * 64 // 63) + create_code.gas_cost(fork)
+    if not sufficient_gas:
+        gas -= 1
+
+    entry_code = Op.SSTORE(
+        0, Op.CALL(gas=gas, address=factory, ret_size=32)
+    ) + Op.SSTORE(1, Op.MLOAD(0))
+    entry = pre.deploy_contract(
+        entry_code, storage={0: 0xDEADBEEF, 1: 0xDEADBEEF}
     )
 
-    # NEW_ACCOUNT keeps the budget CPSB-agnostic but short of the deposit.
     tx = Transaction(
         sender=alice,
-        to=factory,
-        gas_limit=(intrinsic_gas + 500_000 + fork.gas_costs().NEW_ACCOUNT),
+        to=entry,
+        gas_limit=fork.transaction_gas_limit_cap(),  # No state reservoir
     )
 
     # BAL expectations:
@@ -2063,23 +2071,56 @@ def test_bal_create_oog_code_deposit(
     # - Factory: nonce change (CREATE increments factory nonce)
     # - Contract address: empty changes (read during collision check,
     #   nonce/code changes rolled back on OOG)
+    if sufficient_gas:
+        entry_storage_changes = [
+            BalStorageSlot(
+                slot=0,
+                slot_changes=[
+                    BalStorageChange(block_access_index=1, post_value=1),
+                ],
+            ),
+            BalStorageSlot(
+                slot=1,
+                slot_changes=[
+                    # SSTORE saves address (CREATE succeeded)
+                    BalStorageChange(
+                        block_access_index=1, post_value=contract_address
+                    ),
+                ],
+            ),
+        ]
+    else:
+        entry_storage_changes = [
+            BalStorageSlot(
+                slot=0,
+                slot_changes=[
+                    BalStorageChange(block_access_index=1, post_value=1),
+                ],
+            ),
+            BalStorageSlot(
+                slot=1,
+                slot_changes=[
+                    # SSTORE saves 0 (CREATE failed)
+                    BalStorageChange(block_access_index=1, post_value=0),
+                ],
+            ),
+        ]
+
     account_expectations = {
         alice: BalAccountExpectation(
             nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
         ),
         factory: BalAccountExpectation(
             nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=2)],
-            storage_changes=[
-                BalStorageSlot(
-                    slot=1,
-                    slot_changes=[
-                        # SSTORE saves 0 (CREATE failed)
-                        BalStorageChange(block_access_index=1, post_value=0),
-                    ],
-                )
-            ],
         ),
-        contract_address: BalAccountExpectation.empty(),
+        entry: BalAccountExpectation(
+            storage_changes=entry_storage_changes,
+        ),
+        contract_address: BalAccountExpectation(
+            nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
+        )
+        if sufficient_gas
+        else BalAccountExpectation.empty(),
     }
 
     blockchain_test(
@@ -2094,8 +2135,14 @@ def test_bal_create_oog_code_deposit(
         ],
         post={
             alice: Account(nonce=1),
-            factory: Account(nonce=2, storage={1: 0}),
-            contract_address: Account.NONEXISTENT,
+            factory: Account(nonce=2),
+            entry: Account(
+                nonce=1,
+                storage={0: 1, 1: contract_address if sufficient_gas else 0},
+            ),
+            contract_address: Account(nonce=1)
+            if sufficient_gas
+            else Account.NONEXISTENT,
         },
     )
 
@@ -2128,11 +2175,7 @@ def test_bal_sstore_static_context(
         storage={0: 0xDEAD},  # non-zero so STATICCALL result (0) is detectable
     )
 
-    tx = Transaction(
-        sender=alice,
-        to=contract_a,
-        gas_limit=2_000_000,
-    )
+    tx = Transaction(sender=alice, to=contract_a)
 
     blockchain_test(
         pre=pre,
@@ -2213,10 +2256,7 @@ def blockchain_test_under_static_call(
     )
 
     tx = Transaction(
-        sender=alice,
-        to=static_caller,
-        gas_limit=2_000_000,
-        access_list=tx_access_list,
+        sender=alice, to=static_caller, access_list=tx_access_list
     )
 
     # Inner call fails (returns 0) when forbidden opcodes are tested
@@ -2496,11 +2536,7 @@ def test_bal_create_contract_init_revert(
 
     created_address = compute_create_address(address=factory, nonce=1)
 
-    tx = Transaction(
-        sender=alice,
-        to=caller,
-        gas_limit=500_000,
-    )
+    tx = Transaction(sender=alice, to=caller)
 
     blockchain_test(
         pre=pre,
@@ -2616,12 +2652,7 @@ def test_bal_call_revert_insufficient_funds(
             AccessList(address=delegation_target, storage_keys=[])
         )
 
-    tx = Transaction(
-        sender=alice,
-        to=caller,
-        gas_limit=1_000_000,
-        access_list=access_list,
-    )
+    tx = Transaction(sender=alice, to=caller, access_list=access_list)
 
     account_expectations: Dict[Address, BalAccountExpectation | None] = {
         alice: BalAccountExpectation(
@@ -2680,7 +2711,6 @@ def test_bal_call_revert_insufficient_funds(
 def test_bal_create_selfdestruct_to_self_with_call(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    fork: Fork,
 ) -> None:
     """
     Test BAL with init code that CALLs Oracle, writes storage, then
@@ -2708,12 +2738,8 @@ def test_bal_create_selfdestruct_to_self_with_call(
     # 1. Calls Oracle (which writes to its slot 0x01)
     # 2. Writes 0x42 to own slot 0x01
     # 3. Selfdestructs to self
-    #
-    # Forward enough gas for Oracle's first-time SSTORE
-    # (regular base + state gas, CPSB-agnostic).
-    oracle_call_gas = 100_000 + Op.SSTORE(new_value=1).state_cost(fork)
     initcode_runtime = (
-        Op.CALL(oracle_call_gas, oracle, 0, 0, 0, 0, 0)
+        Op.CALL(address=oracle)
         + Op.POP
         # Write to own storage slot 0x01
         + Op.SSTORE(0x01, 0x42)
@@ -2774,18 +2800,7 @@ def test_bal_create_selfdestruct_to_self_with_call(
         opcode=Op.CREATE2,
     )
 
-    # Budget for CREATE2 + 3 first-time SSTOREs, CPSB-agnostic via state gas.
-    gas_limit = (
-        1_000_000
-        + fork.gas_costs().NEW_ACCOUNT
-        + 3 * Op.SSTORE(new_value=1).state_cost(fork)
-    )
-
-    tx = Transaction(
-        sender=alice,
-        to=factory,
-        gas_limit=gas_limit,
-    )
+    tx = Transaction(sender=alice, to=factory)
 
     block = Block(
         txs=[tx],
@@ -3063,11 +3078,7 @@ def test_bal_transient_storage_not_tracked(
 
     contract = pre.deploy_contract(code=contract_code)
 
-    tx = Transaction(
-        sender=alice,
-        to=contract,
-        gas_limit=1_000_000,
-    )
+    tx = Transaction(sender=alice, to=contract)
 
     block = Block(
         txs=[tx],
@@ -3464,11 +3475,7 @@ def test_bal_create_early_failure(
         opcode=create_opcode,
     )
 
-    tx = Transaction(
-        sender=alice,
-        to=factory,
-        gas_limit=1_000_000,
-    )
+    tx = Transaction(sender=alice, to=factory)
 
     block = Block(
         txs=[tx],
@@ -3567,12 +3574,7 @@ def test_bal_create_storage_op_then_selfdestruct_same_tx(
     )
     pre.fund_address(target_a, fund_amount)
 
-    tx = Transaction(
-        sender=alice,
-        to=factory,
-        data=initcode_bytes,
-        gas_limit=1_000_000,
-    )
+    tx = Transaction(sender=alice, to=factory, data=initcode_bytes)
 
     block = Block(
         txs=[tx],
@@ -3618,7 +3620,6 @@ def test_bal_create_storage_op_then_selfdestruct_same_tx(
 def test_bal_create2_selfdestruct_then_recreate_same_block(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    fork: Fork,
     pre_balance: int,
 ) -> None:
     """
@@ -3673,20 +3674,8 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
     if pre_balance > 0:
         pre.fund_address(target_a, pre_balance)
 
-    # Headroom for the self-destruct to fund a fresh beneficiary.
-    gas_limit = (fork.transaction_gas_limit_cap() or 0) + 2_000_000
-    tx1 = Transaction(
-        sender=alice,
-        to=factory,
-        data=initcode_bytes,
-        gas_limit=gas_limit,
-    )
-    tx2 = Transaction(
-        sender=alice,
-        to=factory,
-        data=initcode_bytes,
-        gas_limit=gas_limit,
-    )
+    tx1 = Transaction(sender=alice, to=factory, data=initcode_bytes)
+    tx2 = Transaction(sender=alice, to=factory, data=initcode_bytes)
 
     target_a_balance_changes = []
     if pre_balance > 0:

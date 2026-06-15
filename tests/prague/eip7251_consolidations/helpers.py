@@ -10,7 +10,6 @@ from execution_testing import (
     Address,
     Alloc,
     Bytecode,
-    Fork,
     Op,
     Transaction,
 )
@@ -28,7 +27,7 @@ class ConsolidationRequest(ConsolidationRequestBase):
     """Fee to be paid to the system contract for the consolidation request."""
     valid: bool = True
     """Whether the consolidation request is valid or not."""
-    gas_limit: int = 1_000_000
+    gas_limit: int | None = None
     """Gas limit for the call."""
     calldata_modifier: Callable[[bytes], bytes] = lambda x: x
     """Calldata modifier function."""
@@ -69,14 +68,12 @@ class ConsolidationRequestInteractionBase:
     Base class for all types of consolidation transactions we want to test.
     """
 
-    sender_balance: int = 1_000_000_000_000_000_000
-    """Balance of the account that sends the transaction."""
     sender_account: EOA | None = None
     """Account that will send the transaction."""
     requests: List[ConsolidationRequest]
     """Consolidation requests to be included in the block."""
 
-    def transactions(self, fork: Fork | None = None) -> List[Transaction]:
+    def transactions(self) -> List[Transaction]:
         """Return a transaction for the consolidation request."""
         raise NotImplementedError
 
@@ -105,27 +102,35 @@ class ConsolidationRequestTransaction(ConsolidationRequestInteractionBase):
     owned account.
     """
 
-    def transactions(self, fork: Fork | None = None) -> List[Transaction]:
+    def transactions(self) -> List[Transaction]:
         """Return a transaction for the consolidation request."""
-        del fork
         assert self.sender_account is not None, (
             "Sender account not initialized"
         )
-        return [
-            Transaction(
-                gas_limit=request.gas_limit,
-                gas_price=1_000_000_000,
-                to=request.interaction_contract_address,
-                value=request.value,
-                data=request.calldata,
-                sender=self.sender_account,
-            )
-            for request in self.requests
-        ]
+        txs: List[Transaction] = []
+        for request in self.requests:
+            gas_limit = request.gas_limit
+            if gas_limit is not None:
+                tx = Transaction(
+                    gas_limit=gas_limit,
+                    to=request.interaction_contract_address,
+                    value=request.value,
+                    data=request.calldata,
+                    sender=self.sender_account,
+                )
+            else:
+                tx = Transaction(
+                    to=request.interaction_contract_address,
+                    value=request.value,
+                    data=request.calldata,
+                    sender=self.sender_account,
+                )
+            txs.append(tx)
+        return txs
 
     def update_pre(self, pre: Alloc) -> Self:
         """Return a copy of self with `sender_account` populated."""
-        return replace(self, sender_account=pre.fund_eoa(self.sender_balance))
+        return replace(self, sender_account=pre.fund_eoa())
 
     def valid_requests(
         self, current_minimum_fee: int
@@ -145,9 +150,6 @@ class ConsolidationRequestTransaction(ConsolidationRequestInteractionBase):
 class ConsolidationRequestContract(ConsolidationRequestInteractionBase):
     """Class used to describe a consolidation originated from a contract."""
 
-    tx_gas_limit: int = 10_000_000
-    """Gas limit for the transaction."""
-
     contract_balance: int = 1_000_000_000_000_000_000
     """
     Balance of the contract that will make the call to the pre-deploy contract.
@@ -165,13 +167,6 @@ class ConsolidationRequestContract(ConsolidationRequestInteractionBase):
     """Frame depth of the pre-deploy contract when it executes the call."""
     extra_code: Bytecode = field(default_factory=Bytecode)
     """Extra code to be added to the contract code."""
-    fund_state_reservoir: bool = False
-    """
-    When True (and EIP-8037 is active), pad `tx_gas_limit` by exactly the
-    per-request state-set work so the excess funds the EIP-8037 reservoir.
-    Use only when `tx_gas_limit` is held at the cap (reservoir would
-    otherwise be empty) and state work must not drain the regular pool.
-    """
 
     @property
     def contract_code(self) -> Bytecode:
@@ -186,7 +181,7 @@ class ConsolidationRequestContract(ConsolidationRequestInteractionBase):
                 0, current_offset, len(r.calldata)
             ) + Op.POP(
                 self.call_type(
-                    Op.GAS if r.gas_limit == -1 else r.gas_limit,
+                    Op.GAS if r.gas_limit is None else r.gas_limit,
                     r.interaction_contract_address,
                     *value_arg,
                     0,
@@ -198,30 +193,11 @@ class ConsolidationRequestContract(ConsolidationRequestInteractionBase):
             current_offset += len(r.calldata)
         return code + self.extra_code
 
-    def transactions(self, fork: Fork | None = None) -> List[Transaction]:
+    def transactions(self) -> List[Transaction]:
         """Return a transaction for the consolidation request."""
         assert self.entry_address is not None, "Entry address not initialized"
-        gas_limit = self.tx_gas_limit
-        if (
-            self.fund_state_reservoir
-            and fork is not None
-            and fork.is_eip_enabled(8037)
-        ):
-            # Per request the system contract writes 4 entry slots
-            # (source, src_pubkey, tgt_pubkey, fee); plus a queue-tail
-            # bump and one slot of headroom per tx. Fund the reservoir
-            # for the full state-set work so it stays off `gas_left`.
-            sstores_per_request = 4
-            queue_tail_and_slack_sstores = 2
-            sstores = (
-                len(self.requests) * sstores_per_request
-                + queue_tail_and_slack_sstores
-            )
-            gas_limit += sstores * Op.SSTORE(new_value=1).state_cost(fork)
         return [
             Transaction(
-                gas_limit=gas_limit,
-                gas_price=1_000_000_000,
                 to=self.entry_address,
                 value=0,
                 data=b"".join(r.calldata for r in self.requests),
@@ -234,7 +210,7 @@ class ConsolidationRequestContract(ConsolidationRequestInteractionBase):
         Return a copy of self with the allocated sender/contract/entry
         addresses populated.
         """
-        sender_account = pre.fund_eoa(self.sender_balance)
+        sender_account = pre.fund_eoa()
         contract_address = pre.deploy_contract(
             code=self.contract_code, balance=self.contract_balance
         )

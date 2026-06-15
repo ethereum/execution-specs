@@ -4,14 +4,7 @@ Test_codesize_valid.
 Ported from:
 state_tests/stCodeSizeLimit/codesizeValidFiller.json
 
-@manually-enhanced: Do not overwrite. On Amsterdam (EIP-8037) the
-contract-creation tx — which deploys ~24 KiB of code — needs extra
-state-gas headroom on top of the 15 000 000 regular-gas budget that
-suffices on earlier forks. Bump `tx.gas` to 30 000 000 fork-
-conditionally; pre-Amsterdam keeps the original 15 000 000 (Osaka
-caps `tx.gas` at `TX_MAX_GAS_LIMIT = 16 777 216`, so the bump must be
-gated). `env.gas_limit` widened so the larger tx fits in the block.
-Post-state expectations are unchanged on all forks.
+@manually-enhanced: Do not overwrite. Explicit gas values removed.
 """
 
 import pytest
@@ -24,7 +17,6 @@ from execution_testing import (
     Transaction,
     compute_create_address,
 )
-from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -55,7 +47,6 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_codesize_valid(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
     d: int,
     g: int,
     v: int,
@@ -79,15 +70,10 @@ def test_codesize_valid(
         Op.CODECOPY(dest_offset=0x0, offset=0xD, size=0x6000)
         + Op.RETURN(offset=0x0, size=0x6000),
     ]
-    tx_gas = [40000000 if fork.is_eip_enabled(8037) else 15000000]
     tx_value = [1]
 
     tx = Transaction(
-        sender=sender,
-        to=None,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
-        value=tx_value[v],
+        sender=sender, to=None, data=tx_data[d], value=tx_value[v]
     )
 
     post = {

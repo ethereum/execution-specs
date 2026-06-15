@@ -1111,7 +1111,6 @@ def test_account_warming(
     )
 
     tx = Transaction(
-        gas_limit=1_000_000,
         to=callee_address,
         authorization_list=authorization_list if authorization_list else None,
         access_list=access_list,
@@ -1215,7 +1214,6 @@ def test_self_set_code_cost(
     callee_storage[slot_call_cost] = 200 if not pre_authorized else 2700
 
     tx = Transaction(
-        gas_limit=1_000_000,
         to=callee_address,
         authorization_list=[
             AuthorizationTuple(

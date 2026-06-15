@@ -621,15 +621,6 @@ def gas_test(
             LEGACY_CALL_SUCCESS
         )
 
-    gas_sstore = Op.SSTORE(1, 1).gas_cost(fork=fork)
-    if tx_gas is None:
-        tx_gas = (
-            5 * gas_single_gas_run
-            + cold_gas
-            + 4 * warm_gas
-            + 5 * gas_sstore
-            + 500_000
-        )
     tx = Transaction(
         to=address_legacy_harness, gas_limit=tx_gas, sender=sender
     )

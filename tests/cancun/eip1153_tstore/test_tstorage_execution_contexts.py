@@ -350,7 +350,6 @@ def tx(  # noqa: D103
         sender=pre.fund_eoa(),
         to=caller_address,
         data=Hash(callee_address, left_padding=True),
-        gas_limit=1_000_000,
     )
 
 
@@ -384,7 +383,7 @@ def test_subcall(
     - `DELEGATECALL`
     - `STATICCALL`
     """
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.ported_from(
@@ -421,11 +420,7 @@ def test_tstore_rollback_on_callcode_revert(
     caller_address = pre.deploy_contract(caller_code)
 
     sender = pre.fund_eoa()
-    tx = Transaction(
-        sender=sender,
-        to=caller_address,
-        gas_limit=1_000_000,
-    )
+    tx = Transaction(sender=sender, to=caller_address)
 
     post = {
         # CALLCODE returns 0 (reverted), TLOAD(4) = 0 (rolled back)

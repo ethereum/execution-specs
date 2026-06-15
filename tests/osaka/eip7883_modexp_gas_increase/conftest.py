@@ -15,7 +15,6 @@ from execution_testing import (
     Transaction,
     keccak256,
 )
-from execution_testing.forks import London, Osaka
 
 from ...byzantium.eip198_modexp_precompile.helpers import ModExpInput
 from .spec import Spec, Spec7883
@@ -231,11 +230,13 @@ def precompile_gas(
     Calculate gas cost for the ModExp precompile and verify it matches expected
     gas.
     """
-    spec = Spec if fork < Osaka else Spec7883
+    spec = Spec if not fork.is_eip_enabled(7883) else Spec7883
     try:
         calculated_gas = spec.calculate_gas_cost(modexp_input)
         if gas_old is not None and gas_new is not None:
-            expected_gas = gas_old if fork < Osaka else gas_new
+            expected_gas = (
+                gas_old if not fork.is_eip_enabled(7883) else gas_new
+            )
             base_len = len(modexp_input.base)
             exp_len = len(modexp_input.exponent)
             mod_len = len(modexp_input.modulus)
@@ -253,7 +254,7 @@ def precompile_gas(
     except Exception:
         # Used for `test_modexp_invalid_inputs` we expect the call to not
         # succeed. Return is for completeness.
-        return 500 if fork >= Osaka else 200
+        return 500 if fork.is_eip_enabled(7883) else 200
 
 
 @pytest.fixture
@@ -264,34 +265,16 @@ def precompile_gas_modifier() -> int:
 
 @pytest.fixture
 def tx(
-    fork: Fork,
     pre: Alloc,
     gas_measure_contract: Address,
     modexp_input: ModExpInput,
-    tx_gas_limit: int,
 ) -> Transaction:
     """Transaction to measure gas consumption of the ModExp precompile."""
     return Transaction(
-        ty=0x02 if fork >= London else 0x00,
         sender=pre.fund_eoa(),
         to=gas_measure_contract,
         data=bytes(modexp_input),
-        gas_limit=tx_gas_limit,
     )
-
-
-@pytest.fixture
-def tx_gas_limit(
-    total_tx_gas_needed: int, fork: Fork, env: Environment
-) -> int:
-    """
-    Transaction gas limit used for the test (Can be overridden in the test).
-    """
-    if fork.is_eip_enabled(8037):
-        # EIP-8037: tx gas limit can exceed TX_MAX_GAS_LIMIT.
-        return min(total_tx_gas_needed, env.gas_limit)
-    tx_gas_limit_cap = fork.transaction_gas_limit_cap() or env.gas_limit
-    return min(tx_gas_limit_cap, total_tx_gas_needed)
 
 
 @pytest.fixture

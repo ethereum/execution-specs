@@ -8,7 +8,6 @@ from execution_testing import (
     Address,
     Alloc,
     Bytecode,
-    Environment,
     Op,
     StateTestFiller,
     Transaction,
@@ -104,13 +103,6 @@ def test_tload_calls(
         ),
     }
 
-    tx = Transaction(
-        sender=pre.fund_eoa(7_000_000_000_000_000_000),
-        to=address_to,
-        gas_price=10,
-        data=b"",
-        gas_limit=5000000,
-        value=0,
-    )
+    tx = Transaction(sender=pre.fund_eoa(), to=address_to)
 
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

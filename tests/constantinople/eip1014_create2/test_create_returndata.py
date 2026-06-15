@@ -165,8 +165,6 @@ def test_create2_return_data(
         to=address_to,
         protected=False,
         data=initcode,
-        gas_limit=500_000,
-        value=0,
     )
 
     state_test(pre=pre, post=post, tx=tx)

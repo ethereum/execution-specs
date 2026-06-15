@@ -85,7 +85,7 @@ class DepositRequest(DepositRequestBase):
 
     valid: bool = True
     """Whether the deposit request is valid or not."""
-    gas_limit: int = 1_000_000
+    gas_limit: int | None = None
     """Gas limit for the call."""
     calldata_modifier: Callable[[bytes], bytes] = lambda x: x
     """Calldata modifier function."""
@@ -218,8 +218,6 @@ class DepositRequest(DepositRequestBase):
 class DepositInteractionBase:
     """Base class for all types of deposit transactions we want to test."""
 
-    sender_balance: int = 32_000_000_000_000_000_000 * 100
-    """Balance of the account that sends the transaction."""
     sender_account: EOA | None = None
     """Account that sends the transaction."""
     requests: List[DepositRequest]
@@ -257,21 +255,30 @@ class DepositTransaction(DepositInteractionBase):
         assert self.sender_account is not None, (
             "Sender account not initialized"
         )
-        return [
-            Transaction(
-                gas_limit=request.gas_limit,
-                gas_price=0x07,
-                to=request.interaction_contract_address,
-                value=request.value,
-                data=request.calldata,
-                sender=self.sender_account,
-            )
-            for request in self.requests
-        ]
+        txs: List[Transaction] = []
+        for request in self.requests:
+            gas_limit = request.gas_limit
+            if gas_limit is not None:
+                tx = Transaction(
+                    gas_limit=request.gas_limit,
+                    to=request.interaction_contract_address,
+                    value=request.value,
+                    data=request.calldata,
+                    sender=self.sender_account,
+                )
+            else:
+                tx = Transaction(
+                    to=request.interaction_contract_address,
+                    value=request.value,
+                    data=request.calldata,
+                    sender=self.sender_account,
+                )
+            txs.append(tx)
+        return txs
 
     def update_pre(self, pre: Alloc) -> Self:
         """Return a copy of self with `sender_account` populated."""
-        return replace(self, sender_account=pre.fund_eoa(self.sender_balance))
+        return replace(self, sender_account=pre.fund_eoa())
 
     def valid_requests(self, current_minimum_fee: int) -> List[DepositRequest]:
         """
@@ -289,8 +296,8 @@ class DepositTransaction(DepositInteractionBase):
 class DepositContract(DepositInteractionBase):
     """Class used to describe a deposit originated from a contract."""
 
-    tx_gas_limit: int = 1_000_000
-    """Gas limit for the transaction."""
+    tx_gas_limit: int | None = None
+    """Gas limit for the transaction. `None` uses the implicit gas limit."""
     tx_value: int = 0
     """Value to send with the transaction."""
 
@@ -326,7 +333,7 @@ class DepositContract(DepositInteractionBase):
                 0, current_offset, len(r.calldata)
             ) + Op.POP(
                 self.call_type(
-                    Op.GAS if r.gas_limit == -1 else r.gas_limit,
+                    Op.GAS if r.gas_limit is None else r.gas_limit,
                     r.interaction_contract_address,
                     *value_arg,
                     0,
@@ -343,7 +350,6 @@ class DepositContract(DepositInteractionBase):
         return [
             Transaction(
                 gas_limit=self.tx_gas_limit,
-                gas_price=0x07,
                 to=self.entry_address,
                 value=self.tx_value,
                 data=b"".join(r.calldata for r in self.requests),
@@ -356,12 +362,7 @@ class DepositContract(DepositInteractionBase):
         Return a copy of self with the allocated sender/contract/entry
         addresses populated.
         """
-        required_balance = self.sender_balance
-        if self.tx_value > 0:
-            required_balance = max(
-                required_balance, self.tx_value + self.tx_gas_limit * 7
-            )
-        sender_account = pre.fund_eoa(required_balance)
+        sender_account = pre.fund_eoa()
         contract_address = pre.deploy_contract(
             code=self.contract_code, balance=self.contract_balance
         )

@@ -113,10 +113,6 @@ def test_sstore_state_gas_source(
     When False, the reservoir is minimal (1 gas unit) and state gas must
     spill into gas_left.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment()
-
     storage = Storage()
     code = Bytecode()
     for _ in range(num_sstores):
@@ -130,19 +126,18 @@ def test_sstore_state_gas_source(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + extra_gas,
+        state_gas_reservoir=extra_gas,
         sender=pre.fund_eoa(),
     )
 
     post = {contract: Account(storage=storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
 def test_sstore_state_gas_entirely_from_gas_left(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """
     Test SSTORE state gas charged entirely from gas_left (no reservoir).
@@ -150,8 +145,6 @@ def test_sstore_state_gas_entirely_from_gas_left(
     When tx.gas <= TX_MAX_GAS_LIMIT, the reservoir is zero. All state
     gas must come from gas_left.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     storage = Storage()
     contract = pre.deploy_contract(
         code=Op.SSTORE(storage.store_next(1), 1),
@@ -159,7 +152,7 @@ def test_sstore_state_gas_entirely_from_gas_left(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap,
+        state_gas_reservoir=0,
         sender=pre.fund_eoa(),
     )
 
@@ -584,15 +577,13 @@ def test_block_gas_used_with_state_ops(
     block_gas_used and block_state_gas_used. The block header gas_used
     is max(block_gas_used, block_state_gas_used).
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     storage = Storage()
     code = Op.SSTORE(storage.store_next(1), 1)
     contract = pre.deploy_contract(code=code)
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap,
+        state_gas_reservoir=0,
         sender=pre.fund_eoa(),
     )
 
@@ -714,7 +705,6 @@ def test_create_tx_reservoir(
     assert gas_limit_cap is not None
     init_code = Op.STOP
 
-    env = Environment()
     create_state_gas = gas_costs.NEW_ACCOUNT
 
     if gas_above_cap:
@@ -729,7 +719,7 @@ def test_create_tx_reservoir(
         sender=pre.fund_eoa(),
     )
 
-    state_test(env=env, pre=pre, post={}, tx=tx)
+    state_test(pre=pre, post={}, tx=tx)
 
 
 @pytest.mark.parametrize(
@@ -785,7 +775,7 @@ def test_top_level_failure_refunds_execution_state_gas(
 
     tx = Transaction(
         to=contract,
-        gas_limit=tx_gas,
+        state_gas_reservoir=sstore_state_gas,
         sender=pre.fund_eoa(),
         expected_receipt=TransactionReceipt(
             cumulative_gas_used=expected_cumulative,
@@ -835,7 +825,7 @@ def test_top_level_failure_zeros_block_state_gas(
     tx_gas = gas_limit_cap + sstore_state_gas
     tx = Transaction(
         to=contract,
-        gas_limit=tx_gas,
+        state_gas_reservoir=sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -887,7 +877,7 @@ def test_creation_tx_failure_preserves_intrinsic_state_gas(
     tx = Transaction(
         to=None,
         data=Op.SSTORE(0, 1) + Op.INVALID,
-        gas_limit=tx_gas,
+        state_gas_reservoir=create_intrinsic_state + sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -921,8 +911,6 @@ def test_subcall_failure_does_not_zero_top_level_state_gas(
     parent's own SSTORE contributes state gas that appears in
     `block_state_gas_used`.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     child = pre.deploy_contract(code=Op.REVERT(0, 0))
@@ -936,7 +924,7 @@ def test_subcall_failure_does_not_zero_top_level_state_gas(
 
     tx = Transaction(
         to=parent,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -1013,7 +1001,7 @@ def test_top_level_failure_spilled_state_gas(
 
     tx = Transaction(
         to=contract,
-        gas_limit=tx_gas,
+        state_gas_reservoir=sstore_state_gas // 2,
         sender=pre.fund_eoa(),
         expected_receipt=TransactionReceipt(
             cumulative_gas_used=expected_cumulative,
@@ -1093,7 +1081,7 @@ def test_top_level_failure_propagated_state_gas(
 
     tx = Transaction(
         to=parent,
-        gas_limit=tx_gas,
+        state_gas_reservoir=sstore_state_gas // 2,
         sender=pre.fund_eoa(),
         expected_receipt=TransactionReceipt(
             cumulative_gas_used=expected_cumulative,
@@ -1369,7 +1357,7 @@ def test_nested_failure_resets_to_tx_reservoir(
 
     tx = Transaction(
         to=top,
-        gas_limit=tx_gas,
+        state_gas_reservoir=reservoir,
         sender=pre.fund_eoa(),
         expected_receipt=TransactionReceipt(
             cumulative_gas_used=expected_cumulative,
@@ -1432,9 +1420,6 @@ def test_nested_state_gas_refund_consumed_at_depth(
     the chain returns; it succeeds only when its frame holds enough
     reservoir, so a missing or mis-propagated credit OOGs it.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-
     is_auth_scenario = refund_scenario == "auth_existing_leaf"
 
     probe_address = pre.deploy_contract(code=Op.SSTORE(0, 1))
@@ -1509,7 +1494,7 @@ def test_nested_state_gas_refund_consumed_at_depth(
 
     tx = Transaction(
         to=top,
-        gas_limit=gas_limit_cap,
+        state_gas_reservoir=0,
         authorization_list=authorization_list,
         sender=pre.fund_eoa(),
     )
@@ -1625,8 +1610,6 @@ def test_access_list_warm_savings_stay_regular(
     fork: Fork,
 ) -> None:
     """Verify access-list warm savings stay in regular gas."""
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     contract = pre.deploy_contract(
@@ -1648,11 +1631,10 @@ def test_access_list_warm_savings_stay_regular(
     evm_gas = contract_code.gas_cost(fork)
 
     expected_gas_used = intrinsic_gas + evm_gas
-    gas_limit = gas_limit_cap + sstore_state_gas
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit,
+        state_gas_reservoir=sstore_state_gas,
         sender=pre.fund_eoa(),
         access_list=access_list,
     )
@@ -1705,8 +1687,6 @@ def test_subcall_revert_does_not_leak_grandchild_storage_clear_credit(
     state_gas_reservoir` would charge the sender 5 * sstore_state_gas
     less.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
 
@@ -1745,7 +1725,6 @@ def test_subcall_revert_does_not_leak_grandchild_storage_clear_credit(
     # Reservoir sized to the legitimate state cost only; any
     # phantom credit surfaces as residual reservoir at tx end.
     legit_state_cost = 2 * num_slots * sstore_state_gas
-    tx_gas = gas_limit_cap + legit_state_cost
 
     # `bytecode.gas_cost(fork)` sums each opcode's regular and state
     # contributions. Setup/phantom SSTOREs predict +sstore_state_gas
@@ -1763,7 +1742,7 @@ def test_subcall_revert_does_not_leak_grandchild_storage_clear_credit(
 
     tx = Transaction(
         to=top,
-        gas_limit=tx_gas,
+        state_gas_reservoir=legit_state_cost,
         sender=pre.fund_eoa(),
         expected_receipt=TransactionReceipt(
             cumulative_gas_used=expected_cumulative,
@@ -1810,8 +1789,6 @@ def test_revert_discards_descendant_storage_clear_credit_through_depth(
     `incorporate_child_on_error`. The receipt invariant holds for
     every `k`.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
 
@@ -1859,7 +1836,6 @@ def test_revert_discards_descendant_storage_clear_credit_through_depth(
     top = pre.deploy_contract(code=top_code)
 
     legit_state_cost = 2 * num_slots * sstore_state_gas
-    tx_gas = gas_limit_cap + legit_state_cost
 
     expected_cumulative = (
         intrinsic_cost
@@ -1871,7 +1847,7 @@ def test_revert_discards_descendant_storage_clear_credit_through_depth(
 
     tx = Transaction(
         to=top,
-        gas_limit=tx_gas,
+        state_gas_reservoir=legit_state_cost,
         sender=pre.fund_eoa(),
         expected_receipt=TransactionReceipt(
             cumulative_gas_used=expected_cumulative,
@@ -1918,8 +1894,6 @@ def test_subcall_set_clear_revert_pays_no_state_gas(
     """
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
 
     set_op = Op.SSTORE.with_metadata(
         key_warm=False,
@@ -1940,7 +1914,6 @@ def test_subcall_set_clear_revert_pays_no_state_gas(
     top = pre.deploy_contract(code=top_code)
 
     reservoir = 0 if spill_mode == "spill" else sstore_state_gas
-    tx_gas = gas_limit_cap + reservoir
 
     expected_cumulative = (
         intrinsic_cost
@@ -1950,7 +1923,7 @@ def test_subcall_set_clear_revert_pays_no_state_gas(
 
     tx = Transaction(
         to=top,
-        gas_limit=tx_gas,
+        state_gas_reservoir=reservoir,
         sender=pre.fund_eoa(),
         expected_receipt=TransactionReceipt(
             cumulative_gas_used=expected_cumulative,

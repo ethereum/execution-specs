@@ -142,30 +142,21 @@ class TestUseValueInTx:
 def test_use_value_in_contract(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """Test sending value from contract that has not received a withdrawal."""
     sender = pre.fund_eoa()
     recipient = pre.fund_eoa(1)
 
-    contract_code = Op.SSTORE(
-        Op.NUMBER,
-        Op.CALL(address=recipient, value=1000000000),
-    )
-    contract_address = pre.deploy_contract(contract_code)
-
-    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
-    tx_gas = (
-        intrinsic_calc()
-        + contract_code.gas_cost(fork)
-        + fork.gas_costs().CALL_VALUE
-        + Op.SSTORE(new_value=1).state_cost(fork)
+    contract_address = pre.deploy_contract(
+        Op.SSTORE(
+            Op.NUMBER,
+            Op.CALL(address=recipient, value=1000000000),
+        )
     )
     (tx_0, tx_1) = (
         Transaction(
             sender=sender,
             value=0,
-            gas_limit=tx_gas,
             to=contract_address,
         )
         for _ in range(2)
@@ -203,7 +194,7 @@ def test_use_value_in_contract(
 
 
 def test_balance_within_block(
-    blockchain_test: BlockchainTestFiller, pre: Alloc, fork: Fork
+    blockchain_test: BlockchainTestFiller, pre: Alloc
 ) -> None:
     """
     Test withdrawal balance increase within the same block in a contract call.
@@ -215,19 +206,12 @@ def test_balance_within_block(
     sender = pre.fund_eoa()
     recipient = pre.fund_eoa(ONE_GWEI)
     contract_address = pre.deploy_contract(save_balance_on_block_number)
-    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
-    tx_gas = (
-        intrinsic_calc(calldata=Hash(recipient, left_padding=True))
-        + save_balance_on_block_number.gas_cost(fork)
-        + Op.SSTORE(new_value=1).state_cost(fork)
-    )
 
     blocks = [
         Block(
             txs=[
                 Transaction(
                     sender=sender,
-                    gas_limit=tx_gas,
                     to=contract_address,
                     data=Hash(recipient, left_padding=True),
                 )
@@ -245,7 +229,6 @@ def test_balance_within_block(
             txs=[
                 Transaction(
                     sender=sender,
-                    gas_limit=tx_gas,
                     to=contract_address,
                     data=Hash(recipient, left_padding=True),
                 )
@@ -530,29 +513,21 @@ def test_newly_created_contract(
 def test_no_evm_execution(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """Test withdrawals don't trigger EVM execution."""
     sender = pre.fund_eoa()
-    contract_code = Op.SSTORE(Op.NUMBER, 1)
-    contracts = [pre.deploy_contract(contract_code) for _ in range(4)]
-    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
-    tx_gas = (
-        intrinsic_calc()
-        + contract_code.gas_cost(fork)
-        + Op.SSTORE(new_value=1).state_cost(fork)
-    )
+    contracts = [
+        pre.deploy_contract(Op.SSTORE(Op.NUMBER, 1)) for _ in range(4)
+    ]
     blocks = [
         Block(
             txs=[
                 Transaction(
                     sender=sender,
-                    gas_limit=tx_gas,
                     to=contracts[2],
                 ),
                 Transaction(
                     sender=sender,
-                    gas_limit=tx_gas,
                     to=contracts[3],
                 ),
             ],
@@ -575,12 +550,10 @@ def test_no_evm_execution(
             txs=[
                 Transaction(
                     sender=sender,
-                    gas_limit=tx_gas,
                     to=contracts[0],
                 ),
                 Transaction(
                     sender=sender,
-                    gas_limit=tx_gas,
                     to=contracts[1],
                 ),
             ],

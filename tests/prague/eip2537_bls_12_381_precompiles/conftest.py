@@ -13,7 +13,6 @@ from ...common.precompile_fixtures import (
     precompile_gas_modifier,  # noqa: F401
     sender,  # noqa: F401
     tx,  # noqa: F401
-    tx_gas_limit,  # noqa: F401
 )
 from .helpers import BLSPointGenerator
 from .spec import build_gas_calculation_function_map

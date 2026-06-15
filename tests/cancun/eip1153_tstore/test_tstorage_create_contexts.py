@@ -244,7 +244,6 @@ class TestTransientStorageInContractCreation:
             sender=sender,
             to=creator_address,
             data=initcode,
-            gas_limit=1_000_000,
         )
 
         post = {
@@ -328,21 +327,10 @@ def test_tstore_rollback_on_failed_create(
     )
     caller_address = pre.deploy_contract(caller_code, storage={0: 1, 1: 1})
 
-    gas_limit = 16_000_000
-    if fork.is_eip_enabled(8037):
-        gas_limit_cap = fork.transaction_gas_limit_cap() or gas_limit
-        code_deposit_state = fork.code_deposit_state_gas(
-            code_size=max_code_size + 0x0A
-        )
-        new_account_state = fork.gas_costs().NEW_ACCOUNT
-        state_gas = 2 * (code_deposit_state + new_account_state)
-        gas_limit = gas_limit_cap + state_gas
-
     sender = pre.fund_eoa()
     tx = Transaction(
         sender=sender,
         to=caller_address,
-        gas_limit=gas_limit,
         access_list=[
             AccessList(address=caller_address, storage_keys=[0, 1]),
         ],

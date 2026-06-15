@@ -10,8 +10,6 @@ from execution_testing import (
     Address,
     Alloc,
     Bytecode,
-    Environment,
-    Fork,
     Hash,
     Op,
     StateTestFiller,
@@ -116,20 +114,12 @@ def code_address(pre: Alloc, code_bytecode: Bytecode) -> Address:
 
 @pytest.fixture
 def tx(  # noqa: D103
-    pre: Alloc,
-    fork: Fork,
-    code_address: Address,
-    dest: int,
-    src: int,
-    length: int,
+    pre: Alloc, code_address: Address, dest: int, src: int, length: int
 ) -> Transaction:
-    # The test SSTOREs each memory word it reads, so budget for ~10
-    # first-time SSTOREs whose state gas scales with cpsb on Amsterdam.
     return Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
         data=Hash(dest) + Hash(src) + Hash(length),
-        gas_limit=1_000_000 + 10 * Op.SSTORE(new_value=1).state_cost(fork),
     )
 
 
@@ -205,12 +195,7 @@ def test_valid_mcopy_operations(
       - Memory extensions (copy to a location that is out of bounds)
       - Memory clear (copy from a location that is out of bounds).
     """
-    state_test(
-        env=Environment(),
-        pre=pre,
-        post=post,
-        tx=tx,
-    )
+    state_test(pre=pre, post=post, tx=tx)
 
 
 PATTERN = bytes.fromhex(
@@ -239,7 +224,6 @@ PATTERN = bytes.fromhex(
 def test_mcopy_repeated(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
     dest: int,
     src: int,
     length: int,
@@ -296,14 +280,12 @@ def test_mcopy_repeated(
     post = {contract: Account(storage=storage)}
 
     state_test(
-        env=Environment(),
         pre=pre,
         post=post,
         tx=Transaction(
             sender=pre.fund_eoa(),
             to=contract,
             data=Hash(dest) + Hash(src) + Hash(length),
-            gas_limit=1_000_000 + 2 * Op.SSTORE(new_value=1).state_cost(fork),
         ),
     )
 
@@ -323,9 +305,4 @@ def test_mcopy_on_empty_memory(
     Perform MCOPY operations on an empty memory, using different offsets and
     lengths.
     """
-    state_test(
-        env=Environment(),
-        pre=pre,
-        post=post,
-        tx=tx,
-    )
+    state_test(pre=pre, post=post, tx=tx)

@@ -61,7 +61,7 @@ def test_dupn_basic(
 
     contract_address = pre.deploy_contract(code=code)
 
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     post = {contract_address: Account(storage={0: expected_value})}
 
@@ -101,7 +101,7 @@ def test_dupn_valid_immediates(
 
     contract_address = pre.deploy_contract(code=code)
 
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=10_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     post = {contract_address: Account(storage={0: expected_value})}
 
@@ -136,7 +136,7 @@ def test_dupn_stack_underflow(
 
     contract_address = pre.deploy_contract(code=code)
 
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     # Transaction should fail, contract storage unchanged
     post = {contract_address: Account(storage={0: 0})}
@@ -183,7 +183,7 @@ def test_dupn_gas_cost_boundary(
         storage={0: 0xDEADBEEF},
     )
 
-    tx = Transaction(to=call_address, sender=pre.fund_eoa(), gas_limit=200_000)
+    tx = Transaction(to=call_address, sender=pre.fund_eoa())
 
     post = {call_address: Account(storage={0: 0 if gas_cost_delta < 0 else 1})}
 
@@ -225,7 +225,7 @@ def test_endofcode_behavior(
 
     contract_address = pre.deploy_contract(code=code)
 
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     # If tx succeeds, storage[0] = marker_value
     # Bad implementation would revert and have empty storage
@@ -269,7 +269,7 @@ def test_dupn_invalid_immediate_aborts(
 
     contract_address = pre.deploy_contract(code=code)
 
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=10_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     # Transaction should fail - invalid immediate causes abort
     post = {contract_address: Account(storage={})}
@@ -305,7 +305,7 @@ def test_dupn_jump_to_immediate_byte_0x5b_succeeds(
 
     contract_address = pre.deploy_contract(code=code)
 
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     # Transaction succeeds - 0x5b is preserved as valid JUMPDEST
     post = {contract_address: Account(storage={0: 0x42})}
@@ -340,7 +340,7 @@ def test_dupn_jump_to_valid_immediate_fails(
 
     contract_address = pre.deploy_contract(code=code)
 
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     # Transaction fails - position 4 is a valid immediate, not JUMPDEST
     post = {contract_address: Account(storage={})}
@@ -383,7 +383,7 @@ def test_dupn_with_dup1_sequence(
 
     contract_address = pre.deploy_contract(code=code)
 
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender)
 
     # Expected: top (position 0) = 1, bottom (position 17) = 1, all others = 0
     expected_storage = {}

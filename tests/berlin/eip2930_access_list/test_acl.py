@@ -85,28 +85,12 @@ def test_account_storage_warm_cold_state(
 
     sender = pre.fund_eoa()
 
-    contract_creation = False
     tx_data = b""
-
-    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-
-    # CodeGasMeasure SSTOREs the measured cost; budget for one
-    # first-time SSTORE whose state gas scales with cpsb on Amsterdam.
-    tx_gas_limit = (
-        intrinsic_gas_calculator(
-            calldata=tx_data,
-            contract_creation=contract_creation,
-            access_list=access_lists,
-        )
-        + 100_000
-        + Op.SSTORE(new_value=1).state_cost(fork)
-    )
 
     tx = Transaction(
         ty=1,
         data=tx_data,
         to=contract_address,
-        gas_limit=tx_gas_limit,
         access_list=access_lists,
         sender=sender,
     )
@@ -317,7 +301,6 @@ def test_repeated_address_acl(
     contract = pre.deploy_contract(sload0_measure + sload1_measure)
 
     tx = Transaction(
-        gas_limit=500_000,
         to=contract,
         value=0,
         sender=sender,

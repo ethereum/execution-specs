@@ -139,7 +139,7 @@ def test_sstore_oog_reservoir_inflation_detection(
         sender=sender,
         to=caller,
         data=bytes(initcode),
-        gas_limit=fork.transaction_gas_limit_cap(),
+        state_gas_reservoir=0,
     )
 
     post = {
@@ -199,7 +199,7 @@ def test_call_oog_reservoir_inflation_detection(
     tx = Transaction(
         sender=sender,
         to=caller,
-        gas_limit=fork.transaction_gas_limit_cap(),
+        state_gas_reservoir=0,
     )
 
     post = {caller: Account(storage=caller_storage)}
@@ -251,7 +251,7 @@ def test_selfdestruct_oog_reservoir_inflation_detection(
     tx = Transaction(
         sender=sender,
         to=caller,
-        gas_limit=fork.transaction_gas_limit_cap(),
+        state_gas_reservoir=0,
     )
 
     post = {caller: Account(storage=caller_storage)}
@@ -331,7 +331,7 @@ def test_create_oog_reservoir_inflation_detection(
     tx = Transaction(
         sender=sender,
         to=caller,
-        gas_limit=fork.transaction_gas_limit_cap(),
+        state_gas_reservoir=0,
     )
 
     post = {caller: Account(storage=caller_storage)}

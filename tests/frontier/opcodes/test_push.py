@@ -75,7 +75,6 @@ def test_push(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=contract,
-        gas_limit=500_000,
         protected=fork.supports_protected_txs(),
     )
 
@@ -147,7 +146,6 @@ def test_stack_overflow(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=contract,
-        gas_limit=500_000,
         protected=fork.supports_protected_txs(),
     )
 

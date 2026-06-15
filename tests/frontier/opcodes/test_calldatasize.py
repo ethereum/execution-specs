@@ -49,13 +49,6 @@ def test_calldatasize(
     contract_address = pre.deploy_contract(contract_code)
     calldata = b"\x01" * args_size
 
-    intrinsic = fork.transaction_intrinsic_cost_calculator()
-    # EIP-1706 sentry: SSTORE fails if gas_left <= CALL_STIPEND (2300)
-    # before its base cost is deducted, so the inner frame needs that
-    # much headroom on top of the SSTORE cost.
-    sstore_sentry_slack = fork.gas_costs().CALL_STIPEND + 1
-    # Outer's CALL reserves this many gas units (`Op.SUB(Op.GAS(), N)`)
-    # before forwarding the rest to the inner frame.
     outer_call_reserve = 256
     if calldata_source == "contract":
         outer_code = Om.MSTORE(calldata, 0x0) + Op.CALL(
@@ -70,14 +63,6 @@ def test_calldatasize(
         to = pre.deploy_contract(code=outer_code)
 
         tx = Transaction(
-            gas_limit=(
-                intrinsic()
-                + outer_code.gas_cost(fork)
-                + outer_call_reserve
-                + contract_code.gas_cost(fork)
-                + sstore_sentry_slack
-                + Op.SSTORE(new_value=1).state_cost(fork)
-            ),
             protected=fork.supports_protected_txs(),
             sender=pre.fund_eoa(),
             to=to,
@@ -86,12 +71,6 @@ def test_calldatasize(
     else:
         tx = Transaction(
             data=calldata,
-            gas_limit=(
-                intrinsic(calldata=calldata)
-                + contract_code.gas_cost(fork)
-                + sstore_sentry_slack
-                + Op.SSTORE(new_value=1).state_cost(fork)
-            ),
             protected=fork.supports_protected_txs(),
             sender=pre.fund_eoa(),
             to=contract_address,

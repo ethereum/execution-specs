@@ -127,7 +127,6 @@ def test_sender_balance(
     """
     Tests that the sender has sufficient balance.
     """
-    sender = pre.fund_eoa()
     to = pre.fund_eoa()
 
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()

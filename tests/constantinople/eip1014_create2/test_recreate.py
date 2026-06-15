@@ -6,7 +6,6 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
-    Fork,
     Initcode,
     Op,
     Transaction,
@@ -25,7 +24,6 @@ REFERENCE_SPEC_VERSION = ref_spec_1014.version
 def test_recreate(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    fork: Fork,
     recreate_on_separate_block: bool,
 ) -> None:
     """
@@ -52,7 +50,6 @@ def test_recreate(
     initcode = Initcode(deploy_code=deploy_code)
 
     create_tx = Transaction(
-        gas_limit=100_000,
         to=creator_address,
         data=initcode,
         sender=sender,
@@ -63,7 +60,6 @@ def test_recreate(
     )
 
     set_storage_tx = Transaction(
-        gas_limit=100_000,
         to=created_contract_address,
         value=1,
         sender=sender,
@@ -72,7 +68,6 @@ def test_recreate(
     blocks = [Block(txs=[create_tx, set_storage_tx])]
 
     destruct_tx = Transaction(
-        gas_limit=100_000,
         to=created_contract_address,
         value=0,
         sender=sender,
@@ -80,14 +75,12 @@ def test_recreate(
 
     balance = 1
     send_funds_tx = Transaction(
-        gas_limit=100_000,
         to=created_contract_address,
         value=balance,
         sender=sender,
     )
 
     re_create_tx = Transaction(
-        gas_limit=100_000,
         to=creator_address,
         data=initcode,
         sender=sender,

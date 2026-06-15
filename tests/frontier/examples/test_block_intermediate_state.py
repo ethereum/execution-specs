@@ -6,26 +6,19 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
-    Environment,
     Transaction,
 )
 
 
 @pytest.mark.valid_from("Frontier")
-@pytest.mark.valid_before("SpuriousDragon")
 def test_block_intermediate_state(
     blockchain_test: BlockchainTestFiller, pre: Alloc
 ) -> None:
     """Verify intermediate block states."""
-    env = Environment()
     sender = pre.fund_eoa()
 
-    tx = Transaction(
-        gas_limit=100_000, to=None, data=b"", sender=sender, protected=False
-    )
-    tx_2 = Transaction(
-        gas_limit=100_000, to=None, data=b"", sender=sender, protected=False
-    )
+    tx = Transaction(to=None, data=b"", sender=sender, protected=False)
+    tx_2 = Transaction(to=None, data=b"", sender=sender, protected=False)
 
     block_1 = Block(
         txs=[tx],
@@ -48,7 +41,6 @@ def test_block_intermediate_state(
     )
 
     blockchain_test(
-        genesis_environment=env,
         pre=pre,
         post=block_3.expected_post_state,
         blocks=[block_1, block_2, block_3],

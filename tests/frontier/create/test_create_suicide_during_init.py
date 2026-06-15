@@ -91,7 +91,6 @@ def test_create_suicide_during_transaction_create(
 
     tx_value = 100
     tx = Transaction(
-        gas_limit=1_000_000,
         to=None if transaction_create else contract_deploy,
         data=contract_initcode,
         value=tx_value,

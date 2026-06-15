@@ -158,13 +158,14 @@ def pack_transactions_into_blocks(
     current_gas = 0
 
     for tx in transactions:
-        if current_gas + tx.gas_limit > gas_limit and current_txs:
+        tx_gas_limit = tx.gas_limit
+        if current_gas + tx_gas_limit > gas_limit and current_txs:
             blocks.append(Block(txs=current_txs))
             current_txs = []
             current_gas = 0
 
         current_txs.append(tx)
-        current_gas += tx.gas_limit
+        current_gas += tx_gas_limit
 
     if current_txs:
         blocks.append(Block(txs=current_txs))

@@ -52,12 +52,6 @@ def test_genesis_hash_available(
     contract = pre.deploy_contract(code=code)
     sender = pre.fund_eoa()
 
-    intrinsic = fork.transaction_intrinsic_cost_calculator()
-    tx_gas_limit = (
-        intrinsic()
-        + code.gas_cost(fork)
-        + Op.SSTORE(new_value=1).state_cost(fork)
-    )
     blocks = (
         [
             Block(
@@ -65,7 +59,6 @@ def test_genesis_hash_available(
                     Transaction(
                         sender=sender,
                         to=contract,
-                        gas_limit=tx_gas_limit,
                         protected=fork.supports_protected_txs(),
                     )
                 ]
@@ -81,7 +74,6 @@ def test_genesis_hash_available(
                     Transaction(
                         sender=sender,
                         to=contract,
-                        gas_limit=tx_gas_limit,
                         protected=fork.supports_protected_txs(),
                     )
                 ]

@@ -14,7 +14,6 @@ from execution_testing import (
     Alloc,
     Bytecode,
     CalldataCase,
-    Environment,
     Hash,
     Initcode,
     Op,
@@ -255,8 +254,6 @@ def test_reentrant_selfdestructing_call(
     Test transient storage in different reentrancy contexts after
     selfdestructing.
     """
-    env = Environment()
-
     caller_address = pre.deploy_contract(code=caller_bytecode)
 
     data: bytes | Bytecode
@@ -272,7 +269,6 @@ def test_reentrant_selfdestructing_call(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=caller_address,
-        gas_limit=1_000_000,
         data=data,
     )
 
@@ -285,4 +281,4 @@ def test_reentrant_selfdestructing_call(
     else:
         post[callee_address] = Account.NONEXISTENT
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

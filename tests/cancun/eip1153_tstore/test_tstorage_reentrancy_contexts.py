@@ -12,7 +12,6 @@ from execution_testing import (
     Bytecode,
     CalldataCase,
     Conditional,
-    Environment,
     Hash,
     Op,
     StateTestFiller,
@@ -342,17 +341,14 @@ def test_reentrant_call(
     expected_storage: Dict,
 ) -> None:
     """Test transient storage in different reentrancy contexts."""
-    env = Environment()
-
     callee_address = pre.deploy_contract(bytecode)
 
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=callee_address,
         data=Hash(1),
-        gas_limit=1_000_000,
     )
 
     post = {callee_address: Account(code=bytecode, storage=expected_storage)}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

@@ -823,7 +823,28 @@ class BlockchainTest(BaseTest):
             block_number=env.number, timestamp=env.timestamp
         )
         env = env.set_fork_requirements(fork)
-        txs = [tx.with_signature_and_sender() for tx in block.txs]
+        txs = block.txs[:]
+        if any("gas_limit" not in tx.model_fields_set for tx in block.txs):
+            max_tx_gas_limit = Transaction.calculate_max_gas_limit(
+                txs=txs,
+                env_gas_limit=int(env.gas_limit),
+                transaction_gas_limit_cap=fork.transaction_gas_limit_cap(),
+                state_gas_reservoir_enabled=fork.state_gas_reservoir_enabled(),
+            )
+            if max_tx_gas_limit == 0:
+                raise Exception(
+                    "test correctness: unable to automatically calculate gas "
+                    "limit for transactions (No remaining gas)."
+                )
+            txs = [
+                tx.with_gas_limit(
+                    max_gas_limit=max_tx_gas_limit,
+                    transaction_gas_limit_cap=fork.transaction_gas_limit_cap(),
+                    state_gas_reservoir_enabled=fork.state_gas_reservoir_enabled(),
+                )
+                for tx in txs
+            ]
+        txs = [tx.with_signature_and_sender() for tx in txs]
 
         if failing_tx_count := len([tx for tx in txs if tx.error]) > 0:
             if failing_tx_count > 1:
@@ -1381,11 +1402,15 @@ class BlockchainTest(BaseTest):
                     f"max_priority_fee_per_gas={max_priority_fee_per_gas}, "
                     f"max_fee_per_blob_gas={max_fee_per_blob_gas}."
                 )
-            required_balances = execute_plan.get_required_sender_balances(
+            execute_plan.prepare_transactions(
+                env=Environment(gas_limit=HexNumber(start_block["gasLimit"])),
                 gas_price=gas_price,
                 max_fee_per_gas=max_fee_per_gas,
                 max_priority_fee_per_gas=max_priority_fee_per_gas,
                 max_fee_per_blob_gas=max_fee_per_blob_gas,
+                fork=session_fork,
+            )
+            required_balances = execute_plan.get_required_sender_balances(
                 fork=session_fork,
             )
             resolve_deferred()

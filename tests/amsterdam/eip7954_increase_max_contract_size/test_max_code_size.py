@@ -52,10 +52,6 @@ def test_max_code_size(
         sender=alice,
         to=None,
         data=initcode,
-        gas_limit=(
-            (fork.transaction_gas_limit_cap() or 0)
-            + fork.create_state_gas(code_size=code_size)
-        ),
     )
 
     post: dict[Any, Account | None] = {}
@@ -112,10 +108,6 @@ def test_max_code_size_via_create(
         sender=alice,
         to=factory,
         data=initcode_bytes,
-        gas_limit=(
-            (fork.transaction_gas_limit_cap() or 0)
-            + fork.create_state_gas(code_size=code_size)
-        ),
     )
 
     created = code_size <= fork.max_code_size()
@@ -184,8 +176,7 @@ def test_max_code_size_with_max_initcode(
     fork: Fork,
 ) -> None:
     """Ensure max-size code deploys when initcode is also at max size."""
-    code_size = fork.max_code_size()
-    deploy_code = Op.JUMPDEST * code_size
+    deploy_code = Op.JUMPDEST * fork.max_code_size()
     initcode = Initcode(
         deploy_code=deploy_code,
         initcode_length=fork.max_initcode_size(),
@@ -198,10 +189,6 @@ def test_max_code_size_with_max_initcode(
         sender=alice,
         to=None,
         data=initcode,
-        gas_limit=(
-            (fork.transaction_gas_limit_cap() or 0)
-            + fork.create_state_gas(code_size=code_size)
-        ),
     )
 
     post = {create_address: Account(code=deploy_code)}

@@ -115,13 +115,9 @@ def test_selfdestruct_after_create2_collision(
         env=env,
         pre=pre,
         post=post,
-        # 3 first-time SSTOREs (deployer's create2_result and
-        # controller's two outcome flags) each charge state gas under
-        # EIP-8037 (0 otherwise).
         tx=Transaction(
             sender=sender,
             to=controller,
-            gas_limit=2_000_000 + 3 * Op.SSTORE(new_value=1).state_cost(fork),
             data=initcode,
         ),
     )
