@@ -10,18 +10,19 @@ from execution_testing import (
     Fork,
     Header,
     Requests,
+    SystemContractInteractionBase,
     SystemContractRequest,
     Transaction,
 )
 from execution_testing.base_types import HexNumber
 
-from .helpers import DepositInteractionBase, DepositRequest
+from .helpers import DepositRequest
 
 
 @pytest.fixture
 def prepared_requests(
-    pre: Alloc, requests: List[DepositInteractionBase]
-) -> List[DepositInteractionBase]:
+    pre: Alloc, requests: List[SystemContractInteractionBase]
+) -> List[SystemContractInteractionBase]:
     """
     Allocate accounts/contracts for each request in `pre` and return copies
     with the allocated state populated. The parametrize value `requests` is
@@ -33,7 +34,7 @@ def prepared_requests(
 @pytest.fixture
 def txs(
     fork: Fork,
-    prepared_requests: List[DepositInteractionBase],
+    prepared_requests: List[SystemContractInteractionBase],
 ) -> List[Transaction]:
     """List of transactions to include in the block."""
     floor_cost = fork.transaction_data_floor_cost_calculator()
@@ -67,7 +68,7 @@ def exception() -> BlockException | None:
 
 @pytest.fixture
 def included_requests(
-    prepared_requests: List[DepositInteractionBase],
+    prepared_requests: List[SystemContractInteractionBase],
 ) -> List[SystemContractRequest]:
     """
     Return the list of deposit requests that should be included in each block.

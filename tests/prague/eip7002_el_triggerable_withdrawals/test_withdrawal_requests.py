@@ -17,16 +17,14 @@ from execution_testing import (
     Macros,
     Op,
     Requests,
+    SystemContractInteractionBase,
+    SystemContractInteractionContract,
+    SystemContractInteractionTransaction,
     TestAddress,
     TestAddress2,
 )
 
-from .helpers import (
-    WithdrawalRequest,
-    WithdrawalRequestContract,
-    WithdrawalRequestInteractionBase,
-    WithdrawalRequestTransaction,
-)
+from .helpers import WithdrawalRequest
 from .spec import Spec, ref_spec_7002
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7002.git_path
@@ -36,12 +34,12 @@ pytestmark = pytest.mark.valid_from("Prague")
 
 
 @pytest.mark.parametrize(
-    "blocks_withdrawal_requests",
+    "system_contract_interactions_per_block",
     [
         pytest.param(
             [
                 [
-                    WithdrawalRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=0x01,
@@ -56,7 +54,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    WithdrawalRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=0x01,
@@ -73,7 +71,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    WithdrawalRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=0x01,
@@ -90,7 +88,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    WithdrawalRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=0x01,
@@ -107,7 +105,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    WithdrawalRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=0x01,
@@ -126,7 +124,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    WithdrawalRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=0x01,
@@ -134,7 +132,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                             )
                         ],
                     ),
-                    WithdrawalRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=0x02,
@@ -149,7 +147,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    WithdrawalRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=i + 1,
@@ -167,7 +165,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    WithdrawalRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=0x01,
@@ -187,7 +185,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    WithdrawalRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=0x01,
@@ -207,7 +205,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    WithdrawalRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=i + 1,
@@ -225,7 +223,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    WithdrawalRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=0x01,
@@ -240,7 +238,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    WithdrawalRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=0x01,
@@ -256,7 +254,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    WithdrawalRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=0x01,
@@ -272,7 +270,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    WithdrawalRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=i + 1,
@@ -292,7 +290,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    WithdrawalRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=1,
@@ -319,7 +317,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    WithdrawalRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=i + 1,
@@ -355,7 +353,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    WithdrawalRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=i + 1,
@@ -377,7 +375,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    WithdrawalRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=i + 1,
@@ -404,7 +402,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    WithdrawalRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=0x01,
@@ -414,7 +412,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                         ],
                         call_type=Op.DELEGATECALL,
                     ),
-                    WithdrawalRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=0x01,
@@ -424,7 +422,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                         ],
                         call_type=Op.STATICCALL,
                     ),
-                    WithdrawalRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=0x01,
@@ -441,7 +439,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    WithdrawalRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=0x01,
@@ -452,7 +450,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                         call_type=Op.DELEGATECALL,
                         call_depth=3,
                     ),
-                    WithdrawalRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=0x01,
@@ -463,7 +461,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                         call_type=Op.STATICCALL,
                         call_depth=3,
                     ),
-                    WithdrawalRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=0x01,
@@ -481,7 +479,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    WithdrawalRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=0x01,
@@ -492,7 +490,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                         call_type=Op.DELEGATECALL,
                         call_depth=1024,
                     ),
-                    WithdrawalRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=0x01,
@@ -503,7 +501,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                         call_type=Op.STATICCALL,
                         call_depth=1024,
                     ),
-                    WithdrawalRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=0x01,
@@ -551,7 +549,7 @@ def test_withdrawal_requests(
         ),
         pytest.param(
             [
-                WithdrawalRequestTransaction(
+                SystemContractInteractionTransaction(
                     requests=[
                         WithdrawalRequest(
                             validator_pubkey=0x01,
@@ -566,7 +564,7 @@ def test_withdrawal_requests(
         ),
         pytest.param(
             [
-                WithdrawalRequestTransaction(
+                SystemContractInteractionTransaction(
                     requests=[
                         WithdrawalRequest(
                             validator_pubkey=0x01,
@@ -587,7 +585,7 @@ def test_withdrawal_requests(
         ),
         pytest.param(
             [
-                WithdrawalRequestTransaction(
+                SystemContractInteractionTransaction(
                     requests=[
                         WithdrawalRequest(
                             validator_pubkey=0x01,
@@ -608,7 +606,7 @@ def test_withdrawal_requests(
         ),
         pytest.param(
             [
-                WithdrawalRequestTransaction(
+                SystemContractInteractionTransaction(
                     requests=[
                         WithdrawalRequest(
                             validator_pubkey=0x01,
@@ -629,7 +627,7 @@ def test_withdrawal_requests(
         ),
         pytest.param(
             [
-                WithdrawalRequestTransaction(
+                SystemContractInteractionTransaction(
                     requests=[
                         WithdrawalRequest(
                             validator_pubkey=0x01,
@@ -659,7 +657,7 @@ def test_withdrawal_requests(
         ),
         pytest.param(
             [
-                WithdrawalRequestTransaction(
+                SystemContractInteractionTransaction(
                     requests=[
                         WithdrawalRequest(
                             validator_pubkey=0x01,
@@ -690,7 +688,7 @@ def test_withdrawal_requests_negative(
     pre: Alloc,
     fork: Fork,
     blockchain_test: BlockchainTestFiller,
-    requests: List[WithdrawalRequestInteractionBase],
+    requests: List[SystemContractInteractionBase],
     block_body_override_requests: List[WithdrawalRequest],
     exception: BlockException,
 ) -> None:

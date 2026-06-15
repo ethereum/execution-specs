@@ -26,27 +26,17 @@ from execution_testing import (
     ParameterSet,
     Requests,
     Storage,
+    SystemContractInteractionContract,
+    SystemContractInteractionTransaction,
     TestAddress,
     Transaction,
 )
 
-from ..eip6110_deposits.helpers import (
-    DepositContract,
-    DepositRequest,
-    DepositTransaction,
-)
+from ..eip6110_deposits.helpers import DepositRequest
 from ..eip6110_deposits.spec import Spec as Spec_EIP6110
-from ..eip7002_el_triggerable_withdrawals.helpers import (
-    WithdrawalRequest,
-    WithdrawalRequestContract,
-    WithdrawalRequestTransaction,
-)
+from ..eip7002_el_triggerable_withdrawals.helpers import WithdrawalRequest
 from ..eip7002_el_triggerable_withdrawals.spec import Spec as Spec_EIP7002
-from ..eip7251_consolidations.helpers import (
-    ConsolidationRequest,
-    ConsolidationRequestContract,
-    ConsolidationRequestTransaction,
-)
+from ..eip7251_consolidations.helpers import ConsolidationRequest
 from ..eip7251_consolidations.spec import Spec as Spec_EIP7251
 from .spec import ref_spec_7685
 
@@ -66,12 +56,16 @@ def single_deposit(i: int) -> DepositRequest:  # noqa: D103
     )
 
 
-def single_deposit_from_eoa(i: int) -> DepositTransaction:  # noqa: D103
-    return DepositTransaction(requests=[single_deposit(i)])
+def single_deposit_from_eoa(  # noqa: D103
+    i: int,
+) -> SystemContractInteractionTransaction:
+    return SystemContractInteractionTransaction(requests=[single_deposit(i)])
 
 
-def single_deposit_from_contract(i: int) -> DepositContract:  # noqa: D103
-    return DepositContract(requests=[single_deposit(i)])
+def single_deposit_from_contract(  # noqa: D103
+    i: int,
+) -> SystemContractInteractionContract:
+    return SystemContractInteractionContract(requests=[single_deposit(i)])
 
 
 def single_withdrawal(i: int) -> WithdrawalRequest:  # noqa: D103
@@ -82,12 +76,18 @@ def single_withdrawal(i: int) -> WithdrawalRequest:  # noqa: D103
     )
 
 
-def single_withdrawal_from_eoa(i: int) -> WithdrawalRequestTransaction:  # noqa: D103
-    return WithdrawalRequestTransaction(requests=[single_withdrawal(i)])
+def single_withdrawal_from_eoa(  # noqa: D103
+    i: int,
+) -> SystemContractInteractionTransaction:
+    return SystemContractInteractionTransaction(
+        requests=[single_withdrawal(i)]
+    )
 
 
-def single_withdrawal_from_contract(i: int) -> WithdrawalRequestContract:  # noqa: D103
-    return WithdrawalRequestContract(requests=[single_withdrawal(i)])
+def single_withdrawal_from_contract(  # noqa: D103
+    i: int,
+) -> SystemContractInteractionContract:
+    return SystemContractInteractionContract(requests=[single_withdrawal(i)])
 
 
 def single_consolidation(i: int) -> ConsolidationRequest:  # noqa: D103
@@ -98,12 +98,20 @@ def single_consolidation(i: int) -> ConsolidationRequest:  # noqa: D103
     )
 
 
-def single_consolidation_from_eoa(i: int) -> ConsolidationRequestTransaction:  # noqa: D103
-    return ConsolidationRequestTransaction(requests=[single_consolidation(i)])
+def single_consolidation_from_eoa(  # noqa: D103
+    i: int,
+) -> SystemContractInteractionTransaction:
+    return SystemContractInteractionTransaction(
+        requests=[single_consolidation(i)]
+    )
 
 
-def single_consolidation_from_contract(i: int) -> ConsolidationRequestContract:  # noqa: D103
-    return ConsolidationRequestContract(requests=[single_consolidation(i)])
+def single_consolidation_from_contract(  # noqa: D103
+    i: int,
+) -> SystemContractInteractionContract:
+    return SystemContractInteractionContract(
+        requests=[single_consolidation(i)]
+    )
 
 
 def get_permutations(n: int = 3) -> Generator[ParameterSet, None, None]:
@@ -470,9 +478,9 @@ def invalid_requests_block_combinations(
         all_request_types: Dict[
             str,
             Tuple[
-                DepositTransaction
-                | WithdrawalRequestTransaction
-                | ConsolidationRequestTransaction,
+                SystemContractInteractionTransaction
+                | SystemContractInteractionTransaction
+                | SystemContractInteractionTransaction,
                 DepositRequest | WithdrawalRequest | ConsolidationRequest,
             ],
         ] = {
@@ -559,9 +567,9 @@ def invalid_requests_block_combinations(
             *[r[1] for r in all_request_types.values()]
         ).requests_list  # Requests automatically adds the type byte
         correct_order_transactions: List[
-            DepositTransaction
-            | WithdrawalRequestTransaction
-            | ConsolidationRequestTransaction
+            SystemContractInteractionTransaction
+            | SystemContractInteractionTransaction
+            | SystemContractInteractionTransaction
         ] = [r[0] for r in all_request_types.values()]
 
         # Send first element to the end

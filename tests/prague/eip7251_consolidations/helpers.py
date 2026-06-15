@@ -2,13 +2,7 @@
 
 from typing import ClassVar, Self
 
-from execution_testing import (
-    Address,
-    FeeSystemContractRequest,
-    SystemContractInteractionBase,
-    SystemContractInteractionContract,
-    SystemContractInteractionTransaction,
-)
+from execution_testing import Address, FeeSystemContractRequest
 from execution_testing import (
     ConsolidationRequest as ConsolidationRequestBase,
 )
@@ -29,6 +23,7 @@ class ConsolidationRequest(ConsolidationRequestBase, FeeSystemContractRequest):
     target_per_block: ClassVar[int] = (
         Spec.TARGET_CONSOLIDATION_REQUESTS_PER_BLOCK
     )
+    max_per_block: ClassVar[int] = Spec.MAX_CONSOLIDATION_REQUESTS_PER_BLOCK
 
     @property
     def calldata(self) -> bytes:
@@ -55,10 +50,3 @@ class ConsolidationRequest(ConsolidationRequestBase, FeeSystemContractRequest):
             target_pubkey=index * 2 + 1,
             fee=fee,
         )
-
-
-# The interaction helpers are request-agnostic; these aliases give the
-# consolidation tests their familiar names.
-ConsolidationRequestInteractionBase = SystemContractInteractionBase
-ConsolidationRequestTransaction = SystemContractInteractionTransaction
-ConsolidationRequestContract = SystemContractInteractionContract

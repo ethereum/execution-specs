@@ -4,14 +4,7 @@ from functools import cached_property
 from hashlib import sha256 as sha256_hashlib
 from typing import ClassVar
 
-from execution_testing import (
-    Address,
-    Hash,
-    SystemContractInteractionBase,
-    SystemContractInteractionContract,
-    SystemContractInteractionTransaction,
-    SystemContractRequest,
-)
+from execution_testing import Address, Hash, SystemContractRequest
 from execution_testing import DepositRequest as DepositRequestBase
 
 from .spec import Spec
@@ -204,10 +197,3 @@ class DepositRequest(DepositRequestBase, SystemContractRequest):
         """Return a copy."""
         del source_address
         return self.copy()
-
-
-# The interaction helpers are request-agnostic; these aliases give the
-# deposit tests their familiar names.
-DepositInteractionBase = SystemContractInteractionBase
-DepositTransaction = SystemContractInteractionTransaction
-DepositContract = SystemContractInteractionContract

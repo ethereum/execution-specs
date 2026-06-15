@@ -17,16 +17,14 @@ from execution_testing import (
     Macros,
     Op,
     Requests,
+    SystemContractInteractionBase,
+    SystemContractInteractionContract,
+    SystemContractInteractionTransaction,
     TestAddress,
     TestAddress2,
 )
 
-from .helpers import (
-    ConsolidationRequest,
-    ConsolidationRequestContract,
-    ConsolidationRequestInteractionBase,
-    ConsolidationRequestTransaction,
-)
+from .helpers import ConsolidationRequest
 from .spec import Spec, ref_spec_7251
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7251.git_path
@@ -36,12 +34,12 @@ pytestmark = pytest.mark.valid_from("Prague")
 
 
 @pytest.mark.parametrize(
-    "blocks_consolidation_requests",
+    "system_contract_interactions_per_block",
     [
         pytest.param(
             [
                 [
-                    ConsolidationRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=0x01,
@@ -56,7 +54,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    ConsolidationRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=0x01,
@@ -71,7 +69,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    ConsolidationRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=-1,
@@ -86,7 +84,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    ConsolidationRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=0x01,
@@ -103,7 +101,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    ConsolidationRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=0x01,
@@ -120,7 +118,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    ConsolidationRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=0x01,
@@ -137,7 +135,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    ConsolidationRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=0x01,
@@ -156,7 +154,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    ConsolidationRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=0x01,
@@ -164,7 +162,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                             )
                         ],
                     ),
-                    ConsolidationRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=0x03,
@@ -179,7 +177,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    ConsolidationRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=i * 2,
@@ -197,7 +195,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    ConsolidationRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=0x01,
@@ -217,7 +215,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    ConsolidationRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=0x01,
@@ -237,7 +235,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    ConsolidationRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=i * 2,
@@ -255,7 +253,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    ConsolidationRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=0x01,
@@ -270,7 +268,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    ConsolidationRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=i * 2,
@@ -288,7 +286,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    ConsolidationRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=i * 2,
@@ -307,7 +305,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    ConsolidationRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=i * 2,
@@ -326,7 +324,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    ConsolidationRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=0x00,
@@ -352,7 +350,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    ConsolidationRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=i * 2,
@@ -377,7 +375,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    ConsolidationRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=i * 2,
@@ -397,7 +395,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    ConsolidationRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=i * 2,
@@ -422,7 +420,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    ConsolidationRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=0x01,
@@ -432,7 +430,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                         ],
                         call_type=Op.DELEGATECALL,
                     ),
-                    ConsolidationRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=0x01,
@@ -442,7 +440,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                         ],
                         call_type=Op.STATICCALL,
                     ),
-                    ConsolidationRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=0x01,
@@ -459,7 +457,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    ConsolidationRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=0x01,
@@ -470,7 +468,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                         call_type=Op.DELEGATECALL,
                         call_depth=3,
                     ),
-                    ConsolidationRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=0x01,
@@ -481,7 +479,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                         call_type=Op.STATICCALL,
                         call_depth=3,
                     ),
-                    ConsolidationRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=0x01,
@@ -499,7 +497,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    ConsolidationRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=0x01,
@@ -510,7 +508,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                         call_type=Op.DELEGATECALL,
                         call_depth=1024,
                     ),
-                    ConsolidationRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=0x01,
@@ -521,7 +519,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                         call_type=Op.STATICCALL,
                         call_depth=1024,
                     ),
-                    ConsolidationRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=0x01,
@@ -569,7 +567,7 @@ def test_consolidation_requests(
         ),
         pytest.param(
             [
-                ConsolidationRequestTransaction(
+                SystemContractInteractionTransaction(
                     requests=[
                         ConsolidationRequest(
                             source_pubkey=0x01,
@@ -584,7 +582,7 @@ def test_consolidation_requests(
         ),
         pytest.param(
             [
-                ConsolidationRequestTransaction(
+                SystemContractInteractionTransaction(
                     requests=[
                         ConsolidationRequest(
                             source_pubkey=0x01,
@@ -605,7 +603,7 @@ def test_consolidation_requests(
         ),
         pytest.param(
             [
-                ConsolidationRequestTransaction(
+                SystemContractInteractionTransaction(
                     requests=[
                         ConsolidationRequest(
                             source_pubkey=0x01,
@@ -626,7 +624,7 @@ def test_consolidation_requests(
         ),
         pytest.param(
             [
-                ConsolidationRequestTransaction(
+                SystemContractInteractionTransaction(
                     requests=[
                         ConsolidationRequest(
                             source_pubkey=0x01,
@@ -647,7 +645,7 @@ def test_consolidation_requests(
         ),
         pytest.param(
             [
-                ConsolidationRequestTransaction(
+                SystemContractInteractionTransaction(
                     requests=[
                         ConsolidationRequest(
                             source_pubkey=0x01,
@@ -668,7 +666,7 @@ def test_consolidation_requests(
         ),
         pytest.param(
             [
-                ConsolidationRequestTransaction(
+                SystemContractInteractionTransaction(
                     requests=[
                         ConsolidationRequest(
                             source_pubkey=0x01,
@@ -698,7 +696,7 @@ def test_consolidation_requests(
         ),
         pytest.param(
             [
-                ConsolidationRequestTransaction(
+                SystemContractInteractionTransaction(
                     requests=[
                         ConsolidationRequest(
                             source_pubkey=0x01,
@@ -729,7 +727,7 @@ def test_consolidation_requests_negative(
     pre: Alloc,
     fork: Fork,
     blockchain_test: BlockchainTestFiller,
-    requests: List[ConsolidationRequestInteractionBase],
+    requests: List[SystemContractInteractionBase],
     block_body_override_requests: List[ConsolidationRequest],
     exception: BlockException,
 ) -> None:

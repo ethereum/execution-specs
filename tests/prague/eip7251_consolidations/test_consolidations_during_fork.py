@@ -14,10 +14,11 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Environment,
+    SystemContractInteractionTransaction,
     Transaction,
 )
 
-from .helpers import ConsolidationRequest, ConsolidationRequestTransaction
+from .helpers import ConsolidationRequest
 from .spec import Spec, ref_spec_7251
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7251.git_path
@@ -29,13 +30,13 @@ BLOCKS_BEFORE_FORK = 2
 
 
 @pytest.mark.parametrize(
-    "blocks_consolidation_requests",
+    "system_contract_interactions_per_block",
     [
         pytest.param(
             [
                 [],  # No consolidation requests, but we deploy the contract
                 [
-                    ConsolidationRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=0x01,
@@ -48,7 +49,7 @@ BLOCKS_BEFORE_FORK = 2
                     ),
                 ],
                 [
-                    ConsolidationRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=0x03,
@@ -63,7 +64,7 @@ BLOCKS_BEFORE_FORK = 2
                     ),
                 ],
                 [
-                    ConsolidationRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=0x05,

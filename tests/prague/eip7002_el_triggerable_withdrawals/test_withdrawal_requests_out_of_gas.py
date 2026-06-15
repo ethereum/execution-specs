@@ -18,13 +18,11 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Environment,
+    SystemContractInteractionContract,
+    SystemContractInteractionTransaction,
 )
 
-from .helpers import (
-    WithdrawalRequest,
-    WithdrawalRequestContract,
-    WithdrawalRequestTransaction,
-)
+from .helpers import WithdrawalRequest
 from .spec import Spec, ref_spec_7002
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7002.git_path
@@ -34,12 +32,12 @@ pytestmark = pytest.mark.valid_from("Prague")
 
 
 @pytest.mark.parametrize(
-    "blocks_withdrawal_requests",
+    "system_contract_interactions_per_block",
     [
         pytest.param(
             [
                 [
-                    WithdrawalRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=0x01,
@@ -61,7 +59,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    WithdrawalRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=0x01,
@@ -83,7 +81,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    WithdrawalRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=1,
@@ -115,7 +113,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    WithdrawalRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=i + 1,

@@ -14,15 +14,13 @@ from execution_testing import (
     Bytecode,
     Op,
     Requests,
+    SystemContractInteractionTransaction,
     Transaction,
     generate_system_contract_error_test,
 )
 from execution_testing import Macros as Om
 
-from .helpers import (
-    ConsolidationRequest,
-    ConsolidationRequestTransaction,
-)
+from .helpers import ConsolidationRequest
 from .spec import Spec as Spec_EIP7251
 from .spec import ref_spec_7251
 
@@ -121,7 +119,7 @@ def test_extra_consolidations(
 
     # given a list of consolidation requests construct a consolidation request
     # transaction
-    consolidation_request_transaction = ConsolidationRequestTransaction(
+    consolidation_request_transaction = SystemContractInteractionTransaction(
         requests=requests_list
     )
     # prepare consolidation senders

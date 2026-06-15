@@ -2,13 +2,7 @@
 
 from typing import ClassVar, Self
 
-from execution_testing import (
-    Address,
-    FeeSystemContractRequest,
-    SystemContractInteractionBase,
-    SystemContractInteractionContract,
-    SystemContractInteractionTransaction,
-)
+from execution_testing import Address, FeeSystemContractRequest
 from execution_testing import (
     WithdrawalRequest as WithdrawalRequestBase,
 )
@@ -27,6 +21,7 @@ class WithdrawalRequest(WithdrawalRequestBase, FeeSystemContractRequest):
         Spec.WITHDRAWAL_REQUEST_FEE_UPDATE_FRACTION
     )
     target_per_block: ClassVar[int] = Spec.TARGET_WITHDRAWAL_REQUESTS_PER_BLOCK
+    max_per_block: ClassVar[int] = Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK
 
     @property
     def calldata(self) -> bytes:
@@ -51,10 +46,3 @@ class WithdrawalRequest(WithdrawalRequestBase, FeeSystemContractRequest):
     def from_index(cls, index: int, fee: int) -> Self:
         """Build a withdrawal request from a sequential index."""
         return cls(validator_pubkey=index, amount=0, fee=fee)
-
-
-# The interaction helpers are request-agnostic; these aliases give the
-# withdrawal tests their familiar names.
-WithdrawalRequestInteractionBase = SystemContractInteractionBase
-WithdrawalRequestTransaction = SystemContractInteractionTransaction
-WithdrawalRequestContract = SystemContractInteractionContract

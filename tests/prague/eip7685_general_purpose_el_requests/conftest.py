@@ -11,18 +11,13 @@ from execution_testing import (
     EngineAPIError,
     Header,
     Requests,
+    SystemContractInteractionBase,
     SystemContractRequest,
 )
 
-from ..eip6110_deposits.helpers import DepositInteractionBase, DepositRequest
-from ..eip7002_el_triggerable_withdrawals.helpers import (
-    WithdrawalRequest,
-    WithdrawalRequestInteractionBase,
-)
-from ..eip7251_consolidations.helpers import (
-    ConsolidationRequest,
-    ConsolidationRequestInteractionBase,
-)
+from ..eip6110_deposits.helpers import DepositRequest
+from ..eip7002_el_triggerable_withdrawals.helpers import WithdrawalRequest
+from ..eip7251_consolidations.helpers import ConsolidationRequest
 
 
 @pytest.fixture
@@ -82,9 +77,9 @@ def engine_api_error_code(
 def blocks(
     pre: Alloc,
     requests: List[
-        DepositInteractionBase
-        | WithdrawalRequestInteractionBase
-        | ConsolidationRequestInteractionBase
+        SystemContractInteractionBase
+        | SystemContractInteractionBase
+        | SystemContractInteractionBase
     ],
     block_body_override_requests: List[Bytes | SupportsBytes] | None,
     correct_requests_hash_in_header: bool,

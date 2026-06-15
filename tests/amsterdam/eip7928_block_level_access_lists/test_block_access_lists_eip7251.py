@@ -13,12 +13,10 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     Environment,
+    SystemContractInteractionTransaction,
 )
 
-from tests.prague.eip7251_consolidations.helpers import (
-    ConsolidationRequest,
-    ConsolidationRequestTransaction,
-)
+from tests.prague.eip7251_consolidations.helpers import ConsolidationRequest
 from tests.prague.eip7251_consolidations.spec import Spec, ref_spec_7251
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7251.git_path
@@ -49,7 +47,7 @@ SYSTEM_ADDRESS = Address(Spec.SYSTEM_ADDRESS)
     [
         pytest.param(
             [
-                ConsolidationRequestTransaction(
+                SystemContractInteractionTransaction(
                     requests=[
                         ConsolidationRequest(
                             source_pubkey=0x01,
@@ -63,7 +61,7 @@ SYSTEM_ADDRESS = Address(Spec.SYSTEM_ADDRESS)
         ),
         pytest.param(
             [
-                ConsolidationRequestTransaction(
+                SystemContractInteractionTransaction(
                     requests=[
                         ConsolidationRequest(
                             source_pubkey=i * 2 + 1,
@@ -78,7 +76,7 @@ SYSTEM_ADDRESS = Address(Spec.SYSTEM_ADDRESS)
         ),
         pytest.param(
             [
-                ConsolidationRequestTransaction(
+                SystemContractInteractionTransaction(
                     requests=[
                         ConsolidationRequest(
                             source_pubkey=i * 2 + 1,
@@ -96,7 +94,7 @@ SYSTEM_ADDRESS = Address(Spec.SYSTEM_ADDRESS)
 def test_bal_system_dequeue_consolidations_eip7251(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    blocks_consolidation_requests: List[ConsolidationRequestTransaction],
+    blocks_consolidation_requests: List[SystemContractInteractionTransaction],
 ) -> None:
     """Test making a consolidation request to the beacon chain."""
     txs = []

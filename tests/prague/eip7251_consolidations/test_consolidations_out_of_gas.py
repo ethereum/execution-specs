@@ -18,13 +18,11 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Environment,
+    SystemContractInteractionContract,
+    SystemContractInteractionTransaction,
 )
 
-from .helpers import (
-    ConsolidationRequest,
-    ConsolidationRequestContract,
-    ConsolidationRequestTransaction,
-)
+from .helpers import ConsolidationRequest
 from .spec import Spec, ref_spec_7251
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7251.git_path
@@ -34,12 +32,12 @@ pytestmark = pytest.mark.valid_from("Prague")
 
 
 @pytest.mark.parametrize(
-    "blocks_consolidation_requests",
+    "system_contract_interactions_per_block",
     [
         pytest.param(
             [
                 [
-                    ConsolidationRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=0x01,
@@ -60,7 +58,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    ConsolidationRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=0x01,
@@ -81,7 +79,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    ConsolidationRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=-1,
@@ -112,7 +110,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    ConsolidationRequestContract(
+                    SystemContractInteractionContract(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=i * 2,

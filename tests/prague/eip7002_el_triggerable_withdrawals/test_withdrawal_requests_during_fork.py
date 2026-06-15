@@ -14,10 +14,11 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Environment,
+    SystemContractInteractionTransaction,
     Transaction,
 )
 
-from .helpers import WithdrawalRequest, WithdrawalRequestTransaction
+from .helpers import WithdrawalRequest
 from .spec import Spec, ref_spec_7002
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7002.git_path
@@ -29,13 +30,13 @@ BLOCKS_BEFORE_FORK = 2
 
 
 @pytest.mark.parametrize(
-    "blocks_withdrawal_requests",
+    "system_contract_interactions_per_block",
     [
         pytest.param(
             [
                 [],  # No withdrawal requests, but we deploy the contract
                 [
-                    WithdrawalRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=0x01,
@@ -48,7 +49,7 @@ BLOCKS_BEFORE_FORK = 2
                     ),
                 ],
                 [
-                    WithdrawalRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=0x02,
@@ -63,7 +64,7 @@ BLOCKS_BEFORE_FORK = 2
                     ),
                 ],
                 [
-                    WithdrawalRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=0x03,

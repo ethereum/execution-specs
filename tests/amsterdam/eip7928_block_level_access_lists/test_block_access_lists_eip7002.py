@@ -16,14 +16,14 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     Op,
+    SystemContractInteractionBase,
+    SystemContractInteractionContract,
+    SystemContractInteractionTransaction,
     Transaction,
 )
 
 from ...prague.eip7002_el_triggerable_withdrawals.helpers import (
     WithdrawalRequest,
-    WithdrawalRequestContract,
-    WithdrawalRequestInteractionBase,
-    WithdrawalRequestTransaction,
 )
 from ...prague.eip7002_el_triggerable_withdrawals.spec import Spec as Spec7002
 from .spec import ref_spec_7928
@@ -534,7 +534,7 @@ def test_bal_7002_request_from_contract(
             fee=fee,
         )
     ]
-    interaction = WithdrawalRequestContract(
+    interaction = SystemContractInteractionContract(
         requests=withdrawal_requests,
         contract_balance=fee,
     )
@@ -625,7 +625,7 @@ def test_bal_7002_request_from_contract(
     "interaction",
     [
         pytest.param(
-            WithdrawalRequestTransaction(
+            SystemContractInteractionTransaction(
                 requests=[
                     WithdrawalRequest(
                         validator_pubkey=0x01,
@@ -638,7 +638,7 @@ def test_bal_7002_request_from_contract(
             id="insufficient_fee",
         ),
         pytest.param(
-            WithdrawalRequestTransaction(
+            SystemContractInteractionTransaction(
                 requests=[
                     WithdrawalRequest(
                         validator_pubkey=0x01,
@@ -654,7 +654,7 @@ def test_bal_7002_request_from_contract(
             id="calldata_too_short",
         ),
         pytest.param(
-            WithdrawalRequestTransaction(
+            SystemContractInteractionTransaction(
                 requests=[
                     WithdrawalRequest(
                         validator_pubkey=0x01,
@@ -670,7 +670,7 @@ def test_bal_7002_request_from_contract(
             id="calldata_too_long",
         ),
         pytest.param(
-            WithdrawalRequestTransaction(
+            SystemContractInteractionTransaction(
                 requests=[
                     WithdrawalRequest(
                         validator_pubkey=0x01,
@@ -684,7 +684,7 @@ def test_bal_7002_request_from_contract(
             id="oog",
         ),
         pytest.param(
-            WithdrawalRequestContract(
+            SystemContractInteractionContract(
                 requests=[
                     WithdrawalRequest(
                         validator_pubkey=0x01,
@@ -698,7 +698,7 @@ def test_bal_7002_request_from_contract(
             id="invalid_call_type_delegatecall",
         ),
         pytest.param(
-            WithdrawalRequestContract(
+            SystemContractInteractionContract(
                 requests=[
                     WithdrawalRequest(
                         validator_pubkey=0x01,
@@ -712,7 +712,7 @@ def test_bal_7002_request_from_contract(
             id="invalid_call_type_staticcall",
         ),
         pytest.param(
-            WithdrawalRequestContract(
+            SystemContractInteractionContract(
                 requests=[
                     WithdrawalRequest(
                         validator_pubkey=0x01,
@@ -726,7 +726,7 @@ def test_bal_7002_request_from_contract(
             id="invalid_call_type_callcode",
         ),
         pytest.param(
-            WithdrawalRequestContract(
+            SystemContractInteractionContract(
                 requests=[
                     WithdrawalRequest(
                         validator_pubkey=0x01,
@@ -744,7 +744,7 @@ def test_bal_7002_request_from_contract(
 def test_bal_7002_request_invalid(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    interaction: WithdrawalRequestInteractionBase,
+    interaction: SystemContractInteractionBase,
 ) -> None:
     """
     Ensure BAL correctly handles invalid withdrawal request scenarios.
@@ -799,7 +799,7 @@ def test_bal_7002_request_invalid(
     }
 
     # Add relay contract to post-state for contract scenarios
-    if isinstance(prepared, WithdrawalRequestContract):
+    if isinstance(prepared, SystemContractInteractionContract):
         post[prepared.contract_address] = Account()
 
     blockchain_test(

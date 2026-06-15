@@ -77,6 +77,8 @@ class FeeSystemContractRequest(SystemContractRequest):
     """Controls how quickly the fee grows with the excess request count."""
     target_per_block: ClassVar[int]
     """Target requests per block; excess above this raises the fee."""
+    max_per_block: ClassVar[int]
+    """Maximum number of requests dequeued into a single block."""
 
     def model_post_init(self, __context: Any) -> None:
         """Default an unset fee to the base fee (the fee at zero excess)."""
@@ -93,6 +95,11 @@ class FeeSystemContractRequest(SystemContractRequest):
     def get_fee(cls, excess: int) -> int:
         """Return the fee charged for the given excess request count."""
         return fake_exponential(cls.min_fee, excess, cls.update_fraction)
+
+    @classmethod
+    def get_excess(cls, previous_excess: int, count: int) -> int:
+        """Return the new excess after a block processing `count` requests."""
+        return max(0, previous_excess + count - cls.target_per_block)
 
     @classmethod
     @abstractmethod

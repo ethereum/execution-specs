@@ -20,10 +20,12 @@ from execution_testing import (
     BlockchainTestFiller,
     Header,
     Requests,
+    SystemContractInteractionContract,
+    SystemContractInteractionTransaction,
 )
 from execution_testing.base_types import HexNumber
 
-from .helpers import DepositContract, DepositRequest, DepositTransaction
+from .helpers import DepositRequest
 from .spec import ref_spec_6110
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_6110.git_path
@@ -37,7 +39,7 @@ pytestmark = pytest.mark.valid_from("Prague")
     [
         pytest.param(
             [
-                DepositTransaction(
+                SystemContractInteractionTransaction(
                     requests=[
                         DepositRequest(
                             pubkey=0x01,
@@ -64,7 +66,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         ),
         pytest.param(
             [
-                DepositTransaction(
+                SystemContractInteractionTransaction(
                     requests=[
                         DepositRequest(
                             pubkey=0x01,
@@ -91,7 +93,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         ),
         pytest.param(
             [
-                DepositContract(
+                SystemContractInteractionContract(
                     requests=[
                         DepositRequest(
                             pubkey=0x01,
@@ -117,7 +119,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         ),
         pytest.param(
             [
-                DepositContract(
+                SystemContractInteractionContract(
                     requests=[
                         DepositRequest(
                             pubkey=0x01,
@@ -177,7 +179,7 @@ def test_deposit_from_contract_transaction_out_of_gas(
     rather than through the request helper, keeping the gas concern isolated to
     this dedicated test.
     """
-    deposit_contract = DepositContract(
+    deposit_contract = SystemContractInteractionContract(
         requests=[
             DepositRequest(
                 pubkey=0x01,
