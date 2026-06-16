@@ -44,7 +44,6 @@ def test_eip_7997(
             sender=pre.fund_eoa(),
             to=Spec.FACTORY_ADDRESS,
             data=Hash(salt) + bytes(initcode),
-            gas_limit=200_000,
         ),
         post={
             expected_address: Account(nonce=1, code=bytes(runtime)),

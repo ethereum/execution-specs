@@ -21,6 +21,7 @@ from execution_testing import (
     BalNonceChange,
     BlockAccessListExpectation,
     Bytes,
+    CodeGasMeasure,
     Fork,
     Hash,
     Initcode,
@@ -77,7 +78,6 @@ def test_factory_predeploy_account(
         tx=Transaction(
             sender=pre.fund_eoa(),
             to=caller,
-            gas_limit=200_000,
         ),
         post={
             FACTORY: Account(
@@ -142,7 +142,6 @@ def test_factory_deploys_contract(
             sender=pre.fund_eoa(),
             to=caller,
             data=Hash(salt) + bytes(initcode),
-            gas_limit=500_000,
         ),
         post={
             caller: Account(storage=storage, balance=0),
@@ -205,7 +204,6 @@ def test_factory_address_collision_reverts(
             sender=pre.fund_eoa(),
             to=caller,
             data=Hash(salt) + bytes(initcode),
-            gas_limit=1_000_000,
         ),
         post={
             caller: Account(storage=storage),
@@ -279,7 +277,6 @@ def test_factory_different_salts_produce_different_addresses(
             sender=pre.fund_eoa(),
             to=caller,
             data=bytes(initcode),
-            gas_limit=1_000_000,
         ),
         post={
             caller: Account(storage=storage),
@@ -308,7 +305,6 @@ def test_factory_direct_eoa_call(
             sender=pre.fund_eoa(),
             to=FACTORY,
             data=Hash(salt) + bytes(initcode),
-            gas_limit=200_000,
         ),
         post={
             expected_address: Account(nonce=1, code=bytes(runtime_code)),
@@ -352,7 +348,6 @@ def test_factory_staticcall_reverts(
             sender=pre.fund_eoa(),
             to=caller,
             data=Hash(salt) + bytes(initcode),
-            gas_limit=500_000,
         ),
         post={
             caller: Account(storage=storage),
@@ -406,7 +401,6 @@ def test_factory_in_caller_context(
             sender=pre.fund_eoa(),
             to=caller,
             data=Hash(salt) + bytes(initcode),
-            gas_limit=500_000,
         ),
         post={
             caller: Account(storage=storage),
@@ -462,7 +456,6 @@ def test_factory_deploys_to_pre_funded_address(
             sender=pre.fund_eoa(),
             to=caller,
             data=Hash(salt) + bytes(initcode),
-            gas_limit=500_000,
         ),
         post={
             caller: Account(storage=storage),
@@ -489,40 +482,47 @@ def test_factory_access_list_prewarming(
     use_access_list: bool,
 ) -> None:
     """
-    Measure the gas-cost difference between a first and second
-    `EXTCODESIZE` of the factory in the same transaction. The opcode has
-    deterministic gas cost (no inner frame), so the difference isolates
-    the cold-vs-warm address access cost.
+    Measure the gas cost of two `EXTCODESIZE` calls on the factory in
+    the same transaction. The first is cold unless prewarmed by an
+    access list; the second is always warm.
 
-    - Without access list: difference is `COLD_ACCOUNT_ACCESS - WARM_ACCESS`.
-    - With access list including the factory: difference is 0.
+    - Without access list: first is `COLD_ACCOUNT_ACCESS`, second is
+      `WARM_ACCESS`.
+    - With access list: both are `WARM_ACCESS`.
     """
     gas_costs = fork.gas_costs()
-    expected_delta = (
-        0
+    first_cost = (
+        gas_costs.WARM_ACCESS
         if use_access_list
-        else gas_costs.COLD_ACCOUNT_ACCESS - gas_costs.WARM_ACCESS
+        else gas_costs.COLD_ACCOUNT_ACCESS
     )
+    second_cost = gas_costs.WARM_ACCESS
 
-    # Identical measurement block around each EXTCODESIZE: GAS, op, POP,
-    # GAS, SWAP1, SUB. Same operations on both sides cancels overhead.
-    measure = (
-        Op.GAS + Op.POP(Op.EXTCODESIZE(FACTORY)) + Op.GAS + Op.SWAP1 + Op.SUB
-    )
+    measured_code = Op.EXTCODESIZE(FACTORY)
+    # Subtract the PUSH20 overhead so the SSTORE'd value is the opcode
+    # access cost alone.
+    overhead = measured_code.gas_cost(fork) - Op.EXTCODESIZE(
+        address_warm=False
+    ).gas_cost(fork)
 
     storage = Storage()
+    first_slot = storage.store_next(first_cost, "first_extcodesize")
+    second_slot = storage.store_next(second_cost, "second_extcodesize")
+
     caller = pre.deploy_contract(
-        # First measurement: stack ends as [cost1].
-        measure
-        # Second measurement: stack ends as [cost2, cost1].
-        + measure
-        # delta = cost1 - cost2.
-        + Op.SWAP1
-        + Op.SUB
-        # Stack: [delta]. SSTORE pops [key, value], so push the key.
-        + Op.PUSH1(storage.store_next(expected_delta, "first_minus_second"))
-        + Op.SSTORE
-        + Op.STOP,
+        CodeGasMeasure(
+            code=measured_code,
+            overhead_cost=overhead,
+            extra_stack_items=1,
+            sstore_key=first_slot,
+            stop=False,
+        )
+        + CodeGasMeasure(
+            code=measured_code,
+            overhead_cost=overhead,
+            extra_stack_items=1,
+            sstore_key=second_slot,
+        ),
     )
 
     access_list = (
@@ -536,7 +536,6 @@ def test_factory_access_list_prewarming(
         tx=Transaction(
             sender=pre.fund_eoa(),
             to=caller,
-            gas_limit=500_000,
             access_list=access_list,
         ),
         post={caller: Account(storage=storage)},
@@ -596,7 +595,6 @@ def test_factory_receives_balance_via_selfdestruct(
             sender=pre.fund_eoa(),
             to=caller,
             data=Hash(salt) + bytes(initcode),
-            gas_limit=1_000_000,
         ),
         post={
             caller: Account(storage=storage),
@@ -654,7 +652,6 @@ def test_factory_via_eip7702_delegation(
             sender=pre.fund_eoa(),
             to=caller,
             data=Hash(salt) + bytes(initcode),
-            gas_limit=500_000,
             authorization_list=[
                 AuthorizationTuple(
                     address=Address(FACTORY),
@@ -714,7 +711,6 @@ def test_factory_rejects_ef_prefix_deployment(
             sender=pre.fund_eoa(),
             to=caller,
             data=Hash(salt) + bytes(initcode),
-            gas_limit=500_000,
         ),
         post={
             caller: Account(storage=storage),
@@ -762,7 +758,6 @@ def test_factory_rejects_oversized_initcode(
             sender=pre.fund_eoa(),
             to=caller,
             data=Hash(salt) + bytes(initcode),
-            gas_limit=5_000_000,
         ),
         post={
             caller: Account(storage=storage),
@@ -794,7 +789,6 @@ def test_factory_block_access_list(
             sender=sender,
             to=Address(FACTORY),
             data=Hash(salt) + bytes(initcode),
-            gas_limit=500_000,
         ),
         post={
             FACTORY: Account(
