@@ -63,25 +63,23 @@ class GasCosts:
     HIGH: Final[Uint] = Uint(10)
 
     # Access
-    WARM_ACCESS: Final[Uint] = Uint(300)
-    COLD_ACCOUNT_ACCESS: Final[Uint] = Uint(7800)
-    COLD_STORAGE_ACCESS: Final[Uint] = Uint(6300)
+    WARM_ACCESS: Final[Uint] = Uint(100)
+    COLD_ACCOUNT_ACCESS: Final[Uint] = Uint(3000)
+    COLD_STORAGE_ACCESS: Final[Uint] = Uint(3000)
 
     # Storage
-    STORAGE_WRITE: Final[Uint] = Uint(8400)
+    STORAGE_WRITE: Final[Uint] = Uint(10000)
 
     # Call
-    CALL_VALUE: Final[Uint] = Uint(22400)  # ACCOUNT_WRITE + CALL_STIPEND
+    CALL_VALUE: Final[Uint] = Uint(10300)  # ACCOUNT_WRITE + CALL_STIPEND
     CALL_STIPEND: Final[Uint] = Uint(2300)
-    ACCOUNT_WRITE: Final[Uint] = Uint(20100)
+    ACCOUNT_WRITE: Final[Uint] = Uint(8000)
 
     # Contract Creation
     CODE_DEPOSIT_PER_BYTE: Final[Uint] = Uint(200)
     CODE_INIT_PER_WORD: Final[Uint] = Uint(2)
-    # Provisional value (flat 3x of legacy 7000). The EIP derives
-    # CREATE_ACCESS = ACCOUNT_WRITE + COLD_STORAGE_ACCESS (= 26400); the
-    # provisional table keeps the legacy decomposition instead.
-    CREATE_ACCESS: Final[Uint] = Uint(21000)
+    # ACCOUNT_WRITE + COLD_STORAGE_ACCESS, per the EIP-8038 derivation.
+    CREATE_ACCESS: Final[Uint] = Uint(11000)
 
     # Utility
     ZERO: Final[Uint] = Uint(0)
@@ -89,9 +87,9 @@ class GasCosts:
     FAST_STEP: Final[Uint] = Uint(5)
 
     # Refunds
-    # Provisional value (flat 3x of legacy 4800). EIP derivation:
-    # (STORAGE_WRITE + COLD_STORAGE_ACCESS) x 4800/5000 = 14112.
-    REFUND_STORAGE_CLEAR: Final[int] = 14400
+    # (STORAGE_WRITE + COLD_STORAGE_ACCESS) x 4800/5000, per the
+    # EIP-8038 derivation.
+    REFUND_STORAGE_CLEAR: Final[int] = 12480
 
     # Precompiles
     PRECOMPILE_ECRECOVER: Final[Uint] = Uint(3000)
@@ -145,11 +143,10 @@ class GasCosts:
     TX_CREATE: Final[Uint] = Uint(32000)
     TX_DATA_TOKEN_STANDARD: Final[Uint] = Uint(4)
     TX_DATA_TOKEN_FLOOR: Final[Uint] = Uint(16)
-    # Provisional values (flat 3x). EIP derivation sets these equal to the
-    # access costs: ADDRESS = COLD_ACCOUNT_ACCESS (7800), STORAGE_KEY =
-    # COLD_STORAGE_ACCESS (6300).
-    TX_ACCESS_LIST_ADDRESS: Final[Uint] = Uint(7200)
-    TX_ACCESS_LIST_STORAGE_KEY: Final[Uint] = Uint(5700)
+    # Per the EIP-8038 derivation these equal the access costs:
+    # ADDRESS = COLD_ACCOUNT_ACCESS, STORAGE_KEY = COLD_STORAGE_ACCESS.
+    TX_ACCESS_LIST_ADDRESS: Final[Uint] = Uint(3000)
+    TX_ACCESS_LIST_STORAGE_KEY: Final[Uint] = Uint(3000)
 
     # Block
     LIMIT_ADJUSTMENT_FACTOR: Final[Uint] = Uint(1024)

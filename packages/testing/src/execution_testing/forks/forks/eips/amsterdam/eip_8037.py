@@ -7,7 +7,6 @@ mitigate state growth and unblock scaling.
 This mixin also folds in the EIP-8038 state-access gas repricing: the two EIPs
 ship together in Amsterdam and share one gas schedule, and the MRO places this
 (highest-numbered) mixin too low to be overridden by a separate EIP-8038 mixin.
-The EIP-8038 values are provisional (see the `gas_costs` override below).
 
 https://eips.ethereum.org/EIPS/eip-8037
 https://eips.ethereum.org/EIPS/eip-8038
@@ -79,23 +78,23 @@ class EIP8037(BaseFork):
         """
         Return gas costs for Amsterdam's combined EIP-8037 (state
         creation) and EIP-8038 (state access) repricing, with state gas
-        folded into the relevant totals. EIP-8038 values are provisional.
+        folded into the relevant totals.
         """
         cpsb = cls.cost_per_state_byte()
         parent = super(EIP8037, cls).gas_costs()
         new_acct = STATE_BYTES_PER_NEW_ACCOUNT * cpsb
 
-        # EIP-8038 state-access repricing (provisional values).
-        warm_access = 300
-        cold_account_access = 7_800
-        cold_storage_access = 6_300
-        storage_write = 8_400
+        # EIP-8038 state-access repricing.
+        warm_access = 100
+        cold_account_access = 3_000
+        cold_storage_access = 3_000
+        storage_write = 10_000
         # The framework models the SSTORE write via the compound
         # COLD_STORAGE_WRITE (access + write), so preserve the invariant
         # COLD_STORAGE_WRITE - COLD_STORAGE_ACCESS == STORAGE_WRITE.
         cold_storage_write = cold_storage_access + storage_write
-        account_write = 20_100
-        create_access = 21_000
+        account_write = 8_000
+        create_access = 11_000
         # ecRecover stays PRECOMPILE_ECRECOVER (3000) until EIP-7904 lands.
         regular_per_auth_base_cost = (
             1_616 + 3_000 + cold_account_access + 2 * warm_access
@@ -110,9 +109,9 @@ class EIP8037(BaseFork):
             COLD_STORAGE_WRITE=cold_storage_write,
             ACCOUNT_WRITE=account_write,
             CALL_VALUE=account_write + 2_300,  # ACCOUNT_WRITE + CALL_STIPEND
-            REFUND_STORAGE_CLEAR=14_400,
-            TX_ACCESS_LIST_ADDRESS=7_200,
-            TX_ACCESS_LIST_STORAGE_KEY=5_700,
+            REFUND_STORAGE_CLEAR=12_480,
+            TX_ACCESS_LIST_ADDRESS=3_000,
+            TX_ACCESS_LIST_STORAGE_KEY=3_000,
             BLOCK_ACCESS_LIST_ITEM=2000,
             STORAGE_SET=(storage_write + STATE_BYTES_PER_STORAGE_SET * cpsb),
             NEW_ACCOUNT=new_acct,
