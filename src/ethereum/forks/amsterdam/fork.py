@@ -566,7 +566,7 @@ def check_transaction(
 
     # EIP-8037 per-dimension inclusion check.
     if min(TX_MAX_GAS_LIMIT, tx.gas) > regular_gas_available:
-        raise GasUsedExceedsLimitError("gas used exceeds limit")
+        raise GasUsedExceedsLimitError("regular gas used exceeds limit")
 
     if tx.gas > state_gas_available:
         raise GasUsedExceedsLimitError("gas used exceeds limit")
