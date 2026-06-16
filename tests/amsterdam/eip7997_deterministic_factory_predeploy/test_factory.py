@@ -378,7 +378,7 @@ def test_factory_in_caller_context(
     initcode = Initcode(deploy_code=runtime_code)
     factory_derived = compute_create2_address(FACTORY, salt, initcode)
 
-    call_op = Op.DELEGATECALL(
+    call_op = call_opcode(
         gas=Op.GAS,
         address=FACTORY,
         args_offset=0,
@@ -476,17 +476,17 @@ def test_factory_deploys_to_pre_funded_address(
 
 
 @pytest.mark.parametrize(
-    "use_access_list,expected_delta",
+    "use_access_list",
     [
-        pytest.param(False, 2500, id="without_access_list"),
-        pytest.param(True, 0, id="with_access_list"),
+        pytest.param(False, id="without_access_list"),
+        pytest.param(True, id="with_access_list"),
     ],
 )
 def test_factory_access_list_prewarming(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     use_access_list: bool,
-    expected_delta: int,
 ) -> None:
     """
     Measure the gas-cost difference between a first and second
@@ -494,9 +494,16 @@ def test_factory_access_list_prewarming(
     deterministic gas cost (no inner frame), so the difference isolates
     the cold-vs-warm address access cost.
 
-    - Without access list: difference is 2,500.
+    - Without access list: difference is `COLD_ACCOUNT_ACCESS - WARM_ACCESS`.
     - With access list including the factory: difference is 0.
     """
+    gas_costs = fork.gas_costs()
+    expected_delta = (
+        0
+        if use_access_list
+        else gas_costs.COLD_ACCOUNT_ACCESS - gas_costs.WARM_ACCESS
+    )
+
     # Identical measurement block around each EXTCODESIZE: GAS, op, POP,
     # GAS, SWAP1, SUB. Same operations on both sides cancels overhead.
     measure = (
