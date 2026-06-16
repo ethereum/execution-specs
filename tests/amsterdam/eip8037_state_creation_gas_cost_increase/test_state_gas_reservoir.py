@@ -266,10 +266,9 @@ def test_block_state_gas_limit_boundary(
     Verify the per-tx state check at the strict-greater-than boundary.
 
     tx1 consumes `tx1_state` via cold SSTOREs. tx2 is sized so that
-    its worst-case state contribution `tx.gas - intrinsic_regular`
-    equals `state_available` (delta=0, accepted because the check is
-    strict `>`) or exceeds it by 1 (delta=1, rejected with
-    `GAS_ALLOWANCE_EXCEEDED`).
+    its worst-case state contribution `tx.gas` equals `state_available`
+    (delta=0, accepted because the check is strict `>`) or exceeds it
+    by 1 (delta=1, rejected with `GAS_ALLOWANCE_EXCEEDED`).
 
     The regular check is asserted to pass so rejection on delta=1 is
     pinned to the state dimension.
@@ -291,11 +290,10 @@ def test_block_state_gas_limit_boundary(
     tx1_regular = intrinsic_cost() + tx1_code.gas_cost(fork) - tx1_state
     tx1_gas = gas_limit_cap + tx1_state
 
-    # tx2: worst-case state contribution = tx.gas - intrinsic_regular.
+    # tx2: worst-case state contribution = tx.gas (strict EIP rule).
     # Plain call, so intrinsic_state is zero.
-    tx2_intrinsic_regular = intrinsic_cost()
     state_available = block_gas_limit - tx1_state
-    tx2_gas = tx2_intrinsic_regular + state_available + delta
+    tx2_gas = state_available + delta
 
     # Pin the rejection (when delta > 0) to the state check: the
     # regular check must not fire.
@@ -335,22 +333,21 @@ def test_block_state_gas_limit_boundary(
     )
 
 
+@pytest.mark.exception_test
 @pytest.mark.valid_from("EIP8037")
-def test_creation_tx_regular_check_subtracts_intrinsic_state(
+def test_creation_tx_regular_check_uses_full_tx_gas(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
-    Verify the regular check subtracts `intrinsic.state` from tx.gas.
+    Verify the regular check uses the full `tx.gas` (no subtraction).
 
-    The EIP regular check is
-    `min(TX_MAX, tx.gas - intrinsic.state) > regular_available`. For a
-    creation tx, `intrinsic.state = GAS_NEW_ACCOUNT`. This test sizes a
-    creation tx whose raw `tx.gas` exceeds `regular_available` but
-    `tx.gas - intrinsic.state` fits; it must be accepted. The old
-    formula `min(TX_MAX, tx.gas)` would reject the same tx, proving
-    the subtraction is honored.
+    The EIP regular check is `min(TX_MAX, tx.gas) > regular_available`.
+    For a creation tx, `intrinsic.state = GAS_NEW_ACCOUNT`. This test
+    sizes a creation tx whose raw `tx.gas` exceeds `regular_available`
+    while `tx.gas - intrinsic.state` would fit; it must be rejected. A
+    formula subtracting `intrinsic.state` would have wrongly accepted.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -364,10 +361,10 @@ def test_creation_tx_regular_check_subtracts_intrinsic_state(
     ) - fork.transaction_intrinsic_state_gas(contract_creation=True)
 
     # Tight boundary: after the filler consumes gas_limit_cap, the
-    # remaining regular is exactly intrinsic_regular + 1. The old
+    # remaining regular is exactly intrinsic_regular + 1. The strict
     # formula `min(TX_MAX, tx.gas)` rejects (tx.gas = intrinsic_total
-    # > intrinsic_regular + 1); the new formula `min(TX_MAX, tx.gas
-    # - intrinsic.state)` accepts (equals intrinsic_regular).
+    # > intrinsic_regular + 1); a formula subtracting `intrinsic.state`
+    # would accept (tx.gas - intrinsic.state == intrinsic_regular).
     block_gas_limit = gas_limit_cap + intrinsic_regular + 1
 
     intrinsic_state = fork.transaction_intrinsic_state_gas(
@@ -383,10 +380,10 @@ def test_creation_tx_regular_check_subtracts_intrinsic_state(
     remaining_regular = block_gas_limit - gas_limit_cap
 
     assert create_tx_gas > remaining_regular, (
-        "old formula must reject to prove new formula differs"
+        "strict formula must reject: full tx.gas exceeds remaining regular"
     )
     assert create_tx_gas - intrinsic_state <= remaining_regular, (
-        "new formula must accept"
+        "a subtracting formula would have accepted"
     )
 
     filler_tx = Transaction(
@@ -398,6 +395,7 @@ def test_creation_tx_regular_check_subtracts_intrinsic_state(
         to=None,
         gas_limit=create_tx_gas,
         sender=pre.fund_eoa(),
+        error=TransactionException.GAS_ALLOWANCE_EXCEEDED,
     )
 
     blockchain_test(
@@ -407,6 +405,7 @@ def test_creation_tx_regular_check_subtracts_intrinsic_state(
             Block(
                 txs=[filler_tx, create_tx],
                 gas_limit=block_gas_limit,
+                exception=TransactionException.GAS_ALLOWANCE_EXCEEDED,
             )
         ],
         post={},
@@ -421,19 +420,18 @@ def test_single_tx_state_check_exceeds_block_limit(
     fork: Fork,
 ) -> None:
     """
-    Verify a single tx is rejected when its state contribution exceeds
-    the entire block gas limit.
+    Verify a single tx is rejected when its gas limit exceeds the
+    entire block gas limit in the state dimension.
 
-    No prior txs needed. A tx whose tx.gas - intrinsic_regular exceeds
-    block_gas_limit must be rejected at inclusion.
+    No prior txs needed. The state check uses the full `tx.gas`, so a
+    tx whose `tx.gas` exceeds `block_gas_limit` must be rejected at
+    inclusion.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
-    intrinsic_regular = intrinsic_cost()
 
     block_gas_limit = gas_limit_cap + 100
-    tx_gas = block_gas_limit + intrinsic_regular + 1
+    tx_gas = block_gas_limit + 1
 
     tx = Transaction(
         to=pre.deploy_contract(code=Op.STOP),
@@ -466,15 +464,11 @@ def test_creation_tx_state_check_exceeded(
     """
     Verify a creation tx is rejected by the state check.
 
-    A creation tx has non-zero intrinsic_state (new account) AND
-    intrinsic_regular (base + CREATE cost). Both formulas are
-    exercised: the regular check subtracts intrinsic_state, the state
-    check subtracts intrinsic_regular.
-
-    A filler tx consumes state budget. The creation tx's state
-    contribution (tx.gas - intrinsic_regular) exceeds the remaining
-    state budget while its regular contribution
-    (tx.gas - intrinsic_state) fits the regular budget.
+    A creation tx (`to=None`) goes through the per-dimension inclusion
+    check like any other tx. A filler tx consumes state budget; the
+    creation tx's `tx.gas` then exceeds the remaining state budget by
+    one while its regular contribution still fits, pinning the
+    rejection to the state dimension.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -482,11 +476,6 @@ def test_creation_tx_state_check_exceeded(
     block_gas_limit = 100_000_000
 
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
-    create_intrinsic_total = intrinsic_cost(contract_creation=True)
-    create_intrinsic_state = fork.transaction_intrinsic_state_gas(
-        contract_creation=True,
-    )
-    create_intrinsic_regular = create_intrinsic_total - create_intrinsic_state
 
     num_sstores = 50
     tx1_code = Bytecode()
@@ -499,14 +488,12 @@ def test_creation_tx_state_check_exceeded(
     tx1_gas = gas_limit_cap + tx1_state
     state_available = block_gas_limit - tx1_state
 
-    # tx2 state contribution = state_available + 1 → rejected
-    tx2_gas = create_intrinsic_regular + state_available + 1
+    # tx2: full tx.gas exceeds state_available by 1, so rejected.
+    tx2_gas = state_available + 1
 
     # Regular check must pass so rejection is pinned to state.
     regular_available = block_gas_limit - tx1_regular
-    assert min(gas_limit_cap, tx2_gas - create_intrinsic_state) < (
-        regular_available
-    )
+    assert min(gas_limit_cap, tx2_gas) < regular_available
 
     tx1 = Transaction(
         to=tx1_contract,
@@ -635,16 +622,16 @@ def test_block_2d_gas_valid_when_cumulative_exceeds_limit(
     assert tx_state > tx_regular
     block_gas_used = tx_state
 
-    # num_txs sized so `one_d_bound > block_gas_limit > two_d_bound`:
-    # per-dimension maxes fit (accepted under 2D-max) but the 1D sum
-    # exceeds the limit (would be rejected by a summing client).
-    num_txs = block_gas_limit // block_gas_used
+    env = Environment(gas_limit=block_gas_limit)
+    tx_limit = tx_gas_used + 1000
+
+    # Strict rule counts full `tx.gas` per dimension; state is the
+    # binding one (tx_state > tx_regular), so every `tx_limit` must
+    # fit the remaining state gas.
+    num_txs = (block_gas_limit - tx_limit) // tx_state + 1
     two_d_bound = num_txs * block_gas_used
     one_d_bound = num_txs * tx_gas_used
     assert two_d_bound <= block_gas_limit < one_d_bound
-
-    env = Environment(gas_limit=block_gas_limit)
-    tx_limit = tx_gas_used + 1000
 
     txs = []
     post = {}
