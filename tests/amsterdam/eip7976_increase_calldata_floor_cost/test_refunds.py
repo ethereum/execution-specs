@@ -164,10 +164,11 @@ def intrinsic_gas_data_floor_minimum_delta() -> int:
     would always be the below the execution gas cost even after the refund is
     applied.
 
-    This value has been set as of Amsterdam and should be adjusted if the gas
-    costs change.
+    This value has been set as of Amsterdam (with the provisional
+    state-access repricing) and should be adjusted if the gas costs
+    change.
     """
-    return 250
+    return 11_000
 
 
 @pytest.fixture
