@@ -289,8 +289,7 @@ EXPECTED_BPO5 = json.loads("""
                            "0x00000961ef480eb55e80d19ad83579a64c007002"
   }
 }
-"""
-)
+""")
 EXPECTED_BPO5_FORK_ID = ForkHash("0xd3a4880b")
 CURRENT_FILE = Path(realpath(__file__))
 CURRENT_FOLDER = CURRENT_FILE.parent
