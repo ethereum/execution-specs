@@ -79,7 +79,7 @@ pytestmark = pytest.mark.valid_from("Amsterdam")
                     SystemContractInteractionContract(
                         requests=[
                             BuilderExitRequest(pubkey=i + 1)
-                            for i in range(Spec.MAX_REQUESTS_PER_BLOCK)
+                            for i in range(Spec.MAX_EXIT_REQUESTS_PER_BLOCK)
                         ],
                     ),
                 ],
@@ -92,7 +92,9 @@ pytestmark = pytest.mark.valid_from("Amsterdam")
                     SystemContractInteractionContract(
                         requests=[
                             BuilderExitRequest(pubkey=i + 1)
-                            for i in range(Spec.MAX_REQUESTS_PER_BLOCK * 2 + 1)
+                            for i in range(
+                                Spec.MAX_EXIT_REQUESTS_PER_BLOCK * 2 + 1
+                            )
                         ],
                     ),
                 ],

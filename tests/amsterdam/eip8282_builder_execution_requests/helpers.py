@@ -29,8 +29,8 @@ class BuilderDepositRequest(
     )
     min_fee: ClassVar[int] = Spec.MIN_REQUEST_FEE
     update_fraction: ClassVar[int] = Spec.REQUEST_FEE_UPDATE_FRACTION
-    target_per_block: ClassVar[int] = Spec.TARGET_REQUESTS_PER_BLOCK
-    max_per_block: ClassVar[int] = Spec.MAX_REQUESTS_PER_BLOCK
+    target_per_block: ClassVar[int] = Spec.TARGET_DEPOSIT_REQUESTS_PER_BLOCK
+    max_per_block: ClassVar[int] = Spec.MAX_DEPOSIT_REQUESTS_PER_BLOCK
 
     extra_wei: int = 0
     """
@@ -93,8 +93,8 @@ class BuilderExitRequest(BuilderExitRequestBase, FeeSystemContractRequest):
     )
     min_fee: ClassVar[int] = Spec.MIN_REQUEST_FEE
     update_fraction: ClassVar[int] = Spec.REQUEST_FEE_UPDATE_FRACTION
-    target_per_block: ClassVar[int] = Spec.TARGET_REQUESTS_PER_BLOCK
-    max_per_block: ClassVar[int] = Spec.MAX_REQUESTS_PER_BLOCK
+    target_per_block: ClassVar[int] = Spec.TARGET_EXIT_REQUESTS_PER_BLOCK
+    max_per_block: ClassVar[int] = Spec.MAX_EXIT_REQUESTS_PER_BLOCK
 
     @property
     def calldata(self) -> bytes:

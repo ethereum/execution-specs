@@ -142,7 +142,7 @@ MIN_DEPOSIT_GWEI = Spec.BUILDER_MIN_DEPOSIT // 10**9
                                 amount=MIN_DEPOSIT_GWEI,
                                 signature=0x03,
                             )
-                            for i in range(Spec.MAX_REQUESTS_PER_BLOCK)
+                            for i in range(Spec.MAX_DEPOSIT_REQUESTS_PER_BLOCK)
                         ],
                     ),
                 ],
@@ -160,7 +160,9 @@ MIN_DEPOSIT_GWEI = Spec.BUILDER_MIN_DEPOSIT // 10**9
                                 amount=MIN_DEPOSIT_GWEI,
                                 signature=0x03,
                             )
-                            for i in range(Spec.MAX_REQUESTS_PER_BLOCK * 2 + 1)
+                            for i in range(
+                                Spec.MAX_DEPOSIT_REQUESTS_PER_BLOCK * 1
+                            )
                         ],
                     ),
                 ],
