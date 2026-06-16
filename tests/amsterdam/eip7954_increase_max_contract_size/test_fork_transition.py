@@ -90,7 +90,7 @@ def test_max_code_size_via_create_fork_transition(
 ) -> None:
     """Ensure the new max code size limit activates at the fork via opcodes."""
     parent = fork.transitions_from()
-    assert parent is not None, "Parent fork must be defined for this test"		
+    assert parent is not None, "Parent fork must be defined for this test"
     code_size = parent.max_code_size() + 1
     deploy_code = Op.JUMPDEST * code_size
     initcode = Initcode(deploy_code=deploy_code)
