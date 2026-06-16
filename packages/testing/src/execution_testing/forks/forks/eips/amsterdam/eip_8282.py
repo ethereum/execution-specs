@@ -1,0 +1,78 @@
+"""
+EIP-8282: Builder Execution Requests.
+
+Predeploy builder deposit and exit request contracts for EIP-7732 builders on
+the EIP-7685 request bus.
+
+https://eips.ethereum.org/EIPS/eip-8282
+"""
+
+from os.path import realpath
+from pathlib import Path
+from typing import List, Mapping
+
+from execution_testing.base_types import Address
+
+from ....base_fork import BaseFork
+
+BUILDER_DEPOSIT_BYTECODE_FILE = (
+    Path(realpath(__file__)).parent
+    / "contracts"
+    / "builder_deposit_request.bin"
+)
+BUILDER_DEPOSIT_REQUEST_PREDEPLOY_ADDRESS = (
+    0x0000000000000000000000000000000000007732
+)
+BUILDER_DEPOSIT_REQUEST_PREDEPLOY_BYTECODE = (
+    BUILDER_DEPOSIT_BYTECODE_FILE.read_bytes()
+)
+
+BUILDER_EXIT_BYTECODE_FILE = (
+    Path(realpath(__file__)).parent / "contracts" / "builder_exit_request.bin"
+)
+BUILDER_EXIT_REQUEST_PREDEPLOY_ADDRESS = (
+    0x0000000000000000000000000000000000007733
+)
+BUILDER_EXIT_REQUEST_PREDEPLOY_BYTECODE = (
+    BUILDER_EXIT_BYTECODE_FILE.read_bytes()
+)
+
+
+class EIP8282(BaseFork):
+    """EIP-8282 class."""
+
+    @classmethod
+    def max_request_type(cls) -> int:
+        """
+        Two request types are introduced: builder deposit requests (0x03)
+        and builder exit requests (0x04).
+        """
+        return 4
+
+    @classmethod
+    def system_contracts(cls) -> List[Address]:
+        """Add the builder deposit and exit request predeploy contracts."""
+        return [
+            Address(
+                BUILDER_DEPOSIT_REQUEST_PREDEPLOY_ADDRESS,
+                label="BUILDER_DEPOSIT_REQUEST_PREDEPLOY_ADDRESS",
+            ),
+            Address(
+                BUILDER_EXIT_REQUEST_PREDEPLOY_ADDRESS,
+                label="BUILDER_EXIT_REQUEST_PREDEPLOY_ADDRESS",
+            ),
+        ] + super(EIP8282, cls).system_contracts()
+
+    @classmethod
+    def pre_allocation_blockchain(cls) -> Mapping:
+        """Pre-allocate the builder deposit and exit request contracts."""
+        return {
+            BUILDER_DEPOSIT_REQUEST_PREDEPLOY_ADDRESS: {
+                "nonce": 1,
+                "code": BUILDER_DEPOSIT_REQUEST_PREDEPLOY_BYTECODE,
+            },
+            BUILDER_EXIT_REQUEST_PREDEPLOY_ADDRESS: {
+                "nonce": 1,
+                "code": BUILDER_EXIT_REQUEST_PREDEPLOY_BYTECODE,
+            },
+        } | super(EIP8282, cls).pre_allocation_blockchain()  # type: ignore
