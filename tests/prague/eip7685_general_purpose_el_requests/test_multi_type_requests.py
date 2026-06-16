@@ -155,7 +155,9 @@ def test_valid_multi_type_requests(
     EOAs and from relay contracts, including per-type maximums.
     """
     blockchain_test(
-        genesis_environment=Environment(),
+        genesis_environment=Environment(
+            gas_limit=500_000_000  # We could also bump the global gas limit
+        ),
         pre=pre,
         post={},
         blocks=blocks,

@@ -49,6 +49,13 @@ from execution_testing import (
 from execution_testing import Macros as Om
 from execution_testing.base_types import HexNumber
 
+from ...amsterdam.eip8282_builder_execution_requests.helpers import (
+    BuilderDepositRequest,
+    BuilderExitRequest,
+)
+from ...amsterdam.eip8282_builder_execution_requests.spec import (
+    Spec as Spec8282,
+)
 from ...cancun.eip4844_blobs.spec import Spec as Spec4844
 from ..eip6110_deposits.helpers import DepositRequest
 from ..eip7002_el_triggerable_withdrawals.helpers import WithdrawalRequest
@@ -3246,6 +3253,16 @@ def test_set_code_to_system_contract(
             # subtracted from the latest block number
             caller_payload = Hash(1)
             caller_code_storage[call_return_data_size_slot] = 32
+        case Address(Spec8282.BUILDER_DEPOSIT_CONTRACT_ADDRESS):
+            # Fabricate a valid builder deposit request to the set-code account
+            builder_deposit_request = BuilderDepositRequest.from_index(0)
+            caller_payload = builder_deposit_request.calldata
+            call_value = builder_deposit_request.value
+        case Address(Spec8282.BUILDER_EXIT_CONTRACT_ADDRESS):
+            # Fabricate a valid builder exit request to the set-code account
+            builder_deposit_request = BuilderExitRequest.from_index(0)
+            caller_payload = builder_deposit_request.calldata
+            call_value = builder_deposit_request.value
         case _:
             raise ValueError(
                 f"Not implemented system contract: {system_contract}"
