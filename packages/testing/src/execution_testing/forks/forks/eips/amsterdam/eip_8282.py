@@ -47,7 +47,13 @@ class EIP8282(BaseFork):
         Two request types are introduced: builder deposit requests (0x03)
         and builder exit requests (0x04).
         """
-        return 4
+        return super(EIP8282, cls).max_request_type() + 2
+
+    @classmethod
+    def empty_block_bal_item_count(cls) -> int:
+        """Add block-level access list elements for an empty block."""
+        # Builder contracts: 2 addresses + 8 reads = 10
+        return super(EIP8282, cls).empty_block_bal_item_count() + 10
 
     @classmethod
     def system_contracts(cls) -> List[Address]:
