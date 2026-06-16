@@ -573,8 +573,8 @@ def test_code_deposit_oog_preserves_parent_reservoir(
     init_code = Op.RETURN(0, deploy_size)
 
     # Limited regular gas forwarded to the factory.  After CREATE
-    # takes 63/64, the factory retains ~15 K for its SSTOREs.
-    child_gas = 1_000_000
+    # takes 63/64, the factory retains ~23 K for its SSTOREs.
+    child_gas = 1_500_000
 
     factory_storage = Storage()
     factory = pre.deploy_contract(
