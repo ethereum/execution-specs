@@ -81,11 +81,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - label: pre-cancun
+          - label: pre-shanghai
             from_fork: Frontier
-            until_fork: Shanghai
-          - label: cancun
-            from_fork: Cancun
+            until_fork: Paris
+          - label: shanghai-cancun
+            from_fork: Shanghai
             until_fork: Cancun
           - label: prague
             from_fork: Prague
