@@ -26,7 +26,12 @@ def test_case(state_test):
                 valid_until='"Cancun"',
             ),
             [],
-            {"passed": 10, "failed": 0, "skipped": 0, "errors": 0},
+            # All deployed forks from Frontier through Cancun, except
+            # Constantinople (filled as ConstantinopleFix): Frontier,
+            # Homestead, TangerineWhistle, SpuriousDragon, Byzantium,
+            # ConstantinopleFix, Istanbul, Berlin, London, Paris, Shanghai,
+            # Cancun = 12 forks.
+            {"passed": 12, "failed": 0, "skipped": 0, "errors": 0},
             id="valid_until",
         ),
         pytest.param(

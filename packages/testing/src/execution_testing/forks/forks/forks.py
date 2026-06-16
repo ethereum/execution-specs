@@ -1340,7 +1340,6 @@ class DAOFork(
 
 class TangerineWhistle(
     DAOFork,
-    ignore=True,
     ruleset_name="TANGERINE",
 ):
     """TangerineWhistle fork (EIP-150)."""
@@ -1353,7 +1352,6 @@ class SpuriousDragon(
     eips.EIP161,
     eips.EIP155,
     TangerineWhistle,
-    ignore=True,
     ruleset_name="SPURIOUS",
 ):
     """SpuriousDragon fork."""
