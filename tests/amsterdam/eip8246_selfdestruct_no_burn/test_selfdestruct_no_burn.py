@@ -8,6 +8,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
+    Hash,
     Op,
     Storage,
     Transaction,
@@ -56,7 +57,7 @@ pytestmark = pytest.mark.valid_from("EIP8246")
         pytest.param(Op.MSTORE(2**32, 0), False, id="oog"),
     ],
 )
-def test_selfdestruct_preserves_balance(
+def test_selfdestructing_initcode_preserves_balance(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     initial_balance: int,
@@ -160,10 +161,7 @@ def test_selfdestruct_preserves_balance(
 
     sender = pre.fund_eoa()
     selfdestruct_tx = Transaction(
-        sender=sender,
-        to=entry_contract,
-        value=total_balance,
-        gas_limit=5_000_000,
+        sender=sender, to=entry_contract, value=total_balance
     )
 
     # Balance verification
@@ -185,22 +183,22 @@ def test_selfdestruct_preserves_balance(
     probe_code = (
         Op.SSTORE(
             probe_storage.store_next(expected_balance),
-            Op.BALANCE(victim),
+            Op.BALANCE(Op.CALLDATALOAD(0)),
         )
         + Op.SSTORE(
             probe_storage.store_next(keccak256(b"") if victim_alive else 0),
-            Op.EXTCODEHASH(victim),
+            Op.EXTCODEHASH(Op.CALLDATALOAD(0)),
         )
         + Op.SSTORE(
             probe_storage.store_next(0),
-            Op.EXTCODESIZE(victim),
+            Op.EXTCODESIZE(Op.CALLDATALOAD(0)),
         )
-        + Op.EXTCODECOPY(victim, 0, 0, len(selfdestruct_initcode))
+        + Op.EXTCODECOPY(
+            Op.CALLDATALOAD(0), 0, 0, Op.EXTCODESIZE(Op.CALLDATALOAD(0))
+        )
         + Op.SSTORE(
-            probe_storage.store_next(
-                keccak256(b"\x00" * len(selfdestruct_initcode))
-            ),
-            Op.SHA3(0, len(selfdestruct_initcode)),
+            probe_storage.store_next(keccak256(b"")),
+            Op.SHA3(0, Op.EXTCODESIZE(Op.CALLDATALOAD(0))),
         )
         + Op.STOP
     )
@@ -210,9 +208,7 @@ def test_selfdestruct_preserves_balance(
     )
 
     probe_tx = Transaction(
-        sender=sender,
-        to=probe_contract,
-        gas_limit=200_000,
+        sender=sender, to=probe_contract, data=Hash(victim, left_padding=True)
     )
 
     blockchain_test(

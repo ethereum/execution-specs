@@ -29,10 +29,7 @@ from execution_testing import (
 )
 from execution_testing.forks import Cancun
 
-from tests.amsterdam.eip7708_eth_transfer_logs.spec import (
-    burn_log,
-    transfer_log,
-)
+from tests.amsterdam.eip7708_eth_transfer_logs.spec import transfer_log
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-6780.md"
 REFERENCE_SPEC_VERSION = "1b6a0e94cc47e859b9866e570391cf37dc55059a"
@@ -326,14 +323,7 @@ def test_create_selfdestruct_same_tx(
         # SELFDESTRUCT emits a Transfer log to a different address, or a Burn
         # log when sending to self (contract was created in this tx).
         if selfdestruct_contract_current_balance > 0:
-            if sendall_recipient == selfdestruct_contract_address:
-                expected_logs_after_tx_value.append(
-                    burn_log(
-                        selfdestruct_contract_address,
-                        selfdestruct_contract_current_balance,
-                    )
-                )
-            else:
+            if sendall_recipient != selfdestruct_contract_address:
                 expected_logs_after_tx_value.append(
                     transfer_log(
                         selfdestruct_contract_address,
@@ -495,6 +485,7 @@ def test_self_destructing_initcode(
     # Call the self-destructing contract multiple times as required, increasing
     # the wei sent each time
     entry_code_balance = 0
+    selfdestruct_contract_address_remaining_balance = 0
     for i in range(call_times):
         entry_code += Op.SSTORE(
             entry_code_storage.store_next(1),
@@ -509,6 +500,11 @@ def test_self_destructing_initcode(
             ),
         )
         entry_code_balance += i
+
+        if fork.is_eip_enabled(8246):
+            # After the first call, this call value will become stuck since
+            # EIP-8246 disables self-destruct burns.
+            selfdestruct_contract_address_remaining_balance += i
 
         entry_code += Op.SSTORE(
             entry_code_storage.store_next(entry_code_balance),
@@ -541,14 +537,16 @@ def test_self_destructing_initcode(
         entry_code_address: Account(
             storage=entry_code_storage,
         ),
-        selfdestruct_contract_address: Account.NONEXISTENT,  # type: ignore
+        selfdestruct_contract_address: Account.NONEXISTENT
+        if selfdestruct_contract_address_remaining_balance == 0
+        else Account(balance=selfdestruct_contract_address_remaining_balance),  # type: ignore
         sendall_recipient_addresses[0]: Account(
             balance=sendall_amount, storage={0: 1}
         ),
     }
 
+    expected_logs = []
     if fork.is_eip_enabled(7708):
-        expected_logs = []
         # tx value transfer: sender -> entry_code_address (created contract)
         if entry_code_balance > 0:
             expected_logs.append(
@@ -571,13 +569,7 @@ def test_self_destructing_initcode(
                         entry_code_address, selfdestruct_contract_address, i
                     )
                 )
-        # At finalization the (destroyed) contract has the accumulated
-        # post-SELFDESTRUCT balance, which is burned.
-        if entry_code_balance > 0:
-            expected_logs.append(
-                burn_log(selfdestruct_contract_address, entry_code_balance)
-            )
-        tx.expected_receipt = TransactionReceipt(logs=expected_logs)
+    tx.expected_receipt = TransactionReceipt(logs=expected_logs)
 
     state_test(pre=pre, post=post, tx=tx)
 
@@ -768,15 +760,8 @@ def test_recreate_self_destructed_contract_different_txs(
             if i == 0 and selfdestruct_contract_initial_balance > 0:
                 if (
                     sendall_recipient_addresses[0]
-                    == selfdestruct_contract_address
+                    != selfdestruct_contract_address
                 ):
-                    tx_logs.append(
-                        burn_log(
-                            selfdestruct_contract_address,
-                            selfdestruct_contract_initial_balance,
-                        )
-                    )
-                else:
                     tx_logs.append(
                         transfer_log(
                             selfdestruct_contract_address,
