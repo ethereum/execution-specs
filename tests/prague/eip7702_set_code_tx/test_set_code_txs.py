@@ -50,11 +50,9 @@ from execution_testing import Macros as Om
 from execution_testing.base_types import HexNumber
 
 from ...cancun.eip4844_blobs.spec import Spec as Spec4844
-from ..eip6110_deposits.helpers import DepositRequest
-from ..eip7002_el_triggerable_withdrawals.helpers import WithdrawalRequest
-from ..eip7002_el_triggerable_withdrawals.spec import Spec as Spec7002
-from ..eip7251_consolidations.helpers import ConsolidationRequest
-from ..eip7251_consolidations.spec import Spec as Spec7251
+from ..eip7685_general_purpose_el_requests.test_multi_type_requests import (
+    REQUEST_TYPE_BY_ADDRESS,
+)
 from .helpers import AddressType
 from .spec import Spec, ref_spec_7702
 
@@ -3171,7 +3169,6 @@ def deposit_contract_initial_storage() -> Storage:
 def test_set_code_to_system_contract(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    fork: Fork,
     system_contract: int,
     call_opcode: Op,
 ) -> None:
@@ -3206,50 +3203,29 @@ def test_set_code_to_system_contract(
             auth_signer = pre.fund_eoa(auth_account_start_balance)
 
     # Fabricate the payload for the system contract
-    match system_contract:
-        case Address(0x000F3DF6D732807EF1319FB7B8BB8522D0BEAC02):  # EIP-4788
-            caller_payload = Hash(1)
-            caller_code_storage[call_return_data_size_slot] = 32
-        case Address(0x00000000219AB540356CBB839CBE05303D7705FA):  # EIP-6110
-            # Fabricate a valid deposit request to the set-code account
-            deposit_request = DepositRequest(
-                pubkey=0x01,
-                withdrawal_credentials=0x02,
-                amount=1_000_000_000,
-                signature=0x03,
-                index=0x0,
-            )
-            caller_payload = deposit_request.calldata
-            call_value = deposit_request.value
-        case Address(Spec7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS):
-            # Fabricate a valid withdrawal request to the set-code account
-            withdrawal_request = WithdrawalRequest(
-                source_address=0x01,
-                validator_pubkey=0x02,
-                amount=0x03,
-                fee=0x01,
-            )
-            caller_payload = withdrawal_request.calldata
-            call_value = withdrawal_request.value
-        case Address(Spec7251.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS):
-            # Fabricate a valid consolidation request to the set-code account
-            consolidation_request = ConsolidationRequest(
-                source_address=0x01,
-                source_pubkey=0x02,
-                target_pubkey=0x03,
-                fee=0x01,
-            )
-            caller_payload = consolidation_request.calldata
-            call_value = consolidation_request.value
-        case Address(0x0000F90827F1C53A10CB7A02335B175320002935):  # EIP-2935
-            # This payload is used to identify the number of blocks to be
-            # subtracted from the latest block number
-            caller_payload = Hash(1)
-            caller_code_storage[call_return_data_size_slot] = 32
-        case _:
-            raise ValueError(
-                f"Not implemented system contract: {system_contract}"
-            )
+    if Address(system_contract) in REQUEST_TYPE_BY_ADDRESS:
+        rt = REQUEST_TYPE_BY_ADDRESS[Address(system_contract)]
+        request = rt.from_index(0)
+        caller_payload = request.calldata
+        call_value = request.value
+    else:
+        match system_contract:
+            case Address(
+                0x000F3DF6D732807EF1319FB7B8BB8522D0BEAC02
+            ):  # EIP-4788
+                caller_payload = Hash(1)
+                caller_code_storage[call_return_data_size_slot] = 32
+            case Address(
+                0x0000F90827F1C53A10CB7A02335B175320002935
+            ):  # EIP-2935
+                # This payload is used to identify the number of blocks to be
+                # subtracted from the latest block number
+                caller_payload = Hash(1)
+                caller_code_storage[call_return_data_size_slot] = 32
+            case _:
+                raise ValueError(
+                    f"Not implemented system contract: {system_contract}"
+                )
 
     # Setup the code to call the system contract
     match system_contract:

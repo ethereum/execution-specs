@@ -45,7 +45,9 @@ REQUEST_TYPES: List[type[SystemContractRequest]] = [
     WithdrawalRequest,
     ConsolidationRequest,
 ]
-
+REQUEST_TYPE_BY_ADDRESS = {
+    rt.interaction_contract_address: rt for rt in REQUEST_TYPES
+}
 # Number of requests used for request types that have no per-block cap (e.g.
 # deposits), to exercise "many in a single block".
 UNCAPPED_REQUEST_SAMPLE = 18
