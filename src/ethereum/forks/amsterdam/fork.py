@@ -569,7 +569,7 @@ def check_transaction(
         raise GasUsedExceedsLimitError("regular gas used exceeds limit")
 
     if tx.gas > state_gas_available:
-        raise GasUsedExceedsLimitError("gas used exceeds limit")
+        raise GasUsedExceedsLimitError("state gas used exceeds limit")
 
     tx_blob_gas_used = calculate_total_blob_gas(tx)
     if tx_blob_gas_used > blob_gas_available:
