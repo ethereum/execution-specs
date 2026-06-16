@@ -28,6 +28,12 @@ class EIP7002(BaseFork):
     """EIP-7002 class."""
 
     @classmethod
+    def empty_block_bal_item_count(cls) -> int:
+        """Add block-level access list elements for an empty block."""
+        # Withdrawals contract: 1 address + 4 reads = 5
+        return super(EIP7002, cls).empty_block_bal_item_count() + 5
+
+    @classmethod
     def system_contracts(cls) -> List[Address]:
         """Add the withdrawal request predeploy contract."""
         return [

@@ -457,6 +457,12 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def minimum_block_gas_limit(cls) -> int:
+        """Return the minimum block gas limit for it to be considered valid."""
+        pass
+
+    @classmethod
+    @abstractmethod
     def opcode_gas_map(
         cls,
     ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:

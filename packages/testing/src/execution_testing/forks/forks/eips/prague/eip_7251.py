@@ -27,6 +27,12 @@ class EIP7251(BaseFork):
     """EIP-7251 class."""
 
     @classmethod
+    def empty_block_bal_item_count(cls) -> int:
+        """Add block-level access list elements for an empty block."""
+        # Consolidations contract: 1 address + 4 reads = 5
+        return super(EIP7251, cls).empty_block_bal_item_count() + 5
+
+    @classmethod
     def system_contracts(cls) -> List[Address]:
         """Add the consolidation request predeploy contract."""
         return [
