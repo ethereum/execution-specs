@@ -26,6 +26,10 @@ from execution_testing import (
     TestAddress,
 )
 
+from ...amsterdam.eip8282_builder_execution_requests.helpers import (
+    BuilderDepositRequest,
+    BuilderExitRequest,
+)
 from ..eip6110_deposits.helpers import DepositRequest
 from ..eip7002_el_triggerable_withdrawals.helpers import WithdrawalRequest
 from ..eip7251_consolidations.helpers import ConsolidationRequest
@@ -44,6 +48,8 @@ REQUEST_TYPES: List[type[SystemContractRequest]] = [
     DepositRequest,
     WithdrawalRequest,
     ConsolidationRequest,
+    BuilderDepositRequest,
+    BuilderExitRequest,
 ]
 
 # Number of requests used for request types that have no per-block cap (e.g.
