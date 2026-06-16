@@ -3167,15 +3167,7 @@ def deposit_contract_initial_storage() -> Storage:
         )
     )
 )
-@pytest.mark.with_all_system_contracts(
-    # Skip the EIP-7997 deterministic factory: its CREATE2 increments the
-    # delegated account's nonce and deploys a contract, neither of which
-    # this test's post-state expects. Set-code-to-factory is covered in
-    # tests/amsterdam/eip7997_deterministic_factory_predeploy/
-    # test_factory.py::test_factory_via_eip7702_delegation.
-    selector=lambda c: c
-    != Address(0x4E59B44847B379578588920CA78FBF26C0B4956C),
-)
+@pytest.mark.with_all_system_contracts
 def test_set_code_to_system_contract(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

@@ -9,7 +9,7 @@ transactions.
 https://eips.ethereum.org/EIPS/eip-7997
 """
 
-from typing import List, Mapping
+from typing import Mapping
 
 from execution_testing.base_types import Address
 
@@ -37,16 +37,6 @@ class EIP7997(BaseFork):
         )
 
     @classmethod
-    def system_contracts(cls) -> List[Address]:
-        """Add the deterministic factory contract."""
-        return [
-            Address(
-                DETERMINISTIC_FACTORY_PREDEPLOY_ADDRESS,
-                label="DETERMINISTIC_FACTORY_PREDEPLOY_ADDRESS",
-            ),
-        ] + super(EIP7997, cls).system_contracts()
-
-    @classmethod
     def pre_allocation(cls) -> Mapping:
         """Pre-allocate the deterministic factory predeploy."""
         return {
@@ -54,7 +44,9 @@ class EIP7997(BaseFork):
                 "nonce": 1,
                 "code": DETERMINISTIC_FACTORY_PREDEPLOY_BYTECODE,
             }
-        } | super(EIP7997, cls).pre_allocation()  # type: ignore
+        } | super(
+            EIP7997, cls
+        ).pre_allocation()  # type: ignore
 
     @classmethod
     def pre_allocation_blockchain(cls) -> Mapping:
@@ -64,4 +56,6 @@ class EIP7997(BaseFork):
                 "nonce": 1,
                 "code": DETERMINISTIC_FACTORY_PREDEPLOY_BYTECODE,
             }
-        } | super(EIP7997, cls).pre_allocation_blockchain()  # type: ignore
+        } | super(
+            EIP7997, cls
+        ).pre_allocation_blockchain()  # type: ignore
