@@ -449,7 +449,7 @@ def destroy_account(tx_state: TransactionState, address: Address) -> None:
     set_account(tx_state, address, None)
 
 
-def convert_to_balance_only_account(
+def clear_account_preserving_balance(
     tx_state: TransactionState, address: Address
 ) -> None:
     """

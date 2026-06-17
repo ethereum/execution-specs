@@ -69,7 +69,7 @@ from .requests import (
 from .state_tracker import (
     BlockState,
     TransactionState,
-    convert_to_balance_only_account,
+    clear_account_preserving_balance,
     create_ether,
     extract_block_diff,
     get_account,
@@ -1142,7 +1142,7 @@ def process_transaction(
     block_output.block_logs += tx_output.logs
 
     for address in tx_output.accounts_to_delete:
-        convert_to_balance_only_account(tx_state, address)
+        clear_account_preserving_balance(tx_state, address)
 
     incorporate_tx_into_block(tx_state, block_env.block_access_list_builder)
 
