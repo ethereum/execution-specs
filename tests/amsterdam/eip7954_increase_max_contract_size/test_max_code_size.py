@@ -400,11 +400,7 @@ def test_max_code_size_high_jumpdest(
         Op.SSTORE(0, Op.CALL(gas=Op.GAS, address=target)) + Op.STOP
     )
 
-    tx = Transaction(
-        sender=pre.fund_eoa(),
-        to=caller,
-        gas_limit=fork.transaction_gas_limit_cap(),
-    )
+    tx = Transaction(sender=pre.fund_eoa(), to=caller)
 
     # Valid: call succeeds (1) and the high JUMPDEST stores 1.
     # Invalid: call fails (0) on the rejected jump and nothing is stored.
