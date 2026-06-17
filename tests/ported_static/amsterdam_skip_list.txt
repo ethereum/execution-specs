@@ -8,7 +8,7 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 321
+# Total entries: 305
 
 # stAttackTest (1)
 stAttackTest/test_crashing_transaction.py::test_crashing_transaction[fork_Amsterdam]
@@ -346,23 +346,7 @@ stSystemOperationsTest/test_call_recursive_bomb3.py::test_call_recursive_bomb3[f
 stSystemOperationsTest/test_double_selfdestruct_touch_paris.py::test_double_selfdestruct_touch_paris[fork_Amsterdam--v1]
 stSystemOperationsTest/test_double_selfdestruct_touch_paris.py::test_double_selfdestruct_touch_paris[fork_Amsterdam--v2]
 
-# stTransactionTest (20)
-stTransactionTest/test_no_src_account_create.py::test_no_src_account_create[fork_Amsterdam-d0-g1-v0]
-stTransactionTest/test_no_src_account_create.py::test_no_src_account_create[fork_Amsterdam-d0-g1-v1]
-stTransactionTest/test_no_src_account_create.py::test_no_src_account_create[fork_Amsterdam-d1-g1-v0]
-stTransactionTest/test_no_src_account_create.py::test_no_src_account_create[fork_Amsterdam-d1-g1-v1]
-stTransactionTest/test_no_src_account_create.py::test_no_src_account_create[fork_Amsterdam-d2-g1-v0]
-stTransactionTest/test_no_src_account_create.py::test_no_src_account_create[fork_Amsterdam-d2-g1-v1]
-stTransactionTest/test_no_src_account_create.py::test_no_src_account_create[fork_Amsterdam-d3-g1-v0]
-stTransactionTest/test_no_src_account_create.py::test_no_src_account_create[fork_Amsterdam-d3-g1-v1]
-stTransactionTest/test_no_src_account_create.py::test_no_src_account_create[fork_Amsterdam-d4-g1-v0]
-stTransactionTest/test_no_src_account_create.py::test_no_src_account_create[fork_Amsterdam-d4-g1-v1]
-stTransactionTest/test_no_src_account_create1559.py::test_no_src_account_create1559[fork_Amsterdam-d0-g1-v0]
-stTransactionTest/test_no_src_account_create1559.py::test_no_src_account_create1559[fork_Amsterdam-d0-g1-v1]
-stTransactionTest/test_no_src_account_create1559.py::test_no_src_account_create1559[fork_Amsterdam-d1-g1-v0]
-stTransactionTest/test_no_src_account_create1559.py::test_no_src_account_create1559[fork_Amsterdam-d1-g1-v1]
-stTransactionTest/test_no_src_account_create1559.py::test_no_src_account_create1559[fork_Amsterdam-d2-g1-v0]
-stTransactionTest/test_no_src_account_create1559.py::test_no_src_account_create1559[fork_Amsterdam-d2-g1-v1]
+# stTransactionTest (4)
 stTransactionTest/test_opcodes_transaction_init.py::test_opcodes_transaction_init[fork_Amsterdam-d120]
 stTransactionTest/test_opcodes_transaction_init.py::test_opcodes_transaction_init[fork_Amsterdam-side_effects]
 stTransactionTest/test_store_gas_on_create.py::test_store_gas_on_create[fork_Amsterdam]
