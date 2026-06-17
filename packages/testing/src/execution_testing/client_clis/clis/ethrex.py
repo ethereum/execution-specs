@@ -17,6 +17,9 @@ class EthrexExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
             "Exceeded MAX_BLOB_GAS_PER_BLOCK"
         ),
+        TransactionException.INVALID_CHAINID: (
+            "Transaction has invalid chain id"
+        ),
         BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: (
             "Invalid deposit request layout"
         ),
