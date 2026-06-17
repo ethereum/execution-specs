@@ -204,6 +204,10 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
         TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
             "InsufficientTransactionGasError"
         ),
+        TransactionException.INVALID_SIGNATURE_VRS: (
+            "InvalidSignatureError('bad"
+        ),
+        TransactionException.INVALID_CHAINID: ("WrongChainId"),
         TransactionException.INITCODE_SIZE_EXCEEDED: "InitCodeTooLargeError",
         TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
             "PriorityFeeGreaterThanMaxFeeError"

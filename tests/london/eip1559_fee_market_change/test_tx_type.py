@@ -1,18 +1,21 @@
 """Test the tx type validation for EIP-1559."""
 
-from typing import Generator
+from typing import Final, Generator, Sequence
 
 import pytest
 from execution_testing import (
     Account,
     Alloc,
+    ChainConfig,
     Fork,
     ParameterSet,
     StateTestFiller,
     Transaction,
     TransactionException,
+    TransactionType,
 )
 from execution_testing import Opcodes as Op
+from execution_testing.base_types import Hash
 
 from .spec import ref_spec_1559
 
@@ -70,3 +73,65 @@ def test_eip1559_tx_validity(
         post[sender] = pre[sender]  # type: ignore
 
     state_test(pre=pre, post=post, tx=tx)
+
+
+TX_TYPES: Final[Sequence[object]] = [
+    pytest.param(TransactionType.LEGACY, None),
+    pytest.param(
+        TransactionType.ACCESS_LIST,
+        None,
+        marks=[pytest.mark.valid_from("Berlin")],
+    ),
+    pytest.param(
+        TransactionType.BASE_FEE,
+        None,
+        marks=[pytest.mark.valid_from("London")],
+    ),
+    pytest.param(
+        TransactionType.BLOB_TRANSACTION,
+        [0],
+        marks=[pytest.mark.valid_from("Cancun")],
+    ),
+    pytest.param(
+        TransactionType.SET_CODE,
+        None,
+        marks=[pytest.mark.valid_from("Prague")],
+    ),
+]
+
+if len(TX_TYPES) != len(TransactionType):
+    raise Exception("missing tx type")
+
+
+@pytest.mark.valid_from("SpuriousDragon")
+@pytest.mark.exception_test
+@pytest.mark.parametrize(("tx_type", "blob_versioned_hashes"), TX_TYPES)
+def test_invalid_chain_id(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    chain_config: ChainConfig,
+    tx_type: int,
+    blob_versioned_hashes: None | Sequence[Hash],
+) -> None:
+    """
+    Test that a transaction with a different chain id is not valid.
+    """
+    to = pre.fund_eoa(0xDEADBEEE)
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        value=1,
+        chain_id=chain_config.chain_id + 1,
+        ty=tx_type,
+        to=to,
+        error=TransactionException.INVALID_CHAINID,
+        blob_versioned_hashes=blob_versioned_hashes,
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            to: Account(balance=0xDEADBEEE),
+        },
+    )
