@@ -1,1 +1,0 @@
-"""FOCIL tests for Amsterdam."""
