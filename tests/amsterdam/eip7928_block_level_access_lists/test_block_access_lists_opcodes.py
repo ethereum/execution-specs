@@ -3529,6 +3529,147 @@ def test_bal_create_early_failure(
 
 
 @pytest.mark.with_all_create_opcodes
+@pytest.mark.parametrize("creation_outcome", ["pre_frame_failure", "success"])
+def test_bal_create_existing_target(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    create_opcode: Op,
+    creation_outcome: str,
+) -> None:
+    """
+    Test BAL for CREATE/CREATE2 into a pre-existing balance-only target.
+
+    Under EIP-8037 the account-creation charge is unconditional, so the
+    target's existence is never read to decide it. On a pre-frame failure
+    (insufficient endowment) the pre-existing target is never accessed and
+    stays absent from the BAL; on success it appears with the deployed
+    nonce and code.
+    """
+    alice = pre.fund_eoa()
+
+    init_code = Initcode(deploy_code=Op.STOP)
+    init_code_bytes = bytes(init_code)
+
+    if creation_outcome == "pre_frame_failure":
+        factory_balance, endowment = 50, 100
+    else:
+        factory_balance, endowment = 0, 0
+
+    factory_code = (
+        Op.MSTORE(0, Op.PUSH32(init_code_bytes))
+        + Op.SSTORE(
+            0x00,
+            Op.GT(
+                create_opcode(
+                    value=endowment,
+                    offset=32 - len(init_code_bytes),
+                    size=len(init_code_bytes),
+                ),
+                0,
+            ),
+        )
+        + Op.STOP
+    )
+
+    factory = pre.deploy_contract(
+        code=factory_code,
+        balance=factory_balance,
+        storage={0x00: 0xDEAD},
+    )
+
+    target = compute_create_address(
+        address=factory,
+        nonce=1,
+        salt=0,
+        initcode=init_code_bytes,
+        opcode=create_opcode,
+    )
+    # Pre-existing balance-only leaf (balance, no code, zero nonce).
+    pre.fund_address(target, amount=1)
+
+    tx = Transaction(sender=alice, to=factory)
+
+    if creation_outcome == "pre_frame_failure":
+        expected_bal = BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                factory: BalAccountExpectation(
+                    nonce_changes=[],
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0x00,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=1, post_value=0
+                                )
+                            ],
+                        )
+                    ],
+                ),
+                # Never accessed despite pre-existing: absent from the BAL.
+                target: None,
+            }
+        )
+        post = {
+            alice: Account(nonce=1),
+            factory: Account(
+                nonce=1, balance=factory_balance, storage={0x00: 0}
+            ),
+            target: Account(balance=1),
+        }
+    else:
+        expected_bal = BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                factory: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=2)
+                    ],
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0x00,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=1, post_value=1
+                                )
+                            ],
+                        )
+                    ],
+                ),
+                target: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                    code_changes=[
+                        BalCodeChange(
+                            block_access_index=1, new_code=bytes(Op.STOP)
+                        )
+                    ],
+                ),
+            }
+        )
+        post = {
+            alice: Account(nonce=1),
+            factory: Account(nonce=2, storage={0x00: 1}),
+            target: Account(nonce=1, balance=1, code=Op.STOP),
+        }
+
+    blockchain_test(
+        pre=pre,
+        blocks=[Block(txs=[tx], expected_block_access_list=expected_bal)],
+        post=post,
+    )
+
+
+@pytest.mark.with_all_create_opcodes
 @pytest.mark.parametrize(
     "storage_op",
     ["read", "write"],
