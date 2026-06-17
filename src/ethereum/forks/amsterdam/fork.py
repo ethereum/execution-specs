@@ -58,6 +58,7 @@ from .exceptions import (
     NoBlobDataError,
     PriorityFeeGreaterThanMaxFeeError,
     TransactionTypeContractCreationError,
+    WrongChainIdError,
 )
 from .fork_types import Authorization, BlockAccessIndex, VersionedHash
 from .requests import (
@@ -86,6 +87,7 @@ from .transactions import (
     LegacyTransaction,
     SetCodeTransaction,
     Transaction,
+    chain_id,
     decode_transaction,
     encode_transaction,
     get_transaction_hash,
@@ -575,7 +577,14 @@ def check_transaction(
     if tx_blob_gas_used > blob_gas_available:
         raise BlobGasLimitExceededError("blob gas limit exceeded")
 
-    sender_address = recover_sender(block_env.chain_id, tx)
+    tx_chain_id = chain_id(tx)
+    if tx_chain_id is not None and tx_chain_id != block_env.chain_id:
+        raise WrongChainIdError(
+            expected=block_env.chain_id,
+            actual=tx_chain_id,
+        )
+
+    sender_address = recover_sender(tx)
     sender_account = get_account(tx_state, sender_address)
 
     if isinstance(tx, FeeMarketCapableTransaction):
