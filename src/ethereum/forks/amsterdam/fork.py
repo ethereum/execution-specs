@@ -1066,15 +1066,10 @@ def process_transaction(
 
     tx_output = process_message_call(message)
 
-    if tx_output.error is not None:
-        tx_output.state_gas_left = Uint(
-            int(tx_output.state_gas_left) + tx_output.state_gas_used
-        )
-        tx_output.state_gas_used = 0
-        if isinstance(tx.to, Bytes0):
-            new_account_refund = StateGasCosts.NEW_ACCOUNT
-            tx_output.state_gas_left += new_account_refund
-            tx_output.state_refund += new_account_refund
+    if tx_output.error is not None and isinstance(tx.to, Bytes0):
+        new_account_refund = StateGasCosts.NEW_ACCOUNT
+        tx_output.state_gas_left += new_account_refund
+        tx_output.state_refund += new_account_refund
 
     tx_gas_used_before_refund = (
         tx.gas - tx_output.gas_left - tx_output.state_gas_left

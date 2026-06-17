@@ -186,18 +186,17 @@ class Evm:
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
     regular_gas_used: Uint = Uint(0)
     state_gas_used: int = 0
-    """
-    State gas that has been consumed by this execution frame and its
-    children.
-
-    `state_gas_used` may go negative when the refund matches an
-    ancestor's charge (e.g. an `SSTORE` clearing a slot a parent set).
-    """
+    state_gas_from_gas_left: Uint = Uint(0)
 
 
 def credit_state_gas_refund(evm: Evm, amount: Uint) -> None:
     """
-    Credit an inline state gas refund to the local frame's reservoir.
+    Credit a state gas refund to the local frame, in LIFO order.
+
+    State-gas charges draw from the reservoir first and from `gas_left`
+    last, so refills credit the pool charged last first: `gas_left` up
+    to `state_gas_from_gas_left`, then the reservoir. This restores the
+    exact pools the charge drew from, so the two never drift.
 
     Parameters
     ----------
@@ -207,7 +206,10 @@ def credit_state_gas_refund(evm: Evm, amount: Uint) -> None:
         The refund amount to credit.
 
     """
-    evm.state_gas_left += amount
+    from_gas_left = min(amount, evm.state_gas_from_gas_left)
+    evm.gas_left += from_gas_left
+    evm.state_gas_from_gas_left -= from_gas_left
+    evm.state_gas_left += amount - from_gas_left
     evm.state_gas_used -= int(amount)
 
 
@@ -225,6 +227,7 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
     """
     evm.gas_left += child_evm.gas_left
     evm.state_gas_left += child_evm.state_gas_left
+    evm.state_gas_from_gas_left += child_evm.state_gas_from_gas_left
     evm.logs += child_evm.logs
     evm.refund_counter += child_evm.refund_counter
     evm.accounts_to_delete.update(child_evm.accounts_to_delete)
@@ -234,6 +237,30 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
     evm.state_gas_used += child_evm.state_gas_used
 
 
+def refill_frame_state_gas(evm: Evm) -> None:
+    """
+    Roll back the frame's state gas in LIFO order on revert or halt.
+
+    The frame's state changes are undone, so the state gas it consumed
+    is credited back to `gas_left` first and then to the reservoir,
+    restoring the pools the charges drew from.
+
+    Parameters
+    ----------
+    evm :
+        The frame whose state gas is rolled back.
+
+    """
+    evm.gas_left += evm.state_gas_from_gas_left
+    evm.state_gas_left = Uint(
+        int(evm.state_gas_left)
+        + evm.state_gas_used
+        - int(evm.state_gas_from_gas_left)
+    )
+    evm.state_gas_used = 0
+    evm.state_gas_from_gas_left = Uint(0)
+
+
 def incorporate_child_on_error(
     evm: Evm,
     child_evm: Evm,
@@ -241,12 +268,11 @@ def incorporate_child_on_error(
     """
     Incorporate the state of an unsuccessful `child_evm` into the parent `evm`.
 
-    State is rolled back, restoring all state gas to the parent's
-    reservoir via the `state_gas_left + state_gas_used` invariant. The
-    child's `state_gas_used` is not inherited (only the success path
-    propagates it), satisfying the EIP-8037 revert rule that
-    `execution_state_gas_used` decreases by the child's charged state
-    gas. Inline refunds roll back with their matching charges.
+    The child rolls back its own state gas via `refill_frame_state_gas`
+    before returning (on both reverts and exceptional halts), so its
+    `gas_left` and reservoir already reflect the LIFO refill and its
+    `state_gas_used` is zero. The parent therefore only reabsorbs the
+    child's `gas_left` and reservoir.
 
     Parameters
     ----------
@@ -257,11 +283,7 @@ def incorporate_child_on_error(
 
     """
     evm.gas_left += child_evm.gas_left
-    evm.state_gas_left = Uint(
-        int(evm.state_gas_left)
-        + child_evm.state_gas_used
-        + int(child_evm.state_gas_left)
-    )
+    evm.state_gas_left += child_evm.state_gas_left
     evm.regular_gas_used += child_evm.regular_gas_used
 
 
