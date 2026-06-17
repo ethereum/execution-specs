@@ -129,7 +129,13 @@ def test_low_gas_limit(
     tx_data = [
         Bytes("00"),
     ]
-    tx_gas = [90000, 50000, 25000, 20000]
+    # -g3 must sit below the fork's intrinsic to trigger
+    # ``INTRINSIC_GAS_TOO_LOW``. EIP-2780 lowers the intrinsic so the
+    # original ``20000`` is no longer below it; derive the boundary.
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        calldata=Bytes("00"),
+    )
+    tx_gas = [90000, 50000, 25000, intrinsic - 1]
     tx_access_lists: dict[int, list] = {
         0: [],
     }

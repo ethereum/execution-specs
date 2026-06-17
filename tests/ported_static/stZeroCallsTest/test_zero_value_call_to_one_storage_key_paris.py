@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
 )
@@ -32,6 +33,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_zero_value_call_to_one_storage_key_paris(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_zero_value_call_to_one_storage_key_paris."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
@@ -73,11 +75,18 @@ def test_zero_value_call_to_one_storage_key_paris(
         address=Address(0xF202BAE278AC09857F5A56991C7A4679632F5841),  # noqa: E501
     )
 
+    # Preserve Cancun's post-intrinsic execution budget across
+    # forks; EIP-2780 lowers the intrinsic for non-self non-value
+    # txs, and the Op.GAS storage assertion depends on the
+    # remaining gas at a fixed execution point.
+    intrinsic = fork.transaction_intrinsic_cost_calculator()()
+    gas_limit = 600_000 + (intrinsic - 21_000)
+
     tx = Transaction(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=600000,
+        gas_limit=gas_limit,
     )
 
     post = {

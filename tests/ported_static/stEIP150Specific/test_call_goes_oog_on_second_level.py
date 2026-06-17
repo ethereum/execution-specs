@@ -12,6 +12,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
 )
@@ -29,6 +30,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_call_goes_oog_on_second_level(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_call_goes_oog_on_second_level."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
@@ -93,11 +95,19 @@ def test_call_goes_oog_on_second_level(
         nonce=0,
     )
 
+    # The original test was built against Cancun's ``TX_BASE`` of
+    # 21_000. EIP-2780 lowers the intrinsic for non-self non-value
+    # txs, so shift ``gas_limit`` by the intrinsic delta to preserve
+    # the post-intrinsic execution budget the Op.GAS storage
+    # assertions depend on.
+    intrinsic = fork.transaction_intrinsic_cost_calculator()()
+    gas_limit = 2_200_000 + (intrinsic - 21_000)
+
     tx = Transaction(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=2200000,
+        gas_limit=gas_limit,
     )
 
     post = {

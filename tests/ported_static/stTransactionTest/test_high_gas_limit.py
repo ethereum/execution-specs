@@ -13,6 +13,8 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Fork,
+    RecipientType,
     StateTestFiller,
     Transaction,
 )
@@ -29,6 +31,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_high_gas_limit(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_high_gas_limit."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
@@ -49,11 +52,19 @@ def test_high_gas_limit(
         balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
     )
 
+    # EIP-2780 charges ``NEW_ACCOUNT`` state gas at the top frame when
+    # value is sent to an empty recipient; with the default zero
+    # state-gas reservoir that charge spills into regular gas, so lift
+    # ``gas_limit`` by exactly that amount (0 on pre-EIP-2780 forks).
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+        sends_value=True,
+    )
     tx = Transaction(
         sender=sender,
         to=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),
         data=Bytes("3240349548983454"),
-        gas_limit=100000,
+        gas_limit=100000 + top_frame_state_gas,
         value=900,
     )
 

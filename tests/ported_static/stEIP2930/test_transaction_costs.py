@@ -471,6 +471,7 @@ def test_transaction_costs(
             calldata=tx.data,
             contract_creation=tx.to is None,
             access_list=tx.access_list,
+            sends_value=bool(tx.value),
         )
         post[sender] = Account(
             balance=(
