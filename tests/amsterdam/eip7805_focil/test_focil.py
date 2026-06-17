@@ -520,6 +520,7 @@ def test_pending_il_depends_on_7702_authorization_nonce_effect(
     """
     calc = fork.transaction_intrinsic_cost_calculator()
     simple_transfer_gas = calc()
+    set_code_gas = calc(authorization_list_or_count=1)
 
     alice = pre.fund_eoa(amount=10**18)
     bob = pre.fund_eoa(amount=10**18)
@@ -530,7 +531,7 @@ def test_pending_il_depends_on_7702_authorization_nonce_effect(
     set_code_tx = Transaction(
         sender=alice,
         to=recipient,
-        gas_limit=100_000,
+        gas_limit=set_code_gas,
         authorization_list=[
             AuthorizationTuple(
                 signer=bob,
@@ -546,8 +547,12 @@ def test_pending_il_depends_on_7702_authorization_nonce_effect(
         gas_limit=simple_transfer_gas,
     )
 
+    # Leave headroom after the set-code tx so the pending IL tx always
+    # fits the block. The satisfied/unsatisfied outcome then depends only
+    # on Bob's post-execution nonce, not on remaining gas.
+    block_gas_limit = set_code_gas + simple_transfer_gas * 2
     blockchain_test(
-        genesis_environment=Environment(gas_limit=200_000),
+        genesis_environment=Environment(gas_limit=block_gas_limit),
         pre=pre,
         post={},
         blocks=[
