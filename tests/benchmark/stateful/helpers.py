@@ -1,6 +1,6 @@
 """Shared constants and helpers for stateful benchmark tests."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from enum import Enum
 from functools import partial
@@ -125,8 +125,8 @@ def build_benchmark_txs(
 
 def build_cache_strategy_blocks(
     cache_strategy: CacheStrategy,
-    txs: list[Transaction],
-    cache_txs: list[Transaction],
+    txs: Sequence[Transaction],
+    cache_txs: Sequence[Transaction],
 ) -> list[Block]:
     """
     Assemble benchmark blocks based on cache strategy.
