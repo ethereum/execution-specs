@@ -27,6 +27,7 @@ class RethExceptionMapper(ExceptionMapper):
         TransactionException.GASLIMIT_PRICE_PRODUCT_OVERFLOW: "overflow",
         TransactionException.TYPE_3_TX_CONTRACT_CREATION: "unexpected length",
         TransactionException.TYPE_3_TX_WITH_FULL_BLOBS: "unexpected list",
+        TransactionException.INVALID_CHAINID: "invalid chain ID",
         TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: (
             "blob version not supported"
         ),
