@@ -50,12 +50,10 @@ def is_valid_delegation(code: bytes) -> bool:
         False otherwise.
 
     """
-    if (
+    return (
         len(code) == EOA_DELEGATED_CODE_LENGTH
         and code[:EOA_DELEGATION_MARKER_LENGTH] == EOA_DELEGATION_MARKER
-    ):
-        return True
-    return False
+    )
 
 
 def get_delegated_code_address(code: bytes) -> Optional[Address]:
