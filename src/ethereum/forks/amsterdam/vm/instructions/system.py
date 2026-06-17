@@ -130,6 +130,8 @@ def generic_create(
         push(evm.stack, U256(0))
         return
 
+    target_alive = is_account_alive(tx_state, contract_address)
+
     increment_nonce(tx_state, evm.message.current_target)
 
     child_message = Message(
@@ -162,6 +164,8 @@ def generic_create(
         push(evm.stack, U256(0))
     else:
         incorporate_child_on_success(evm, child_evm)
+        if target_alive:
+            credit_state_gas_refund(evm, StateGasCosts.NEW_ACCOUNT)
         evm.return_data = b""
         push(evm.stack, U256.from_be_bytes(child_evm.message.current_target))
 

@@ -1066,7 +1066,9 @@ def process_transaction(
 
     tx_output = process_message_call(message)
 
-    if tx_output.error is not None and isinstance(tx.to, Bytes0):
+    if isinstance(tx.to, Bytes0) and (
+        tx_output.error is not None or tx_output.created_target_alive
+    ):
         new_account_refund = StateGasCosts.NEW_ACCOUNT
         tx_output.state_gas_left += new_account_refund
         tx_output.state_refund += new_account_refund
