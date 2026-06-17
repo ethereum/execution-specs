@@ -2294,7 +2294,7 @@ def test_selfdestruct_in_create_tx_initcode(
     sender = pre.fund_eoa()
     intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
     intrinsic_total = intrinsic_calc(
-        calldata=bytes(initcode), contract_creation=True
+        calldata=bytes(initcode), contract_creation=True, sends_value=True
     )
 
     expected_state = create_state_gas + gas_costs.NEW_ACCOUNT
