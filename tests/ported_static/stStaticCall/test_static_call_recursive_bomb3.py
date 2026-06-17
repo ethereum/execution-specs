@@ -85,7 +85,6 @@ def test_static_call_recursive_bomb3(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=1000000,
         value=0x186A0,
     )
 

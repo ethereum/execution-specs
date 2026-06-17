@@ -80,7 +80,6 @@ def test_returndatasize_after_successful_callcode(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=100000,
     )
 
     post = {target: Account(storage={0: 6})}

@@ -240,13 +240,11 @@ def test_create_collision_results(
         Bytes("01"),
         Bytes("02"),
     ]
-    tx_gas = [16777216]
 
     tx = Transaction(
         sender=sender,
         to=contract_2,
         data=tx_data[d],
-        gas_limit=tx_gas[g],
     )
 
     post = {

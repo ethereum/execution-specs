@@ -230,7 +230,6 @@ def test_test_structures_and_variabless(
         sender=sender,
         to=target,
         data=Bytes("c0406226"),
-        gas_limit=350000,
         value=100,
     )
 

@@ -161,13 +161,11 @@ def test_static_callcallcodecallcode_011_oogm_after2(
         Hash(addr, left_padding=True),
         Hash(addr_2, left_padding=True),
     ]
-    tx_gas = [172000]
 
     tx = Transaction(
         sender=sender,
         to=target,
         data=tx_data[d],
-        gas_limit=tx_gas[g],
     )
 
     post = {target: Account(storage={0: 0, 1: 1})}

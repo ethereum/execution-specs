@@ -1281,7 +1281,6 @@ def test_exp_power256_of256(
         sender=sender,
         to=target,
         data=Bytes("693c6139") + Hash(0x0),
-        gas_limit=16777216,
         value=1,
     )
 

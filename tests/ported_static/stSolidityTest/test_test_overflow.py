@@ -158,7 +158,6 @@ def test_test_overflow(
         sender=sender,
         to=target,
         data=Bytes("c0406226"),
-        gas_limit=100000,
     )
 
     post = {target: Account(storage={0: 1})}

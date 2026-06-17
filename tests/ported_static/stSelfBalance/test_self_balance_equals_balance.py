@@ -58,7 +58,6 @@ def test_self_balance_equals_balance(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=100000,
     )
 
     post = {target: Account(storage={1: 1})}

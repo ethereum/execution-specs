@@ -22,7 +22,6 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Amsterdam
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -618,7 +617,6 @@ def test_callcode_to_precompile_from_called_contract(
         sender=sender,
         to=contract_0,
         data=Bytes(""),
-        gas_limit=6000000 if fork >= Amsterdam else 4000000,
         value=100,
     )
 

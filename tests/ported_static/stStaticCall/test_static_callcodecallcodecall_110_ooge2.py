@@ -141,14 +141,12 @@ def test_static_callcodecallcodecall_110_ooge2(
     tx_data = [
         Bytes(""),
     ]
-    tx_gas = [172000]
     tx_value = [0, 1, 2]
 
     tx = Transaction(
         sender=sender,
         to=target,
         data=tx_data[d],
-        gas_limit=tx_gas[g],
         value=tx_value[v],
     )
 

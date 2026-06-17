@@ -524,14 +524,12 @@ def test_create2call_precompiles(
         )
         + Op.STOP * 2,
     ]
-    tx_gas = [15000000]
     tx_value = [1]
 
     tx = Transaction(
         sender=sender,
         to=None,
         data=tx_data[d],
-        gas_limit=tx_gas[g],
         value=tx_value[v],
         error=_exc,
     )
