@@ -870,19 +870,19 @@ def test_sstore_restoration_sub_frame_revert(
     call_opcode: Op,
 ) -> None:
     """
-    Verify 0 to x to 0 reservoir refund returns to the caller on
-    sub-frame REVERT.
+    Verify a sub-frame REVERT does not inflate the caller's reservoir
+    under source-based (LIFO) refills.
 
-    The sub-call performs 0 to x to 0 then REVERTs.  Since both the
-    set-charge and its refund roll back together, the
-    `state_gas_used + state_gas_left` sum reflects the unconsumed
-    reservoir and is returned to the caller via
-    `incorporate_child_on_error`.  A single-SSTORE probe sized to OOG
-    by 1 succeeds, confirming the caller's reservoir was replenished.
+    The sub-call does 0 to x to 0 then REVERTs. The set spilled its
+    state gas from `gas_left`, so the refill at x to 0 returns it to
+    `gas_left`, not the reservoir. On REVERT the state gas refills to
+    the parent's `gas_left`, so the reservoir stays at 0. A probe sized
+    to OOG by 1 then fails, since its fixed forwarded gas cannot reach
+    the `gas_left` refund.
     """
     gas_costs = fork.gas_costs()
-    # Probe SSTORE(0, 1): 2 pushes + cold storage write + state gas - 1,
-    # so it OOGs by 1 when the reservoir is 0 and succeeds otherwise.
+    # Probe SSTORE(0, 1): 2 pushes + cold write + state gas - 1. OOGs by
+    # 1 when the reservoir is 0, as forwarded gas misses gas_left.
     probe_gas = (
         2 * gas_costs.VERY_LOW
         + gas_costs.COLD_STORAGE_WRITE
@@ -894,11 +894,10 @@ def test_sstore_restoration_sub_frame_revert(
     child = pre.deploy_contract(code=child_code)
     probe = pre.deploy_contract(code=Op.SSTORE(0, 1))
 
-    # Forward all remaining gas so the child completes both SSTOREs
-    # and REVERT without a hard-coded budget.
+    # Forward all gas so the child does both SSTOREs and REVERT.
     caller_storage = Storage()
     caller_code = Op.POP(call_opcode(gas=Op.GAS, address=child)) + Op.SSTORE(
-        caller_storage.store_next(1, "probe_must_succeed"),
+        caller_storage.store_next(0, "probe_must_fail"),
         Op.CALL(gas=probe_gas, address=probe),
     )
     caller = pre.deploy_contract(code=caller_code)
@@ -925,20 +924,21 @@ def test_sstore_restoration_ancestor_revert(
     call_opcode: Op,
 ) -> None:
     """
-    Verify the SSTORE 0 to x to 0 refund returns to the caller when an
-    ancestor frame (not the applying frame itself) reverts.
+    Verify an ancestor REVERT does not inflate the caller's reservoir
+    under source-based (LIFO) refills.
 
-    Inner frame applies the refund and returns successfully; its
-    `state_gas_left` (inflated by the refund) propagates to middle
-    via `incorporate_child_on_success`.  Middle then REVERTs; the
-    refunded reservoir flows back to the caller via
-    `incorporate_child_on_error`, so the caller's reservoir is
-    replenished by `sstore_state_gas`.
+    Inner's set spills its state gas from `gas_left`. The refill at
+    x to 0 returns it to `gas_left`, and inner's
+    `state_gas_from_gas_left` propagates to middle on success. Middle
+    then REVERTs, refilling the spilled state gas to the caller's
+    `gas_left`, not the reservoir. The reservoir stays at 0, so a probe
+    sized to OOG by 1 fails, since its fixed forwarded gas cannot reach
+    the `gas_left` refund.
     """
     gas_costs = fork.gas_costs()
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
-    # Probe SSTORE(0, 1): 2 pushes + cold storage write + state gas - 1,
-    # so it OOGs by 1 when the reservoir is 0 and succeeds otherwise.
+    # Probe SSTORE(0, 1): 2 pushes + cold write + state gas - 1. OOGs by
+    # 1 when the reservoir is 0, as forwarded gas misses gas_left.
     probe_gas = (
         2 * gas_costs.VERY_LOW
         + gas_costs.COLD_STORAGE_WRITE
@@ -969,22 +969,27 @@ def test_sstore_restoration_ancestor_revert(
 
     caller_storage = Storage()
     caller_code = Op.POP(call_opcode(gas=Op.GAS, address=middle)) + Op.SSTORE(
-        caller_storage.store_next(1, "probe_must_succeed"),
+        caller_storage.store_next(0, "probe_must_fail"),
         Op.CALL(gas=probe_gas, address=probe),
     )
     caller = pre.deploy_contract(code=caller_code)
 
-    # Block state gas commits: probe's SSTORE-set and caller's outer
-    # SSTORE-set; inner's set+clear cancel before middle reverts and
-    # don't propagate.  Header gas_used is max(regular, state).
+    # Block state gas commits only the caller's outer SSTORE-set. The
+    # probe OOGs and inner's set+clear cancel before middle reverts.
+    # The probe's CALL burns its forwarded budget on the OOG, less the
+    # cold-call surcharge already in the caller's static regular cost.
+    # Header gas_used is max(regular, state).
+    probe_burned = (
+        probe_gas - gas_costs.COLD_ACCOUNT_ACCESS - 2 * gas_costs.WARM_ACCESS
+    )
     expected_regular = (
         intrinsic_cost
         + caller_code.regular_cost(fork)
         + middle_code.regular_cost(fork)
         + inner_code.regular_cost(fork)
-        + probe_code.regular_cost(fork)
+        + probe_burned
     )
-    expected_state = 2 * Op.SSTORE(new_value=1).state_cost(fork)
+    expected_state = Op.SSTORE(new_value=1).state_cost(fork)
     expected_gas_used = max(expected_regular, expected_state)
 
     # gas_limit at the cap means the caller's reservoir starts at 0.
@@ -1109,21 +1114,20 @@ def test_sstore_restoration_create_init_revert(
     create_opcode: Op,
 ) -> None:
     """
-    Verify reservoir refunds return to the caller when CREATE init
-    code REVERTs inside a sub-frame that also REVERTs.
+    Verify a reverting CREATE sub-frame does not inflate the caller's
+    reservoir under source-based (LIFO) refills.
 
-    Wrapping the CREATE in an outer reverting frame isolates the
-    rollback concern from the legitimate CREATE silent-failure refund
-    (`create_account_state_gas` credited to the frame executing the
-    CREATE opcode).  When the outer frame reverts, the refunded
-    reservoir flows back to the caller via
-    `incorporate_child_on_error`, replenishing the caller's
-    reservoir by at least `sstore_state_gas`.  A single-SSTORE probe
-    sized to OOG by 1 succeeds, confirming the propagation.
+    The init code spills its state gas from `gas_left`, does 0 to x to 0
+    and REVERTs. The CREATE is wrapped in an outer frame that also
+    REVERTs. Each refill returns the spilled state gas to `gas_left`,
+    and the reverts refill it to the caller's `gas_left`, not the
+    reservoir. The reservoir stays at 0, so a probe sized to OOG by 1
+    fails, since its fixed forwarded gas cannot reach the `gas_left`
+    refund.
     """
     gas_costs = fork.gas_costs()
-    # Probe SSTORE(0, 1): 2 pushes + cold storage write + state gas - 1,
-    # so it OOGs by 1 when the reservoir is 0 and succeeds otherwise.
+    # Probe SSTORE(0, 1): 2 pushes + cold write + state gas - 1. OOGs by
+    # 1 when the reservoir is 0, as forwarded gas misses gas_left.
     probe_gas = (
         2 * gas_costs.VERY_LOW
         + gas_costs.COLD_STORAGE_WRITE
@@ -1157,7 +1161,7 @@ def test_sstore_restoration_create_init_revert(
         code=(
             Op.POP(Op.CALL(gas=Op.GAS, address=inner))
             + Op.SSTORE(
-                caller_storage.store_next(1, "probe_must_succeed"),
+                caller_storage.store_next(0, "probe_must_fail"),
                 Op.CALL(gas=probe_gas, address=probe),
             )
         ),

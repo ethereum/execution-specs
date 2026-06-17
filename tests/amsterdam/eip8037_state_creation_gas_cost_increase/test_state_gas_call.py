@@ -1282,7 +1282,7 @@ def test_call_value_to_pre_existing_selfdestructed_account(
     ],
 )
 @pytest.mark.valid_from("EIP8037")
-def test_top_level_halt_refunds_total_state_gas(
+def test_top_level_halt_burns_spilled_state_gas(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -1290,22 +1290,24 @@ def test_top_level_halt_refunds_total_state_gas(
     reservoir_delta: int,
 ) -> None:
     """
-    Verify a top-level halt refunds the total state-gas consumed
-    (reservoir-portion + spilled-portion) regardless of child failure
-    mode. The parent calls a child that either reverts or halts, then
-    INVALIDs at the top level.
+    Verify a top-level halt burns the spilled state gas, so only the
+    start reservoir survives. The parent calls a child that reverts or
+    halts, then INVALIDs at the top level.
 
-    Per the updated EIP, both child failure modes propagate the full
-    `state_gas_used` back through `incorporate_child_on_error`, and
-    the top-level halt no longer overrides it. The tx-level error
-    handler then folds the residual into the reservoir, so
-    `state_gas_left_end = max(reservoir, child_charge)` and
-    `tx_gas_used = tx.gas - state_gas_left_end`:
+    Under LIFO refills a frame's spilled state gas refills to
+    `gas_left`, which the halt then zeros. Only the reservoir-funded
+    portion survives, equal to the reservoir at frame start.
 
-    - `reservoir < child_charge` (one_short): spill is refunded too,
-      `tx_gas_used = gas_limit_cap - (child_charge - reservoir)`.
-    - `reservoir >= child_charge`: no spill, `tx_gas_used =
-      gas_limit_cap`.
+    That start value equals the sized reservoir R, so for every child
+    failure mode and `reservoir_delta`:
+
+        `state_gas_left_end = R`,
+        `tx_gas_used = tx.gas - R = gas_limit_cap`.
+
+    With the reservoir one short (`reservoir_delta == -1`) the child's
+    SSTORE spills one unit from `gas_left`, which is refilled then
+    burned by the halt. So `tx_gas_used` stays `gas_limit_cap`. The
+    old behavior refunded the spill, giving `gas_limit_cap - 1`.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -1331,10 +1333,10 @@ def test_top_level_halt_refunds_total_state_gas(
         sender=pre.fund_eoa(),
     )
 
-    # Policy A halt: state_gas counters preserved through the child
-    # halt/revert, parent halt, and tx-level fold.
-    # state_gas_left_end = max(reservoir, sstore_state_gas).
-    state_gas_left_end = max(reservoir, sstore_state_gas)
+    # LIFO refills: the spill refills to `gas_left` and is burned by
+    # the halt. Only the sized reservoir survives, so
+    # `tx_gas_used = gas_limit_cap`.
+    state_gas_left_end = reservoir
     expected_gas_used = tx_gas - state_gas_left_end
 
     blockchain_test(
