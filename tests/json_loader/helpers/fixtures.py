@@ -90,7 +90,7 @@ class FixturesFile(File):
             del self.data
 
     def collect(
-        self: Self,
+        self,
     ) -> Generator[Item | Collector, None, None]:
         """Collect test cases from a single JSON fixtures file."""
         try:

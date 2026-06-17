@@ -32,8 +32,8 @@ class TestLoggerSetup:
         """Test that custom log levels are properly registered."""
         assert logging.getLevelName(VERBOSE_LEVEL) == "VERBOSE"
         assert logging.getLevelName(FAIL_LEVEL) == "FAIL"
-        assert logging.getLevelName("VERBOSE") == VERBOSE_LEVEL
-        assert logging.getLevelName("FAIL") == FAIL_LEVEL
+        assert logging.getLevelName("VERBOSE") == VERBOSE_LEVEL  # type: ignore[deprecated]
+        assert logging.getLevelName("FAIL") == FAIL_LEVEL  # type: ignore[deprecated]
 
     def test_get_logger(self) -> None:
         """Test that get_logger returns a properly typed logger."""

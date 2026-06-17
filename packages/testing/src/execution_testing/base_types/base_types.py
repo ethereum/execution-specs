@@ -308,7 +308,7 @@ class FixedSizeHexNumber(int, ToStringSchema):
 
     @classmethod
     def __get_pydantic_core_schema__(
-        cls: Type[Self], source_type: Any, handler: GetCoreSchemaHandler
+        cls, source_type: Any, handler: GetCoreSchemaHandler
     ) -> PlainValidatorFunctionSchema:
         """
         Call the class constructor without info and appends the serialization
@@ -390,7 +390,7 @@ class FixedSizeBytes(Bytes):
 
     @classmethod
     def __get_pydantic_core_schema__(
-        cls: Type[Self], source_type: Any, handler: GetCoreSchemaHandler
+        cls, source_type: Any, handler: GetCoreSchemaHandler
     ) -> PlainValidatorFunctionSchema:
         """
         Call the class constructor without info and appends the serialization

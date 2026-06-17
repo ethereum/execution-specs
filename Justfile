@@ -130,7 +130,7 @@ fill *args:
 [group('integration tests')]
 fill-pypy *args:
     @mkdir -p "{{ output_dir }}/fill-pypy/tmp" "{{ output_dir }}/fill-pypy/logs"
-    uv run --python pypy3.11 fill \
+    uv run --python pypy3.11 --no-dev --group test fill \
         --skip-index \
         --output="{{ output_dir }}/fill-pypy/fixtures" \
         --no-html \
@@ -197,7 +197,7 @@ test-tests *args:
 [group('unit tests')]
 test-tests-pypy *args:
     @mkdir -p "{{ output_dir }}/test-tests-pypy/tmp"
-    cd packages/testing && uv run --python pypy3.11 pytest \
+    cd packages/testing && uv run --python pypy3.11 --no-dev --group test pytest \
         -n auto --maxprocesses 6 \
         --basetemp="{{ output_dir }}/test-tests-pypy/tmp" \
         --ignore=src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_benchmarking.py \

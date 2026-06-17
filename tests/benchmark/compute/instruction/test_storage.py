@@ -180,6 +180,8 @@ def create_benchmark_executor(
                 current_value=original,
                 new_value=2**256 - 1,
             )
+        case _:
+            raise ValueError
 
     # [index, num]
     loop_condition = (
