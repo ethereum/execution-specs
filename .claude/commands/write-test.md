@@ -47,8 +47,9 @@ Conventions and patterns for writing consensus tests. Run this skill before writ
 
 ## Transactions
 
-- Omit `gas_limit` unless the test asserts on an exact gas amount: it auto-fills so the transaction executes in full without running out of gas. Set it explicitly only for gas-sensitive cases (intrinsic-gas boundaries, OOG, code-deposit or metering).
-- Anti-pattern: boilerplate `gas_limit=fork.transaction_gas_limit_cap()`, now redundant.
+- Rule: omit `gas_limit`. It auto-fills so the transaction executes in full without running out of gas.
+- Exception: set `gas_limit` explicitly for gas-sensitive tests (intrinsic-gas boundaries, OOG, code-deposit limits, or gas metering).
+- Anti-pattern: the `gas_limit=fork.transaction_gas_limit_cap()` boilerplate is now redundant.
 
 ## Exception Testing
 
