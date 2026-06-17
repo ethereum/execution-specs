@@ -4,6 +4,7 @@ from typing import Literal, TypedDict
 
 import pytest
 from execution_testing import (
+    AccessList,
     Alloc,
     AuthorizationTuple,
     Block,
@@ -45,8 +46,10 @@ SAME_SENDER_BLOCK_HEADROOM = 7_500
 PendingSpecValueKey = Literal[
     "simple_transfer_gas",
     "one_nonzero_byte_gas",
+    "remaining_gas",
     "remaining_gas_plus_zero_byte_gas",
     "simple_transfer_gas_times_gas_price",
+    "simple_transfer_gas_times_gas_price_minus_one",
 ]
 
 
@@ -210,6 +213,35 @@ def test_block_with_reverting_included_il_tx_is_valid(
             Spec.INCLUSION_LIST_UNSATISFIED_STATUS,
             id="unsatisfied_with_mixed_valid_and_invalid_pending_il_txs",
         ),
+        pytest.param(
+            ({"actual_gas_used": "remaining_gas"},),
+            Spec.INCLUSION_LIST_UNSATISFIED_STATUS,
+            id="unsatisfied_with_pending_il_tx_that_exactly_fits_gas",
+        ),
+        pytest.param(
+            (
+                {
+                    "actual_gas_used": "simple_transfer_gas",
+                    "sender_label": "exact",
+                    "sender_balance": "simple_transfer_gas_times_gas_price",
+                },
+            ),
+            Spec.INCLUSION_LIST_UNSATISFIED_STATUS,
+            id="unsatisfied_with_pending_il_tx_sender_exactly_affordable",
+        ),
+        pytest.param(
+            (
+                {
+                    "actual_gas_used": "simple_transfer_gas",
+                    "sender_label": "almost",
+                    "sender_balance": (
+                        "simple_transfer_gas_times_gas_price_minus_one"
+                    ),
+                },
+            ),
+            None,
+            id="valid_with_pending_il_tx_sender_one_wei_short",
+        ),
     ],
 )
 def test_block_status_depends_on_pending_inclusion_list(
@@ -261,9 +293,13 @@ def test_block_status_depends_on_pending_inclusion_list(
     resolved_values: dict[PendingSpecValueKey, int] = {
         "simple_transfer_gas": simple_transfer_gas,
         "one_nonzero_byte_gas": one_nonzero_byte_gas,
+        "remaining_gas": remaining_gas,
         "remaining_gas_plus_zero_byte_gas": remaining_gas + zero_byte_gas,
         "simple_transfer_gas_times_gas_price": (
             simple_transfer_gas * gas_price
+        ),
+        "simple_transfer_gas_times_gas_price_minus_one": (
+            simple_transfer_gas * gas_price - 1
         ),
     }
     pending_specs_list: list[PendingInclusionListTx] = []
@@ -559,6 +595,116 @@ def test_pending_il_depends_on_7702_authorization_nonce_effect(
             Block(
                 txs=[set_code_tx],
                 inclusion_list_txs=[bob_il_tx],
+            )
+        ],
+    )
+
+
+def test_unsatisfied_with_contract_creating_pending_il_tx(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    A valid, appendable contract-creating pending IL tx is unsatisfied.
+
+    Contract creation has a different intrinsic gas cost than a plain
+    transfer, so this exercises the EL's appendability re-validation for a
+    `to=None` transaction.
+    """
+    calc = fork.transaction_intrinsic_cost_calculator()
+    create_gas = calc(contract_creation=True)
+
+    sender = pre.fund_eoa(amount=10**18)
+    create_tx = Transaction(
+        sender=sender,
+        to=None,
+        gas_limit=create_gas,
+    )
+
+    block_gas_limit = create_gas * 2
+    blockchain_test(
+        genesis_environment=Environment(gas_limit=block_gas_limit),
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=[],
+                inclusion_list_txs=[create_tx],
+            )
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    "tx_type",
+    [
+        pytest.param(0, id="legacy"),
+        pytest.param(1, id="access_list_2930"),
+        pytest.param(2, id="eip1559"),
+    ],
+)
+def test_unsatisfied_with_typed_pending_il_tx(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    tx_type: int,
+) -> None:
+    """
+    An appendable pending IL tx of any non-blob type is unsatisfied.
+
+    The EL re-validates missing IL transactions using normal transaction
+    validation, so a valid, appendable transaction makes the block
+    INCLUSION_LIST_UNSATISFIED regardless of its type. Blob (type 3) and
+    set-code (type 4) transactions have their own dedicated tests.
+    """
+    calc = fork.transaction_intrinsic_cost_calculator()
+
+    sender = pre.fund_eoa(amount=10**18)
+    recipient = pre.fund_eoa()
+
+    if tx_type == 1:
+        access_list = [AccessList(address=recipient, storage_keys=[])]
+        gas_limit = calc(access_list=access_list)
+        il_tx = Transaction(
+            ty=1,
+            sender=sender,
+            to=recipient,
+            gas_limit=gas_limit,
+            access_list=access_list,
+            gas_price=TransactionDefaults.gas_price,
+        )
+    elif tx_type == 2:
+        gas_limit = calc()
+        il_tx = Transaction(
+            ty=2,
+            sender=sender,
+            to=recipient,
+            gas_limit=gas_limit,
+            max_fee_per_gas=TransactionDefaults.max_fee_per_gas,
+            max_priority_fee_per_gas=(
+                TransactionDefaults.max_priority_fee_per_gas
+            ),
+        )
+    else:
+        gas_limit = calc()
+        il_tx = Transaction(
+            ty=0,
+            sender=sender,
+            to=recipient,
+            gas_limit=gas_limit,
+            gas_price=TransactionDefaults.gas_price,
+        )
+
+    block_gas_limit = gas_limit * 2
+    blockchain_test(
+        genesis_environment=Environment(gas_limit=block_gas_limit),
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=[],
+                inclusion_list_txs=[il_tx],
             )
         ],
     )
