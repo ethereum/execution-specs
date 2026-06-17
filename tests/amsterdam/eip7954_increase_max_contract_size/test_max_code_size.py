@@ -367,31 +367,31 @@ def test_max_code_size_high_jumpdest(
     """
     Ensure jump destination validity is enforced past the old size limits.
 
-    Deploy a `MAX_CODE_SIZE` contract whose jump target sits near the new
-    limit, far beyond the old 24 KiB code and 48 KiB initcode limits, then
-    call it through a caller that records the call's success:
+    Deploy a `MAX_CODE_SIZE` contract that stores a sentinel and then jumps
+    near the new limit, far beyond the old 24 KiB code and 48 KiB initcode
+    limits, then call it through a caller that records the call's success:
 
     - ``valid_high_jumpdest``: the target byte is a real ``JUMPDEST``, so the
-      jump succeeds and the contract executes at the high offset (stores 1).
-    - ``invalid_high_dest``: the target byte is a ``PUSH1`` (not a
-      ``JUMPDEST``), so the jump must be rejected and nothing is stored.
+      jump succeeds, the frame returns, and the sentinel store is kept.
+    - ``invalid_high_dest``: the target byte is a ``STOP`` (not a
+      ``JUMPDEST``), so the jump is rejected, the frame reverts, and the
+      sentinel store is discarded.
 
     A client whose jumpdest analysis or code execution does not cover the
     full new code range fails one of the two cases. No existing test
     executes a contract at a program counter beyond the old limit.
     """
     if valid_jumpdest:
-        # Lands on a JUMPDEST and stores a sentinel at the high offset.
-        tail = Op.JUMPDEST + Op.SSTORE(0, 1) + Op.STOP
+        tail = Op.JUMPDEST
     else:
-        # First byte is PUSH1 (0x60), not a JUMPDEST: jumping here is invalid.
-        # A client that wrongly accepts it would execute this and store 2.
-        tail = Op.SSTORE(0, 2) + Op.STOP
+        # A bare STOP, not a JUMPDEST: jumping here is invalid. A client that
+        # wrongly accepts it halts normally and keeps the prefix store (1).
+        tail = Op.STOP
 
     dest = fork.max_code_size() - len(tail)
     push_size = (dest.bit_length() + 7) // 8
     push_op = getattr(Op, f"PUSH{push_size}")
-    prefix = push_op(dest) + Op.JUMP
+    prefix = Op.SSTORE(0, 1) + push_op(dest) + Op.JUMP
     target_code = prefix + Op.INVALID * (dest - len(prefix)) + tail
     assert len(target_code) == fork.max_code_size()
 
@@ -402,8 +402,8 @@ def test_max_code_size_high_jumpdest(
 
     tx = Transaction(sender=pre.fund_eoa(), to=caller)
 
-    # Valid: call succeeds (1) and the high JUMPDEST stores 1.
-    # Invalid: call fails (0) on the rejected jump and nothing is stored.
+    # Valid: jump completes, call succeeds (1), and the store is kept.
+    # Invalid: jump reverts, call fails (0), and nothing is stored.
     stored = 1 if valid_jumpdest else 0
     post = {
         caller: Account(storage={0: stored}),
