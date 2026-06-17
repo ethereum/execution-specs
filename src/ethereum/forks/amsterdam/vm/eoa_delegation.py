@@ -10,7 +10,7 @@ from ethereum_types.numeric import U64, U256, Uint
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import InvalidBlock, InvalidSignatureError
-from ethereum.state import EMPTY_CODE_HASH, Address
+from ethereum.state import EMPTY_CODE_HASH, Account, Address
 
 from ..fork_types import Authorization
 from ..state_tracker import (
@@ -157,6 +157,43 @@ def calculate_delegation_cost(
     return True, delegated_address, delegation_gas_cost
 
 
+def validate_authorization(
+    message: Message, auth: Authorization
+) -> None | Tuple[Address, Account]:
+    """
+    Check if the given `Authorization` is valid against the current state.
+
+    Returns the `authority` address and its `Account`, or `None` if the
+    validation was unsuccessful.
+    """
+    tx_state = message.tx_env.state
+
+    if auth.chain_id not in (message.block_env.chain_id, U256(0)):
+        return None
+
+    if auth.nonce >= U64.MAX_VALUE:
+        return None
+
+    try:
+        authority = recover_authority(auth)
+    except InvalidSignatureError:
+        return None
+
+    message.accessed_addresses.add(authority)
+
+    authority_account = get_account(tx_state, authority)
+    authority_code = get_code(tx_state, authority_account.code_hash)
+
+    if authority_code and not is_valid_delegation(authority_code):
+        return None
+
+    authority_nonce = authority_account.nonce
+    if authority_nonce != auth.nonce:
+        return None
+
+    return (authority, authority_account)
+
+
 def set_delegation(message: Message) -> Uint:
     """
     Set the delegation code for the authorities in the message.
@@ -180,28 +217,11 @@ def set_delegation(message: Message) -> Uint:
     tx_state = message.tx_env.state
     state_refund = Uint(0)
     for auth in message.tx_env.authorizations:
-        if auth.chain_id not in (message.block_env.chain_id, U256(0)):
-            continue
-
-        if auth.nonce >= U64.MAX_VALUE:
-            continue
-
-        try:
-            authority = recover_authority(auth)
-        except InvalidSignatureError:
-            continue
-
-        message.accessed_addresses.add(authority)
-
-        authority_account = get_account(tx_state, authority)
-        authority_code = get_code(tx_state, authority_account.code_hash)
-
-        if authority_code and not is_valid_delegation(authority_code):
-            continue
-
-        authority_nonce = authority_account.nonce
-        if authority_nonce != auth.nonce:
-            continue
+        match validate_authorization(message, auth):
+            case None:
+                continue
+            case (authority, authority_account):
+                pass
 
         if account_exists(tx_state, authority):
             refund = StateGasCosts.NEW_ACCOUNT
