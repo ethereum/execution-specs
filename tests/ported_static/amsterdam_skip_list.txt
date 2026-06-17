@@ -8,7 +8,7 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 447
+# Total entries: 437
 
 # stAttackTest (1)
 stAttackTest/test_crashing_transaction.py::test_crashing_transaction[fork_Amsterdam]
@@ -41,10 +41,6 @@ stCallCreateCallCodeTest/test_create_name_registrator_pre_store1_not_enough_gas.
 # stCallDelegateCodesCallCodeHomestead (2)
 stCallDelegateCodesCallCodeHomestead/test_callcallcallcode_001_suicide_end.py::test_callcallcallcode_001_suicide_end[fork_Amsterdam]
 stCallDelegateCodesCallCodeHomestead/test_callcallcodecallcode_011_oogm_before.py::test_callcallcodecallcode_011_oogm_before[fork_Amsterdam]
-
-# stCodeSizeLimit (2)
-stCodeSizeLimit/test_create2_code_size_limit.py::test_create2_code_size_limit[fork_Amsterdam-valid]
-stCodeSizeLimit/test_create_code_size_limit.py::test_create_code_size_limit[fork_Amsterdam-valid]
 
 # stCreate2 (38)
 stCreate2/test_create2_oo_gafter_init_code_revert2.py::test_create2_oo_gafter_init_code_revert2[fork_Amsterdam]
@@ -86,9 +82,8 @@ stCreate2/test_revert_depth_create_address_collision_berlin.py::test_revert_dept
 stCreate2/test_revert_depth_create_address_collision_berlin.py::test_revert_depth_create_address_collision_berlin[fork_Amsterdam-d1-g1-v0]
 stCreate2/test_revert_depth_create_address_collision_berlin.py::test_revert_depth_create_address_collision_berlin[fork_Amsterdam-d1-g1-v1]
 
-# stCreateTest (47)
+# stCreateTest (45)
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create-0xef-v1]
-stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create-code-too-big-v1]
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create-contructor-revert-v1]
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create-high-nonce-v1]
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create-invalid-opcode-v1]
@@ -96,7 +91,6 @@ stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_af
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create-oog-constructor-v1]
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create-oog-post-constr-v1]
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create2-0xef-v1]
-stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create2-code-too-big-v1]
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create2-contructor-revert-v1]
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create2-invalid-opcode-v1]
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create2-ok-v1]
@@ -204,14 +198,6 @@ stEIP3855_push0/test_push0.py::test_push0[fork_Amsterdam-1025_push0]
 stEIP3855_push0/test_push0_gas.py::test_push0_gas[fork_Amsterdam]
 stEIP3855_push0/test_push0_gas2.py::test_push0_gas2[fork_Amsterdam-use_push0]
 stEIP3855_push0/test_push0_gas2.py::test_push0_gas2[fork_Amsterdam-use_push1_00]
-
-# stEIP3860_limitmeterinitcode (6)
-stEIP3860_limitmeterinitcode/test_create2_init_code_size_limit.py::test_create2_init_code_size_limit[fork_Amsterdam-invalid]
-stEIP3860_limitmeterinitcode/test_create2_init_code_size_limit.py::test_create2_init_code_size_limit[fork_Amsterdam-valid]
-stEIP3860_limitmeterinitcode/test_create_init_code_size_limit.py::test_create_init_code_size_limit[fork_Amsterdam-invalid]
-stEIP3860_limitmeterinitcode/test_create_init_code_size_limit.py::test_create_init_code_size_limit[fork_Amsterdam-valid]
-stEIP3860_limitmeterinitcode/test_creation_tx_init_code_size_limit.py::test_creation_tx_init_code_size_limit[fork_Amsterdam-invalid]
-stEIP3860_limitmeterinitcode/test_creation_tx_init_code_size_limit.py::test_creation_tx_init_code_size_limit[fork_Amsterdam-valid]
 
 # stEIP5656_MCOPY (55)
 stEIP5656_MCOPY/test_mcopy_copy_cost.py::test_mcopy_copy_cost[fork_Amsterdam-src0_size0-g0]
