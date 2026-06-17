@@ -1577,3 +1577,81 @@ def test_child_failure_refunds_state_gas_to_reservoir_not_gas_left(
         tx=tx,
         blockchain_test_header_verify=Header(gas_used=sstore_state_gas),
     )
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_call_insufficient_balance_refunds_new_account_state_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Refill NEW_ACCOUNT state gas on a value CALL that fails the balance
+    check before the child frame.
+    """
+    gas_costs = fork.gas_costs()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    new_account_state_gas = gas_costs.NEW_ACCOUNT
+
+    probe = pre.deploy_contract(code=Op.SSTORE(0, 1))
+
+    probe_stipend = 2 * gas_costs.VERY_LOW + gas_costs.COLD_STORAGE_WRITE
+
+    parent = pre.deploy_contract(
+        code=(
+            Op.POP(Op.CALL(gas=Op.GAS, address=0xDEAD, value=1))
+            + Op.POP(Op.CALL(gas=probe_stipend, address=probe))
+        ),
+        balance=0,
+    )
+
+    reservoir = max(new_account_state_gas, sstore_state_gas)
+
+    tx = Transaction(
+        to=parent,
+        state_gas_reservoir=reservoir,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {probe: Account(storage={0: 1})}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_call_value_precompile_halt_refunds_new_account_state_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Refill NEW_ACCOUNT state gas on a value CALL to an unfunded
+    precompile that halts in the child frame.
+    """
+    gas_costs = fork.gas_costs()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    new_account_state_gas = gas_costs.NEW_ACCOUNT
+
+    probe = pre.deploy_contract(code=Op.SSTORE(0, 1))
+
+    probe_stipend = 2 * gas_costs.VERY_LOW + gas_costs.COLD_STORAGE_WRITE
+
+    ecpairing = 0x08
+
+    parent = pre.deploy_contract(
+        code=(
+            Op.POP(Op.CALL(1, ecpairing, 1, 0, 0, 0, 0))
+            + Op.POP(Op.CALL(gas=probe_stipend, address=probe))
+        ),
+        balance=1,
+    )
+
+    reservoir = max(new_account_state_gas, sstore_state_gas)
+
+    tx = Transaction(
+        to=parent,
+        state_gas_reservoir=reservoir,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {probe: Account(storage={0: 1})}
+    state_test(pre=pre, post=post, tx=tx)
