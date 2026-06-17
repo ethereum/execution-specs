@@ -434,9 +434,10 @@ def authorize_to_address(
             return pre.fund_eoa(1)
         case AddressType.CONTRACT:
             return pre.deploy_contract(Op.STOP)
-    raise ValueError(
-        f"Unsupported authorization address case: {request.param}"
-    )
+        case _:
+            raise ValueError(
+                f"Unsupported authorization address case: {request.param}"
+            )
 
 
 @pytest.fixture()

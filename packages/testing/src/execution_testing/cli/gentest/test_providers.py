@@ -44,7 +44,7 @@ class BlockchainTestProvider(BaseModel):
     def _get_environment_kwargs(self) -> str:
         env_str = ""
         pad = "        "
-        for field, value in self.block.dict().items():
+        for field, value in self.block.model_dump().items():
             env_str += (
                 f'{pad}{field}="{value}",\n'
                 if field == "coinbase"

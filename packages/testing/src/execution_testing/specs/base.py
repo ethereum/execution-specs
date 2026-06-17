@@ -170,7 +170,7 @@ class BaseTest(BaseModel):
 
     @classmethod
     def from_test(
-        cls: Type[Self],
+        cls,
         *,
         base_test: "BaseTest",
         **kwargs: Any,

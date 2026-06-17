@@ -214,7 +214,7 @@ test = [
 ]
 lint = [
     "codespell==2.4.1",
-    "mypy==1.20.0",
+    "mypy==2.1.0",
     "ruff==0.13.2",
     "vulture==2.14.0",
     "types-requests>=2.31,<2.33",
@@ -494,6 +494,22 @@ warn_redundant_casts = true
 ignore_missing_imports = false
 mypy_path = ["src", "packages/testing/src", "packages/testing/stubs"]
 files = ["src", "tests", "packages"]
+enable_error_code = [
+    "truthy-iterable",
+    "unused-awaitable",
+    "redundant-self",
+    "unused-ignore",
+    "unimported-reveal",
+    "exhaustive-match",
+    "deprecated",
+
+   #"mutable-override",
+   #"truthy-bool",
+   #"explicit-override",
+   #"ignore-without-code",
+   #"possibly-undefined",
+   #"redundant-expr",
+]
 exclude = [
     "^\\.cache/",
     "^\\.devcontainer/",

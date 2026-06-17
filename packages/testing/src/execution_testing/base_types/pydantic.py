@@ -28,7 +28,7 @@ class EthereumTestRootModel(
 class CopyValidateModel(EthereumTestBaseModel):
     """Model that supports copying with validation."""
 
-    def copy(self: Self, **kwargs: Any) -> Self:
+    def copy(self, **kwargs: Any) -> Self:
         """
         Create a copy of the model with the updated fields that are validated.
         """
