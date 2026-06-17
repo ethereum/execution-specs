@@ -626,7 +626,12 @@ def test_point_mul_add(
         + Hash(0x2)
         + Hash(0x0),
     ]
-    tx_gas = [2000000, 90000, 110000, 192000]
+    tx_gas = [
+        2000000,
+        90000,
+        110000,
+        None if fork.is_eip_enabled(8037) else 192000,
+    ]
 
     tx = Transaction(
         sender=sender,
