@@ -12,6 +12,7 @@ from execution_testing.base_types import Account, Address, Hash
 from execution_testing.exceptions import BlockException
 from execution_testing.forks import Berlin, Fork, TransitionFork
 from execution_testing.forks.base_fork import BaseFork
+from execution_testing.recipient_type import RecipientType
 from execution_testing.specs import BlockchainTestFiller, StateTestFiller
 from execution_testing.specs.blockchain import Block
 from execution_testing.test_types import Alloc, Transaction
@@ -406,10 +407,25 @@ def generate_system_contract_error_test(
             # Simple test transaction to verify the block failed to modify the
             # state.
             value_receiver = pre.fund_eoa(amount=0)
+            # value_receiver is empty, so a value transfer to it pays
+            # the value-transfer intrinsic surcharges plus the
+            # top-frame ``NEW_ACCOUNT`` state-gas charge introduced by
+            # EIP-2780. Derive ``gas_limit`` from the fork so the tx
+            # is provisioned correctly across all forks.
+            test_tx_intrinsic_calc = (
+                fork.transaction_intrinsic_cost_calculator()
+            )
+            test_tx_gas_limit = test_tx_intrinsic_calc(
+                sends_value=True,
+                recipient_type=RecipientType.EMPTY_ACCOUNT,
+            ) + fork.transaction_top_frame_state_gas(
+                sends_value=True,
+                recipient_type=RecipientType.EMPTY_ACCOUNT,
+            )
             test_tx = Transaction(
                 to=value_receiver,
                 value=1,
-                gas_limit=100_000,
+                gas_limit=test_tx_gas_limit,
                 sender=pre.fund_eoa(),
             )
             post = Alloc()

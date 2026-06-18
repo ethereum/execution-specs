@@ -31,6 +31,7 @@ from .exceptions import (
 )
 from .fixtures import BaseFixture, FixtureCollector
 from .forks import Fork, GasCosts, RefundTypes, TransitionFork
+from .recipient_type import RecipientType
 from .specs import (
     BaseTest,
     BenchmarkTest,
@@ -190,6 +191,7 @@ __all__ = (
     "OpcodeCallArg",
     "Opcodes",
     "ParameterSet",
+    "RecipientType",
     "ReferenceSpec",
     "ReferenceSpecTypes",
     "RefundTypes",

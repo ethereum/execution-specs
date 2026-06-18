@@ -77,15 +77,18 @@ def test_refund50_1(
         gas_limit=100000,
     )
 
-    # EIP-8038 raises each cold SSTORE-clear charge; with the EIP-3529
-    # refund cap binding, gas_used rises by 4/5 of the extra charge.
+    # EIP-8038 raises each cold SSTORE-clear charge and EIP-2780
+    # shifts the tx intrinsic. With the EIP-3529 refund cap binding,
+    # gas_used rises by 4/5 of the gross-gas delta.
     cold_clear_delta = (
         Op.SSTORE.with_metadata(
             key_warm=False, original_value=1, current_value=1, new_value=0
         ).gas_cost(fork)
         - 5000
     )
-    extra_gas_used = 5 * cold_clear_delta * 4 // 5
+    intrinsic_delta = fork.transaction_intrinsic_cost_calculator()() - 21_000
+    gross_delta = 5 * cold_clear_delta + intrinsic_delta
+    extra_gas_used = gross_delta * 4 // 5
 
     post = {
         target: Account(storage={}),

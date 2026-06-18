@@ -80,27 +80,40 @@ def test_refund_sstore(
     )
 
     # Gas used = gross gas minus the capped storage-clear refund. The
-    # non-SSTORE gross gas is fork-invariant: the intrinsic transaction
-    # cost (including the single zero data byte) plus the PUSH1 and DUP1
-    # that feed the SSTORE (STOP is free).
+    # non-SSTORE gross gas comes from the fork's intrinsic calculator
+    # (covers TX_BASE, calldata, and any EIP-2780 recipient surcharge)
+    # plus the PUSH1 and DUP1 that feed the SSTORE (STOP is free).
     gas_costs = fork.gas_costs()
-    base_gross = (
-        gas_costs.TX_BASE + 2 * gas_costs.VERY_LOW + gas_costs.TX_DATA_PER_ZERO
+    # ``return_cost_deducted_prior_execution=True`` returns the
+    # upfront-deducted intrinsic only. Without it, Prague's
+    # ``intrinsic_calc`` returns ``max(intrinsic, EIP-7623 floor)`` —
+    # the floor only binds for data-heavy txs with little execution,
+    # which is not the case here.
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        calldata=tx.data,
+        return_cost_deducted_prior_execution=True,
     )
+    base_gross = intrinsic + 2 * gas_costs.VERY_LOW
+    # Cancun's intrinsic for this tx shape was 21_004 (TX_BASE +
+    # single zero-byte). Capture it as the baseline so the Cancun
+    # branch of ``gas_used_delta`` evaluates at the original base.
+    cancun_base_gross = 21_004 + 2 * gas_costs.VERY_LOW
 
-    def clear_gas_used(sstore_charge: int, clear_refund: int) -> int:
-        gross = base_gross + sstore_charge
+    def clear_gas_used(
+        sstore_charge: int, clear_refund: int, gross_base: int
+    ) -> int:
+        gross = gross_base + sstore_charge
         return gross - min(clear_refund, gross // 5)
 
     sstore_charge = Op.SSTORE.with_metadata(
         key_warm=False, original_value=24743, current_value=24743, new_value=0
     ).gas_cost(fork)
     # Cancun charges 5000 for the clear and refunds 4800; subtracting the
-    # same model evaluated at those constants makes this exactly 0 before
-    # the EIP-8037/8038 repricing.
+    # same model evaluated at those constants and the Cancun base makes
+    # this exactly 0 before the EIP-8037/8038 repricing.
     gas_used_delta = clear_gas_used(
-        sstore_charge, gas_costs.REFUND_STORAGE_CLEAR
-    ) - clear_gas_used(5000, 4800)
+        sstore_charge, gas_costs.REFUND_STORAGE_CLEAR, base_gross
+    ) - clear_gas_used(5000, 4800, cancun_base_gross)
 
     post = {sender: Account(balance=0xE8D4EE4E00 - 1000 * gas_used_delta)}
 

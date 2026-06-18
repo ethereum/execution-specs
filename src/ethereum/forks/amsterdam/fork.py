@@ -495,8 +495,9 @@ def check_transaction(
     block_env: vm.BlockEnvironment,
     block_output: vm.BlockOutput,
     tx: Transaction,
+    sender: Address,
     tx_state: TransactionState,
-) -> Tuple[Address, Uint, Tuple[VersionedHash, ...], U64]:
+) -> Tuple[Uint, Tuple[VersionedHash, ...], U64]:
     """
     Check if the transaction is includable in the block.
 
@@ -508,13 +509,13 @@ def check_transaction(
         The block output for the current block.
     tx :
         The transaction.
+    sender :
+        The recovered sender address of the transaction.
     tx_state :
         The transaction state tracker.
 
     Returns
     -------
-    sender_address :
-        The sender of the transaction.
     effective_gas_price :
         The price to charge for gas when the transaction is executed.
     blob_versioned_hashes :
@@ -576,15 +577,7 @@ def check_transaction(
     if tx_blob_gas_used > blob_gas_available:
         raise BlobGasLimitExceededError("blob gas limit exceeded")
 
-    tx_chain_id = chain_id(tx)
-    if tx_chain_id is not None and tx_chain_id != block_env.chain_id:
-        raise WrongChainIdError(
-            expected=block_env.chain_id,
-            actual=tx_chain_id,
-        )
-
-    sender_address = recover_sender(tx)
-    sender_account = get_account(tx_state, sender_address)
+    sender_account = get_account(tx_state, sender)
 
     if isinstance(tx, FeeMarketCapableTransaction):
         if tx.max_fee_per_gas < tx.max_priority_fee_per_gas:
@@ -657,7 +650,6 @@ def check_transaction(
         raise InvalidSenderError("not EOA")
 
     return (
-        sender_address,
         effective_gas_price,
         blob_versioned_hashes,
         tx_blob_gas_used,
@@ -792,6 +784,8 @@ def process_unchecked_system_transaction(
 
     tx_env = vm.TransactionEnvironment(
         origin=SYSTEM_ADDRESS,
+        recipient=target_address,
+        value=U256(0),
         gas_price=block_env.base_fee_per_gas,
         gas=SYSTEM_TRANSACTION_GAS,
         state_gas_reservoir=(
@@ -998,12 +992,22 @@ def process_transaction(
         encode_transaction(tx),
     )
 
-    intrinsic = validate_transaction(tx)
+    # `chain_id` also validates a legacy signature's `v` (raising
+    # `InvalidSignatureError` when `v` is neither 27/28 nor >= 35), so it
+    # must be called before `recover_sender`.
+    tx_chain_id = chain_id(tx)
+    if tx_chain_id is not None and tx_chain_id != block_env.chain_id:
+        raise WrongChainIdError(
+            expected=block_env.chain_id,
+            actual=tx_chain_id,
+        )
+
+    sender = recover_sender(tx)
+    intrinsic = validate_transaction(tx, sender)
 
     intrinsic_gas = Uint(intrinsic.regular) + Uint(intrinsic.state)
 
     (
-        sender,
         effective_gas_price,
         blob_versioned_hashes,
         tx_blob_gas_used,
@@ -1011,6 +1015,7 @@ def process_transaction(
         block_env=block_env,
         block_output=block_output,
         tx=tx,
+        sender=sender,
         tx_state=tx_state,
     )
 
@@ -1052,6 +1057,8 @@ def process_transaction(
 
     tx_env = vm.TransactionEnvironment(
         origin=sender,
+        recipient=tx.to,
+        value=tx.value,
         gas_price=effective_gas_price,
         gas=gas,
         state_gas_reservoir=state_gas_reservoir,
