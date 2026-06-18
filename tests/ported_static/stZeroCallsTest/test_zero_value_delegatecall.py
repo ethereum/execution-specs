@@ -3,6 +3,16 @@ Test_zero_value_delegatecall.
 
 Ported from:
 state_tests/stZeroCallsTest/ZeroValue_DELEGATECALLFiller.json
+
+@manually-enhanced: Do not overwrite. The `gas_limit` is derived from
+the fork intrinsic calculator instead of a hardcoded literal, so the
+post-intrinsic execution budget stays fixed at 600_000 across forks:
+`gas_limit = 600_000 + (intrinsic - 21_000)`, where `21_000` is the
+pre-EIP-2780 baseline intrinsic. EIP-2780 lowers the intrinsic for
+non-self, non-value txs, and the `SSTORE(0, GAS)` post assertion
+(`0x8D5B6`) pins `Op.GAS` at a fixed execution point, so the remaining
+gas after the intrinsic deduction must not shift. Do not hardcode the
+gas limit.
 """
 
 import pytest

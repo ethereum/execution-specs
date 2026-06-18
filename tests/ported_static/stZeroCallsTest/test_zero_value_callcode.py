@@ -3,6 +3,15 @@ Test_zero_value_callcode.
 
 Ported from:
 state_tests/stZeroCallsTest/ZeroValue_CALLCODEFiller.json
+
+@manually-enhanced: Do not overwrite. The contract stores `Op.GAS` at
+slot 0 (asserted as 0x8D5B6), so the post-state depends on the gas left
+at a fixed execution point. The tx gas budget is derived from the fork
+gas model instead of a hardcoded literal: `gas_limit = 600_000 +
+(intrinsic - 21_000)` adds back whatever EIP-2780 shaved off the
+intrinsic for this non-self non-value tx (subtracting the pre-EIP-2780
+baseline 21_000) so the 600_000 post-intrinsic execution budget, and
+thus the stored GAS value, stays invariant across forks.
 """
 
 import pytest

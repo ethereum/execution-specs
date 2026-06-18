@@ -3,6 +3,15 @@ Test_refund_multimple_suicide.
 
 Ported from:
 state_tests/stRefundTest/refund_multimpleSuicideFiller.json
+
+@manually-enhanced: Do not overwrite. The post-state asserts the sender
+balance, which the original fixture hardcoded as 0x61EC43A. EIP-2780
+decomposes the intrinsic cost and lowers it for non-self, non-value
+txs, so the balance is derived from the fork model instead: take
+`fork.transaction_intrinsic_cost_calculator()()` minus the pre-EIP-2780
+baseline 21_000, then add `gas_price (10) * |delta|` back to the sender
+(the delta is negative on Amsterdam). This keeps the adjustment exactly
+0 pre-EIP-2780. Do not hardcode the Amsterdam value.
 """
 
 import pytest

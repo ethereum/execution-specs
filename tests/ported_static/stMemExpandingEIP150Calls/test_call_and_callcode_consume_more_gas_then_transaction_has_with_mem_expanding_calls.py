@@ -3,6 +3,14 @@ Test_call_and_callcode_consume_more_gas_then_transaction_has_with_mem_ex...
 
 Ported from:
 state_tests/stMemExpandingEIP150Calls/CallAndCallcodeConsumeMoreGasThenTransactionHasWithMemExpandingCallsFiller.json
+
+@manually-enhanced: Do not overwrite. The post-state asserts the
+remaining-gas snapshot stored by `Op.GAS` (slot 8 == 0x8D5B6), which
+fixes the post-intrinsic execution budget. So `gas_limit` is derived
+from the fork as `600_000 + (intrinsic - 21_000)`: it shifts the budget
+by the intrinsic delta from the pre-EIP-2780 Cancun `TX_BASE` baseline
+of 21_000, keeping the budget constant across the EIP-2780 intrinsic
+decomposition and EIP-8038 access repricing. Do not hardcode 600_000.
 """
 
 import pytest

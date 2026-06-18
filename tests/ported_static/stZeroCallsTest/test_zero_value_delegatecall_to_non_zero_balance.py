@@ -3,6 +3,16 @@ Test_zero_value_delegatecall_to_non_zero_balance.
 
 Ported from:
 state_tests/stZeroCallsTest/ZeroValue_DELEGATECALL_ToNonZeroBalanceFiller.json
+
+@manually-enhanced: Do not overwrite. The contract stores `Op.GAS` into
+slot 0 (asserted as 0x8D5B6), so the gas remaining at that fixed
+execution point must be fork-invariant. The `gas_limit` is derived from
+the fork: `600_000 + (intrinsic - 21_000)`, where `intrinsic` comes from
+`fork.transaction_intrinsic_cost_calculator()()` and 21_000 is the
+pre-EIP-2780 baseline intrinsic. EIP-2780's intrinsic decomposition
+lowers the intrinsic for non-self non-value txs, so subtracting the old
+21_000 literal keeps the post-intrinsic execution budget (600_000)
+constant. Do not hardcode the gas_limit.
 """
 
 import pytest

@@ -3,6 +3,15 @@ Test_refund_single_suicide.
 
 Ported from:
 state_tests/stRefundTest/refund_singleSuicideFiller.json
+
+@manually-enhanced: Do not overwrite. The post-state asserts the sender
+balance, which the original fixture hardcoded. EIP-2780 decomposes the
+intrinsic and lowers it for this non-self, non-value tx, so the balance
+is derived from the fork: ``intrinsic_delta`` subtracts the pre-EIP-2780
+baseline intrinsic 21_000 from the fork's intrinsic calculator (the
+literal 21_000 is the old TX_BASE), making the delta 0 pre-EIP-2780 and
+negative on Amsterdam. The sender balance is then adjusted by
+``gas_price * intrinsic_delta`` (base fee 10). Do not hardcode it.
 """
 
 import pytest

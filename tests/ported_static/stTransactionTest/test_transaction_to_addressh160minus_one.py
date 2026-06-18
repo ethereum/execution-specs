@@ -3,6 +3,14 @@ Test_transaction_to_addressh160minus_one.
 
 Ported from:
 state_tests/stTransactionTest/TransactionToAddressh160minusOneFiller.json
+
+@manually-enhanced: Do not overwrite. Sending value to the empty 0xff..ff
+recipient triggers EIP-2780's NEW_ACCOUNT top-frame state-gas charge.
+Both the tx and block ``gas_limit`` are lifted by
+``fork.transaction_top_frame_state_gas(EMPTY_ACCOUNT, sends_value=True)``
+so the charge (which spills into regular gas via the zero reservoir)
+fits the budget; this derived value is 0 on pre-EIP-2780 forks, keeping
+the original hardcoded 22000/100000 limits intact there.
 """
 
 import pytest

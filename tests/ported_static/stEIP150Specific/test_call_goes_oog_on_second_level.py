@@ -3,6 +3,14 @@ Test_call_goes_oog_on_second_level.
 
 Ported from:
 state_tests/stEIP150Specific/CallGoesOOGOnSecondLevelFiller.json
+
+@manually-enhanced: Do not overwrite. The `gas_limit` is derived from
+the fork intrinsic calculator instead of the original hardcoded value.
+The test fixes the post-intrinsic budget that the nested Op.GAS storage
+assertions (8: 0x927BE, 8: 0x213FB6) depend on, so it shifts the base
+2_200_000 budget by the intrinsic delta versus the pre-EIP-2780 Cancun
+baseline of 21_000 (`intrinsic - 21_000`). This stays correct across
+the EIP-2780 intrinsic decomposition. Do not hardcode the gas_limit.
 """
 
 import pytest

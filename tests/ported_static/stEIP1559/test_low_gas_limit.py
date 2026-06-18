@@ -3,6 +3,13 @@ Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/stEIP1559/lowGasLimitFiller.yml
+
+@manually-enhanced: Do not overwrite. The `-g3` case must sit just below
+the fork intrinsic to trigger `INTRINSIC_GAS_TOO_LOW`. EIP-2780 decomposes
+and lowers the intrinsic, so the original hardcoded `20000` is no longer
+below it; instead derive `intrinsic - 1` from the fork's
+`transaction_intrinsic_cost_calculator()` for the single zero-byte
+calldata so the boundary stays correct across the repricing.
 """
 
 import pytest

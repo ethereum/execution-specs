@@ -3,6 +3,14 @@ Test_zero_value_call_to_non_zero_balance.
 
 Ported from:
 state_tests/stZeroCallsTest/ZeroValue_CALL_ToNonZeroBalanceFiller.json
+
+@manually-enhanced: Do not overwrite. Slot 0 stores `Op.GAS` and is
+asserted at a fixed `0x8D5B6`, so the post-intrinsic execution budget
+must stay constant across forks. The `gas_limit` is derived from the
+fork intrinsic via `fork.transaction_intrinsic_cost_calculator()()`
+minus the pre-EIP-2780 baseline `21_000`, leaving exactly 600_000 for
+execution (the adjustment is 0 pre-EIP-2780). Do not hardcode the
+gas_limit.
 """
 
 import pytest

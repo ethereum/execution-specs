@@ -3,6 +3,16 @@ Test_call_and_callcode_consume_more_gas_then_transaction_has.
 
 Ported from:
 state_tests/stEIP150Specific/CallAndCallcodeConsumeMoreGasThenTransactionHasFiller.json
+
+@manually-enhanced: Do not overwrite. The post-state asserts
+`storage[8] = 0x8D5B6` captured by `Op.GAS`, which depends on the exact
+post-intrinsic execution budget. The original hardcoded `gas_limit` of
+600_000 was built against Cancun's `TX_BASE` of 21_000; EIP-2780 lowers
+the intrinsic for non-self non-value txs, so `gas_limit` is derived as
+`600_000 + (intrinsic - 21_000)` from `transaction_intrinsic_cost_calculator`
+to shift by the fork intrinsic delta and keep the Op.GAS assertion correct.
+The `- 21_000` is the pre-EIP-2780 baseline intrinsic, so the adjustment
+is exactly 0 pre-repricing. Do not hardcode the literal gas_limit.
 """
 
 import pytest

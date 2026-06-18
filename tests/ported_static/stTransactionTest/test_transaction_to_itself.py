@@ -3,6 +3,16 @@ Test_transaction_to_itself.
 
 Ported from:
 state_tests/stTransactionTest/TransactionToItselfFiller.json
+
+@manually-enhanced: Do not overwrite. The post-state asserts the sender
+balance after a self-transfer (to == sender). Instead of the original
+hardcoded value, the balance shift is derived from the fork intrinsic
+calculator: ``intrinsic(recipient_type=SELF, sends_value=True) - 21_000``
+is the delta versus the pre-EIP-2780 baseline intrinsic 21_000. EIP-2780
+carves out the recipient and value-transfer surcharges for self-sends,
+dropping the intrinsic to ``TX_BASE`` (12_000 on Amsterdam), so the delta
+is 0 at Cancun and negative afterward. The balance moves by
+``gas_price * intrinsic_delta``. Do not hardcode the Amsterdam value.
 """
 
 import pytest

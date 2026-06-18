@@ -3,6 +3,15 @@ Test_zero_value_callcode_to_empty_paris.
 
 Ported from:
 state_tests/stZeroCallsTest/ZeroValue_CALLCODE_ToEmpty_ParisFiller.json
+
+@manually-enhanced: Do not overwrite. The target stores `Op.GAS` into
+slot 0 and the post-state asserts it as a fixed value (0x8D5B6), so the
+remaining gas at that point must be fork-invariant. The `gas_limit` is
+derived as `600_000 + (intrinsic - 21_000)` from the fork intrinsic
+calculator instead of a hardcoded number: subtracting the pre-EIP-2780
+baseline intrinsic of 21_000 keeps a constant 600_000 post-intrinsic
+execution budget when EIP-2780 lowers the intrinsic for non-self
+non-value txs. Do not hardcode the gas_limit.
 """
 
 import pytest

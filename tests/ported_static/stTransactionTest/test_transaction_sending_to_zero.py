@@ -3,6 +3,14 @@ Test_transaction_sending_to_zero.
 
 Ported from:
 state_tests/stTransactionTest/TransactionSendingToZeroFiller.json
+
+@manually-enhanced: Do not overwrite. The tx sends value 1 to the empty
+zero address, so EIP-2780 charges NEW_ACCOUNT state gas at the top frame;
+with the default zero reservoir that charge spills into regular gas. The
+`gas_limit` is lifted by `fork.transaction_top_frame_state_gas` for an
+EMPTY_ACCOUNT recipient with `sends_value=True` (0 on pre-EIP-2780
+forks), so the literal 25000 budget stays valid across the repricing. Do
+not collapse the lift back to a hardcoded gas_limit.
 """
 
 import pytest

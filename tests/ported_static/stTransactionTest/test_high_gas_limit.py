@@ -3,6 +3,13 @@ Test_high_gas_limit.
 
 Ported from:
 state_tests/stTransactionTest/HighGasLimitFiller.json
+
+@manually-enhanced: Do not overwrite. The tx sends value to an empty
+recipient, so EIP-2780 charges ``NEW_ACCOUNT`` state gas at the top
+frame; with the default zero state-gas reservoir that charge spills into
+regular gas. Instead of the original hardcoded ``gas_limit``, lift the
+100000 base by ``fork.transaction_top_frame_state_gas`` so the budget
+covers the spillover and stays exactly 0 on pre-EIP-2780 forks.
 """
 
 import pytest

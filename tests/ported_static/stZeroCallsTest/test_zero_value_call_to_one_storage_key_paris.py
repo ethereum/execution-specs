@@ -3,6 +3,15 @@ Test_zero_value_call_to_one_storage_key_paris.
 
 Ported from:
 state_tests/stZeroCallsTest/ZeroValue_CALL_ToOneStorageKey_ParisFiller.json
+
+@manually-enhanced: Do not overwrite. The contract stores `Op.GAS` into
+slot 0, asserting `0x8D5B6` remaining at a fixed execution point, so the
+tx gas budget must track the intrinsic across forks. `gas_limit` is
+derived as `600_000 + (intrinsic - 21_000)`, where `intrinsic` comes from
+`fork.transaction_intrinsic_cost_calculator()`; subtracting the
+pre-EIP-2780 baseline intrinsic 21_000 keeps the post-intrinsic execution
+budget fixed when EIP-2780 lowers the intrinsic for non-value, non-self
+txs. Do not hardcode the literal gas limit.
 """
 
 import pytest

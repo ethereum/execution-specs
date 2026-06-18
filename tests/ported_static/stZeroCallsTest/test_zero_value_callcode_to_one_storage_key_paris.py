@@ -3,6 +3,16 @@ Test_zero_value_callcode_to_one_storage_key_paris.
 
 Ported from:
 state_tests/stZeroCallsTest/ZeroValue_CALLCODE_ToOneStorageKey_ParisFiller.json
+
+@manually-enhanced: Do not overwrite. The contract's first SSTORE records
+`Op.GAS`, so the slot-0 post value (`0x8D5B6`) pins the remaining gas at a
+fixed execution point. To keep that budget constant as the intrinsic
+shifts, `gas_limit` is derived from the fork intrinsic calculator rather
+than hardcoded: `600_000 + (intrinsic - 21_000)`, where `21_000` is the
+pre-EIP-2780 baseline intrinsic. EIP-2780 lowers the intrinsic for this
+non-self, zero-value tx, so the `- 21_000` term keeps the post-intrinsic
+execution budget (and thus the `Op.GAS` assertion) correct across forks.
+Do not replace the calculator-derived value with a literal.
 """
 
 import pytest

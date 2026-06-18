@@ -3,6 +3,16 @@ Test_zero_value_delegatecall_to_one_storage_key_paris.
 
 Ported from:
 state_tests/stZeroCallsTest/ZeroValue_DELEGATECALL_ToOneStorageKey_ParisFiller.json
+
+@manually-enhanced: Do not overwrite. Slot 0 asserts the `Op.GAS`
+value (0x8D5B6) captured by the first SSTORE, so the gas remaining at
+that fixed execution point must be constant across forks. The
+`gas_limit` is derived from the fork intrinsic calculator
+(`fork.transaction_intrinsic_cost_calculator()()`) as
+`600_000 + (intrinsic - 21_000)`: subtracting the pre-EIP-2780
+baseline intrinsic 21_000 keeps the post-intrinsic execution budget
+fixed at 600_000 even as EIP-2780 lowers the intrinsic for
+non-value, non-self calls. Do not hardcode the gas_limit.
 """
 
 import pytest

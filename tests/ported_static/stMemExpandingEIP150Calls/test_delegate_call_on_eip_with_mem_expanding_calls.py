@@ -3,6 +3,16 @@ Test_delegate_call_on_eip_with_mem_expanding_calls.
 
 Ported from:
 state_tests/stMemExpandingEIP150Calls/DelegateCallOnEIPWithMemExpandingCallsFiller.json
+
+@manually-enhanced: Do not overwrite. The post-state asserts the GAS
+opcode value stored at target slot 8 (0x8D5B6), which depends on the
+execution budget left after the intrinsic charge. The original test
+hardcoded `gas_limit` against Cancun's `TX_BASE` of 21_000; EIP-2780
+lowers the intrinsic for non-self non-value txs, so `gas_limit` is
+derived from the fork as `600_000 + (intrinsic - 21_000)`, subtracting
+the pre-EIP-2780 baseline 21_000 so the budget is invariant across the
+intrinsic decomposition and EIP-8038 access repricing. Do not hardcode
+the literal gas_limit.
 """
 
 import pytest
