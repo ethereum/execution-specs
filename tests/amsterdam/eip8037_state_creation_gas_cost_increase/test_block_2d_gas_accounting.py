@@ -504,7 +504,6 @@ def test_tx_inclusion_at_regular_gas_block_limit_small(
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
 
     filler_tx_count = (fork.minimum_block_gas_limit() // intrinsic_gas) + 1
-    block_gas_limit = intrinsic_gas * (filler_tx_count + 1)
 
     dest_contract = pre.deploy_contract(code=Op.STOP)
     filler_sender = pre.fund_eoa()
@@ -526,7 +525,8 @@ def test_tx_inclusion_at_regular_gas_block_limit_small(
         sender=pre.fund_eoa(),
         error=error,
     )
-
+    total_tx_count = filler_tx_count + 1  # Including excess tx
+    block_gas_limit = intrinsic_gas * total_tx_count
     blockchain_test(
         genesis_environment=Environment(gas_limit=block_gas_limit),
         pre=pre,
