@@ -112,19 +112,6 @@ class GasCosts:
     PRECOMPILE_ECPAIRING_BASE: Final[Uint] = Uint(45000)
     PRECOMPILE_ECPAIRING_PER_POINT: Final[Uint] = Uint(34000)
 
-    # Authorization
-    # Regular-gas charged per EIP-7702 authorization, in addition to
-    # ACCOUNT_WRITE. Sum of: 1616 calldata (101 bytes x TX_DATA_TOKEN_FLOOR),
-    # ecRecover (PRECOMPILE_ECRECOVER, updated by EIP-7904), one cold
-    # authority read (COLD_ACCOUNT_ACCESS), and two warm writes
-    # (2 x WARM_ACCESS).
-    REGULAR_PER_AUTH_BASE_COST: Final[Uint] = (
-        Uint(1616)
-        + PRECOMPILE_ECRECOVER
-        + COLD_ACCOUNT_ACCESS
-        + Uint(2) * WARM_ACCESS
-    )
-
     # Blobs
     PER_BLOB: Final[U64] = U64(2**17)
     BLOB_SCHEDULE_TARGET: Final[U64] = U64(14)
@@ -144,6 +131,29 @@ class GasCosts:
     TX_DATA_TOKEN_FLOOR: Final[Uint] = Uint(16)
     TX_ACCESS_LIST_ADDRESS: Final[Uint] = COLD_ACCOUNT_ACCESS
     TX_ACCESS_LIST_STORAGE_KEY: Final[Uint] = COLD_STORAGE_ACCESS
+
+    # Authorization
+    AUTH_TUPLE_BYTES: Final[Uint] = Uint(101)
+    """
+    Calldata bytes charged for one [EIP-7702] authorization tuple.
+
+    Counts the tuple's fields: the chain id, authority address, nonce,
+    signature parity, and the two signature scalars. Charged at the
+    calldata floor rate (`TX_DATA_TOKEN_FLOOR`).
+
+    [EIP-7702]: https://eips.ethereum.org/EIPS/eip-7702
+    """
+
+    REGULAR_PER_AUTH_BASE_COST: Final[Uint] = (
+        AUTH_TUPLE_BYTES * TX_DATA_TOKEN_FLOOR
+        + PRECOMPILE_ECRECOVER
+        + COLD_ACCOUNT_ACCESS
+        + Uint(2) * WARM_ACCESS
+    )
+    """
+    Regular gas charged per EIP-7702 authorization, in addition to
+    `ACCOUNT_WRITE`.
+    """
 
     # Block
     LIMIT_ADJUSTMENT_FACTOR: Final[Uint] = Uint(1024)
