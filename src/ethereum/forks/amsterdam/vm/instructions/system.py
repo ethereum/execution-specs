@@ -195,7 +195,7 @@ def create(evm: Evm) -> None:
     init_code_gas = init_code_cost(Uint(memory_size))
     charge_gas(
         evm,
-        GasCosts.REGULAR_GAS_CREATE + extend_memory.cost + init_code_gas,
+        GasCosts.CREATE_ACCESS + extend_memory.cost + init_code_gas,
     )
 
     # OPERATION
@@ -249,7 +249,7 @@ def create2(evm: Evm) -> None:
     init_code_gas = init_code_cost(Uint(memory_size))
     charge_gas(
         evm,
-        GasCosts.REGULAR_GAS_CREATE
+        GasCosts.CREATE_ACCESS
         + GasCosts.OPCODE_KECCAK256_PER_WORD * call_data_words
         + extend_memory.cost
         + init_code_gas,
@@ -659,16 +659,19 @@ def selfdestruct(evm: Evm) -> None:
         evm.accessed_addresses.add(beneficiary)
 
     state_gas = Uint(0)
+    account_write_gas = Uint(0)
     if (
         not is_account_alive(tx_state, beneficiary)
         and get_account(tx_state, evm.message.current_target).balance != 0
     ):
         state_gas = StateGasCosts.NEW_ACCOUNT
+        # EIP-8038: positive balance sent to an empty account.
+        account_write_gas = GasCosts.ACCOUNT_WRITE
 
     # Charge regular gas before state gas so that a regular-gas OOG
     # does not consume state gas that would inflate the parent's
     # reservoir on frame failure.
-    charge_gas(evm, gas_cost)
+    charge_gas(evm, gas_cost + account_write_gas)
     charge_state_gas(evm, state_gas)
 
     originator = evm.message.current_target

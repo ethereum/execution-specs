@@ -3,6 +3,14 @@ Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/stEIP2930/coinbaseT01Filler.yml
+
+@manually-enhanced: Do not overwrite. The target contract measures, via
+`Op.GAS`, the regular gas of a `CALL` that transfers value to the warm,
+already-existing coinbase. EIP-8038 reprices the value-transfer
+component (`CALL_VALUE` 9 000 -> 10 300), so the measurement grows by
+`gas_costs.CALL_VALUE - 9000`. That delta is derived from the fork's
+own gas model, so it is exactly 0 before EIP-8038 and tracks future
+parameter changes; do not hardcode the Amsterdam number.
 """
 
 import pytest
@@ -111,16 +119,22 @@ def test_coinbase_t01(
         nonce=1,
     )
 
+    # EIP-8038 reprices the value-transfer component of `CALL`; with the
+    # coinbase warm and already in state, the measured gas grows by the
+    # `CALL_VALUE` reprice alone. Derived from the fork gas model so it
+    # is 0 before EIP-8038.
+    call_value_delta = fork.gas_costs().CALL_VALUE - 9000
+
     expect_entries_: list[dict] = [
         {
             "indexes": {"data": [1], "gas": -1, "value": -1},
             "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 6800})},
+            "result": {target: Account(storage={0: 6800 + call_value_delta})},
         },
         {
             "indexes": {"data": [0, 2], "gas": -1, "value": -1},
             "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 6800})},
+            "result": {target: Account(storage={0: 6800 + call_value_delta})},
         },
     ]
 

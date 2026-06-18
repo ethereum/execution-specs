@@ -192,14 +192,17 @@ def validate_authorization(
     return (authority, authority_account)
 
 
-def set_delegation(message: Message) -> Uint:
+def set_delegation(message: Message) -> Tuple[Uint, Uint]:
     """
     Set the delegation code for the authorities in the message.
 
     Refills `StateGasCosts.NEW_ACCOUNT` when the authority's account
     leaf already exists, and `StateGasCosts.AUTH_BASE` when its code
-    slot already holds a delegation indicator. The total is returned
-    so block accounting can subtract it from `tx_state_gas`.
+    slot already holds a delegation indicator. When the authority leaf
+    already exists, the worst-case `GasCosts.ACCOUNT_WRITE` charged in
+    the intrinsic cost is also refunded to the regular-gas refund
+    counter. The totals are returned so block accounting can subtract
+    the state refill from `tx_state_gas` and apply the regular refund.
 
     Parameters
     ----------
@@ -210,10 +213,14 @@ def set_delegation(message: Message) -> Uint:
     -------
     state_refund : `Uint`
         Total state gas refunded across all processed authorizations.
+    regular_refund : `Uint`
+        Total regular gas (`ACCOUNT_WRITE`) refunded for authorities
+        whose account leaf already existed.
 
     """
     tx_state = message.tx_env.state
     state_refund = Uint(0)
+    regular_refund = Uint(0)
     for auth in message.tx_env.authorizations:
         match validate_authorization(message, auth):
             case None:
@@ -225,6 +232,9 @@ def set_delegation(message: Message) -> Uint:
             refund = StateGasCosts.NEW_ACCOUNT
             message.state_gas_reservoir += refund
             state_refund += refund
+            # The new-account ACCOUNT_WRITE charged at intrinsic time is
+            # not needed: refund it to the regular refund counter.
+            regular_refund += GasCosts.ACCOUNT_WRITE
 
         # No new delegation indicator bytes are written: either the
         # authority already has one (overwrite in place / clear) or
@@ -253,4 +263,4 @@ def set_delegation(message: Message) -> Uint:
         get_account(tx_state, message.code_address).code_hash,
     )
 
-    return state_refund
+    return state_refund, regular_refund
