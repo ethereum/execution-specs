@@ -3,6 +3,14 @@ Test_call_goes_oog_on_second_level.
 
 Ported from:
 state_tests/stEIP150Specific/CallGoesOOGOnSecondLevelFiller.json
+
+@manually-enhanced: Do not overwrite. The `gas_limit` is derived from
+the fork intrinsic calculator instead of the original hardcoded value.
+The test fixes the post-intrinsic budget that the nested Op.GAS storage
+assertions (8: 0x927BE, 8: 0x213FB6) depend on, so it shifts the base
+2_200_000 budget by the intrinsic delta versus the pre-EIP-2780 Cancun
+baseline of 21_000 (`intrinsic - 21_000`). This stays correct across
+the EIP-2780 intrinsic decomposition. Do not hardcode the gas_limit.
 """
 
 import pytest
@@ -12,6 +20,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
 )
@@ -29,6 +38,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_call_goes_oog_on_second_level(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_call_goes_oog_on_second_level."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
@@ -93,11 +103,19 @@ def test_call_goes_oog_on_second_level(
         nonce=0,
     )
 
+    # The original test was built against Cancun's ``TX_BASE`` of
+    # 21_000. EIP-2780 lowers the intrinsic for non-self non-value
+    # txs, so shift ``gas_limit`` by the intrinsic delta to preserve
+    # the post-intrinsic execution budget the Op.GAS storage
+    # assertions depend on.
+    intrinsic = fork.transaction_intrinsic_cost_calculator()()
+    gas_limit = 2_200_000 + (intrinsic - 21_000)
+
     tx = Transaction(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=2200000,
+        gas_limit=gas_limit,
     )
 
     post = {

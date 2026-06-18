@@ -33,6 +33,7 @@ from execution_testing import (
     Hash,
     Header,
     Op,
+    RecipientType,
     Removable,
     StateTestFiller,
     Storage,
@@ -75,19 +76,93 @@ def destination_account(
     return pre.fund_eoa(destination_account_balance)
 
 
+def _destination_recipient_type(
+    destination_account_code: Bytecode | None,
+    destination_account_balance: int,
+) -> RecipientType:
+    if destination_account_code is not None:
+        return RecipientType.CONTRACT
+    if destination_account_balance == 0:
+        return RecipientType.EMPTY_ACCOUNT
+    return RecipientType.EOA
+
+
 @pytest.fixture
 def tx_gas(
     fork: Fork | TransitionFork,
     tx_calldata: bytes,
     tx_access_list: List[AccessList],
+    tx_value: int,
+    destination_account_code: Bytecode | None,
+    destination_account_balance: int,
 ) -> int:
     """Gas allocated to transactions sent during test."""
+    post_transition_fork = fork.transitions_to()
     tx_intrinsic_cost_calculator = (
-        fork.transitions_to().transaction_intrinsic_cost_calculator()
+        post_transition_fork.transaction_intrinsic_cost_calculator()
     )
-    return tx_intrinsic_cost_calculator(
-        calldata=tx_calldata, access_list=tx_access_list
+    recipient_type = _destination_recipient_type(
+        destination_account_code, destination_account_balance
     )
+    sends_value = tx_value > 0
+    intrinsic = tx_intrinsic_cost_calculator(
+        calldata=tx_calldata,
+        access_list=tx_access_list,
+        recipient_type=recipient_type,
+        sends_value=sends_value,
+    )
+    top_frame_state = post_transition_fork.transaction_top_frame_state_gas(
+        recipient_type=recipient_type,
+        sends_value=sends_value,
+    )
+    return intrinsic + top_frame_state
+
+
+@pytest.fixture
+def tx_gas_per_tx(
+    fork: Fork | TransitionFork,
+    tx_gas: int,
+    tx_calldata: bytes,
+    tx_access_list: List[AccessList],
+    tx_value: int,
+    destination_account_code: Bytecode | None,
+    destination_account_balance: int,
+    blob_hashes_per_tx: List[List[bytes]],
+) -> List[int]:
+    """
+    Gas allocated to each transaction in the block.
+
+    After the first value-sending tx to an initially-empty destination,
+    the recipient is no longer empty, so the EIP-2780 top-frame
+    ``NEW_ACCOUNT`` state-gas charge does not fire on subsequent txs.
+    """
+    n_txs = len(blob_hashes_per_tx)
+    if n_txs <= 1:
+        return [tx_gas] * n_txs
+
+    destination_starts_empty = (
+        destination_account_code is None and destination_account_balance == 0
+    )
+    if destination_starts_empty and tx_value > 0:
+        post_transition_fork = fork.transitions_to()
+        intrinsic_calc = (
+            post_transition_fork.transaction_intrinsic_cost_calculator()
+        )
+        intrinsic = intrinsic_calc(
+            calldata=tx_calldata,
+            access_list=tx_access_list,
+            recipient_type=RecipientType.EOA,
+            sends_value=True,
+        )
+        top_frame_state = post_transition_fork.transaction_top_frame_state_gas(
+            recipient_type=RecipientType.EOA,
+            sends_value=True,
+        )
+        tx_gas_nonempty = intrinsic + top_frame_state
+    else:
+        tx_gas_nonempty = tx_gas
+
+    return [tx_gas] + [tx_gas_nonempty] * (n_txs - 1)
 
 
 @pytest.fixture
@@ -124,7 +199,7 @@ def blob_hashes_per_tx(blobs_per_tx: List[int]) -> List[List[Hash]]:
 @pytest.fixture
 def total_account_minimum_balance(  # noqa: D103
     blob_gas_per_blob: int,
-    tx_gas: int,
+    tx_gas_per_tx: List[int],
     tx_value: int,
     tx_max_fee_per_gas: int,
     tx_max_fee_per_blob_gas: int,
@@ -135,15 +210,17 @@ def total_account_minimum_balance(  # noqa: D103
     transactions in the block of the test.
     """
     minimum_cost = 0
-    for tx_blob_count in [len(x) for x in blob_hashes_per_tx]:
+    for tx_i, tx_blob_count in enumerate(len(x) for x in blob_hashes_per_tx):
         blob_cost = tx_max_fee_per_blob_gas * blob_gas_per_blob * tx_blob_count
-        minimum_cost += (tx_gas * tx_max_fee_per_gas) + tx_value + blob_cost
+        minimum_cost += (
+            (tx_gas_per_tx[tx_i] * tx_max_fee_per_gas) + tx_value + blob_cost
+        )
     return minimum_cost
 
 
 @pytest.fixture
 def total_account_transactions_fee(  # noqa: D103
-    tx_gas: int,
+    tx_gas_per_tx: List[int],
     tx_value: int,
     blob_gas_price: int,
     block_base_fee_per_gas: int,
@@ -156,7 +233,7 @@ def total_account_transactions_fee(  # noqa: D103
     Calculate actual fee for the blob transactions in the block of the test.
     """
     total_cost = 0
-    for tx_blob_count in [len(x) for x in blob_hashes_per_tx]:
+    for tx_i, tx_blob_count in enumerate(len(x) for x in blob_hashes_per_tx):
         blob_cost = blob_gas_price * blob_gas_per_blob * tx_blob_count
         block_producer_fee = (
             tx_max_fee_per_gas - block_base_fee_per_gas
@@ -164,7 +241,7 @@ def total_account_transactions_fee(  # noqa: D103
             else 0
         )
         total_cost += (
-            (tx_gas * (block_base_fee_per_gas + block_producer_fee))
+            tx_gas_per_tx[tx_i] * (block_base_fee_per_gas + block_producer_fee)
             + tx_value
             + blob_cost
         )
@@ -208,7 +285,7 @@ def sender(pre: Alloc, sender_initial_balance: int) -> Address:  # noqa: D103
 def txs(  # noqa: D103
     sender: EOA,
     destination_account: Optional[Address],
-    tx_gas: int,
+    tx_gas_per_tx: List[int],
     tx_value: int,
     tx_calldata: bytes,
     tx_max_fee_per_gas: int,
@@ -225,7 +302,7 @@ def txs(  # noqa: D103
             sender=sender,
             to=destination_account,
             value=tx_value,
-            gas_limit=tx_gas,
+            gas_limit=tx_gas_per_tx[tx_i],
             data=tx_calldata,
             max_fee_per_gas=tx_max_fee_per_gas,
             max_priority_fee_per_gas=tx_max_priority_fee_per_gas,
@@ -754,6 +831,7 @@ def test_sufficient_balance_blob_tx(
 @pytest.mark.valid_from("Cancun")
 def test_sufficient_balance_blob_tx_pre_fund_tx(
     blockchain_test: BlockchainTestFiller,
+    fork: Fork,
     total_account_minimum_balance: int,
     sender: EOA,
     env: Environment,
@@ -773,15 +851,29 @@ def test_sufficient_balance_blob_tx_pre_fund_tx(
     - Transactions with max fee per blob gas lower or higher than the priority
         fee
     """
+    recipient_type = (
+        RecipientType.EOA if sender in pre else RecipientType.EMPTY_ACCOUNT
+    )
+    sends_value = total_account_minimum_balance > 0
+    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
+    intrinsic_gas = intrinsic_calc(
+        recipient_type=recipient_type,
+        sends_value=sends_value,
+    )
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        recipient_type=recipient_type,
+        sends_value=sends_value,
+    )
+    pre_funding_gas_limit = intrinsic_gas + top_frame_state_gas
     pre_funding_sender = pre.fund_eoa(
-        amount=(21_000 * 100) + total_account_minimum_balance
+        amount=(pre_funding_gas_limit * 100) + total_account_minimum_balance
     )
     txs = [
         Transaction(
             sender=pre_funding_sender,
             to=sender,
             value=total_account_minimum_balance,
-            gas_limit=21_000,
+            gas_limit=pre_funding_gas_limit,
         )
     ] + txs
     blockchain_test(

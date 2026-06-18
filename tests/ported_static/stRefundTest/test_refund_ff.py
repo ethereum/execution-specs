@@ -85,7 +85,12 @@ def test_refund_ff(
         ).gas_cost(fork)
         - 7600
     )
+    # EIP-2780 lowers the intrinsic for non-self non-value txs; the
+    # delta is negative on Amsterdam, so it reduces ``gas_used`` and
+    # raises the sender balance correspondingly.
+    intrinsic_delta = fork.transaction_intrinsic_cost_calculator()() - 21_000
+    gas_used_delta = selfdestruct_delta + intrinsic_delta
 
-    post = {sender: Account(balance=0xE8D4A51000 - 1000 * selfdestruct_delta)}
+    post = {sender: Account(balance=0xE8D4A51000 - 1000 * gas_used_delta)}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

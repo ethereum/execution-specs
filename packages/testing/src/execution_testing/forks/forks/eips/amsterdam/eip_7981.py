@@ -11,6 +11,7 @@ from typing import List, Sized
 from execution_testing.base_types import AccessList
 from execution_testing.base_types.conversions import BytesConvertible
 
+from .....recipient_type import RecipientType
 from ....base_fork import (
     BaseFork,
     TransactionDataFloorCostCalculator,
@@ -85,7 +86,11 @@ class EIP7981(BaseFork):
             access_list: List[AccessList] | None = None,
             authorization_list_or_count: Sized | int | None = None,
             return_cost_deducted_prior_execution: bool = False,
+            sends_value: bool = False,
+            recipient_type: RecipientType = RecipientType.CONTRACT,
         ) -> int:
+            del sends_value, recipient_type
+
             intrinsic_cost: int = super_fn(
                 calldata=calldata,
                 contract_creation=contract_creation,
