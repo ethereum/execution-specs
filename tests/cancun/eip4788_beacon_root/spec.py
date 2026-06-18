@@ -19,7 +19,6 @@ ref_spec_4788 = ReferenceSpec(
 
 
 # Constants
-@dataclass(frozen=True)
 class Spec:
     """
     Parameters from the EIP-4788 specifications as defined at

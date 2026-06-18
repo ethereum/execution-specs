@@ -25,7 +25,6 @@ class EcrecoverInput(BytesConcatenation):
         )
 
 
-@dataclass(frozen=True)
 class Spec:
     """Parameters for the frontier precompiles."""
 

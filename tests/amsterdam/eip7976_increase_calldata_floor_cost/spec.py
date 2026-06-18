@@ -17,7 +17,6 @@ ref_spec_7976 = ReferenceSpec(
 
 
 # Constants
-@dataclass(frozen=True)
 class Spec:
     """
     Parameters from the EIP-7976 specifications as defined at

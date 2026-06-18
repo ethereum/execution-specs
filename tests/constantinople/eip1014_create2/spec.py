@@ -16,7 +16,6 @@ ref_spec_1014 = ReferenceSpec(
 )
 
 
-@dataclass(frozen=True)
 class Spec:
     """
     Parameters from the EIP-1014 specifications as defined at

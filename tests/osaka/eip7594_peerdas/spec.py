@@ -16,7 +16,6 @@ ref_spec_7594 = ReferenceSpec(
 )
 
 
-@dataclass(frozen=True)
 class Spec:
     """
     Parameters from the EIP-7594 specifications as defined at

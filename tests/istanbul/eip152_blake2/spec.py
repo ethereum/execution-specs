@@ -17,7 +17,6 @@ ref_spec_152 = ReferenceSpec(
 
 
 # Constants
-@dataclass(frozen=True)
 class Spec:
     """
     Parameters from the EIP-152 specifications as defined at

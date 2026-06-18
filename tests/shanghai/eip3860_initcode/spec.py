@@ -16,7 +16,6 @@ ref_spec_3860 = ReferenceSpec(
 )
 
 
-@dataclass(frozen=True)
 class Spec:
     """
     Define parameters from the EIP-3860 specifications.

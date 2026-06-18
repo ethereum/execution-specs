@@ -45,7 +45,6 @@ class PointG1(BytesConcatenation):
         return FP(self.x) + FP(self.y)
 
 
-@dataclass(frozen=True)
 class Spec:
     """
     Parameters from the EIP-196 specification (https://eips.ethereum.org/EIPS/eip-196)
