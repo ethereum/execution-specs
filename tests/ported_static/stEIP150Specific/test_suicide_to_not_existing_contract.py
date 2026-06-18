@@ -3,6 +3,14 @@ Test_suicide_to_not_existing_contract.
 
 Ported from:
 state_tests/stEIP150Specific/SuicideToNotExistingContractFiller.json
+
+@manually-enhanced: Do not overwrite. The measured slot captures the
+regular gas of a value-0 CALL to a cold contract that then
+SELFDESTRUCTs (with a zero balance) to a cold, non-alive beneficiary.
+EIP-8038 reprices both the CALL's cold account access and the
+SELFDESTRUCT beneficiary's cold access; no value is sent so there is
+no new-account write. The delta is therefore twice the fork's
+`COLD_ACCOUNT_ACCESS - 2600`, exactly 0 before EIP-8038.
 """
 
 import pytest
@@ -15,6 +23,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,8 +38,13 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_suicide_to_not_existing_contract(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_suicide_to_not_existing_contract."""
+    # EIP-8038 cold account access reprice; 0 before EIP-8038. Charged
+    # twice: once for the CALL target, once for the cold SELFDESTRUCT
+    # beneficiary.
+    cold_account_delta = fork.gas_costs().COLD_ACCOUNT_ACCESS - 2600
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xE8D4A51000)
 
@@ -88,7 +102,7 @@ def test_suicide_to_not_existing_contract(
             balance=0,
             nonce=0,
         ),
-        target: Account(storage={1: 10237}),
+        target: Account(storage={1: 10237 + 2 * cold_account_delta}),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

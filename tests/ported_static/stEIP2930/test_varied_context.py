@@ -4,21 +4,21 @@ Ori Pomerantz qbzzt1@gmail.com.
 Ported from:
 state_tests/stEIP2930/variedContextFiller.yml
 
-@manually-enhanced: Do not overwrite. 28 parametrizations of this
-test measure gas consumption around SSTORE/CALL/SELFDESTRUCT in
-various access-list contexts. EIP-8037 splits the Cancun-era base
-costs (SSTORE-set 20 000, CALL-new-account 25 000, SELFDESTRUCT-new-
-beneficiary 25 000) into smaller regular portions plus per-storage
-or per-new-account state-gas charges. When the reservoir is empty —
-the case here, since no state-gas budget is pre-allocated — the
-full state-gas spills back into regular gas and Op.GAS reads three
-distinct deltas:
-  +20 468  per fresh SSTORE-set
-  +106 488 per NEW_ACCOUNT (CALL with value or SELFDESTRUCT)
-  +126 956 = both, for SELFDESTRUCT-with-write paths
-Each affected post-state literal is bumped by the appropriate
-delta fork-conditionally; pre-EIP-8037 forks use the original
-values.
+@manually-enhanced: Do not overwrite. This test measures gas
+consumption around SSTORE/CALL/SELFDESTRUCT in various access-list
+contexts via `Op.GAS`. EIP-8037/8038 reprice several components;
+with an empty reservoir (the case here) the state-gas portion
+spills back into regular gas, so each measurement shifts by its
+`(Amsterdam - Cancun)` delta. Every delta below is derived from the
+fork's own opcode gas model, so it is exactly 0 pre-EIP-8037 and
+tracks parameter changes: warm/cold fresh SSTORE-sets, the
+NEW_ACCOUNT spill for CALL-with-value and SELFDESTRUCT-to-non-alive
+(the latter also gaining `ACCOUNT_WRITE` and the cold reprice), and
+the cold account/storage access reprices. The `*ValidGas`
+parametrizations instead forward a fixed in-bytecode gas budget that
+EIP-8038 made insufficient; those budgets are bumped by the inner
+SSTORE-write increase so the success path stays funded while the
+under-funded cold path still runs out of gas.
 """
 
 import pytest
@@ -1152,9 +1152,24 @@ def test_varied_context(
     # {  ; WRITE_INVALID_OOG    WRITE_VALID_NO_OOG
     #    (call 0x0B65 0xF114 0 0 0 0 0x20)
     # }
+    # EIP-8038 raises the inner SSTORE-write cost. Bump the "valid" gas
+    # these callers forward by exactly that increase so their success
+    # path stays funded at Amsterdam (preserving the original Cancun
+    # margin) while the under-funded cold "invalid" path still OOGs.
+    # The contract_13 inner SSTORE is a warm reset; contract_15's is a
+    # cold reset. Both bumps are 0 pre-EIP-8037.
+    _warm_reset = Op.SSTORE.with_metadata(
+        key_warm=True, original_value=1, current_value=1, new_value=2
+    )
+    _cold_reset = Op.SSTORE.with_metadata(
+        key_warm=False, original_value=1, current_value=1, new_value=2
+    )
+    valid_write_gas = 0xB65 + (_warm_reset.gas_cost(fork) - 2900)
+    valid_read_gas = 0x1800 + (_cold_reset.gas_cost(fork) - 5000)
+
     contract_13 = pre.deploy_contract(  # noqa: F841
         code=Op.CALL(
-            gas=0xB65,
+            gas=valid_write_gas,
             address=0xF114,
             value=0x0,
             args_offset=0x0,
@@ -1173,7 +1188,7 @@ def test_varied_context(
     # }
     contract_15 = pre.deploy_contract(  # noqa: F841
         code=Op.CALL(
-            gas=0x1800,
+            gas=valid_read_gas,
             address=0xF115,
             value=0x0,
             args_offset=0x0,
@@ -1337,24 +1352,41 @@ def test_varied_context(
         address=Address(0x0000000000000000000000000000000000001016),  # noqa: E501
     )
 
-    # EIP-8037 splits SSTORE-set, NEW_ACCOUNT call value transfer, and
-    # SELFDESTRUCT new-beneficiary base costs into state-gas portions.
-    # With an empty reservoir (the case here), the full state-gas
-    # spills into regular gas, which Op.GAS observes.
-    #   sstore-set spill:    +37 568 - 17 100 = +20 468 per fresh set
-    #   new-account spill:   +131 488 - 25 000 = +106 488 per CALL
-    #                        with value to a non-alive account, and
-    #                        per SELFDESTRUCT to non-alive beneficiary
-    #   suicide-write spill: +126 956 = both deltas combined
-    sstore_set_delta = (
-        (Op.SSTORE(new_value=1).state_cost(fork) - 17100)
-        if fork.is_eip_enabled(8037)
-        else 0
+    # EIP-8037/8038 reprice several access components. With an empty
+    # reservoir (the case here) the state-gas portion spills back into
+    # regular gas, which `Op.GAS` observes. Derive each delta from the
+    # fork's own gas model so it is exactly 0 pre-EIP-8037 and tracks
+    # parameter changes.
+    gas_costs = fork.gas_costs()
+
+    def _sstore_delta(cancun_cost: int, **metadata: int) -> int:
+        op = Op.SSTORE.with_metadata(**metadata)
+        return op.gas_cost(fork) - cancun_cost
+
+    # Fresh SSTORE-set (state-gas spill dominates), warm vs cold key.
+    warm_set_delta = _sstore_delta(
+        20000, key_warm=True, current_value=0, new_value=2
     )
+    cold_set_delta = _sstore_delta(
+        22100, key_warm=False, current_value=0, new_value=2
+    )
+    # CALL value transfer to a non-alive account: the 25 000 NEW_ACCOUNT
+    # base becomes a spilling state-gas charge.
     new_account_delta = (
         (fork.create_state_gas() - 25000) if fork.is_eip_enabled(8037) else 0
     )
-    suicide_write_delta = sstore_set_delta + new_account_delta
+    # Cold account access reprice (0 pre-Amsterdam).
+    cold_account_delta = gas_costs.COLD_ACCOUNT_ACCESS - 2600
+    # Cold storage access (SLOAD) reprice (0 pre-Amsterdam).
+    cold_storage_delta = gas_costs.COLD_STORAGE_ACCESS - 2100
+    # SELFDESTRUCT to a non-alive cold beneficiary: new-account spill,
+    # the new ACCOUNT_WRITE charge (0 pre-Amsterdam), and the cold
+    # reprice.
+    suicide_new_delta = (
+        new_account_delta + gas_costs.ACCOUNT_WRITE + cold_account_delta
+    )
+    # callWriteSuicide measures a warm SSTORE-set then that SELFDESTRUCT.
+    suicide_write_delta = warm_set_delta + suicide_new_delta
 
     expect_entries_: list[dict] = [
         {
@@ -1362,7 +1394,7 @@ def test_varied_context(
             "network": [">=Cancun"],
             "result": {
                 contract_0: Account(
-                    storage={0: 2, 1: (20003 + sstore_set_delta), 2: 107}
+                    storage={0: 2, 1: (20003 + warm_set_delta), 2: 107}
                 )
             },
         },
@@ -1371,7 +1403,11 @@ def test_varied_context(
             "network": [">=Cancun"],
             "result": {
                 contract_0: Account(
-                    storage={0: 2, 1: (22103 + sstore_set_delta), 2: 2107}
+                    storage={
+                        0: 2,
+                        1: (22103 + cold_set_delta),
+                        2: 2107 + cold_storage_delta,
+                    }
                 )
             },
         },
@@ -1380,7 +1416,7 @@ def test_varied_context(
             "network": [">=Cancun"],
             "result": {
                 contract_2: Account(
-                    storage={0: 2, 1: (20003 + sstore_set_delta), 2: 107}
+                    storage={0: 2, 1: (20003 + warm_set_delta), 2: 107}
                 )
             },
         },
@@ -1389,7 +1425,11 @@ def test_varied_context(
             "network": [">=Cancun"],
             "result": {
                 contract_2: Account(
-                    storage={0: 2, 1: (22103 + sstore_set_delta), 2: 2107}
+                    storage={
+                        0: 2,
+                        1: (22103 + cold_set_delta),
+                        2: 2107 + cold_storage_delta,
+                    }
                 )
             },
         },
@@ -1400,8 +1440,8 @@ def test_varied_context(
                 contract_3: Account(
                     storage={
                         0: 2,
-                        1: (22103 + sstore_set_delta),
-                        2: 2107,
+                        1: (22103 + cold_set_delta),
+                        2: 2107 + cold_storage_delta,
                         24743: 57005,
                     }
                 )
@@ -1414,7 +1454,7 @@ def test_varied_context(
                 contract_3: Account(
                     storage={
                         0: 2,
-                        1: (20003 + sstore_set_delta),
+                        1: (20003 + warm_set_delta),
                         2: 107,
                         24743: 57005,
                     }
@@ -1424,7 +1464,9 @@ def test_varied_context(
         {
             "indexes": {"data": [6], "gas": -1, "value": -1},
             "network": [">=Cancun"],
-            "result": {contract_4: Account(storage={0: 2107})},
+            "result": {
+                contract_4: Account(storage={0: 2107 + cold_storage_delta})
+            },
         },
         {
             "indexes": {"data": [7], "gas": -1, "value": -1},
@@ -1436,7 +1478,7 @@ def test_varied_context(
             "network": [">=Cancun"],
             "result": {
                 contract_26: Account(
-                    storage={0: (20003 + sstore_set_delta), 1: 100}
+                    storage={0: (20003 + warm_set_delta), 1: 100}
                 )
             },
         },
@@ -1445,7 +1487,10 @@ def test_varied_context(
             "network": [">=Cancun"],
             "result": {
                 contract_26: Account(
-                    storage={0: (22103 + sstore_set_delta), 1: 2100}
+                    storage={
+                        0: (22103 + cold_set_delta),
+                        1: 2100 + cold_storage_delta,
+                    }
                 )
             },
         },
@@ -1460,21 +1505,37 @@ def test_varied_context(
             "indexes": {"data": [11], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                contract_7: Account(storage={0: (24601 + suicide_write_delta)})
+                contract_7: Account(
+                    storage={
+                        0: (
+                            24601
+                            + cold_set_delta
+                            + suicide_new_delta
+                            + cold_account_delta
+                        )
+                    }
+                )
             },
         },
         {
             "indexes": {"data": [12], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                contract_9: Account(storage={0: 100 + new_account_delta})
+                contract_9: Account(storage={0: 100 + suicide_new_delta})
             },
         },
         {
             "indexes": {"data": [13], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                contract_9: Account(storage={0: 4600 + new_account_delta})
+                contract_9: Account(
+                    storage={
+                        0: 4600
+                        + suicide_new_delta
+                        + cold_account_delta
+                        + cold_storage_delta
+                    }
+                )
             },
         },
         {
@@ -1524,7 +1585,7 @@ def test_varied_context(
                         268: 103,
                         269: 103,
                         270: 103,
-                        271: (20003 + sstore_set_delta),
+                        271: (20003 + warm_set_delta),
                         512: 100,
                         513: 100,
                         514: 100,
@@ -1541,22 +1602,22 @@ def test_varied_context(
                         525: 100,
                         526: 100,
                         527: 100,
-                        768: (20003 + sstore_set_delta),
-                        769: (20003 + sstore_set_delta),
-                        770: (20003 + sstore_set_delta),
-                        771: (20003 + sstore_set_delta),
-                        772: (20003 + sstore_set_delta),
-                        773: (20003 + sstore_set_delta),
-                        774: (20003 + sstore_set_delta),
-                        775: (20003 + sstore_set_delta),
-                        776: (20003 + sstore_set_delta),
-                        777: (20003 + sstore_set_delta),
-                        778: (20003 + sstore_set_delta),
-                        779: (20003 + sstore_set_delta),
-                        780: (20003 + sstore_set_delta),
-                        781: (20003 + sstore_set_delta),
-                        782: (20003 + sstore_set_delta),
-                        783: (20003 + sstore_set_delta),
+                        768: (20003 + warm_set_delta),
+                        769: (20003 + warm_set_delta),
+                        770: (20003 + warm_set_delta),
+                        771: (20003 + warm_set_delta),
+                        772: (20003 + warm_set_delta),
+                        773: (20003 + warm_set_delta),
+                        774: (20003 + warm_set_delta),
+                        775: (20003 + warm_set_delta),
+                        776: (20003 + warm_set_delta),
+                        777: (20003 + warm_set_delta),
+                        778: (20003 + warm_set_delta),
+                        779: (20003 + warm_set_delta),
+                        780: (20003 + warm_set_delta),
+                        781: (20003 + warm_set_delta),
+                        782: (20003 + warm_set_delta),
+                        783: (20003 + warm_set_delta),
                         1024: 100,
                         1025: 100,
                         1026: 100,
@@ -1617,7 +1678,7 @@ def test_varied_context(
                         268: 103,
                         269: 103,
                         270: 103,
-                        271: (22103 + sstore_set_delta),
+                        271: (22103 + cold_set_delta),
                         512: 100,
                         513: 100,
                         514: 100,
@@ -1633,39 +1694,39 @@ def test_varied_context(
                         524: 100,
                         525: 100,
                         526: 100,
-                        527: 2100,
-                        768: (22103 + sstore_set_delta),
-                        769: (22103 + sstore_set_delta),
-                        770: (22103 + sstore_set_delta),
-                        771: (22103 + sstore_set_delta),
-                        772: (22103 + sstore_set_delta),
-                        773: (22103 + sstore_set_delta),
-                        774: (22103 + sstore_set_delta),
-                        775: (22103 + sstore_set_delta),
-                        776: (22103 + sstore_set_delta),
-                        777: (22103 + sstore_set_delta),
-                        778: (22103 + sstore_set_delta),
-                        779: (22103 + sstore_set_delta),
-                        780: (22103 + sstore_set_delta),
-                        781: (22103 + sstore_set_delta),
-                        782: (22103 + sstore_set_delta),
-                        783: (22103 + sstore_set_delta),
-                        1024: 2100,
-                        1025: 2100,
-                        1026: 2100,
-                        1027: 2100,
-                        1028: 2100,
-                        1029: 2100,
-                        1030: 2100,
-                        1031: 2100,
-                        1032: 2100,
-                        1033: 2100,
-                        1034: 2100,
-                        1035: 2100,
-                        1036: 2100,
-                        1037: 2100,
-                        1038: 2100,
-                        1039: 2100,
+                        527: 2100 + cold_storage_delta,
+                        768: (22103 + cold_set_delta),
+                        769: (22103 + cold_set_delta),
+                        770: (22103 + cold_set_delta),
+                        771: (22103 + cold_set_delta),
+                        772: (22103 + cold_set_delta),
+                        773: (22103 + cold_set_delta),
+                        774: (22103 + cold_set_delta),
+                        775: (22103 + cold_set_delta),
+                        776: (22103 + cold_set_delta),
+                        777: (22103 + cold_set_delta),
+                        778: (22103 + cold_set_delta),
+                        779: (22103 + cold_set_delta),
+                        780: (22103 + cold_set_delta),
+                        781: (22103 + cold_set_delta),
+                        782: (22103 + cold_set_delta),
+                        783: (22103 + cold_set_delta),
+                        1024: 2100 + cold_storage_delta,
+                        1025: 2100 + cold_storage_delta,
+                        1026: 2100 + cold_storage_delta,
+                        1027: 2100 + cold_storage_delta,
+                        1028: 2100 + cold_storage_delta,
+                        1029: 2100 + cold_storage_delta,
+                        1030: 2100 + cold_storage_delta,
+                        1031: 2100 + cold_storage_delta,
+                        1032: 2100 + cold_storage_delta,
+                        1033: 2100 + cold_storage_delta,
+                        1034: 2100 + cold_storage_delta,
+                        1035: 2100 + cold_storage_delta,
+                        1036: 2100 + cold_storage_delta,
+                        1037: 2100 + cold_storage_delta,
+                        1038: 2100 + cold_storage_delta,
+                        1039: 2100 + cold_storage_delta,
                         24743: 57005,
                         48879: 2,
                         61440: 48879,
@@ -1693,7 +1754,7 @@ def test_varied_context(
             "network": [">=Cancun"],
             "result": {
                 compute_create_address(address=contract_18, nonce=0): Account(
-                    storage={0: 65535, 1: (20017 + sstore_set_delta)}
+                    storage={0: 65535, 1: (20017 + warm_set_delta)}
                 ),
             },
         },
@@ -1702,7 +1763,7 @@ def test_varied_context(
             "network": [">=Cancun"],
             "result": {
                 compute_create_address(address=contract_18, nonce=0): Account(
-                    storage={0: 65535, 1: (22117 + sstore_set_delta)}
+                    storage={0: 65535, 1: (22117 + cold_set_delta)}
                 ),
             },
         },
@@ -1711,7 +1772,7 @@ def test_varied_context(
             "network": [">=Cancun"],
             "result": {
                 Address(0xD82F21135ED7D7D833A9F2A0F1CF6C3DA214B8E3): Account(
-                    storage={0: 65535, 1: (20017 + sstore_set_delta)}
+                    storage={0: 65535, 1: (20017 + warm_set_delta)}
                 ),
             },
         },
@@ -1720,7 +1781,7 @@ def test_varied_context(
             "network": [">=Cancun"],
             "result": {
                 Address(0xD82F21135ED7D7D833A9F2A0F1CF6C3DA214B8E3): Account(
-                    storage={0: 65535, 1: (22117 + sstore_set_delta)}
+                    storage={0: 65535, 1: (22117 + cold_set_delta)}
                 ),
             },
         },
@@ -1729,7 +1790,7 @@ def test_varied_context(
             "network": [">=Cancun"],
             "result": {
                 compute_create_address(address=contract_20, nonce=0): Account(
-                    storage={0: 65535, 1: (20017 + sstore_set_delta)}
+                    storage={0: 65535, 1: (20017 + warm_set_delta)}
                 ),
             },
         },
@@ -1738,7 +1799,7 @@ def test_varied_context(
             "network": [">=Cancun"],
             "result": {
                 compute_create_address(address=contract_20, nonce=0): Account(
-                    storage={0: 65535, 1: (22117 + sstore_set_delta)}
+                    storage={0: 65535, 1: (22117 + cold_set_delta)}
                 ),
             },
         },
@@ -1747,7 +1808,7 @@ def test_varied_context(
             "network": [">=Cancun"],
             "result": {
                 Address(0x530508498D2AA75D8E591612809FEC3D37A45615): Account(
-                    storage={0: 65535, 1: (20017 + sstore_set_delta)}
+                    storage={0: 65535, 1: (20017 + warm_set_delta)}
                 ),
             },
         },
@@ -1756,7 +1817,7 @@ def test_varied_context(
             "network": [">=Cancun"],
             "result": {
                 Address(0x530508498D2AA75D8E591612809FEC3D37A45615): Account(
-                    storage={0: 65535, 1: (22117 + sstore_set_delta)}
+                    storage={0: 65535, 1: (22117 + cold_set_delta)}
                 ),
             },
         },
@@ -1765,7 +1826,7 @@ def test_varied_context(
             "network": [">=Cancun"],
             "result": {
                 compute_create_address(address=contract_22, nonce=0): Account(
-                    storage={0: 65535, 1: (20017 + sstore_set_delta), 2: 117}
+                    storage={0: 65535, 1: (20017 + warm_set_delta), 2: 117}
                 ),
             },
         },
@@ -1774,7 +1835,7 @@ def test_varied_context(
             "network": [">=Cancun"],
             "result": {
                 compute_create_address(address=contract_22, nonce=0): Account(
-                    storage={0: 65535, 1: (22117 + sstore_set_delta), 2: 117}
+                    storage={0: 65535, 1: (22117 + cold_set_delta), 2: 117}
                 ),
             },
         },
@@ -1783,7 +1844,7 @@ def test_varied_context(
             "network": [">=Cancun"],
             "result": {
                 Address(0x83FBDAE70258AC0FA837B701CC63CEDF48D4B6BF): Account(
-                    storage={0: 65535, 1: (20017 + sstore_set_delta), 2: 117}
+                    storage={0: 65535, 1: (20017 + warm_set_delta), 2: 117}
                 ),
             },
         },
@@ -1792,7 +1853,7 @@ def test_varied_context(
             "network": [">=Cancun"],
             "result": {
                 Address(0x83FBDAE70258AC0FA837B701CC63CEDF48D4B6BF): Account(
-                    storage={0: 65535, 1: (22117 + sstore_set_delta), 2: 117}
+                    storage={0: 65535, 1: (22117 + cold_set_delta), 2: 117}
                 ),
             },
         },
@@ -1801,7 +1862,7 @@ def test_varied_context(
             "network": [">=Cancun"],
             "result": {
                 contract_25: Account(
-                    storage={0: 24743, 1: (20017 + sstore_set_delta), 2: 117}
+                    storage={0: 24743, 1: (20017 + warm_set_delta), 2: 117}
                 )
             },
         },
@@ -1810,7 +1871,7 @@ def test_varied_context(
             "network": [">=Cancun"],
             "result": {
                 contract_25: Account(
-                    storage={0: 24743, 1: (22117 + sstore_set_delta), 2: 117}
+                    storage={0: 24743, 1: (22117 + cold_set_delta), 2: 117}
                 )
             },
         },

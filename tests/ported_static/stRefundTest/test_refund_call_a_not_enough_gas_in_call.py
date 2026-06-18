@@ -3,6 +3,16 @@ Test_refund_call_a_not_enough_gas_in_call.
 
 Ported from:
 state_tests/stRefundTest/refund_CallA_notEnoughGasInCallFiller.json
+
+@manually-enhanced: Do not overwrite. The post-state asserts the sender
+balance, which equals its start minus `gas_used * gas_price`. The inner
+CALL is starved of gas so its SSTORE clear always reverts (no refund
+survives); the only surviving repricing is in the outer frame, where
+EIP-8038 raises the cold account-access charged by the CALL (2600 ->
+3000) and the cold no-op SSTORE of slot 0 (2200 -> 3000). Derive both
+deltas from the fork gas model (0 pre-EIP-8037) and subtract
+`gas_price * (call_access_delta + outer_sstore_delta)` from the Cancun
+balance; do not hardcode the Amsterdam value.
 """
 
 import pytest
@@ -15,6 +25,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,6 +40,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_refund_call_a_not_enough_gas_in_call(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_refund_call_a_not_enough_gas_in_call."""
     coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
@@ -81,10 +93,24 @@ def test_refund_call_a_not_enough_gas_in_call(
         value=10,
     )
 
+    # The inner SSTORE clear always reverts (gas-starved), so its refund
+    # never survives. Only the outer frame reprices under EIP-8038: the
+    # cold account access charged by the CALL and the cold no-op SSTORE
+    # of slot 0 (original == current == new == 0).
+    gas_costs = fork.gas_costs()
+    call_access_delta = gas_costs.COLD_ACCOUNT_ACCESS - 2600
+    outer_sstore_delta = (
+        Op.SSTORE.with_metadata(
+            key_warm=False, original_value=0, current_value=0, new_value=0
+        ).gas_cost(fork)
+        - 2200
+    )
+    gas_used_delta = call_access_delta + outer_sstore_delta
+
     post = {
         target: Account(storage={1: 1}, balance=0xDE0B6B3A764000A),
         coinbase: Account(balance=0),
-        sender: Account(balance=0xA8DF4, nonce=1),
+        sender: Account(balance=0xA8DF4 - 10 * gas_used_delta, nonce=1),
         addr: Account(storage={1: 1}),
     }
 
