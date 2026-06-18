@@ -325,6 +325,12 @@ class GenericCall:
     memory_output_size: U256
     code: Bytes
     disable_precompiles: bool
+    new_account_state_gas: Uint = Uint(0)
+    """
+    EIP-8037 new-account state gas charged before the frame, refunded to
+    the reservoir if the call fails the stack-depth check. Non-zero only
+    for a value-bearing `CALL` to a non-existent account.
+    """
 
 
 def generic_call(evm: Evm, params: GenericCall) -> None:
@@ -338,6 +344,9 @@ def generic_call(evm: Evm, params: GenericCall) -> None:
     if evm.message.depth + Uint(1) > STACK_DEPTH_LIMIT:
         evm.gas_left += params.gas
         evm.state_gas_left += params.state_gas_reservoir
+        # EIP-8037: refund new-account state gas charged before the frame
+        # when the stack-depth check fails (symmetric with CREATE).
+        credit_state_gas_refund(evm, params.new_account_state_gas)
         push(evm.stack, U256(0))
         return
 
@@ -457,8 +466,10 @@ def call(evm: Evm) -> None:
     code = get_code(tx_state, code_hash)
 
     charge_gas(evm, extra_gas + extend_memory.cost)
+    new_account_state_gas = Uint(0)
     if value != 0 and not is_account_alive(tx_state, to):
-        charge_state_gas(evm, StateGasCosts.NEW_ACCOUNT)
+        new_account_state_gas = StateGasCosts.NEW_ACCOUNT
+        charge_state_gas(evm, new_account_state_gas)
 
     message_call_gas = calculate_message_call_gas(
         value,
@@ -483,6 +494,10 @@ def call(evm: Evm) -> None:
         evm.return_data = b""
         evm.gas_left += message_call_gas.sub_call
         evm.state_gas_left += call_state_gas_reservoir
+        # EIP-8037: the new-account state gas is charged before the value
+        # transfer; an insufficient-balance soft-fail never enters the
+        # frame, so refund it to the reservoir (symmetric with CREATE).
+        credit_state_gas_refund(evm, new_account_state_gas)
     else:
         generic_call(
             evm,
@@ -501,6 +516,7 @@ def call(evm: Evm) -> None:
                 memory_output_size=memory_output_size,
                 code=code,
                 disable_precompiles=is_delegated,
+                new_account_state_gas=new_account_state_gas,
             ),
         )
 

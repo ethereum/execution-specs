@@ -668,25 +668,26 @@ def test_call_insufficient_balance_returns_reservoir(
     target_exists: bool,
 ) -> None:
     """
-    Test CALL with insufficient balance returns reservoir to parent.
+    Test CALL with insufficient balance refunds state gas to the parent.
 
     When a CALL transfers value but the caller has insufficient balance,
-    the call fails before any state gas is charged for the target
-    account. Both gas_left and state_gas_left are returned to the
-    parent frame. The parent can still use the reservoir for a
-    subsequent SSTORE.
+    the operation is unsuccessful before entering the call frame. Any
+    new-account state gas charged for a fresh target is refunded to the
+    reservoir (EIP-8037, symmetric with CREATE), and the forwarded
+    gas_left is returned too. The parent can still use the reservoir for
+    a subsequent SSTORE.
     """
-    gas_costs = fork.gas_costs()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     target: int | Address
     if target_exists:
         target = pre.deploy_contract(code=Op.STOP)
-        reservoir = sstore_state_gas
     else:
         target = 0xDEAD
-        # New account needs new-account state gas too
-        reservoir = sstore_state_gas + gas_costs.NEW_ACCOUNT
+
+    # Any fresh-target new-account state gas is refunded on the soft-fail,
+    # so a reservoir sized for the SSTORE alone suffices in both cases.
+    reservoir = sstore_state_gas
 
     storage = Storage()
     contract = pre.deploy_contract(
@@ -696,7 +697,8 @@ def test_call_insufficient_balance_returns_reservoir(
                 storage.store_next(0, "call_fails"),
                 Op.CALL(100_000, target, 1, 0, 0, 0, 0),
             )
-            # Reservoir should be returned — SSTORE still works
+            # Reservoir returned (incl. refunded new-account gas) — the
+            # following SSTORE still has its state gas available.
             + Op.SSTORE(storage.store_next(1, "sstore_after"), 1)
         ),
     )
@@ -708,6 +710,63 @@ def test_call_insufficient_balance_returns_reservoir(
     )
 
     post = {contract: Account(storage=storage)}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_call_softfail_refund_reused_by_new_account_call(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Refunded CALL soft-fail state gas is reusable, like CREATE.
+
+    EIP-8037 refunds the new-account state gas when a value-`CALL` is
+    unsuccessful before entering the frame, with no `CALL*`-vs-`CREATE`
+    distinction. This pins that symmetry: a contract funded with exactly
+    one new-account's worth of reservoir first does a value-`CALL` that
+    soft-fails on insufficient balance (charging then refunding the
+    new-account state gas), then a second value-`CALL` that actually
+    creates a new account. The second creation can only draw its
+    new-account state gas from the reservoir if the first call refunded
+    it.
+    """
+    new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
+
+    underfunded_target = Address(0xAAAA)
+    created_target = Address(0xBBBB)
+
+    storage = Storage()
+    contract = pre.deploy_contract(
+        balance=1,
+        code=(
+            # value=2 > balance=1 -> insufficient-balance soft-fail;
+            # charges then refunds the new-account state gas.
+            Op.SSTORE(
+                storage.store_next(0, "softfail"),
+                Op.CALL(100_000, underfunded_target, 2, 0, 0, 0, 0),
+            )
+            # value=1 == balance -> succeeds, creates the account and
+            # draws new-account state gas from the refunded reservoir.
+            + Op.SSTORE(
+                storage.store_next(1, "creates_account"),
+                Op.CALL(100_000, created_target, 1, 0, 0, 0, 0),
+            )
+        ),
+    )
+
+    tx = Transaction(
+        to=contract,
+        state_gas_reservoir=new_account_state_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {
+        contract: Account(balance=0, storage=storage),
+        created_target: Account(balance=1),
+        underfunded_target: Account.NONEXISTENT,
+    }
     state_test(pre=pre, post=post, tx=tx)
 
 
