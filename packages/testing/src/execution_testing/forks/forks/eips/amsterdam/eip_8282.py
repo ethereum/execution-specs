@@ -7,34 +7,25 @@ the EIP-7685 request bus.
 https://eips.ethereum.org/EIPS/eip-8282
 """
 
-from os.path import realpath
-from pathlib import Path
 from typing import List, Mapping
 
 from execution_testing.base_types import Address
 
 from ....base_fork import BaseFork
+from ....bytecode import load_contract_bytecode
 
-BUILDER_DEPOSIT_BYTECODE_FILE = (
-    Path(realpath(__file__)).parent
-    / "contracts"
-    / "builder_deposit_request.bin"
-)
 BUILDER_DEPOSIT_REQUEST_PREDEPLOY_ADDRESS = (
     0x0000000000000000000000000000000000007732
 )
-BUILDER_DEPOSIT_REQUEST_PREDEPLOY_BYTECODE = (
-    BUILDER_DEPOSIT_BYTECODE_FILE.read_bytes()
+BUILDER_DEPOSIT_REQUEST_PREDEPLOY_BYTECODE = load_contract_bytecode(
+    __name__, "builder_deposit_request.bin"
 )
 
-BUILDER_EXIT_BYTECODE_FILE = (
-    Path(realpath(__file__)).parent / "contracts" / "builder_exit_request.bin"
-)
 BUILDER_EXIT_REQUEST_PREDEPLOY_ADDRESS = (
     0x0000000000000000000000000000000000007733
 )
-BUILDER_EXIT_REQUEST_PREDEPLOY_BYTECODE = (
-    BUILDER_EXIT_BYTECODE_FILE.read_bytes()
+BUILDER_EXIT_REQUEST_PREDEPLOY_BYTECODE = load_contract_bytecode(
+    __name__, "builder_exit_request.bin"
 )
 
 
