@@ -39,6 +39,7 @@ from ..state_tracker import (
     get_account,
     get_code,
     increment_nonce,
+    is_account_alive,
     mark_account_created,
     move_ether,
     restore_tx_state,
@@ -91,6 +92,8 @@ class MessageCallOutput:
              authorities that already existed in state. Subtracted from
              `tx_state_gas` in block accounting so `block.gas_used`
              matches the receipt `cumulative_gas_used`.
+          10. `created_target_alive`: Whether a top-level creation
+              transaction targeted an already-existent account.
     """
 
     gas_left: Uint
@@ -103,6 +106,7 @@ class MessageCallOutput:
     regular_gas_used: Uint
     state_gas_used: int
     state_refund: Uint
+    created_target_alive: bool
 
 
 def process_message_call(message: Message) -> MessageCallOutput:
@@ -124,8 +128,10 @@ def process_message_call(message: Message) -> MessageCallOutput:
     tx_state = message.tx_env.state
     refund_counter = U256(0)
     state_refund = Uint(0)
+    target_alive = False
     if message.target == Bytes0(b""):
         if account_deployable(tx_state, message.current_target):
+            target_alive = is_account_alive(tx_state, message.current_target)
             evm = process_create_message(message)
         else:
             return MessageCallOutput(
@@ -139,6 +145,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
                 regular_gas_used=message.gas,
                 state_gas_used=0,
                 state_refund=Uint(0),
+                created_target_alive=False,
             )
     else:
         if message.tx_env.authorizations != ():
@@ -180,6 +187,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
         regular_gas_used=evm.regular_gas_used,
         state_gas_used=evm.state_gas_used,
         state_refund=state_refund,
+        created_target_alive=target_alive,
     )
 
 

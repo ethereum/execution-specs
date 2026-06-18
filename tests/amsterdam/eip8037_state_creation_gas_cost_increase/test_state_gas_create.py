@@ -1210,11 +1210,20 @@ def test_code_deposit_halt_discards_initcode_state_gas(
     )
 
 
+@pytest.mark.parametrize(
+    "target",
+    [
+        pytest.param("new", id="new_account"),
+        pytest.param("existing", id="existing_account"),
+    ],
+)
+@pytest.mark.pre_alloc_mutable()
 @pytest.mark.valid_from("EIP8037")
 def test_create_tx_header_gas_used(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
+    target: str,
 ) -> None:
     """
     Verify block header gas_used for a successful CREATE transaction.
@@ -1223,22 +1232,45 @@ def test_create_tx_header_gas_used(
     exact gas_used from first principles and verify against the block
     header. Catches bugs where clients report gas_limit instead of
     actual consumed gas.
+
+    For a fresh target the NEW_ACCOUNT state gas is charged and
+    dominates the regular gas, so gas_used == NEW_ACCOUNT. For a
+    pre-existing balance-only leaf the NEW_ACCOUNT charge is refunded,
+    so net state gas is zero and the regular intrinsic gas dominates.
+    The expected value subtracts NEW_ACCOUNT and so fails if the
+    refund regresses.
     """
     gas_costs = fork.gas_costs()
     initcode = Op.STOP
     create_state_gas = fork.create_state_gas(code_size=1)
 
+    if target == "existing":
+        sender = pre.fund_eoa(nonce=0)
+        contract_address = compute_create_address(address=sender, nonce=0)
+        # Balance-only leaf: alive and deployable, so the creation
+        # succeeds and the intrinsic NEW_ACCOUNT charge is refunded.
+        pre.fund_address(contract_address, amount=1)
+    else:
+        sender = pre.fund_eoa()
+
     tx = Transaction(
         to=None,
         data=initcode,
         state_gas_reservoir=create_state_gas,
-        sender=pre.fund_eoa(),
+        sender=sender,
     )
 
     # block_gas_used = max(block_regular, block_state)
-    # For a minimal CREATE tx deploying Op.STOP (1 byte),
-    # state gas (new account) dominates regular gas.
-    expected_gas_used = gas_costs.NEW_ACCOUNT
+    if target == "existing":
+        intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
+        intrinsic_total = intrinsic_cost(
+            calldata=bytes(initcode), contract_creation=True
+        )
+        expected_gas_used = intrinsic_total - gas_costs.NEW_ACCOUNT
+    else:
+        # For a minimal CREATE tx deploying Op.STOP (1 byte),
+        # state gas (new account) dominates regular gas.
+        expected_gas_used = gas_costs.NEW_ACCOUNT
 
     blockchain_test(
         pre=pre,
@@ -1831,6 +1863,117 @@ def test_create_code_deposit_oog_refunds_state_gas(
     tx = Transaction(
         to=caller,
         state_gas_reservoir=new_account_state_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(pre=pre, post={factory: Account(storage=storage)}, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "reservoir_covers",
+    [
+        pytest.param(True, id="charge_from_reservoir"),
+        pytest.param(False, id="charge_spills_from_gas_left"),
+    ],
+)
+@pytest.mark.with_all_create_opcodes()
+@pytest.mark.valid_from("EIP8037")
+def test_create_account_charge_reduces_child_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    create_opcode: Op,
+    reservoir_covers: bool,
+) -> None:
+    """
+    Verify the early NEW_ACCOUNT charge reduces forwarded child gas.
+
+    `generic_create` charges NEW_ACCOUNT before computing the child's
+    63/64 share. When the reservoir covers the charge `gas_left` is
+    untouched and the child receives the full share. When the reservoir
+    is empty the charge spills NEW_ACCOUNT from `gas_left` first, so the
+    child receives `NEW_ACCOUNT * 63 / 64` less. The init code burns a
+    fixed amount sized between the two shares, so it deploys when the
+    charge comes from the reservoir and runs out of gas when it spills.
+    The target is a pre-existing balance-only leaf, the EIP-8037
+    success-refund path that the old conditional charge skipped.
+    """
+    new_account = fork.gas_costs().NEW_ACCOUNT
+    memory_gas = fork.memory_expansion_gas_calculator()
+
+    # Factory `gas_left` at the NEW_ACCOUNT charge. Three times
+    # NEW_ACCOUNT gives a wide discrimination window and a large
+    # absolute child share.
+    gas_at_charge = 3 * new_account
+    full_share = gas_at_charge - gas_at_charge // 64
+    spilled = gas_at_charge - new_account
+    reduced_share = spilled - spilled // 64
+    # Burn the middle of `(reduced_share, full_share]` for robustness.
+    target_burn = (full_share + reduced_share) // 2
+
+    # Init code burns `target_burn` regular gas via one MSTORE memory
+    # expansion, then deploys empty code (zero code deposit). Invert
+    # `words * MEMORY_PER_WORD + words ** 2 // 512 = target_mem` to size
+    # the sink offset from gas rather than a magic number.
+    init_static = (Op.MSTORE(0, 0) + Op.RETURN(0, 0)).gas_cost(fork)
+    target_mem = target_burn - init_static
+    # Memory cost is monotonic in word count, so binary search the
+    # largest word count whose expansion stays within `target_mem`.
+    low, high = 1, target_mem
+    while low < high:
+        mid = (low + high + 1) // 2
+        if int(memory_gas(new_bytes=mid * 32)) <= target_mem:
+            low = mid
+        else:
+            high = mid - 1
+    words = low
+    sink_offset = (words - 1) * 32
+    child_burn = init_static + int(memory_gas(new_bytes=words * 32))
+    assert reduced_share < child_burn <= full_share
+
+    init_code = Op.MSTORE(sink_offset, 0) + Op.RETURN(0, 0)
+    mstore_value, size = init_code_at_high_bytes(init_code)
+    create_call = (
+        create_opcode(value=0, offset=0, size=size, salt=0)
+        if create_opcode == Op.CREATE2
+        else create_opcode(value=0, offset=0, size=size)
+    )
+
+    storage = Storage()
+    expected = 1 if reservoir_covers else 0
+    factory = pre.deploy_contract(
+        code=Op.MSTORE(0, mstore_value)
+        + Op.SSTORE(
+            storage.store_next(expected, "child_succeeds"),
+            Op.GT(create_call, 0),
+        ),
+    )
+
+    # Pre-existing balance-only target: the success-refund path. Under
+    # the old conditional approach this alive target skips NEW_ACCOUNT,
+    # so the child gets the full share and fits in both cases.
+    if create_opcode == Op.CREATE2:
+        create_address = compute_create2_address(
+            address=factory, salt=0, initcode=bytes(init_code)
+        )
+    else:
+        create_address = compute_create_address(address=factory, nonce=1)
+    pre.fund_address(create_address, amount=1)
+
+    # Regular gas the factory spends before the NEW_ACCOUNT charge: the
+    # initcode setup MSTORE plus the create opcode regular portion
+    # (`gas_cost` folds NEW_ACCOUNT into the create op, so strip it).
+    setup = Op.MSTORE(0, mstore_value)
+    pre_charge_regular = (
+        setup.gas_cost(fork) + create_call.gas_cost(fork) - new_account
+    )
+    forwarded_gas = gas_at_charge + pre_charge_regular
+    caller = pre.deploy_contract(
+        code=Op.CALL(gas=forwarded_gas, address=factory)
+    )
+    tx = Transaction(
+        to=caller,
+        state_gas_reservoir=new_account if reservoir_covers else 0,
         sender=pre.fund_eoa(),
     )
 
@@ -2567,4 +2710,75 @@ def test_create_collision_burned_gas_counted_in_block_regular(
             ),
         ],
         post={},
+    )
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        pytest.param("new", id="new_account"),
+        pytest.param("existing", id="existing_account"),
+    ],
+)
+@pytest.mark.with_all_create_opcodes()
+@pytest.mark.valid_from("EIP8037")
+def test_create_account_creation_charge(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    create_opcode: Op,
+    target: str,
+) -> None:
+    """
+    Verify NEW_ACCOUNT is charged for a new account and refunded for a
+    pre-existing balance-only leaf.
+
+    Empty init code means zero code deposit, so NEW_ACCOUNT is the only
+    create state cost. A fresh target is charged it; a pre-existing
+    balance-only target (balance, no code, zero nonce) refunds it on
+    success. The probe SSTORE both confirms the create succeeded and
+    makes state gas dominate, so gas_used drops by exactly NEW_ACCOUNT
+    when refunded.
+    """
+    new_account = fork.gas_costs().NEW_ACCOUNT
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    mstore_value, size = init_code_at_high_bytes(Op.STOP)
+    create_call = (
+        create_opcode(value=0, offset=0, size=size, salt=0)
+        if create_opcode == Op.CREATE2
+        else create_opcode(value=0, offset=0, size=size)
+    )
+
+    storage = Storage()
+    factory = pre.deploy_contract(
+        code=Op.MSTORE(0, mstore_value)
+        + Op.SSTORE(
+            storage.store_next(1, "create_succeeds"), Op.GT(create_call, 0)
+        )
+    )
+
+    # Factory deployed via deploy_contract starts at nonce 1.
+    if create_opcode == Op.CREATE2:
+        create_address = compute_create2_address(
+            address=factory, salt=0, initcode=bytes(Op.STOP)
+        )
+    else:
+        create_address = compute_create_address(address=factory, nonce=1)
+    if target == "existing":
+        pre.fund_address(create_address, amount=1)
+
+    tx = Transaction(
+        to=factory,
+        state_gas_reservoir=new_account + sstore_state_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    # State gas dominates regular: a new account adds NEW_ACCOUNT on top
+    # of the probe SSTORE, a pre-existing target refunds it.
+    expected = sstore_state_gas + (new_account if target == "new" else 0)
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={factory: Account(storage=storage)},
+        blockchain_test_header_verify=Header(gas_used=expected),
     )
