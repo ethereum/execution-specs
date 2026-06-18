@@ -49,4 +49,5 @@ class EIP7002(BaseFork):
                 "nonce": 1,
                 "code": WITHDRAWAL_REQUEST_PREDEPLOY_BYTECODE,
             },
-        } | super(EIP7002, cls).pre_allocation_blockchain()  # type: ignore
+            **super(EIP7002, cls).pre_allocation_blockchain(),
+        }

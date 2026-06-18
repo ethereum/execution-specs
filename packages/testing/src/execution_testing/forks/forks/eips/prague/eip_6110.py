@@ -52,5 +52,6 @@ class EIP6110(BaseFork):
                 "nonce": 1,
                 "code": DEPOSIT_CONTRACT_BYTECODE,
                 "storage": storage,
-            }
-        } | super(EIP6110, cls).pre_allocation_blockchain()  # type: ignore
+            },
+            **super(EIP6110, cls).pre_allocation_blockchain(),
+        }
