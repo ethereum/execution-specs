@@ -7,21 +7,19 @@ layer (0x01) withdrawal credentials.
 https://eips.ethereum.org/EIPS/eip-7002
 """
 
-from os.path import realpath
-from pathlib import Path
 from typing import List, Mapping
 
 from execution_testing.base_types import Address
 
 from ....base_fork import BaseFork
+from ....bytecode import load_contract_bytecode
 
-BYTECODE_FILE = (
-    Path(realpath(__file__)).parent / "contracts" / "withdrawal_request.bin"
-)
 WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS = (
     0x00000961EF480EB55E80D19AD83579A64C007002
 )
-WITHDRAWAL_REQUEST_PREDEPLOY_BYTECODE = BYTECODE_FILE.read_bytes()
+WITHDRAWAL_REQUEST_PREDEPLOY_BYTECODE = load_contract_bytecode(
+    __name__, "withdrawal_request.bin"
+)
 
 
 class EIP7002(BaseFork):
