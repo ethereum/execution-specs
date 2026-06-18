@@ -929,7 +929,7 @@ def test_sstore_restoration_ancestor_revert(
 
     Inner's set spills its state gas from `gas_left`. The refill at
     x to 0 returns it to `gas_left`, and inner's
-    `state_gas_from_gas_left` propagates to middle on success. Middle
+    `state_gas_spilled` propagates to middle on success. Middle
     then REVERTs, refilling the spilled state gas to the caller's
     `gas_left`, not the reservoir. The reservoir stays at 0, so a probe
     sized to OOG by 1 fails, since its fixed forwarded gas cannot reach

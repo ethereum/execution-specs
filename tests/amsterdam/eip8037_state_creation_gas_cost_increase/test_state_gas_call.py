@@ -206,11 +206,13 @@ def test_reservoir_restored_after_child_spill_and_revert(
     Test all state gas recovered when child spills then reverts.
 
     The child performs two SSTOREs (zero-to-nonzero) but only one
-    SSTORE's worth of state gas fits in the reservoir — the second
+    SSTORE's worth of state gas fits in the reservoir, so the second
     spills into `gas_left`. The child then REVERTs. Because state
-    changes are rolled back, all state gas (reservoir + spill) is
-    restored to the parent's reservoir. The parent can then perform
-    two SSTOREs using only the recovered reservoir.
+    changes are rolled back, the state gas is refilled LIFO: the
+    spilled portion returns to `gas_left` and the reservoir-funded
+    portion restores the reservoir to its start value. The parent
+    then performs two SSTOREs, drawing one from the restored
+    reservoir and spilling the other from the recovered `gas_left`.
     """
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
@@ -224,8 +226,8 @@ def test_reservoir_restored_after_child_spill_and_revert(
     parent = pre.deploy_contract(
         code=(
             Op.POP(Op.CALL(gas=500_000, address=child))
-            # All state gas recovered (reservoir + spill), parent
-            # can perform two SSTOREs from the recovered reservoir
+            # State gas recovered LIFO: the spilled SSTORE returns to
+            # gas_left, the other restores the reservoir
             + Op.SSTORE(parent_storage.store_next(1), 1)
             + Op.SSTORE(parent_storage.store_next(1), 1)
         ),
@@ -335,10 +337,11 @@ def test_sequential_calls_reservoir_restored_between_reverts(
     """
     Test reservoir restored across sequential child reverts.
 
-    Parent calls child1 which spills and reverts, then calls child2
-    which also uses state gas from the restored reservoir. Both
-    child failures restore the reservoir, so the parent can use it
-    for its own SSTORE at the end.
+    Parent calls child1, which uses the reservoir for an SSTORE and
+    reverts, restoring the reservoir. It then calls child2, which
+    reuses the restored reservoir and reverts, restoring it again.
+    The parent then performs its own SSTORE from the restored
+    reservoir.
     """
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 

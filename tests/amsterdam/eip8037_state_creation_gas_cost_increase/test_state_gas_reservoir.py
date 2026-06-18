@@ -931,6 +931,14 @@ def test_subcall_failure_does_not_zero_top_level_state_gas(
 
 
 @pytest.mark.parametrize(
+    "spill_source",
+    [
+        pytest.param("own", id="own_spill"),
+        pytest.param("propagated", id="propagated_spill"),
+        pytest.param("both", id="own_and_propagated_spill"),
+    ],
+)
+@pytest.mark.parametrize(
     "failure_mode",
     [
         pytest.param("revert", id="revert"),
@@ -943,18 +951,21 @@ def test_top_level_failure_spilled_state_gas(
     pre: Alloc,
     fork: Fork,
     failure_mode: str,
+    spill_source: str,
 ) -> None:
     """
-    Verify the top-level failure handling for state gas that spilled
-    from the reservoir into `gas_left`.
+    Verify top-level failure handling for spilled state gas, whether
+    the spill is charged in the frame itself, propagated from a
+    successful subcall, or both.
 
-    When the reservoir is smaller than the state gas charge, the
-    overflow spills into `gas_left`. Refunds are LIFO, so the spilled
-    portion returns to `gas_left` and only the reservoir-funded portion
-    returns to the reservoir. The failure modes differ in `gas_left`:
+    The reservoir covers half an SSTORE's state gas, so each SSTORE
+    charge spills into `gas_left`. A successful child propagates its
+    `state_gas_spilled` into the parent, accumulating with the parent's
+    own spill. Refunds are LIFO, so the spilled portion returns to
+    `gas_left` and only the reservoir-funded portion to the reservoir.
 
-    - REVERT preserves `gas_left`, so the spilled portion lands back
-      there and the sender pays only the regular component.
+    - REVERT preserves `gas_left`, so all state gas is refunded and the
+      sender pays only the regular component.
     - Halt refills LIFO then zeros `gas_left`, so the spill is burned
       and only the start reservoir survives.
     """
@@ -963,118 +974,55 @@ def test_top_level_failure_spilled_state_gas(
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
 
-    if failure_mode == "revert":
-        code = Op.SSTORE(0, 1) + Op.REVERT(0, 0)
-    else:
-        code = Op.SSTORE(0, 1) + Op.INVALID
-    contract = pre.deploy_contract(code=code)
+    terminator = Op.REVERT(0, 0) if failure_mode == "revert" else Op.INVALID
+    has_child = spill_source in ("propagated", "both")
+    child_code = Op.SSTORE(0, 1)
 
-    # Reservoir covers half the SSTORE state gas. The other half
+    parent_code = Bytecode()
+    if spill_source in ("own", "both"):
+        parent_code += Op.SSTORE(0, 1)
+    child = None
+    if has_child:
+        child = pre.deploy_contract(code=child_code)
+        parent_code += Op.POP(Op.CALL(gas=Op.GAS, address=child))
+    parent_code += terminator
+    parent = pre.deploy_contract(code=parent_code)
+
+    # Reservoir covers half an SSTORE's state gas, so every SSTORE
     # spills into gas_left.
-    tx_gas = gas_limit_cap + sstore_state_gas // 2
+    reservoir = sstore_state_gas // 2
+    tx_gas = gas_limit_cap + reservoir
+    total_state = sstore_state_gas * (
+        (1 if spill_source in ("own", "both") else 0) + (1 if has_child else 0)
+    )
 
     if failure_mode == "revert":
-        # gas_left preserved, full state gas refunded, so the sender
+        # gas_left preserved, all state gas refunded, so the sender
         # pays only the regular component.
         expected_cumulative = (
-            intrinsic_cost + code.gas_cost(fork) - sstore_state_gas
+            intrinsic_cost + parent_code.gas_cost(fork) - total_state
         )
+        if has_child:
+            expected_cumulative += child_code.gas_cost(fork)
     else:
         # gas_left burned after LIFO refill. The spill returns to
         # gas_left and is consumed, so only the start reservoir
-        # (sstore_state_gas // 2) survives.
-        expected_cumulative = tx_gas - sstore_state_gas // 2
-
-    tx = Transaction(
-        to=contract,
-        state_gas_reservoir=sstore_state_gas // 2,
-        sender=pre.fund_eoa(),
-        expected_receipt=TransactionReceipt(
-            cumulative_gas_used=expected_cumulative,
-        ),
-    )
-
-    state_test(pre=pre, post={contract: Account(storage={})}, tx=tx)
-
-
-@pytest.mark.parametrize(
-    "failure_mode",
-    [
-        pytest.param("revert", id="revert"),
-        pytest.param("halt", id="halt"),
-    ],
-)
-@pytest.mark.valid_from("EIP8037")
-def test_top_level_failure_propagated_state_gas(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-    failure_mode: str,
-) -> None:
-    """
-    Verify the top-level failure handling for state gas propagated
-    from a successful subcall.
-
-    The parent calls a child that runs SSTORE and returns. The
-    child's `state_gas_from_gas_left` propagates into the parent on
-    the success path, so the parent's reservoir is empty and the
-    spilled portion of the SSTORE charge is tracked against the
-    parent's `gas_left`.
-
-    Refunds are LIFO, so the spilled portion returns to `gas_left` and
-    only the reservoir-funded portion returns to the reservoir. The
-    failure modes differ in `gas_left`:
-
-    - REVERT preserves `gas_left`, so the spilled portion lands back
-      there and the sender pays only the regular component.
-    - Halt refills LIFO then zeros `gas_left`, so the spill is burned
-      and only the start reservoir survives.
-    """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
-    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
-
-    child_code = Op.SSTORE(0, 1)
-    child = pre.deploy_contract(code=child_code)
-    if failure_mode == "revert":
-        parent_code = Op.POP(Op.CALL(gas=Op.GAS, address=child)) + Op.REVERT(
-            0, 0
-        )
-    else:
-        parent_code = Op.POP(Op.CALL(gas=Op.GAS, address=child)) + Op.INVALID
-    parent = pre.deploy_contract(code=parent_code)
-
-    # Reservoir covers half the SSTORE state gas, so the child's
-    # charge drains the reservoir and spills into gas_left. The halt
-    # path then exercises a non-trivial spill case.
-    tx_gas = gas_limit_cap + sstore_state_gas // 2
-
-    if failure_mode == "revert":
-        # gas_left preserved, full propagated state gas refunded, so
-        # the sender pays only the regular component.
-        expected_cumulative = (
-            intrinsic_cost
-            + parent_code.gas_cost(fork)
-            + child_code.gas_cost(fork)
-            - sstore_state_gas
-        )
-    else:
-        # gas_left burned after LIFO refill. The propagated spill
-        # returns to gas_left and is consumed, so only the start
-        # reservoir (sstore_state_gas // 2) survives.
-        expected_cumulative = tx_gas - sstore_state_gas // 2
+        # survives.
+        expected_cumulative = tx_gas - reservoir
 
     tx = Transaction(
         to=parent,
-        state_gas_reservoir=sstore_state_gas // 2,
+        state_gas_reservoir=reservoir,
         sender=pre.fund_eoa(),
         expected_receipt=TransactionReceipt(
             cumulative_gas_used=expected_cumulative,
         ),
     )
 
-    state_test(pre=pre, post={child: Account(storage={})}, tx=tx)
+    post = {parent: Account(storage={})}
+    if child is not None:
+        post[child] = Account(storage={})
+    state_test(pre=pre, post=post, tx=tx)
 
 
 def _build_call_chain(

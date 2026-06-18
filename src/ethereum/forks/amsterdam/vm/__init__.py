@@ -186,7 +186,7 @@ class Evm:
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
     regular_gas_used: Uint = Uint(0)
     state_gas_used: int = 0
-    state_gas_from_gas_left: Uint = Uint(0)
+    state_gas_spilled: Uint = Uint(0)
 
 
 def credit_state_gas_refund(evm: Evm, amount: Uint) -> None:
@@ -195,7 +195,7 @@ def credit_state_gas_refund(evm: Evm, amount: Uint) -> None:
 
     State-gas charges draw from the reservoir first and from `gas_left`
     last, so refills credit the pool charged last first: `gas_left` up
-    to `state_gas_from_gas_left`, then the reservoir. This restores the
+    to `state_gas_spilled`, then the reservoir. This restores the
     exact pools the charge drew from, so the two never drift.
 
     Parameters
@@ -206,9 +206,9 @@ def credit_state_gas_refund(evm: Evm, amount: Uint) -> None:
         The refund amount to credit.
 
     """
-    from_gas_left = min(amount, evm.state_gas_from_gas_left)
+    from_gas_left = min(amount, evm.state_gas_spilled)
     evm.gas_left += from_gas_left
-    evm.state_gas_from_gas_left -= from_gas_left
+    evm.state_gas_spilled -= from_gas_left
     evm.state_gas_left += amount - from_gas_left
     evm.state_gas_used -= int(amount)
 
@@ -227,7 +227,7 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
     """
     evm.gas_left += child_evm.gas_left
     evm.state_gas_left += child_evm.state_gas_left
-    evm.state_gas_from_gas_left += child_evm.state_gas_from_gas_left
+    evm.state_gas_spilled += child_evm.state_gas_spilled
     evm.logs += child_evm.logs
     evm.refund_counter += child_evm.refund_counter
     evm.accounts_to_delete.update(child_evm.accounts_to_delete)
@@ -251,14 +251,14 @@ def refill_frame_state_gas(evm: Evm) -> None:
         The frame whose state gas is rolled back.
 
     """
-    evm.gas_left += evm.state_gas_from_gas_left
+    evm.gas_left += evm.state_gas_spilled
     evm.state_gas_left = Uint(
         int(evm.state_gas_left)
         + evm.state_gas_used
-        - int(evm.state_gas_from_gas_left)
+        - int(evm.state_gas_spilled)
     )
     evm.state_gas_used = 0
-    evm.state_gas_from_gas_left = Uint(0)
+    evm.state_gas_spilled = Uint(0)
 
 
 def incorporate_child_on_error(

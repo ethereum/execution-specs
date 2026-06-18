@@ -639,7 +639,7 @@ def test_parent_state_gas_after_child_failure(
     REVERTs or hits INVALID. The factory's own SSTORE after the failed
     CREATE checks the parent's reservoir and gas_left are correct.
 
-    Under EIP-11807 state-gas refunds are LIFO. Gas spilled from
+    Under EIP-8037 state-gas refunds are LIFO. Gas spilled from
     gas_left refunds to gas_left, only the reservoir-funded portion
     returns to the reservoir.
 
@@ -731,7 +731,7 @@ def test_parent_state_gas_after_child_failure(
     initcode_regular_revert = initcode.gas_cost(fork) - sstore_state_gas
 
     if failure_op == Op.INVALID:
-        # Simulate runtime gas for HALT under EIP-11807 LIFO refills:
+        # Simulate runtime gas for HALT under EIP-8037 LIFO refills:
         #  1. Regular pool capped by transaction_gas_limit_cap. The
         #     remainder forms the state reservoir.
         #  2. CREATE charges new_account state gas, reservoir first
