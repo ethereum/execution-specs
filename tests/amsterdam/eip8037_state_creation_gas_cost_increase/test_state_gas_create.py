@@ -1869,6 +1869,62 @@ def test_create_code_deposit_oog_refunds_state_gas(
     state_test(pre=pre, post={factory: Account(storage=storage)}, tx=tx)
 
 
+@pytest.mark.parametrize("slots", [0, 1, 3])
+@pytest.mark.parametrize("fail_mode", ["eip3541", "oog_deposit"])
+@pytest.mark.valid_from("EIP8037")
+def test_create2_failed_deposit_refunds_storage_state_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    slots: int,
+    fail_mode: str,
+) -> None:
+    """
+    Test a failed CREATE2 deposit refunds the init's storage-slot state gas.
+
+    Total gas used is independent of `slots`, so a client that drops the
+    slot refund diverges for `slots >= 1`; `slots == 0` is the negative
+    control.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+
+    # init: write `slots` new storage slots, then trigger a deposit failure
+    init_code = Bytecode()
+    for i in range(slots):
+        init_code += Op.SSTORE(i, i + 1)
+    if fail_mode == "eip3541":
+        # return 0xEF -> EIP-3541 rejects the deposited code
+        init_code += Op.MSTORE8(0, 0xEF) + Op.RETURN(0, 1)
+    else:
+        # return max-size code: the code-deposit state gas cannot be paid
+        init_code += Op.RETURN(0, fork.max_code_size())
+    mstore_value, size = init_code_at_high_bytes(init_code)
+
+    storage = Storage()
+    factory = pre.deploy_contract(
+        code=(
+            Op.MSTORE(0, mstore_value)
+            + Op.SSTORE(
+                storage.store_next(0, "create2_failed"),
+                Op.CREATE2(value=0, offset=0, size=size, salt=0),
+            )
+        ),
+    )
+
+    tx = Transaction(
+        to=factory,
+        gas_limit=gas_limit_cap,
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(
+        pre=pre,
+        post={factory: Account(storage=storage)},
+        tx=tx,
+    )
+
+
 @pytest.mark.parametrize(
     "reservoir_covers",
     [
