@@ -110,7 +110,7 @@ and from revm/nethermind/besu/erigon/ethrex.
 
 ### Implemented Test Case
 
-- `tests/amsterdam/eip8037_state_creation_gas_cost_increase/test_state_gas_create_failed_deposit.py::test_create2_failed_deposit_refunds_init_storage_state_gas`
+- `tests/amsterdam/eip8037_state_creation_gas_cost_increase/test_state_gas_create.py::test_create2_failed_deposit_refunds_storage_state_gas`
 
 ### Framework/Documentation Changes
 
