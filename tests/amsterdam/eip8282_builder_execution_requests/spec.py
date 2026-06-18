@@ -1,6 +1,7 @@
 """
-Reference spec and constants for
-[EIP-8282: Builder Execution Requests](https://eips.ethereum.org/EIPS/eip-8282).
+Reference spec and constants for [EIP-8282: Builder Execution Requests][8282].
+
+[8282]: https://eips.ethereum.org/EIPS/eip-8282
 """
 
 from dataclasses import dataclass
