@@ -25,7 +25,7 @@ pytestmark = pytest.mark.valid_at("EIP7976")
 @pytest.mark.parametrize(
     "zero_bytes",
     [
-        pytest.param(100, id="100_zero_bytes"),
+        pytest.param(200, id="200_zero_bytes"),
         pytest.param(1000, id="1000_zero_bytes"),
     ],
 )

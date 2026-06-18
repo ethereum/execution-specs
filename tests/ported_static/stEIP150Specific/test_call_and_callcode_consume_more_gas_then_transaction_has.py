@@ -3,6 +3,16 @@ Test_call_and_callcode_consume_more_gas_then_transaction_has.
 
 Ported from:
 state_tests/stEIP150Specific/CallAndCallcodeConsumeMoreGasThenTransactionHasFiller.json
+
+@manually-enhanced: Do not overwrite. The post-state asserts
+`storage[8] = 0x8D5B6` captured by `Op.GAS`, which depends on the exact
+post-intrinsic execution budget. The original hardcoded `gas_limit` of
+600_000 was built against Cancun's `TX_BASE` of 21_000; EIP-2780 lowers
+the intrinsic for non-self non-value txs, so `gas_limit` is derived as
+`600_000 + (intrinsic - 21_000)` from `transaction_intrinsic_cost_calculator`
+to shift by the fork intrinsic delta and keep the Op.GAS assertion correct.
+The `- 21_000` is the pre-EIP-2780 baseline intrinsic, so the adjustment
+is exactly 0 pre-repricing. Do not hardcode the literal gas_limit.
 """
 
 import pytest
@@ -12,6 +22,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
 )
@@ -31,6 +42,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_call_and_callcode_consume_more_gas_then_transaction_has(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_call_and_callcode_consume_more_gas_then_transaction_has."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
@@ -83,11 +95,19 @@ def test_call_and_callcode_consume_more_gas_then_transaction_has(
         nonce=0,
     )
 
+    # The original test was built against Cancun's ``TX_BASE`` of
+    # 21_000. EIP-2780 lowers the intrinsic for non-self non-value
+    # txs, so shift ``gas_limit`` by the intrinsic delta to preserve
+    # the post-intrinsic execution budget the Op.GAS storage
+    # assertions depend on.
+    intrinsic = fork.transaction_intrinsic_cost_calculator()()
+    gas_limit = 600_000 + (intrinsic - 21_000)
+
     tx = Transaction(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=600000,
+        gas_limit=gas_limit,
     )
 
     post = {target: Account(storage={0: 18, 8: 0x8D5B6, 9: 1, 10: 1})}

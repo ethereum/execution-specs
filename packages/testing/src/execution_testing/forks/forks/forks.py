@@ -21,6 +21,7 @@ from execution_testing.vm import (
     Opcodes,
 )
 
+from ...recipient_type import RecipientType
 from ..base_fork import (
     BaseFeeChangeCalculator,
     BaseFeePerGasCalculator,
@@ -872,8 +873,11 @@ class Frontier(
             access_list: List[AccessList] | None = None,
             authorization_list_or_count: Sized | int | None = None,
             return_cost_deducted_prior_execution: bool = False,
+            sends_value: bool = False,
+            recipient_type: RecipientType = RecipientType.CONTRACT,
         ) -> int:
             del return_cost_deducted_prior_execution
+            del sends_value, recipient_type
 
             assert access_list is None, (
                 f"Access list is not supported in {cls.name()}"
