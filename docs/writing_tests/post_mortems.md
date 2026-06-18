@@ -72,6 +72,35 @@ None required - the existing framework supported writing these tests.
 
 ---
 
+## 2026-06 - CALL Soft-Fail New-Account State-Gas Refund - Amsterdam
+
+### Description
+
+EIP-8037's specification text states that the new-account state gas charged for a `CALL*` is refilled to the `state_gas_reservoir` (and `execution_state_gas_used` decreases) when the operation is unsuccessful before entering the call frame (insufficient balance or stack depth), and it draws **no distinction** between `CALL*` and `CREATE`/`CREATE2`. The executable spec implemented this refund only for `CREATE`/`CREATE2` (`generic_create`); the `CALL` paths charged the new-account state gas and then retained it on the soft-fail. The mismatch was surfaced by external review (a testing/security discussion triaging an auto-hunt finding that flagged "CALL state gas not refunded on soft-fail"), not by the test suite.
+
+### Root Cause Analysis
+
+- The single existing test for the scenario (`test_call_insufficient_balance_returns_reservoir`) did not isolate the refund: for a fresh target it provisioned the reservoir with `sstore_state_gas + NEW_ACCOUNT`, so the follow-up `SSTORE` succeeded whether or not the new-account charge was refunded. The behavior was pinned only incidentally through the filled post-state root, never as an intent-named assertion.
+- That test's docstring stated "the call fails before any state gas is charged for the target account", which described the EIP prose but contradicted both the executable spec (the charge happens before the balance check) and the test's own reservoir sizing. The contradiction masked the divergence during review.
+- The `CALL*`-vs-`CREATE` symmetry asserted by the prose was assumed covered because both opcodes had insufficient-balance tests; no test compared their refund behavior directly.
+
+### Steps Taken To Avoid Recurrence
+
+- Aligned `call()`/`generic_call()` with the prose (refund the new-account state gas on the insufficient-balance and stack-depth soft-fails, symmetric with `CREATE`).
+- Rewrote `test_call_insufficient_balance_returns_reservoir` so its docstring matches the behavior and its reservoir is sized to require the refund.
+- Added an intent-named regression that reuses the refunded reservoir for a subsequent account-creating `CALL`, pinning the `CALL`/`CREATE` symmetry directly rather than incidentally.
+
+### Implemented Test Case
+
+- `tests/amsterdam/eip8037_state_creation_gas_cost_increase/test_state_gas_call.py::test_call_softfail_refund_reused_by_new_account_call`
+- `tests/amsterdam/eip8037_state_creation_gas_cost_increase/test_state_gas_call.py::test_call_insufficient_balance_returns_reservoir`
+
+### Framework/Documentation Changes
+
+- None to the framework. This post-mortem entry documents the miss; the underlying EIP prose vs executable-spec divergence is flagged on the PR for the authors to confirm the intended direction.
+
+---
+
 ## TEMPLATE
 
 ## Date - Title - Fork
