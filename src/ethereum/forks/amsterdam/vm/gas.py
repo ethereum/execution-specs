@@ -311,6 +311,7 @@ def charge_state_gas(evm: Evm, amount: Uint) -> None:
         remainder = amount - evm.state_gas_left
         evm.state_gas_left = Uint(0)
         evm.gas_left -= remainder
+        evm.state_gas_spilled += remainder
     else:
         raise OutOfGasError
 

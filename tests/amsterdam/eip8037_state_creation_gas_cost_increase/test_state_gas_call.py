@@ -206,11 +206,13 @@ def test_reservoir_restored_after_child_spill_and_revert(
     Test all state gas recovered when child spills then reverts.
 
     The child performs two SSTOREs (zero-to-nonzero) but only one
-    SSTORE's worth of state gas fits in the reservoir — the second
+    SSTORE's worth of state gas fits in the reservoir, so the second
     spills into `gas_left`. The child then REVERTs. Because state
-    changes are rolled back, all state gas (reservoir + spill) is
-    restored to the parent's reservoir. The parent can then perform
-    two SSTOREs using only the recovered reservoir.
+    changes are rolled back, the state gas is refilled LIFO: the
+    spilled portion returns to `gas_left` and the reservoir-funded
+    portion restores the reservoir to its start value. The parent
+    then performs two SSTOREs, drawing one from the restored
+    reservoir and spilling the other from the recovered `gas_left`.
     """
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
@@ -224,8 +226,8 @@ def test_reservoir_restored_after_child_spill_and_revert(
     parent = pre.deploy_contract(
         code=(
             Op.POP(Op.CALL(gas=500_000, address=child))
-            # All state gas recovered (reservoir + spill), parent
-            # can perform two SSTOREs from the recovered reservoir
+            # State gas recovered LIFO: the spilled SSTORE returns to
+            # gas_left, the other restores the reservoir
             + Op.SSTORE(parent_storage.store_next(1), 1)
             + Op.SSTORE(parent_storage.store_next(1), 1)
         ),
@@ -335,10 +337,11 @@ def test_sequential_calls_reservoir_restored_between_reverts(
     """
     Test reservoir restored across sequential child reverts.
 
-    Parent calls child1 which spills and reverts, then calls child2
-    which also uses state gas from the restored reservoir. Both
-    child failures restore the reservoir, so the parent can use it
-    for its own SSTORE at the end.
+    Parent calls child1, which uses the reservoir for an SSTORE and
+    reverts, restoring the reservoir. It then calls child2, which
+    reuses the restored reservoir and reverts, restoring it again.
+    The parent then performs its own SSTORE from the restored
+    reservoir.
     """
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
@@ -1282,7 +1285,7 @@ def test_call_value_to_pre_existing_selfdestructed_account(
     ],
 )
 @pytest.mark.valid_from("EIP8037")
-def test_top_level_halt_refunds_total_state_gas(
+def test_top_level_halt_burns_spilled_state_gas(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -1290,22 +1293,24 @@ def test_top_level_halt_refunds_total_state_gas(
     reservoir_delta: int,
 ) -> None:
     """
-    Verify a top-level halt refunds the total state-gas consumed
-    (reservoir-portion + spilled-portion) regardless of child failure
-    mode. The parent calls a child that either reverts or halts, then
-    INVALIDs at the top level.
+    Verify a top-level halt burns the spilled state gas, so only the
+    start reservoir survives. The parent calls a child that reverts or
+    halts, then INVALIDs at the top level.
 
-    Per the updated EIP, both child failure modes propagate the full
-    `state_gas_used` back through `incorporate_child_on_error`, and
-    the top-level halt no longer overrides it. The tx-level error
-    handler then folds the residual into the reservoir, so
-    `state_gas_left_end = max(reservoir, child_charge)` and
-    `tx_gas_used = tx.gas - state_gas_left_end`:
+    Under LIFO refills a frame's spilled state gas refills to
+    `gas_left`, which the halt then zeros. Only the reservoir-funded
+    portion survives, equal to the reservoir at frame start.
 
-    - `reservoir < child_charge` (one_short): spill is refunded too,
-      `tx_gas_used = gas_limit_cap - (child_charge - reservoir)`.
-    - `reservoir >= child_charge`: no spill, `tx_gas_used =
-      gas_limit_cap`.
+    That start value equals the sized reservoir R, so for every child
+    failure mode and `reservoir_delta`:
+
+        `state_gas_left_end = R`,
+        `tx_gas_used = tx.gas - R = gas_limit_cap`.
+
+    With the reservoir one short (`reservoir_delta == -1`) the child's
+    SSTORE spills one unit from `gas_left`, which is refilled then
+    burned by the halt. So `tx_gas_used` stays `gas_limit_cap`. The
+    old behavior refunded the spill, giving `gas_limit_cap - 1`.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -1331,10 +1336,10 @@ def test_top_level_halt_refunds_total_state_gas(
         sender=pre.fund_eoa(),
     )
 
-    # Policy A halt: state_gas counters preserved through the child
-    # halt/revert, parent halt, and tx-level fold.
-    # state_gas_left_end = max(reservoir, sstore_state_gas).
-    state_gas_left_end = max(reservoir, sstore_state_gas)
+    # LIFO refills: the spill refills to `gas_left` and is burned by
+    # the halt. Only the sized reservoir survives, so
+    # `tx_gas_used = gas_limit_cap`.
+    state_gas_left_end = reservoir
     expected_gas_used = tx_gas - state_gas_left_end
 
     blockchain_test(

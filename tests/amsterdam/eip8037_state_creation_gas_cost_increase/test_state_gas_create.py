@@ -635,24 +635,27 @@ def test_parent_state_gas_after_child_failure(
     """
     Test parent state-gas pools after CREATE child failure.
 
-    A factory invokes CREATE whose initcode performs an SSTORE
-    (charging state gas) then either REVERTs or hits INVALID. The
-    factory's own SSTORE after the failed CREATE acts as the
-    discriminator that the parent's state-gas accounting (reservoir
-    and gas_left) is in the expected state.
+    A factory runs CREATE whose initcode does an SSTORE, then either
+    REVERTs or hits INVALID. The factory's own SSTORE after the failed
+    CREATE checks the parent's reservoir and gas_left are correct.
+
+    Under EIP-8037 state-gas refunds are LIFO. Gas spilled from
+    gas_left refunds to gas_left, only the reservoir-funded portion
+    returns to the reservoir.
 
     Four scenarios cover the gas-pool state space:
 
-    - `with_reservoir x revert`: child state gas (new account +
-      initcode SSTORE) is fully refunded to the parent reservoir on
-      REVERT.
-    - `with_reservoir x halt`: HALT resets the child frame to
-      `(0, R0_child)`; only the reservoir-portion entering the
-      initcode is returned, any spilled gas stays burned.
-    - `no_reservoir x revert`: child state gas refunded forms a
-      fresh reservoir even though `R0_parent` started at 0.
-    - `no_reservoir x halt`: no phantom reservoir may form; the
-      factory's post-CREATE SSTORE must spill from gas_left.
+    - `with_reservoir x revert`: child state gas refills LIFO. The
+      reservoir-funded portion returns to the parent reservoir, any
+      spill to the parent gas_left.
+    - `with_reservoir x halt`: halt refills the child frame LIFO then
+      burns its gas_left. Only the child's start reservoir survives.
+    - `no_reservoir x revert`: child state gas spilled wholly from
+      gas_left, so the LIFO refill returns it there. No phantom
+      reservoir forms.
+    - `no_reservoir x halt`: no phantom reservoir forms. The spilled
+      child state gas is burned with the child gas_left and the
+      factory's post-CREATE SSTORE spills from gas_left.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -728,21 +731,21 @@ def test_parent_state_gas_after_child_failure(
     initcode_regular_revert = initcode.gas_cost(fork) - sstore_state_gas
 
     if failure_op == Op.INVALID:
-        # Simulate runtime gas accounting for HALT using fork helpers:
-        #  1. Initial regular pool capped by transaction_gas_limit_cap;
+        # Simulate runtime gas for HALT under EIP-8037 LIFO refills:
+        #  1. Regular pool capped by transaction_gas_limit_cap. The
         #     remainder forms the state reservoir.
-        #  2. CREATE op charges new_account state gas (from reservoir
-        #     first, spilled to gas_left otherwise).
-        #  3. 63/64 retention rule: parent retains gas_left // 64.
-        #  4. INVALID burns all forwarded regular gas in the child.
-        #     Per the updated EIP, child halt preserves its state-gas
-        #     counters and `incorporate_child_on_error` refunds the
-        #     full child charge — including any spilled portion — to
-        #     the parent's reservoir.
-        #  5. CREATE failure refunds new_account state gas to the
-        #     parent's state pool (account creation rolled back).
-        #  6. Factory's post-CREATE SSTORE charges sstore_state_gas
-        #     (state pool first, spilled to gas_left otherwise).
+        #  2. CREATE charges new_account state gas, reservoir first
+        #     then spilled to gas_left and tracked.
+        #  3. 63/64 retention: parent keeps gas_left // 64. The
+        #     reservoir is forwarded to the child frame.
+        #  4. Child initcode SSTORE charges sstore_state_gas, child
+        #     reservoir first then spilled to child gas_left.
+        #  5. INVALID refills the child frame LIFO then burns its
+        #     gas_left. Only the child's start reservoir survives.
+        #  6. CREATE failure refills new_account LIFO: the spill to
+        #     parent gas_left, the rest to the parent reservoir.
+        #  7. Factory post-CREATE SSTORE charges sstore_state_gas,
+        #     reservoir first then spilled to gas_left.
         execution_gas = gas_limit - intrinsic_cost
         regular_budget = gas_limit_cap - intrinsic_cost
         sim_gas_left = min(regular_budget, execution_gas)
@@ -751,26 +754,31 @@ def test_parent_state_gas_after_child_failure(
         sim_gas_left -= factory_pre_create_regular
         sim_gas_left -= gas_costs.OPCODE_CREATE_BASE + init_code_word_cost
 
-        if sim_state_gas_left >= new_account_state_gas:
-            sim_state_gas_left -= new_account_state_gas
-        else:
-            sim_gas_left -= new_account_state_gas - sim_state_gas_left
-            sim_state_gas_left = 0
+        # CREATE new_account state gas: reservoir first, spill tracked.
+        new_account_from_reservoir = min(
+            sim_state_gas_left, new_account_state_gas
+        )
+        new_account_spill = new_account_state_gas - new_account_from_reservoir
+        sim_state_gas_left -= new_account_from_reservoir
+        sim_gas_left -= new_account_spill
 
-        # `child_reservoir` is what the parent forwards to the child.
-        # Under Policy A halt, incorporate refunds child.state_gas_used
-        # + child.state_gas_left = max(sstore, child_reservoir) back to
-        # the parent. The simulator already implicitly retains
-        # `child_reservoir` in `sim_state_gas_left`, so the additional
-        # Policy A refund versus the Policy B "burn the spill" rule is
-        # `max(0, sstore_state_gas - child_reservoir)`.
+        # 63/64 retention: parent keeps gas_left // 64. The reservoir
+        # is forwarded to the child frame and survives on halt.
         child_reservoir = sim_state_gas_left
         sim_gas_left = sim_gas_left // 64
-        sim_state_gas_left += max(0, sstore_state_gas - child_reservoir)
-        sim_state_gas_left += new_account_state_gas
+
+        # INVALID burns child gas_left, including any spilled SSTORE
+        # state gas. Only the forwarded reservoir survives.
+        sim_state_gas_left = child_reservoir
+
+        # CREATE failure refills new_account LIFO: spilled portion to
+        # gas_left, reservoir-funded portion to the reservoir.
+        sim_gas_left += new_account_spill
+        sim_state_gas_left += new_account_from_reservoir
 
         sim_gas_left -= factory_post_create_regular
 
+        # Factory post-CREATE SSTORE: reservoir first, spill otherwise.
         if sim_state_gas_left >= sstore_state_gas:
             sim_state_gas_left -= sstore_state_gas
         else:

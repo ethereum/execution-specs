@@ -3288,7 +3288,16 @@ def test_bal_create_and_oog(
         init_code_size=len(init_code_bytes),
     )
     factory_sstore = Op.SSTORE(0x00, 1)
-    factory_code = factory_mstore + factory_create + factory_sstore
+    oog_sink_memory_size = 10000 * 32
+    factory_oog_sink = Op.MSTORE(
+        oog_sink_memory_size - 32,
+        0,
+        old_memory_size=32,
+        new_memory_size=oog_sink_memory_size,
+    )
+    factory_code = (
+        factory_mstore + factory_create + factory_oog_sink + factory_sstore
+    )
 
     factory = pre.deploy_contract(
         code=factory_code,
@@ -3313,10 +3322,11 @@ def test_bal_create_and_oog(
         gas_limit = intrinsic_cost + create_static_cost - 1
     elif oog_boundary == OutOfGasBoundary.OOG_AFTER_TARGET_ACCESS:
         # Exactly the CREATE static cost — address accessed, child
-        # frame gets 0 gas, CREATE fails, parent OOGs at next opcode
+        # frame gets 0 gas, CREATE fails, sink forces OOG after access
         gas_limit = intrinsic_cost + create_static_cost
     else:
-        # Full success: static cost + child frame (63/64 rule) + SSTORE
+        # Full success: static cost + child frame (63/64 rule) +
+        # SSTORE + gas sink.
         child_gas = init_code.gas_cost(fork)
         remaining_needed = (child_gas * 64 + 62) // 63
         gas_limit = (
@@ -3324,6 +3334,7 @@ def test_bal_create_and_oog(
             + create_static_cost
             + remaining_needed
             + factory_sstore.gas_cost(fork)
+            + factory_oog_sink.gas_cost(fork)
         )
 
     tx = Transaction(

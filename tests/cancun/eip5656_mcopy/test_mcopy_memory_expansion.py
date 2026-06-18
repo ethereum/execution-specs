@@ -128,19 +128,14 @@ def tx(  # noqa: D103
     initial_memory: bytes,
     tx_gas_limit: int,
     tx_access_list: List[AccessList],
-    successful: bool,
-    fork: Fork,
 ) -> Transaction:
-    expected_gas = tx_gas_limit
-    if not successful and fork.is_eip_enabled(8037):
-        expected_gas -= Op.SSTORE(new_value=1).state_cost(fork)
     return Transaction(
         sender=sender,
         to=caller_address,
         access_list=tx_access_list,
         data=initial_memory,
         gas_limit=tx_gas_limit,
-        expected_receipt=TransactionReceipt(cumulative_gas_used=expected_gas),
+        expected_receipt=TransactionReceipt(cumulative_gas_used=tx_gas_limit),
     )
 
 

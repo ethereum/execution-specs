@@ -931,6 +931,14 @@ def test_subcall_failure_does_not_zero_top_level_state_gas(
 
 
 @pytest.mark.parametrize(
+    "spill_source",
+    [
+        pytest.param("own", id="own_spill"),
+        pytest.param("propagated", id="propagated_spill"),
+        pytest.param("both", id="own_and_propagated_spill"),
+    ],
+)
+@pytest.mark.parametrize(
     "failure_mode",
     [
         pytest.param("revert", id="revert"),
@@ -943,139 +951,78 @@ def test_top_level_failure_spilled_state_gas(
     pre: Alloc,
     fork: Fork,
     failure_mode: str,
+    spill_source: str,
 ) -> None:
     """
-    Verify the top-level failure handling for state gas that spilled
-    from the reservoir into `gas_left`.
+    Verify top-level failure handling for spilled state gas, whether
+    the spill is charged in the frame itself, propagated from a
+    successful subcall, or both.
 
-    When the reservoir is smaller than the state gas charge, the
-    overflow spills and is drawn from `gas_left`. Both failure
-    modes refund the full `state_gas_used` (reservoir-portion +
-    spilled-portion) to the reservoir per the updated EIP. They
-    differ only in `gas_left` handling:
+    The reservoir covers half an SSTORE's state gas, so each SSTORE
+    charge spills into `gas_left`. A successful child propagates its
+    `state_gas_spilled` into the parent, accumulating with the parent's
+    own spill. Refunds are LIFO, so the spilled portion returns to
+    `gas_left` and only the reservoir-funded portion to the reservoir.
 
-    - REVERT preserves `gas_left`; sender billed only the regular
-      component.
-    - Exceptional halt zeros `gas_left` (existing EVM rule); sender
-      pays for everything except the state-gas refund.
+    - REVERT preserves `gas_left`, so all state gas is refunded and the
+      sender pays only the regular component.
+    - Halt refills LIFO then zeros `gas_left`, so the spill is burned
+      and only the start reservoir survives.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
 
-    if failure_mode == "revert":
-        code = Op.SSTORE(0, 1) + Op.REVERT(0, 0)
-    else:
-        code = Op.SSTORE(0, 1) + Op.INVALID
-    contract = pre.deploy_contract(code=code)
-
-    # Reservoir sized to cover only half the SSTORE state gas; the
-    # other half spills into gas_left.
-    tx_gas = gas_limit_cap + sstore_state_gas // 2
-
-    if failure_mode == "revert":
-        # gas_left preserved; full state_gas_used refunded to
-        # reservoir → sender billed only the regular component.
-        expected_cumulative = (
-            intrinsic_cost + code.gas_cost(fork) - sstore_state_gas
-        )
-    else:
-        # gas_left burned; full state_gas_used (reservoir-portion +
-        # spilled-portion) refunded via reservoir.
-        # tx_gas_used = tx_gas - 0 - sstore_state_gas.
-        expected_cumulative = tx_gas - sstore_state_gas
-
-    tx = Transaction(
-        to=contract,
-        state_gas_reservoir=sstore_state_gas // 2,
-        sender=pre.fund_eoa(),
-        expected_receipt=TransactionReceipt(
-            cumulative_gas_used=expected_cumulative,
-        ),
-    )
-
-    state_test(pre=pre, post={contract: Account(storage={})}, tx=tx)
-
-
-@pytest.mark.parametrize(
-    "failure_mode",
-    [
-        pytest.param("revert", id="revert"),
-        pytest.param("halt", id="halt"),
-    ],
-)
-@pytest.mark.valid_from("EIP8037")
-def test_top_level_failure_propagated_state_gas(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-    failure_mode: str,
-) -> None:
-    """
-    Verify the top-level failure handling for state gas propagated
-    from a successful subcall.
-
-    The parent calls a child that runs SSTORE and returns. The
-    child's `state_gas_used` is folded into the parent frame via the
-    success path so the parent's reservoir is empty and its
-    `state_gas_used` carries the SSTORE charge.
-
-    Per the updated EIP both failure modes refund the full propagated
-    `state_gas_used` (reservoir-portion + spilled-portion) to the
-    reservoir. They differ only in `gas_left` handling:
-
-    - REVERT preserves `gas_left`; sender billed only the regular
-      component.
-    - Exceptional halt zeros `gas_left`; sender pays for everything
-      except the state-gas refund.
-    """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
-    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
-
+    terminator = Op.REVERT(0, 0) if failure_mode == "revert" else Op.INVALID
+    has_child = spill_source in ("propagated", "both")
     child_code = Op.SSTORE(0, 1)
-    child = pre.deploy_contract(code=child_code)
-    if failure_mode == "revert":
-        parent_code = Op.POP(Op.CALL(gas=Op.GAS, address=child)) + Op.REVERT(
-            0, 0
-        )
-    else:
-        parent_code = Op.POP(Op.CALL(gas=Op.GAS, address=child)) + Op.INVALID
+
+    parent_code = Bytecode()
+    if spill_source in ("own", "both"):
+        parent_code += Op.SSTORE(0, 1)
+    child = None
+    if has_child:
+        child = pre.deploy_contract(code=child_code)
+        parent_code += Op.POP(Op.CALL(gas=Op.GAS, address=child))
+    parent_code += terminator
     parent = pre.deploy_contract(code=parent_code)
 
-    # Reservoir sized to half the SSTORE state gas so the child's
-    # charge drains the reservoir AND spills into gas_left. The halt
-    # path then exercises a non-trivial spill case rather than the
-    # degenerate no-spill case.
-    tx_gas = gas_limit_cap + sstore_state_gas // 2
+    # Reservoir covers half an SSTORE's state gas, so every SSTORE
+    # spills into gas_left.
+    reservoir = sstore_state_gas // 2
+    tx_gas = gas_limit_cap + reservoir
+    total_state = sstore_state_gas * (
+        (1 if spill_source in ("own", "both") else 0) + (1 if has_child else 0)
+    )
 
     if failure_mode == "revert":
-        # gas_left preserved; full propagated state_gas_used refunded
-        # → sender billed only the regular component.
+        # gas_left preserved, all state gas refunded, so the sender
+        # pays only the regular component.
         expected_cumulative = (
-            intrinsic_cost
-            + parent_code.gas_cost(fork)
-            + child_code.gas_cost(fork)
-            - sstore_state_gas
+            intrinsic_cost + parent_code.gas_cost(fork) - total_state
         )
+        if has_child:
+            expected_cumulative += child_code.gas_cost(fork)
     else:
-        # gas_left burned; full propagated state_gas_used (reservoir
-        # + spill) refunded via reservoir.
-        # tx_gas_used = tx_gas - 0 - sstore_state_gas.
-        expected_cumulative = tx_gas - sstore_state_gas
+        # gas_left burned after LIFO refill. The spill returns to
+        # gas_left and is consumed, so only the start reservoir
+        # survives.
+        expected_cumulative = tx_gas - reservoir
 
     tx = Transaction(
         to=parent,
-        state_gas_reservoir=sstore_state_gas // 2,
+        state_gas_reservoir=reservoir,
         sender=pre.fund_eoa(),
         expected_receipt=TransactionReceipt(
             cumulative_gas_used=expected_cumulative,
         ),
     )
 
-    state_test(pre=pre, post={child: Account(storage={})}, tx=tx)
+    post = {parent: Account(storage={})}
+    if child is not None:
+        post[child] = Account(storage={})
+    state_test(pre=pre, post=post, tx=tx)
 
 
 def _build_call_chain(
@@ -1118,10 +1065,9 @@ def _build_create_chain(
     then terminates with `terminator`. The deepest level's initcode
     just executes its body and terminates.
 
-    Each CREATE pre-charges `STATE_NEW × cpsb` of state-gas on the
-    parent frame, which is what makes this chain exercise the
-    credit-on-failure path that distinguishes Policy A from Policy B
-    for top-level halt.
+    Each CREATE pre-charges `STATE_NEW * cpsb` of state gas on the
+    parent frame, which makes this chain exercise the LIFO
+    refill-on-failure path for top-level halt.
     """
     remaining_frame_bodies = frame_bodies[:]
     # Deepest level is just body + terminator (runs as initcode of
@@ -1133,8 +1079,8 @@ def _build_create_chain(
         inner_bytes = bytes(inner_initcode)
         inner_size = len(inner_bytes)
         # Pad to 32-byte alignment so Om.MSTORE uses the cheap
-        # PUSH32+MSTORE path on the trailing chunk; CREATE reads
-        # only `size` bytes so the trailing zeros are ignored.
+        # PUSH32+MSTORE path on the trailing chunk. CREATE reads
+        # only `size` bytes, so the trailing zeros are ignored.
         padded = inner_bytes + b"\x00" * ((-inner_size) % 32)
         code = (
             remaining_frame_bodies.pop()
@@ -1270,21 +1216,23 @@ def test_nested_failure_resets_to_tx_reservoir(
     so the cascade reaches the top.
 
     Axes:
-    - `failure_mode`: REVERT vs HALT (top-level gas_left semantics
-      differ; state-gas refund must agree per the updated EIP).
-    - `spill_mode`: `no_spill` sizes the reservoir to cover all
-      state-gas charges. `spill` shrinks it so charges drain into
-      gas_left, exercising the spill-refund-on-halt rule.
-    - `frame_op`: `call` chains via CALL (no per-frame pre-charge).
-      `create` chains via CREATE (each level pre-charges
-      `STATE_BYTES_PER_NEW_ACCOUNT × cpsb`, exercising
-      credit-on-failure interleaved with the spill).
+    - `failure_mode`: REVERT vs HALT. Top-level gas_left semantics
+      differ, but state gas refund must agree per the updated EIP.
+    - `spill_mode`: `no_spill` sizes the reservoir to cover all state
+      gas charges. `spill` shrinks it so charges drain into gas_left,
+      exercising the spill-refund-on-halt rule.
+    - `frame_op`: `call` chains via CALL with no per-frame pre-charge.
+      `create` chains via CREATE, where each level pre-charges
+      `STATE_BYTES_PER_NEW_ACCOUNT * cpsb` and exercises
+      credit-on-failure interleaved with the spill.
 
-    Per the updated EIP, every state-gas charge — body charges,
-    spilled portions, and CREATE pre-charges — is refunded to the
-    top-level reservoir on either revert or halt. So the user pays
-    `tx_gas - max(reservoir, total_state_charges)` on halt and only
-    regular charges + intrinsic on revert, regardless of axes.
+    Refunds are LIFO. On REVERT every state gas charge (body charges,
+    spilled portions, and CREATE pre-charges) is refilled, the spill
+    landing back in `gas_left`, so the user pays only regular charges
+    plus intrinsic. On HALT the LIFO refill returns spilled state gas
+    to `gas_left`, which is then zeroed, so only the start reservoir
+    survives and the user pays `tx_gas - reservoir = gas_limit_cap`,
+    regardless of spill axis or CREATE pre-charges.
 
     Two assertions cross-check the gas accounting:
     - `cumulative_gas_used` (receipt) pins `tx.gas - gas_left -
@@ -1320,20 +1268,19 @@ def test_nested_failure_resets_to_tx_reservoir(
         top, frame_codes = _build_create_chain(pre, frame_bodies, terminator)
 
     sum_regular = sum(code.regular_cost(fork) for code in frame_codes)
-    spill = max(0, total_state_charges - reservoir)
     if failure_mode == "halt":
-        # Policy A (updated EIP): all state-gas — body charges, spilled
-        # portions, and CREATE pre-charges (returned via credit) — folds
-        # into state_gas_left at tx end. gas_left is zeroed by halt.
-        state_gas_at_end = max(reservoir, total_state_charges)
-        expected_cumulative = tx_gas - state_gas_at_end
-        # Header: block_regular = gas_limit_cap - spill (spilled
-        # state-gas drained gas_left but is no longer reclassified to
-        # regular under Policy A); block_state ≈ 0 for plain CALLs.
-        expected_header_gas_used = gas_limit_cap - spill
+        # LIFO refill returns spilled state gas (and spilled CREATE
+        # pre-charges) to gas_left, which halt then zeros. Only the
+        # start reservoir survives.
+        expected_cumulative = tx_gas - reservoir
+        assert expected_cumulative == gas_limit_cap
+        # Header: all gas_left (including the refilled spill) is
+        # consumed as regular. Block state gas is zero for plain
+        # frames.
+        expected_header_gas_used = gas_limit_cap
     elif failure_mode == "revert":
-        # Revert preserves gas_left; full state-gas refund.
-        # User pays only regular costs + intrinsic.
+        # Revert preserves gas_left, full state gas refund, so the
+        # user pays only regular costs plus intrinsic.
         expected_cumulative = intrinsic_cost + sum_regular
         # Header reflects the regular-vs-state attribution directly:
         # state_gas_used is zeroed by the tx error handler, so only
@@ -1394,26 +1341,36 @@ def test_nested_state_gas_refund_consumed_at_depth(
     consume_at: str,
 ) -> None:
     """
-    Verify state-gas refund credits propagate through a CALL chain so
-    they can be consumed at any depth.
+    Verify how state gas refund credits route under LIFO refills.
 
-    Refund sources: SSTORE `0→1→0`, CREATE collision, CREATE initcode
-    revert (all credit deepest's reservoir), and a SetCode auth on an
-    `existing_leaf` authority (credits the top reservoir at message
-    entry).
+    Refund sources SSTORE `0->1->0`, CREATE collision, and CREATE
+    initcode revert all refund LIFO, so the credit returns to
+    `gas_left`, not the reservoir. A SetCode auth on an `existing_leaf`
+    authority still credits the reservoir directly at message entry.
 
-    A probe CALL sized one short of covering an SSTORE on full spill
-    runs either at the refund-source frame or back at the top after
-    the chain returns; it succeeds only when its frame holds enough
-    reservoir, so a missing or mis-propagated credit OOGs it.
+    A probe CALL sized one short of covering an SSTORE forwards a fixed
+    gas to a sub-call, so it can only observe the reservoir, never the
+    `gas_left` refund. It therefore succeeds only for the auth scenario
+    and fails (stores 0) for the SSTORE/CREATE scenarios whose refund
+    lands in `gas_left`.
     """
     is_auth_scenario = refund_scenario == "auth_existing_leaf"
 
     probe_address = pre.deploy_contract(code=Op.SSTORE(0, 1))
     probe_gas = Op.SSTORE(0, 1).gas_cost(fork) - 1
     consumer_storage = Storage()
+    # The probe forwards a fixed gas and can only see the reservoir,
+    # so it succeeds (CALL returns 1) only when the refund credited the
+    # reservoir, the auth scenario. Otherwise the LIFO refund lands in
+    # gas_left, the sub-call OOGs, and CALL returns 0.
+    if is_auth_scenario:
+        probe_label = "auth_reservoir_probe_must_succeed"
+        probe_result = 1
+    else:
+        probe_label = "gas_left_refund_probe_must_fail"
+        probe_result = 0
     consume_op = Op.SSTORE(
-        consumer_storage.store_next(1, "probe_must_succeed"),
+        consumer_storage.store_next(probe_result, probe_label),
         Op.CALL(gas=probe_gas, address=probe_address),
     )
 
