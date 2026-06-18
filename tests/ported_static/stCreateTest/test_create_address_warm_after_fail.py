@@ -9,6 +9,14 @@ Written primarily by Paweł Bylica (@chfast). Somewhat modified by Ori (@qbzzt)
 
 Ported from:
 state_tests/stCreateTest/CreateAddressWarmAfterFailFiller.yml
+
+@manually-enhanced: Do not overwrite. The post-state records the
+measured cost of accessing the create address after a failed CREATE,
+which is a cold account access. EIP-8038 reprices a cold account
+access from 2 600 to 3 000, so each such measurement gains 400 at
+Amsterdam. Derive that delta from the fork's gas model so it is
+exactly 0 pre-EIP-8037 and tracks parameter changes; do not hardcode
+the Amsterdam value.
 """
 
 import pytest
@@ -381,6 +389,11 @@ def test_create_address_warm_after_fail(
         address=Address(0x00000000000000000000000000000000000C0DEC),  # noqa: E501
     )
 
+    # The create address access after a failed CREATE is cold here;
+    # EIP-8038 reprices a cold account access from 2 600 to 3 000.
+    # Derive the delta from the fork so it is 0 pre-EIP-8037.
+    cold_account_delta = fork.gas_costs().COLD_ACCOUNT_ACCESS - 2600
+
     expect_entries_: list[dict] = [
         {
             "indexes": {"data": [0, 2, 11, 4], "gas": -1, "value": [0]},
@@ -396,7 +409,7 @@ def test_create_address_warm_after_fail(
                         5: 1,
                         12: 328,
                         13: 316,
-                        14: 2828,
+                        14: 2828 + cold_account_delta,
                         15: 316,
                     },
                     nonce=1,
@@ -447,7 +460,7 @@ def test_create_address_warm_after_fail(
                         5: 1,
                         12: 328,
                         13: 316,
-                        14: 2828,
+                        14: 2828 + cold_account_delta,
                         15: 316,
                     },
                     nonce=1,
@@ -498,7 +511,7 @@ def test_create_address_warm_after_fail(
                         5: 1,
                         12: 328,
                         13: 316,
-                        14: 2828,
+                        14: 2828 + cold_account_delta,
                         15: 316,
                     },
                     nonce=1,
@@ -549,7 +562,7 @@ def test_create_address_warm_after_fail(
                         5: 1,
                         12: 328,
                         13: 316,
-                        14: 2828,
+                        14: 2828 + cold_account_delta,
                         15: 316,
                     },
                     nonce=1,
@@ -600,7 +613,7 @@ def test_create_address_warm_after_fail(
                         5: 1,
                         12: 328,
                         13: 316,
-                        14: 2828,
+                        14: 2828 + cold_account_delta,
                         15: 316,
                     },
                     nonce=1,
@@ -649,9 +662,9 @@ def test_create_address_warm_after_fail(
                         3: 1,
                         4: 1,
                         5: 1,
-                        12: 2828,
+                        12: 2828 + cold_account_delta,
                         13: 316,
-                        14: 2828,
+                        14: 2828 + cold_account_delta,
                         15: 316,
                     },
                     nonce=0,
@@ -703,9 +716,9 @@ def test_create_address_warm_after_fail(
                         3: 1,
                         4: 1,
                         5: 1,
-                        12: 2828,
+                        12: 2828 + cold_account_delta,
                         13: 316,
-                        14: 2828,
+                        14: 2828 + cold_account_delta,
                         15: 316,
                     },
                     nonce=0,
@@ -753,7 +766,7 @@ def test_create_address_warm_after_fail(
                         5: 1,
                         12: 328,
                         13: 316,
-                        14: 2828,
+                        14: 2828 + cold_account_delta,
                         15: 316,
                     },
                     nonce=1,
@@ -804,7 +817,7 @@ def test_create_address_warm_after_fail(
                         5: 1,
                         12: 328,
                         13: 316,
-                        14: 2828,
+                        14: 2828 + cold_account_delta,
                         15: 316,
                     },
                     nonce=1,

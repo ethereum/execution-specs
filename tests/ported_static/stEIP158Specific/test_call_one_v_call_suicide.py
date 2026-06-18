@@ -3,6 +3,15 @@ Test_call_one_v_call_suicide.
 
 Ported from:
 state_tests/stEIP158Specific/CALL_OneVCallSuicideFiller.json
+
+@manually-enhanced: Do not overwrite. The measured slot captures the
+regular gas of a CALL with value to a not-yet-accessed contract that
+SELFDESTRUCTs to the (alive) caller. EIP-8038 reprices the cold account
+access (2600 -> 3000) and the CALL value transfer (9000 -> 10300); the
+beneficiary stays alive so there is no new-account write. The delta is
+`(COLD_ACCOUNT_ACCESS - 2600) + (CALL_VALUE - 9000)`, exactly 0 before
+EIP-8037 and tracks parameter changes; do not hardcode the Amsterdam
+value.
 """
 
 import pytest
@@ -15,6 +24,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,8 +39,14 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_call_one_v_call_suicide(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_call_one_v_call_suicide."""
+    # EIP-8038 deltas, each 0 before EIP-8037. The CALL pays a cold
+    # account access plus a value transfer; the beneficiary stays alive.
+    gas_costs = fork.gas_costs()
+    cold_account_delta = gas_costs.COLD_ACCOUNT_ACCESS - 2600
+    call_value_delta = gas_costs.CALL_VALUE - 9000
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xE8D4A51000)
 
@@ -84,7 +100,10 @@ def test_call_one_v_call_suicide(
 
     post = {
         addr: Account(storage={}, balance=0),
-        target: Account(storage={100: 14337}, balance=100),
+        target: Account(
+            storage={100: 14337 + cold_account_delta + call_value_delta},
+            balance=100,
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

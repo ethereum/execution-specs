@@ -386,6 +386,10 @@ def test_auth_refund_block_gas_accounting(
       `RESET_DELEGATION_ADDRESS`; same full refill, since the refill
       keys off the *pre-state* code slot, not what we're writing.
 
+    When the authority's account leaf already exists, the worst-case
+    `ACCOUNT_WRITE` charged at intrinsic time is additionally refunded
+    via the regular refund counter, subject to the refund cap.
+
     Verified via header `gas_used`, receipt `cumulative_gas_used`, and
     the authority post-state (catches a silently-skipped auth).
     """
@@ -397,6 +401,7 @@ def test_auth_refund_block_gas_accounting(
     )
     intrinsic_regular = total_intrinsic - intrinsic_state_gas
     new_account_refund = fork.gas_costs().REFUND_AUTH_PER_EXISTING_ACCOUNT
+    account_write = fork.gas_costs().ACCOUNT_WRITE
     # Per-auth intrinsic state gas covers NEW_ACCOUNT + AUTH_BASE; the
     # AUTH_BASE portion is what's left after stripping NEW_ACCOUNT.
     auth_base_refund = intrinsic_state_gas - new_account_refund
@@ -411,17 +416,20 @@ def test_auth_refund_block_gas_accounting(
         signer = pre.fund_eoa(amount=0)
         pre_nonce = 0
         auth_refund = auth_base_refund if authorize_to_null else 0
+        refund_counter = 0
     elif signer_pre_state == "existing_leaf":
         signer = pre.fund_eoa()
         pre_nonce = 0
         auth_refund = new_account_refund + (
             auth_base_refund if authorize_to_null else 0
         )
+        refund_counter = account_write
     elif signer_pre_state == "existing_delegation":
         # `fund_eoa(delegation=...)` sets the authority's nonce to 1.
         signer = pre.fund_eoa(delegation=contract_old)
         pre_nonce = 1
         auth_refund = new_account_refund + auth_base_refund
+        refund_counter = account_write
     else:
         raise ValueError(f"unknown signer_pre_state: {signer_pre_state!r}")
 
@@ -450,7 +458,14 @@ def test_auth_refund_block_gas_accounting(
         intrinsic_regular,
         intrinsic_state_gas - auth_refund,
     )
-    receipt_cumulative_gas_used = total_intrinsic - auth_refund
+    # The state refill is not subject to the refund cap; the regular
+    # `ACCOUNT_WRITE` refund is.
+    gas_used_before_refund = total_intrinsic - auth_refund
+    regular_refund = min(
+        gas_used_before_refund // fork.max_refund_quotient(),
+        refund_counter,
+    )
+    receipt_cumulative_gas_used = gas_used_before_refund - regular_refund
 
     tx = Transaction(
         to=contract_new,
@@ -1409,9 +1424,12 @@ def test_auth_sender_billing_after_failure(
     on top-level failure.
 
     For existing accounts, set_delegation refunds new-account state
-    gas to the reservoir. On REVERT, the restored reservoir reduces
-    the sender's bill via the billing formula. The sender pays less
-    than in the new-account case by exactly the refund amount.
+    gas to the reservoir and the worst-case `ACCOUNT_WRITE` to the
+    regular refund counter; both survive the top-level REVERT since
+    delegations are applied before execution. On REVERT, the restored
+    reservoir and the capped regular refund reduce the sender's bill
+    via the billing formula. The sender pays less than in the
+    new-account case.
     """
     auth_intrinsic_state = fork.transaction_intrinsic_state_gas(
         authorization_count=1,
@@ -1431,7 +1449,13 @@ def test_auth_sender_billing_after_failure(
 
     revert_gas = (Op.REVERT(0, 0)).gas_cost(fork)
     auth_refund = new_account_refund if authority_exists else 0
-    expected_cumulative = intrinsic_total + revert_gas - auth_refund
+    refund_counter = fork.gas_costs().ACCOUNT_WRITE if authority_exists else 0
+    gas_used_before_refund = intrinsic_total + revert_gas - auth_refund
+    regular_refund = min(
+        gas_used_before_refund // fork.max_refund_quotient(),
+        refund_counter,
+    )
+    expected_cumulative = gas_used_before_refund - regular_refund
     expected_gas_used = max(
         intrinsic_regular + revert_gas,
         auth_intrinsic_state - auth_refund,

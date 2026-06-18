@@ -3,9 +3,15 @@ Test_create2_oo_gafter_init_code.
 
 Ported from:
 state_tests/stCreate2/Create2OOGafterInitCodeFiller.json
-@manually-enhanced: Do not overwrite. tx_gas[1] is tuned to barely
-succeed CREATE2 on Cancun; on Amsterdam EIP-8037 the NEW_ACCOUNT
-state-gas spills, so lift the budget by Fork.oog_budget_lift.
+@manually-enhanced: Do not overwrite. The init code RETURNs a 5-byte
+deployed contract; g0 must run out before the deposit (account stays
+NONEXISTENT) and g1 must just clear it (account created). On Cancun
+the deploy gap is the 1000-gas regular code deposit and the test's
+two budgets straddle it. EIP-8037/8038 move account creation into a
+spilling state-gas charge AND drop OPCODE_CREATE_BASE, so the budget
+that reaches the same RETURN point changes by a fork-derived amount.
+The lift restores the straddle: it is exactly 0 pre-EIP-8037 and
+tracks the parameters. See `_oog_lift` below for the derivation.
 """
 
 import pytest
@@ -113,19 +119,39 @@ def test_create2_oo_gafter_init_code(
     tx_data = [
         Bytes(""),
     ]
-    # Lift both entries on Amsterdam so the test still exercises its
-    # named scenario. With only tx_gas[1] lifted, g=0 OoG'd at CREATE2
-    # dispatch (NEW_ACCOUNT state-gas spill) before init code ever ran —
-    # the assertion still passes (`NONEXISTENT` either way) but the
-    # failure mode is "dispatch-time OoG" instead of "OoG after init
-    # code". A simple `fork.oog_budget_lift(creates_before_oog=1)` (183600)
-    # is *too* generous and pushes g=0 past the deploy threshold; the
-    # Cancun 1000-gas gap between g=0 and g=1 collapses on Amsterdam
-    # because once dispatch is cleared, the 5-byte init code is cheap
-    # enough to always complete. The value below is the middle of the
-    # empirically-safe range (166499, 167000) where g=0 still OoGs at
-    # dispatch *and* g=1 just clears the deploy threshold (~221.5k).
-    _oog_lift = 166_750 if fork.is_eip_enabled(8037) else 0
+    # The init code RETURNs a 5-byte deployed contract, so the CREATE2
+    # frame is charged a code deposit after the init RETURN. On Cancun
+    # that deposit is 1000 (200 * 5 regular) and the two budgets below
+    # straddle it: g0 reaches RETURN just under 1000 gas (deploy fails,
+    # account NONEXISTENT) and g1 just over (deploy succeeds). The
+    # 1000-gas gap between the budgets is exactly this Cancun deploy
+    # threshold.
+    #
+    # EIP-8037/8038 change the CREATE2 dispatch in two ways that the
+    # budget must absorb before the init code RETURNs: the new
+    # `create_state_gas()` spills into regular gas (empty reservoir),
+    # and `OPCODE_CREATE_BASE` drops from its Cancun value of 32000.
+    # Their sum is the net extra the dispatch consumes from the budget.
+    # The deposit step then changes too: its regular `CODE_DEPOSIT_PER_BYTE
+    # * 5` portion is now covered by the state-gas reservoir credited at
+    # dispatch, while `code_deposit_state_gas(code_size=5)` spills and
+    # must come from the forwarded gas instead. The lift restores the
+    # Cancun straddle by funding the net dispatch consumption plus the
+    # deposit's state spill, minus the regular deposit the budgets
+    # already carried in their 1000-gas gap. Every term is 0
+    # pre-EIP-8037, so the original Cancun behavior is preserved.
+    gas_costs = fork.gas_costs()
+    _cancun_create_base = 32000
+    _deploy_size = 5
+    _oog_lift = 0
+    if fork.is_eip_enabled(8037):
+        _oog_lift = (
+            fork.oog_budget_lift(
+                creates_before_oog=1, deploy_code_size=_deploy_size
+            )
+            + (gas_costs.OPCODE_CREATE_BASE - _cancun_create_base)
+            - gas_costs.CODE_DEPOSIT_PER_BYTE * _deploy_size
+        )
     tx_gas = [54000 + _oog_lift, 55000 + _oog_lift]
 
     tx = Transaction(

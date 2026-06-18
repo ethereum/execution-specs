@@ -3,6 +3,18 @@ Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/stEIP150singleCodeGasPrices/gasCostBerlinFiller.yml
+
+@manually-enhanced: Do not overwrite. This crafts a one-opcode
+contract, CALLs it, and stores the opcode's measured gas minus the
+data's hardcoded Cancun-era expected cost (so the net is normally 0).
+EIP-8038 reprices state access, so four opcodes now exceed their old
+expected cost by a fork-derived delta: `BALANCE` and `SELFDESTRUCT`
+(cold account, `COLD_ACCOUNT_ACCESS` 2600 -> 3000, +400), `EXTCODESIZE`
+(cold account plus the extra `WARM_ACCESS` for the opcode's code read,
++500), and `SLOAD` (cold storage, `COLD_STORAGE_ACCESS` 2100 -> 3000,
++900). The stored net for those four data indices becomes that delta;
+every other index stays 0. Each delta is derived from the fork's own
+constants and is exactly 0 pre-EIP-8038; do not hardcode it.
 """
 
 import pytest
@@ -710,6 +722,23 @@ def test_gas_cost_berlin(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
+    gas_costs = fork.gas_costs()
+    # EIP-8038 access repricing; each term is 0 on earlier forks.
+    cold_account_delta = gas_costs.COLD_ACCOUNT_ACCESS - 2600
+    cold_storage_delta = gas_costs.COLD_STORAGE_ACCESS - 2100
+    # EXTCODESIZE also gains an extra warm access for its code read.
+    code_read_delta = cold_account_delta + (
+        gas_costs.WARM_ACCESS if fork.is_eip_enabled(8037) else 0
+    )
+    # Each measured opcode subtracts its Cancun-era expected cost, so the
+    # net is the (Amsterdam - Cancun) repricing of the one state access
+    # it performs (cold address 0 / cold fresh slot), keyed by data index.
+    measured_delta = {
+        23: cold_account_delta,  # BALANCE
+        31: code_read_delta,  # EXTCODESIZE
+        39: cold_storage_delta,  # SLOAD
+        45: cold_account_delta,  # SELFDESTRUCT
+    }.get(d, 0)
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
 
@@ -969,6 +998,6 @@ def test_gas_cost_berlin(
         value=tx_value[v],
     )
 
-    post = {addr: Account(storage=_storage_with_any({0: 0}, [1]))}
+    post = {addr: Account(storage=_storage_with_any({0: measured_delta}, [1]))}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

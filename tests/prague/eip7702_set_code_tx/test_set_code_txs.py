@@ -1470,6 +1470,7 @@ def test_ext_code_on_self_set_code(
 def test_set_code_address_and_authority_warm_state(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     set_code_address_first: bool,
 ) -> None:
     """
@@ -1512,13 +1513,18 @@ def test_set_code_address_and_authority_warm_state(
     callee_code += Op.SSTORE(slot_call_success, 1) + Op.STOP
 
     callee_address = pre.deploy_contract(callee_code)
+    gas_costs = fork.gas_costs()
+    cold_account_cost = gas_costs.COLD_ACCOUNT_ACCESS
+    warm_account_cost = gas_costs.WARM_ACCESS
     callee_storage = Storage()
     callee_storage[slot_call_success] = 1
     callee_storage[slot_set_code_to_warm_state] = (
-        2_600 if set_code_address_first else 100
+        cold_account_cost if set_code_address_first else warm_account_cost
     )
     callee_storage[slot_authority_warm_state] = (
-        200 if set_code_address_first else 2_700
+        2 * warm_account_cost
+        if set_code_address_first
+        else warm_account_cost + cold_account_cost
     )
 
     tx = Transaction(

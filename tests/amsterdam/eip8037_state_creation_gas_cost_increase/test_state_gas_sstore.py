@@ -968,29 +968,36 @@ def test_sstore_restoration_ancestor_revert(
     probe = pre.deploy_contract(code=probe_code)
 
     caller_storage = Storage()
-    caller_code = Op.POP(call_opcode(gas=Op.GAS, address=middle)) + Op.SSTORE(
+    # The probe OOGs and returns 0, so the caller's outer SSTORE is a
+    # cold no-op (0 to 0) on a fresh slot, charging only
+    # COLD_STORAGE_ACCESS rather than the cold set `regular_cost`
+    # assumes by default.
+    caller_code = Op.POP(
+        call_opcode(gas=Op.GAS, address=middle)
+    ) + Op.SSTORE.with_metadata(
+        key_warm=False,
+        original_value=0,
+        current_value=0,
+        new_value=0,
+    )(
         caller_storage.store_next(0, "probe_must_fail"),
         Op.CALL(gas=probe_gas, address=probe),
     )
     caller = pre.deploy_contract(code=caller_code)
 
-    # Block state gas commits only the caller's outer SSTORE-set. The
-    # probe OOGs and inner's set+clear cancel before middle reverts.
-    # The probe's CALL burns its forwarded budget on the OOG, less the
-    # cold-call surcharge already in the caller's static regular cost.
-    # Header gas_used is max(regular, state).
-    probe_burned = (
-        probe_gas - gas_costs.COLD_ACCOUNT_ACCESS - 2 * gas_costs.WARM_ACCESS
-    )
-    expected_regular = (
+    # No SSTORE-set persists (inner's set+clear cancel, middle reverts,
+    # the probe OOGs and reverts, and the caller's outer SSTORE is a
+    # no-op), so block state gas is zero and header gas_used (the max of
+    # regular and state) is just the regular total. The probe burns its
+    # full forwarded budget on the OOG; its CALL's cold-access surcharge
+    # is already counted in the caller's regular cost.
+    expected_gas_used = (
         intrinsic_cost
         + caller_code.regular_cost(fork)
         + middle_code.regular_cost(fork)
         + inner_code.regular_cost(fork)
-        + probe_burned
+        + probe_gas
     )
-    expected_state = Op.SSTORE(new_value=1).state_cost(fork)
-    expected_gas_used = max(expected_regular, expected_state)
 
     # gas_limit at the cap means the caller's reservoir starts at 0.
     tx = Transaction(

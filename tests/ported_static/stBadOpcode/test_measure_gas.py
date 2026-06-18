@@ -3,6 +3,15 @@ Ori Pomerantz   qbzzt1@gmail.com.
 
 Ported from:
 state_tests/stBadOpcode/measureGasFiller.yml
+
+@manually-enhanced: Do not overwrite. A binary search measures the gas
+an opcode needs to succeed. Only the EXTCODE case shifts: it runs a
+warm `EXTCODESIZE` plus a warm `EXTCODECOPY` (the target is warmed by
+earlier search iterations), and EIP-8038 adds a flat +100 to each warm
+extcode access. The stored threshold therefore grows by the sum of the
+two opcodes' warm `(Amsterdam - Cancun)` cost deltas, derived from the
+fork's own gas model so it is exactly 0 before EIP-8038; do not
+hardcode the Amsterdam number.
 """
 
 import pytest
@@ -363,6 +372,26 @@ def test_measure_gas(
         address=Address(0x0000000000000000000000000000000000C0DEF2),  # noqa: E501
     )
 
+    # The EXTCODE search measures a warm `EXTCODESIZE` plus a warm
+    # `EXTCODECOPY` (the target is warmed by earlier search iterations).
+    # EIP-8038 adds a flat surcharge to each warm extcode access, so the
+    # threshold grows by the two opcodes' combined warm cost delta versus
+    # Cancun. Derived from the fork gas model so it is 0 before EIP-8038.
+    # The EXTCODECOPY metadata mirrors the measured access: a 0x20-byte
+    # copy into already-expanded memory, so only the account-access
+    # component varies across forks.
+    warm_extcode_delta = (
+        Op.EXTCODESIZE.with_metadata(address_warm=True).gas_cost(fork) - 100
+    ) + (
+        Op.EXTCODECOPY.with_metadata(
+            address_warm=True,
+            data_size=0x20,
+            new_memory_size=0x120,
+            old_memory_size=0x120,
+        ).gas_cost(fork)
+        - 103
+    )
+
     expect_entries_: list[dict] = [
         {
             "indexes": {"data": [0], "gas": -1, "value": -1},
@@ -397,7 +426,9 @@ def test_measure_gas(
         {
             "indexes": {"data": [10], "gas": -1, "value": -1},
             "network": [">=Cancun"],
-            "result": {contract_12: Account(storage={0: 221})},
+            "result": {
+                contract_12: Account(storage={0: 221 + warm_extcode_delta})
+            },
         },
         {
             "indexes": {"data": [9], "gas": -1, "value": -1},

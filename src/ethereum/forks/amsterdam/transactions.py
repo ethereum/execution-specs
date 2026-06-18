@@ -670,7 +670,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> IntrinsicGasCost:
     create_state_gas = Uint(0)
     if tx.to == Bytes0(b""):
         create_state_gas = StateGasCosts.NEW_ACCOUNT
-        create_regular_gas = GasCosts.REGULAR_GAS_CREATE + init_code_cost(
+        create_regular_gas = GasCosts.CREATE_ACCESS + init_code_cost(
             ulen(tx.data)
         )
 
@@ -693,9 +693,9 @@ def calculate_intrinsic_cost(tx: Transaction) -> IntrinsicGasCost:
     auth_regular_gas = Uint(0)
     auth_state_gas = Uint(0)
     if isinstance(tx, SetCodeTransaction):
-        auth_regular_gas = GasCosts.PER_AUTH_BASE_COST * ulen(
-            tx.authorizations
-        )
+        auth_regular_gas = (
+            GasCosts.ACCOUNT_WRITE + GasCosts.REGULAR_PER_AUTH_BASE_COST
+        ) * ulen(tx.authorizations)
         auth_state_gas = (
             StateGasCosts.NEW_ACCOUNT + StateGasCosts.AUTH_BASE
         ) * ulen(tx.authorizations)
