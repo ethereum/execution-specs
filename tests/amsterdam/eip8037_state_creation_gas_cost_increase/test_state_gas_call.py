@@ -29,7 +29,6 @@ from execution_testing import (
     Storage,
     Transaction,
     TransactionReceipt,
-    compute_create2_address,
     compute_create_address,
 )
 from execution_testing.checklists import EIPChecklist
@@ -1093,19 +1092,13 @@ def test_call_value_to_self_destructed_burns_value(
         ),
         balance=initial_balance,
     )
-    # CREATE/CREATE2 address depends on the opcode, but for both the
-    # orchestrator's nonce after the deploy is 1 at the time of the
-    # CREATE. Using compute_create_address for CREATE is correct; for
-    # CREATE2 the deterministic address depends on salt and initcode.
-    # Use a salt of 0 and the initcode built above for CREATE2.
-    if create_opcode == Op.CREATE2:
-        created_address = compute_create2_address(
-            address=orchestrator,
-            salt=0,
-            initcode=bytes(inner_code),
-        )
-    else:
-        created_address = compute_create_address(address=orchestrator, nonce=1)
+    created_address = compute_create_address(
+        address=orchestrator,
+        nonce=1,
+        salt=0,
+        initcode=bytes(inner_code),
+        opcode=create_opcode,
+    )
 
     tx = Transaction(
         to=orchestrator,
@@ -1113,11 +1106,15 @@ def test_call_value_to_self_destructed_burns_value(
         sender=pre.fund_eoa(),
     )
 
+    created_address_account = Account.NONEXISTENT
+    if fork.is_eip_enabled(8246):
+        created_address_account = Account(balance=call_value * 2)
+
     blockchain_test(
         pre=pre,
         blocks=[Block(txs=[tx])],
         post={
-            created_address: Account.NONEXISTENT,
+            created_address: created_address_account,
             orchestrator: Account(balance=0),
         },
     )

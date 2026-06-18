@@ -37,7 +37,6 @@ from ethereum.state import (
     State,
     apply_changes_to_state,
 )
-from ethereum.utils.byte import left_pad_zero_bytes
 
 from . import vm
 from .block_access_lists import (
@@ -71,8 +70,8 @@ from .requests import (
 from .state_tracker import (
     BlockState,
     TransactionState,
+    clear_account_preserving_balance,
     create_ether,
-    destroy_account,
     extract_block_diff,
     get_account,
     get_code,
@@ -1107,26 +1106,7 @@ def process_transaction(
     # transfer miner fees
     create_ether(tx_state, block_env.coinbase, U256(transaction_fee))
 
-    # EIP-7708: Emit burn logs for balances held by accounts marked for
-    # deletion AFTER miner fee transfer.
-    finalization_logs: List[Log] = []
-    for address in sorted(tx_output.accounts_to_delete):
-        balance = get_account(tx_state, address).balance
-        if balance > U256(0):
-            padded_address = left_pad_zero_bytes(address, 32)
-            finalization_logs.append(
-                Log(
-                    address=vm.SYSTEM_ADDRESS,
-                    topics=(
-                        vm.BURN_TOPIC,
-                        Hash32(padded_address),
-                    ),
-                    data=balance.to_be_bytes32(),
-                )
-            )
-
-    all_logs = tx_output.logs + tuple(finalization_logs)
-
+    tx_regular_gas = tx_env.intrinsic_regular_gas + tx_output.regular_gas_used
     tx_state_gas = (
         int(tx_env.intrinsic_state_gas)
         + tx_output.state_gas_used
@@ -1139,10 +1119,7 @@ def process_transaction(
 
     block_output.cumulative_gas_used += tx_gas_used
     receipt = make_receipt(
-        tx,
-        tx_output.error,
-        block_output.cumulative_gas_used,
-        all_logs,
+        tx, tx_output.error, block_output.cumulative_gas_used, tx_output.logs
     )
 
     receipt_key = rlp.encode(Uint(index))
@@ -1154,10 +1131,10 @@ def process_transaction(
         receipt,
     )
 
-    block_output.block_logs += all_logs
+    block_output.block_logs += tx_output.logs
 
     for address in tx_output.accounts_to_delete:
-        destroy_account(tx_state, address)
+        clear_account_preserving_balance(tx_state, address)
 
     incorporate_tx_into_block(tx_state, block_env.block_access_list_builder)
 

@@ -28,7 +28,6 @@ from ...state_tracker import (
     increment_nonce,
     is_account_alive,
     move_ether,
-    set_account_balance,
 )
 from ...utils.address import (
     compute_contract_address,
@@ -43,7 +42,6 @@ from .. import (
     Evm,
     Message,
     credit_state_gas_refund,
-    emit_burn_log,
     emit_transfer_log,
     incorporate_child_on_error,
     incorporate_child_on_success,
@@ -689,15 +687,11 @@ def selfdestruct(evm: Evm) -> None:
     move_ether(tx_state, originator, beneficiary, originator_balance)
 
     # Emit transfer or burn log
-    if originator in tx_state.created_accounts and beneficiary == originator:
-        emit_burn_log(evm, originator, originator_balance)
-    elif beneficiary != originator:
+    if beneficiary != originator:
         emit_transfer_log(evm, originator, beneficiary, originator_balance)
 
     # Register account for deletion iff created in same transaction
     if originator in tx_state.created_accounts:
-        # If beneficiary and originator are the same then the ether is burnt.
-        set_account_balance(tx_state, originator, U256(0))
         evm.accounts_to_delete.add(originator)
 
     # HALT the execution
