@@ -48,6 +48,8 @@ class EIP8038(BaseFork):
         # COLD_STORAGE_WRITE (access + write), so preserve the invariant
         # COLD_STORAGE_WRITE - COLD_STORAGE_ACCESS == STORAGE_WRITE.
         cold_storage_write = cold_storage_access + storage_write
+        # Surcharge for the first write to an account leaf, introduced as a
+        # standalone parameter by this repricing.
         account_write = 8_000
         create_access = 11_000
         # ecRecover stays PRECOMPILE_ECRECOVER (3000) until EIP-7904 lands.

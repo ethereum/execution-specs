@@ -36,8 +36,6 @@ class GasCosts:
     CALL_VALUE: int
     CALL_STIPEND: int
     NEW_ACCOUNT: int
-    # Surcharge for the first write to an account leaf; 0 before the
-    # state-access repricing introduces it as a standalone parameter.
     ACCOUNT_WRITE: int = 0
 
     # Contract Creation
