@@ -40,5 +40,6 @@ class EIP2935(BaseFork):
             HISTORY_STORAGE_ADDRESS: {
                 "nonce": 1,
                 "code": HISTORY_STORAGE_BYTECODE,
-            }
-        } | super(EIP2935, cls).pre_allocation_blockchain()  # type: ignore
+            },
+            **super(EIP2935, cls).pre_allocation_blockchain(),
+        }

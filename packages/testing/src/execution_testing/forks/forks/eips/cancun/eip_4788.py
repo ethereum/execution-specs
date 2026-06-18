@@ -43,8 +43,9 @@ class EIP4788(BaseFork):
                 "57602036146024575f5ffd5b5f35801560495762001fff810690"
                 "815414603c575f5ffd5b62001fff01545f5260205ff35b5f5ffd"
                 "5b62001fff42064281555f359062001fff015500",
-            }
-        } | super(EIP4788, cls).pre_allocation_blockchain()  # type: ignore
+            },
+            **super(EIP4788, cls).pre_allocation_blockchain(),
+        }
 
     @classmethod
     def engine_new_payload_beacon_root(cls) -> bool:

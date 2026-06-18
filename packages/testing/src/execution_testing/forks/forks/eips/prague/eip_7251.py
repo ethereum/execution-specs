@@ -42,4 +42,5 @@ class EIP7251(BaseFork):
                 "nonce": 1,
                 "code": CONSOLIDATION_REQUEST_PREDEPLOY_BYTECODE,
             },
-        } | super(EIP7251, cls).pre_allocation_blockchain()  # type: ignore
+            **super(EIP7251, cls).pre_allocation_blockchain(),
+        }
