@@ -51,7 +51,7 @@ jobs:
   sanity-checks:
     name: ${{ matrix.name }}
     needs: [unit-tests]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted-ghr, size-xl-x64]
     strategy:
       fail-fast: false
       matrix:
