@@ -341,10 +341,12 @@ def extcodesize(evm: Evm) -> None:
 
     # GAS
     if address in evm.accessed_addresses:
-        charge_gas(evm, GasCosts.WARM_ACCESS)
+        access_gas_cost = GasCosts.WARM_ACCESS
     else:
         evm.accessed_addresses.add(address)
-        charge_gas(evm, GasCosts.COLD_ACCOUNT_ACCESS)
+        access_gas_cost = GasCosts.COLD_ACCOUNT_ACCESS
+    access_gas_cost += GasCosts.WARM_ACCESS  # Code reading cost (EIP-8038)
+    charge_gas(evm, access_gas_cost)
 
     # OPERATION
     tx_state = evm.message.tx_env.state
@@ -386,6 +388,7 @@ def extcodecopy(evm: Evm) -> None:
     else:
         evm.accessed_addresses.add(address)
         access_gas_cost = GasCosts.COLD_ACCOUNT_ACCESS
+    access_gas_cost += GasCosts.WARM_ACCESS  # Code reading cost (EIP-8038)
 
     total_gas_cost = access_gas_cost + copy_gas_cost + extend_memory.cost
 

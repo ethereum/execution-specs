@@ -3,6 +3,19 @@ Test_store_clears_and_internal_call_store_clears_success.
 
 Ported from:
 state_tests/stTransactionTest/StoreClearsAndInternalCallStoreClearsSuccessFiller.json
+
+@manually-enhanced: Do not overwrite. The outer contract `target` clears 4
+cold storage slots then `CALL`s the inner contract `addr`, which clears 10
+cold storage slots; the value transfer and clears must all succeed.
+EIP-8037/8038 raise the cold SSTORE-clear charge from 5000 to 13000 at
+Amsterdam, so both gas budgets must rise by that charge delta or the inner
+frame runs out of gas (clearing only 4 of its 10 slots) and the value
+transfer rolls back. The inner `CALL` only forwards a fixed gas amount, so
+its budget is bumped by the 10 inner clears; the transaction gas limit is
+bumped by all 14 clears (10 inner plus 4 outer) so the outer frame can both
+pay its own clears and forward the larger amount. Both bumps are derived
+from the fork gas model and are exactly 0 pre-EIP-8037; do not hardcode the
+Amsterdam values.
 """
 
 import pytest
@@ -15,6 +28,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -31,10 +45,18 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_store_clears_and_internal_call_store_clears_success(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_store_clears_and_internal_call_store_clears_success."""
     coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = pre.fund_eoa(amount=0x1DCD6500)
+
+    # EIP-8037/8038 raise the cold SSTORE-clear charge; derive the per-clear
+    # delta (0 pre-EIP-8037) so both gas budgets keep every clear landing.
+    sstore_charge = Op.SSTORE.with_metadata(
+        key_warm=False, original_value=1, current_value=1, new_value=0
+    ).gas_cost(fork)
+    cold_clear_delta = sstore_charge - 5000
 
     env = Environment(
         fee_recipient=coinbase,
@@ -81,7 +103,10 @@ def test_store_clears_and_internal_call_store_clears_success(
         + Op.SSTORE(key=0x2, value=0x0)
         + Op.SSTORE(key=0x3, value=0x0)
         + Op.CALL(
-            gas=0xC350,
+            # The inner frame clears 10 cold slots; forward its extra
+            # charge so all 10 clears land at Amsterdam (delta is 0
+            # pre-EIP-8037).
+            gas=0xC350 + 10 * cold_clear_delta,
             address=addr,
             value=0x1,
             args_offset=0x0,
@@ -99,7 +124,10 @@ def test_store_clears_and_internal_call_store_clears_success(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=200000,
+        # The whole transaction clears 14 cold slots (4 in the outer frame,
+        # 10 in the inner frame); bump the limit by all of them so the outer
+        # frame can pay its own clears and forward the larger inner budget.
+        gas_limit=200000 + 14 * cold_clear_delta,
         value=10,
     )
 

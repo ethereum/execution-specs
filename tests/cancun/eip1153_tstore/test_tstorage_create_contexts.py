@@ -6,7 +6,6 @@ from enum import unique
 
 import pytest
 from execution_testing import (
-    AccessList,
     Account,
     Address,
     Alloc,
@@ -280,24 +279,33 @@ def test_tstore_rollback_on_failed_create(
     https://github.com/ethereum/execution-specs/issues/917
 
     Initcode does TLOAD(1) to compute a return size, then does
-    TSTORE(1, 0x6000), then returns data of the computed size.
-    When TLOAD(1) is 0, the return size is 0x600a (exceeds max code
-    size 0x6000), so creation fails.
+    TSTORE(1, max_code_size), then returns data of the computed size.
+    When TLOAD(1) is 0, the return size exceeds the max code size, so
+    creation fails.
 
     The caller invokes CREATE/CREATE2 twice with the same initcode.
     If TSTORE from the first (failed) creation is properly rolled
-    back, the second creation also sees TLOAD(1)==0 and fails the
-    same way. If not rolled back, TLOAD(1)==0x6000 and the second
-    creation succeeds.
+    back, the second CREATE2 also sees TLOAD(1)==0 and fails the same
+    way, so nothing is deployed. If it were not rolled back, the
+    second CREATE2 would see TLOAD(1)==max_code_size, return a small
+    valid contract and succeed; the post-state therefore asserts the
+    target address is non-existent.
+
+    The create results are not recorded with SSTORE: a failed create
+    burns its full 63/64 gas forward, and under the EIP-8037
+    transaction gas-limit cap two of them in sequence leave too little
+    regular gas to write the result. Asserting account non-existence
+    checks the same rollback property without that write.
     """
     # Initcode:
-    #   return_size = 0x600a - TLOAD(1)
-    #   TSTORE(1, 0x6000)
+    #   return_size = (max_code_size + 0x0A) - TLOAD(1)
+    #   TSTORE(1, max_code_size)
     #   RETURN(offset=0, size=return_size)
     #
-    # TLOAD(1)==0:     return_size = 0x600a > max code size -> fail
-    # TLOAD(1)==0x6000: return_size = 0x0a <= max code size -> succeed
+    # TLOAD(1)==0:             return_size > max code size -> fail
+    # TLOAD(1)==max_code_size: return_size = 0x0A <= max   -> succeed
     max_code_size = fork.max_code_size()
+    salt = 0
 
     initcode = (
         Op.TLOAD(1)
@@ -310,36 +318,47 @@ def test_tstore_rollback_on_failed_create(
     initcode_bytes = bytes(initcode)
     initcode_len = len(initcode_bytes)
 
+    create_call = (
+        create_opcode(0, 0, initcode_len, salt)
+        if create_opcode == Op.CREATE2
+        else create_opcode(0, 0, initcode_len)
+    )
     caller_code = (
         Om.MSTORE(initcode_bytes, 0)
-        + Op.SSTORE(
-            0,
-            create_opcode(0, 0, initcode_len, 0)
-            if create_opcode == Op.CREATE2
-            else create_opcode(0, 0, initcode_len),
-        )
-        + Op.SSTORE(
-            1,
-            create_opcode(0, 0, initcode_len, 0)
-            if create_opcode == Op.CREATE2
-            else create_opcode(0, 0, initcode_len),
-        )
+        + create_call
+        + Op.POP
+        + create_call
+        + Op.POP
     )
-    caller_address = pre.deploy_contract(caller_code, storage={0: 1, 1: 1})
+    caller_address = pre.deploy_contract(caller_code)
+
+    # CREATE2 targets one deterministic address (salt + initcode) for
+    # both attempts; CREATE targets nonce-derived addresses (the
+    # deployed caller starts at nonce 1).
+    if create_opcode == Op.CREATE2:
+        created_addresses = [
+            compute_create_address(
+                address=caller_address,
+                salt=salt,
+                initcode=initcode,
+                opcode=Op.CREATE2,
+            )
+        ]
+    else:
+        created_addresses = [
+            compute_create_address(
+                address=caller_address, nonce=nonce, opcode=Op.CREATE
+            )
+            for nonce in (1, 2)
+        ]
 
     sender = pre.fund_eoa()
-    tx = Transaction(
-        sender=sender,
-        to=caller_address,
-        access_list=[
-            AccessList(address=caller_address, storage_keys=[0, 1]),
-        ],
-    )
+    tx = Transaction(sender=sender, to=caller_address)
 
-    post = {
-        # Both creations fail because TSTORE is rolled back;
-        # initial storage {0: 1, 1: 1} is overwritten to zeros
-        caller_address: Account(storage={0: 0, 1: 0}),
-    }
+    # Both creations fail because TSTORE is rolled back, so nothing is
+    # deployed; the caller nonce still advances once per attempt.
+    post = {caller_address: Account(nonce=3)}
+    for created_address in created_addresses:
+        post[created_address] = Account.NONEXISTENT  # type: ignore
 
     state_test(pre=pre, post=post, tx=tx)
