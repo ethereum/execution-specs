@@ -23,7 +23,6 @@ ref_spec_8282 = ReferenceSpec(
 )
 
 
-@dataclass(frozen=True)
 class Spec:
     """
     Constants and parameters from EIP-8282. Addresses and request-type bytes
