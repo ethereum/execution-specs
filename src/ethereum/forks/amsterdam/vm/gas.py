@@ -78,8 +78,7 @@ class GasCosts:
     # Contract Creation
     CODE_DEPOSIT_PER_BYTE: Final[Uint] = Uint(200)
     CODE_INIT_PER_WORD: Final[Uint] = Uint(2)
-    # ACCOUNT_WRITE + COLD_STORAGE_ACCESS, per the EIP-8038 derivation.
-    CREATE_ACCESS: Final[Uint] = Uint(11000)
+    CREATE_ACCESS: Final[Uint] = ACCOUNT_WRITE + COLD_STORAGE_ACCESS
 
     # Utility
     ZERO: Final[Uint] = Uint(0)
@@ -87,9 +86,9 @@ class GasCosts:
     FAST_STEP: Final[Uint] = Uint(5)
 
     # Refunds
-    # (STORAGE_WRITE + COLD_STORAGE_ACCESS) x 4800/5000, per the
-    # EIP-8038 derivation.
-    REFUND_STORAGE_CLEAR: Final[int] = 12480
+    REFUND_STORAGE_CLEAR: Final[int] = int(
+        (STORAGE_WRITE + COLD_STORAGE_ACCESS) * Uint(4800) // Uint(5000)
+    )
 
     # Precompiles
     PRECOMPILE_ECRECOVER: Final[Uint] = Uint(3000)
@@ -143,10 +142,8 @@ class GasCosts:
     TX_CREATE: Final[Uint] = Uint(32000)
     TX_DATA_TOKEN_STANDARD: Final[Uint] = Uint(4)
     TX_DATA_TOKEN_FLOOR: Final[Uint] = Uint(16)
-    # Per the EIP-8038 derivation these equal the access costs:
-    # ADDRESS = COLD_ACCOUNT_ACCESS, STORAGE_KEY = COLD_STORAGE_ACCESS.
-    TX_ACCESS_LIST_ADDRESS: Final[Uint] = Uint(3000)
-    TX_ACCESS_LIST_STORAGE_KEY: Final[Uint] = Uint(3000)
+    TX_ACCESS_LIST_ADDRESS: Final[Uint] = COLD_ACCOUNT_ACCESS
+    TX_ACCESS_LIST_STORAGE_KEY: Final[Uint] = COLD_STORAGE_ACCESS
 
     # Block
     LIMIT_ADJUSTMENT_FACTOR: Final[Uint] = Uint(1024)
