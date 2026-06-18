@@ -71,6 +71,8 @@ jobs:
         with:
           enable-cache: "false"
 
+      - uses: ./.github/actions/setup-env
+
       - name: Install PyPy for bench-gas json_loader verify
         if: matrix.recipe == 'bench-gas'
         shell: bash
