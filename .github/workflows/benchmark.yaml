@@ -35,8 +35,6 @@ jobs:
           submodules: true
 
       - uses: ./.github/actions/setup-uv
-        with:
-          enable-cache: "false"
 
       - uses: ./.github/actions/build-evm-base
         id: evm-builder
@@ -68,8 +66,6 @@ jobs:
           submodules: true
 
       - uses: ./.github/actions/setup-uv
-        with:
-          enable-cache: "false"
 
       - uses: ./.github/actions/setup-env
 
