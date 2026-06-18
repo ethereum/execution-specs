@@ -345,8 +345,8 @@ def extcodesize(evm: Evm) -> None:
     else:
         evm.accessed_addresses.add(address)
         access_gas_cost = GasCosts.COLD_ACCOUNT_ACCESS
-    # EIP-8038: extra WARM_ACCESS for the second read (the code).
-    charge_gas(evm, access_gas_cost + GasCosts.WARM_ACCESS)
+    access_gas_cost += GasCosts.WARM_ACCESS  # Code reading cost (EIP-8038)
+    charge_gas(evm, access_gas_cost)
 
     # OPERATION
     tx_state = evm.message.tx_env.state
@@ -388,8 +388,7 @@ def extcodecopy(evm: Evm) -> None:
     else:
         evm.accessed_addresses.add(address)
         access_gas_cost = GasCosts.COLD_ACCOUNT_ACCESS
-    # EIP-8038: extra WARM_ACCESS for the second read (the code).
-    access_gas_cost += GasCosts.WARM_ACCESS
+    access_gas_cost += GasCosts.WARM_ACCESS  # Code reading cost (EIP-8038)
 
     total_gas_cost = access_gas_cost + copy_gas_cost + extend_memory.cost
 
