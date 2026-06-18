@@ -26,3 +26,8 @@ benchmark_fast:
 devnet:
   evm-type: eels
   fill-params: --until=Amsterdam --generate-all-formats
+
+focil:
+  evm-type: eels
+  fill-params: ./tests/bogota/eip7805_focil --until=Amsterdam
+  feature_only: true
