@@ -8,6 +8,7 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    Bytecode,
     CodeGasMeasure,
     Fork,
     Initcode,
@@ -405,6 +406,67 @@ def test_max_code_size_high_jumpdest(
     # Valid: jump completes, call succeeds (1), and the store is kept.
     # Invalid: jump reverts, call fails (0), and nothing is stored.
     stored = 1 if valid_jumpdest else 0
+    post = {
+        caller: Account(storage={0: stored}),
+        target: Account(storage={0: stored}),
+    }
+
+    state_test(pre=pre, tx=tx, post=post)
+
+
+@pytest.mark.parametrize(
+    "tail,accepted",
+    [
+        pytest.param(Op.PUSH1(0x5B), False, id="push1_data_rejected"),
+        pytest.param(Op.DUPN[b"\x5b"], True, id="dupn_immediate_accepted"),
+        pytest.param(Op.SWAPN[b"\x5b"], True, id="swapn_immediate_accepted"),
+        pytest.param(
+            Op.EXCHANGE[b"\x5b"], True, id="exchange_immediate_accepted"
+        ),
+    ],
+)
+def test_max_code_size_jumpdest_in_immediate(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    tail: Bytecode,
+    accepted: bool,
+) -> None:
+    """
+    Ensure jumpdest analysis classifies a `0x5B` immediate byte correctly at
+    the new max code size.
+
+    A `0x5B` sits as the last byte of a `MAX_CODE_SIZE` contract, right after
+    an immediate-carrying opcode, and the contract jumps to it:
+
+    - ``push1_data_rejected``: the `0x5B` is `PUSH` data, always skipped by
+      the analysis, so it is not a `JUMPDEST` and the jump is rejected.
+    - ``dupn``/``swapn``/``exchange``: per EIP-8024 `0x5B` is an *invalid*
+      immediate for these opcodes, so it is not skipped and stays a valid
+      `JUMPDEST`, and the jump is accepted.
+
+    Exercises the immediate-skipping branches of jumpdest analysis well past
+    the old 24 KiB code and 48 KiB initcode limits.
+    """
+    jump_target = fork.max_code_size() - 1  # the 0x5B is the last byte
+    push_size = (jump_target.bit_length() + 7) // 8
+    push_op = getattr(Op, f"PUSH{push_size}")
+    prefix = Op.SSTORE(0, 1) + push_op(jump_target) + Op.JUMP
+    filler_len = fork.max_code_size() - len(prefix) - len(tail)
+    target_code = prefix + Op.INVALID * filler_len + tail
+    assert len(target_code) == fork.max_code_size()
+    assert bytes(target_code)[jump_target] == 0x5B
+
+    target = pre.deploy_contract(target_code)
+    caller = pre.deploy_contract(
+        Op.SSTORE(0, Op.CALL(gas=Op.GAS, address=target)) + Op.STOP
+    )
+
+    tx = Transaction(sender=pre.fund_eoa(), to=caller)
+
+    # Accepted: jump completes, the call succeeds (1), the store is kept.
+    # Rejected: jump reverts, the call fails (0), nothing is stored.
+    stored = 1 if accepted else 0
     post = {
         caller: Account(storage={0: stored}),
         target: Account(storage={0: stored}),
