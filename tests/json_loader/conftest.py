@@ -5,7 +5,7 @@ from typing import Callable
 
 from _pytest.config.argparsing import Parser
 from _pytest.nodes import Item
-from pytest import Collector, Config, Session, fixture, mark
+from pytest import Collector, Config, Session, fixture, hookimpl, mark
 
 from ethereum_spec_tools.evm_tools.t8n import ForkCache
 
@@ -180,12 +180,16 @@ def pytest_configure(config: Config) -> None:
     config.stash[desired_forks_key] = desired_forks
 
 
+@hookimpl(tryfirst=True)
 def pytest_collection_modifyitems(config: Config, items: list[Item]) -> None:
     """Assign xdist groups and filter test items."""
     # Group each fixtures file's cases onto one xdist worker (under
     # `--dist=loadgroup`) so the file's JSON is parsed once. Tests without a
     # group (e.g. the slow new-fork CLI tests) then distribute individually
     # instead of being pinned to one worker as `--dist=loadfile` forced.
+    #
+    # `tryfirst=True` is required: xdist reads each item's group before a
+    # default-ordered hook runs, so the marker must be added first.
     for item in items:
         if isinstance(item, FixtureTestItem):
             item.add_marker(mark.xdist_group(item.fixtures_file.nodeid))
