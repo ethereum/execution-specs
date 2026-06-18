@@ -5,7 +5,7 @@ from typing import Callable
 
 from _pytest.config.argparsing import Parser
 from _pytest.nodes import Item
-from pytest import Collector, Config, Session, fixture
+from pytest import Collector, Config, Session, fixture, mark
 
 from ethereum_spec_tools.evm_tools.t8n import ForkCache
 
@@ -181,7 +181,15 @@ def pytest_configure(config: Config) -> None:
 
 
 def pytest_collection_modifyitems(config: Config, items: list[Item]) -> None:
-    """Filter test items."""
+    """Assign xdist groups and filter test items."""
+    # Group each fixtures file's cases onto one xdist worker (under
+    # `--dist=loadgroup`) so the file's JSON is parsed once. Tests without a
+    # group (e.g. the slow new-fork CLI tests) then distribute individually
+    # instead of being pinned to one worker as `--dist=loadfile` forced.
+    for item in items:
+        if isinstance(item, FixtureTestItem):
+            item.add_marker(mark.xdist_group(item.fixtures_file.nodeid))
+
     tests_path = config.getoption("tests_path", None)
     if tests_path is None:
         return

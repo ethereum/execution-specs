@@ -169,7 +169,7 @@ json-loader *args:
         --cov-fail-under=85
     uv run pytest \
         -m "not slow" \
-        -n {{ xdist_workers }} --dist=loadfile \
+        -n {{ xdist_workers }} --dist=loadgroup \
         --cov-config=pyproject.toml \
         --cov=ethereum \
         --cov-branch \
