@@ -72,4 +72,5 @@ class EIP8282(BaseFork):
                 "nonce": 1,
                 "code": BUILDER_EXIT_REQUEST_PREDEPLOY_BYTECODE,
             },
-        } | super(EIP8282, cls).pre_allocation_blockchain()  # type: ignore
+            **super(EIP8282, cls).pre_allocation_blockchain(),
+        }
