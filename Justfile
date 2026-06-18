@@ -230,7 +230,8 @@ bench-gas *args:
         --generate-all-formats \
         --fork Osaka \
         -m "not slow" \
-        -n auto --maxprocesses 10 --dist=loadgroup \
+        -n auto --dist=loadgroup \
+        --durations=100 \
         --output="{{ output_dir }}/bench-gas/fixtures" \
         --basetemp="{{ output_dir }}/bench-gas/tmp" \
         --log-to "{{ output_dir }}/bench-gas/logs" \
@@ -243,7 +244,7 @@ bench-gas *args:
     cd tests/json_loader && uv run --python pypy3.11 pytest \
         --fork Osaka \
         --allow-post-state-hash \
-        -n auto --maxprocesses 10 --dist=loadfile \
+        -n auto --dist=loadfile \
         --basetemp="{{ output_dir }}/bench-gas/json-loader-tmp" \
         bench_gas_fixtures
 
@@ -256,7 +257,8 @@ bench-opcode *args:
         --fixed-opcode-count 1 \
         --fork Osaka \
         -m repricing \
-        -n auto --maxprocesses 10 --dist=loadgroup \
+        -n auto --dist=loadgroup \
+        --durations=100 \
         -k "not test_alt_bn128 and not test_bls12_381 and not test_modexp and not uncachable" \
         --output="{{ output_dir }}/bench-opcode/fixtures" \
         --basetemp="{{ output_dir }}/bench-opcode/tmp" \
@@ -275,7 +277,8 @@ bench-opcode-config *args:
         --fixed-opcode-count \
         --fork Osaka \
         -m repricing \
-        -n auto --maxprocesses 10 --dist=loadgroup \
+        -n auto --dist=loadgroup \
+        --durations=100 \
         -k "not test_alt_bn128 and not test_bls12_381 and not test_modexp and not test_point_evaluation_uncachable" \
         --output="{{ output_dir }}/bench-opcode-config/fixtures" \
         --basetemp="{{ output_dir }}/bench-opcode-config/tmp" \
