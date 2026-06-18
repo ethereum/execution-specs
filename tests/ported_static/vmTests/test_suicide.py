@@ -148,11 +148,14 @@ def test_suicide(
     # The CALL into the self-destructing contract touches a cold, already
     # existing account; EIP-8038 raises that cold account-access surcharge
     # from 2600 to 3000. The SELFDESTRUCT beneficiary is warm and
-    # non-empty, so its charge is unchanged. The sender pays this extra
-    # gas at the base fee (no priority fee), so its balance drops by the
-    # account-access delta times the gas price.
+    # non-empty, so its charge is unchanged. EIP-2780 separately reshapes
+    # the tx intrinsic for this non-self non-value call. The sender pays
+    # the combined delta at the base fee (no priority fee).
     cold_account_access_delta = fork.gas_costs().COLD_ACCOUNT_ACCESS - 2600
-    caller_balance = 0x5AF31075D9DE - 10 * cold_account_access_delta
+    intrinsic_delta = fork.transaction_intrinsic_cost_calculator()() - 21_000
+    caller_balance = (
+        0x5AF31075D9DE - 10 * cold_account_access_delta - 10 * intrinsic_delta
+    )
 
     expect_entries_: list[dict] = [
         {

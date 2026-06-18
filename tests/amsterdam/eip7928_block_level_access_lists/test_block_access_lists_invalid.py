@@ -28,6 +28,7 @@ from execution_testing import (
     Header,
     Initcode,
     Op,
+    RecipientType,
     Storage,
     Transaction,
     Withdrawal,
@@ -1464,14 +1465,21 @@ def test_bal_invalid_missing_coinbase(
         calldata=b"",
         contract_creation=False,
         access_list=[],
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+        sends_value=True,
     )
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        sends_value=True,
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+    )
+    total_intrinsic_gas = intrinsic_gas + top_frame_state_gas
     gas_price = 0xA
 
     tx = Transaction(
         sender=alice,
         to=bob,
         value=100,
-        gas_limit=intrinsic_gas + 1000,
+        gas_limit=total_intrinsic_gas + 1000,
         gas_price=gas_price,
     )
 
@@ -1481,7 +1489,7 @@ def test_bal_invalid_missing_coinbase(
         parent_gas_used=0,
         parent_gas_limit=genesis_env.gas_limit,
     )
-    tip = (gas_price - base_fee_per_gas) * intrinsic_gas
+    tip = (gas_price - base_fee_per_gas) * total_intrinsic_gas
 
     blockchain_test(
         pre=pre,
@@ -1546,14 +1554,21 @@ def test_bal_invalid_coinbase_balance_value(
         calldata=b"",
         contract_creation=False,
         access_list=[],
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+        sends_value=True,
     )
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        sends_value=True,
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+    )
+    total_intrinsic_gas = intrinsic_gas + top_frame_state_gas
     gas_price = 0xA
 
     tx = Transaction(
         sender=alice,
         to=bob,
         value=100,
-        gas_limit=intrinsic_gas + 1000,
+        gas_limit=total_intrinsic_gas + 1000,
         gas_price=gas_price,
     )
 
@@ -1563,7 +1578,7 @@ def test_bal_invalid_coinbase_balance_value(
         parent_gas_used=0,
         parent_gas_limit=genesis_env.gas_limit,
     )
-    tip = (gas_price - base_fee_per_gas) * intrinsic_gas
+    tip = (gas_price - base_fee_per_gas) * total_intrinsic_gas
 
     blockchain_test(
         pre=pre,
