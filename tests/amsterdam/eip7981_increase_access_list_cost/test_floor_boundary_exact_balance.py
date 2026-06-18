@@ -31,7 +31,11 @@ pytestmark = pytest.mark.valid_at("EIP7981")
 @pytest.mark.parametrize(
     "nonzero_bytes",
     [
-        pytest.param(1000, id="1000_nonzero_bytes"),
+        # Must be large enough that the floor midpoint chosen below
+        # stays above the access-list intrinsic cost (asserted in the
+        # test body): each nonzero byte adds 64 gas to the floor but
+        # only 16 to the intrinsic cost.
+        pytest.param(1700, id="1700_nonzero_bytes"),
         pytest.param(2000, id="2000_nonzero_bytes"),
     ],
 )

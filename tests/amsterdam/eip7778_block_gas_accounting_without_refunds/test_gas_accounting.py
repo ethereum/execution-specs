@@ -105,6 +105,10 @@ def build_refund_tx(
                 auth_state_refund = (
                     gsc.REFUND_AUTH_PER_EXISTING_ACCOUNT * refunds_count
                 )
+                # The worst-case `ACCOUNT_WRITE` charged at intrinsic
+                # time is refunded via the refund counter for existing
+                # authorities, even if the transaction reverts.
+                refund_counter += gsc.ACCOUNT_WRITE * refunds_count
             case _:
                 raise ValueError(
                     f"Unknown refund type: {refund_type} (Test needs update)"

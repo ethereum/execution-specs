@@ -74,14 +74,12 @@ def test_selfdestruct_after_create2_collision(
         + Op.SSTORE(
             storage.store_next(1, "create2_call_success"),
             Op.CALL(
-                # Forwarded budget covers deployer's CREATE2 (charged
-                # then refunded on collision under EIP-8037) plus its
-                # SSTORE; both 0 pre-EIP-8037 and scale with cpsb.
-                gas=(
-                    500_000
-                    + fork.gas_costs().NEW_ACCOUNT
-                    + Op.SSTORE(new_value=1).state_cost(fork)
-                ),
+                # The colliding CREATE2 consumes 63/64 of the deployer's
+                # gas (the account-creation state gas is charged then
+                # refunded on collision under EIP-8037); size the budget
+                # so the surviving 1/64 still covers the deployer's cold
+                # SSTORE of the CREATE2 result.
+                gas=500_000 + 64 * fork.gas_costs().COLD_STORAGE_WRITE,
                 address=deployer,
                 args_size=Op.CALLDATASIZE,
             ),

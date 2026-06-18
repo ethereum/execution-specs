@@ -3,6 +3,13 @@ Test_call_zero_v_call_suicide.
 
 Ported from:
 state_tests/stEIP158Specific/CALL_ZeroVCallSuicideFiller.json
+
+@manually-enhanced: Do not overwrite. The measured slot captures the
+regular gas of a value-0 CALL to a cold contract that then
+SELFDESTRUCTs back to its (warm, alive) caller. EIP-8038 reprices the
+cold account access of that CALL; the beneficiary is warm so the
+SELFDESTRUCT is unchanged. The delta is therefore the fork's
+`COLD_ACCOUNT_ACCESS - 2600`, exactly 0 before EIP-8038.
 """
 
 import pytest
@@ -15,6 +22,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,8 +37,11 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_call_zero_v_call_suicide(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_call_zero_v_call_suicide."""
+    # EIP-8038 cold account access reprice; 0 before EIP-8038.
+    cold_account_delta = fork.gas_costs().COLD_ACCOUNT_ACCESS - 2600
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xE8D4A51000)
 
@@ -83,7 +94,7 @@ def test_call_zero_v_call_suicide(
 
     post = {
         addr: Account(balance=0),
-        target: Account(storage={100: 7637}),
+        target: Account(storage={100: 7637 + cold_account_delta}),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)
