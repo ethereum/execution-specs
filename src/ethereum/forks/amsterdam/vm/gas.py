@@ -209,10 +209,25 @@ class GasCosts:
     OPCODE_DUPN: Final[Uint] = VERY_LOW
     OPCODE_SWAPN: Final[Uint] = VERY_LOW
     OPCODE_EXCHANGE: Final[Uint] = VERY_LOW
-    # Transient storage is in-memory only; its cost is independent of
-    # state-access pricing (EIP-7971 proposes dedicated values).
     OPCODE_TLOAD: Final[Uint] = Uint(100)
+    """
+    Cost of the opcode that reads from transient storage.
+
+    Transient storage is in-memory only; its cost is independent of
+    state-access pricing ([EIP-7971] proposes dedicated values).
+
+    [EIP-7971]: https://eips.ethereum.org/EIPS/eip-7971
+    """
+
     OPCODE_TSTORE: Final[Uint] = Uint(100)
+    """
+    Cost of the opcode that writes to transient storage.
+
+    Transient storage is in-memory only; its cost is independent of
+    state-access pricing ([EIP-7971] proposes dedicated values).
+
+    [EIP-7971]: https://eips.ethereum.org/EIPS/eip-7971
+    """
 
     # Dynamic Opcode Components
     OPCODE_RETURNDATACOPY_BASE: Final[Uint] = VERY_LOW
