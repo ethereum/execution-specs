@@ -17,3 +17,8 @@ bal:
   evm-type: eels
   fill-params: --until=Amsterdam
   feature_only: true
+
+focil:
+  evm-type: eels
+  fill-params: ./tests/bogota/eip7805_focil --until=Amsterdam
+  feature_only: true
