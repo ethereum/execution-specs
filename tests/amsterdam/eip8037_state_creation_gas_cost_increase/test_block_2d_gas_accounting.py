@@ -622,7 +622,9 @@ def test_tx_inclusion_at_regular_gas_block_limit_small(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        sends_value=True,
+    )
 
     filler_tx_count = (fork.minimum_block_gas_limit() // intrinsic_gas) + 1
 
@@ -632,6 +634,7 @@ def test_tx_inclusion_at_regular_gas_block_limit_small(
         Transaction(
             to=dest_contract,
             gas_limit=intrinsic_gas,
+            value=1,
             sender=filler_sender,
         )
         for _ in range(filler_tx_count)
@@ -643,6 +646,7 @@ def test_tx_inclusion_at_regular_gas_block_limit_small(
     excess_tx = Transaction(
         to=dest_contract,
         gas_limit=excess_tx_gas_limit,
+        value=1,
         sender=pre.fund_eoa(),
         error=error,
     )

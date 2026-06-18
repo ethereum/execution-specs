@@ -28,6 +28,7 @@ from execution_testing import (
     Header,
     Initcode,
     Op,
+    RecipientType,
     StateTestFiller,
     Transaction,
     TransactionException,
@@ -97,7 +98,14 @@ def test_bal_balance_changes(
         calldata=b"",
         contract_creation=False,
         access_list=[],
+        sends_value=True,
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
     )
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        sends_value=True,
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+    )
+    total_gas_cost = intrinsic_gas_cost + top_frame_state_gas
     # Hard-coded gas price allows to calculate the tx final price
     gas_price = 1_000_000_000
     tx_value = 100
@@ -115,7 +123,7 @@ def test_bal_balance_changes(
 
     # Account for both the value sent and gas cost (gas_price * gas_used)
     alice_final_balance = (
-        alice_initial_balance - tx_value - (intrinsic_gas_cost * gas_price)
+        alice_initial_balance - tx_value - (total_gas_cost * gas_price)
     )
 
     block = Block(
@@ -495,8 +503,15 @@ def test_bal_block_rewards(
         calldata=b"",
         contract_creation=False,
         access_list=[],
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+        sends_value=True,
     )
-    tx_gas_limit = intrinsic_gas + 1000  # add a small buffer
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        sends_value=True,
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+    )
+    expected_gas_used = intrinsic_gas + top_frame_state_gas
+    tx_gas_limit = expected_gas_used + 1000  # add a small buffer
     gas_price = 0xA
     tx_value = 100
     extra_balance = 1000
@@ -516,7 +531,7 @@ def test_bal_block_rewards(
 
     # EIP-1559 fee calculation:
     # - Total gas cost
-    total_gas_cost = intrinsic_gas * gas_price
+    total_gas_cost = expected_gas_used * gas_price
     # - Tip portion
 
     genesis_env = Environment(base_fee_per_gas=0x7)
@@ -525,7 +540,7 @@ def test_bal_block_rewards(
         parent_gas_used=0,
         parent_gas_limit=genesis_env.gas_limit,
     )
-    tip_to_charlie = (gas_price - base_fee_per_gas) * intrinsic_gas
+    tip_to_charlie = (gas_price - base_fee_per_gas) * expected_gas_used
 
     alice_final_balance = alice_initial_balance - tx_value - total_gas_cost
 
@@ -903,7 +918,9 @@ def test_bal_self_transfer(
     alice = pre.fund_eoa(amount=start_balance)
 
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-    intrinsic_gas_cost = intrinsic_gas_calculator()
+    intrinsic_gas_cost = intrinsic_gas_calculator(
+        recipient_type=RecipientType.SELF
+    )
 
     tx = Transaction(
         sender=alice,
@@ -947,7 +964,9 @@ def test_bal_zero_value_transfer(
     bob = pre.fund_eoa(amount=100)
 
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-    intrinsic_gas_cost = intrinsic_gas_calculator()
+    intrinsic_gas_cost = intrinsic_gas_calculator(
+        recipient_type=RecipientType.EOA
+    )
 
     tx = Transaction(
         sender=alice,
@@ -1538,8 +1557,14 @@ def test_bal_coinbase_zero_tip(
         calldata=b"",
         contract_creation=False,
         access_list=[],
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+        sends_value=True,
     )
-    tx_gas_limit = intrinsic_gas + 1000
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        sends_value=True,
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+    )
+    tx_gas_limit = intrinsic_gas + top_frame_state_gas + 1000
 
     # Calculate base fee
     genesis_env = Environment(base_fee_per_gas=0x7)
@@ -1562,7 +1587,9 @@ def test_bal_coinbase_zero_tip(
     )
 
     alice_final_balance = (
-        alice_initial_balance - tx_value - (intrinsic_gas * base_fee_per_gas)
+        alice_initial_balance
+        - tx_value
+        - ((intrinsic_gas + top_frame_state_gas) * base_fee_per_gas)
     )
 
     block = Block(
@@ -2022,11 +2049,21 @@ def test_bal_multiple_balance_changes_same_account(
     charlie = pre.fund_eoa(amount=0)
 
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-    tx_intrinsic_gas = intrinsic_gas_calculator(calldata=b"", access_list=[])
+    tx_intrinsic_gas = intrinsic_gas_calculator(
+        calldata=b"",
+        access_list=[],
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+        sends_value=True,
+    )
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        sends_value=True,
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+    )
 
     # bob receives funds in tx0, then spends everything in tx1
     gas_price = 10
-    tx1_gas_cost = tx_intrinsic_gas * gas_price
+    expected_gas_used = tx_intrinsic_gas + top_frame_state_gas
+    tx1_gas_cost = expected_gas_used * gas_price
     spend_amount = 100
     funding_amount = tx1_gas_cost + spend_amount
 
@@ -2034,7 +2071,7 @@ def test_bal_multiple_balance_changes_same_account(
         sender=alice,
         to=bob,
         value=funding_amount,
-        gas_limit=tx_intrinsic_gas,
+        gas_limit=expected_gas_used,
         gas_price=gas_price,
     )
 
@@ -2042,7 +2079,7 @@ def test_bal_multiple_balance_changes_same_account(
         sender=bob,
         to=charlie,
         value=spend_amount,
-        gas_limit=tx_intrinsic_gas,
+        gas_limit=expected_gas_used,
         gas_price=gas_price,
     )
 
@@ -2949,6 +2986,8 @@ def test_bal_cross_tx_funding_chain(
     target = pre.deploy_contract(code=target_code)
 
     intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
+    # Last hop (eunice -> target) is a plain CONTRACT call with no
+    # value, so the default intrinsic applies.
     intrinsic_gas = intrinsic_calc()
     eunice_exact_gas = intrinsic_gas + target_code.gas_cost(fork)
     eunice_gas_limit = (
@@ -2957,7 +2996,21 @@ def test_bal_cross_tx_funding_chain(
         else eunice_exact_gas
     )
     eunice_upfront = eunice_gas_limit * gas_price
-    transfer_cost = intrinsic_gas * gas_price
+    # Forwarding hops (alice -> bob, ..., dan -> eunice) transfer value
+    # to recipients that begin empty, so each pays the value-transfer
+    # intrinsic surcharges plus the top-frame ``NEW_ACCOUNT`` state
+    # charge that fires under EIP-2780. With the default zero
+    # state-gas reservoir the latter spills entirely into regular gas.
+    forwarding_intrinsic = intrinsic_calc(
+        sends_value=True,
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+    )
+    forwarding_top_frame_state = fork.transaction_top_frame_state_gas(
+        sends_value=True,
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+    )
+    forwarding_gas = forwarding_intrinsic + forwarding_top_frame_state
+    transfer_cost = forwarding_gas * gas_price
 
     # Each sender (including alice) starts with or receives exactly what
     # the next forward + its own gas demands; everyone ends at zero in
@@ -2990,28 +3043,28 @@ def test_bal_cross_tx_funding_chain(
             sender=alice,
             to=bob,
             value=alice_value,
-            gas_limit=intrinsic_gas,
+            gas_limit=forwarding_gas,
             gas_price=gas_price,
         ),
         Transaction(
             sender=bob,
             to=charlie,
             value=bob_value,
-            gas_limit=intrinsic_gas,
+            gas_limit=forwarding_gas,
             gas_price=gas_price,
         ),
         Transaction(
             sender=charlie,
             to=dan,
             value=charlie_value,
-            gas_limit=intrinsic_gas,
+            gas_limit=forwarding_gas,
             gas_price=gas_price,
         ),
         Transaction(
             sender=dan,
             to=eunice,
             value=dan_value,
-            gas_limit=intrinsic_gas,
+            gas_limit=forwarding_gas,
             gas_price=gas_price,
         ),
         Transaction(
@@ -3628,7 +3681,11 @@ def test_bal_gas_limit_boundary(
 
     if with_tx:
         alice = pre.fund_eoa()
-        bob = pre.fund_eoa(amount=0)
+        # Fund bob with 1 wei so the recipient is alive at top-frame
+        # check time; this avoids the EIP-2780 ``NEW_ACCOUNT`` state
+        # charge that would otherwise inflate the tx's gas needs past
+        # the BAL-sized ``block_gas_limit``.
+        bob = pre.fund_eoa(amount=1)
         # alice (sender) + bob (recipient) + coinbase (EIP-3651 warm).
         extra_items += 3
         txs.append(
@@ -3644,10 +3701,10 @@ def test_bal_gas_limit_boundary(
         )
         expected_accounts[bob] = BalAccountExpectation(
             balance_changes=[
-                BalBalanceChange(block_access_index=1, post_balance=1)
+                BalBalanceChange(block_access_index=1, post_balance=2)
             ],
         )
-        post[bob] = Account(balance=1)
+        post[bob] = Account(balance=2)
 
     if with_cl_withdrawal:
         charlie = pre.fund_eoa(amount=0)

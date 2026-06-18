@@ -152,6 +152,14 @@ def test_create2_oo_gafter_init_code(
             + (gas_costs.OPCODE_CREATE_BASE - _cancun_create_base)
             - gas_costs.CODE_DEPOSIT_PER_BYTE * _deploy_size
         )
+    # EIP-2780 reshapes the tx intrinsic for non-self non-value txs:
+    # ``TX_BASE`` drops to 12_000 and an explicit
+    # ``COLD_ACCOUNT_ACCESS`` (3_000) recipient charge is added. The
+    # original test was built against Cancun's flat ``TX_BASE`` of
+    # 21_000, so shift the budget by the intrinsic delta to keep the
+    # straddle landing at the same RETURN point.
+    intrinsic = fork.transaction_intrinsic_cost_calculator()()
+    _oog_lift += intrinsic - 21_000
     tx_gas = [54000 + _oog_lift, 55000 + _oog_lift]
 
     tx = Transaction(
