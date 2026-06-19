@@ -7,23 +7,27 @@ to allow for stateless execution.
 https://eips.ethereum.org/EIPS/eip-2935
 """
 
-from os.path import realpath
-from pathlib import Path
 from typing import List, Mapping
 
 from execution_testing.base_types import Address
 
 from ....base_fork import BaseFork
+from ....bytecode import load_contract_bytecode
 
-BYTECODE_FILE = (
-    Path(realpath(__file__)).parent / "contracts" / "history_contract.bin"
-)
 HISTORY_STORAGE_ADDRESS = 0x0000F90827F1C53A10CB7A02335B175320002935
-HISTORY_STORAGE_BYTECODE = BYTECODE_FILE.read_bytes()
+HISTORY_STORAGE_BYTECODE = load_contract_bytecode(
+    __name__, "history_contract.bin"
+)
 
 
 class EIP2935(BaseFork):
     """EIP-2935 class."""
+
+    @classmethod
+    def empty_block_bal_item_count(cls) -> int:
+        """Add block-level access list elements for an empty block."""
+        # History contract: 1 address + 1 write = 2
+        return super(EIP2935, cls).empty_block_bal_item_count() + 2
 
     @classmethod
     def system_contracts(cls) -> List[Address]:
@@ -42,5 +46,6 @@ class EIP2935(BaseFork):
             HISTORY_STORAGE_ADDRESS: {
                 "nonce": 1,
                 "code": HISTORY_STORAGE_BYTECODE,
-            }
-        } | super(EIP2935, cls).pre_allocation_blockchain()  # type: ignore
+            },
+            **super(EIP2935, cls).pre_allocation_blockchain(),
+        }

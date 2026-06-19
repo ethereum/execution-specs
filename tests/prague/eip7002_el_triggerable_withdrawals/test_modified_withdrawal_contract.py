@@ -14,15 +14,13 @@ from execution_testing import (
     Bytecode,
     Op,
     Requests,
+    SystemContractInteractionTransaction,
     Transaction,
     generate_system_contract_error_test,
 )
 from execution_testing import Macros as Om
 
-from .helpers import (
-    WithdrawalRequest,
-    WithdrawalRequestTransaction,
-)
+from .helpers import WithdrawalRequest
 from .spec import Spec as Spec_EIP7002
 from .spec import ref_spec_7002
 
@@ -120,7 +118,7 @@ def test_extra_withdrawals(
 
     # given a list of withdrawal requests construct a withdrawal request
     # transaction
-    withdrawal_request_transaction = WithdrawalRequestTransaction(
+    withdrawal_request_transaction = SystemContractInteractionTransaction(
         requests=requests_list
     )
     # prepare withdrawal senders

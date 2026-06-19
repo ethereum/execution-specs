@@ -6,25 +6,29 @@ Allow validators to consolidate via execution layer requests.
 https://eips.ethereum.org/EIPS/eip-7251
 """
 
-from os.path import realpath
-from pathlib import Path
 from typing import List, Mapping
 
 from execution_testing.base_types import Address
 
 from ....base_fork import BaseFork
+from ....bytecode import load_contract_bytecode
 
-BYTECODE_FILE = (
-    Path(realpath(__file__)).parent / "contracts" / "consolidation_request.bin"
-)
 CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS = (
     0x0000BBDDC7CE488642FB579F8B00F3A590007251
 )
-CONSOLIDATION_REQUEST_PREDEPLOY_BYTECODE = BYTECODE_FILE.read_bytes()
+CONSOLIDATION_REQUEST_PREDEPLOY_BYTECODE = load_contract_bytecode(
+    __name__, "consolidation_request.bin"
+)
 
 
 class EIP7251(BaseFork):
     """EIP-7251 class."""
+
+    @classmethod
+    def empty_block_bal_item_count(cls) -> int:
+        """Add block-level access list elements for an empty block."""
+        # Consolidations contract: 1 address + 4 reads = 5
+        return super(EIP7251, cls).empty_block_bal_item_count() + 5
 
     @classmethod
     def system_contracts(cls) -> List[Address]:
@@ -44,4 +48,5 @@ class EIP7251(BaseFork):
                 "nonce": 1,
                 "code": CONSOLIDATION_REQUEST_PREDEPLOY_BYTECODE,
             },
-        } | super(EIP7251, cls).pre_allocation_blockchain()  # type: ignore
+            **super(EIP7251, cls).pre_allocation_blockchain(),
+        }

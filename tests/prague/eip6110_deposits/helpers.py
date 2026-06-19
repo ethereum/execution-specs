@@ -1,19 +1,10 @@
 """Helpers for the EIP-6110 deposit tests."""
 
-from dataclasses import dataclass, field, replace
 from functools import cached_property
 from hashlib import sha256 as sha256_hashlib
-from typing import Callable, ClassVar, List, Self
+from typing import ClassVar, Self
 
-from execution_testing import (
-    EOA,
-    Address,
-    Alloc,
-    Bytecode,
-    Hash,
-    Op,
-    Transaction,
-)
+from execution_testing import Address, Hash, SystemContractRequest
 from execution_testing import DepositRequest as DepositRequestBase
 
 from .spec import Spec
@@ -80,15 +71,9 @@ def create_deposit_log_bytes(
     return bytes(result)
 
 
-class DepositRequest(DepositRequestBase):
+class DepositRequest(DepositRequestBase, SystemContractRequest):
     """Deposit request descriptor."""
 
-    valid: bool = True
-    """Whether the deposit request is valid or not."""
-    gas_limit: int | None = None
-    """Gas limit for the call."""
-    calldata_modifier: Callable[[bytes], bytes] = lambda x: x
-    """Calldata modifier function."""
     extra_wei: int = 0
     """
     Extra amount in wei to be sent with the deposit. If this value modulo 10**9
@@ -100,7 +85,7 @@ class DepositRequest(DepositRequestBase):
         Spec.DEPOSIT_CONTRACT_ADDRESS
     )
 
-    @cached_property
+    @property
     def value(self) -> int:
         """
         Return the value of the deposit transaction, equal to the amount in
@@ -126,7 +111,7 @@ class DepositRequest(DepositRequestBase):
         amount_signature_root = sha256(amount_bytes, signature_root)
         return Hash(sha256(pubkey_withdrawal_root, amount_signature_root))
 
-    @cached_property
+    @property
     def calldata(self) -> bytes:
         """
         Return the calldata needed to call the beacon chain deposit contract
@@ -213,190 +198,14 @@ class DepositRequest(DepositRequestBase):
         del source_address
         return self.copy()
 
-
-@dataclass(kw_only=True, frozen=True)
-class DepositInteractionBase:
-    """Base class for all types of deposit transactions we want to test."""
-
-    sender_account: EOA | None = None
-    """Account that sends the transaction."""
-    requests: List[DepositRequest]
-    """Deposit request to be included in the block."""
-
-    def transactions(self) -> List[Transaction]:
-        """Return a transaction for the deposit request."""
-        raise NotImplementedError
-
-    def update_pre(self, pre: Alloc) -> Self:
-        """
-        Allocate accounts/contracts in `pre` and return a new instance with
-        the allocated state populated. Does not mutate `self`, so the
-        parametrize value remains pristine across fixture format runs.
-        """
-        raise NotImplementedError
-
-    def valid_requests(self, current_minimum_fee: int) -> List[DepositRequest]:
-        """
-        Return the list of deposit requests that should be included in the
-        block.
-        """
-        raise NotImplementedError
-
-
-@dataclass(kw_only=True, frozen=True)
-class DepositTransaction(DepositInteractionBase):
-    """
-    Class used to describe a deposit originated from an externally owned
-    account.
-    """
-
-    def transactions(self) -> List[Transaction]:
-        """Return a transaction for the deposit request."""
-        assert self.sender_account is not None, (
-            "Sender account not initialized"
+    @classmethod
+    def from_index(cls, index: int, fee: int | None = None) -> Self:
+        """Build a request from a sequential index, paying `fee`."""
+        assert fee is None, f"Deposit requests do not require any fee: {fee}"
+        return cls(
+            pubkey=(index * 3),
+            withdrawal_credentials=(index * 3) + 1,
+            amount=1_000_000_000,
+            signature=(index * 3) + 2,
+            index=index,
         )
-        txs: List[Transaction] = []
-        for request in self.requests:
-            gas_limit = request.gas_limit
-            if gas_limit is not None:
-                tx = Transaction(
-                    gas_limit=request.gas_limit,
-                    to=request.interaction_contract_address,
-                    value=request.value,
-                    data=request.calldata,
-                    sender=self.sender_account,
-                )
-            else:
-                tx = Transaction(
-                    to=request.interaction_contract_address,
-                    value=request.value,
-                    data=request.calldata,
-                    sender=self.sender_account,
-                )
-            txs.append(tx)
-        return txs
-
-    def update_pre(self, pre: Alloc) -> Self:
-        """Return a copy of self with `sender_account` populated."""
-        return replace(self, sender_account=pre.fund_eoa())
-
-    def valid_requests(self, current_minimum_fee: int) -> List[DepositRequest]:
-        """
-        Return the list of deposit requests that should be included in the
-        block.
-        """
-        return [
-            request
-            for request in self.requests
-            if request.valid and request.value >= current_minimum_fee
-        ]
-
-
-@dataclass(kw_only=True, frozen=True)
-class DepositContract(DepositInteractionBase):
-    """Class used to describe a deposit originated from a contract."""
-
-    tx_gas_limit: int | None = None
-    """Gas limit for the transaction. `None` uses the implicit gas limit."""
-    tx_value: int = 0
-    """Value to send with the transaction."""
-
-    contract_balance: int = 32_000_000_000_000_000_000 * 100
-    """Balance of the contract that sends the deposit requests."""
-    contract_address: Address | None = None
-    """Address of the contract that sends the deposit requests."""
-    entry_address: Address | None = None
-    """Address to send the transaction to."""
-
-    call_type: Op = field(default_factory=lambda: Op.CALL)
-    """Type of call to be made to the deposit contract."""
-    call_depth: int = 2
-    """
-    Frame depth of the beacon chain deposit contract when it executes the
-    deposit requests.
-    """
-    extra_code: Bytecode = field(default_factory=Bytecode)
-    """
-    Extra code to be included in the contract that sends the deposit requests.
-    """
-
-    @property
-    def contract_code(self) -> Bytecode:
-        """Contract code used by the relay contract."""
-        code = Bytecode()
-        current_offset = 0
-        for r in self.requests:
-            value_arg = (
-                [r.value] if self.call_type in (Op.CALL, Op.CALLCODE) else []
-            )
-            code += Op.CALLDATACOPY(
-                0, current_offset, len(r.calldata)
-            ) + Op.POP(
-                self.call_type(
-                    Op.GAS if r.gas_limit is None else r.gas_limit,
-                    r.interaction_contract_address,
-                    *value_arg,
-                    0,
-                    len(r.calldata),
-                    0,
-                    0,
-                )
-            )
-            current_offset += len(r.calldata)
-        return code + self.extra_code
-
-    def transactions(self) -> List[Transaction]:
-        """Return a transaction for the deposit request."""
-        return [
-            Transaction(
-                gas_limit=self.tx_gas_limit,
-                to=self.entry_address,
-                value=self.tx_value,
-                data=b"".join(r.calldata for r in self.requests),
-                sender=self.sender_account,
-            )
-        ]
-
-    def update_pre(self, pre: Alloc) -> Self:
-        """
-        Return a copy of self with the allocated sender/contract/entry
-        addresses populated.
-        """
-        sender_account = pre.fund_eoa()
-        contract_address = pre.deploy_contract(
-            code=self.contract_code, balance=self.contract_balance
-        )
-        entry_address = contract_address
-        if self.call_depth > 2:
-            for _ in range(1, self.call_depth - 1):
-                entry_address = pre.deploy_contract(
-                    code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-                    + Op.POP(
-                        Op.CALL(
-                            Op.GAS,
-                            entry_address,
-                            0,
-                            0,
-                            Op.CALLDATASIZE,
-                            0,
-                            0,
-                        )
-                    ),
-                )
-        return replace(
-            self,
-            sender_account=sender_account,
-            contract_address=contract_address,
-            entry_address=entry_address,
-        )
-
-    def valid_requests(self, current_minimum_fee: int) -> List[DepositRequest]:
-        """
-        Return the list of deposit requests that should be included in the
-        block.
-        """
-        return [
-            d
-            for d in self.requests
-            if d.valid and d.value >= current_minimum_fee
-        ]

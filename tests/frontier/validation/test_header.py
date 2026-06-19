@@ -1,35 +1,50 @@
 """Test the block header validations applied from Frontier."""
 
+from typing import Generator
+
 import pytest
-from execution_testing import Fork
-from execution_testing.base_types.base_types import ZeroPaddedHexNumber
-from execution_testing.base_types.composite_types import Alloc
-from execution_testing.exceptions.exceptions import BlockException
-from execution_testing.specs.blockchain import (
+from execution_testing import (
+    Alloc,
     Block,
     BlockchainTestFiller,
+    BlockException,
+    Environment,
+    Fork,
     Header,
+    ParameterSet,
 )
-from execution_testing.test_types.block_types import Environment
+from execution_testing.base_types import ZeroPaddedHexNumber
+from execution_testing.forks import Frontier
+
+# Protocol minimum block gas limit, enforced since Frontier.
+PROTOCOL_GAS_LIMIT_FLOOR = Frontier.minimum_block_gas_limit()
 
 
-@pytest.mark.parametrize(
-    "gas_limit",
-    [
-        pytest.param(0, marks=pytest.mark.exception_test),
-        pytest.param(1, marks=pytest.mark.exception_test),
-        pytest.param(4999, marks=pytest.mark.exception_test),
-        pytest.param(5000, marks=pytest.mark.valid_before("EIP7928")),
-        pytest.param(
-            5000,
-            marks=[
-                pytest.mark.valid_from("EIP7928"),
-                pytest.mark.exception_test,
-            ],
-        ),
-    ],
-)
-def test_gas_limit_below_minimum(
+def gas_limit_cases_by_fork(
+    fork: Fork,
+) -> Generator[ParameterSet, None, None]:
+    """Yield gas limit cases around the fork's minimum block gas limit."""
+    minimum_block_gas_limit = fork.minimum_block_gas_limit()
+    yield pytest.param(
+        0,
+        id="zero",
+        marks=pytest.mark.exception_test,
+    )
+    yield pytest.param(
+        1,
+        id="one",
+        marks=pytest.mark.exception_test,
+    )
+    yield pytest.param(
+        minimum_block_gas_limit - 1,
+        id="minimum_minus_one",
+        marks=pytest.mark.exception_test,
+    )
+    yield pytest.param(minimum_block_gas_limit, id="minimum")
+
+
+@pytest.mark.parametrize_by_fork("gas_limit", gas_limit_cases_by_fork)
+def test_block_gas_limit_below_minimum(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     gas_limit: int,
@@ -40,14 +55,25 @@ def test_gas_limit_below_minimum(
     Tests that a block with a gas limit below the minimum throws an error.
     """
     modified_fields = {"gas_limit": gas_limit}
-    env.gas_limit = ZeroPaddedHexNumber(5000)
+    minimum_block_gas_limit = fork.minimum_block_gas_limit()
+    env.gas_limit = ZeroPaddedHexNumber(minimum_block_gas_limit)
 
     block = Block(txs=[])
 
-    if gas_limit < 5000:
+    if gas_limit < minimum_block_gas_limit:
         block.rlp_modifier = Header(**modified_fields)
-        block.exception = BlockException.INVALID_GASLIMIT
-    elif fork.is_eip_enabled(7928):
-        block.exception = BlockException.BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED
+        if gas_limit < PROTOCOL_GAS_LIMIT_FLOOR:
+            block.exception = (
+                [
+                    BlockException.INVALID_GASLIMIT,
+                    BlockException.BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED,
+                ]
+                if fork.is_eip_enabled(7928)
+                else BlockException.INVALID_GASLIMIT
+            )
+        else:
+            block.exception = (
+                BlockException.BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED
+            )
 
     blockchain_test(pre=pre, post={}, blocks=[block], genesis_environment=env)

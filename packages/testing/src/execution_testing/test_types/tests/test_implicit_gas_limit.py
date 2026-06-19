@@ -44,6 +44,45 @@ def calculate_max_transaction_gas_limit(
     )
 
 
+class TestTreatNoneGasLimitAsUnset:
+    """
+    Test that an explicit `None` gas limit is dropped at construction time,
+    leaving the field unset and defaulted.
+
+    Callers that build transactions programmatically (e.g. the system-contract
+    request helpers) rely on `gas_limit=None` being equivalent to omitting the
+    argument: the field stays out of `model_fields_set` so the implicit
+    gas-limit machinery resolves it, rather than treating it as explicit.
+    """
+
+    def test_none_defaults_to_21000(self) -> None:
+        """`gas_limit=None` defaults the field to the 21,000 base cost."""
+        assert Transaction(gas_limit=None).gas_limit == 21_000
+
+    def test_none_not_in_model_fields_set(self) -> None:
+        """`gas_limit=None` leaves the field unset (implicit)."""
+        assert "gas_limit" not in Transaction(gas_limit=None).model_fields_set
+
+    def test_none_matches_omitted(self) -> None:
+        """`gas_limit=None` is indistinguishable from omitting it."""
+        explicit_none = Transaction(gas_limit=None)
+        omitted = Transaction()
+        assert explicit_none.gas_limit == omitted.gas_limit
+        assert explicit_none.model_fields_set == omitted.model_fields_set
+
+    def test_explicit_value_is_set(self) -> None:
+        """An explicit integer gas limit remains in `model_fields_set`."""
+        tx = Transaction(gas_limit=21_000)
+        assert "gas_limit" in tx.model_fields_set
+
+    @pytest.mark.parametrize("alias", ["gas_limit", "gasLimit", "gas"])
+    def test_none_dropped_for_all_aliases(self, alias: str) -> None:
+        """A `None` value is dropped regardless of the field alias used."""
+        tx = Transaction(**{alias: None})
+        assert tx.gas_limit == 21_000
+        assert "gas_limit" not in tx.model_fields_set
+
+
 class TestSetGasLimit:
     """Test `Transaction.set_gas_limit` resolution of unset limits."""
 

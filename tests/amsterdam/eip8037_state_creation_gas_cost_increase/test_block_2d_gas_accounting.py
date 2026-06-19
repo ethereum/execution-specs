@@ -624,32 +624,36 @@ def test_tx_inclusion_at_regular_gas_block_limit_small(
     assert gas_limit_cap is not None
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
 
-    block_gas_limit = intrinsic_gas * 2
+    filler_tx_count = (fork.minimum_block_gas_limit() // intrinsic_gas) + 1
 
-    filler = pre.deploy_contract(code=Op.STOP)
-    filler_tx = Transaction(
-        to=filler,
-        gas_limit=intrinsic_gas,
-        sender=pre.fund_eoa(),
-    )
+    dest_contract = pre.deploy_contract(code=Op.STOP)
+    filler_sender = pre.fund_eoa()
+    filler_txs = [
+        Transaction(
+            to=dest_contract,
+            gas_limit=intrinsic_gas,
+            sender=filler_sender,
+        )
+        for _ in range(filler_tx_count)
+    ]
 
-    second_gas_limit = intrinsic_gas + delta
-    assert second_gas_limit < gas_limit_cap
+    excess_tx_gas_limit = intrinsic_gas + delta
+    assert excess_tx_gas_limit < gas_limit_cap
     error = TransactionException.GAS_ALLOWANCE_EXCEEDED if delta else None
-    second = pre.deploy_contract(code=Op.STOP)
-    second_tx = Transaction(
-        to=second,
-        gas_limit=second_gas_limit,
+    excess_tx = Transaction(
+        to=dest_contract,
+        gas_limit=excess_tx_gas_limit,
         sender=pre.fund_eoa(),
         error=error,
     )
-
+    total_tx_count = filler_tx_count + 1  # Including excess tx
+    block_gas_limit = intrinsic_gas * total_tx_count
     blockchain_test(
         genesis_environment=Environment(gas_limit=block_gas_limit),
         pre=pre,
         blocks=[
             Block(
-                txs=[filler_tx, second_tx],
+                txs=filler_txs + [excess_tx],
                 gas_limit=block_gas_limit,
                 exception=error,
             )

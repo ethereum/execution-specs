@@ -1,4 +1,4 @@
-"""Fixtures for the EIP-7251 consolidations tests."""
+"""Fixtures for the EIP-8282 builder execution request tests."""
 
 from ...common.system_contract_request_fixtures import (
     blocks,  # noqa: F401

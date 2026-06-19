@@ -324,6 +324,22 @@ class Frontier(
         return wrapper
 
     @classmethod
+    def minimum_block_gas_limit(cls) -> int:
+        """
+        Return the minimum gas limit for the block to be considered valid.
+        """
+        minimum_block_gas_limit = 5_000
+        bal_minimum_block_gas_limit = 0
+        if cls.header_bal_hash_required():
+            # The block gas limit is influenced by the minimum amount of
+            # block level access elements the system contracts contain.
+            bal_minimum_block_gas_limit = (
+                cls.empty_block_bal_item_count()
+                * cls.gas_costs().BLOCK_ACCESS_LIST_ITEM
+            )
+        return max(minimum_block_gas_limit, bal_minimum_block_gas_limit)
+
+    @classmethod
     def opcode_gas_map(
         cls,
     ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
