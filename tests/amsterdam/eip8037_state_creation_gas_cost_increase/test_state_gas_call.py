@@ -469,7 +469,7 @@ def test_call_value_transfer_existing_account_no_state_gas(
     create new state, so no state gas is charged.
     """
     # Existing target account
-    target = pre.fund_eoa(amount=0)
+    target = pre.fund_eoa(amount=1)
 
     parent_storage = Storage()
     parent = pre.deploy_contract(
@@ -488,7 +488,10 @@ def test_call_value_transfer_existing_account_no_state_gas(
         sender=pre.fund_eoa(),
     )
 
-    post = {parent: Account(storage=parent_storage)}
+    post = {
+        parent: Account(balance=0, storage=parent_storage),
+        target: Account(balance=2),
+    }
     state_test(pre=pre, post=post, tx=tx)
 
 
