@@ -53,10 +53,10 @@ def get_test_source(provider: Provider, template_path: str) -> str:
 
 def format_code(code: str) -> str:
     """
-    Format the provided Python code using the Black code formatter.
+    Format the provided Python code using the ruff formatter.
 
     This function writes the given code to a temporary Python file, formats it
-    using the Black formatter, and returns the formatted code as a string.
+    using ruff, and returns the formatted code as a string.
 
     Args:
       code (str): The Python code to be formatted.
@@ -84,20 +84,28 @@ def format_code(code: str) -> str:
         # Call ruff to format the file
         config_path = AppConfig().ROOT_DIR.parent / "pyproject.toml"
 
-        result = subprocess.run(
-            [
-                str(formatter_path),
-                "format",
-                str(input_file_path),
-                "--no-cache",
-                "--config",
-                str(config_path),
-            ],
-            capture_output=True,
-            text=True,
-        )
+        try:
+            result = subprocess.run(
+                [
+                    str(formatter_path),
+                    "format",
+                    str(input_file_path),
+                    "--no-cache",
+                    "--config",
+                    str(config_path),
+                ],
+                capture_output=True,
+                text=True,
+            )
+        except FileNotFoundError as e:
+            raise FileNotFoundError(
+                f"Could not run the 'ruff' formatter at '{formatter_path}'. "
+                f"gentest requires 'ruff' to format generated tests; ensure "
+                f"the development environment is installed, e.g. with "
+                f"'uv sync'."
+            ) from e
         if result.returncode != 0:
-            raise Exception(
+            raise RuntimeError(
                 f"Error formatting code using formatter '{formatter_path}': "
                 f"returncode={result.returncode}, stdout={result.stdout!r}, "
                 f"stderr={result.stderr!r}"
