@@ -32,19 +32,19 @@ def test_selfdestruct_clears_return_data(
     )
 
     selfdestructs = pre.deploy_contract(
-        code=Op.POP(Op.CALL(gas=100_000, address=returns_32, ret_size=0))
+        code=Op.POP(Op.CALL(address=returns_32, ret_size=0))
         + Op.SELFDESTRUCT(Op.CALLER)
     )
 
     caller = pre.deploy_contract(
         code=Op.SSTORE(
             0,
-            Op.CALL(gas=200_000, address=selfdestructs, ret_size=0),
+            Op.CALL(address=selfdestructs, ret_size=0),
         )
         + Op.SSTORE(1, Op.RETURNDATASIZE)
     )
 
-    tx = Transaction(sender=pre.fund_eoa(), to=caller, gas_limit=1_000_000)
+    tx = Transaction(sender=pre.fund_eoa(), to=caller)
 
     state_test(
         pre=pre,
