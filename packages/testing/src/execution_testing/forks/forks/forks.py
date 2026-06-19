@@ -36,6 +36,7 @@ from ..base_fork import (
 from ..gas_costs import BASE, HIGH, LOW, MID, VERY_LOW, GasCosts
 from . import eips
 from .eips.amsterdam import AmsterdamEIPs
+from .eips.bogota import BogotaEIPs
 from .helpers import ceiling_division
 
 
@@ -1622,12 +1623,12 @@ class Amsterdam(
 
 
 class Bogota(
-    eips.EIP7805,
+    BogotaEIPs,
     Amsterdam,
     deployed=False,
     transition_tool_name="Amsterdam",
     solc_name="cancun",
 ):
-    """Bogotá fork: Amsterdam + EIP-7805 (FOCIL)."""
+    """Bogotá fork: Amsterdam + Bogotá EIPs (FOCIL)."""
 
     pass
