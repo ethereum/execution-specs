@@ -656,40 +656,26 @@ def test_gas_opcode_excludes_reservoir(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.parametrize(
-    "target_exists",
-    [
-        pytest.param(True, id="existing_account"),
-        pytest.param(False, id="new_account"),
-    ],
-)
 @pytest.mark.valid_from("EIP8037")
 def test_call_insufficient_balance_returns_reservoir(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    target_exists: bool,
 ) -> None:
     """
-    Test CALL with insufficient balance returns reservoir to parent.
+    Test CALL with insufficient balance returns the reservoir to parent.
 
-    When a CALL transfers value but the caller has insufficient balance,
-    the call fails before any state gas is charged for the target
-    account. Both gas_left and state_gas_left are returned to the
-    parent frame. The parent can still use the reservoir for a
-    subsequent SSTORE.
+    A value-bearing CALL to an existing account fails the balance check
+    before entering the child frame; gas_left and state_gas_left are
+    returned to the parent, which can still use the reservoir for a
+    later SSTORE. The new-account variant (where NEW_ACCOUNT is charged
+    then refilled on the same failure) is pinned by
+    test_call_insufficient_balance_refunds_new_account_state_gas.
     """
-    gas_costs = fork.gas_costs()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
-    target: int | Address
-    if target_exists:
-        target = pre.deploy_contract(code=Op.STOP)
-        reservoir = sstore_state_gas
-    else:
-        target = 0xDEAD
-        # New account needs new-account state gas too
-        reservoir = sstore_state_gas + gas_costs.NEW_ACCOUNT
+    target = pre.deploy_contract(code=Op.STOP)
+    reservoir = sstore_state_gas
 
     storage = Storage()
     contract = pre.deploy_contract(
