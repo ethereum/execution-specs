@@ -484,19 +484,19 @@ def test_factory_access_list_prewarming(
     """
     Measure the gas cost of two `EXTCODESIZE` calls on the factory in
     the same transaction. The first is cold unless prewarmed by an
-    access list; the second is always warm.
-
-    - Without access list: first is `COLD_ACCOUNT_ACCESS`, second is
-      `WARM_ACCESS`.
-    - With access list: both are `WARM_ACCESS`.
+    access list and the second is always warm. EIP-8038 adds a
+    `WARM_ACCESS` code reading cost on top of each account access.
     """
     gas_costs = fork.gas_costs()
+    # EIP-8038 charges a WARM_ACCESS code reading cost on top of the
+    # account access for EXTCODESIZE.
+    code_reading_cost = gas_costs.WARM_ACCESS
     first_cost = (
         gas_costs.WARM_ACCESS
         if use_access_list
         else gas_costs.COLD_ACCOUNT_ACCESS
-    )
-    second_cost = gas_costs.WARM_ACCESS
+    ) + code_reading_cost
+    second_cost = gas_costs.WARM_ACCESS + code_reading_cost
 
     measured_code = Op.EXTCODESIZE(FACTORY)
     # Subtract the PUSH20 overhead so the SSTORE'd value is the opcode
