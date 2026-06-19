@@ -1619,3 +1619,15 @@ class Amsterdam(
     #  live on mainnet.
 
     pass
+
+
+class Bogota(
+    eips.EIP7805,
+    Amsterdam,
+    deployed=False,
+    transition_tool_name="Amsterdam",
+    solc_name="cancun",
+):
+    """Bogotá fork: Amsterdam + EIP-7805 (FOCIL)."""
+
+    pass

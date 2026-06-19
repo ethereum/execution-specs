@@ -33,7 +33,7 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_7805.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7805.version
 
 pytestmark = [
-    pytest.mark.valid_from("Amsterdam"),
+    pytest.mark.valid_from("Bogota"),
     pytest.mark.blockchain_test_engine_only,
 ]
 
