@@ -233,6 +233,95 @@ def test_code_deposit_state_gas_scales_with_size(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.parametrize(
+    "gas_delta",
+    [
+        pytest.param(0, id="exact_fit"),
+        pytest.param(-1, id="one_gas_short"),
+    ],
+)
+@pytest.mark.parametrize(
+    "funding",
+    [
+        pytest.param("reservoir", id="reservoir_funded"),
+        pytest.param("spill", id="gas_left_spill"),
+    ],
+)
+@EIPChecklist.GasCostChanges.Test.OutOfGas()
+@pytest.mark.valid_from("EIP8037")
+def test_code_deposit_state_gas_exact_fit_boundary(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    funding: str,
+    gas_delta: int,
+) -> None:
+    """
+    Pin the code-deposit state gas at its exact-fit boundary.
+
+    A CREATE tx deploys ``code_size`` bytes with ``gas_limit`` set so the
+    deposit lands exactly at the available gas (deploys) or one gas short
+    (halts: state restored, NEW_ACCOUNT refilled, no code). The two
+    regimes pin the halt billing: over-cap ``reservoir_funded`` rolls the
+    reservoir back so the sender pays the cap; in-cap ``gas_left_spill``
+    burns ``gas_left`` and bills ``gas_limit - NEW_ACCOUNT``. The scaling
+    tests assert success only.
+    """
+    gas_costs = fork.gas_costs()
+    cap = fork.transaction_gas_limit_cap()
+    assert cap is not None
+
+    code_size = fork.max_code_size() if funding == "reservoir" else 1000
+
+    words = (code_size + 31) // 32
+    memory_gas = gas_costs.MEMORY_PER_WORD * words + words * words // 512
+    init_code = Op.RETURN(0, code_size)
+    init_exec_regular = init_code.regular_cost(fork) + memory_gas
+    keccak_gas = gas_costs.OPCODE_KECCAK256_PER_WORD * words
+    deposit_state_gas = fork.code_deposit_state_gas(code_size=code_size)
+
+    intrinsic_total = fork.transaction_intrinsic_cost_calculator()(
+        calldata=bytes(init_code),
+        contract_creation=True,
+        return_cost_deducted_prior_execution=True,
+    )
+    exact_fit_gas = (
+        intrinsic_total + init_exec_regular + keccak_gas + deposit_state_gas
+    )
+    if funding == "reservoir":
+        assert exact_fit_gas > cap
+    else:
+        assert exact_fit_gas <= cap
+
+    sender = pre.fund_eoa()
+    created = compute_create_address(address=sender, nonce=0)
+    gas_limit = exact_fit_gas + gas_delta
+
+    post: dict
+    if gas_delta == 0:
+        receipt_gas_used = exact_fit_gas
+        post = {created: Account(code=b"\x00" * code_size)}
+    else:
+        receipt_gas_used = (
+            cap
+            if funding == "reservoir"
+            else gas_limit - gas_costs.NEW_ACCOUNT
+        )
+        post = {created: Account.NONEXISTENT}
+
+    tx = Transaction(
+        to=None,
+        data=init_code,
+        gas_limit=gas_limit,
+        sender=sender,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=receipt_gas_used
+        ),
+    )
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
 @pytest.mark.valid_from("EIP8037")
 def test_repeated_create_same_code_charges_each_account(
     state_test: StateTestFiller,
