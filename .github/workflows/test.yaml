@@ -140,6 +140,8 @@ jobs:
         with:
           submodules: recursive
       - uses: ./.github/actions/setup-uv
+        with:
+          python-version: "3.14"
       - uses: ./.github/actions/setup-env
       - name: Fill and run json-loader tests
         run: just json-loader

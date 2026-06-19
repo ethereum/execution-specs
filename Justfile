@@ -165,15 +165,17 @@ json-loader *args:
         --cov=ethereum \
         --cov-branch \
         --cov-report=term \
+        --durations=50 \
         --cov-fail-under=85
     uv run pytest \
         -m "not slow" \
-        -n auto --maxprocesses 6 --dist=loadfile \
+        -n {{ xdist_workers }} --dist=loadfile \
         --cov-config=pyproject.toml \
         --cov=ethereum \
         --cov-branch \
         --cov-report=term \
         --cov-report "xml:{{ output_dir }}/json-loader/coverage.xml" \
+        --durations=50 \
         --basetemp="{{ output_dir }}/json-loader/tmp" \
         "$@" \
         tests/json_loader
