@@ -469,7 +469,7 @@ def test_call_value_transfer_existing_account_no_state_gas(
     create new state, so no state gas is charged.
     """
     # Existing target account
-    target = pre.fund_eoa(amount=0)
+    target = pre.fund_eoa(amount=1)
 
     parent_storage = Storage()
     parent = pre.deploy_contract(
@@ -488,7 +488,10 @@ def test_call_value_transfer_existing_account_no_state_gas(
         sender=pre.fund_eoa(),
     )
 
-    post = {parent: Account(storage=parent_storage)}
+    post = {
+        parent: Account(balance=0, storage=parent_storage),
+        target: Account(balance=2),
+    }
     state_test(pre=pre, post=post, tx=tx)
 
 
@@ -656,40 +659,26 @@ def test_gas_opcode_excludes_reservoir(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.parametrize(
-    "target_exists",
-    [
-        pytest.param(True, id="existing_account"),
-        pytest.param(False, id="new_account"),
-    ],
-)
 @pytest.mark.valid_from("EIP8037")
 def test_call_insufficient_balance_returns_reservoir(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    target_exists: bool,
 ) -> None:
     """
-    Test CALL with insufficient balance returns reservoir to parent.
+    Test CALL with insufficient balance returns the reservoir to parent.
 
-    When a CALL transfers value but the caller has insufficient balance,
-    the call fails before any state gas is charged for the target
-    account. Both gas_left and state_gas_left are returned to the
-    parent frame. The parent can still use the reservoir for a
-    subsequent SSTORE.
+    A value-bearing CALL to an existing account fails the balance check
+    before entering the child frame; gas_left and state_gas_left are
+    returned to the parent, which can still use the reservoir for a
+    later SSTORE. The new-account variant (where NEW_ACCOUNT is charged
+    then refilled on the same failure) is pinned by
+    test_call_insufficient_balance_refunds_new_account_state_gas.
     """
-    gas_costs = fork.gas_costs()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
-    target: int | Address
-    if target_exists:
-        target = pre.deploy_contract(code=Op.STOP)
-        reservoir = sstore_state_gas
-    else:
-        target = 0xDEAD
-        # New account needs new-account state gas too
-        reservoir = sstore_state_gas + gas_costs.NEW_ACCOUNT
+    target = pre.deploy_contract(code=Op.STOP)
+    reservoir = sstore_state_gas
 
     storage = Storage()
     contract = pre.deploy_contract(
@@ -1577,3 +1566,81 @@ def test_child_failure_refunds_state_gas_to_reservoir_not_gas_left(
         tx=tx,
         blockchain_test_header_verify=Header(gas_used=sstore_state_gas),
     )
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_call_insufficient_balance_refunds_new_account_state_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Refill NEW_ACCOUNT state gas on a value CALL that fails the balance
+    check before the child frame.
+    """
+    gas_costs = fork.gas_costs()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    new_account_state_gas = gas_costs.NEW_ACCOUNT
+
+    probe = pre.deploy_contract(code=Op.SSTORE(0, 1))
+
+    probe_stipend = 2 * gas_costs.VERY_LOW + gas_costs.COLD_STORAGE_WRITE
+
+    parent = pre.deploy_contract(
+        code=(
+            Op.POP(Op.CALL(gas=Op.GAS, address=0xDEAD, value=1))
+            + Op.POP(Op.CALL(gas=probe_stipend, address=probe))
+        ),
+        balance=0,
+    )
+
+    reservoir = max(new_account_state_gas, sstore_state_gas)
+
+    tx = Transaction(
+        to=parent,
+        state_gas_reservoir=reservoir,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {probe: Account(storage={0: 1})}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_call_value_precompile_halt_refunds_new_account_state_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Refill NEW_ACCOUNT state gas on a value CALL to an unfunded
+    precompile that halts in the child frame.
+    """
+    gas_costs = fork.gas_costs()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    new_account_state_gas = gas_costs.NEW_ACCOUNT
+
+    probe = pre.deploy_contract(code=Op.SSTORE(0, 1))
+
+    probe_stipend = 2 * gas_costs.VERY_LOW + gas_costs.COLD_STORAGE_WRITE
+
+    ecpairing = 0x08
+
+    parent = pre.deploy_contract(
+        code=(
+            Op.POP(Op.CALL(1, ecpairing, 1, 0, 0, 0, 0))
+            + Op.POP(Op.CALL(gas=probe_stipend, address=probe))
+        ),
+        balance=1,
+    )
+
+    reservoir = max(new_account_state_gas, sstore_state_gas)
+
+    tx = Transaction(
+        to=parent,
+        state_gas_reservoir=reservoir,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {probe: Account(storage={0: 1})}
+    state_test(pre=pre, post=post, tx=tx)
