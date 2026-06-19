@@ -185,7 +185,6 @@ class Evm:
     accessed_addresses: Set[Address]
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
     regular_gas_used: Uint = Uint(0)
-    state_gas_used: int = 0
     state_gas_spilled: Uint = Uint(0)
 
 
@@ -210,7 +209,6 @@ def credit_state_gas_refund(evm: Evm, amount: Uint) -> None:
     evm.gas_left += from_gas_left
     evm.state_gas_spilled -= from_gas_left
     evm.state_gas_left += amount - from_gas_left
-    evm.state_gas_used -= int(amount)
 
 
 def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
@@ -234,7 +232,6 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
     evm.accessed_addresses.update(child_evm.accessed_addresses)
     evm.accessed_storage_keys.update(child_evm.accessed_storage_keys)
     evm.regular_gas_used += child_evm.regular_gas_used
-    evm.state_gas_used += child_evm.state_gas_used
 
 
 def refill_frame_state_gas(evm: Evm) -> None:
@@ -252,13 +249,29 @@ def refill_frame_state_gas(evm: Evm) -> None:
 
     """
     evm.gas_left += evm.state_gas_spilled
-    evm.state_gas_left = Uint(
-        int(evm.state_gas_left)
-        + evm.state_gas_used
-        - int(evm.state_gas_spilled)
-    )
-    evm.state_gas_used = 0
+    evm.state_gas_left = evm.message.state_gas_reservoir
     evm.state_gas_spilled = Uint(0)
+
+
+def frame_state_gas_used(evm: Evm) -> int:
+    """
+    Return the net state gas a finished frame consumed.
+
+    Equal to the reservoir drawn down (`state_gas_reservoir` at entry
+    minus the reservoir now) plus `state_gas_spilled`. May be negative
+    when refunds exceed charges.
+
+    Parameters
+    ----------
+    evm :
+        The finished frame.
+
+    """
+    return (
+        int(evm.message.state_gas_reservoir)
+        - int(evm.state_gas_left)
+        + int(evm.state_gas_spilled)
+    )
 
 
 def incorporate_child_on_error(
@@ -270,9 +283,8 @@ def incorporate_child_on_error(
 
     The child rolls back its own state gas via `refill_frame_state_gas`
     before returning (on both reverts and exceptional halts), so its
-    `gas_left` and reservoir already reflect the LIFO refill and its
-    `state_gas_used` is zero. The parent therefore only reabsorbs the
-    child's `gas_left` and reservoir.
+    `gas_left` and reservoir already reflect the LIFO refill. The parent
+    therefore only reabsorbs the child's `gas_left` and reservoir.
 
     Parameters
     ----------

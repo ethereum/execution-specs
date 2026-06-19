@@ -54,7 +54,12 @@ from ..vm.gas import (
     charge_state_gas,
 )
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
-from . import Evm, emit_transfer_log, refill_frame_state_gas
+from . import (
+    Evm,
+    emit_transfer_log,
+    frame_state_gas_used,
+    refill_frame_state_gas,
+)
 from .exceptions import (
     AddressCollision,
     ExceptionalHalt,
@@ -185,7 +190,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
         return_data=evm.output,
         state_gas_left=evm.state_gas_left,
         regular_gas_used=evm.regular_gas_used,
-        state_gas_used=evm.state_gas_used,
+        state_gas_used=frame_state_gas_used(evm),
         state_refund=state_refund,
         created_target_alive=target_alive,
     )
