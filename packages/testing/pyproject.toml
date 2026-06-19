@@ -38,6 +38,7 @@ dependencies = [
     "semver>=3.0.1,<4",
     "pydantic>=2.12.3,<3",
     "rich>=13.7.0,<15",
+    "ruff==0.13.2",
     "filelock>=3.15.1,<4",
     "ethereum-types>=0.4.1,<0.5",
     "pyyaml>=6.0.2,<7",
@@ -66,7 +67,7 @@ test = [
     "pytest-cov>=4.1.0,<5",
 ]
 lint = [
-    "ruff==0.13.2",
+    # ruff is included in package deps for gentest
     "mypy==1.20.0",
     "types-requests>=2.31,<2.33",
 ]
