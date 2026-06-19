@@ -780,3 +780,100 @@ def test_receipt_cumulative_differs_from_header_gas_used(
         ],
         post=post,
     )
+
+
+@pytest.mark.parametrize("dominant_dimension", ["state", "regular"])
+@pytest.mark.valid_from("EIP8037")
+def test_base_fee_per_gas_follows_dominant_dimension(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    dominant_dimension: str,
+) -> None:
+    """
+    Verify the next block's base fee tracks the bottleneck dimension.
+
+    Block 1 is pushed above the gas target by one dimension only, so its
+    header gas_used = max(regular, state) drives block 2's base fee up.
+    """
+    genesis_base_fee = 10**9
+    max_fee_per_gas = 10**10
+    gas_limit = 600_000
+    target = gas_limit // fork.base_fee_elasticity_multiplier()
+
+    txs: list[Transaction] = []
+    post: dict = {}
+    if dominant_dimension == "state":
+        num_txs = 5
+        tx_regular, tx_state = sstore_tx_gas(fork)
+        block_regular = num_txs * tx_regular
+        block_state = num_txs * tx_state
+        tx_gas_limit = tx_regular + tx_state
+        assert block_state > target > block_regular
+    else:
+        num_txs = 15
+        tx_gas_limit = fork.transaction_intrinsic_cost_calculator()()
+        block_regular = num_txs * tx_gas_limit
+        block_state = 0
+        stop_contract = pre.deploy_contract(code=Op.STOP)
+        assert block_regular > target > block_state
+
+    for _ in range(num_txs):
+        if dominant_dimension == "state":
+            storage = Storage()
+            contract = pre.deploy_contract(
+                code=Op.SSTORE(storage.store_next(1), 1) + Op.STOP,
+            )
+            post[contract] = Account(storage=storage)
+        else:
+            contract = stop_contract
+        txs.append(
+            Transaction(
+                to=contract,
+                gas_limit=tx_gas_limit,
+                max_fee_per_gas=max_fee_per_gas,
+                max_priority_fee_per_gas=0,
+                sender=pre.fund_eoa(),
+            )
+        )
+
+    block_1_gas_used = max(block_regular, block_state)
+    base_fee_calc = fork.base_fee_per_gas_calculator()
+    block_1_base_fee = base_fee_calc(
+        parent_base_fee_per_gas=genesis_base_fee,
+        parent_gas_used=0,
+        parent_gas_limit=gas_limit,
+    )
+    block_2_base_fee = base_fee_calc(
+        parent_base_fee_per_gas=block_1_base_fee,
+        parent_gas_used=block_1_gas_used,
+        parent_gas_limit=gas_limit,
+    )
+    assert block_2_base_fee > block_1_base_fee
+
+    blockchain_test(
+        genesis_environment=Environment(
+            gas_limit=gas_limit,
+            base_fee_per_gas=genesis_base_fee,
+        ),
+        pre=pre,
+        blocks=[
+            Block(
+                txs=txs,
+                gas_limit=gas_limit,
+                header_verify=Header(
+                    gas_used=block_1_gas_used,
+                    base_fee_per_gas=block_1_base_fee,
+                ),
+            ),
+            Block(
+                txs=[],
+                gas_limit=gas_limit,
+                header_verify=Header(
+                    gas_used=0,
+                    base_fee_per_gas=block_2_base_fee,
+                ),
+            ),
+        ],
+        post=post,
+    )
