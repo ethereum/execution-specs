@@ -1080,6 +1080,7 @@ dependencies = [
     { name = "requests" },
     { name = "requests-unixsocket2" },
     { name = "rich" },
+    { name = "ruff" },
     { name = "semver" },
     { name = "tenacity" },
     { name = "trie" },
@@ -1091,12 +1092,10 @@ dependencies = [
 dev = [
     { name = "mypy" },
     { name = "pytest-cov" },
-    { name = "ruff" },
     { name = "types-requests" },
 ]
 lint = [
     { name = "mypy" },
-    { name = "ruff" },
     { name = "types-requests" },
 ]
 test = [
@@ -1134,6 +1133,7 @@ requires-dist = [
     { name = "requests", specifier = ">=2.31.0,<3" },
     { name = "requests-unixsocket2", specifier = ">=0.4.0" },
     { name = "rich", specifier = ">=13.7.0,<15" },
+    { name = "ruff", specifier = "==0.13.2" },
     { name = "semver", specifier = ">=3.0.1,<4" },
     { name = "tenacity", specifier = ">=9.0.0,<10" },
     { name = "trie", specifier = ">=3.1.0,<4" },
@@ -1145,12 +1145,10 @@ requires-dist = [
 dev = [
     { name = "mypy", specifier = "==1.20.0" },
     { name = "pytest-cov", specifier = ">=4.1.0,<5" },
-    { name = "ruff", specifier = "==0.13.2" },
     { name = "types-requests", specifier = ">=2.31,<2.33" },
 ]
 lint = [
     { name = "mypy", specifier = "==1.20.0" },
-    { name = "ruff", specifier = "==0.13.2" },
     { name = "types-requests", specifier = ">=2.31,<2.33" },
 ]
 test = [{ name = "pytest-cov", specifier = ">=4.1.0,<5" }]
