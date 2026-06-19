@@ -25,14 +25,15 @@ ref_spec_8282 = ReferenceSpec(
 
 class Spec:
     """
-    Constants and parameters from EIP-8282. Addresses and request-type bytes
-    are placeholders pending the EIP's final allocation.
+    Constants and parameters from EIP-8282. Addresses are the
+    glamsterdam-devnet-6 values; request-type bytes remain placeholders
+    pending the EIP's final allocation.
     """
 
     BUILDER_DEPOSIT_CONTRACT_ADDRESS = (
-        0x0000000000000000000000000000000000007732
+        0x0000884D2AA32EAA155F59A2F24EFA73D9008282
     )
-    BUILDER_EXIT_CONTRACT_ADDRESS = 0x0000000000000000000000000000000000007733
+    BUILDER_EXIT_CONTRACT_ADDRESS = 0x000014574A74C805590AFF9499FC7A690F008282
 
     BUILDER_DEPOSIT_REQUEST_TYPE = 0x03
     BUILDER_EXIT_REQUEST_TYPE = 0x04
