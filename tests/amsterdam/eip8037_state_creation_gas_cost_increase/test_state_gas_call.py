@@ -558,13 +558,13 @@ def test_delegatecall_reservoir_passing(
     """
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
-    # Library code that writes to slot 0 — runs in parent's context
+    parent_storage = Storage()
+    # Library code runs in parent's context — slot is reserved on
+    # parent_storage so the post check uses the same source of truth.
     library = pre.deploy_contract(
-        code=Op.SSTORE(0, 1),
+        code=Op.SSTORE(parent_storage.store_next(1, "delegated"), 1),
     )
 
-    parent_storage = Storage()
-    parent_storage[0] = 1  # Expect slot 0 = 1 after delegatecall
     parent = pre.deploy_contract(
         code=(Op.DELEGATECALL(gas=100_000, address=library)),
     )
@@ -1418,7 +1418,8 @@ def test_create_oog_during_state_gas_charge(
         ),
     )
 
-    grandchild_code = Op.SSTORE(0, 1)
+    grandchild_storage = Storage()
+    grandchild_code = Op.SSTORE(grandchild_storage.store_next(1, "ran"), 1)
     grandchild = pre.deploy_contract(code=grandchild_code)
 
     grandchild_stipend = grandchild_code.regular_cost(fork)
@@ -1438,7 +1439,7 @@ def test_create_oog_during_state_gas_charge(
 
     state_test(
         pre=pre,
-        post={grandchild: Account(storage={0: 1})},
+        post={grandchild: Account(storage=grandchild_storage)},
         tx=tx,
     )
 
@@ -1510,7 +1511,8 @@ def test_child_failure_refunds_state_gas_to_reservoir_not_gas_left(
     gas_costs = fork.gas_costs()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
-    probe_code = Op.SSTORE(0, 1)
+    probe_storage = Storage()
+    probe_code = Op.SSTORE(probe_storage.store_next(1, "probe_ran"), 1)
 
     if charge_via == "sstore":
         child_code: Bytecode = Op.SSTORE(0, 1) + Op.REVERT(0, 0)
@@ -1549,9 +1551,9 @@ def test_child_failure_refunds_state_gas_to_reservoir_not_gas_left(
     # context, so the probe's SSTORE lands on `parent` instead of
     # `probe`.
     if call_opcode == Op.DELEGATECALL:
-        post: dict = {parent: Account(storage={0: 1})}
+        post: dict = {parent: Account(storage=probe_storage)}
     else:
-        post = {probe: Account(storage={0: 1})}
+        post = {probe: Account(storage=probe_storage)}
 
     state_test(
         pre=pre,
@@ -1575,7 +1577,8 @@ def test_call_insufficient_balance_refunds_new_account_state_gas(
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     new_account_state_gas = gas_costs.NEW_ACCOUNT
 
-    probe_code = Op.SSTORE(0, 1)
+    probe_storage = Storage()
+    probe_code = Op.SSTORE(probe_storage.store_next(1, "probe_ran"), 1)
     probe = pre.deploy_contract(probe_code)
 
     probe_stipend = probe_code.regular_cost(fork)
@@ -1599,7 +1602,7 @@ def test_call_insufficient_balance_refunds_new_account_state_gas(
         sender=pre.fund_eoa(),
     )
 
-    post = {probe: Account(storage={0: 1})}
+    post = {probe: Account(storage=probe_storage)}
     state_test(pre=pre, post=post, tx=tx)
 
 
@@ -1617,7 +1620,8 @@ def test_call_value_precompile_halt_refunds_new_account_state_gas(
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     new_account_state_gas = gas_costs.NEW_ACCOUNT
 
-    probe_code = Op.SSTORE(0, 1)
+    probe_storage = Storage()
+    probe_code = Op.SSTORE(probe_storage.store_next(1, "probe_ran"), 1)
     probe = pre.deploy_contract(probe_code)
 
     probe_stipend = probe_code.regular_cost(fork)
@@ -1641,5 +1645,5 @@ def test_call_value_precompile_halt_refunds_new_account_state_gas(
         sender=pre.fund_eoa(),
     )
 
-    post = {probe: Account(storage={0: 1})}
+    post = {probe: Account(storage=probe_storage)}
     state_test(pre=pre, post=post, tx=tx)
