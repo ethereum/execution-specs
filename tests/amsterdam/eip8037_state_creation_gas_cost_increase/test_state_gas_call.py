@@ -808,7 +808,7 @@ def test_call_pre_charged_costs_excluded_from_forwarding(
     child_code = Op.SSTORE(child_storage.store_next(1, "child_ran"), 1)
     child = pre.deploy_contract(child_code)
 
-    child_regular_gas = 2 * gas_costs.VERY_LOW + gas_costs.COLD_STORAGE_WRITE
+    child_regular_gas = child_code.regular_cost(fork)
 
     # Memory expansion triggered by ret_size on the wrapper's CALL
     ret_size = 512 * 32  # 512 words
@@ -1399,7 +1399,6 @@ def test_create_oog_during_state_gas_charge(
     SSTORE is forwarded only its regular stipend, so it succeeds
     only if the refund landed in the reservoir (not in `gas_left`).
     """
-    gas_costs = fork.gas_costs()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     init_code = Op.STOP
@@ -1419,11 +1418,10 @@ def test_create_oog_during_state_gas_charge(
         ),
     )
 
-    grandchild = pre.deploy_contract(code=Op.SSTORE(0, 1))
+    grandchild_code = Op.SSTORE(0, 1)
+    grandchild = pre.deploy_contract(code=grandchild_code)
 
-    push_cost = 2 * gas_costs.VERY_LOW
-    sstore_regular = gas_costs.COLD_STORAGE_WRITE
-    grandchild_stipend = push_cost + sstore_regular
+    grandchild_stipend = grandchild_code.regular_cost(fork)
 
     parent = pre.deploy_contract(
         code=(
@@ -1512,7 +1510,7 @@ def test_child_failure_refunds_state_gas_to_reservoir_not_gas_left(
     gas_costs = fork.gas_costs()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
-    probe = pre.deploy_contract(code=Op.SSTORE(0, 1))
+    probe_code = Op.SSTORE(0, 1)
 
     if charge_via == "sstore":
         child_code: Bytecode = Op.SSTORE(0, 1) + Op.REVERT(0, 0)
@@ -1527,13 +1525,8 @@ def test_child_failure_refunds_state_gas_to_reservoir_not_gas_left(
         child_state_charge = gas_costs.NEW_ACCOUNT
 
     child = pre.deploy_contract(code=child_code, balance=child_balance)
-
-    # Tight stipend: just enough regular gas for the probe's SSTORE
-    # opcode plus its two stack pushes, leaving no slack to absorb a
-    # state-gas spill.
-    push_cost = 2 * gas_costs.VERY_LOW
-    sstore_regular = gas_costs.COLD_STORAGE_WRITE
-    probe_stipend = push_cost + sstore_regular
+    probe = pre.deploy_contract(probe_code)
+    probe_stipend = probe_code.regular_cost(fork)
 
     parent = pre.deploy_contract(
         code=(
@@ -1582,19 +1575,23 @@ def test_call_insufficient_balance_refunds_new_account_state_gas(
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     new_account_state_gas = gas_costs.NEW_ACCOUNT
 
-    probe = pre.deploy_contract(code=Op.SSTORE(0, 1))
+    probe_code = Op.SSTORE(0, 1)
+    probe = pre.deploy_contract(probe_code)
 
-    probe_stipend = 2 * gas_costs.VERY_LOW + gas_costs.COLD_STORAGE_WRITE
+    probe_stipend = probe_code.regular_cost(fork)
+
+    non_existent_account = pre.nonexistent_account()
 
     parent = pre.deploy_contract(
         code=(
-            Op.POP(Op.CALL(gas=Op.GAS, address=0xDEAD, value=1))
+            Op.POP(Op.CALL(gas=Op.GAS, address=non_existent_account, value=1))
             + Op.POP(Op.CALL(gas=probe_stipend, address=probe))
         ),
         balance=0,
     )
 
-    reservoir = max(new_account_state_gas, sstore_state_gas)
+    assert new_account_state_gas >= sstore_state_gas
+    reservoir = new_account_state_gas
 
     tx = Transaction(
         to=parent,
@@ -1620,9 +1617,10 @@ def test_call_value_precompile_halt_refunds_new_account_state_gas(
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     new_account_state_gas = gas_costs.NEW_ACCOUNT
 
-    probe = pre.deploy_contract(code=Op.SSTORE(0, 1))
+    probe_code = Op.SSTORE(0, 1)
+    probe = pre.deploy_contract(probe_code)
 
-    probe_stipend = 2 * gas_costs.VERY_LOW + gas_costs.COLD_STORAGE_WRITE
+    probe_stipend = probe_code.regular_cost(fork)
 
     ecpairing = 0x08
 
@@ -1634,7 +1632,8 @@ def test_call_value_precompile_halt_refunds_new_account_state_gas(
         balance=1,
     )
 
-    reservoir = max(new_account_state_gas, sstore_state_gas)
+    assert new_account_state_gas >= sstore_state_gas
+    reservoir = new_account_state_gas
 
     tx = Transaction(
         to=parent,
