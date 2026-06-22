@@ -41,7 +41,6 @@ from execution_testing import (
 )
 from execution_testing.checklists import EIPChecklist
 
-from .helpers import opcode_overhead, warm_access_list
 from .spec import ref_spec_8038
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8038.git_path
@@ -94,7 +93,7 @@ def _measure_call(
     the overhead; the measured value isolates the opcode's gas. The call
     leaves exactly one stack item (its success flag).
     """
-    overhead_cost = opcode_overhead(measured_code, own_cold_cost, fork)
+    overhead_cost = measured_code.gas_cost(fork) - own_cold_cost.gas_cost(fork)
     code_gas_measure = CodeGasMeasure(
         code=measured_code,
         overhead_cost=overhead_cost,
@@ -136,7 +135,9 @@ def test_call_access_gas(
     # Cross-check the framework opcode model agrees with the formula.
     assert expected_gas == cost_metadata.gas_cost(fork)
 
-    access_list = warm_access_list(target, warm)
+    access_list = (
+        [AccessList(address=target, storage_keys=[])] if warm else None
+    )
     tx = Transaction(
         to=measure_address,
         sender=pre.fund_eoa(),
@@ -239,7 +240,9 @@ def test_call_value_alive_target_gas(
         gas_costs.ACCOUNT_WRITE if transfers_value else 0
     )
 
-    access_list = warm_access_list(target, warm)
+    access_list = (
+        [AccessList(address=target, storage_keys=[])] if warm else None
+    )
     tx = Transaction(
         to=measure_address,
         sender=pre.fund_eoa(),
@@ -671,9 +674,9 @@ def test_account_warmth_reverts_on_subcall_revert(
     # accessed set, then reverts, discarding that warmth), then measure
     # its own first BALANCE of `probed`, which must be cold again.
     measured_code = Op.BALANCE(probed)
-    overhead_cost = opcode_overhead(
-        measured_code, Op.BALANCE(address_warm=False), fork
-    )
+    overhead_cost = measured_code.gas_cost(fork) - Op.BALANCE(
+        address_warm=False
+    ).gas_cost(fork)
     outer_code: Bytecode = Op.POP(
         Op.DELEGATECALL(gas=100_000, address=inner)
     ) + CodeGasMeasure(

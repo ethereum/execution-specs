@@ -25,7 +25,6 @@ from execution_testing import (
 )
 from execution_testing.checklists import EIPChecklist
 
-from .helpers import opcode_overhead
 from .spec import ref_spec_8038
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8038.git_path
@@ -149,8 +148,8 @@ def test_sstore_cold_then_warm_same_slot(
     data_slot = 0x42
 
     # First write: cold, first change of a non-zero-original slot. The
-    # bare (operand-free) opcode carries the same metadata so that
-    # ``opcode_overhead`` resolves to just the two operand PUSHes.
+    # bare (operand-free) opcode carries the same metadata so that the
+    # CodeGasMeasure overhead resolves to just the two operand PUSHes.
     first_bare = Op.SSTORE.with_metadata(
         key_warm=False,
         original_value=1,
@@ -171,18 +170,19 @@ def test_sstore_cold_then_warm_same_slot(
     expected_first = first.regular_cost(fork) - 2 * fork.gas_costs().VERY_LOW
     expected_second = second.regular_cost(fork) - 2 * fork.gas_costs().VERY_LOW
 
-    # Each measured write stores its own runtime cost; ``opcode_overhead``
-    # strips the two operand PUSHes so the stored value is the bare SSTORE
-    # cost. The first block must not STOP so the (now warm) second runs.
+    # Each measured write stores its own runtime cost; the overhead
+    # subtraction strips the two operand PUSHes so the stored value is the
+    # bare SSTORE cost. The first block must not STOP so the (now warm)
+    # second runs.
     code = CodeGasMeasure(
         code=first,
-        overhead_cost=opcode_overhead(first, first_bare, fork),
+        overhead_cost=first.gas_cost(fork) - first_bare.gas_cost(fork),
         extra_stack_items=0,
         sstore_key=0,
         stop=False,
     ) + CodeGasMeasure(
         code=second,
-        overhead_cost=opcode_overhead(second, second_bare, fork),
+        overhead_cost=second.gas_cost(fork) - second_bare.gas_cost(fork),
         extra_stack_items=0,
         sstore_key=1,
     )

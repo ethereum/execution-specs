@@ -39,6 +39,7 @@ account-creation via balances; the state dimension is owned by
 
 import pytest
 from execution_testing import (
+    AccessList,
     Account,
     Address,
     Alloc,
@@ -58,7 +59,6 @@ from execution_testing import (
 from execution_testing.checklists import EIPChecklist
 
 from ..eip7708_eth_transfer_logs.spec import burn_log, transfer_log
-from .helpers import warm_access_list
 from .spec import ref_spec_8038
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8038.git_path
@@ -145,7 +145,9 @@ def test_selfdestruct_new_beneficiary_regular_gas(
     tx = Transaction(
         to=caller,
         sender=pre.fund_eoa(),
-        access_list=warm_access_list(beneficiary, warm),
+        access_list=[AccessList(address=beneficiary, storage_keys=[])]
+        if warm
+        else None,
         state_gas_reservoir=new_account_state_gas,
     )
 
@@ -188,7 +190,9 @@ def test_selfdestruct_alive_beneficiary_no_account_write(
     caller_code = Op.POP(Op.CALL(gas=Op.GAS, address=destructor)) + Op.STOP
     caller = pre.deploy_contract(code=caller_code)
 
-    access_list = warm_access_list(beneficiary, warm)
+    access_list = (
+        [AccessList(address=beneficiary, storage_keys=[])] if warm else None
+    )
     # Intrinsic must include the access-list cost that warms the
     # beneficiary; pass the list so the calculator folds it in.
     intrinsic = fork.transaction_intrinsic_cost_calculator()(
@@ -258,7 +262,9 @@ def test_selfdestruct_codebearing_zero_balance_beneficiary_no_account_write(
     caller_code = Op.POP(Op.CALL(gas=Op.GAS, address=destructor)) + Op.STOP
     caller = pre.deploy_contract(code=caller_code)
 
-    access_list = warm_access_list(beneficiary, warm)
+    access_list = (
+        [AccessList(address=beneficiary, storage_keys=[])] if warm else None
+    )
     # Intrinsic must include the access-list cost that warms the
     # beneficiary; pass the list so the calculator folds it in.
     intrinsic = fork.transaction_intrinsic_cost_calculator()(
@@ -322,7 +328,9 @@ def test_selfdestruct_zero_balance_no_account_write(
     caller_code = Op.POP(Op.CALL(gas=Op.GAS, address=destructor)) + Op.STOP
     caller = pre.deploy_contract(code=caller_code)
 
-    access_list = warm_access_list(beneficiary, warm)
+    access_list = (
+        [AccessList(address=beneficiary, storage_keys=[])] if warm else None
+    )
     intrinsic = fork.transaction_intrinsic_cost_calculator()(
         access_list=access_list
     )

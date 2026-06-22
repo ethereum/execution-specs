@@ -1,3 +1,0 @@
-general/code_coverage/eels = TODO: re-run coverage after the suite stabilizes. EIP-8038 repriced paths live in vm/gas.py, vm/instructions/storage.py, vm/instructions/system.py, vm/instructions/environment.py, vm/eoa_delegation.py, transactions.py
-general/code_coverage/test_coverage = TODO: report passing count with --cov once filled. Regular-gas state-access repricing (cold/warm access, STORAGE_WRITE, ACCOUNT_WRITE, CALL_VALUE, CREATE_ACCESS, the EXT* code-read surcharge, access-list and EIP-7702 authorization costs) is covered by this suite
-general/code_coverage/missed_lines = TODO. State-creation state-gas, the reservoir, and per-authorization dual-channel block accounting are covered by the sibling EIP-8037 and EIP-2780 suites, not re-asserted here

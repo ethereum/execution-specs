@@ -33,7 +33,6 @@ from execution_testing import (
 )
 from execution_testing.checklists import EIPChecklist
 
-from .helpers import opcode_overhead, warm_access_list
 from .spec import ref_spec_8038
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8038.git_path
@@ -157,7 +156,9 @@ def test_access_list_duplicate_address_key_intrinsic_and_warmth(
 
     # First runtime SLOAD of the listed slot stores the warm access cost.
     measured_read = Op.SLOAD(slot)
-    overhead = opcode_overhead(measured_read, Op.SLOAD(key_warm=False), fork)
+    overhead = measured_read.gas_cost(fork) - Op.SLOAD(
+        key_warm=False
+    ).gas_cost(fork)
     contract = pre.deploy_contract(
         code=CodeGasMeasure(
             code=measured_read,
@@ -292,7 +293,7 @@ def test_access_list_slot_warmth_is_address_scoped(
     # Both accounts read their own slot ``s`` with the same wrapper, so the
     # overhead that strips the operand PUSH is identical for each.
     measured_read = Op.SLOAD(slot)
-    overhead = opcode_overhead(measured_read, cold_gas, fork)
+    overhead = measured_read.gas_cost(fork) - cold_gas
 
     # B reads its own slot ``s`` (cold), storing the result in B's slot 1.
     account_b = pre.deploy_contract(
@@ -323,7 +324,7 @@ def test_access_list_slot_warmth_is_address_scoped(
         sender=pre.fund_eoa(),
         gas_limit=1_000_000,
         # Only A's slot is listed; B's identical slot stays cold.
-        access_list=warm_access_list(account_a, True, storage_keys=[slot]),
+        access_list=[AccessList(address=account_a, storage_keys=[slot])],
     )
 
     post = {

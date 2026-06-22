@@ -10,6 +10,7 @@ discarded, so a subsequent read in the outer frame is cold again.
 
 import pytest
 from execution_testing import (
+    AccessList,
     Account,
     Alloc,
     Bytecode,
@@ -22,7 +23,6 @@ from execution_testing import (
 )
 from execution_testing.checklists import EIPChecklist
 
-from .helpers import opcode_overhead, warm_access_list
 from .spec import ref_spec_8038
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8038.git_path
@@ -42,9 +42,9 @@ def _measure_sload(slot: int, fork: Fork) -> CodeGasMeasure:
     measured_code = Op.SLOAD(slot)
     # Subtract the SLOAD opcode's own cold cost so only the PUSH wrapper
     # remains as overhead; the runtime access cost is what gets stored.
-    overhead_cost = opcode_overhead(
-        measured_code, Op.SLOAD(key_warm=False), fork
-    )
+    overhead_cost = measured_code.gas_cost(fork) - Op.SLOAD(
+        key_warm=False
+    ).gas_cost(fork)
     return CodeGasMeasure(
         code=measured_code,
         overhead_cost=overhead_cost,
@@ -78,7 +78,11 @@ def test_sload_gas(
 
     # Warm the slot via the access list when required; the cold case
     # leaves it unlisted so its first runtime read is cold.
-    access_list = warm_access_list(measure_address, warm, storage_keys=[slot])
+    access_list = (
+        [AccessList(address=measure_address, storage_keys=[slot])]
+        if warm
+        else None
+    )
     tx = Transaction(
         to=measure_address,
         sender=pre.fund_eoa(),
@@ -109,9 +113,9 @@ def test_sload_warm_after_prior_touch(
     warm_gas = Op.SLOAD(key_warm=True).gas_cost(fork)
 
     measured_code = Op.SLOAD(slot)
-    overhead_cost = opcode_overhead(
-        measured_code, Op.SLOAD(key_warm=False), fork
-    )
+    overhead_cost = measured_code.gas_cost(fork) - Op.SLOAD(
+        key_warm=False
+    ).gas_cost(fork)
 
     # First measure (slot 0): cold read. Second measure (slot 1): the
     # same slot is now warm. The first block must not STOP so the
@@ -174,9 +178,9 @@ def test_sload_warmth_reverts_on_subcall_revert(
     # storage context, so inner's read warms (outer, slot); the revert
     # discards that warmth, making the measured read cold.
     measured_code = Op.SLOAD(slot)
-    overhead_cost = opcode_overhead(
-        measured_code, Op.SLOAD(key_warm=False), fork
-    )
+    overhead_cost = measured_code.gas_cost(fork) - Op.SLOAD(
+        key_warm=False
+    ).gas_cost(fork)
 
     outer_code: Bytecode = Op.POP(
         Op.DELEGATECALL(gas=100_000, address=inner)

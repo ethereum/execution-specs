@@ -44,7 +44,6 @@ from execution_testing import (
 )
 from execution_testing.checklists import EIPChecklist
 
-from .helpers import opcode_overhead
 from .spec import ref_spec_8038
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8038.git_path
@@ -70,7 +69,7 @@ def _measure_contract(
     the two, so ``CodeGasMeasure`` strips it and slot 0 holds only the
     opcode's own cost. The opcode leaves one stack item (its result).
     """
-    overhead = opcode_overhead(measured, opcode_cost, fork)
+    overhead = measured.gas_cost(fork) - opcode_cost
     code = CodeGasMeasure(
         code=measured,
         overhead_cost=overhead,

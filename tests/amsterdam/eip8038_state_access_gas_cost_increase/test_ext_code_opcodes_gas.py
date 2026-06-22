@@ -12,6 +12,7 @@ from typing import Callable
 
 import pytest
 from execution_testing import (
+    AccessList,
     Account,
     Address,
     Alloc,
@@ -26,7 +27,6 @@ from execution_testing import (
 )
 from execution_testing.checklists import EIPChecklist
 
-from .helpers import opcode_overhead, warm_access_list
 from .spec import ref_spec_8038
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8038.git_path
@@ -106,7 +106,9 @@ def test_ext_code_opcode_gas(
     # CodeGasMeasure overhead excludes only the PUSH wrapper; under
     # EIP-8038 EXTCODESIZE/EXTCODECOPY have a higher cold cost than
     # BALANCE because of the code-read surcharge.
-    overhead_cost = opcode_overhead(measured_code, cost_metadata(False), fork)
+    overhead_cost = measured_code.gas_cost(fork) - cost_metadata(
+        False
+    ).gas_cost(fork)
 
     code_gas_measure = CodeGasMeasure(
         code=measured_code,
@@ -129,7 +131,9 @@ def test_ext_code_opcode_gas(
         to=measure_address,
         sender=pre.fund_eoa(),
         gas_limit=1_000_000,
-        access_list=warm_access_list(target, warm),
+        access_list=[AccessList(address=target, storage_keys=[])]
+        if warm
+        else None,
     )
 
     post = {measure_address: Account(storage={0: expected_gas})}
@@ -178,9 +182,9 @@ def test_extcodecopy_nonzero_composes_additively(
         old_memory_size=0,
     )(target, 0, 0, copy_size)
 
-    # Oracle: the same metadata-only opcode. Its gas is the four-component
-    # sum; ``opcode_overhead`` strips the operand-PUSH wrapper so the
-    # stored value equals exactly this opcode cost.
+    # Oracle: the same metadata-only opcode. Subtracting its cost from the
+    # measured code's cost yields the CodeGasMeasure overhead (the operand
+    # PUSHes only), so the stored value equals exactly this opcode cost.
     oracle = Op.EXTCODECOPY.with_metadata(
         address_warm=warm,
         data_size=copy_size,
@@ -206,7 +210,7 @@ def test_extcodecopy_nonzero_composes_additively(
 
     code_gas_measure = CodeGasMeasure(
         code=measured_code,
-        overhead_cost=opcode_overhead(measured_code, oracle, fork),
+        overhead_cost=measured_code.gas_cost(fork) - oracle.gas_cost(fork),
         extra_stack_items=0,
     )
     measure_address = pre.deploy_contract(code=code_gas_measure)
@@ -215,7 +219,9 @@ def test_extcodecopy_nonzero_composes_additively(
         to=measure_address,
         sender=pre.fund_eoa(),
         gas_limit=1_000_000,
-        access_list=warm_access_list(target, warm),
+        access_list=[AccessList(address=target, storage_keys=[])]
+        if warm
+        else None,
     )
 
     post = {measure_address: Account(storage={0: expected_gas})}
@@ -260,9 +266,8 @@ def test_extcodehash_empty_account(
     hash_slot = storage.store_next(0, "extcodehash_empty_hash")
     code = CodeGasMeasure(
         code=measured_code,
-        overhead_cost=opcode_overhead(
-            measured_code, Op.EXTCODEHASH(address_warm=warm), fork
-        ),
+        overhead_cost=measured_code.gas_cost(fork)
+        - Op.EXTCODEHASH(address_warm=warm).gas_cost(fork),
         extra_stack_items=1,
         sstore_key=gas_slot,
     ) + Op.SSTORE(hash_slot, Op.EXTCODEHASH(empty_addr))
@@ -272,7 +277,9 @@ def test_extcodehash_empty_account(
         to=measure_address,
         sender=pre.fund_eoa(),
         gas_limit=1_000_000,
-        access_list=warm_access_list(empty_addr, warm),
+        access_list=[AccessList(address=empty_addr, storage_keys=[])]
+        if warm
+        else None,
     )
 
     post = {measure_address: Account(storage=storage)}
