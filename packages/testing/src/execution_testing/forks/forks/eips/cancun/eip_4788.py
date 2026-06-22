@@ -19,6 +19,12 @@ class EIP4788(BaseFork):
     """EIP-4788 class."""
 
     @classmethod
+    def empty_block_bal_item_count(cls) -> int:
+        """Add block-level access list elements for an empty block."""
+        # Beacon roots contract: 1 address + 1 write + 1 read = 3
+        return super(EIP4788, cls).empty_block_bal_item_count() + 3
+
+    @classmethod
     def header_beacon_root_required(cls) -> bool:
         """Parent beacon block root is required."""
         return True

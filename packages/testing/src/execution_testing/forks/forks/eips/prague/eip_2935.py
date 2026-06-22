@@ -26,6 +26,12 @@ class EIP2935(BaseFork):
     """EIP-2935 class."""
 
     @classmethod
+    def empty_block_bal_item_count(cls) -> int:
+        """Add block-level access list elements for an empty block."""
+        # History contract: 1 address + 1 write = 2
+        return super(EIP2935, cls).empty_block_bal_item_count() + 2
+
+    @classmethod
     def system_contracts(cls) -> List[Address]:
         """Add the history storage contract."""
         return [
