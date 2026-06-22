@@ -29,5 +29,5 @@ devnet:
 
 focil:
   evm-type: eels
-  fill-params: ./tests/bogota/eip7805_focil --from=Bogota
+  fill-params: ./tests/bogota/eip7805_focil --from=Bogota --until=Bogota
   feature_only: true
