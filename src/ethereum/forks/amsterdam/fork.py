@@ -992,7 +992,7 @@ def process_transaction(
 
     intrinsic = validate_transaction(tx)
 
-    intrinsic_gas = intrinsic.regular + intrinsic.state
+    intrinsic_gas = Uint(intrinsic.regular) + Uint(intrinsic.state)
 
     (
         sender,

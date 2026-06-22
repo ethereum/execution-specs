@@ -13,6 +13,7 @@ Implementations of the EVM storage related instructions.
 
 from ethereum_types.numeric import Uint
 
+from ...fork_types import StateGas
 from ...state_tracker import (
     get_storage,
     get_storage_original,
@@ -90,7 +91,7 @@ def sstore(evm: Evm) -> None:
     current_value = get_storage(tx_state, evm.message.current_target, key)
 
     gas_cost = Uint(0)
-    state_gas = Uint(0)
+    state_gas = StateGas(Uint(0))
 
     if (evm.message.current_target, key) not in evm.accessed_storage_keys:
         evm.accessed_storage_keys.add((evm.message.current_target, key))
