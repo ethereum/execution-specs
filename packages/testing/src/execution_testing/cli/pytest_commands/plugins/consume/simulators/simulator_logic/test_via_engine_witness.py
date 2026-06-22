@@ -54,8 +54,13 @@ def _send_payload_with_witness(
     engine_rpc: EngineRPC,
     engine_ssz_rpc: EngineSszRPC,
     payload: FixtureEngineNewPayload,
-) -> NewPayloadWithWitnessResponse:
-    """Execute one payload through the configured witness endpoint."""
+) -> NewPayloadWithWitnessResponse | JSONRPCError:
+    """
+    Execute one payload through the configured witness endpoint.
+
+    Return the response, or the caught Engine API error for the assertion to
+    validate against the fixture's expected ``error_code``.
+    """
     try:
         if use_ssz_transport:
             return engine_ssz_rpc.new_payload_with_witness(*payload.params)
@@ -66,24 +71,48 @@ def _send_payload_with_witness(
     except EngineWitnessEndpointNotImplementedError as e:
         pytest.skip(str(e))
     except JSONRPCError as e:
-        if e.code == _JSONRPC_METHOD_NOT_FOUND:
+        # An unimplemented endpoint is a transport skip, but only when no
+        # error was expected; otherwise the error is a result to assert.
+        if payload.error_code is None and e.code == _JSONRPC_METHOD_NOT_FOUND:
             pytest.skip(
                 "client does not support "
                 f"engine_newPayloadWithWitnessV"
                 f"{payload.new_payload_version}: {e.message}"
             )
-        raise
+        return e
 
 
 def _assert_witness_response(
     *,
     payload: FixtureEngineNewPayload,
     payload_number: int,
-    response: NewPayloadWithWitnessResponse,
+    result: NewPayloadWithWitnessResponse | JSONRPCError,
     payload_timing: TimingData,
     use_ssz_transport: bool,
 ) -> None:
-    """Assert one witness response matches the fixture payload."""
+    """Assert one witness result (response or error) matches the fixture."""
+    if isinstance(result, JSONRPCError):
+        # The client raised an Engine API error; a negative test expects it.
+        if payload.error_code is None:
+            raise LoggedError(
+                f"Payload {payload_number}: unexpected error: "
+                f"{result.code} - {result.message}"
+            )
+        if result.code != payload.error_code:
+            raise LoggedError(
+                f"Payload {payload_number}: unexpected error code: "
+                f"got {result.code}, expected {payload.error_code}"
+            )
+        return
+
+    if payload.error_code is not None:
+        # Negative test expected an Engine API error, but got a response.
+        raise LoggedError(
+            f"Payload {payload_number}: client did not raise the expected "
+            f"Engine API error code {payload.error_code}"
+        )
+
+    response = result
     expected_status = (
         PayloadStatusEnum.VALID
         if payload.valid()
@@ -217,7 +246,7 @@ def test_blockchain_via_engine_witness(
                         use_ssz_transport=use_ssz_transport,
                     )
                 ):
-                    witness_response = _send_payload_with_witness(
+                    witness_result = _send_payload_with_witness(
                         use_ssz_transport=use_ssz_transport,
                         engine_rpc=engine_rpc,
                         engine_ssz_rpc=engine_ssz_rpc,
@@ -227,12 +256,17 @@ def test_blockchain_via_engine_witness(
                 _assert_witness_response(
                     payload=payload,
                     payload_number=payload_number,
-                    response=witness_response,
+                    result=witness_result,
                     payload_timing=payload_timing,
                     use_ssz_transport=use_ssz_transport,
                 )
 
-                if payload.valid():
+                # A raised error means the block was rejected, so there is no
+                # canonical block to advance the forkchoice to.
+                if (
+                    not isinstance(witness_result, JSONRPCError)
+                    and payload.valid()
+                ):
                     with payload_timing.time(
                         f"engine_forkchoiceUpdatedV"
                         f"{payload.forkchoice_updated_version}"
