@@ -42,6 +42,7 @@ When reviewing PRs that implement or test EIPs:
 ## When to Use Skills
 
 - Writing or modifying tests → run `/write-test` first
+- Cleaning up or future-proofing a `tests/ported_static/` test → run `/enhance-ported-test` first
 - Writing or modifying pytester-based plugin tests → run `/pytester` first
 - Filling test fixtures → run `/fill-tests` first
 - Implementing an EIP or modifying fork code in `src/` → run `/implement-eip` first
@@ -55,6 +56,7 @@ When reviewing PRs that implement or test EIPs:
 ## Available Skills
 
 - `/write-test` — test writing patterns, fixtures, markers, bytecode helpers
+- `/enhance-ported-test` — ordered methodology to clean up & future-proof `tests/ported_static/` tests
 - `/pytester` — pytester execution modes, isolation, output handling for plugin tests
 - `/fill-tests` — `fill` CLI reference, flags, debugging, benchmark tests
 - `/implement-eip` — fork structure, import rules, adding opcodes/precompiles/tx types
