@@ -1118,15 +1118,13 @@ def process_transaction(
 
     all_logs = tx_output.logs + tuple(finalization_logs)
 
-    tx_regular_gas = tx_env.intrinsic_regular_gas + tx_output.regular_gas_used
     tx_state_gas = (
         int(tx_env.intrinsic_state_gas)
         + tx_output.state_gas_used
         - int(tx_output.state_refund)
     )
-    block_output.block_gas_used += max(
-        tx_regular_gas, intrinsic.calldata_floor
-    )
+    tx_regular_gas = tx_gas_used_before_refund - Uint(max(0, tx_state_gas))
+    block_output.block_gas_used += tx_regular_gas
     block_output.block_state_gas_used += Uint(max(0, tx_state_gas))
     block_output.blob_gas_used += tx_blob_gas_used
 
