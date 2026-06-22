@@ -443,10 +443,10 @@ def validate_transaction(tx: Transaction) -> Uint:
     intrinsic_gas = calculate_intrinsic_cost(tx)
     if intrinsic_gas > tx.gas:
         raise InsufficientTransactionGasError("Insufficient gas")
-    if U256(tx.nonce) >= U256(U64.MAX_VALUE):
-        raise NonceOverflowError("Nonce too high")
     if tx.to == Bytes0(b"") and len(tx.data) > MAX_INIT_CODE_SIZE:
         raise InitCodeTooLargeError("Code size too large")
+    if U256(tx.nonce) >= U256(U64.MAX_VALUE):
+        raise NonceOverflowError("Nonce too high")
 
     return intrinsic_gas
 
