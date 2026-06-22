@@ -6,6 +6,7 @@ from execution_testing import (
     Alloc,
     Op,
     StateTestFiller,
+    Storage,
     Transaction,
 )
 
@@ -17,7 +18,7 @@ REFERENCE_SPEC_VERSION = ref_spec_211.version
 
 @pytest.mark.valid_from("Byzantium")
 @pytest.mark.parametrize(
-    "create_type",
+    "create_opcode",
     [
         pytest.param(Op.CREATE, id="CREATE"),
         pytest.param(
@@ -28,7 +29,7 @@ REFERENCE_SPEC_VERSION = ref_spec_211.version
     ],
 )
 def test_create_clears_return_data_on_insufficient_balance(
-    create_type: Op,
+    create_opcode: Op,
     pre: Alloc,
     state_test: StateTestFiller,
 ) -> None:
@@ -49,58 +50,45 @@ def test_create_clears_return_data_on_insufficient_balance(
     before initcode), and asserts RETURNDATASIZE is 0 afterward.
 
     Storage layout:
-      slot 0 = RETURNDATASIZE after the CALL    (expected 32)
-      slot 1 = RETURNDATASIZE after the create  (expected 0)
-      slot 2 = the create result address        (expected 0, i.e. failure)
+      slot N = RETURNDATASIZE after the CALL    (expected 32)
+      slot N+1 = RETURNDATASIZE after the create  (expected 0)
+      slot N+2 = the create result address        (expected 0, i.e. failure)
     """
-    slot_rds_after_call = 0
-    slot_rds_after_create = 1
-    slot_create_result = 2
+    storage = Storage()
 
     # Callee returns 32 bytes, so the caller's return-data buffer is 32 bytes.
     callee = pre.deploy_contract(
         code=Op.MSTORE(0, 0x11223344) + Op.RETURN(0, 32),
     )
 
-    if create_type == Op.CREATE2:
-        create_op = Op.CREATE2(value=2, offset=0, size=0, salt=0)
-    else:
-        create_op = Op.CREATE(value=2, offset=0, size=0)
+    init_balance = 1
+    create_op = create_opcode(value=init_balance + 1)
 
     # Caller has balance 1, so a create with value 2 fails the balance
     # pre-check before executing any initcode.
     caller = pre.deploy_contract(
-        balance=1,
+        balance=init_balance,
         code=(
-            Op.CALL(Op.GAS, callee, 0, 0, 0, 0, 32)
-            + Op.SSTORE(slot_rds_after_call, Op.RETURNDATASIZE)
-            + Op.SSTORE(slot_create_result, create_op)
-            + Op.SSTORE(slot_rds_after_create, Op.RETURNDATASIZE)
+            Op.CALL(gas=Op.GAS, address=callee, ret_size=32)
+            + Op.SSTORE(
+                storage.store_next(32, "rds_after_call"), Op.RETURNDATASIZE
+            )
+            + Op.SSTORE(storage.store_next(0, "create_result"), create_op)
+            + Op.SSTORE(
+                storage.store_next(0, "rds_after_create"), Op.RETURNDATASIZE
+            )
             + Op.STOP
         ),
-        storage={
-            slot_rds_after_call: 0xFF,
-            slot_rds_after_create: 0xFF,
-            slot_create_result: 0xFF,
-        },
+        storage=dict.fromkeys(storage, 0xFF),
     )
 
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=caller,
-        gas_limit=1_000_000,
     )
 
     state_test(
         pre=pre,
-        post={
-            caller: Account(
-                storage={
-                    slot_rds_after_call: 32,
-                    slot_rds_after_create: 0,
-                    slot_create_result: 0,
-                }
-            )
-        },
+        post={caller: Account(storage=storage)},
         tx=tx,
     )

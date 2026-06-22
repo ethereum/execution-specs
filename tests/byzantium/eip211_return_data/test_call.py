@@ -6,6 +6,7 @@ from execution_testing import (
     Alloc,
     Op,
     StateTestFiller,
+    Storage,
     Transaction,
 )
 
@@ -36,56 +37,48 @@ def test_call_clears_return_data_on_insufficient_balance(
     effectively unreachable.)
 
     Storage layout:
-      slot 0 = RETURNDATASIZE after the funded CALL    (expected 32)
-      slot 1 = RETURNDATASIZE after the failing CALL   (expected 0)
-      slot 2 = the failing CALL result                 (expected 0, failure)
+      slot N = RETURNDATASIZE after the funded CALL    (expected 32)
+      slot N+1 = RETURNDATASIZE after the failing CALL   (expected 0)
+      slot N+2 = the failing CALL result                 (expected 0, failure)
     """
-    slot_rds_after_call = 0
-    slot_rds_after_failed_call = 1
-    slot_failed_call_result = 2
+    storage = Storage()
 
     # Callee returns 32 bytes, so the caller's return-data buffer is 32 bytes.
     callee = pre.deploy_contract(
         code=Op.MSTORE(0, 0x11223344) + Op.RETURN(0, 32),
     )
 
+    init_balance = 1
+
     # Caller has balance 1, so a CALL with value 2 fails the balance pre-check
     # before entering the callee.
     caller = pre.deploy_contract(
-        balance=1,
+        balance=init_balance,
         code=(
-            Op.CALL(Op.GAS, callee, 0, 0, 0, 0, 32)
-            + Op.SSTORE(slot_rds_after_call, Op.RETURNDATASIZE)
+            Op.CALL(gas=Op.GAS, address=callee, ret_size=32)
             + Op.SSTORE(
-                slot_failed_call_result,
-                Op.CALL(Op.GAS, callee, 2, 0, 0, 0, 0),
+                storage.store_next(32, "rds_after_call"), Op.RETURNDATASIZE
             )
-            + Op.SSTORE(slot_rds_after_failed_call, Op.RETURNDATASIZE)
+            + Op.SSTORE(
+                storage.store_next(0, "failed_call_result"),
+                Op.CALL(gas=Op.GAS, address=callee, value=init_balance + 1),
+            )
+            + Op.SSTORE(
+                storage.store_next(0, "rds_after_failed_call"),
+                Op.RETURNDATASIZE,
+            )
             + Op.STOP
         ),
-        storage={
-            slot_rds_after_call: 0xFF,
-            slot_rds_after_failed_call: 0xFF,
-            slot_failed_call_result: 0xFF,
-        },
+        storage=dict.fromkeys(storage, 0xFF),
     )
 
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=caller,
-        gas_limit=1_000_000,
     )
 
     state_test(
         pre=pre,
-        post={
-            caller: Account(
-                storage={
-                    slot_rds_after_call: 32,
-                    slot_rds_after_failed_call: 0,
-                    slot_failed_call_result: 0,
-                }
-            )
-        },
+        post={caller: Account(storage=storage)},
         tx=tx,
     )
