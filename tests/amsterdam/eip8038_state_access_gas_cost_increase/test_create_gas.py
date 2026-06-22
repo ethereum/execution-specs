@@ -447,11 +447,18 @@ def test_aborted_create_does_not_warm_address(
     )
     factory_code = setup + Op.POP(create_call) + measure
 
+    # The CREATE target derives from the factory's nonce at CREATE time,
+    # so the BALANCE probe below must reuse the same nonce. nonce_overflow
+    # mode carries the maximum nonce (2**64 - 1); otherwise the factory
+    # keeps the default contract nonce of 1.
+    factory_nonce = 2**64 - 1 if abort_mode == "nonce_overflow" else 1
     if abort_mode == "nonce_overflow":
-        factory = pre.deploy_contract(code=factory_code, nonce=2**64 - 1)
+        factory = pre.deploy_contract(code=factory_code, nonce=factory_nonce)
     else:
         # Zero balance so the value=1 endowment cannot be satisfied.
-        factory = pre.deploy_contract(code=factory_code, balance=0)
+        factory = pre.deploy_contract(
+            code=factory_code, nonce=factory_nonce, balance=0
+        )
 
     if create_opcode == Op.CREATE2:
         from execution_testing import compute_create2_address
@@ -460,7 +467,9 @@ def test_aborted_create_does_not_warm_address(
             address=factory, salt=0, initcode=init_code_bytes
         )
     else:
-        target_address = compute_create_address(address=factory, nonce=1)
+        target_address = compute_create_address(
+            address=factory, nonce=factory_nonce
+        )
 
     tx = Transaction(
         to=factory,
