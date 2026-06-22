@@ -28,8 +28,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Block,
-    BlockchainTestFiller,
     Bytecode,
     CodeGasMeasure,
     Environment,
@@ -256,7 +254,7 @@ def test_call_value_alive_target_gas(
 
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_callcode_value_to_nonexistent_no_new_account(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
@@ -317,18 +315,17 @@ def test_callcode_value_to_nonexistent_no_new_account(
         gas_limit=1_000_000,
     )
 
-    blockchain_test(
+    state_test(
         pre=pre,
-        blocks=[
-            Block(txs=[tx], header_verify=Header(gas_used=expected_gas_used))
-        ],
         post={caller: Account(balance=1)},
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )
 
 
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_call_value_to_new_account_seam(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
@@ -391,12 +388,11 @@ def test_call_value_to_new_account_seam(
         gas_limit=1_000_000,
     )
 
-    blockchain_test(
+    state_test(
         pre=pre,
-        blocks=[
-            Block(txs=[tx], header_verify=Header(gas_used=expected_gas_used))
-        ],
         post={target: Account(balance=1)},
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )
 
 

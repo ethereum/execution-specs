@@ -43,8 +43,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Block,
-    BlockchainTestFiller,
     Bytecode,
     Environment,
     Fork,
@@ -108,7 +106,7 @@ def _destructor_code(
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
 def test_selfdestruct_new_beneficiary_regular_gas(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     warm: bool,
@@ -151,21 +149,21 @@ def test_selfdestruct_new_beneficiary_regular_gas(
         state_gas_reservoir=new_account_state_gas,
     )
 
-    blockchain_test(
+    state_test(
         pre=pre,
-        blocks=[Block(txs=[tx])],
         post={
             caller: Account(storage=storage),
             # New beneficiary created and credited the destructor balance.
             beneficiary: Account(balance=1),
         },
+        tx=tx,
     )
 
 
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
 def test_selfdestruct_alive_beneficiary_no_account_write(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     warm: bool,
@@ -214,24 +212,23 @@ def test_selfdestruct_alive_beneficiary_no_account_write(
         + destructor_code.regular_cost(fork)
     )
 
-    blockchain_test(
+    state_test(
         pre=pre,
-        blocks=[
-            Block(txs=[tx], header_verify=Header(gas_used=expected_gas_used))
-        ],
         # EIP-6780: the pre-deployed destructor is not same-tx-created,
         # so it is not deleted; its balance still transfers.
         post={
             destructor: Account(balance=0, code=destructor_code),
             beneficiary: Account(balance=2),
         },
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )
 
 
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
 def test_selfdestruct_codebearing_zero_balance_beneficiary_no_account_write(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     warm: bool,
@@ -286,11 +283,8 @@ def test_selfdestruct_codebearing_zero_balance_beneficiary_no_account_write(
         + destructor_code.regular_cost(fork)
     )
 
-    blockchain_test(
+    state_test(
         pre=pre,
-        blocks=[
-            Block(txs=[tx], header_verify=Header(gas_used=expected_gas_used))
-        ],
         # EIP-6780: the pre-deployed destructor is not same-tx-created,
         # so it is not deleted; its balance still transfers.
         post={
@@ -298,13 +292,15 @@ def test_selfdestruct_codebearing_zero_balance_beneficiary_no_account_write(
             # Code-bearing beneficiary credited the destructor balance.
             beneficiary: Account(balance=1, code=Op.STOP),
         },
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )
 
 
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
 def test_selfdestruct_zero_balance_no_account_write(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     warm: bool,
@@ -348,15 +344,14 @@ def test_selfdestruct_zero_balance_no_account_write(
         + destructor_code.regular_cost(fork)
     )
 
-    blockchain_test(
+    state_test(
         pre=pre,
-        blocks=[
-            Block(txs=[tx], header_verify=Header(gas_used=expected_gas_used))
-        ],
         post={
             destructor: Account(balance=0, code=destructor_code),
             beneficiary: Account.NONEXISTENT,
         },
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )
 
 
@@ -369,7 +364,7 @@ def test_selfdestruct_zero_balance_no_account_write(
     ],
 )
 def test_selfdestruct_self_or_precompile_beneficiary(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     beneficiary_kind: str,
@@ -433,12 +428,11 @@ def test_selfdestruct_self_or_precompile_beneficiary(
     # nothing.
     post = {destructor: Account(balance=balance, code=destructor_code)}
 
-    blockchain_test(
+    state_test(
         pre=pre,
-        blocks=[
-            Block(txs=[tx], header_verify=Header(gas_used=expected_gas_used))
-        ],
         post=post,
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )
 
 
@@ -519,7 +513,7 @@ def test_selfdestruct_oog_boundary(
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.pre_alloc_mutable()
 def test_same_tx_created_selfdestruct_self_burn(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
@@ -584,23 +578,19 @@ def test_same_tx_created_selfdestruct_self_burn(
         expected_receipt=TransactionReceipt(logs=[burn_log(created, amount)]),
     )
 
-    blockchain_test(
+    state_test(
         pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                header_verify=Header(gas_used=expected_gas_used),
-            ),
-        ],
         # Same-tx-created originator is deleted; its balance is burnt.
         post={created: Account.NONEXISTENT},
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )
 
 
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.pre_alloc_mutable()
 def test_same_tx_created_selfdestruct_to_fresh_beneficiary(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
@@ -668,18 +658,14 @@ def test_same_tx_created_selfdestruct_to_fresh_beneficiary(
         ),
     )
 
-    blockchain_test(
+    state_test(
         pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                header_verify=Header(gas_used=expected_gas_used),
-            ),
-        ],
         # Same-tx-created originator is deleted; the fresh beneficiary is
         # created and credited the originator balance.
         post={
             created: Account.NONEXISTENT,
             beneficiary: Account(balance=amount),
         },
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )
