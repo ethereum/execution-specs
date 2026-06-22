@@ -146,6 +146,9 @@ class EIP8037(BaseFork):
             Opcodes.CREATE2: lambda op: cls._calculate_create_state_gas(
                 op, gas_costs
             ),
+            Opcodes.SELFDESTRUCT: (
+                lambda op: cls._calculate_selfdestruct_state_gas(op, gas_costs)
+            ),
         }
 
     @classmethod
@@ -383,3 +386,37 @@ class EIP8037(BaseFork):
         """
         del opcode
         return gas_costs.NEW_ACCOUNT
+
+    @classmethod
+    def _calculate_selfdestruct_state_gas(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """
+        Calculate the SELFDESTRUCT state gas cost: `NEW_ACCOUNT` when a
+        positive balance funds a new account. Before EIP-8037 this was
+        folded into the regular SELFDESTRUCT cost; under EIP-8037 it is
+        exposed here as state gas (mirroring `_calculate_create_state_gas`)
+        so the regular cost matches the spec EVM
+        (`OPCODE_SELFDESTRUCT_BASE` + account access + the EIP-8038
+        `ACCOUNT_WRITE` surcharge).
+        """
+        if opcode.metadata["account_new"]:
+            return gas_costs.NEW_ACCOUNT
+        return 0
+
+    @classmethod
+    def _calculate_selfdestruct_gas(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """
+        Calculate the regular SELFDESTRUCT gas cost. EIP-8037 moves the
+        new-account funding cost (`NEW_ACCOUNT`) to the state-gas
+        dimension (see `_calculate_selfdestruct_state_gas`), so it is
+        removed from the regular cost inherited from the base/EIP-8038
+        calculation. The EIP-8038 `ACCOUNT_WRITE` surcharge stays in
+        regular gas.
+        """
+        gas_cost = super()._calculate_selfdestruct_gas(opcode, gas_costs)
+        if opcode.metadata["account_new"]:
+            gas_cost -= gas_costs.NEW_ACCOUNT
+        return gas_cost
