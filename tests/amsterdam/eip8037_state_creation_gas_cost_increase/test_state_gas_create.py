@@ -234,17 +234,12 @@ def test_code_deposit_state_gas_scales_with_size(
 
 
 @pytest.mark.parametrize(
-    "gas_delta",
+    ("funding", "gas_delta"),
     [
-        pytest.param(0, id="exact_fit"),
-        pytest.param(-1, id="one_gas_short"),
-    ],
-)
-@pytest.mark.parametrize(
-    "funding",
-    [
-        pytest.param("reservoir", id="reservoir_funded"),
-        pytest.param("spill", id="gas_left_spill"),
+        pytest.param("reservoir", 0, id="reservoir_success"),
+        pytest.param("reservoir", -1, id="reservoir_oog"),
+        pytest.param("spill", 0, id="spill_success"),
+        pytest.param("spill", -1, id="spill_oog"),
     ],
 )
 @EIPChecklist.GasCostChanges.Test.OutOfGas()
@@ -262,9 +257,9 @@ def test_code_deposit_state_gas_exact_fit_boundary(
     A CREATE tx deploys ``code_size`` bytes with ``gas_limit`` set so the
     deposit lands exactly at the available gas (deploys) or one gas short
     (halts: state restored, NEW_ACCOUNT refilled, no code). The two
-    regimes pin the halt billing: over-cap ``reservoir_funded`` rolls the
-    reservoir back so the sender pays the cap; in-cap ``gas_left_spill``
-    burns ``gas_left`` and bills ``gas_limit - NEW_ACCOUNT``. The scaling
+    regimes pin the halt billing: over-cap ``reservoir`` rolls the
+    reservoir back so the sender pays the cap; in-cap ``spill`` burns
+    ``gas_left`` and bills ``gas_limit - NEW_ACCOUNT``. The scaling
     tests assert success only.
     """
     gas_costs = fork.gas_costs()
