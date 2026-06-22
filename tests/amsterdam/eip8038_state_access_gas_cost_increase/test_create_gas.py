@@ -5,9 +5,10 @@ Tests for the EIP-8038 [State Access Gas Cost Increase](https://eips.ethereum.or
 Under EIP-8038 the contract-creation opcodes are repriced in their
 *regular* gas dimension to ``CREATE_ACCESS`` (``ACCOUNT_WRITE`` +
 ``COLD_STORAGE_ACCESS`` = 11,000), on top of which the EIP-3860 init
-code word cost (2 per word) and, for ``CREATE2``, the keccak word cost
-(6 per word) are charged. The new-account creation and per-byte code
-deposit charges are the EIP-8037 *state* dimension, covered in
+code word cost (2 per word) and, for ``CREATE2`` only, an additional
+keccak word cost (6 per word) are charged. The new-account creation
+and per-byte code deposit charges are the EIP-8037 *state* dimension,
+covered in
 ``eip8037_state_creation_gas_cost_increase/test_state_gas_create.py``.
 
 These tests isolate and assert the EIP-8038 *regular* dimension. At the
@@ -67,9 +68,10 @@ def test_create_regular_gas(
     Measure the regular gas of CREATE/CREATE2 and assert the schedule.
 
     The EIP-8038 *regular* dimension is ``CREATE_ACCESS`` (11,000) plus
-    the EIP-3860 init code word cost (2 per word) plus, for ``CREATE2``,
-    the keccak word cost (6 per word). The EIP-8037 account-creation
-    state gas is excluded by subtracting ``create_state_gas(0)``.
+    the EIP-3860 init code word cost (2 per word) plus, for ``CREATE2``
+    only, an additional keccak word cost (6 per word). The EIP-8037
+    account-creation state gas is excluded by subtracting
+    ``create_state_gas(0)``.
     """
     gas_costs = fork.gas_costs()
     # The EIP-8038 CREATE regular base equals ACCOUNT_WRITE +
@@ -288,21 +290,14 @@ class TestCreateTxGasBoundary:
         Return the total execution gas: intrinsic plus the initcode
         execution gas plus the code-deposit gas.
 
-        Under EIP-8037 (``cost_per_state_byte`` present) the per-byte
-        code-deposit cost is state gas and the keccak word cost remains
-        regular; ``deployment_gas`` combines both via the opcode model.
-        On a fork without state-byte metering it would be the flat
-        regular per-byte deposit cost. Either way ``deployment_gas`` is
-        fork-aware, so the same call is correct; the branch documents the
-        2D split that distinguishes the two regimes.
+        ``deployment_gas`` is fork-aware: under EIP-8037 it splits the
+        deposit into the keccak word cost (regular) and the per-byte cost
+        (state), while on a fork without state-byte metering it is the
+        flat regular per-byte deposit cost. The single call is therefore
+        correct in either regime.
         """
         execution = exact_intrinsic_gas + initcode.execution_gas(fork)
-        if hasattr(fork, "cost_per_state_byte"):
-            # 2D regime: keccak (regular) + per-byte (state).
-            execution += initcode.deployment_gas(fork)
-        else:  # pragma: no cover - this suite is valid_from Amsterdam
-            # 1D regime: flat regular per-byte code deposit.
-            execution += initcode.deployment_gas(fork)
+        execution += initcode.deployment_gas(fork)
         return execution
 
     @pytest.mark.parametrize(
@@ -479,4 +474,85 @@ def test_aborted_create_does_not_warm_address(
     # The BALANCE must be cold: the aborted CREATE never warmed the
     # would-be address.
     post = {factory: Account(storage={0: gas_costs.COLD_ACCOUNT_ACCESS})}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.pre_alloc_mutable
+def test_create2_to_occupied_address(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify ``CREATE2`` to an occupied address creates nothing and refunds.
+
+    When ``CREATE2`` targets an address that is not deployable (here an
+    already-deployed contract, whose ``code_hash`` is non-empty), the
+    creation aborts after the account-access charge: the opcode pushes
+    ``0``, bumps the factory's nonce, charges the message gas to the
+    regular dimension, and refunds the ``NEW_ACCOUNT`` *state* gas so no
+    net account-creation charge lands. No child frame runs, so the
+    occupied contract's code and storage are left untouched.
+    """
+    # Initcode the factory passes to CREATE2; were the target free it
+    # would deposit a single STOP. The salt is fixed so the collision
+    # address is deterministic from the factory address.
+    init_code = Op.STOP
+    init_code_bytes = bytes(init_code)
+    init_code_len = len(init_code_bytes)
+    salt = 0
+
+    # Factory CREATE2s the calldata initcode and stores the pushed result;
+    # a collision pushes 0. The initcode is copied into memory before the
+    # CREATE2 so the address derivation hashes exactly ``init_code_bytes``.
+    storage = Storage()
+    factory_code = Op.CALLDATACOPY(
+        0, 0, Op.CALLDATASIZE, new_memory_size=init_code_len
+    ) + Op.SSTORE(
+        storage.store_next(0, "create2_collision_result"),
+        Op.CREATE2(value=0, offset=0, size=init_code_len, salt=salt),
+    )
+    factory = pre.deploy_contract(code=factory_code)
+
+    # The address CREATE2 would compute from this factory, salt, and
+    # initcode. ``compute_create_address`` with ``opcode=Op.CREATE2`` is
+    # the unified EEST helper for the CREATE2 derivation.
+    collision_address = compute_create_address(
+        address=factory,
+        salt=salt,
+        initcode=init_code_bytes,
+        opcode=Op.CREATE2,
+    )
+
+    # Pre-occupy the collision address with a contract carrying distinct
+    # code and storage so a successful (and therefore incorrect) creation
+    # would be detectable. A non-empty ``code_hash`` makes the account
+    # non-deployable (``account_deployable`` is False).
+    #
+    # `address=` hard-codes the occupant at the derived collision address;
+    # it requires `pre_alloc_mutable`. This is the only way to pre-seat the
+    # exact CREATE2 target, mirroring the EIP-7610 collision suite.
+    occupant_code = Op.SSTORE(0, 0x42) + Op.STOP
+    occupant_storage = Storage({0x1: 0xCAFE})  # type: ignore[dict-item]
+    pre.deploy_contract(
+        code=occupant_code,
+        storage=occupant_storage,
+        nonce=1,
+        address=collision_address,
+    )
+
+    tx = Transaction(
+        to=factory,
+        data=init_code_bytes,
+        sender=pre.fund_eoa(),
+    )
+
+    # Factory stored a 0 result; the occupant is untouched (its initcode
+    # never ran, so slot 0 stays unset and slot 1 keeps its seeded value).
+    post = {
+        factory: Account(storage=storage),
+        collision_address: Account(
+            code=occupant_code, storage=occupant_storage
+        ),
+    }
     state_test(pre=pre, post=post, tx=tx)

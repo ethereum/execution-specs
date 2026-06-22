@@ -12,8 +12,8 @@ from typing import Callable
 
 import pytest
 from execution_testing import (
-    AccessList,
     Account,
+    Address,
     Alloc,
     Bytecode,
     CodeGasMeasure,
@@ -21,10 +21,12 @@ from execution_testing import (
     Fork,
     Op,
     StateTestFiller,
+    Storage,
     Transaction,
 )
 from execution_testing.checklists import EIPChecklist
 
+from .helpers import opcode_overhead, warm_access_list
 from .spec import ref_spec_8038
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8038.git_path
@@ -104,8 +106,7 @@ def test_ext_code_opcode_gas(
     # CodeGasMeasure overhead excludes only the PUSH wrapper; under
     # EIP-8038 EXTCODESIZE/EXTCODECOPY have a higher cold cost than
     # BALANCE because of the code-read surcharge.
-    cold_opcode_cost = cost_metadata(False).gas_cost(fork)
-    overhead_cost = measured_code.gas_cost(fork) - cold_opcode_cost
+    overhead_cost = opcode_overhead(measured_code, cost_metadata(False), fork)
 
     code_gas_measure = CodeGasMeasure(
         code=measured_code,
@@ -124,16 +125,155 @@ def test_ext_code_opcode_gas(
 
     # Warm the target via the access list when required; the cold case
     # leaves it absent so its first runtime access is cold.
-    access_list = (
-        [AccessList(address=target, storage_keys=[])] if warm else None
-    )
     tx = Transaction(
         to=measure_address,
         sender=pre.fund_eoa(),
         gas_limit=1_000_000,
-        access_list=access_list,
+        access_list=warm_access_list(target, warm),
     )
 
     post = {measure_address: Account(storage={0: expected_gas})}
 
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+@pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
+@pytest.mark.parametrize(
+    "copy_size", [32, 96], ids=["one_word", "three_words"]
+)
+def test_extcodecopy_nonzero_composes_additively(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Alloc,
+    fork: Fork,
+    warm: bool,
+    copy_size: int,
+) -> None:
+    """
+    Verify the EIP-8038 ``EXTCODECOPY`` surcharge composes additively.
+
+    With a non-zero copy size, ``EXTCODECOPY`` charges the account-access
+    cost, the EIP-8038 code-read ``WARM_ACCESS`` surcharge, the EIP-150
+    per-word copy cost (``OPCODE_COPY_PER_WORD`` per word, driven by the
+    copied data size), and the memory-expansion cost. The surcharge is a
+    flat add-on that does not interact with the copy or memory terms, so
+    the measured gas must equal the sum of all four components.
+    """
+    gas_costs = fork.gas_costs()
+
+    # Target carries enough code to satisfy the copy; STOP padding keeps
+    # it a deployable contract with a non-empty code hash.
+    target = pre.deploy_contract(Op.STOP * copy_size)
+
+    # Runnable opcode copying ``copy_size`` bytes of the target's code into
+    # memory at offset 0. The metadata mirrors the runtime effect (warmth,
+    # copied byte count, and the 0 -> copy_size memory growth) so the
+    # opcode model agrees with execution and the overhead reduces to the
+    # operand pushes alone.
+    measured_code = Op.EXTCODECOPY.with_metadata(
+        address_warm=warm,
+        data_size=copy_size,
+        new_memory_size=copy_size,
+        old_memory_size=0,
+    )(target, 0, 0, copy_size)
+
+    # Oracle: the same metadata-only opcode. Its gas is the four-component
+    # sum; ``opcode_overhead`` strips the operand-PUSH wrapper so the
+    # stored value equals exactly this opcode cost.
+    oracle = Op.EXTCODECOPY.with_metadata(
+        address_warm=warm,
+        data_size=copy_size,
+        new_memory_size=copy_size,
+        old_memory_size=0,
+    )
+    expected_gas = oracle.gas_cost(fork)
+
+    # Additive decomposition the surcharge must satisfy.
+    words = (copy_size + 31) // 32
+    access_cost = (
+        gas_costs.WARM_ACCESS if warm else gas_costs.COLD_ACCOUNT_ACCESS
+    )
+    memory_expansion = fork.memory_expansion_gas_calculator()(
+        new_bytes=copy_size, previous_bytes=0
+    )
+    assert expected_gas == (
+        access_cost
+        + gas_costs.WARM_ACCESS  # EIP-8038 code-read surcharge
+        + gas_costs.OPCODE_COPY_PER_WORD * words
+        + memory_expansion
+    )
+
+    code_gas_measure = CodeGasMeasure(
+        code=measured_code,
+        overhead_cost=opcode_overhead(measured_code, oracle, fork),
+        extra_stack_items=0,
+    )
+    measure_address = pre.deploy_contract(code=code_gas_measure)
+
+    tx = Transaction(
+        to=measure_address,
+        sender=pre.fund_eoa(),
+        gas_limit=1_000_000,
+        access_list=warm_access_list(target, warm),
+    )
+
+    post = {measure_address: Account(storage={0: expected_gas})}
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+@pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
+def test_extcodehash_empty_account(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Alloc,
+    fork: Fork,
+    warm: bool,
+) -> None:
+    """
+    Verify ``EXTCODEHASH`` of an empty account is priced without surcharge.
+
+    ``EXTCODEHASH`` reads only the account leaf, so EIP-8038 adds no
+    code-read surcharge: the cost is exactly ``COLD_ACCOUNT_ACCESS`` (cold)
+    or ``WARM_ACCESS`` (warm) regardless of the target being empty. The
+    returned hash of an empty/non-existent account is ``0``.
+    """
+    gas_costs = fork.gas_costs()
+
+    # A non-existent (empty) target: never deployed, no balance, no code.
+    empty_addr = Address(0xDEAD)
+
+    expected_gas = (
+        gas_costs.WARM_ACCESS if warm else gas_costs.COLD_ACCOUNT_ACCESS
+    )
+    # No code-read surcharge for EXTCODEHASH; the opcode model must agree.
+    assert expected_gas == Op.EXTCODEHASH(address_warm=warm).gas_cost(fork)
+
+    # Measure the access cost and, separately, store the returned hash so
+    # the empty-account 0 result is asserted alongside the pricing. The
+    # measured opcode carries the runtime warmth so the overhead reduces
+    # to the address PUSH alone.
+    storage = Storage()
+    measured_code = Op.EXTCODEHASH.with_metadata(address_warm=warm)(empty_addr)
+    gas_slot = storage.store_next(expected_gas, "extcodehash_empty_gas")
+    hash_slot = storage.store_next(0, "extcodehash_empty_hash")
+    code = CodeGasMeasure(
+        code=measured_code,
+        overhead_cost=opcode_overhead(
+            measured_code, Op.EXTCODEHASH(address_warm=warm), fork
+        ),
+        extra_stack_items=1,
+        sstore_key=gas_slot,
+    ) + Op.SSTORE(hash_slot, Op.EXTCODEHASH(empty_addr))
+    measure_address = pre.deploy_contract(code=code)
+
+    tx = Transaction(
+        to=measure_address,
+        sender=pre.fund_eoa(),
+        gas_limit=1_000_000,
+        access_list=warm_access_list(empty_addr, warm),
+    )
+
+    post = {measure_address: Account(storage=storage)}
     state_test(env=env, pre=pre, post=post, tx=tx)

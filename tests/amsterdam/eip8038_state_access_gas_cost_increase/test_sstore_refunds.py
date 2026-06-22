@@ -1,14 +1,26 @@
 """
 Tests for [EIP-8038: State Access Gas Cost Increase](https://eips.ethereum.org/EIPS/eip-8038).
 
-Covers the EIP-8038 *regular* ``SSTORE`` refund schedule via the
-transaction receipt's ``cumulative_gas_used``:
+The headline mechanism of the pinned spec version ``a8862ae`` is the
+``SSTORE`` clear-refund *reversal*: ``refund_counter`` is decremented by
+``REFUND_STORAGE_CLEAR`` when a slot's original value is non-zero, its
+current value is zero and the new value is non-zero (a slot cleared
+earlier in the same transaction is restored). The spec reverses the clear
+refund "so that clearing and then restoring a slot within the same
+transaction is never net-profitable", closing the ``x -> 0 -> x`` round
+trip; this reversal is exercised by
+``test_sstore_clear_then_reset_nets_zero``.
+
+This module covers the EIP-8038 *regular* ``SSTORE`` refund schedule via
+the transaction receipt's ``cumulative_gas_used``:
 
 * Clearing a slot whose original value is non-zero grants
   ``REFUND_STORAGE_CLEAR`` (12480) to ``refund_counter`` (no EIP-8037
   state refund, since no state was created).
 * Clearing then re-setting the same non-zero-original slot nets a zero
-  refund (the clear grant is reversed).
+  refund: the clear grant is reversed (``refund -= REFUND_STORAGE_CLEAR``)
+  exactly when ``original != 0 and current == 0`` and a non-zero value is
+  written back.
 * Restoring a non-zero-original slot to its original value refunds the
   write cost ``STORAGE_WRITE`` (10000).
 * The applied refund is capped at ``gas_used // 5`` (EIP-3529 quotient).
@@ -271,4 +283,72 @@ def test_sstore_refund_quotient_cap(
     )
 
     post = {contract: Account(storage=dict.fromkeys(range(num_clears), 0))}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
+@EIPChecklist.GasRefundsChanges.Test.RefundCalculation.Exact()
+def test_sstore_refund_cap_exact_equality(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    The applied refund equals the EIP-3529 cap at exact equality.
+
+    A single non-zero-original clear accrues ``REFUND_STORAGE_CLEAR``.
+    Cheap ``JUMPDEST`` gas (1 each) is burned so the gross gas lands at
+    exactly ``max_refund_quotient * accrued``; the quotient cap
+    ``gross // max_refund_quotient`` then equals the accrued refund
+    *exactly*, the boundary between the cap binding and not binding. The
+    full refund applies and ``cumulative_gas_used`` is ``gross - accrued``.
+    """
+    gas_costs = fork.gas_costs()
+    quotient = fork.max_refund_quotient()
+    accrued = gas_costs.REFUND_STORAGE_CLEAR
+
+    clear = Op.SSTORE.with_metadata(
+        key_warm=False,
+        original_value=1,
+        current_value=1,
+        new_value=0,
+    )(0, 0)
+
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        return_cost_deducted_prior_execution=True
+    )
+    # Target the exact boundary: gross == quotient * accrued, so that
+    # gross // quotient == accrued with no slack. Solve for the JUMPDEST
+    # count from the remaining gas after intrinsic and the clear's
+    # regular cost; each JUMPDEST costs exactly 1 gas.
+    jumpdest_gas = Op.JUMPDEST.gas_cost(fork)
+    target_gross = quotient * accrued
+    base_gross = intrinsic + clear.regular_cost(fork)
+    burn_gas = target_gross - base_gross
+    num_jumpdest, remainder = divmod(burn_gas, jumpdest_gas)
+    # An exact integer JUMPDEST count must reach the boundary; otherwise
+    # the equality below would not hold and the test would (correctly)
+    # fail rather than silently approximate.
+    assert remainder == 0
+
+    code = clear + Op.JUMPDEST * num_jumpdest
+    contract = pre.deploy_contract(code=code, storage={0: 1})
+
+    assert code.refund(fork) == accrued
+    gross = intrinsic + code.regular_cost(fork) + code.state_cost(fork)
+    # Exact equality: the cap is neither under nor over the accrued refund.
+    assert gross == target_gross
+    assert gross // quotient == accrued
+    expected_cumulative = gross - accrued
+
+    tx = Transaction(
+        to=contract,
+        sender=pre.fund_eoa(),
+        gas_limit=1_000_000,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_cumulative
+        ),
+    )
+
+    post = {contract: Account(storage={0: 0})}
     state_test(pre=pre, post=post, tx=tx)

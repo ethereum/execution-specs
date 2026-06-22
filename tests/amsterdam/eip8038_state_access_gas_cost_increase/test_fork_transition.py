@@ -24,6 +24,8 @@ Two proof styles are used:
   and rejected with ``INTRINSIC_GAS_TOO_LOW`` after.
 """
 
+from typing import List
+
 import pytest
 from execution_testing import (
     Account,
@@ -42,6 +44,7 @@ from execution_testing import (
 )
 from execution_testing.checklists import EIPChecklist
 
+from .helpers import opcode_overhead
 from .spec import ref_spec_8038
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8038.git_path
@@ -67,13 +70,55 @@ def _measure_contract(
     the two, so ``CodeGasMeasure`` strips it and slot 0 holds only the
     opcode's own cost. The opcode leaves one stack item (its result).
     """
-    overhead = measured.gas_cost(fork) - opcode_cost
+    overhead = opcode_overhead(measured, opcode_cost, fork)
     code = CodeGasMeasure(
         code=measured,
         overhead_cost=overhead,
         extra_stack_items=1,
     )
     return pre.deploy_contract(code=code)
+
+
+def transition_blocks(
+    before_to: Address,
+    after_to: Address,
+    pre: Alloc,
+    *,
+    value: int = 0,
+) -> List[Block]:
+    """
+    Return the two blocks that straddle the Amsterdam activation.
+
+    The first block runs at ``BEFORE_TS`` (pre-fork schedule) and the
+    second at ``AFTER_TS`` (EIP-8038 schedule). Each carries a single
+    ``gas_limit=1_000_000`` transaction from a fresh sender to its
+    respective ``to`` target, forwarding ``value`` so a value-bearing
+    operation is exercised in both regimes.
+    """
+    return [
+        Block(
+            timestamp=BEFORE_TS,
+            txs=[
+                Transaction(
+                    to=before_to,
+                    gas_limit=1_000_000,
+                    value=value,
+                    sender=pre.fund_eoa(),
+                ),
+            ],
+        ),
+        Block(
+            timestamp=AFTER_TS,
+            txs=[
+                Transaction(
+                    to=after_to,
+                    gas_limit=1_000_000,
+                    value=value,
+                    sender=pre.fund_eoa(),
+                ),
+            ],
+        ),
+    ]
 
 
 @EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
@@ -110,28 +155,7 @@ def test_cold_account_access_at_transition(
         pre, Op.BALANCE(target_after), cost_after, after
     )
 
-    blocks = [
-        Block(
-            timestamp=BEFORE_TS,
-            txs=[
-                Transaction(
-                    to=measure_before,
-                    gas_limit=1_000_000,
-                    sender=pre.fund_eoa(),
-                ),
-            ],
-        ),
-        Block(
-            timestamp=AFTER_TS,
-            txs=[
-                Transaction(
-                    to=measure_after,
-                    gas_limit=1_000_000,
-                    sender=pre.fund_eoa(),
-                ),
-            ],
-        ),
-    ]
+    blocks = transition_blocks(measure_before, measure_after, pre)
 
     post = {
         measure_before: Account(storage={0: cost_before}),
@@ -182,28 +206,7 @@ def test_ext_code_surcharge_at_transition(
         pre, Op.EXTCODESIZE(target_after), extcodesize_cost_after, after
     )
 
-    blocks = [
-        Block(
-            timestamp=BEFORE_TS,
-            txs=[
-                Transaction(
-                    to=measure_before,
-                    gas_limit=1_000_000,
-                    sender=pre.fund_eoa(),
-                ),
-            ],
-        ),
-        Block(
-            timestamp=AFTER_TS,
-            txs=[
-                Transaction(
-                    to=measure_after,
-                    gas_limit=1_000_000,
-                    sender=pre.fund_eoa(),
-                ),
-            ],
-        ),
-    ]
+    blocks = transition_blocks(measure_before, measure_after, pre)
 
     post = {
         measure_before: Account(storage={0: extcodesize_cost_before}),
@@ -251,30 +254,7 @@ def test_call_value_cost_at_transition(
         ),
     )
 
-    blocks = [
-        Block(
-            timestamp=BEFORE_TS,
-            txs=[
-                Transaction(
-                    to=caller_before,
-                    gas_limit=1_000_000,
-                    value=1,
-                    sender=pre.fund_eoa(),
-                ),
-            ],
-        ),
-        Block(
-            timestamp=AFTER_TS,
-            txs=[
-                Transaction(
-                    to=caller_after,
-                    gas_limit=1_000_000,
-                    value=1,
-                    sender=pre.fund_eoa(),
-                ),
-            ],
-        ),
-    ]
+    blocks = transition_blocks(caller_before, caller_after, pre, value=1)
 
     post = {
         caller_before: Account(storage=storage_before),
@@ -336,28 +316,7 @@ def test_create_base_cost_at_transition(
         ),
     )
 
-    blocks = [
-        Block(
-            timestamp=BEFORE_TS,
-            txs=[
-                Transaction(
-                    to=factory_before,
-                    gas_limit=1_000_000,
-                    sender=pre.fund_eoa(),
-                ),
-            ],
-        ),
-        Block(
-            timestamp=AFTER_TS,
-            txs=[
-                Transaction(
-                    to=factory_after,
-                    gas_limit=1_000_000,
-                    sender=pre.fund_eoa(),
-                ),
-            ],
-        ),
-    ]
+    blocks = transition_blocks(factory_before, factory_after, pre)
 
     post = {
         factory_before: Account(storage=storage_before),
@@ -402,32 +361,92 @@ def test_selfdestruct_account_write_at_transition(
         balance=1,
     )
 
-    blocks = [
-        Block(
-            timestamp=BEFORE_TS,
-            txs=[
-                Transaction(
-                    to=suicidal_before,
-                    gas_limit=1_000_000,
-                    sender=pre.fund_eoa(),
-                ),
-            ],
-        ),
-        Block(
-            timestamp=AFTER_TS,
-            txs=[
-                Transaction(
-                    to=suicidal_after,
-                    gas_limit=1_000_000,
-                    sender=pre.fund_eoa(),
-                ),
-            ],
-        ),
-    ]
+    blocks = transition_blocks(suicidal_before, suicidal_after, pre)
 
     post = {
         beneficiary_before: Account(balance=1),
         beneficiary_after: Account(balance=1),
+    }
+    blockchain_test(pre=pre, blocks=blocks, post=post)
+
+
+@EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
+@EIPChecklist.GasCostChanges.Test.ForkTransition.After()
+def test_sstore_write_cost_at_transition(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    The ``SSTORE`` first-change cost is repriced across the Amsterdam
+    boundary, and EIP-8038 changes the *model*, not a single number.
+
+    Before the fork (parent schedule) a zero-to-nonzero ``SSTORE`` is a
+    flat regular charge (``COLD_STORAGE_ACCESS + STORAGE_SET``) with no
+    state-gas dimension. After the fork the charge splits: the regular
+    portion drops to ``COLD_STORAGE_ACCESS + STORAGE_WRITE`` while the
+    bulk moves into the new state-gas dimension, and the clear refund
+    rises. Every magnitude is derived from the two schedules; nothing is
+    hardcoded.
+
+    The transition is asserted at the derived-constant level (the
+    runtime opcode cost cannot isolate the regular portion without the
+    state-gas confounder) and a zero-to-nonzero ``SSTORE`` is exercised
+    in both blocks to prove it still sets the slot in each regime.
+    """
+    before = fork.fork_at(timestamp=BEFORE_TS)
+    after = fork.fork_at(timestamp=AFTER_TS)
+
+    # First-change (zero -> nonzero, cold) SSTORE in each regime.
+    sstore = Op.SSTORE(new_value=1)
+
+    regular_before = sstore.regular_cost(before)
+    regular_after = sstore.regular_cost(after)
+    state_before = sstore.state_cost(before)
+    state_after = sstore.state_cost(after)
+    total_before = sstore.gas_cost(before)
+    total_after = sstore.gas_cost(after)
+
+    # The repricing changes the regular charge, introduces the state
+    # dimension, and therefore moves the total.
+    assert regular_after != regular_before
+    assert state_before == 0
+    assert state_after > 0
+    assert total_after != total_before
+
+    # After the fork the regular portion is the EIP-8038 split:
+    # COLD_STORAGE_ACCESS plus the standalone STORAGE_WRITE (modeled as
+    # COLD_STORAGE_WRITE minus COLD_STORAGE_ACCESS).
+    after_costs = after.gas_costs()
+    storage_write_after = (
+        after_costs.COLD_STORAGE_WRITE - after_costs.COLD_STORAGE_ACCESS
+    )
+    assert regular_after == (
+        after_costs.COLD_STORAGE_ACCESS + storage_write_after
+    )
+
+    # The storage-clear refund also rises across the boundary.
+    refund_before = before.gas_costs().REFUND_STORAGE_CLEAR
+    refund_after = after_costs.REFUND_STORAGE_CLEAR
+    assert refund_after > refund_before
+
+    # Exercise the zero-to-nonzero SSTORE in both regimes; the slot ends
+    # set in each block. gas_limit=1_000_000 covers the post-fork total
+    # (regular plus state) drawn from gas_left.
+    storage_before = Storage()
+    contract_before = pre.deploy_contract(
+        code=Op.SSTORE(storage_before.store_next(1), 1),
+    )
+    storage_after = Storage()
+    contract_after = pre.deploy_contract(
+        code=Op.SSTORE(storage_after.store_next(1), 1),
+    )
+
+    blocks = transition_blocks(contract_before, contract_after, pre)
+
+    post = {
+        contract_before: Account(storage=storage_before),
+        contract_after: Account(storage=storage_after),
     }
     blockchain_test(pre=pre, blocks=blocks, post=post)
 

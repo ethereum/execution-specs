@@ -33,6 +33,7 @@ from execution_testing import (
 )
 from execution_testing.checklists import EIPChecklist
 
+from .helpers import opcode_overhead, warm_access_list
 from .spec import ref_spec_8038
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8038.git_path
@@ -133,6 +134,75 @@ def test_access_list_intrinsic_surcharge(
 
 
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+def test_access_list_duplicate_address_key_intrinsic_and_warmth(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    A duplicated ``(address, storage_key)`` access-list entry is billed
+    twice intrinsically but warms the slot only once.
+
+    The same ``(contract, slot)`` pair is listed twice. The intrinsic
+    surcharge (floor tokens isolated as in
+    ``test_access_list_intrinsic_surcharge``) bills both listings:
+    ``2 * TX_ACCESS_LIST_ADDRESS + 2 * TX_ACCESS_LIST_STORAGE_KEY``. At
+    runtime the slot is nonetheless warm on its first ``SLOAD``
+    (``WARM_SLOAD``), since warmth is set-membership, not a counter.
+    """
+    gas_costs = fork.gas_costs()
+    intrinsic = fork.transaction_intrinsic_cost_calculator()
+    slot = 0x42
+
+    # First runtime SLOAD of the listed slot stores the warm access cost.
+    measured_read = Op.SLOAD(slot)
+    overhead = opcode_overhead(measured_read, Op.SLOAD(key_warm=False), fork)
+    contract = pre.deploy_contract(
+        code=CodeGasMeasure(
+            code=measured_read,
+            overhead_cost=overhead,
+            extra_stack_items=1,
+            sstore_key=1,
+        ),
+        storage={slot: 1},
+    )
+
+    # Build the access list after deploying so the address is real, then
+    # list the identical (contract, slot) pair twice.
+    access_list = [
+        AccessList(address=contract, storage_keys=[slot]),
+        AccessList(address=contract, storage_keys=[slot]),
+    ]
+
+    base = intrinsic(return_cost_deducted_prior_execution=True)
+    with_al = intrinsic(
+        access_list=access_list,
+        return_cost_deducted_prior_execution=True,
+    )
+    surcharge = (
+        with_al - base - _access_list_floor_token_gas(access_list, fork)
+    )
+    expected_surcharge = (
+        2 * gas_costs.TX_ACCESS_LIST_ADDRESS
+        + 2 * gas_costs.TX_ACCESS_LIST_STORAGE_KEY
+    )
+    assert surcharge == expected_surcharge
+
+    expected_gas = Op.SLOAD(key_warm=True).gas_cost(fork)
+    tx = Transaction(
+        to=contract,
+        sender=pre.fund_eoa(),
+        gas_limit=1_000_000,
+        access_list=access_list,
+    )
+
+    # Slot 1 holds the measured warm cost; the read slot keeps its value.
+    post = {contract: Account(storage={1: expected_gas, slot: 1})}
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("op", ["SLOAD", "SSTORE"], ids=["sload", "sstore"])
 def test_access_list_warms_storage_slot(
     state_test: StateTestFiller,
@@ -218,15 +288,17 @@ def test_access_list_slot_warmth_is_address_scoped(
     slot = 0x42
     warm_gas = Op.SLOAD(key_warm=True).gas_cost(fork)
     cold_gas = Op.SLOAD(key_warm=False).gas_cost(fork)
-    bare_cold_sload = Op.SLOAD(key_warm=False).gas_cost(fork)
+
+    # Both accounts read their own slot ``s`` with the same wrapper, so the
+    # overhead that strips the operand PUSH is identical for each.
+    measured_read = Op.SLOAD(slot)
+    overhead = opcode_overhead(measured_read, cold_gas, fork)
 
     # B reads its own slot ``s`` (cold), storing the result in B's slot 1.
-    measured_read = Op.SLOAD(slot)
-    overhead_b = measured_read.gas_cost(fork) - bare_cold_sload
     account_b = pre.deploy_contract(
         code=CodeGasMeasure(
             code=measured_read,
-            overhead_cost=overhead_b,
+            overhead_cost=overhead,
             extra_stack_items=1,
             sstore_key=1,
         ),
@@ -234,11 +306,10 @@ def test_access_list_slot_warmth_is_address_scoped(
     )
 
     # A reads its own slot ``s`` (warm via the access list), then calls B.
-    overhead_a = measured_read.gas_cost(fork) - bare_cold_sload
     account_a = pre.deploy_contract(
         code=CodeGasMeasure(
             code=measured_read,
-            overhead_cost=overhead_a,
+            overhead_cost=overhead,
             extra_stack_items=1,
             sstore_key=1,
             stop=False,
@@ -252,7 +323,7 @@ def test_access_list_slot_warmth_is_address_scoped(
         sender=pre.fund_eoa(),
         gas_limit=1_000_000,
         # Only A's slot is listed; B's identical slot stays cold.
-        access_list=[AccessList(address=account_a, storage_keys=[slot])],
+        access_list=warm_access_list(account_a, True, storage_keys=[slot]),
     )
 
     post = {

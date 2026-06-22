@@ -4,11 +4,13 @@ Mainnet-marked happy-path smoke tests for
 
 One minimal success per repriced dimension (no boundaries, no exact
 magnitudes): a state slot is written, a value-bearing cold ``CALL``
-lands, an ``EXTCODESIZE`` runs, a single ``7702`` authorization installs
-a delegation, and a re-authorization of an already-delegated authority
-applies the existing-authority refund. Gas limits are deliberately
-generous so these prove the operation runs under the EIP-8038 schedule
-without re-deriving any per-opcode cost (other files own those matrices).
+lands, an ``EXTCODESIZE`` runs, a ``CREATE`` deploys a contract, a
+``SELFDESTRUCT`` funds a fresh account, a single ``7702`` authorization
+installs a delegation, and a re-authorization of an already-delegated
+authority applies the existing-authority refund. Gas limits are
+deliberately generous so these prove the operation runs under the
+EIP-8038 schedule without re-deriving any per-opcode cost (other files
+own those matrices).
 """
 
 import pytest
@@ -16,6 +18,7 @@ from execution_testing import (
     Account,
     Alloc,
     AuthorizationTuple,
+    Fork,
     Op,
     StateTestFiller,
     Storage,
@@ -113,6 +116,75 @@ def test_extcodesize(
     )
 
     post = {contract: Account(storage=storage)}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+def test_create_deploys_contract(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    A factory ``CREATE``s a one-byte (``STOP``) contract under the
+    EIP-8038 schedule and succeeds; the factory records the ``CREATE``
+    success flag in a slot. The transaction supplies the CREATE state
+    gas via the reservoir.
+    """
+    init_code = Op.STOP
+    init_word = int.from_bytes(bytes(init_code), "big") << (
+        256 - 8 * len(init_code)
+    )
+
+    storage = Storage()
+    factory = pre.deploy_contract(
+        code=(
+            Op.MSTORE(0, init_word)
+            + Op.SSTORE(
+                storage.store_next(True),
+                Op.GT(Op.CREATE(0, 0, len(init_code)), 0),
+            )
+        ),
+    )
+
+    tx = Transaction(
+        to=factory,
+        gas_limit=1_000_000,
+        state_gas_reservoir=fork.create_state_gas(code_size=0),
+        sender=pre.fund_eoa(),
+    )
+
+    post = {factory: Account(storage=storage)}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+def test_selfdestruct_funds_new_account(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    A balance-bearing contract ``SELFDESTRUCT``s to a fresh beneficiary
+    under the EIP-8038 schedule, forwarding its balance. The new-account
+    state gas is supplied via the reservoir; the beneficiary ends up
+    holding the transferred balance.
+    """
+    beneficiary = pre.fund_eoa(amount=0)
+
+    suicidal = pre.deploy_contract(
+        code=Op.SELFDESTRUCT(beneficiary),
+        balance=1,
+    )
+
+    tx = Transaction(
+        to=suicidal,
+        gas_limit=1_000_000,
+        state_gas_reservoir=fork.gas_costs().NEW_ACCOUNT,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {beneficiary: Account(balance=1)}
     state_test(pre=pre, post=post, tx=tx)
 
 

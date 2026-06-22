@@ -17,6 +17,7 @@ from execution_testing import (
     Account,
     Alloc,
     Bytecode,
+    CodeGasMeasure,
     Fork,
     Op,
     StateTestFiller,
@@ -24,6 +25,7 @@ from execution_testing import (
 )
 from execution_testing.checklists import EIPChecklist
 
+from .helpers import opcode_overhead
 from .spec import ref_spec_8038
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8038.git_path
@@ -44,6 +46,7 @@ SSTORE_ROWS = [
     pytest.param(True, 1, 2, 3, id="xyz"),
     pytest.param(True, 1, 2, 1, id="xyx"),
     pytest.param(True, 1, 1, 1, id="xxx"),
+    pytest.param(False, 1, 1, 1, id="xxx_cold"),
 ]
 
 
@@ -122,4 +125,81 @@ def test_sstore_regular_gas(
     )
 
     post = {contract: Account(storage={slot: new})}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+def test_sstore_cold_then_warm_same_slot(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    A first ``SSTORE`` on a cold slot warms it; the second in-frame
+    ``SSTORE`` of the same slot is charged only ``WARM_SLOAD`` (100).
+
+    The slot starts non-zero (original 1) and is left unlisted, so the
+    first write is cold and is its first change (original == current !=
+    new), costing ``COLD_STORAGE_ACCESS + STORAGE_WRITE`` (3000 + 10000).
+    That write warms the slot, so the second write -- which moves the slot
+    again without being a first change -- costs only ``WARM_SLOAD`` (100),
+    with no further ``STORAGE_WRITE``. Slot 0 records the cold first write
+    and slot 1 the warm second write; the data slot keeps its final value.
+    """
+    data_slot = 0x42
+
+    # First write: cold, first change of a non-zero-original slot. The
+    # bare (operand-free) opcode carries the same metadata so that
+    # ``opcode_overhead`` resolves to just the two operand PUSHes.
+    first_bare = Op.SSTORE.with_metadata(
+        key_warm=False,
+        original_value=1,
+        current_value=1,
+        new_value=2,
+    )
+    first = first_bare(data_slot, 2)
+    # Second write: same slot, now warm; not a first change, so the
+    # write cost is not re-charged and only the warm access applies.
+    second_bare = Op.SSTORE.with_metadata(
+        key_warm=True,
+        original_value=1,
+        current_value=2,
+        new_value=3,
+    )
+    second = second_bare(data_slot, 3)
+
+    expected_first = first.regular_cost(fork) - 2 * fork.gas_costs().VERY_LOW
+    expected_second = second.regular_cost(fork) - 2 * fork.gas_costs().VERY_LOW
+
+    # Each measured write stores its own runtime cost; ``opcode_overhead``
+    # strips the two operand PUSHes so the stored value is the bare SSTORE
+    # cost. The first block must not STOP so the (now warm) second runs.
+    code = CodeGasMeasure(
+        code=first,
+        overhead_cost=opcode_overhead(first, first_bare, fork),
+        extra_stack_items=0,
+        sstore_key=0,
+        stop=False,
+    ) + CodeGasMeasure(
+        code=second,
+        overhead_cost=opcode_overhead(second, second_bare, fork),
+        extra_stack_items=0,
+        sstore_key=1,
+    )
+
+    contract = pre.deploy_contract(code=code, storage={data_slot: 1})
+
+    tx = Transaction(
+        to=contract,
+        sender=pre.fund_eoa(),
+        gas_limit=1_000_000,
+    )
+
+    # Slots 0/1 hold the two measured writes; the data slot ends at its
+    # final written value.
+    post = {
+        contract: Account(
+            storage={0: expected_first, 1: expected_second, data_slot: 3}
+        )
+    }
     state_test(pre=pre, post=post, tx=tx)

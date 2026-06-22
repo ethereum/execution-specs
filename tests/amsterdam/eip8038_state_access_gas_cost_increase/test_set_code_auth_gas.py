@@ -42,11 +42,11 @@ from execution_testing import (
     Storage,
     Transaction,
     TransactionException,
+    TransactionReceipt,
 )
 from execution_testing.checklists import EIPChecklist
 
-from tests.prague.eip7702_set_code_tx.spec import Spec as Spec7702
-
+from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .spec import ref_spec_8038
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8038.git_path
@@ -306,6 +306,159 @@ def test_invalid_auth_charged_intrinsic(
 
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
+    "invalidity",
+    [
+        pytest.param("invalid_nonce", id="invalid_nonce"),
+        pytest.param("invalid_chain_id", id="invalid_chain_id"),
+        pytest.param("repeated_nonce", id="repeated_nonce"),
+        pytest.param("authority_is_contract", id="authority_is_contract"),
+    ],
+)
+@pytest.mark.pre_alloc_mutable
+def test_mixed_validity_multi_auth_receipt_gas(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Alloc,
+    fork: Fork,
+    invalidity: str,
+) -> None:
+    """
+    Pin the exact receipt gas of a transaction carrying one valid and
+    one invalid authorization.
+
+    Every authorization tuple, valid or invalid, is charged the full
+    regular + state per-authorization intrinsic. Refunds, however, fire
+    only for the *valid* authorization whose authority leaf already
+    exists: it refills ``NEW_ACCOUNT`` on the state channel (uncapped,
+    subtracted first) and returns ``ACCOUNT_WRITE`` on the regular
+    channel (one-fifth capped). The invalid tuple is silently skipped
+    during ``set_delegation`` and contributes no refund on either
+    channel.
+
+    The dual-channel accounting mirrors ``process_transaction`` and the
+    sibling ``test_set_code_auth_refunds`` module: the state refill is
+    subtracted from ``gas_before_regular_refund`` first and uncapped,
+    then the regular refund clamps to
+    ``min(k * ACCOUNT_WRITE, gas_before_regular_refund // 5)`` where
+    ``k`` is the number of refundable (valid, existing-leaf)
+    authorizations. With no EVM execution, ``gas_before_regular_refund``
+    reduces to the full per-authorization intrinsic less the state
+    refill, and the exact result is asserted via ``expected_receipt``.
+
+    Each ``invalidity`` kind (``INVALID_NONCE``, ``INVALID_CHAIN_ID``,
+    ``REPEATED_NONCE``, ``AUTHORITY_IS_CONTRACT``) yields one valid and
+    one invalid tuple, so ``n = 2`` and ``k = 1`` uniformly and every
+    kind pins the same receipt gas. This is the numeric-receipt
+    companion to ``test_invalid_auth_charged_intrinsic`` (which asserts
+    only post state).
+    """
+    gas_costs = fork.gas_costs()
+    account_write = gas_costs.ACCOUNT_WRITE
+
+    delegate = pre.deploy_contract(code=Op.STOP)
+
+    # The single refundable (valid, existing-leaf) authorization.
+    valid_signer = pre.fund_eoa()
+    valid_auth = AuthorizationTuple(
+        address=delegate, nonce=0, signer=valid_signer
+    )
+
+    # Build the authorization list: one valid tuple plus one invalid
+    # tuple of the requested kind. ``authority`` is the account that must
+    # end up untouched by the skipped (invalid) authorization.
+    authorization_list: List[AuthorizationTuple]
+    post: dict = {
+        valid_signer: Account(
+            code=Spec7702.delegation_designation(delegate),
+        ),
+    }
+
+    if invalidity == "invalid_nonce":
+        authority = pre.fund_eoa()
+        authorization_list = [
+            valid_auth,
+            AuthorizationTuple(
+                address=delegate,
+                nonce=99,  # wrong nonce -> skipped
+                signer=authority,
+            ),
+        ]
+        post[authority] = Account(code=b"")
+    elif invalidity == "invalid_chain_id":
+        authority = pre.fund_eoa()
+        authorization_list = [
+            valid_auth,
+            AuthorizationTuple(
+                address=delegate,
+                nonce=0,
+                chain_id=9999,  # wrong chain id -> skipped
+                signer=authority,
+            ),
+        ]
+        post[authority] = Account(code=b"")
+    elif invalidity == "repeated_nonce":
+        # The valid tuple consumes the signer's nonce 0; a second tuple
+        # reusing nonce 0 on the same signer is skipped. The signer is
+        # the refundable authority, delegated by its first (valid) tuple.
+        authorization_list = [
+            valid_auth,
+            AuthorizationTuple(address=delegate, nonce=0, signer=valid_signer),
+        ]
+    elif invalidity == "authority_is_contract":
+        # An authority that is already a (non-delegation) contract is an
+        # invalid authority; its authorization is skipped and the
+        # contract code is left intact.
+        authority = pre.fund_eoa(code=Op.STOP)
+        authorization_list = [
+            valid_auth,
+            AuthorizationTuple(address=delegate, nonce=0, signer=authority),
+        ]
+        post[authority] = Account(code=Op.STOP)
+    else:
+        raise ValueError(f"unknown invalidity: {invalidity!r}")
+
+    n = len(authorization_list)
+    refundable = 1  # exactly one valid, existing-leaf authorization
+
+    total_intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        authorization_list_or_count=n,
+    )
+    intrinsic_state = fork.transaction_intrinsic_state_gas(
+        authorization_count=n,
+    )
+    # Only the valid existing-leaf authorization refills the state
+    # channel (NEW_ACCOUNT); the invalid tuple refunds nothing. The
+    # refill is subtracted first and is not subject to the one-fifth cap.
+    state_refund = gas_costs.REFUND_AUTH_PER_EXISTING_ACCOUNT * refundable
+
+    # No EVM execution (the target is a STOP), so the regular and state
+    # execution gas are both zero and ``gas_before_regular_refund``
+    # reduces to the full per-auth intrinsic less the state refill.
+    gas_before_regular_refund = total_intrinsic - state_refund
+    regular_refund = min(
+        refundable * account_write,
+        gas_before_regular_refund // fork.max_refund_quotient(),
+    )
+    # With only a single refundable authorization the one-fifth cap is
+    # generous, so the full ACCOUNT_WRITE clears on the regular channel.
+    assert regular_refund == refundable * account_write
+    cumulative_gas_used = gas_before_regular_refund - regular_refund
+
+    tx = Transaction(
+        to=delegate,
+        state_gas_reservoir=intrinsic_state,
+        authorization_list=authorization_list,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=cumulative_gas_used,
+        ),
+    )
+
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+@pytest.mark.parametrize(
     "self_sponsored",
     [
         pytest.param(False, id="external_sponsor"),
@@ -379,7 +532,7 @@ def test_auth_account_warming(
     # Measure the cost of a single CALL to the authority. The CALL
     # opcode leaves one stack item (success); the overhead is the PUSHes
     # for its arguments.
-    overhead_cost = 3 * len(Op.CALL.kwargs)
+    overhead_cost = gas_costs.VERY_LOW * len(Op.CALL.kwargs)
     storage = Storage()
     callee_code = CodeGasMeasure(
         code=Op.CALL(gas=0, address=authority),

@@ -409,12 +409,14 @@ class EIP8037(BaseFork):
         cls, opcode: OpcodeBase, gas_costs: GasCosts
     ) -> int:
         """
-        Calculate the regular SELFDESTRUCT gas cost. EIP-8037 moves the
-        new-account funding cost (`NEW_ACCOUNT`) to the state-gas
-        dimension (see `_calculate_selfdestruct_state_gas`), so it is
-        removed from the regular cost inherited from the base/EIP-8038
-        calculation. The EIP-8038 `ACCOUNT_WRITE` surcharge stays in
-        regular gas.
+        Calculate the regular SELFDESTRUCT gas cost. The Frontier base
+        calculation folds `NEW_ACCOUNT` into the regular cost when a
+        positive balance funds a new account; EIP-8038 (the mixin between
+        the base and EIP-8037 in the MRO) adds only the `ACCOUNT_WRITE`
+        surcharge. EIP-8037 moves that funding cost to the state-gas
+        dimension (see `_calculate_selfdestruct_state_gas`), so this
+        subtracts the `NEW_ACCOUNT` term back out of the inherited regular
+        cost; the EIP-8038 `ACCOUNT_WRITE` surcharge stays in regular gas.
         """
         gas_cost = super()._calculate_selfdestruct_gas(opcode, gas_costs)
         if opcode.metadata["account_new"]:

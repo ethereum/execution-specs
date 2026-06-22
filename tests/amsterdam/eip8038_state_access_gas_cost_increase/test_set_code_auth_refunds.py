@@ -61,8 +61,7 @@ from execution_testing import (
 )
 from execution_testing.checklists import EIPChecklist
 
-from tests.prague.eip7702_set_code_tx.spec import Spec as Spec7702
-
+from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .spec import ref_spec_8038
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8038.git_path
