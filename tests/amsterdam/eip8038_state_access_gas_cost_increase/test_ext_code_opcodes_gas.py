@@ -256,21 +256,41 @@ def test_extcodehash_empty_account(
     # No code-read surcharge for EXTCODEHASH; the opcode model must agree.
     assert expected_gas == Op.EXTCODEHASH(address_warm=warm).gas_cost(fork)
 
-    # Measure the access cost and, separately, store the returned hash so
-    # the empty-account 0 result is asserted alongside the pricing. The
+    # Measure the access cost, then store the returned hash so the
+    # empty-account 0 result is asserted alongside the pricing. The
     # measured opcode carries the runtime warmth so the overhead reduces
     # to the address PUSH alone.
+    #
+    # The empty-account hash is 0, which is also the default of an
+    # unwritten storage slot: a stranded hash store would leave slot 1 at
+    # 0 and pass vacuously (the original defect). Two measures keep the
+    # assertion honest:
+    #   - stop=False is load-bearing: CodeGasMeasure appends a STOP by
+    #     default that would strand the trailing hash SSTORE as dead code.
+    #   - Slot 1 is poisoned with a non-zero sentinel before the measured
+    #     region, so the real store must overwrite it back to 0. If that
+    #     store is ever stranded, slot 1 keeps the sentinel and the
+    #     assertion fails instead of silently passing.
+    # The poison precedes the measured region and the hash store follows
+    # it, so neither touches 0xDEAD before the measured access nor
+    # perturbs the cold-case gas measurement.
     storage = Storage()
     measured_code = Op.EXTCODEHASH.with_metadata(address_warm=warm)(empty_addr)
     gas_slot = storage.store_next(expected_gas, "extcodehash_empty_gas")
     hash_slot = storage.store_next(0, "extcodehash_empty_hash")
-    code = CodeGasMeasure(
-        code=measured_code,
-        overhead_cost=measured_code.gas_cost(fork)
-        - Op.EXTCODEHASH(address_warm=warm).gas_cost(fork),
-        extra_stack_items=1,
-        sstore_key=gas_slot,
-    ) + Op.SSTORE(hash_slot, Op.EXTCODEHASH(empty_addr))
+    hash_slot_sentinel = 0xBADC0FFEE
+    code = (
+        Op.SSTORE(hash_slot, hash_slot_sentinel)
+        + CodeGasMeasure(
+            code=measured_code,
+            overhead_cost=measured_code.gas_cost(fork)
+            - Op.EXTCODEHASH(address_warm=warm).gas_cost(fork),
+            extra_stack_items=1,
+            sstore_key=gas_slot,
+            stop=False,  # keep the trailing hash SSTORE reachable
+        )
+        + Op.SSTORE(hash_slot, Op.EXTCODEHASH(empty_addr))
+    )
     measure_address = pre.deploy_contract(code=code)
 
     tx = Transaction(
