@@ -325,4 +325,19 @@ jobs:
           fi
 
           # Creates the tag on the target commit and the release on success.
-          gh release create "$TAG_NAME" "${RELEASE_ARGS[@]}" ./artifacts/**/*.tar.gz
+          DRAFT_URL=$(gh release create "$TAG_NAME" "${RELEASE_ARGS[@]}" ./artifacts/**/*.tar.gz)
+          # gh prints the draft's "untagged-<hash>" URL; surface it so the
+          # draft is discoverable instead of buried in this job's log.
+          echo "Draft release created: $DRAFT_URL"
+          {
+            echo "### 📦 Draft release \`$TAG_NAME\`"
+            echo ""
+            echo "Drafts are not reachable at their tag URL until published — open the draft directly:"
+            echo ""
+            echo "[$DRAFT_URL]($DRAFT_URL)"
+            echo ""
+            echo "Publish with:"
+            echo '```'
+            echo "gh release edit '$TAG_NAME' --repo $GITHUB_REPOSITORY --draft=false"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
