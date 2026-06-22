@@ -6,7 +6,7 @@ transactions are the events that move between states.
 
 from dataclasses import dataclass
 from enum import STRICT
-from typing import Tuple, TypeGuard, final
+from typing import Final, Tuple, TypeGuard, assert_never, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
@@ -28,9 +28,11 @@ from ethereum.state import Address
 from .exceptions import (
     BlobCountExceededError,
     EmptyAuthorizationListError,
+    FrameCountError,
     InitCodeTooLargeError,
     InsufficientMaxFeePerGasError,
     InvalidBlobVersionedHashError,
+    InvalidFrameError,
     NoBlobDataError,
     PriorityFeeGreaterThanMaxFeeError,
     TransactionTypeContractCreationError,
@@ -81,6 +83,14 @@ Floor data tokens contributed by a single access list storage key per
 [EIP-7981].
 
 [EIP-7981]: https://eips.ethereum.org/EIPS/eip-7981
+"""
+
+MAX_FRAMES_PER_TX: Final[Uint] = Uint(64)
+"""
+Maximum number of [`Frame`]s allowed per [`FrameTransaction`][ftx].
+
+[`Frame`]: ref:ethereum.forks.amsterdam.transactions.Frame
+[ftx]: ref:ethereum.forks.amsterdam.transactions.FrameTransaction
 """
 
 
@@ -816,7 +826,38 @@ def decode_transaction(tx: LegacyTransaction | Bytes) -> Transaction:
         return tx
 
 
-def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
+def validate_frame_transaction(tx: FrameTransaction) -> None:
+    frame_count = ulen(tx.frames)
+    if frame_count < Uint(1) or frame_count > MAX_FRAMES_PER_TX:
+        raise FrameCountError(actual=frame_count, maximum=MAX_FRAMES_PER_TX)
+
+    for signature in tx.signatures:
+        signer_length: int
+        match signature.scheme:
+            case FrameSignatureScheme.P256 | FrameSignatureScheme.SECP256K1:
+                signer_length = Address.LENGTH
+            case _ as unreachable:
+                assert_never(unreachable)
+
+        if len(signature.signer) != signer_length:
+            raise InvalidSignatureError("invalid frame signer length")
+        if signature.message == b"\0" * 32:
+            raise InvalidSignatureError(
+                "frame signature message cannot be all zeros"
+            )
+
+    for index, frame in enumerate(tx.frames):
+        assert frame.flags < Uint(8)
+        if frame.mode != FrameMode.SENDER and frame.value != U256(0):
+            raise InvalidFrameError("only sender frames can transfer value")
+        if FrameFlag.ATOMIC_BATCH in frame.flags:
+            if index + 1 >= len(tx.frames):
+                raise InvalidFrameError("last frame cannot have atomic flag")
+
+
+def validate_transaction(
+    tx: Transaction, sender: Address
+) -> IntrinsicGasCost:
     """
     Verifies a transaction.
 
@@ -885,11 +926,20 @@ def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
             raise EmptyAuthorizationListError("empty authorization list")
 
     intrinsic = calculate_intrinsic_cost(tx, sender)
-    intrinsic_gas = Uint(intrinsic.execution)
-    if intrinsic_gas > tx.gas:
-        raise InsufficientTransactionGasError("Insufficient intrinsic gas")
-    if intrinsic.calldata_floor > tx.gas:
-        raise InsufficientTransactionGasError("Insufficient calldata floor")
+
+    if isinstance(tx, FrameTransaction):
+        validate_frame_transaction(tx)
+
+        # TODO: validate intrinsic gas?
+    else:
+        intrinsic_gas = Uint(intrinsic.execution)
+        if intrinsic_gas > tx.gas:
+            raise InsufficientTransactionGasError("Insufficient intrinsic gas")
+        if intrinsic.calldata_floor > tx.gas:
+            raise InsufficientTransactionGasError(
+                "Insufficient calldata floor"
+            )
+
     if intrinsic.execution > TX_MAX_GAS_LIMIT:
         raise InsufficientTransactionGasError(
             "Intrinsic execution gas exceeds TX_MAX_GAS_LIMIT"
@@ -942,6 +992,9 @@ def calculate_intrinsic_cost(
     alone, so it never undercuts the transaction's own intrinsic base.
     """
     from .vm.gas import GasCosts, init_code_cost
+
+    if isinstance(tx, FrameTransaction):
+        raise NotImplementedError
 
     tokens_in_calldata = count_tokens_in_data(tx.data)
 

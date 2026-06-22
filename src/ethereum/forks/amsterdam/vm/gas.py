@@ -173,6 +173,39 @@ class GasCosts:
         + Uint(2) * WARM_ACCESS
     )
 
+    TX_FRAME_INTRINSIC: Final[Uint] = Uint(15000)
+    """
+    Base gas cost for [`FrameTransaction`][ftx]s.
+
+    [ftx]: ref:ethereum.forks.amsterdam.transactions.FrameTransaction
+    """
+
+    TX_PER_FRAME: Final[Uint] = Uint(475)
+    """
+    Additional per-[`Frame`] gas cost for [`FrameTransaction`][ftx]s.
+
+    [ftx]: ref:ethereum.forks.amsterdam.transactions.FrameTransaction
+    [`Frame`]: ref:ethereum.forks.amsterdam.transactions.Frame
+    """
+
+    # Frames
+    FRAME_SIGNATURE_SCHEME_SECP256K1: Final[Uint] = Uint(2800)
+    """
+    Cost for verifying a [`SECP256K1`][s] signature in a
+    [`FrameTransaction`][ftx].
+
+    [s]: ref:ethereum.forks.amsterdam.transactions.FrameSignatureScheme.SECP256K1
+    [ftx]: ref:ethereum.forks.amsterdam.transactions.FrameTransaction
+    """  # noqa: E501
+
+    FRAME_SIGNATURE_SCHEME_P256: Final[Uint] = Uint(6700)
+    """
+    Cost for verifying a [`P256`][s] signature in a [`FrameTransaction`][ftx].
+
+    [s]: ref:ethereum.forks.amsterdam.transactions.FrameSignatureScheme.P256
+    [ftx]: ref:ethereum.forks.amsterdam.transactions.FrameTransaction
+    """
+
     # Block
     LIMIT_ADJUSTMENT_FACTOR: Final[Uint] = Uint(1024)
     LIMIT_MINIMUM: Final[Uint] = Uint(5000)

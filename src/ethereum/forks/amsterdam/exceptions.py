@@ -145,6 +145,46 @@ class TransactionGasLimitExceededError(InvalidTransaction):
     """
 
 
+class FrameCountError(InvalidTransaction):
+    """
+    The transaction has either too many or two few [`Frame`]s to be valid.
+
+    [`Frame`]: ref:ethereum.forks.amsterdam.transactions.Frame
+    """
+
+    maximum: Final[Uint]
+    """
+    Any more than this number of [`Frame`]s invalidates a transaction.
+
+    [`Frame`]: ref:ethereum.forks.amsterdam.transaction.Frame
+    """
+
+    actual: Final[Uint]
+    """
+    Number of [`Frame`]s actually included in the transaction.
+
+    [`Frame`]: ref:ethereum.forks.amsterdam.transaction.Frame
+    """
+
+    def __init__(self, actual: Uint, maximum: Uint) -> None:
+        message = (
+            f"transaction must contain between 1 and {maximum} frames, "
+            f"inclusive (got {actual})"
+        )
+
+        super().__init__(message)
+        self.maximum = maximum
+        self.actual = actual
+
+
+class InvalidFrameError(InvalidTransaction):
+    """
+    A [`Frame`] did not pass validation.
+
+    [`Frame`]: ref:ethereum.forks.amsterdam.transactions.Frame
+    """
+
+
 class BlockAccessListGasLimitExceededError(InvalidBlock):
     """
     The block access list exceeds the gas limit constraint.
