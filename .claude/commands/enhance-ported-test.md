@@ -89,6 +89,12 @@ Two sub-cases:
 - **On break:** some bytecode hardcodes that address as a CALL/CREATE target (or
   the tx `to`/`data`). Thread the dynamic address through the caller and the tx
   entry point instead.
+- **Self-reference:** a contract that hardcodes its *own* deploy address (e.g.
+  `Op.BALANCE(0xF172…)` where `0xF172…` is its own `address=`). Threading a
+  `fill`-generated address in is impossible (chicken-and-egg), so replace the
+  self-reference with the opcode that yields it at runtime — `Op.BALANCE(Op.
+  ADDRESS)`. Don't substitute a *different* opcode that happens to be shorter
+  (e.g. `Op.SELFBALANCE`) if it changes what the test exercises.
 
 ### 5. Remove easy boilerplate values
 Independent and usually safe (batchable): `pre.fund_eoa(amount=...)` → `fund_eoa()`;
@@ -113,12 +119,25 @@ Look at `tx.data` / `tx.to`:
   surfacing the one thing that varies.
 
 ### 7. (Parametrized tests) Simplify `expect_entries_` / `resolve_expect_post`
-**Precondition** (must all hold to collapse to a per-`d` form): every entry's
-`network` is implied by `valid_from`, `gas`/`value` indexes are wildcards (`-1`),
-and there is no `expect_exception`. Then the post is a pure function of `d`.
-- Convert `expect_entries_` into a plain **list of `result` dicts indexed by
-  `d`** — duplicating identical entries (e.g. data `[0,1]` → two slots) is fine
-  and preferred; an explicit flat list is easiest to reason about.
+**First, identify which index actually discriminates — it is *not* always `d`.**
+Ported tests also key on `g` (gas) or `v` (value); check both the
+`expect_entries_` `indexes` (which axis is non-`-1`) and which of
+`tx_data[d]`/`tx_gas[g]`/`tx_value[v]` is the list with >1 entry. The other two
+indexes are pinned/wildcard. (Example: `test_add_non_const` varies `v` —
+`d`/`g` are fixed at 0 and the `indexes` match on `"value"`.)
+**Precondition** (to collapse to a per-case form): every entry's `network` is
+implied by `valid_from` and there is no `expect_exception`. Then the post is a
+pure function of the discriminating index.
+- Convert `expect_entries_` into a plain **list of `result` dicts indexed by the
+  discriminator** — duplicating identical entries (e.g. data `[0,1]` → two
+  slots) is fine and preferred; an explicit flat list is easiest to reason about.
+- **When the discriminator is a real quantity** (the tx `value` or `gas`),
+  parametrize *directly on that quantity* (`parametrize("tx_value", [0, 1])`)
+  rather than an opaque index, feed it straight into the `Transaction`, and
+  express the post as a function of it. A clean closed form is ideal —
+  e.g. `Account(storage={0: 2 * tx_value})` for a contract that stores
+  `ADD(BALANCE, BALANCE)` of a balance equal to the sent value (this is the
+  "encode relationships" idea from step 9 applied to the post).
 - Cascade: delete the `resolve_expect_post` import, the `_exc` it returned, and
   the tx's `error=_exc`.
 - **Optionally merge** the data-generator and the post-list into **one
@@ -129,9 +148,9 @@ and there is no `expect_exception`. Then the post is a pure function of `d`.
   `post: dict` above the switch. Prefer the array form when cases are many or
   the switch would be unwieldy; this is a judgment call.
 - **Clean up the `parametrize` signature.** The ported `"d, g, v"` triple is
-  usually overkill: once gas/value indexing is gone (steps 2/5), drop the unused
-  `g`/`v` from both the `parametrize` and the function signature. Rename `d` to
-  something meaningful and parametrize on that:
+  usually overkill: drop the pinned/unused indexes from both the `parametrize`
+  and the function signature, keep the discriminator, and rename it to something
+  meaningful (and `fork` too, if no longer used). Parametrize on the renamed axis:
   - **String values** (e.g. `parametrize("opcode", ["calldataload",
     "calldatacopy", "codecopy"])`) read best when the cases are distinct
     programs; pytest derives the test ids straight from the strings (matching the
@@ -203,14 +222,18 @@ A docstring `@manually-enhanced: Do not overwrite` marks a deliberate prior fix.
 Respect it by default. It may be removed only when a *better* enhancement makes
 the workaround it documents obsolete (e.g. maxing out gas removes a per-fork gas
 budget hack) — and only under explicit direction.
+**Add the marker as the closing step** once a test's enhancements are intentional
+(genuinely-verifying post, dynamic addresses/gas) so future auto-porting won't
+regress them; briefly state what was enhanced.
 
 ## Known gaps (extend me)
 
 Not yet covered by a validated walkthrough; figure out and append when hit:
 - Scenario-A (call-target) dedup into a dynamic generator — described but not yet
   exercised end-to-end here.
-- Tests where `gas`/`value` parametrization indexes are non-trivial (so
-  `resolve_expect_post` can't collapse to a simple `[d]`).
+- Tests where **more than one** parametrize index varies at once (a genuine 2-D
+  `data` × `value`/`gas` matrix) — single-axis `d`/`g`/`v` discrimination is now
+  handled (step 7), but a multi-axis post is not yet exercised.
 - Multi-block / `blockchain_test` ported tests.
 - Confirming EIP-8037 error-path state-gas behavior once a fork enabling it fills.
 
