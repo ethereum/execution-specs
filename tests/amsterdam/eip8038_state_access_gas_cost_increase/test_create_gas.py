@@ -176,11 +176,12 @@ def test_create2_keccak_word_delta(
     regular cost shared with ``CREATE``. Both opcodes carry the identical
     EIP-8038 ``CREATE_ACCESS`` base and EIP-3860 word cost.
 
-    The regular-gas delta is asserted via the opcode model and then
-    confirmed at runtime: a factory snapshots ``gas_left`` around both a
-    ``CREATE`` and a ``CREATE2`` of the same initcode and stores the
-    difference of the two consumed amounts, which must equal the keccak
-    word surcharge.
+    The regular-gas delta is asserted via the opcode model
+    (``create2_regular - create_regular`` equals the keccak word
+    surcharge). At runtime a factory then measures a single ``CREATE2``
+    with ``CodeGasMeasure`` and stores its absolute regular cost: the
+    surcharge is established by the model assertion, and the runtime leg
+    confirms the absolute ``CREATE2`` regular cost.
     """
     gas_costs = fork.gas_costs()
     init_code_words = (init_code_size + 31) // 32

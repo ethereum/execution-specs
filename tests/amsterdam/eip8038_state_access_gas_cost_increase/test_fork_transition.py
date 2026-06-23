@@ -173,8 +173,11 @@ def test_ext_code_surcharge_at_transition(
     """
     The EIP-8038 ``EXT*`` code-read surcharge appears at the fork. The
     surcharge equals ``EXTCODESIZE`` minus ``BALANCE`` at equal warmth:
-    it is zero before the fork and one ``WARM_ACCESS`` (100) after. Both
-    opcodes are measured warm in each block so the surcharge is exact.
+    it is zero before the fork and one ``WARM_ACCESS`` (100) after. That
+    comparison is computed from the opcode model. On-chain, each block
+    measures only a cold ``EXTCODESIZE`` (2600 before, 3100 after): its
+    rise reflects the surcharge on top of the cold-access repricing, and
+    ``BALANCE`` is never executed.
     """
     before = fork.fork_at(timestamp=BEFORE_TS)
     after = fork.fork_at(timestamp=AFTER_TS)

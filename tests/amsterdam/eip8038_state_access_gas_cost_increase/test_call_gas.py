@@ -491,9 +491,11 @@ def test_call_exact_gas_oog(
     """
     Drive a cold call at exactly its gas (success) and one gas short (OOG).
 
-    The caller forwards exactly enough gas for the inner call opcode (its
-    cold access cost plus the wrapping pushes). One gas short forces the
-    inner call to halt out-of-gas before executing, so the outer SSTORE
+    The caller forwards exactly the inner frame's full regular cost: the
+    cold call opcode, its operand pushes, the trailing ``POP``, and
+    ``STOP``. One gas short, the cold call still executes and returns,
+    but the inner frame then runs out of gas paying for the trailing
+    ``POP``, so the outer ``CALL`` returns 0 and the outer ``SSTORE``
     records 0; with the exact amount it records 1.
     """
     target = pre.deploy_contract(Op.STOP)
