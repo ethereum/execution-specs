@@ -492,7 +492,7 @@ def test_call_exact_gas_oog(
     target = pre.deploy_contract(Op.STOP)
 
     # Inner contract just performs the cold call to `target`.
-    inner_code = Op.POP(_runnable_call(call_opcode, target)) + Op.STOP
+    inner_code = _runnable_call(call_opcode, target) + Op.STOP
     inner = pre.deploy_contract(inner_code)
 
     # Exact regular gas for the inner frame: bytecode cost (which folds
@@ -504,11 +504,7 @@ def test_call_exact_gas_oog(
     caller_code = Op.SSTORE(0, Op.CALL(gas=inner_gas_exact, address=inner))
     caller = pre.deploy_contract(caller_code)
 
-    tx = Transaction(
-        to=caller,
-        sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
-    )
+    tx = Transaction(to=caller, sender=pre.fund_eoa())
 
     post = {caller: Account(storage={0: 1 if sufficient_gas else 0})}
     state_test(env=env, pre=pre, post=post, tx=tx)
