@@ -284,3 +284,235 @@ def test_extcodehash_empty_account(
 
     post = {measure_address: Account(storage=storage)}
     state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+# The two surcharge opcodes only -- both always pay the second,
+# code-reading access, so there is no no-surcharge variant here.
+DOUBLE_READ_OPCODES = [
+    pytest.param(
+        lambda target: Op.EXTCODESIZE(target),
+        lambda warm: Op.EXTCODESIZE(address_warm=warm),
+        1,
+        id="EXTCODESIZE",
+    ),
+    pytest.param(
+        lambda target: Op.EXTCODECOPY(target, 0, 0, 0),
+        lambda warm: Op.EXTCODECOPY(address_warm=warm),
+        0,
+        id="EXTCODECOPY",
+    ),
+]
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+@pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
+@pytest.mark.parametrize(
+    "executable,cost_metadata,extra_stack_items",
+    DOUBLE_READ_OPCODES,
+)
+def test_ext_code_double_read_empty_account(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Alloc,
+    fork: Fork,
+    warm: bool,
+    executable: Callable[[object], Bytecode],
+    cost_metadata: Callable[[bool], Bytecode],
+    extra_stack_items: int,
+) -> None:
+    """
+    Charge the EIP-8038 double-read surcharge on an empty target.
+
+    ``EXTCODESIZE``/``EXTCODECOPY`` add the second, code-reading database
+    access unconditionally: the surcharge is charged before the account is
+    read, so an empty/non-existent target still costs
+    ``COLD_ACCOUNT_ACCESS + WARM_ACCESS`` (cold) or ``2 * WARM_ACCESS``
+    (warm), i.e. 3100 / 200, exactly as for a code-bearing target. This
+    contrasts with ``EXTCODEHASH``/``BALANCE``, which read only the account
+    leaf and carry no surcharge (see ``test_extcodehash_empty_account``). A
+    client that skipped the second read for code-less accounts would be
+    caught here.
+    """
+    gas_costs = fork.gas_costs()
+
+    # Never deployed: no code, no balance, non-existent account.
+    empty_addr = Address(0xDEAD)
+
+    measured_code = executable(empty_addr)
+    # Subtract the opcode's OWN cold cost so the CodeGasMeasure overhead is
+    # only the operand PUSH wrapper; the surcharge is part of the cold cost.
+    overhead_cost = measured_code.gas_cost(fork) - cost_metadata(
+        False
+    ).gas_cost(fork)
+
+    code_gas_measure = CodeGasMeasure(
+        code=measured_code,
+        overhead_cost=overhead_cost,
+        extra_stack_items=extra_stack_items,
+    )
+    measure_address = pre.deploy_contract(code=code_gas_measure)
+
+    # The surcharge is unconditional: the empty target still pays the
+    # second-read WARM_ACCESS on top of the account-access cost.
+    access_cost = (
+        gas_costs.WARM_ACCESS if warm else gas_costs.COLD_ACCOUNT_ACCESS
+    )
+    expected_gas = access_cost + gas_costs.WARM_ACCESS
+    # Cross-check the framework opcode model agrees (3100 cold / 200 warm).
+    assert expected_gas == cost_metadata(warm).gas_cost(fork)
+
+    tx = Transaction(
+        to=measure_address,
+        sender=pre.fund_eoa(),
+        gas_limit=1_000_000,
+        access_list=[AccessList(address=empty_addr, storage_keys=[])]
+        if warm
+        else None,
+    )
+
+    post = {measure_address: Account(storage={0: expected_gas})}
+
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+@pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
+def test_extcodesize_empty_account_returns_zero(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Alloc,
+    fork: Fork,
+    warm: bool,
+) -> None:
+    """
+    Pay the surcharge on an empty target while ``EXTCODESIZE`` returns 0.
+
+    The size returned for an empty/non-existent account is ``0``, which
+    confirms the target genuinely has no code: the measured
+    ``COLD_ACCOUNT_ACCESS + WARM_ACCESS`` (cold) / ``2 * WARM_ACCESS``
+    (warm) cost is therefore unambiguously the surcharge applied to an
+    empty account, not an artifact of the target accidentally holding code.
+    """
+    gas_costs = fork.gas_costs()
+
+    # Never deployed: no code, no balance, non-existent account.
+    empty_addr = Address(0xDEAD)
+
+    expected_gas = (
+        gas_costs.WARM_ACCESS if warm else gas_costs.COLD_ACCOUNT_ACCESS
+    ) + gas_costs.WARM_ACCESS  # second-read surcharge, charged on empty too
+    assert expected_gas == Op.EXTCODESIZE(address_warm=warm).gas_cost(fork)
+
+    # Measure the access cost and, separately, store the returned size so
+    # the empty-account 0 result is asserted alongside the pricing. The
+    # measured opcode carries the runtime warmth so the overhead reduces to
+    # the address PUSH alone.
+    storage = Storage()
+    measured_code = Op.EXTCODESIZE.with_metadata(address_warm=warm)(empty_addr)
+    gas_slot = storage.store_next(expected_gas, "extcodesize_empty_gas")
+    size_slot = storage.store_next(0, "extcodesize_empty_size")
+    # ``stop=False`` so the trailing SSTORE actually executes; otherwise the
+    # size assertion would be vacuous (dead code after an auto-appended STOP,
+    # and the slot's 0 default already matches the expected 0).
+    code = CodeGasMeasure(
+        code=measured_code,
+        overhead_cost=measured_code.gas_cost(fork)
+        - Op.EXTCODESIZE(address_warm=warm).gas_cost(fork),
+        extra_stack_items=1,
+        sstore_key=gas_slot,
+        stop=False,
+    ) + Op.SSTORE(size_slot, Op.EXTCODESIZE(empty_addr))
+    measure_address = pre.deploy_contract(code=code)
+
+    tx = Transaction(
+        to=measure_address,
+        sender=pre.fund_eoa(),
+        gas_limit=1_000_000,
+        access_list=[AccessList(address=empty_addr, storage_keys=[])]
+        if warm
+        else None,
+    )
+
+    post = {measure_address: Account(storage=storage)}
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+@pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
+@pytest.mark.parametrize(
+    "copy_size", [32, 96], ids=["one_word", "three_words"]
+)
+def test_extcodecopy_empty_account_composes_additively(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Alloc,
+    fork: Fork,
+    warm: bool,
+    copy_size: int,
+) -> None:
+    """
+    Compose the surcharge additively when copying from an empty account.
+
+    ``EXTCODECOPY`` of a non-existent source copies zero bytes into memory,
+    yet still charges the account-access cost, the EIP-8038 code-read
+    ``WARM_ACCESS`` surcharge, the EIP-150 per-word copy cost
+    (``OPCODE_COPY_PER_WORD`` per word, driven by the requested size, not
+    the source length), and the memory-expansion cost. The measured gas
+    must equal the sum of all four components, confirming the surcharge
+    composes additively even when there is no code to read.
+    """
+    gas_costs = fork.gas_costs()
+
+    # Empty source: never deployed, no code. The copy yields zeros, but the
+    # cost is driven by the requested size, identical to a code-bearing
+    # source of the same length.
+    empty_addr = Address(0xDEAD)
+
+    measured_code = Op.EXTCODECOPY.with_metadata(
+        address_warm=warm,
+        data_size=copy_size,
+        new_memory_size=copy_size,
+        old_memory_size=0,
+    )(empty_addr, 0, 0, copy_size)
+
+    oracle = Op.EXTCODECOPY.with_metadata(
+        address_warm=warm,
+        data_size=copy_size,
+        new_memory_size=copy_size,
+        old_memory_size=0,
+    )
+    expected_gas = oracle.gas_cost(fork)
+
+    # Additive decomposition the surcharge must satisfy.
+    words = (copy_size + 31) // 32
+    access_cost = (
+        gas_costs.WARM_ACCESS if warm else gas_costs.COLD_ACCOUNT_ACCESS
+    )
+    memory_expansion = fork.memory_expansion_gas_calculator()(
+        new_bytes=copy_size, previous_bytes=0
+    )
+    assert expected_gas == (
+        access_cost
+        + gas_costs.WARM_ACCESS  # EIP-8038 code-read surcharge
+        + gas_costs.OPCODE_COPY_PER_WORD * words
+        + memory_expansion
+    )
+
+    code_gas_measure = CodeGasMeasure(
+        code=measured_code,
+        overhead_cost=measured_code.gas_cost(fork) - oracle.gas_cost(fork),
+        extra_stack_items=0,
+    )
+    measure_address = pre.deploy_contract(code=code_gas_measure)
+
+    tx = Transaction(
+        to=measure_address,
+        sender=pre.fund_eoa(),
+        gas_limit=1_000_000,
+        access_list=[AccessList(address=empty_addr, storage_keys=[])]
+        if warm
+        else None,
+    )
+
+    post = {measure_address: Account(storage={0: expected_gas})}
+    state_test(env=env, pre=pre, post=post, tx=tx)
