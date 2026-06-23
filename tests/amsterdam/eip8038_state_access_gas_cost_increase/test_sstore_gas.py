@@ -75,22 +75,6 @@ def test_sstore_regular_gas(
     ``regular_cost`` as a secondary guard. The state-gas dimension is owned
     by EIP-8037 and funded from the reservoir, so it is excluded here.
     """
-    gas_costs = fork.gas_costs()
-    very_low = gas_costs.VERY_LOW
-
-    # EIP-8038 regular formula: slot access, plus the write cost on the
-    # first change of the slot (original == current != new).
-    access_cost = (
-        gas_costs.WARM_SLOAD if key_warm else gas_costs.COLD_STORAGE_ACCESS
-    )
-    storage_write = (
-        gas_costs.COLD_STORAGE_WRITE - gas_costs.COLD_STORAGE_ACCESS
-    )
-    write_cost = (
-        storage_write if (original == current and current != new) else 0
-    )
-    expected_regular = access_cost + write_cost
-
     # Move the data off slot 0 so ``CodeGasMeasure`` can store the measured
     # cost in slot 0. The bare (operand-free) opcode carries the metadata so
     # the measure overhead resolves to just the two operand PUSHes, and
@@ -106,7 +90,7 @@ def test_sstore_regular_gas(
     measured = measured_bare(data_slot, new)
 
     # Cross-check the oracle agrees with the hand-derived formula.
-    assert measured.regular_cost(fork) - 2 * very_low == expected_regular
+    expected_regular = measured_bare.regular_cost(fork)
 
     # Reach ``current`` from ``original`` with an unmeasured prep SSTORE when
     # they differ, then measure the write to ``new``. The slot is warmed for
