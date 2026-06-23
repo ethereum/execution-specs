@@ -43,6 +43,7 @@ from .rpc_types import (
     ForkchoiceUpdateResponse,
     GetBlobsResponse,
     GetPayloadResponse,
+    JSONRPCError,
     JSONRPCRequest,
     JSONRPCResponse,
     NewPayloadWithWitnessResponse,
@@ -1411,7 +1412,19 @@ class EngineSszRPC(BaseJwtRPC):
             raise EngineWitnessEndpointNotImplementedError(
                 url, response.status_code
             )
-        response.raise_for_status()
+
+        # Engine API errors arrive as an HTTP error + JSON {code, message}.
+        if not response.ok:
+            try:
+                error = response.json()
+            except ValueError:
+                error = None
+            if isinstance(error, dict) and "code" in error:
+                raise JSONRPCError(
+                    code=error["code"],
+                    message=error.get("message", ""),
+                )
+            response.raise_for_status()
 
         content_type = response.headers.get("Content-Type", "")
         if "application/octet-stream" not in content_type:
