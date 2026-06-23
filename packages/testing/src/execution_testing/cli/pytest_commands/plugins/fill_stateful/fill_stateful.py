@@ -446,7 +446,7 @@ def max_gas_limit_per_test(
 
 @pytest.fixture(scope="session")
 def debug_rpc(eth_rpc: EthRPC) -> DebugRPC:
-    """DebugRPC on the same endpoint as eth_rpc (for debug_setHead)."""
+    """DebugRPC on eth_rpc's endpoint (debug_setHead/resetHead rewind)."""
     return DebugRPC(eth_rpc.url)
 
 
@@ -711,9 +711,10 @@ def _reset_chain_between_tests(
 ) -> Generator[None, None, None]:
     """
     Rewind to start_block after each test so the chain is identical for
-    every fill. ``debug_setHead`` only takes a number, so after the
-    rewind we re-fetch ``latest`` and fail loudly if the hash drifted
-    (e.g. live reorg of a same-numbered block).
+    every fill. Uses ``debug_setHead`` (by number) when available, else
+    falls back to ``debug_resetHead`` (by hash) for clients like
+    Nethermind. After the rewind we re-fetch ``latest`` and fail loudly
+    if the hash drifted (e.g. live reorg of a same-numbered block).
     """
     yield
     if client_backend.start_block is None:
@@ -725,14 +726,16 @@ def _reset_chain_between_tests(
     if current_head is not None and current_head["hash"] == expected_hash:
         return
     try:
-        debug_rpc.set_head(start_hex)
+        debug_rpc.rewind_head(
+            block_number=start_hex, block_hash=expected_hash
+        )
     except Exception as e:
-        pytest.exit(f"debug_setHead failed — subsequent fixtures invalid: {e}")
+        pytest.exit(f"head rewind failed — subsequent fixtures invalid: {e}")
     head = eth_rpc.get_block_by_number("latest")
     if head is None or head["hash"] != expected_hash:
         observed = head["hash"] if head is not None else "<none>"
         pytest.exit(
-            f"debug_setHead landed on hash {observed} but expected "
+            f"head rewind landed on hash {observed} but expected "
             f"{expected_hash} (start_block at number {start_hex}). The "
             "live chain may have reorged out from under fill-stateful; "
             "rerun against a quiescent client or use --snapshot-block "

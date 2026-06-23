@@ -43,6 +43,7 @@ from .rpc_types import (
     ForkchoiceUpdateResponse,
     GetBlobsResponse,
     GetPayloadResponse,
+    JSONRPCError,
     JSONRPCRequest,
     JSONRPCResponse,
     PayloadAttributes,
@@ -1183,6 +1184,13 @@ class DebugRPC(EthRPC):
     used within EEST based hive simulators.
     """
 
+    # JSON-RPC "method not found" error code.
+    _METHOD_NOT_FOUND = -32601
+
+    # Which head-rewind method the client supports; resolved on first use
+    # so the fallback probe runs only once per session.
+    _rewind_method: str | None = None
+
     def trace_call(self, tr: dict[str, str], block_number: str) -> Any | None:
         """`debug_traceCall`: Returns pre state required for transaction."""
         params = [tr, block_number, {"tracer": "prestateTracer"}]
@@ -1191,10 +1199,40 @@ class DebugRPC(EthRPC):
         ).result_or_raise()
 
     def set_head(self, block_number: str) -> None:
-        """`debug_setHead`: Reset chain head to the given block."""
+        """`debug_setHead`: Reset chain head to the given block number."""
         self.post_request(
             request=RPCCall(method="setHead", params=[block_number])
         ).result_or_raise()
+
+    def reset_head(self, block_hash: str) -> None:
+        """`debug_resetHead`: Reset chain head to the given block hash."""
+        self.post_request(
+            request=RPCCall(method="resetHead", params=[block_hash])
+        ).result_or_raise()
+
+    def rewind_head(self, *, block_number: str, block_hash: str) -> None:
+        """
+        Rewind the chain head to a given block.
+
+        Prefer geth's ``debug_setHead`` (takes a block number); if the
+        client does not expose it (e.g. Nethermind, which returns a
+        "method not found" error), fall back to ``debug_resetHead``
+        (takes a block hash). The chosen method is cached after the
+        first call so the probe runs only once.
+        """
+        if self._rewind_method is None:
+            try:
+                self.set_head(block_number)
+                self._rewind_method = "setHead"
+                return
+            except JSONRPCError as e:
+                if e.code != self._METHOD_NOT_FOUND:
+                    raise
+                self._rewind_method = "resetHead"
+        if self._rewind_method == "setHead":
+            self.set_head(block_number)
+        else:
+            self.reset_head(block_hash)
 
 
 class EngineRPC(BaseJwtRPC):
