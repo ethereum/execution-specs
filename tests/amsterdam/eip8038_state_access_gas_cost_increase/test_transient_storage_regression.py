@@ -75,11 +75,7 @@ def test_transient_storage_gas_unchanged(
     )
     contract = pre.deploy_contract(code=tstore_code + tload_code)
 
-    tx = Transaction(
-        to=contract,
-        sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
-    )
+    tx = Transaction(to=contract, sender=pre.fund_eoa())
 
     # Slot 0: measured TSTORE cost. Slot 1: measured TLOAD cost.
     post = {

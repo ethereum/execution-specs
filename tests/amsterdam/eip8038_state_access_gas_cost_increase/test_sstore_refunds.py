@@ -114,7 +114,6 @@ def test_sstore_clear_grants_refund(
     tx = Transaction(
         to=contract,
         sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
         expected_receipt=TransactionReceipt(
             cumulative_gas_used=expected_cumulative
         ),
@@ -158,7 +157,6 @@ def test_sstore_clear_then_reset_nets_zero(
     tx = Transaction(
         to=contract,
         sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
         expected_receipt=TransactionReceipt(
             cumulative_gas_used=expected_cumulative
         ),
@@ -216,7 +214,6 @@ def test_sstore_restore_nonzero_refunds_write(
     tx = Transaction(
         to=contract,
         sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
         expected_receipt=TransactionReceipt(
             cumulative_gas_used=expected_cumulative
         ),
@@ -276,7 +273,6 @@ def test_sstore_refund_quotient_cap(
     tx = Transaction(
         to=contract,
         sender=pre.fund_eoa(),
-        gas_limit=2_000_000,
         expected_receipt=TransactionReceipt(
             cumulative_gas_used=expected_cumulative
         ),
@@ -344,7 +340,6 @@ def test_sstore_refund_cap_exact_equality(
     tx = Transaction(
         to=contract,
         sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
         expected_receipt=TransactionReceipt(
             cumulative_gas_used=expected_cumulative
         ),

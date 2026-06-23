@@ -500,7 +500,7 @@ def test_selfdestruct_oog_boundary(
     tx = Transaction(
         to=caller,
         sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
+        state_gas_reservoir=0,
     )
 
     if sufficient_gas:

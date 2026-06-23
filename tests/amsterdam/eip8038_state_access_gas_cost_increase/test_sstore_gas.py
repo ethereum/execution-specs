@@ -205,11 +205,7 @@ def test_sstore_cold_then_warm_same_slot(
 
     contract = pre.deploy_contract(code=code, storage={data_slot: 1})
 
-    tx = Transaction(
-        to=contract,
-        sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
-    )
+    tx = Transaction(to=contract, sender=pre.fund_eoa())
 
     # Slots 0/1 hold the two measured writes; the data slot ends at its
     # final written value.

@@ -86,7 +86,6 @@ def test_sload_gas(
     tx = Transaction(
         to=measure_address,
         sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
         access_list=access_list,
     )
 
@@ -134,11 +133,7 @@ def test_sload_warm_after_prior_touch(
     )
     measure_address = pre.deploy_contract(code=code, storage={slot: 1})
 
-    tx = Transaction(
-        to=measure_address,
-        sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
-    )
+    tx = Transaction(to=measure_address, sender=pre.fund_eoa())
 
     # Slots 0/1 hold the two measured reads; the read slot keeps its
     # value.
@@ -191,11 +186,7 @@ def test_sload_warmth_reverts_on_subcall_revert(
     )
     outer = pre.deploy_contract(code=outer_code, storage={slot: 1})
 
-    tx = Transaction(
-        to=outer,
-        sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
-    )
+    tx = Transaction(to=outer, sender=pre.fund_eoa())
 
     # Slot 0 holds the measured (cold) read; the read slot keeps its
     # value.

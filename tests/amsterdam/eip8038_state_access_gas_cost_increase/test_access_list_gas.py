@@ -125,7 +125,6 @@ def test_access_list_intrinsic_surcharge(
     tx = Transaction(
         to=contract,
         sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
         access_list=access_list if access_list else None,
     )
 
@@ -194,7 +193,6 @@ def test_access_list_duplicate_address_key_intrinsic_and_warmth(
     tx = Transaction(
         to=contract,
         sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
         access_list=access_list,
     )
 
@@ -259,7 +257,6 @@ def test_access_list_warms_storage_slot(
     tx = Transaction(
         to=contract,
         sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
         access_list=[AccessList(address=contract, storage_keys=[slot])],
     )
 
@@ -322,7 +319,6 @@ def test_access_list_slot_warmth_is_address_scoped(
     tx = Transaction(
         to=account_a,
         sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
         # Only A's slot is listed; B's identical slot stays cold.
         access_list=[AccessList(address=account_a, storage_keys=[slot])],
     )

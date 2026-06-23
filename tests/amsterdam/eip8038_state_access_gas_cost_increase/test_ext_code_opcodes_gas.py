@@ -130,7 +130,6 @@ def test_ext_code_opcode_gas(
     tx = Transaction(
         to=measure_address,
         sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
         access_list=[AccessList(address=target, storage_keys=[])]
         if warm
         else None,
@@ -218,7 +217,6 @@ def test_extcodecopy_nonzero_composes_additively(
     tx = Transaction(
         to=measure_address,
         sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
         access_list=[AccessList(address=target, storage_keys=[])]
         if warm
         else None,
@@ -296,7 +294,6 @@ def test_extcodehash_empty_account(
     tx = Transaction(
         to=measure_address,
         sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
         access_list=[AccessList(address=empty_addr, storage_keys=[])]
         if warm
         else None,

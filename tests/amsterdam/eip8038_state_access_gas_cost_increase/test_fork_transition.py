@@ -90,31 +90,21 @@ def transition_blocks(
 
     The first block runs at ``BEFORE_TS`` (pre-fork schedule) and the
     second at ``AFTER_TS`` (EIP-8038 schedule). Each carries a single
-    ``gas_limit=1_000_000`` transaction from a fresh sender to its
-    respective ``to`` target, forwarding ``value`` so a value-bearing
-    operation is exercised in both regimes.
+    transaction from a fresh sender to its respective ``to`` target,
+    forwarding ``value`` so a value-bearing operation is exercised in both
+    regimes.
     """
     return [
         Block(
             timestamp=BEFORE_TS,
             txs=[
-                Transaction(
-                    to=before_to,
-                    gas_limit=1_000_000,
-                    value=value,
-                    sender=pre.fund_eoa(),
-                ),
+                Transaction(to=before_to, value=value, sender=pre.fund_eoa()),
             ],
         ),
         Block(
             timestamp=AFTER_TS,
             txs=[
-                Transaction(
-                    to=after_to,
-                    gas_limit=1_000_000,
-                    value=value,
-                    sender=pre.fund_eoa(),
-                ),
+                Transaction(to=after_to, value=value, sender=pre.fund_eoa()),
             ],
         ),
     ]
@@ -433,8 +423,7 @@ def test_sstore_write_cost_at_transition(
     assert refund_after > refund_before
 
     # Exercise the zero-to-nonzero SSTORE in both regimes; the slot ends
-    # set in each block. gas_limit=1_000_000 covers the post-fork total
-    # (regular plus state) drawn from gas_left.
+    # set in each block.
     storage_before = Storage()
     contract_before = pre.deploy_contract(
         code=Op.SSTORE(storage_before.store_next(1), 1),

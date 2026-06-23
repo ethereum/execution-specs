@@ -140,7 +140,6 @@ def test_call_access_gas(
     tx = Transaction(
         to=measure_address,
         sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
         access_list=access_list,
     )
 
@@ -245,7 +244,6 @@ def test_call_value_alive_target_gas(
     tx = Transaction(
         to=measure_address,
         sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
         access_list=access_list,
     )
 
@@ -460,7 +458,6 @@ def test_call_to_delegated_target_double_access(
     tx = Transaction(
         to=measure_address,
         sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
         access_list=access_list,
     )
 
@@ -539,11 +536,7 @@ def test_call_self_is_warm(
     expected_gas = call_opcode(address_warm=True).gas_cost(fork)
     assert expected_gas == gas_costs.WARM_ACCESS
 
-    tx = Transaction(
-        to=measure_address,
-        sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
-    )
+    tx = Transaction(to=measure_address, sender=pre.fund_eoa())
 
     post = {measure_address: Account(storage={0: expected_gas})}
     state_test(env=env, pre=pre, post=post, tx=tx)
@@ -675,11 +668,7 @@ def test_account_warmth_reverts_on_subcall_revert(
     )
     outer = pre.deploy_contract(code=outer_code)
 
-    tx = Transaction(
-        to=outer,
-        sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
-    )
+    tx = Transaction(to=outer, sender=pre.fund_eoa())
 
     # Slot 0 holds the measured (cold) BALANCE read.
     post = {outer: Account(storage={0: cold_gas})}
@@ -729,11 +718,7 @@ def test_call_to_double_delegated_target_single_hop(
         pre, fork, measured_code, Op.CALL(address_warm=False)
     )
 
-    tx = Transaction(
-        to=measure_address,
-        sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
-    )
+    tx = Transaction(to=measure_address, sender=pre.fund_eoa())
 
     post = {measure_address: Account(storage={0: expected_gas})}
     state_test(env=env, pre=pre, post=post, tx=tx)
@@ -767,11 +752,7 @@ def test_call_precompile_is_warm(
     expected_gas = call_opcode(address_warm=True).gas_cost(fork)
     assert expected_gas == gas_costs.WARM_ACCESS
 
-    tx = Transaction(
-        to=measure_address,
-        sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
-    )
+    tx = Transaction(to=measure_address, sender=pre.fund_eoa())
 
     post = {measure_address: Account(storage={0: expected_gas})}
     state_test(env=env, pre=pre, post=post, tx=tx)
@@ -809,11 +790,7 @@ def test_call_value_stipend_is_usable(
         balance=1,
     )
 
-    tx = Transaction(
-        to=caller,
-        sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
-    )
+    tx = Transaction(to=caller, sender=pre.fund_eoa())
 
     # 1 when the stipend funded the callee's work, 0 when it ran out.
     post = {caller: Account(storage={0: 1 if value else 0})}
