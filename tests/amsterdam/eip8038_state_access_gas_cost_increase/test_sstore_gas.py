@@ -14,6 +14,7 @@ slot in the transaction (``original == current != new``), the write cost
 
 import pytest
 from execution_testing import (
+    AccessList,
     Account,
     Alloc,
     Bytecode,
@@ -61,12 +62,14 @@ def test_sstore_regular_gas(
     new: int,
 ) -> None:
     """
-    Assert the regular ``SSTORE`` gas for each EIP-8038 row.
+    Measure the regular ``SSTORE`` gas for each EIP-8038 row and assert it.
 
-    The expectation is derived purely from ``gas_costs`` (slot access
-    plus write-on-first-change) and cross-checked against the framework
-    opcode model's ``regular_cost``. The state-gas dimension is owned by
-    EIP-8037 and excluded here.
+    The final (measured) ``SSTORE`` is wrapped in ``CodeGasMeasure`` so the
+    executed regular cost is stored on-chain and asserted against
+    ``expected_regular`` (slot access plus write-on-first-change). The same
+    value is cross-checked against the framework opcode model's
+    ``regular_cost`` as a secondary guard. The state-gas dimension is owned
+    by EIP-8037 and funded from the reservoir, so it is excluded here.
     """
     gas_costs = fork.gas_costs()
     very_low = gas_costs.VERY_LOW
@@ -84,46 +87,71 @@ def test_sstore_regular_gas(
     )
     expected_regular = access_cost + write_cost
 
-    # Bare opcode regular cost = with-metadata regular cost minus the two
-    # PUSH wrappers (key, value). Cross-check the oracle agrees.
-    metered = Op.SSTORE.with_metadata(
+    # Move the data off slot 0 so ``CodeGasMeasure`` can store the measured
+    # cost in slot 0. The bare (operand-free) opcode carries the metadata so
+    # the measure overhead resolves to just the two operand PUSHes, and
+    # ``regular_cost``/``gas_cost`` are exact.
+    data_slot = 0x42
+    result_slot = 0
+    measured_bare = Op.SSTORE.with_metadata(
         key_warm=key_warm,
         original_value=original,
         current_value=current,
         new_value=new,
-    )(0, new)
-    bare_regular = metered.regular_cost(fork) - 2 * very_low
-    assert bare_regular == expected_regular
+    )
+    measured = measured_bare(data_slot, new)
 
-    # Build a contract that reaches ``current`` from ``original`` (a prior
-    # SSTORE when they differ), then performs the measured write to
-    # ``new``. The access list is left empty so the first touch is cold;
-    # the warm rows rely on the prior SSTORE having warmed the slot.
-    slot = 0
+    # Cross-check the oracle agrees with the hand-derived formula.
+    assert measured.regular_cost(fork) - 2 * very_low == expected_regular
+
+    # Reach ``current`` from ``original`` with an unmeasured prep SSTORE when
+    # they differ, then measure the write to ``new``. The slot is warmed for
+    # ``key_warm`` rows via the access list (and, where current != original,
+    # the prep SSTORE warms it too); cold rows have neither, so the measured
+    # write is cold.
     code = Bytecode()
     if current != original:
-        # Move original -> current first; this also warms the slot.
-        code += Op.SSTORE(slot, current)
-    code += Op.SSTORE(slot, new)
+        code += Op.SSTORE(data_slot, current)
+    code += CodeGasMeasure(
+        code=measured,
+        overhead_cost=measured.gas_cost(fork) - measured_bare.gas_cost(fork),
+        extra_stack_items=0,
+        sstore_key=result_slot,
+    )
 
     contract = pre.deploy_contract(
         code=code,
-        storage={slot: original} if original != 0 else {},
+        storage={data_slot: original} if original != 0 else {},
     )
 
-    # State gas (owned by EIP-8037) is sourced from the reservoir so it
-    # never disturbs the regular-gas accounting this test isolates. Size
-    # it to cover up to two zero-to-nonzero sets (prep + measured),
-    # derived from the fork rather than hardcoded.
+    # Warm the slot for ``key_warm`` rows that have no prep to warm it;
+    # harmless for prep rows (warmth is set membership). Built after
+    # ``deploy_contract`` so the address exists.
+    access_list = (
+        [AccessList(address=contract, storage_keys=[data_slot])]
+        if key_warm
+        else None
+    )
+
+    # State gas (owned by EIP-8037) is funded from the reservoir so it never
+    # disturbs the regular gas this test isolates. ``gas_limit`` is left
+    # unset so the reservoir lands above the EIP-7825 cap and ``Op.GAS``
+    # measures regular gas only; an explicit gas_limit below the cap would
+    # zero the reservoir and spill state gas into the measurement.
     single_set_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     tx = Transaction(
         to=contract,
         sender=pre.fund_eoa(),
+        access_list=access_list,
         state_gas_reservoir=2 * single_set_state_gas,
-        gas_limit=1_000_000,
     )
 
-    post = {contract: Account(storage={slot: new})}
+    # result_slot holds the measured regular cost; data_slot holds ``new``
+    # (absent when new == 0, because the slot is cleared).
+    expected_storage = {result_slot: expected_regular}
+    if new != 0:
+        expected_storage[data_slot] = new
+    post = {contract: Account(storage=expected_storage)}
     state_test(pre=pre, post=post, tx=tx)
 
 
