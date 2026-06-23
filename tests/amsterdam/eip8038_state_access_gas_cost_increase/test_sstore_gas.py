@@ -34,18 +34,22 @@ REFERENCE_SPEC_VERSION = ref_spec_8038.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 
-# Each parameter: (key_warm, original, current, new). ``current`` differs
-# from ``original`` only when a prior in-frame SSTORE moves the slot there.
+# Each parameter: (key_warm, original, current, new). The id encodes the
+# (original, current, new) triple, where ``0`` is the zero value and
+# ``x``/``y``/``z`` are distinct non-zero values (1, 2, 3). The suffix marks
+# the slot state at the measured write. A clean slot (current == original)
+# is ``_cold`` or access-list ``_warm``; a dirty slot (current != original)
+# is ``_dirty`` and has necessarily been warmed by the prior in-frame SSTORE.
 SSTORE_ROWS = [
     pytest.param(False, 0, 0, 1, id="00x_cold"),
     pytest.param(True, 0, 0, 1, id="00x_warm"),
-    pytest.param(True, 0, 1, 0, id="0x0"),
-    pytest.param(True, 1, 1, 0, id="xx0"),
+    pytest.param(True, 0, 1, 0, id="0x0_dirty"),
+    pytest.param(True, 1, 1, 0, id="xx0_warm"),
     pytest.param(False, 1, 1, 2, id="xxy_cold"),
     pytest.param(True, 1, 1, 2, id="xxy_warm"),
-    pytest.param(True, 1, 2, 3, id="xyz"),
-    pytest.param(True, 1, 2, 1, id="xyx"),
-    pytest.param(True, 1, 1, 1, id="xxx"),
+    pytest.param(True, 1, 2, 3, id="xyz_dirty"),
+    pytest.param(True, 1, 2, 1, id="xyx_dirty"),
+    pytest.param(True, 1, 1, 1, id="xxx_warm"),
     pytest.param(False, 1, 1, 1, id="xxx_cold"),
 ]
 
