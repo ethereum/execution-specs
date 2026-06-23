@@ -36,6 +36,7 @@ from execution_testing import (
     Op,
     StateTestFiller,
     Transaction,
+    TransactionReceipt,
 )
 from execution_testing.checklists import EIPChecklist
 
@@ -312,15 +313,12 @@ def test_callcode_value_to_nonexistent_no_new_account(
     tx = Transaction(
         to=caller,
         sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_gas_used
+        ),
     )
 
-    state_test(
-        pre=pre,
-        post={caller: Account(balance=1)},
-        tx=tx,
-        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
-    )
+    state_test(pre=pre, post={caller: Account(balance=1)}, tx=tx)
 
 
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
@@ -385,7 +383,6 @@ def test_call_value_to_new_account_seam(
         to=caller,
         sender=pre.fund_eoa(),
         state_gas_reservoir=new_account_state_gas,
-        gas_limit=1_000_000,
     )
 
     state_test(

@@ -197,19 +197,22 @@ def test_selfdestruct_alive_beneficiary_no_account_write(
         access_list=access_list
     )
 
-    tx = Transaction(
-        to=caller,
-        sender=pre.fund_eoa(),
-        access_list=access_list,
-        state_gas_reservoir=0,
-    )
-
     # Pure regular: intrinsic + caller frame + destructor frame (whose
     # regular_cost folds the SELFDESTRUCT charge and beneficiary PUSH).
     expected_gas_used = (
         intrinsic
         + caller_code.gas_cost(fork)
         + destructor_code.regular_cost(fork)
+    )
+
+    tx = Transaction(
+        to=caller,
+        sender=pre.fund_eoa(),
+        access_list=access_list,
+        state_gas_reservoir=0,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_gas_used,
+        ),
     )
 
     state_test(
@@ -221,7 +224,6 @@ def test_selfdestruct_alive_beneficiary_no_account_write(
             beneficiary: Account(balance=2),
         },
         tx=tx,
-        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )
 
 
@@ -268,19 +270,22 @@ def test_selfdestruct_codebearing_zero_balance_beneficiary_no_account_write(
         access_list=access_list
     )
 
-    tx = Transaction(
-        to=caller,
-        sender=pre.fund_eoa(),
-        access_list=access_list,
-        state_gas_reservoir=0,
-    )
-
     # Pure regular: intrinsic + caller frame + destructor frame (whose
     # regular_cost folds the SELFDESTRUCT charge and beneficiary PUSH).
     expected_gas_used = (
         intrinsic
         + caller_code.gas_cost(fork)
         + destructor_code.regular_cost(fork)
+    )
+
+    tx = Transaction(
+        to=caller,
+        sender=pre.fund_eoa(),
+        access_list=access_list,
+        state_gas_reservoir=0,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_gas_used
+        ),
     )
 
     state_test(
@@ -293,7 +298,6 @@ def test_selfdestruct_codebearing_zero_balance_beneficiary_no_account_write(
             beneficiary: Account(balance=1, code=Op.STOP),
         },
         tx=tx,
-        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )
 
 
@@ -331,17 +335,20 @@ def test_selfdestruct_zero_balance_no_account_write(
         access_list=access_list
     )
 
+    expected_gas_used = (
+        intrinsic
+        + caller_code.gas_cost(fork)
+        + destructor_code.regular_cost(fork)
+    )
+
     tx = Transaction(
         to=caller,
         sender=pre.fund_eoa(),
         access_list=access_list,
         state_gas_reservoir=0,
-    )
-
-    expected_gas_used = (
-        intrinsic
-        + caller_code.gas_cost(fork)
-        + destructor_code.regular_cost(fork)
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_gas_used
+        ),
     )
 
     state_test(
@@ -351,7 +358,6 @@ def test_selfdestruct_zero_balance_no_account_write(
             beneficiary: Account.NONEXISTENT,
         },
         tx=tx,
-        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )
 
 
@@ -411,16 +417,19 @@ def test_selfdestruct_self_or_precompile_beneficiary(
 
     intrinsic = fork.transaction_intrinsic_cost_calculator()()
 
-    tx = Transaction(
-        to=caller,
-        sender=pre.fund_eoa(),
-        state_gas_reservoir=0,
-    )
-
     expected_gas_used = (
         intrinsic
         + caller_code.gas_cost(fork)
         + destructor_code.regular_cost(fork)
+    )
+
+    tx = Transaction(
+        to=caller,
+        sender=pre.fund_eoa(),
+        state_gas_reservoir=0,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_gas_used
+        ),
     )
 
     # EIP-6780: the pre-deployed destructor is not deleted. The self case
@@ -432,7 +441,6 @@ def test_selfdestruct_self_or_precompile_beneficiary(
         pre=pre,
         post=post,
         tx=tx,
-        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )
 
 
@@ -572,10 +580,11 @@ def test_same_tx_created_selfdestruct_self_burn(
         data=init_code,
         # Slack covers the create-side NEW_ACCOUNT charged transiently
         # before its refund, even though net state gas is zero.
-        gas_limit=intrinsic_total + 100_000 + new_account_state_gas,
         sender=sender,
-        value=0,
-        expected_receipt=TransactionReceipt(logs=[burn_log(created, amount)]),
+        expected_receipt=TransactionReceipt(
+            logs=[burn_log(created, amount)],
+            cumulative_gas_used=expected_gas_used,
+        ),
     )
 
     state_test(
@@ -583,7 +592,6 @@ def test_same_tx_created_selfdestruct_self_burn(
         # Same-tx-created originator is deleted; its balance is burnt.
         post={created: Account.NONEXISTENT},
         tx=tx,
-        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )
 
 
@@ -646,9 +654,7 @@ def test_same_tx_created_selfdestruct_to_fresh_beneficiary(
     tx = Transaction(
         to=None,
         data=init_code,
-        gas_limit=intrinsic_total + 100_000 + expected_state,
         sender=sender,
-        value=0,
         # Reservoir holds the beneficiary-creation state gas (above the
         # creation's intrinsic NEW_ACCOUNT) so it does not spill into
         # regular gas.
