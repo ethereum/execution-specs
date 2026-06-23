@@ -1191,11 +1191,6 @@ class DebugRPC(EthRPC):
     # but throws NotImplementedException, surfaced as this code.
     _METHOD_NOT_IMPLEMENTED = -32603
 
-    # Error codes that signal debug_setHead is unusable, so we should fall
-    # back to debug_resetHead: -32601 when unregistered, -32603 when it is
-    # registered but throws (Nethermind).
-    _SET_HEAD_UNSUPPORTED = (_METHOD_NOT_FOUND, _METHOD_NOT_IMPLEMENTED)
-
     # Which head-rewind method the client supports; resolved on first use
     # so the fallback probe runs only once per session.
     _rewind_method: str | None = None
@@ -1235,7 +1230,10 @@ class DebugRPC(EthRPC):
                 self._rewind_method = "setHead"
                 return
             except JSONRPCError as e:
-                if e.code not in self._SET_HEAD_UNSUPPORTED:
+                if e.code not in (
+                    self._METHOD_NOT_FOUND,
+                    self._METHOD_NOT_IMPLEMENTED,
+                ):
                     raise
                 self._rewind_method = "resetHead"
         if self._rewind_method == "setHead":
