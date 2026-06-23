@@ -1184,11 +1184,17 @@ class DebugRPC(EthRPC):
     used within EEST based hive simulators.
     """
 
-    # JSON-RPC error codes that signal debug_setHead is not usable, so we
-    # should fall back to debug_resetHead: -32601 when the method is
-    # unregistered, -32603 when it is registered but throws (Nethermind
-    # returns its NotImplementedException as an Internal error).
-    _SET_HEAD_UNSUPPORTED = (-32601, -32603)
+    # JSON-RPC "method not found" error code.
+    _METHOD_NOT_FOUND = -32601
+
+    # JSON-RPC "internal error" code. Nethermind registers debug_setHead
+    # but throws NotImplementedException, surfaced as this code.
+    _INTERNAL_ERROR = -32603
+
+    # Error codes that signal debug_setHead is unusable, so we should fall
+    # back to debug_resetHead: -32601 when unregistered, -32603 when it is
+    # registered but throws (Nethermind).
+    _SET_HEAD_UNSUPPORTED = (_METHOD_NOT_FOUND, _INTERNAL_ERROR)
 
     # Which head-rewind method the client supports; resolved on first use
     # so the fallback probe runs only once per session.
