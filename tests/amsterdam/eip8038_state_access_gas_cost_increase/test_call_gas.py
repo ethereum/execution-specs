@@ -491,17 +491,15 @@ def test_call_exact_gas_oog(
     """
     Drive a cold call at exactly its gas (success) and one gas short (OOG).
 
-    The caller forwards exactly the inner frame's full regular cost: the
-    cold call opcode, its operand pushes, the trailing ``POP``, and
-    ``STOP``. One gas short, the cold call still executes and returns,
-    but the inner frame then runs out of gas paying for the trailing
-    ``POP``, so the outer ``CALL`` returns 0 and the outer ``SSTORE``
+    The caller forwards exactly enough gas for the inner call opcode (its
+    cold access cost plus the wrapping pushes). One gas short forces the
+    inner call to halt out-of-gas before executing, so the outer SSTORE
     records 0; with the exact amount it records 1.
     """
     target = pre.deploy_contract(Op.STOP)
 
     # Inner contract just performs the cold call to `target`.
-    inner_code = Op.POP(_runnable_call(call_opcode, target)) + Op.STOP
+    inner_code = _runnable_call(call_opcode, target) + Op.STOP
     inner = pre.deploy_contract(inner_code)
 
     # Exact regular gas for the inner frame: bytecode cost (which folds
@@ -513,11 +511,7 @@ def test_call_exact_gas_oog(
     caller_code = Op.SSTORE(0, Op.CALL(gas=inner_gas_exact, address=inner))
     caller = pre.deploy_contract(caller_code)
 
-    tx = Transaction(
-        to=caller,
-        sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
-    )
+    tx = Transaction(to=caller, sender=pre.fund_eoa())
 
     post = {caller: Account(storage={0: 1 if sufficient_gas else 0})}
     state_test(env=env, pre=pre, post=post, tx=tx)
