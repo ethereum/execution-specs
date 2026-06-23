@@ -51,6 +51,7 @@ from .rpc_types import (
     ForkchoiceState,
     ForkchoiceUpdateResponse,
     GetBlobsResponse,
+    GetBlobsV4Response,
     GetPayloadResponse,
     JSONRPCError,
     JSONRPCRequest,
@@ -1487,21 +1488,31 @@ class EngineRPC(BaseJwtRPC):
         versioned_hashes: List[Hash],
         *,
         version: int,
-    ) -> GetBlobsResponse | None:
+        indices_bitarray: int | None = None,
+    ) -> GetBlobsResponse | GetBlobsV4Response | None:
         """
         `engine_getBlobsVX`: Retrieves blobs from an execution layers tx pool.
         """
         method = f"getBlobsV{version}"
-        params = [f"{h}" for h in versioned_hashes]
+        params: List[Any] = [[f"{h}" for h in versioned_hashes]]
+
+        if version >= 4:
+            assert indices_bitarray is not None, (
+                f"getBlobsV{version} requires an indices_bitarray cell mask."
+            )
+            params.append(f"0x{indices_bitarray.to_bytes(16, 'big').hex()}")
 
         response = self.post_request(
-            request=RPCCall(method=method, params=[params]),
+            request=RPCCall(method=method, params=params),
         ).result_or_raise()
         if response is None:  # for tests that request non-existing blobs
             logger.debug("get_blobs response received but it has value: None")
             return None
 
-        return GetBlobsResponse.model_validate(
+        response_model = (
+            GetBlobsV4Response if version >= 4 else GetBlobsResponse
+        )
+        return response_model.model_validate(
             response,
             context=self.response_validation_context,
         )

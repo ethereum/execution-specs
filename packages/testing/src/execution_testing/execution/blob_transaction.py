@@ -14,11 +14,16 @@ from execution_testing.logging import (
 from execution_testing.rpc import (
     BlobAndProofV1,
     BlobAndProofV2,
+    BlobCellsAndProofsV1,
     EngineRPC,
     EthRPC,
 )
-from execution_testing.rpc.rpc_types import GetBlobsResponse
+from execution_testing.rpc.rpc_types import (
+    GetBlobsResponse,
+    GetBlobsV4Response,
+)
 from execution_testing.test_types import (
+    Blob,
     Environment,
     NetworkWrappedTransaction,
     Transaction,
@@ -107,6 +112,78 @@ def _validate_blob_and_proof(
         )
 
 
+def _validate_cells_and_proofs(
+    expected_blob: Blob | None,
+    received: BlobCellsAndProofsV1 | None,
+    cell_mask: int,
+    index: int,
+) -> None:
+    """
+    Validate a received `engine_getBlobsV4` cell matrix against a local blob.
+
+    Bit `i` of `cell_mask` says whether cell `i` was requested: requested
+    cells and proofs must match the local values, non-requested ones must be
+    `null`. When `expected_blob` is `None` (a non-existing hash), the whole
+    entry must be `null`.
+    """
+    if expected_blob is None:
+        if received is None:
+            logger.info(
+                f"Blob at index {index} correctly returned null "
+                "(non-existing blob hash)"
+            )
+            return
+        raise ValueError(
+            f"Blob at index {index} should be null (non-existing hash), "
+            f"but client returned a cell matrix."
+        )
+    if received is None:
+        raise ValueError(f"Received cell matrix at index {index} is empty.")
+
+    assert expected_blob.cells is not None, (
+        "Local blob has no cells; getBlobsV4 requires a fork with cell proofs."
+    )
+    assert isinstance(expected_blob.proof, list), (
+        "Local blob proof is not a cell-proof list."
+    )
+    cells_per_ext_blob = len(expected_blob.cells)
+    if len(received.blob_cells) != cells_per_ext_blob:
+        raise ValueError(
+            f"Cell matrix at index {index} has {len(received.blob_cells)} "
+            f"cells, expected {cells_per_ext_blob}."
+        )
+    if len(received.proofs) != cells_per_ext_blob:
+        raise ValueError(
+            f"Proof matrix at index {index} has {len(received.proofs)} "
+            f"proofs, expected {cells_per_ext_blob}."
+        )
+
+    for i in range(cells_per_ext_blob):
+        requested = (cell_mask >> i) & 1
+        recv_cell = received.blob_cells[i]
+        recv_proof = received.proofs[i]
+        if requested:
+            if recv_cell != expected_blob.cells[i]:
+                raise ValueError(
+                    f"Cell mismatch at blob index {index}, cell {i}."
+                )
+            if recv_proof != expected_blob.proof[i]:
+                raise ValueError(
+                    f"Cell proof mismatch at blob index {index}, cell {i}."
+                )
+        else:
+            if recv_cell is not None:
+                raise ValueError(
+                    f"Cell at blob index {index}, cell {i} was not requested "
+                    "but client returned a non-null cell."
+                )
+            if recv_proof is not None:
+                raise ValueError(
+                    f"Proof at blob index {index}, cell {i} was not requested "
+                    "but client returned a non-null proof."
+                )
+
+
 def versioned_hashes_with_blobs_and_proofs(
     tx: NetworkWrappedTransaction,
 ) -> Dict[Hash, BlobAndProofV1 | BlobAndProofV2]:
@@ -149,6 +226,7 @@ class BlobTransaction(BaseExecute):
     txs: List[NetworkWrappedTransaction | Transaction]
     nonexisting_blob_hashes: List[Hash] | None = None
     get_blobs_version: int | None = None
+    cell_mask: int | None = None
 
     def prepare_transactions(
         self,
@@ -208,6 +286,7 @@ class BlobTransaction(BaseExecute):
     ) -> ExecuteResult:
         """Execute the format."""
         versioned_hashes: Dict[Hash, BlobAndProofV1 | BlobAndProofV2] = {}
+        blobs_by_hash: Dict[Hash, Blob] = {}
         sent_txs: List[Transaction] = []
         for tx_index, tx in enumerate(self.txs):
             tx = tx.with_signature_and_sender()
@@ -218,6 +297,8 @@ class BlobTransaction(BaseExecute):
                 versioned_hashes.update(
                     versioned_hashes_with_blobs_and_proofs(tx)
                 )
+                for blob in tx.blob_objects:
+                    blobs_by_hash[blob.versioned_hash] = blob
             else:
                 sent_txs.append(tx)
             label = (
@@ -259,8 +340,13 @@ class BlobTransaction(BaseExecute):
         if self.nonexisting_blob_hashes is not None:
             list_versioned_hashes.extend(self.nonexisting_blob_hashes)
 
-        blob_response: GetBlobsResponse | None = engine_rpc.get_blobs(
-            list_versioned_hashes, version=version
+        indices_bitarray = self.cell_mask if version >= 4 else None
+        blob_response: GetBlobsResponse | GetBlobsV4Response | None = (
+            engine_rpc.get_blobs(
+                list_versioned_hashes,
+                version=version,
+                indices_bitarray=indices_bitarray,
+            )
         )
 
         if version <= 2:
@@ -284,6 +370,7 @@ class BlobTransaction(BaseExecute):
                     f"getBlobsV{version} returned 'null' but all "
                     "requested blobs should exist."
                 )
+                assert isinstance(blob_response, GetBlobsResponse)
                 local_blobs_and_proofs = list(versioned_hashes.values())
                 assert len(blob_response) == len(local_blobs_and_proofs), (
                     f"Expected {len(local_blobs_and_proofs)} blobs and "
@@ -305,6 +392,7 @@ class BlobTransaction(BaseExecute):
                     "response, but V3 should always return an array "
                     "(with null entries for missing blobs)."
                 )
+            assert isinstance(blob_response, GetBlobsResponse)
             expected_blobs_and_proofs: List[
                 BlobAndProofV1 | BlobAndProofV2 | None
             ] = list(versioned_hashes.values())
@@ -334,10 +422,38 @@ class BlobTransaction(BaseExecute):
                     f"blobs and {nonexisting_count} null entries for "
                     "missing blobs"
                 )
+        elif version == 4:
+            # V4 (EIP-8070): partial cell matrix, selected by cell_mask
+            assert self.cell_mask is not None, (
+                f"getBlobsV{version} requires a cell_mask."
+            )
+            if blob_response is None:
+                raise ValueError(
+                    f"getBlobsV{version} returned 'null' for the entire "
+                    "response, but V4 should always return an array "
+                    "(with null entries for missing blobs)."
+                )
+            assert isinstance(blob_response, GetBlobsV4Response)
+            expected_blobs: List[Blob | None] = [
+                blobs_by_hash[vh] for vh in versioned_hashes
+            ]
+            if self.nonexisting_blob_hashes is not None:
+                expected_blobs += [None] * len(self.nonexisting_blob_hashes)
+            if len(blob_response) != len(expected_blobs):
+                raise ValueError(
+                    f"Expected {len(expected_blobs)} blob responses, "
+                    f"got {len(blob_response)}."
+                )
+            for i, (expected_cells, received_cells) in enumerate(
+                zip(expected_blobs, blob_response.root, strict=True)
+            ):
+                _validate_cells_and_proofs(
+                    expected_cells, received_cells, self.cell_mask, i
+                )
         else:
             raise NotImplementedError(
                 f"getBlobsV{version} is not supported. "
-                "Supported versions: V1, V2, V3."
+                "Supported versions: V1, V2, V3, V4."
             )
 
         eth_rpc.wait_for_transactions(sent_txs)
