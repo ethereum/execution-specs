@@ -49,7 +49,6 @@ def test_storage_warm_status_reverted_by_subcall(
         overhead_cost=sload_push_cost,
         extra_stack_items=1,
         sstore_key=1,
-        stop=False,
     )
 
     # Also verify storage[0] value (should still be 1).

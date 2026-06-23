@@ -1498,14 +1498,12 @@ def test_set_code_address_and_authority_warm_state(
         overhead_cost=overhead_cost,
         extra_stack_items=1,
         sstore_key=slot_set_code_to_warm_state,
-        stop=False,
     )
     code_gas_measure_authority = CodeGasMeasure(
         code=call_opcode(address=auth_signer),
         overhead_cost=overhead_cost,
         extra_stack_items=1,
         sstore_key=slot_authority_warm_state,
-        stop=False,
     )
 
     callee_code = Bytecode()

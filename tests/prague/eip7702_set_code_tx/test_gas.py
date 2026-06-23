@@ -1099,7 +1099,6 @@ def test_account_warming(
                 overhead_cost=overhead_cost,
                 extra_stack_items=1,
                 sstore_key=check_address,
-                stop=False,
             )
             for check_address in addresses_to_check
         )

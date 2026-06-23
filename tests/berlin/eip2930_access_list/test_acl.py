@@ -288,7 +288,6 @@ def test_repeated_address_acl(
         overhead_cost=sload_push_cost,
         extra_stack_items=1,  # SLOAD pushes 1 item to the stack
         sstore_key=0,
-        stop=False,  # Because it's the first CodeGasMeasure
     )
 
     sload1_measure = CodeGasMeasure(
