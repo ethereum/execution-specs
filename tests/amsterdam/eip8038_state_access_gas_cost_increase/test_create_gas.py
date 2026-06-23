@@ -27,6 +27,7 @@ from execution_testing import (
     Bytecode,
     CodeGasMeasure,
     Fork,
+    Hash,
     Header,
     Initcode,
     Op,
@@ -395,6 +396,7 @@ class TestCreateTxGasBoundary:
     [
         pytest.param("insufficient_balance", id="insufficient_balance"),
         pytest.param("nonce_overflow", id="nonce_overflow"),
+        pytest.param(None, id="no_error"),
     ],
 )
 def test_aborted_create_does_not_warm_address(
@@ -402,7 +404,7 @@ def test_aborted_create_does_not_warm_address(
     pre: Alloc,
     fork: Fork,
     create_opcode: Op,
-    abort_mode: str,
+    abort_mode: str | None,
 ) -> None:
     """
     Verify a silently-aborted CREATE does not warm the target address.
@@ -413,33 +415,22 @@ def test_aborted_create_does_not_warm_address(
     ``BALANCE`` of that address is therefore charged the full
     ``COLD_ACCOUNT_ACCESS`` (3,000), not ``WARM_ACCESS`` (100).
     """
-    gas_costs = fork.gas_costs()
-
     init_code = Op.STOP
     init_code_bytes = bytes(init_code)
-    init_code_len = len(init_code_bytes)
+    init_code_len = len(init_code)
 
-    value = 1 if abort_mode == "insufficient_balance" else 0
-    create_call = (
-        Op.CREATE2(value=value, offset=0, size=init_code_len, salt=0)
-        if create_opcode == Op.CREATE2
-        else Op.CREATE(value=value, offset=0, size=init_code_len)
+    create_value = 1
+    create_call = create_opcode(
+        value=create_value, offset=0, size=init_code_len
     )
 
     # After the aborted CREATE, measure the BALANCE access of the
-    # would-be address (passed via calldata). The CREATE runs before the
-    # measured region; the BALANCE leaves one stack item (the balance),
-    # and the overhead subtracts BALANCE's own cold cost so the stored
-    # value is exactly the account-access cost.
-    balance_code = Op.BALANCE(Op.CALLDATALOAD(0))
-    overhead = balance_code.gas_cost(fork) - Op.BALANCE(
-        address_warm=False
-    ).gas_cost(fork)
-    measure = CodeGasMeasure(
-        code=balance_code,
-        overhead_cost=overhead,
-        extra_stack_items=1,
-    )
+    # would-be address (passed via calldata).
+    # The address should only be warm when the CREATE/CREATE2 opcode
+    # successfully reached initcode execution stage.
+    address_warm = abort_mode is None
+    balance_code = Op.BALANCE(Op.CALLDATALOAD(0), address_warm=address_warm)
+    measure = CodeGasMeasure(code=balance_code, extra_stack_items=1)
 
     setup = Op.MSTORE(
         0,
@@ -447,42 +438,36 @@ def test_aborted_create_does_not_warm_address(
     )
     factory_code = setup + Op.POP(create_call) + measure
 
-    # The CREATE target derives from the factory's nonce at CREATE time,
-    # so the BALANCE probe below must reuse the same nonce. nonce_overflow
-    # mode carries the maximum nonce (2**64 - 1); otherwise the factory
-    # keeps the default contract nonce of 1.
     factory_nonce = 2**64 - 1 if abort_mode == "nonce_overflow" else 1
-    if abort_mode == "nonce_overflow":
-        factory = pre.deploy_contract(code=factory_code, nonce=factory_nonce)
-    else:
-        # Zero balance so the value=1 endowment cannot be satisfied.
-        factory = pre.deploy_contract(
-            code=factory_code, nonce=factory_nonce, balance=0
-        )
+    factory_balance = create_value
+    if abort_mode == "insufficient_balance":
+        factory_balance -= 1
+    factory = pre.deploy_contract(
+        code=factory_code, nonce=factory_nonce, balance=factory_balance
+    )
 
-    if create_opcode == Op.CREATE2:
-        from execution_testing import compute_create2_address
-
-        target_address = compute_create2_address(
-            address=factory, salt=0, initcode=init_code_bytes
-        )
-    else:
-        target_address = compute_create_address(
-            address=factory, nonce=factory_nonce
-        )
+    target_address = compute_create_address(
+        address=factory,
+        salt=0,
+        initcode=init_code_bytes,
+        nonce=factory_nonce,
+        opcode=create_opcode,
+    )
 
     tx = Transaction(
         to=factory,
-        # Left-pad the 20-byte address to a 32-byte calldata word so
-        # CALLDATALOAD(0) reads it in the low 20 bytes.
-        data=b"\x00" * 12 + bytes(target_address),
-        gas_limit=1_000_000,
+        data=Hash(target_address, left_padding=True),
         sender=pre.fund_eoa(),
     )
 
-    # The BALANCE must be cold: the aborted CREATE never warmed the
-    # would-be address.
-    post = {factory: Account(storage={0: gas_costs.COLD_ACCOUNT_ACCESS})}
+    # The BALANCE must be cold: in case of error, the aborted CREATE never
+    # warmed the would-be address.
+    post = {
+        factory: Account(storage={0: balance_code.gas_cost(fork)}),
+        target_address: Account(nonce=1)
+        if abort_mode is None
+        else Account.NONEXISTENT,
+    }
     state_test(pre=pre, post=post, tx=tx)
 
 
