@@ -1184,8 +1184,11 @@ class DebugRPC(EthRPC):
     used within EEST based hive simulators.
     """
 
-    # JSON-RPC "method not found" error code.
-    _METHOD_NOT_FOUND = -32601
+    # JSON-RPC error codes that signal debug_setHead is not usable, so we
+    # should fall back to debug_resetHead: -32601 when the method is
+    # unregistered, -32603 when it is registered but throws (Nethermind
+    # returns its NotImplementedException as an Internal error).
+    _SET_HEAD_UNSUPPORTED = (-32601, -32603)
 
     # Which head-rewind method the client supports; resolved on first use
     # so the fallback probe runs only once per session.
@@ -1226,7 +1229,7 @@ class DebugRPC(EthRPC):
                 self._rewind_method = "setHead"
                 return
             except JSONRPCError as e:
-                if e.code != self._METHOD_NOT_FOUND:
+                if e.code not in self._SET_HEAD_UNSUPPORTED:
                     raise
                 self._rewind_method = "resetHead"
         if self._rewind_method == "setHead":
