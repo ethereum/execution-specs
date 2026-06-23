@@ -48,35 +48,6 @@ REFERENCE_SPEC_VERSION = ref_spec_8038.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 
-def _runnable_call(
-    call_opcode: Op, address: int | Bytecode | Address, value: int = 0
-) -> Bytecode:
-    """
-    Build a runnable call to ``address`` for the given opcode.
-
-    ``CALL``/``CALLCODE`` take a ``value`` argument;
-    ``DELEGATECALL``/``STATICCALL`` do not.
-    """
-    if call_opcode in (Op.CALL, Op.CALLCODE):
-        return call_opcode(
-            gas=0,
-            address=address,
-            value=value,
-            args_offset=0,
-            args_size=0,
-            ret_offset=0,
-            ret_size=0,
-        )
-    return call_opcode(
-        gas=0,
-        address=address,
-        args_offset=0,
-        args_size=0,
-        ret_offset=0,
-        ret_size=0,
-    )
-
-
 def _measure_call(
     pre: Alloc,
     fork: Fork,
@@ -122,7 +93,7 @@ def test_call_access_gas(
 
     target = pre.deploy_contract(Op.STOP)
 
-    measured_code = _runnable_call(call_opcode, target)
+    measured_code = call_opcode(gas=0, address=target)
     cost_metadata = call_opcode(address_warm=warm)
     measure_address = _measure_call(
         pre, fork, measured_code, call_opcode(address_warm=False)
@@ -211,7 +182,7 @@ def test_call_value_alive_target_gas(
         cost_metadata = call_opcode(address_warm=warm, value_transfer=True)
         own_cold = call_opcode(address_warm=False, value_transfer=True)
     else:
-        measured_code = _runnable_call(call_opcode, target)
+        measured_code = call_opcode(gas=0, address=target)
         cost_metadata = call_opcode(address_warm=warm)
         own_cold = call_opcode(address_warm=False)
 
@@ -426,7 +397,7 @@ def test_call_to_delegated_target_double_access(
     # EOA delegated (EIP-7702) to `delegate`.
     target = pre.fund_eoa(amount=0, delegation=delegate)
 
-    measured_code = _runnable_call(call_opcode, target)
+    measured_code = call_opcode(gas=0, address=target)
     cost_metadata = call_opcode(
         address_warm=target_warm,
         delegated_address=True,
@@ -489,7 +460,7 @@ def test_call_exact_gas_oog(
     target = pre.deploy_contract(Op.STOP)
 
     # Inner contract just performs the cold call to `target`.
-    inner_code = _runnable_call(call_opcode, target) + Op.STOP
+    inner_code = call_opcode(gas=0, address=target) + Op.STOP
     inner = pre.deploy_contract(inner_code)
 
     # Exact regular gas for the inner frame: bytecode cost (which folds
@@ -528,7 +499,7 @@ def test_call_self_is_warm(
     # runnable call; the self address is in the accessed set on entry, so
     # the call is warm. The overhead subtracts the call's own cold cost,
     # leaving the ADDRESS push and the other arg pushes as overhead.
-    measured_code = _runnable_call(call_opcode, Op.ADDRESS)
+    measured_code = call_opcode(gas=0, address=Op.ADDRESS)
     measure_address = _measure_call(
         pre, fork, measured_code, call_opcode(address_warm=False)
     )
@@ -713,7 +684,7 @@ def test_call_to_double_delegated_target_single_hop(
     assert expected_gas == cost_metadata.gas_cost(fork)
     assert cost_metadata.state_cost(fork) == 0
 
-    measured_code = _runnable_call(Op.CALL, target)
+    measured_code = Op.CALL(gas=0, address=target)
     measure_address = _measure_call(
         pre, fork, measured_code, Op.CALL(address_warm=False)
     )
@@ -744,7 +715,7 @@ def test_call_precompile_is_warm(
 
     identity_precompile = Address(4)
 
-    measured_code = _runnable_call(call_opcode, identity_precompile)
+    measured_code = call_opcode(gas=0, address=identity_precompile)
     measure_address = _measure_call(
         pre, fork, measured_code, call_opcode(address_warm=False)
     )
