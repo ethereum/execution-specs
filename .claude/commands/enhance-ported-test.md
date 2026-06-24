@@ -42,9 +42,14 @@ so a failure is attributable.
 - **Checkpoint / done:** fill the whole `valid_from` range (omit `--fork`) so all
   deployed forks are exercised.
 - **Probe the future fork:** explicitly `--fork Amsterdam` (or the latest fork
-  that enables new EIPs). It may **pass**, or be **skipped** (`sss`) if it is
-  outside the fillable range — either way you learn the true extent of your
-  coverage. A gas/state-cost change there is the most likely future breakage.
+  that enables new EIPs). A ported test listed in `amsterdam_skip_list.txt` will
+  always show `sss` there — to see its *real* behavior, temporarily remove its
+  entry from that file, fill, then restore (or, once fixed, remove it for good —
+  see Finishing). A gas/state-cost change there is the most likely future
+  breakage.
+- **`fill` output:** writes to `./fixtures` (`--clean` resets it), or pass
+  `--output <dir>` for a scratch location. Do **not** use `-o` — that is
+  pytest's `--override-ini`, not the output dir.
 
 ## Ordered steps
 
@@ -68,7 +73,17 @@ gas the tx receives, so the body executes fully. See `write-test.md` "Transactio
   completion. This also lets you delete any per-fork gas band-aids (e.g.
   `fork.is_eip_enabled(8037)` budget bumps) and often the `fork` param itself.
 - **Keep it** only for genuinely gas-sensitive tests (OOG boundaries,
-  intrinsic-gas, code-deposit limits, or gas metering) — see step 9.
+  intrinsic-gas, code-deposit limits, or gas metering) — see step 10.
+- **Gas-snapshot tests are gas-sensitive.** If the post asserts a stored `GAS`
+  reading or a `SUB(@gas_before, GAS)` delta (legacy slots `0` / `0x64`), the
+  test *measures gas* — handle it under step 10 (preserve via `CodeGasMeasure`),
+  do not just strip `gas_limit`. This is the dominant `amsterdam_skip_list.txt`
+  shape: the stored gas value is exactly what EIP-8037 re-prices and breaks.
+- **EIP-8037 caveat:** when you omit `gas_limit` on a test that *measures* an
+  operation incurring **state gas** (account creation, storage writes), add
+  `state_gas_reservoir=0` to the tx, or that state gas is silently dropped from
+  the measurement on EIP-8037 forks (see step 10). Pure-execution opcodes
+  (e.g. `PUSH0`, arithmetic) have no state gas and do not need it.
 - Do **not** add a comment explaining the absence of `gas_limit`; omission is
   the default.
 
@@ -95,12 +110,23 @@ Two sub-cases:
   self-reference with the opcode that yields it at runtime — `Op.BALANCE(Op.
   ADDRESS)`. Don't substitute a *different* opcode that happens to be shorter
   (e.g. `Op.SELFBALANCE`) if it changes what the test exercises.
+- **Remove `@pytest.mark.pre_alloc_mutable`** once the test no longer hardcodes
+  addresses/nonces or assigns `pre[...]` directly — i.e. all allocation now goes
+  through `fund_eoa` / `deploy_contract` / `nonexistent_account`. Fill to confirm.
 
 ### 5. Remove easy boilerplate values
 Independent and usually safe (batchable): `pre.fund_eoa(amount=...)` → `fund_eoa()`;
 tx `value`; tx `data` when it is empty (`Bytes("")`); explicit gas price fields.
 Keep any of these that the post actually checks or that triggers the behavior
 under test.
+- **Drop opcode args that just pass their default.** Ported bytecode often spells
+  out zero operands that are already the default, e.g. `Op.CALL(..., args_offset=0,
+  args_size=0, ret_offset=0, ret_size=0)` — all four are `0` by default. Removing
+  them is a no-op on the assembled bytecode (verify once with
+  `bytes(a) == bytes(b)`) and cuts noise. Applies to any opcode arg equal to its
+  default.
+- **Drop a stale `# noqa: F841`** on `contract = pre.deploy_contract(...)` once the
+  variable is actually used (in `to=` / the post); leaving it triggers `RUF100`.
 
 ### 6. (Parametrized tests) Analyze what the `data` parameter is
 Look at `tx.data` / `tx.to`:
@@ -108,7 +134,11 @@ Look at `tx.data` / `tx.to`:
   entry-point contract that just `CALL`s the address from calldata. Usually you
   can **delete the entry-point** and call the target directly, and the N targets
   are near-identical → replace N bytecode copies with a **dynamic generator**
-  parameterized by the small difference.
+  parameterized by the small difference. When the targets are *gas-measurement*
+  contracts differing only by the measured opcode, the dedup collapses all the
+  way to a single `CodeGasMeasure(code=opcode)` parametrized on the opcode
+  (step 10) — the entry-point's `CALL` was only a delivery mechanism. Validated
+  on `test_push0_gas2` (PUSH0 vs PUSH1 0x00).
 - **Scenario B — data is initcode:** spotted by **`to=None`**. Decide whether
   running inside initcode is *required* by the test (e.g. the test is about
   initcode-context behavior, per its title/docstring) or just an artifact of the
@@ -185,36 +215,110 @@ into named variables that express the *relationship*, not just the value. E.g.
 `value=create_value - 1` documents an intentional off-by-one (insufficient
 balance) and keeps the two coupled so a future edit can't desync them. Same idea
 ties a `CREATE`'s `size` operand to the memory/gas math that depends on it.
+- **Post-state derived from gas/fees.** When the asserted value is a function of
+  the gas charge (e.g. an origin `BALANCE` read mid-execution equals
+  `sender_balance - gas_limit * effective_gas_price`), express it as that formula
+  rather than a hardcoded number. Such a test is gas-sensitive — keep an explicit
+  `gas_limit` (step 10), since the observable depends on it. Validated on
+  `test_sender_balance` (EIP-1559 effective-vs-max price).
 
-### 10. (Gas-subject tests only) Replace hardcoded gas with dynamic calculation
-For tests that genuinely assert a gas amount:
-- Prefer the **`CodeGasMeasure`** helper over hand-rolled `GAS … SUB(@0, GAS)`
-  framing: `CodeGasMeasure(code=<op>, extra_stack_items=N, sstore_key=K)`. It
-  self-calibrates (subtracts its own `GAS` ops and `overhead_cost`) so the stored
-  value is the opcode's real cost. `extra_stack_items` = items the measured code
-  leaves on the stack (`CREATE`/`CALL` leave 1) — wrong value corrupts the
-  result. `sstore_key` should match the slot the post asserts.
-- **Decompose the constant empirically first** (throwaway script against the
-  fork): pin each term to the known-good number, then assemble. Map terms to
-  fork-derived helpers: opcode base+pushes → `bytecode.gas_cost(fork)`; memory
-  growth → `fork.memory_expansion_gas_calculator()(new_bytes=, previous_bytes=)`;
-  EIP-3860 init-code words → `fork.gas_costs().CODE_INIT_PER_WORD * ceil(size/32)`.
-- Lift the opcode into a variable so you can call `.gas_cost` / `.regular_cost`
-  / `.state_cost` on exactly the measured bytecode, and couple its operands to
-  the gas inputs (step 9).
-- **Error paths are tricky.** A failed `CREATE`/`CALL` still charges some costs
-  (memory, init-code words) but forwards no gas — so the delta is gas-limit
-  independent. Whether the *state* portion (EIP-8037) is charged on a failure
-  path may be unverifiable until a fork enabling it is fillable; flag it.
+### 10. (Gas-subject / gas-snapshot tests) Replace hardcoded gas with dynamic calculation
+Covers both tests that *assert* a gas amount and the dominant
+`amsterdam_skip_list.txt` shape: a legacy `GAS` snapshot / `SUB(@gas_before,
+GAS)` delta stored to slot `0`/`0x64`. That stored value is *why* EIP-8037
+breaks the test, but it is real coverage — **preserve and fork-robustify it, do
+not drop it.**
+
+**The `CodeGasMeasure` workflow:**
+- **Isolate** the bytecode under measurement into a variable
+  (`call_code = Op.CALL(...)`). This often reveals the legacy measured window
+  bundled extra ops — e.g. it wrapped an `SSTORE`, inflating the value by a cold
+  `SSTORE` (~22100). Isolating the opcode measures only it (a large but
+  *explainable* re-pin — see Re-pinning).
+- **Wrap** it: `CodeGasMeasure(code=call_code, extra_stack_items=N, sstore_key=K)`.
+  It self-calibrates (subtracts its own `GAS` ops and `overhead_cost`) so the
+  stored value is the opcode's real cost. `extra_stack_items` = items the
+  measured code leaves on the stack (`CREATE`/`CALL` leave 1) — wrong value
+  corrupts the result. `sstore_key` = the slot the post asserts.
+- **Apply opcode metadata from the test's context** so `gas_cost(fork)` is
+  correct (see `docs/writing_tests/opcode_metadata.md`). For `CALL`:
+  `address_warm` (is the target pre-accessed?), `value_transfer` (value > 0?),
+  `account_new` (target absent/empty and receiving value → created?). Use
+  `pre.nonexistent_account()` for a target that must stay **cold + non-existent**
+  so `account_new` holds — a `fund_eoa()` target already exists (warm/created) and
+  would change the cost.
+- **Express the expected value dynamically** from the same metadata-bearing
+  variable: `call_code.gas_cost(fork)` (add `fork: Fork`). Both the bytecode and
+  the expectation are now fork-aware.
+
+**CALL value-transfer stipend.** A value-bearing `CALL` whose callee consumes
+nothing (empty account / EOA) measures `gas_cost(fork) -
+fork.gas_costs().CALL_STIPEND`: `gas_cost` counts the full value cost, but the
+2300 stipend is forwarded to the callee and returned unused. Confirm the
+`- CALL_STIPEND` holds on *every* fork (it is a fork-stable relationship, not a
+coincidence).
+
+**EIP-8037 state-gas reservoir — critical.** Omitting `gas_limit` (step 2) on an
+EIP-8037 fork *maxes the state-gas reservoir*, so state gas (e.g. account
+creation) is **not** charged against what the `GAS` opcode sees — the measurement
+silently loses it (observed 192921 → 9321) and only the future fork breaks. Fix:
+keep `gas_limit` omitted **and** add an explicit `state_gas_reservoir=0` to the
+`Transaction`. That pins the gas limit to exactly the cap (no reservoir) so state
+gas is charged and measurable, and is a no-op on pre-EIP-8037 forks (a *positive*
+reservoir there raises; `0` does not, and it must be set explicitly — the default
+is treated as "unset"). This keeps a `CodeGasMeasure` test clean (no magic
+`gas_limit`) yet correct on Amsterdam.
+
+**Decompose the constant empirically** when no single helper applies (throwaway
+script against the fork): pin each term to the known-good number, then assemble.
+Map terms to fork-derived helpers: opcode base+pushes → `bytecode.gas_cost(fork)`;
+memory growth → `fork.memory_expansion_gas_calculator()(new_bytes=,
+previous_bytes=)`; EIP-3860 init-code words → `fork.gas_costs().CODE_INIT_PER_WORD
+* ceil(size/32)`. You can also call `.gas_cost` / `.regular_cost` / `.state_cost`
+on exactly the measured bytecode.
+
+**Nested / callee-side measurements.** When the measured op is a `CALL` whose
+callee does real work, the measured cost = `call_code.gas_cost(fork) +
+callee_code.gas_cost(fork)` (the CALL's own cost plus what the callee consumed).
+Attach the callee's opcode metadata (e.g. SSTORE `key_warm`/`original_value`/
+`new_value`) so its `gas_cost` is right, and decompose against the callee's
+*actual* bytecode rather than a reconstruction — a value supplied by `GAS` costs
+2, not a `PUSH`'s 3, and that off-by-3 is a real trap. A callee-side gas snapshot
+(`SSTORE(k, GAS)`) stores `forward_gas - Op.GAS.gas_cost(fork)`. Forward enough
+gas that the callee's state op commits on every fork — under EIP-8037 a cold
+zero->non-zero SSTORE can cost ~100k — and set `state_gas_reservoir=0` so that
+state gas is captured. Validated on `test_raw_call_gas`.
+
+**Error paths are tricky.** A failed `CREATE`/`CALL` still charges some costs
+(memory, init-code words) but forwards no gas — so the delta is gas-limit
+independent. Whether the *state* portion (EIP-8037) is charged on a failure path
+may be unverifiable until confirmed; flag it.
+
+### 11. Lower `valid_from` to extend coverage
+The ported `valid_from` (often `Cancun`) is usually higher than necessary — lower
+it to widen coverage. Find the true floor empirically: temporarily delete the
+`valid_from` marker and fill with no `--fork` (the framework then runs from
+Frontier up); the earliest fork that *passes* is your floor. Set
+`@pytest.mark.valid_from("<that fork>")` — the marker is mandatory, so this is a
+lowering, never a true removal.
+- **Gas tests floor at the EIP that introduced their metadata.** A test using
+  `address_warm` / cold-access metadata + `gas_cost(fork)` is only valid from
+  **Berlin (EIP-2929)**: earlier forks have no warm/cold distinction, so
+  `gas_cost` over-predicts by `cold − flat` (2600 − 700 = 1900) and every
+  pre-Berlin fork fails the measurement. Same shape elsewhere — EIP-3860
+  init-code metering floors at Shanghai, etc. The floor is whichever EIP the
+  test's behavior/metadata depends on, which the empirical sweep reveals directly.
 
 ## Re-pinning expected values
 
 When a measurement rewrite (step 10) or bytecode change shifts a stored value,
 the workflow is: change → `fill` → read the `KeyValueMismatchError` (`want … got
 …`) → update the expected value to the `got` → `fill` again.
-**Sanity gate:** the shift must be *small and explainable* (e.g. exactly the gas
-of removed framing ops). A large or inexplicable jump means the rewrite changed
-*what* is being measured — stop and investigate, don't just paste the number.
+**Sanity gate:** the shift must be *explainable* — either small (the gas of
+removed framing ops) or large-but-precisely-accounted (e.g. isolating an opcode
+in `CodeGasMeasure` drops a cold `SSTORE` ~22100 the legacy window had bundled).
+A jump you cannot account for means the rewrite changed *what* is being measured
+— stop and investigate, don't just paste the number.
 
 ## `@manually-enhanced` markers
 
@@ -224,20 +328,29 @@ the workaround it documents obsolete (e.g. maxing out gas removes a per-fork gas
 budget hack) — and only under explicit direction.
 **Add the marker as the closing step** once a test's enhancements are intentional
 (genuinely-verifying post, dynamic addresses/gas) so future auto-porting won't
-regress them; briefly state what was enhanced.
+regress them; briefly state what was enhanced. Place it in the **module
+docstring**, after the `Ported from:` block (blank line before), as a single
+line: `@manually-enhanced: Do not overwrite. <what changed>.` (keep it ≤79
+chars).
 
 ## Known gaps (extend me)
 
 Not yet covered by a validated walkthrough; figure out and append when hit:
-- Scenario-A (call-target) dedup into a dynamic generator — described but not yet
-  exercised end-to-end here.
 - Tests where **more than one** parametrize index varies at once (a genuine 2-D
   `data` × `value`/`gas` matrix) — single-axis `d`/`g`/`v` discrimination is now
   handled (step 7), but a multi-axis post is not yet exercised.
 - Multi-block / `blockchain_test` ported tests.
-- Confirming EIP-8037 error-path state-gas behavior once a fork enabling it fills.
+- Confirming EIP-8037 *error-path* state-gas behavior. (Success-path account-
+  creation state gas is now handled — measure with `state_gas_reservoir=0`, step
+  10. Validated end-to-end on `test_non_zero_value_call`.)
 
 ## Finishing
+
+**Remove the skip-list entry.** Once the test passes on the future fork, delete
+its line from `tests/ported_static/amsterdam_skip_list.txt` and decrement both
+its per-directory count header (`# stXxx (N)`) and the `# Total entries:` count.
+Confirm with a full-range fill (`--fork` omitted) with the entry gone — that is
+the definition of done.
 
 When done, offer to run `/lint`. Note that pydantic coercion warnings
 (`dict→Alloc/Storage`, `Bytecode→Bytes`, unfilled optional `Transaction` params)
