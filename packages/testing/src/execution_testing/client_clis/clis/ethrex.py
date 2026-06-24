@@ -173,6 +173,7 @@ class EthrexExceptionMapper(ExceptionMapper):
             r"exceeding max valid index \d+|"
             r"Failed to RLP decode BAL|"
             r"Block access list .+ not in strictly ascending order.*|"
+            r"Block access list .+ has an empty change set|"
             r"BAL validation failed for (tx \d+|system_tx|withdrawal): .*|"
             r"BAL validation failed: .*|"
             r"absent from BAL|"
