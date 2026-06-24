@@ -228,7 +228,6 @@ def test_subcall_return_more_then_expected(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=400000,
         value=1,
     )
 

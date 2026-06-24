@@ -123,7 +123,7 @@ def test_callcode_lose_gas_oog(
     tx_data = [
         Bytes(""),
     ]
-    tx_gas = [166262, 156262, 170000]
+    tx_gas = [166262, 156262, None if fork.is_eip_enabled(8037) else 170000]
     tx_value = [10]
 
     tx = Transaction(

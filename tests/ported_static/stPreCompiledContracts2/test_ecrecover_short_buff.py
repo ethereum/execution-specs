@@ -155,7 +155,6 @@ def test_ecrecover_short_buff(
         sender=sender,
         to=contract_0,
         data=Bytes("00"),
-        gas_limit=7400000,
         value=0x186A0,
         nonce=1,
     )

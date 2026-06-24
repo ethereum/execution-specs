@@ -139,14 +139,12 @@ def test_static_callcodecallcallcode_101_oogm_before2(
     tx_data = [
         Bytes(""),
     ]
-    tx_gas = [172000]
     tx_value = [0, 1]
 
     tx = Transaction(
         sender=sender,
         to=target,
         data=tx_data[d],
-        gas_limit=tx_gas[g],
         value=tx_value[v],
     )
 

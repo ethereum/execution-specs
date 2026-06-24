@@ -92,7 +92,6 @@ def test_call_to_name_registrator_address_too_big_right(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=300000,
         value=0x186A0,
     )
 

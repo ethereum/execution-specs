@@ -96,13 +96,11 @@ def test_static_revert_opcode_calls(
     tx_data = [
         Bytes(""),
     ]
-    tx_gas = [460000, 88000]
 
     tx = Transaction(
         sender=sender,
         to=target,
         data=tx_data[d],
-        gas_limit=tx_gas[g],
     )
 
     post = {target: Account(storage={1: 1})}

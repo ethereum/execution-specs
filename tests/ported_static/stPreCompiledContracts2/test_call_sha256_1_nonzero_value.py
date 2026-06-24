@@ -75,7 +75,6 @@ def test_call_sha256_1_nonzero_value(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=365224,
         value=0x186A0,
     )
 

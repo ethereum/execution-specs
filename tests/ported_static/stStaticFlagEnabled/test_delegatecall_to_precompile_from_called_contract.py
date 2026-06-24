@@ -452,7 +452,6 @@ def test_delegatecall_to_precompile_from_called_contract(
         sender=sender,
         to=contract_0,
         data=Bytes(""),
-        gas_limit=4000000,
         value=100,
     )
 

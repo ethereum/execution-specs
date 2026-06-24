@@ -63,7 +63,6 @@ def test_self_balance_gas_cost(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=100000,
     )
 
     post = {target: Account(storage={1: 5})}

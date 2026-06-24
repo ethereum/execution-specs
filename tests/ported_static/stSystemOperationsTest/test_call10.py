@@ -75,7 +75,6 @@ def test_call10(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=200000,
         value=10,
     )
 
