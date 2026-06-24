@@ -22,9 +22,11 @@ from execution_testing import (
     RecipientType,
     StateTestFiller,
     Transaction,
+    TransactionReceipt,
     compute_create_address,
 )
 
+from ..eip7708_eth_transfer_logs.spec import transfer_log
 from .helpers import (
     EOA_INITIAL_BALANCE,
     RECIPIENT_TYPES_NON_CREATE,
@@ -63,6 +65,10 @@ def test_value_moving_transactions(
     delegations on the recipient surface as an extra top-frame
     ``COLD_ACCOUNT_ACCESS``; empty recipients trigger the top-frame
     ``NEW_ACCOUNT`` state charge when value is transferred.
+
+    The EIP-7708 transfer log is asserted to fire exactly when
+    ``TRANSFER_LOG_COST`` is charged: for a non-self value transfer,
+    and never for a self-transfer (carve-out) or a zero-value tx.
     """
     sender_initial_balance = 10**18
     sender = pre.fund_eoa(sender_initial_balance)
@@ -92,15 +98,25 @@ def test_value_moving_transactions(
     tx_gas_limit = total_gas_cost + 1000  # add a small buffer
     gas_price = 1_000_000_000
 
+    is_self_transfer = recipient_type == RecipientType.SELF
+
+    # A transfer log is emitted iff value moves to a distinct account,
+    # which is exactly when the intrinsic includes ``TRANSFER_LOG_COST``.
+    # ``logs=[]`` asserts no log fires for the carved-out cases.
+    if value > 0 and not is_self_transfer:
+        expected_logs = [transfer_log(sender, target, value)]
+    else:
+        expected_logs = []
+
     tx = Transaction(
         sender=sender,
         to=target,
         value=value,
         gas_limit=tx_gas_limit,
         gas_price=gas_price,
+        expected_receipt=TransactionReceipt(logs=expected_logs),
     )
 
-    is_self_transfer = recipient_type == RecipientType.SELF
     sender_value_delta = 0 if is_self_transfer else value
     sender_final_balance = (
         sender_initial_balance
