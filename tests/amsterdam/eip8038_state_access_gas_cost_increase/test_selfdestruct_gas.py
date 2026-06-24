@@ -51,12 +51,13 @@ from execution_testing import (
     StateTestFiller,
     Storage,
     Transaction,
+    TransactionLog,
     TransactionReceipt,
     compute_create_address,
 )
 from execution_testing.checklists import EIPChecklist
 
-from ..eip7708_eth_transfer_logs.spec import burn_log, transfer_log
+from ..eip7708_eth_transfer_logs.spec import transfer_log
 from .spec import ref_spec_8038
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8038.git_path
@@ -526,25 +527,30 @@ def test_same_tx_created_selfdestruct_self_burn(
     fork: Fork,
 ) -> None:
     """
-    EIP-6780: a same-tx-created contract SELFDESTRUCTs to itself, burning
-    its balance, charged the warm base only.
+    EIP-6780: a same-tx-created contract SELFDESTRUCTs to itself, charged
+    the warm base only.
 
     A creation transaction whose initcode SELFDESTRUCTs the new contract
     to ITSELF: the originator is created in this transaction so it is
     deleted, and because a same-tx-created contract holding balance is
     alive, ``account_new`` is false for the self-beneficiary —
     ``regular = 5,000`` (warm self, no ``ACCOUNT_WRITE``) and no
-    SELFDESTRUCT state gas. The originator balance is burnt (a ``Burn``
-    log, not a ``Transfer``), distinguishing the same-tx self-destruct
-    path: the funding-empty-beneficiary charge keys on the beneficiary,
-    but same-tx deletion keys on the originator independently.
+    SELFDESTRUCT state gas, on either side of EIP-8246.
 
-    No net state gas is charged: the only state cost is the intrinsic
-    creation ``NEW_ACCOUNT``, but the pre-funded created target is alive
-    at message entry, so EIP-8037 refunds it (the create-tx
-    ``created_target_alive`` refund), and the self-burn beneficiary
-    already exists. The block ``gas_used`` is therefore the pure regular
-    consumption.
+    The balance outcome is fork-dependent:
+
+    - Pre-EIP-8246: the self-send burns the originator balance (a ``Burn``
+      log, not a ``Transfer``) and the same-tx-created originator is
+      deleted.
+    - EIP-8246 onwards: the burn is removed, so the self-send is a no-op;
+      the balance stays in the (otherwise emptied) originator and no log is
+      emitted.
+
+    No net state gas is charged either way: the only state cost is the
+    intrinsic creation ``NEW_ACCOUNT``, but the pre-funded created target
+    is alive at message entry, so EIP-8037 refunds it (the create-tx
+    ``created_target_alive`` refund). The block ``gas_used`` is therefore
+    the pure regular consumption regardless of the burn behavior.
     """
     new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
     intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
@@ -575,22 +581,37 @@ def test_same_tx_created_selfdestruct_self_burn(
     expected_regular = intrinsic_regular + init_code.regular_cost(fork)
     expected_gas_used = expected_regular
 
+    expected_logs: list[TransactionLog]
+    created_post: Account | None
+    if fork.is_eip_enabled(8246):
+        # EIP-8246 removes the SELFDESTRUCT burn: the self-send is a no-op,
+        # the balance stays in the (otherwise emptied) originator, and no
+        # log is emitted.
+        expected_logs = []
+        created_post = Account(balance=amount, nonce=0, code=b"", storage={})
+    else:
+        # Pre-EIP-8246: the originator balance is burnt (a Burn log, not a
+        # Transfer) and the same-tx-created originator is deleted. EIP-8246
+        # deletes the ``burn_log`` helper, so import it lazily here, where it
+        # is only reachable on forks that still burn.
+        from ..eip7708_eth_transfer_logs.spec import burn_log
+
+        expected_logs = [burn_log(created, amount)]
+        created_post = Account.NONEXISTENT
+
     tx = Transaction(
         to=None,
         data=init_code,
-        # Slack covers the create-side NEW_ACCOUNT charged transiently
-        # before its refund, even though net state gas is zero.
         sender=sender,
         expected_receipt=TransactionReceipt(
-            logs=[burn_log(created, amount)],
+            logs=expected_logs,
             cumulative_gas_used=expected_gas_used,
         ),
     )
 
     state_test(
         pre=pre,
-        # Same-tx-created originator is deleted; its balance is burnt.
-        post={created: Account.NONEXISTENT},
+        post={created: created_post},
         tx=tx,
     )
 
