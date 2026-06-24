@@ -327,30 +327,29 @@ def test_mixed_validity_multi_auth_receipt_gas(
     one invalid authorization.
 
     Every authorization tuple, valid or invalid, is charged the full
-    regular + state per-authorization intrinsic. Refunds, however, fire
-    only for the *valid* authorization whose authority leaf already
-    exists: it refills ``NEW_ACCOUNT`` on the state channel (uncapped,
-    subtracted first) and returns ``ACCOUNT_WRITE`` on the regular
-    channel (one-fifth capped). The invalid tuple is silently skipped
-    during ``set_delegation`` and contributes no refund on either
-    channel.
+    regular + state per-authorization intrinsic. Per ethereum/EIPs#11715
+    every tuple is then refunded on both channels: each refills
+    ``NEW_ACCOUNT`` on the state channel (uncapped, subtracted first) and
+    returns ``ACCOUNT_WRITE`` on the regular channel (one-fifth capped).
+    The invalid tuple is fully refunded, so it additionally returns
+    ``AUTH_BASE`` on the state channel (its delegation never lands), while
+    the valid existing-leaf tuple keeps the ``AUTH_BASE`` it spends to set
+    the delegation.
 
-    The dual-channel accounting mirrors ``process_transaction`` and the
-    sibling ``test_set_code_auth_refunds`` module: the state refill is
-    subtracted from ``gas_before_regular_refund`` first and uncapped,
-    then the regular refund clamps to
-    ``min(k * ACCOUNT_WRITE, gas_before_regular_refund // 5)`` where
-    ``k`` is the number of refundable (valid, existing-leaf)
-    authorizations. With no EVM execution, ``gas_before_regular_refund``
-    reduces to the full per-authorization intrinsic less the state
-    refill, and the exact result is asserted via ``expected_receipt``.
+    The dual-channel accounting mirrors ``process_transaction``: the state
+    refill is subtracted from ``gas_before_regular_refund`` first and
+    uncapped, then the regular refund clamps to
+    ``min(n * ACCOUNT_WRITE, gas_before_regular_refund // 5)``. With no EVM
+    execution, ``gas_before_regular_refund`` reduces to the full
+    per-authorization intrinsic less the state refill, and the exact
+    result is asserted via ``expected_receipt``.
 
     Each ``invalidity`` kind (``INVALID_NONCE``, ``INVALID_CHAIN_ID``,
     ``REPEATED_NONCE``, ``AUTHORITY_IS_CONTRACT``) yields one valid and
-    one invalid tuple, so ``n = 2`` and ``k = 1`` uniformly and every
-    kind pins the same receipt gas. This is the numeric-receipt
-    companion to ``test_invalid_auth_charged_intrinsic`` (which asserts
-    only post state).
+    one invalid tuple, so ``n = 2`` uniformly and every kind pins the same
+    receipt gas. This is the numeric-receipt companion to
+    ``test_invalid_auth_charged_intrinsic`` (which asserts only post
+    state).
     """
     gas_costs = fork.gas_costs()
     account_write = gas_costs.ACCOUNT_WRITE
@@ -418,7 +417,7 @@ def test_mixed_validity_multi_auth_receipt_gas(
         raise ValueError(f"unknown invalidity: {invalidity!r}")
 
     n = len(authorization_list)
-    refundable = 1  # exactly one valid, existing-leaf authorization
+    invalid_count = 1  # one invalid tuple per parametrization
 
     total_intrinsic = fork.transaction_intrinsic_cost_calculator()(
         authorization_list_or_count=n,
@@ -426,22 +425,31 @@ def test_mixed_validity_multi_auth_receipt_gas(
     intrinsic_state = fork.transaction_intrinsic_state_gas(
         authorization_count=n,
     )
-    # Only the valid existing-leaf authorization refills the state
-    # channel (NEW_ACCOUNT); the invalid tuple refunds nothing. The
+    # The per-authorization state intrinsic is ``AUTH_BASE + NEW_ACCOUNT``;
+    # back ``AUTH_BASE`` out of it as it has no dedicated gas constant.
+    auth_base = (
+        fork.transaction_intrinsic_state_gas(authorization_count=1)
+        - gas_costs.NEW_ACCOUNT
+    )
+
+    # Per ethereum/EIPs#11715 every authorization, valid or invalid,
+    # refills ``NEW_ACCOUNT`` (state) and returns ``ACCOUNT_WRITE``
+    # (regular). The invalid tuple is fully refunded, so it additionally
+    # returns ``AUTH_BASE`` (state); its delegation never lands. The state
     # refill is subtracted first and is not subject to the one-fifth cap.
-    state_refund = gas_costs.REFUND_AUTH_PER_EXISTING_ACCOUNT * refundable
+    state_refund = n * gas_costs.NEW_ACCOUNT + invalid_count * auth_base
 
     # No EVM execution (the target is a STOP), so the regular and state
     # execution gas are both zero and ``gas_before_regular_refund``
     # reduces to the full per-auth intrinsic less the state refill.
     gas_before_regular_refund = total_intrinsic - state_refund
     regular_refund = min(
-        refundable * account_write,
+        n * account_write,
         gas_before_regular_refund // fork.max_refund_quotient(),
     )
-    # With only a single refundable authorization the one-fifth cap is
-    # generous, so the full ACCOUNT_WRITE clears on the regular channel.
-    assert regular_refund == refundable * account_write
+    # The one-fifth cap is generous here, so the full per-authorization
+    # ACCOUNT_WRITE clears on the regular channel.
+    assert regular_refund == n * account_write
     cumulative_gas_used = gas_before_regular_refund - regular_refund
 
     tx = Transaction(
