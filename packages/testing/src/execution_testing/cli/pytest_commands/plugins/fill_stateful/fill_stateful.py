@@ -592,14 +592,27 @@ def _session_pre_run(
         f"hash={snapshot_block['hash'][:20]}..."
     )
 
-    # 2. Fund seed key via CL withdrawal; helper returns the built payload.
+    # 2. Fund seed key via CL withdrawal, unless it is already funded (e.g.
+    #    pre-funded in the snapshot state). Skipping the withdrawal keeps the
+    #    pre-run empty so start_block == the snapshot block, whose persistent
+    #    state debug_setHead can always rewind to between tests. Otherwise
+    #    start_block sits one diff-layer above the snapshot and a test that
+    #    builds many blocks (e.g. test_blockhash) can prune its state, making
+    #    the per-test rewind collapse to the snapshot block and abort the run.
     captured: List[EnginePayloadMetadata] = []
-    fund_payload = eth_rpc.fund_via_withdrawals(
-        [(Address(session_worker_key), SEED_FUNDING_WEI)]
-    )
-    if fund_payload is not None:
-        captured.append(fund_payload)
-    logger.info(f"Funded {Address(session_worker_key)} via withdrawal")
+    seed_address = Address(session_worker_key)
+    if eth_rpc.get_balance(seed_address) >= SEED_FUNDING_WEI:
+        logger.info(
+            f"Seed {seed_address} already funded "
+            f"(>= {SEED_FUNDING_WEI} wei); skipping withdrawal"
+        )
+    else:
+        fund_payload = eth_rpc.fund_via_withdrawals(
+            [(seed_address, SEED_FUNDING_WEI)]
+        )
+        if fund_payload is not None:
+            captured.append(fund_payload)
+        logger.info(f"Funded {seed_address} via withdrawal")
 
     # 3. Deploy deterministic factory if not already present.
     lock_file = session_temp_folder / "fill_stateful_setup.lock"
