@@ -85,7 +85,7 @@ def format_code(code: str) -> str:
         config_path = AppConfig().ROOT_DIR.parent / "pyproject.toml"
 
         try:
-            result = subprocess.run(
+            subprocess.run(
                 [
                     str(formatter_path),
                     "format",
@@ -96,6 +96,7 @@ def format_code(code: str) -> str:
                 ],
                 capture_output=True,
                 text=True,
+                check=True,
             )
         except FileNotFoundError as e:
             raise FileNotFoundError(
@@ -104,12 +105,12 @@ def format_code(code: str) -> str:
                 f"the development environment is installed, e.g. with "
                 f"'uv sync'."
             ) from e
-        if result.returncode != 0:
+        except subprocess.CalledProcessError as e:
             raise RuntimeError(
                 f"Error formatting code using formatter '{formatter_path}': "
-                f"returncode={result.returncode}, stdout={result.stdout!r}, "
-                f"stderr={result.stderr!r}"
-            )
+                f"returncode={e.returncode}, stdout={e.stdout!r}, "
+                f"stderr={e.stderr!r}"
+            ) from e
 
         # Return the formatted source code
         return input_file_path.read_text()
