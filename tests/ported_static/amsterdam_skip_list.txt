@@ -8,7 +8,7 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 258
+# Total entries: 252
 
 # stAttackTest (1)
 stAttackTest/test_crashing_transaction.py::test_crashing_transaction[fork_Amsterdam]
@@ -132,7 +132,7 @@ stEIP150Specific/test_transaction64_rule_d64e0.py::test_transaction64_rule_d64e0
 stEIP150Specific/test_transaction64_rule_d64m1.py::test_transaction64_rule_d64m1[fork_Amsterdam]
 stEIP150Specific/test_transaction64_rule_d64p1.py::test_transaction64_rule_d64p1[fork_Amsterdam]
 
-# stEIP150singleCodeGasPrices (28)
+# stEIP150singleCodeGasPrices (27)
 stEIP150singleCodeGasPrices/test_gas_cost.py::test_gas_cost[fork_Amsterdam-d40]
 stEIP150singleCodeGasPrices/test_gas_cost_berlin.py::test_gas_cost_berlin[fork_Amsterdam-d40]
 stEIP150singleCodeGasPrices/test_raw_call_code_gas.py::test_raw_call_code_gas[fork_Amsterdam]
@@ -143,7 +143,6 @@ stEIP150singleCodeGasPrices/test_raw_call_code_gas_value_transfer.py::test_raw_c
 stEIP150singleCodeGasPrices/test_raw_call_code_gas_value_transfer_ask.py::test_raw_call_code_gas_value_transfer_ask[fork_Amsterdam]
 stEIP150singleCodeGasPrices/test_raw_call_code_gas_value_transfer_memory.py::test_raw_call_code_gas_value_transfer_memory[fork_Amsterdam]
 stEIP150singleCodeGasPrices/test_raw_call_code_gas_value_transfer_memory_ask.py::test_raw_call_code_gas_value_transfer_memory_ask[fork_Amsterdam]
-stEIP150singleCodeGasPrices/test_raw_call_gas.py::test_raw_call_gas[fork_Amsterdam]
 stEIP150singleCodeGasPrices/test_raw_call_gas_ask.py::test_raw_call_gas_ask[fork_Amsterdam]
 stEIP150singleCodeGasPrices/test_raw_call_gas_value_transfer.py::test_raw_call_gas_value_transfer[fork_Amsterdam]
 stEIP150singleCodeGasPrices/test_raw_call_gas_value_transfer_ask.py::test_raw_call_gas_value_transfer_ask[fork_Amsterdam]
@@ -162,16 +161,8 @@ stEIP150singleCodeGasPrices/test_raw_delegate_call_gas_ask.py::test_raw_delegate
 stEIP150singleCodeGasPrices/test_raw_delegate_call_gas_memory.py::test_raw_delegate_call_gas_memory[fork_Amsterdam]
 stEIP150singleCodeGasPrices/test_raw_delegate_call_gas_memory_ask.py::test_raw_delegate_call_gas_memory_ask[fork_Amsterdam]
 
-# stEIP1559 (1)
-stEIP1559/test_sender_balance.py::test_sender_balance[fork_Amsterdam]
-
 # stEIP158Specific (1)
 stEIP158Specific/test_exp_empty.py::test_exp_empty[fork_Amsterdam]
-
-# stEIP3855_push0 (3)
-stEIP3855_push0/test_push0_gas.py::test_push0_gas[fork_Amsterdam]
-stEIP3855_push0/test_push0_gas2.py::test_push0_gas2[fork_Amsterdam-use_push0]
-stEIP3855_push0/test_push0_gas2.py::test_push0_gas2[fork_Amsterdam-use_push1_00]
 
 # stEIP5656_MCOPY (55)
 stEIP5656_MCOPY/test_mcopy_copy_cost.py::test_mcopy_copy_cost[fork_Amsterdam-src0_size0-g0]
@@ -254,8 +245,7 @@ stMemoryTest/test_code_copy_offset.py::test_code_copy_offset[fork_Amsterdam]
 stMemoryTest/test_oog.py::test_oog[fork_Amsterdam-success14]
 stMemoryTest/test_oog.py::test_oog[fork_Amsterdam-success15]
 
-# stNonZeroCallsTest (10)
-stNonZeroCallsTest/test_non_zero_value_call.py::test_non_zero_value_call[fork_Amsterdam]
+# stNonZeroCallsTest (9)
 stNonZeroCallsTest/test_non_zero_value_call_to_empty_paris.py::test_non_zero_value_call_to_empty_paris[fork_Amsterdam]
 stNonZeroCallsTest/test_non_zero_value_call_to_one_storage_key_paris.py::test_non_zero_value_call_to_one_storage_key_paris[fork_Amsterdam]
 stNonZeroCallsTest/test_non_zero_value_callcode.py::test_non_zero_value_callcode[fork_Amsterdam]
